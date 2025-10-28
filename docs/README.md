@@ -14,7 +14,10 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 - [Evaluation Engine](evaluation-engine.md) - How authorization decisions are made
 
 ### Components
-- [Storage Layer](storage.md) - Tuple storage and revision management
+- **Storage Layer**
+  - [Storage Backends Overview](storage-backends.md) - Backend comparison and selection guide
+  - [Memory Backend](storage-memory.md) - In-memory storage for development and testing
+  - [FoundationDB Backend](storage-foundationdb.md) - Production-ready distributed storage
 - [Policy Evaluation](evaluation-engine.md) - Graph traversal and decision making
 - [WASM Integration](wasm-integration.md) - Custom policy modules with WebAssembly
 - [Caching System](caching.md) - Intelligent authorization result caching
@@ -40,18 +43,22 @@ InferaDB is under active development. Current implementation status:
 
 ✅ **Completed:**
 - IPL parser and schema validation
-- In-memory storage backend with revision tracking
-- Policy evaluation engine with all relation types
+- In-memory storage backend with MVCC and revision tracking
+- FoundationDB storage backend with distributed transactions
+- Storage abstraction layer with flexible backend selection
+- Policy evaluation engine with all relation types (union, intersection, exclusion, computed usersets)
 - REST and gRPC APIs
 - WASM module integration with sandboxing
-- Intelligent caching system
-- Query optimization infrastructure
+- Intelligent caching system with TTL and LRU eviction
+- Query optimization infrastructure with parallel evaluation
 - Revision tokens for snapshot consistency
+- Comprehensive security testing (fuzzing, sandbox isolation)
+- Property-based testing with proptest
 
 🚧 **In Progress:**
-- FoundationDB storage backend
 - Change feed for replication
 - Multi-region replication
+- Enhanced documentation
 
 📋 **Planned:**
 - Enhanced observability
