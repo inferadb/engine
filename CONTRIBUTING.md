@@ -1,0 +1,455 @@
+# Contributing to InferaDB
+
+Thank you for your interest in contributing to InferaDB! This document provides guidelines and information for contributors.
+
+## Code of Conduct
+
+We are committed to providing a welcoming and inclusive environment for all contributors. Please be respectful and constructive in all interactions.
+
+## Ways to Contribute
+
+- **Report bugs** - File issues for bugs you encounter
+- **Suggest features** - Propose new features or improvements
+- **Write documentation** - Improve or add documentation
+- **Submit code** - Fix bugs or implement features
+- **Review PRs** - Help review pull requests
+- **Answer questions** - Help others in discussions
+
+## Getting Started
+
+### 1. Fork and Clone
+
+```bash
+# Fork the repository on GitHub, then:
+git clone https://github.com/YOUR_USERNAME/inferadb.git
+cd inferadb/server
+```
+
+### 2. Set Up Development Environment
+
+```bash
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Build the project
+cargo build
+
+# Run tests
+cargo test
+```
+
+See [Building from Source](docs/building.md) for detailed setup instructions.
+
+### 3. Create a Branch
+
+```bash
+git checkout -b feature/your-feature-name
+# or
+git checkout -b fix/bug-description
+```
+
+## Development Workflow
+
+### Making Changes
+
+1. **Write code** following our style guidelines (see below)
+2. **Add tests** for new functionality
+3. **Update documentation** if needed
+4. **Run tests** to ensure nothing breaks
+5. **Format code** using `cargo fmt`
+6. **Run linter** using `cargo clippy`
+
+### Before Committing
+
+```bash
+# Format code
+cargo fmt
+
+# Run clippy
+cargo clippy --all-features -- -D warnings
+
+# Run all tests
+cargo test --all-features
+
+# Run benchmarks (if performance-sensitive)
+cargo bench
+```
+
+### Commit Messages
+
+Use clear, descriptive commit messages:
+
+```
+feat: add support for WASM policy modules
+
+- Implement WASM host with sandbox
+- Add fuel-based execution limits
+- Include comprehensive tests
+```
+
+Format: `type: subject`
+
+**Types**:
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation changes
+- `test` - Adding or updating tests
+- `refactor` - Code refactoring
+- `perf` - Performance improvement
+- `chore` - Maintenance tasks
+
+### Submitting a Pull Request
+
+1. **Push your branch**:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+2. **Open a pull request** on GitHub
+
+3. **Describe your changes**:
+   - What does this PR do?
+   - Why is this change needed?
+   - How has it been tested?
+   - Any breaking changes?
+
+4. **Wait for review** - A maintainer will review your PR
+
+5. **Address feedback** - Make requested changes if needed
+
+6. **Celebrate!** - Once approved, your PR will be merged
+
+## Code Style Guidelines
+
+### Rust Style
+
+We follow the official Rust style guide:
+
+- Use `cargo fmt` to format code
+- Use `cargo clippy` to catch common mistakes
+- Write idiomatic Rust code
+
+### Naming Conventions
+
+```rust
+// Types: PascalCase
+struct AuthCache { }
+enum Decision { }
+
+// Functions and variables: snake_case
+fn check_permission() { }
+let user_id = "user:alice";
+
+// Constants: SCREAMING_SNAKE_CASE
+const MAX_DEPTH: usize = 10;
+
+// Type parameters: Single uppercase letter or PascalCase
+fn generic<T>() { }
+fn generic<Store: TupleStore>() { }
+```
+
+### Documentation
+
+Document public APIs with doc comments:
+
+```rust
+/// Checks if a subject has permission on a resource.
+///
+/// # Arguments
+///
+/// * `request` - The authorization check request
+///
+/// # Returns
+///
+/// Returns `Decision::Allow` if the check passes, `Decision::Deny` otherwise.
+///
+/// # Errors
+///
+/// Returns an error if the evaluation fails due to store errors or
+/// invalid schema definitions.
+///
+/// # Example
+///
+/// ```
+/// let decision = evaluator.check(CheckRequest {
+///     subject: "user:alice".to_string(),
+///     resource: "document:readme".to_string(),
+///     permission: "can_view".to_string(),
+///     context: None,
+/// }).await?;
+/// ```
+pub async fn check(&self, request: CheckRequest) -> Result<Decision> {
+    // ...
+}
+```
+
+### Error Handling
+
+- Use `Result` for fallible operations
+- Use custom error types with `thiserror`
+- Provide context in error messages
+
+```rust
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum EvalError {
+    #[error("Store error: {0}")]
+    Store(#[from] StoreError),
+
+    #[error("Circular dependency detected at depth {depth}")]
+    CircularDependency { depth: usize },
+}
+```
+
+### Async Code
+
+- Use `async/await` for asynchronous operations
+- Prefer `tokio` for async runtime
+- Document if a function blocks or is CPU-intensive
+
+```rust
+/// Evaluates a check request asynchronously.
+///
+/// This function is async and will not block the current thread.
+pub async fn check(&self, request: CheckRequest) -> Result<Decision> {
+    // Async implementation
+}
+```
+
+## Testing Guidelines
+
+### Unit Tests
+
+Write unit tests for individual functions:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_token_validation() {
+        let token = RevisionToken::new("node1".to_string(), 42);
+        assert!(token.validate().is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_operation() {
+        let result = async_function().await;
+        assert!(result.is_ok());
+    }
+}
+```
+
+### Integration Tests
+
+Place integration tests in `tests/` directory:
+
+```rust
+// tests/integration_test.rs
+use inferadb::*;
+
+#[tokio::test]
+async fn test_end_to_end() {
+    // Test complete workflow
+}
+```
+
+### Test Coverage
+
+- Aim for >80% code coverage
+- Test happy paths and error cases
+- Include edge cases and boundary conditions
+
+### Benchmarks
+
+Add benchmarks for performance-critical code:
+
+```rust
+// benches/my_benchmark.rs
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+
+fn benchmark_function(c: &mut Criterion) {
+    c.bench_function("my_function", |b| {
+        b.iter(|| {
+            my_function(black_box(input))
+        })
+    });
+}
+
+criterion_group!(benches, benchmark_function);
+criterion_main!(benches);
+```
+
+## Documentation Guidelines
+
+### Code Documentation
+
+- Document all public APIs
+- Include examples in doc comments
+- Explain non-obvious behavior
+- Document invariants and assumptions
+
+### User Documentation
+
+- Place user-facing docs in `docs/`
+- Use Markdown format
+- Include code examples
+- Keep docs up to date with code changes
+
+### API Documentation
+
+- Update API docs when changing endpoints
+- Include request/response examples
+- Document error codes and meanings
+
+## Review Process
+
+### What Reviewers Look For
+
+1. **Correctness** - Does the code work as intended?
+2. **Tests** - Are there adequate tests?
+3. **Style** - Does it follow our guidelines?
+4. **Documentation** - Is it well documented?
+5. **Performance** - Are there performance implications?
+6. **Security** - Are there security concerns?
+
+### Responding to Feedback
+
+- Be open to suggestions
+- Ask questions if feedback is unclear
+- Make requested changes promptly
+- Explain your reasoning when disagreeing
+
+## Release Process
+
+Maintainers handle releases:
+
+1. Update version in `Cargo.toml`
+2. Update `CHANGELOG.md`
+3. Tag the release
+4. Publish to crates.io (if applicable)
+5. Create GitHub release
+
+## Project Structure
+
+```
+server/
+├── crates/              # Workspace crates
+│   ├── infera-api/      # REST and gRPC APIs
+│   ├── infera-bin/      # Main binary
+│   ├── infera-cache/    # Caching layer
+│   ├── infera-config/   # Configuration
+│   ├── infera-core/     # Evaluation engine
+│   ├── infera-observe/  # Observability
+│   ├── infera-repl/     # Replication
+│   ├── infera-store/    # Storage backends
+│   └── infera-wasm/     # WASM integration
+├── docs/                # Documentation
+├── tests/               # Integration tests
+├── benches/             # Benchmarks
+├── Cargo.toml          # Workspace definition
+├── PLAN.md             # Project roadmap
+└── CONTRIBUTING.md     # This file
+```
+
+## Getting Help
+
+- **Documentation**: See `docs/` directory
+- **Issues**: https://github.com/your-org/inferadb/issues
+- **Discussions**: https://github.com/your-org/inferadb/discussions
+- **Discord**: Join our community server (link TBD)
+
+## Feature Requests
+
+When proposing new features:
+
+1. **Check existing issues** - Has it been proposed before?
+2. **Open a discussion** - Discuss the feature with maintainers
+3. **Write a proposal** - Describe the feature, use cases, and design
+4. **Wait for feedback** - Get input before implementing
+5. **Submit a PR** - Implement the feature once approved
+
+## Bug Reports
+
+When reporting bugs:
+
+1. **Search existing issues** - Has it been reported?
+2. **Provide details**:
+   - InferaDB version
+   - Rust version
+   - Operating system
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - Logs or error messages
+3. **Minimal reproduction** - Provide a minimal example if possible
+
+### Bug Report Template
+
+```markdown
+**InferaDB Version**: 0.1.0
+**Rust Version**: 1.75.0
+**OS**: Ubuntu 22.04
+
+**Description**:
+Brief description of the bug.
+
+**Steps to Reproduce**:
+1. Step one
+2. Step two
+3. Step three
+
+**Expected Behavior**:
+What should happen.
+
+**Actual Behavior**:
+What actually happens.
+
+**Logs/Errors**:
+```
+Error messages or logs here
+```
+
+**Additional Context**:
+Any other relevant information.
+```
+
+## Performance Improvements
+
+When optimizing performance:
+
+1. **Benchmark first** - Measure before and after
+2. **Profile** - Use profiling tools to find bottlenecks
+3. **Document trade-offs** - Explain complexity vs. performance
+4. **Maintain correctness** - Don't sacrifice correctness for speed
+
+## Security Issues
+
+**DO NOT** open public issues for security vulnerabilities.
+
+Instead:
+1. Email security@inferadb.io (or maintainer email)
+2. Include detailed description
+3. Wait for response before disclosure
+4. Allow time for fix before public disclosure
+
+## License
+
+By contributing to InferaDB, you agree that your contributions will be licensed under the Apache License 2.0 (or project license).
+
+## Recognition
+
+Contributors will be:
+- Listed in `CONTRIBUTORS.md`
+- Credited in release notes
+- Mentioned in documentation (where appropriate)
+
+## Questions?
+
+Don't hesitate to ask questions:
+- Open a discussion on GitHub
+- Ask in pull request comments
+- Join our Discord community
+
+Thank you for contributing to InferaDB! 🎉

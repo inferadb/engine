@@ -144,10 +144,24 @@ mise run bench
 mise run coverage
 ```
 
+## Documentation
+
+Comprehensive developer documentation is available in the `docs/` directory:
+
+- **[Quick Start Guide](docs/quickstart.md)** - Get up and running in 5 minutes
+- **[Architecture Overview](docs/architecture.md)** - System design and components
+- **[IPL Language Guide](docs/ipl-language.md)** - Policy definition language reference
+- **[REST API Reference](docs/api-rest.md)** - HTTP/JSON API documentation
+- **[Caching System](docs/caching.md)** - Intelligent caching implementation
+- **[Revision Tokens](docs/revision-tokens.md)** - Snapshot consistency with Zookies
+- **[Building from Source](docs/building.md)** - Development setup and build instructions
+
+See [docs/README.md](docs/README.md) for the complete documentation index.
+
 ## License
 
 Business Source License 1.1 - see [LICENSE](LICENSE)
 
 ## Contributing
 
-See [PROJECT.md](PROJECT.md) for detailed architectural documentation and development guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and [PROJECT.md](PROJECT.md) for detailed architectural documentation.
