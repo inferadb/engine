@@ -23,6 +23,11 @@ infera-observe = { path = "../infera-observe" }
 
 [dev-dependencies]
 tokio-test = "0.4"
+criterion = { workspace = true }
+
+[[bench]]
+name = "memory_backend"
+harness = false
 
 [features]
 default = []
