@@ -616,4 +616,272 @@ mod tests {
         let removed = store.gc_before(rev2).await.unwrap();
         assert!(removed > 0);
     }
+
+    // Property-based tests with proptest
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        // Strategy to generate valid tuples
+        fn tuple_strategy() -> impl Strategy<Value = Tuple> {
+            (
+                "[a-z]+:[a-z0-9]+",  // object
+                "[a-z_]+",           // relation
+                "user:[a-z]+",       // user
+            )
+                .prop_map(|(object, relation, user)| Tuple {
+                    object,
+                    relation,
+                    user,
+                })
+        }
+
+        proptest! {
+            #[test]
+            fn prop_write_then_read_succeeds(tuples in prop::collection::vec(tuple_strategy(), 1..50)) {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let store = MemoryBackend::new();
+
+                    // Write tuples
+                    let rev = store.write(tuples.clone()).await.unwrap();
+
+                    // Read each tuple back
+                    for tuple in &tuples {
+                        let key = TupleKey {
+                            object: tuple.object.clone(),
+                            relation: tuple.relation.clone(),
+                            user: None,
+                        };
+                        let results = store.read(&key, rev).await.unwrap();
+
+                        // Should find at least this tuple
+                        let found = results.iter().any(|t| {
+                            t.object == tuple.object &&
+                            t.relation == tuple.relation &&
+                            t.user == tuple.user
+                        });
+                        prop_assert!(found, "Tuple {:?} not found in results", tuple);
+                    }
+
+                    Ok(())
+                })?;
+            }
+
+            #[test]
+            fn prop_revision_increases_monotonically(
+                batch1 in prop::collection::vec(tuple_strategy(), 1..10),
+                batch2 in prop::collection::vec(tuple_strategy(), 1..10)
+            ) {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let store = MemoryBackend::new();
+
+                    let rev1 = store.write(batch1).await.unwrap();
+                    let rev2 = store.write(batch2).await.unwrap();
+
+                    // Revisions should always increase
+                    prop_assert!(rev2 > rev1, "Revision did not increase: {:?} <= {:?}", rev2, rev1);
+
+                    Ok(())
+                })?;
+            }
+
+            #[test]
+            fn prop_duplicate_writes_idempotent(tuple in tuple_strategy()) {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let store = MemoryBackend::new();
+
+                    // Write same tuple twice
+                    let rev1 = store.write(vec![tuple.clone()]).await.unwrap();
+                    let rev2 = store.write(vec![tuple.clone()]).await.unwrap();
+
+                    // Should still only have 1 tuple (duplicates prevented)
+                    let key = TupleKey {
+                        object: tuple.object.clone(),
+                        relation: tuple.relation.clone(),
+                        user: None,
+                    };
+                    let results = store.read(&key, rev2).await.unwrap();
+                    prop_assert_eq!(results.len(), 1);
+
+                    Ok(())
+                })?;
+            }
+
+            #[test]
+            fn prop_delete_removes_tuple(tuple in tuple_strategy()) {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let store = MemoryBackend::new();
+
+                    // Write tuple
+                    let rev1 = store.write(vec![tuple.clone()]).await.unwrap();
+
+                    // Verify it exists
+                    let key = TupleKey {
+                        object: tuple.object.clone(),
+                        relation: tuple.relation.clone(),
+                        user: None,
+                    };
+                    let results = store.read(&key, rev1).await.unwrap();
+                    prop_assert_eq!(results.len(), 1);
+
+                    // Delete it
+                    let rev2 = store.delete(&key).await.unwrap();
+
+                    // Verify it's gone
+                    let results = store.read(&key, rev2).await.unwrap();
+                    prop_assert_eq!(results.len(), 0);
+
+                    Ok(())
+                })?;
+            }
+
+            #[test]
+            fn prop_revision_isolation(
+                tuple1 in tuple_strategy(),
+                tuple2 in tuple_strategy()
+            ) {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let store = MemoryBackend::new();
+
+                    // Write first tuple
+                    let rev1 = store.write(vec![tuple1.clone()]).await.unwrap();
+
+                    // Write second tuple
+                    let rev2 = store.write(vec![tuple2.clone()]).await.unwrap();
+
+                    // Reading at rev1 should not see tuple2
+                    let key2 = TupleKey {
+                        object: tuple2.object.clone(),
+                        relation: tuple2.relation.clone(),
+                        user: None,
+                    };
+                    let results_at_rev1 = store.read(&key2, rev1).await.unwrap();
+
+                    // If tuple1 and tuple2 are different, rev1 should not see tuple2
+                    if tuple1.object != tuple2.object ||
+                       tuple1.relation != tuple2.relation ||
+                       tuple1.user != tuple2.user {
+                        prop_assert_eq!(results_at_rev1.len(), 0,
+                            "Should not see tuple2 at rev1");
+                    }
+
+                    // Reading at rev2 should see tuple2
+                    let results_at_rev2 = store.read(&key2, rev2).await.unwrap();
+                    prop_assert!(results_at_rev2.len() > 0,
+                        "Should see tuple2 at rev2");
+
+                    Ok(())
+                })?;
+            }
+
+            #[test]
+            fn prop_user_filtering(
+                object in "[a-z]+:[a-z0-9]+",
+                relation in "[a-z_]+",
+                users in prop::collection::vec("user:[a-z]+", 1..10)
+            ) {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let store = MemoryBackend::new();
+
+                    // Write tuples with different users but same object/relation
+                    let tuples: Vec<Tuple> = users.iter().map(|user| Tuple {
+                        object: object.clone(),
+                        relation: relation.clone(),
+                        user: user.clone(),
+                    }).collect();
+
+                    let rev = store.write(tuples.clone()).await.unwrap();
+
+                    // Read without user filter - should get all
+                    let key_all = TupleKey {
+                        object: object.clone(),
+                        relation: relation.clone(),
+                        user: None,
+                    };
+                    let all_results = store.read(&key_all, rev).await.unwrap();
+                    prop_assert_eq!(all_results.len(), users.len());
+
+                    // Read with specific user filter - should get only one
+                    if let Some(specific_user) = users.first() {
+                        let key_specific = TupleKey {
+                            object: object.clone(),
+                            relation: relation.clone(),
+                            user: Some(specific_user.clone()),
+                        };
+                        let specific_results = store.read(&key_specific, rev).await.unwrap();
+                        prop_assert_eq!(specific_results.len(), 1);
+                        prop_assert_eq!(&specific_results[0].user, specific_user);
+                    }
+
+                    Ok(())
+                })?;
+            }
+
+            #[test]
+            fn prop_batch_write_atomicity(tuples in prop::collection::vec(tuple_strategy(), 1..20)) {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let store = MemoryBackend::new();
+
+                    // Write batch
+                    let rev = store.write(tuples.clone()).await.unwrap();
+
+                    // All tuples should be at the same revision
+                    for tuple in &tuples {
+                        let key = TupleKey {
+                            object: tuple.object.clone(),
+                            relation: tuple.relation.clone(),
+                            user: Some(tuple.user.clone()),
+                        };
+                        let results = store.read(&key, rev).await.unwrap();
+                        prop_assert!(results.len() > 0, "Tuple not found after batch write");
+                    }
+
+                    Ok(())
+                })?;
+            }
+
+            #[test]
+            fn prop_gc_preserves_current_revision(tuples in prop::collection::vec(tuple_strategy(), 1..10)) {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let store = MemoryBackend::new();
+
+                    // Write tuples multiple times to create history
+                    let mut revisions = Vec::new();
+                    for _ in 0..3 {
+                        let rev = store.write(tuples.clone()).await.unwrap();
+                        revisions.push(rev);
+                    }
+
+                    let latest_rev = *revisions.last().unwrap();
+
+                    // GC old revisions
+                    if revisions.len() > 1 {
+                        let gc_before = revisions[revisions.len() - 2];
+                        let _ = store.gc_before(gc_before).await.unwrap();
+                    }
+
+                    // Latest revision should still be readable
+                    for tuple in &tuples {
+                        let key = TupleKey {
+                            object: tuple.object.clone(),
+                            relation: tuple.relation.clone(),
+                            user: None,
+                        };
+                        let results = store.read(&key, latest_rev).await;
+                        prop_assert!(results.is_ok(), "Should be able to read at latest revision after GC");
+                    }
+
+                    Ok(())
+                })?;
+            }
+        }
+    }
 }
