@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc f20a717e01b25877fb617127be44900b782166ea4e7079f59bdf0e4ccf2adf3c # shrinks to object = "a:0", relation = "a", users = ["user:g", "user:g"]

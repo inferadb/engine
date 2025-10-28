@@ -102,6 +102,35 @@ Evaluation:
 1. Look up tuple `(document:readme, viewer, user:alice)`
 2. If exists, return Allow; otherwise Deny
 
+**Wildcard Users**:
+
+InferaDB supports wildcard users (`user:*`) to grant access to all users:
+
+```ipl
+type document {
+  relation public_viewer
+}
+```
+
+**Example**:
+
+```bash
+# Grant public access to a document
+write_tuple("doc:readme", "public_viewer", "user:*")
+
+# Any user can now access it
+check("user:alice", "doc:readme", "public_viewer")  # Allow
+check("user:bob", "doc:readme", "public_viewer")    # Allow
+check("user:anyone", "doc:readme", "public_viewer") # Allow
+```
+
+**Use Cases**:
+- Public documents accessible to everyone
+- Organization-wide resources
+- Default permissions for all authenticated users
+
+**Note**: The wildcard applies to any subject starting with `user:`. For type-specific wildcards, use separate relations (e.g., `group:*` for all groups).
+
 #### Union (OR)
 
 Any of the sub-relations grants access.

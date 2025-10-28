@@ -93,7 +93,8 @@ impl Evaluator {
         let userset = resolve_userset(&request.resource, &request.permission, &mut ctx).await?;
 
         // Check if the subject is in the userset
-        let decision = if userset.contains(&request.subject) {
+        // Also check for wildcard user (user:*) which grants access to all users
+        let decision = if userset.contains(&request.subject) || userset.contains("user:*") {
             Decision::Allow
         } else {
             Decision::Deny
@@ -579,6 +580,55 @@ mod tests {
 
         let result = evaluator.check(request).await.unwrap();
         assert_eq!(result, Decision::Deny);
+    }
+
+    #[tokio::test]
+    async fn test_wildcard_user_allow() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Add a wildcard user tuple that grants access to all users
+        let tuple = Tuple {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            user: "user:*".to_string(),
+        };
+        store.write(vec![tuple]).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Check that user:alice has access
+        let request = CheckRequest {
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+        };
+
+        let result = evaluator.check(request).await.unwrap();
+        assert_eq!(result, Decision::Allow);
+
+        // Check that user:bob also has access
+        let request = CheckRequest {
+            subject: "user:bob".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+        };
+
+        let result = evaluator.check(request).await.unwrap();
+        assert_eq!(result, Decision::Allow);
+
+        // Check that any user has access
+        let request = CheckRequest {
+            subject: "user:anyone".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+        };
+
+        let result = evaluator.check(request).await.unwrap();
+        assert_eq!(result, Decision::Allow);
     }
 
     #[tokio::test]

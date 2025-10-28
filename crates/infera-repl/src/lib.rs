@@ -2,13 +2,14 @@
 //!
 //! Handles replication, revision tokens, and consistency management.
 
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod token;
 pub mod snapshot;
+pub mod change_feed;
 
 pub use token::RevisionToken;
+pub use change_feed::{Change, ChangeFeed, ChangeStream, Operation, ChangeFilter, ChangeMetadata, ChangeFeedConfig};
 
 #[derive(Debug, Error)]
 pub enum ReplError {
@@ -26,49 +27,3 @@ pub enum ReplError {
 }
 
 pub type Result<T> = std::result::Result<T, ReplError>;
-
-/// Change feed for replication
-pub struct ChangeFeed {
-    // TODO: Implement change feed with NATS/Kafka
-}
-
-impl ChangeFeed {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub async fn publish(&self, _change: Change) -> Result<()> {
-        // TODO: Implement
-        Ok(())
-    }
-
-    pub async fn subscribe(&self) -> Result<ChangeStream> {
-        // TODO: Implement
-        Ok(ChangeStream {})
-    }
-}
-
-impl Default for ChangeFeed {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// A change event
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Change {
-    pub revision: u64,
-    pub operation: Operation,
-    pub tuple: infera_store::Tuple,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Operation {
-    Insert,
-    Delete,
-}
-
-/// Stream of changes
-pub struct ChangeStream {
-    // TODO: Implement
-}
