@@ -9,8 +9,13 @@ use thiserror::Error;
 pub mod memory;
 #[cfg(feature = "fdb")]
 pub mod foundationdb;
+pub mod factory;
 
 pub use memory::MemoryBackend;
+pub use factory::{StorageFactory, StorageConfig, BackendType};
+
+#[cfg(feature = "fdb")]
+pub use foundationdb::FoundationDBBackend;
 
 #[derive(Debug, Error)]
 pub enum StoreError {
