@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use crate::{Decision, ipl::RelationExpr};
+use crate::Decision;
 
 /// A complete decision trace showing how a decision was reached
 #[derive(Debug, Clone, Serialize, Deserialize)]

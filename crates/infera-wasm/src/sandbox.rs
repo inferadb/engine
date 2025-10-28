@@ -102,6 +102,11 @@ impl Sandbox {
     pub fn engine(&self) -> &Engine {
         &self.engine
     }
+
+    /// Get the sandbox configuration
+    pub fn config(&self) -> &SandboxConfig {
+        &self.config
+    }
 }
 
 #[cfg(test)]

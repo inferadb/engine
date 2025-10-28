@@ -36,7 +36,8 @@ impl HostFunctions {
                             if let Ok(message) = std::str::from_utf8(message_bytes) {
                                 let message_string = message.to_string();
                                 tracing::debug!(target: "wasm", "WASM log: {}", message_string);
-                                drop(data); // Drop the immutable borrow
+                                // Drop the immutable borrow before calling data_mut()
+                                let _ = data;
                                 caller.data_mut().logs.push(message_string);
                             }
                         }

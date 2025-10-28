@@ -194,6 +194,11 @@ impl ChangeFeed {
     pub fn subscriber_count(&self) -> usize {
         self.tx.receiver_count()
     }
+
+    /// Get the current configuration
+    pub fn config(&self) -> &ChangeFeedConfig {
+        &self.config
+    }
 }
 
 impl Default for ChangeFeed {

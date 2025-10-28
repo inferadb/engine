@@ -17,7 +17,7 @@ use tracing::info;
 
 use infera_core::{CheckRequest, Decision, Evaluator, ExpandRequest};
 use infera_config::Config;
-use infera_store::{Tuple, Revision, TupleStore};
+use infera_store::{Tuple, TupleStore};
 
 pub mod routes;
 pub mod grpc;

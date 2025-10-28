@@ -1,11 +1,11 @@
 //! In-memory storage backend for testing and development
 
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{HashMap, BTreeMap};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use async_trait::async_trait;
 
-use crate::{TupleStore, TupleKey, Tuple, Revision, Result, StoreError};
+use crate::{TupleStore, TupleKey, Tuple, Revision, Result};
 
 /// A versioned tuple with its creation revision
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,7 +135,19 @@ impl TupleStore for MemoryBackend {
 
         let mut new_indices = Vec::new();
 
+        // Track tuples we're adding in this batch to avoid intra-batch duplicates
+        let mut batch_tuples = std::collections::HashSet::new();
+
         for tuple in tuples {
+            // Create a unique key for this tuple
+            let tuple_key = (tuple.object.clone(), tuple.relation.clone(), tuple.user.clone());
+
+            // Check for duplicates within this batch
+            if batch_tuples.contains(&tuple_key) {
+                // Skip duplicate within this batch
+                continue;
+            }
+
             // Check for duplicates at current revision
             let key = (tuple.object.clone(), tuple.relation.clone());
             let existing_indices = store.object_relation_index
@@ -150,9 +162,12 @@ impl TupleStore for MemoryBackend {
             });
 
             if is_duplicate {
-                // Skip duplicate tuple
+                // Skip duplicate tuple already in store
                 continue;
             }
+
+            // Mark this tuple as seen in this batch
+            batch_tuples.insert(tuple_key);
 
             // Add new versioned tuple
             let idx = store.tuples.len();
@@ -328,6 +343,7 @@ pub struct MemoryStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[tokio::test]
     async fn test_basic_operations() {
@@ -608,7 +624,7 @@ mod tests {
             user: "user:alice".to_string(),
         };
 
-        let rev1 = store.write(vec![tuple.clone()]).await.unwrap();
+        let _rev1 = store.write(vec![tuple.clone()]).await.unwrap();
         let rev2 = store.write(vec![tuple.clone()]).await.unwrap();
         let _rev3 = store.write(vec![tuple.clone()]).await.unwrap();
 
@@ -621,6 +637,7 @@ mod tests {
     mod proptests {
         use super::*;
         use proptest::prelude::*;
+        use std::collections::HashSet;
 
         // Strategy to generate valid tuples
         fn tuple_strategy() -> impl Strategy<Value = Tuple> {
@@ -694,7 +711,7 @@ mod tests {
                     let store = MemoryBackend::new();
 
                     // Write same tuple twice
-                    let rev1 = store.write(vec![tuple.clone()]).await.unwrap();
+                    let _rev1 = store.write(vec![tuple.clone()]).await.unwrap();
                     let rev2 = store.write(vec![tuple.clone()]).await.unwrap();
 
                     // Should still only have 1 tuple (duplicates prevented)
@@ -798,14 +815,17 @@ mod tests {
 
                     let rev = store.write(tuples.clone()).await.unwrap();
 
-                    // Read without user filter - should get all
+                    // Count unique users (since duplicates are automatically filtered)
+                    let unique_users: HashSet<_> = users.iter().cloned().collect();
+
+                    // Read without user filter - should get all unique users
                     let key_all = TupleKey {
                         object: object.clone(),
                         relation: relation.clone(),
                         user: None,
                     };
                     let all_results = store.read(&key_all, rev).await.unwrap();
-                    prop_assert_eq!(all_results.len(), users.len());
+                    prop_assert_eq!(all_results.len(), unique_users.len());
 
                     // Read with specific user filter - should get only one
                     if let Some(specific_user) = users.first() {

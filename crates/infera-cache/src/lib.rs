@@ -3,7 +3,6 @@
 //! Optimizes common queries with deterministic caching.
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 use std::time::Duration;
 
 use moka::future::Cache;
@@ -87,11 +86,11 @@ impl AuthCache {
     }
 
     /// Invalidate cache entries for a specific revision or older
-    pub async fn invalidate_before(&self, revision: Revision) {
+    pub async fn invalidate_before(&self, _revision: Revision) {
         // Iterate through all entries and remove those with older revisions
         // Note: This is not the most efficient approach but works for now
         // A better approach would be to maintain a secondary index
-        let mut count = 0;
+        let _count = 0;
         self.check_cache.run_pending_tasks().await;
 
         // Since moka doesn't provide an efficient way to iterate and conditionally remove,

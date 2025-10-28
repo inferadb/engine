@@ -16,6 +16,7 @@ pub enum LogFormat {
     Json,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for LogFormat {
     fn default() -> Self {
         #[cfg(debug_assertions)]
@@ -201,14 +202,13 @@ pub fn log_error_with_context(
     operation: &str,
     context: &[(&str, &dyn std::fmt::Display)],
 ) {
-    let mut event = tracing::error!(
+    tracing::error!(
         error = %error,
         operation = operation,
     );
 
     for (key, value) in context {
-        event = event;
-        tracing::error!(%key, %value);
+        tracing::error!(key = %key, value = %value);
     }
 }
 

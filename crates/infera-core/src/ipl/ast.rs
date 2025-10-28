@@ -92,11 +92,7 @@ impl RelationDef {
 
     /// Check if this is a direct relation (no expression or `this`)
     pub fn is_direct(&self) -> bool {
-        match &self.expr {
-            None => true,
-            Some(RelationExpr::This) => true,
-            _ => false,
-        }
+        matches!(&self.expr, None | Some(RelationExpr::This))
     }
 }
 

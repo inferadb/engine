@@ -4,6 +4,7 @@
 //! without exposing implementation details to consumers.
 
 use std::sync::Arc;
+use std::str::FromStr;
 use crate::{Result, StoreError, TupleStore};
 use crate::memory::MemoryBackend;
 
@@ -20,9 +21,10 @@ pub enum BackendType {
     FoundationDB,
 }
 
-impl BackendType {
-    /// Parse backend type from string
-    pub fn from_str(s: &str) -> Result<Self> {
+impl FromStr for BackendType {
+    type Err = StoreError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "memory" => Ok(BackendType::Memory),
             #[cfg(feature = "fdb")]
@@ -30,7 +32,9 @@ impl BackendType {
             _ => Err(StoreError::Internal(format!("Unknown backend type: {}", s))),
         }
     }
+}
 
+impl BackendType {
     /// Get the string representation
     pub fn as_str(&self) -> &'static str {
         match self {

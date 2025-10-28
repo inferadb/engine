@@ -414,6 +414,7 @@ impl Evaluator {
 
     /// Build userset tree from relation expression
     #[async_recursion::async_recursion]
+    #[allow(clippy::only_used_in_recursion)]
     async fn build_userset_tree(&self, expr: &crate::ipl::RelationExpr) -> Result<UsersetTree> {
         use crate::ipl::RelationExpr;
 
@@ -493,6 +494,11 @@ impl Evaluator {
                 )))
             }
         }
+    }
+
+    /// Get the WASM host (if configured)
+    pub fn wasm_host(&self) -> Option<&Arc<WasmHost>> {
+        self.wasm_host.as_ref()
     }
 }
 
