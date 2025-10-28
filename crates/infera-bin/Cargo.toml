@@ -1,0 +1,25 @@
+[package]
+name = "infera-bin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "inferadb"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+
+# Internal dependencies
+infera-core = { path = "../infera-core" }
+infera-store = { path = "../infera-store" }
+infera-wasm = { path = "../infera-wasm" }
+infera-api = { path = "../infera-api" }
+infera-config = { path = "../infera-config" }
+infera-observe = { path = "../infera-observe" }
+infera-cache = { path = "../infera-cache" }

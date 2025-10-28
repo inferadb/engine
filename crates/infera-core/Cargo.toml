@@ -1,0 +1,30 @@
+[package]
+name = "infera-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+futures = { workspace = true }
+
+# Parser options (choose one)
+pest = "2.7"
+pest_derive = "2.7"
+# nom = "7.1"
+
+# Internal dependencies
+infera-store = { path = "../infera-store" }
+infera-wasm = { path = "../infera-wasm" }
+infera-observe = { path = "../infera-observe" }
+
+[dev-dependencies]
+tokio-test = "0.4"
+proptest = { workspace = true }

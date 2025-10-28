@@ -52,7 +52,7 @@ tower-http = { version = "0.6", features = ["trace", "cors"] }
 wasmtime = "27.0"
 
 # Storage
-foundationdb = { version = "0.9", optional = true }
+foundationdb = "0.9"
 
 # Caching
 moka = { version = "0.12", features = ["future"] }

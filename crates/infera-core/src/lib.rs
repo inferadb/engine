@@ -1,0 +1,49 @@
+//! # Infera Core - Policy Evaluation Engine
+//!
+//! Core reasoning and policy evaluation engine for InferaDB.
+//! Handles IPL parsing, relationship graph traversal, and decision evaluation.
+
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use infera_store::{TupleStore, Revision};
+use infera_wasm::WasmHost;
+use thiserror::Error;
+
+pub mod evaluator;
+pub mod ipl;
+pub mod types;
+
+pub use evaluator::Evaluator;
+pub use types::*;
+
+#[derive(Debug, Error)]
+pub enum EvalError {
+    #[error("Store error: {0}")]
+    Store(#[from] infera_store::StoreError),
+
+    #[error("WASM error: {0}")]
+    Wasm(#[from] infera_wasm::WasmError),
+
+    #[error("Parse error: {0}")]
+    Parse(String),
+
+    #[error("Evaluation error: {0}")]
+    Evaluation(String),
+
+    #[error("Permission denied")]
+    PermissionDenied,
+}
+
+pub type Result<T> = std::result::Result<T, EvalError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_core_module() {
+        // Placeholder test
+        assert!(true);
+    }
+}

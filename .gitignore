@@ -1,0 +1,46 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo
+Cargo.lock
+**/*.profraw
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Configuration
+config.local.yaml
+config.local.toml
+
+# Build artifacts
+*.wasm
+
+# Coverage
+*.profdata
+coverage/
+lcov.info
+cobertura.xml
+
+# Logs
+*.log
+
+# Test outputs
+test-results/
+
+# Documentation
+/target/doc/
+
+# Benchmarks
+/target/criterion/
