@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
 
     // Initialize storage backend
     // TODO: Support multiple backends based on config
-    let store = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn infera_store::TupleStore> = Arc::new(MemoryBackend::new());
     tracing::info!("Using in-memory storage backend");
 
     // Initialize WASM host
@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
     tracing::info!("Schema loaded");
 
     // Create evaluator
-    let evaluator = Arc::new(Evaluator::new(store, schema, wasm_host));
+    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, wasm_host));
     tracing::info!("Policy evaluator initialized");
 
     // Start API server
@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
         config.server.port
     );
 
-    infera_api::serve(evaluator, config).await?;
+    infera_api::serve(evaluator, store, config).await?;
 
     Ok(())
 }
