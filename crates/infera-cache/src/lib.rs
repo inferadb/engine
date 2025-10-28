@@ -40,11 +40,35 @@ impl CheckCacheKey {
 /// Cached authorization check result
 pub type CheckCacheValue = Decision;
 
+/// Cache key for expand operations (intermediate results)
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExpandCacheKey {
+    pub object: String,
+    pub relation: String,
+    pub revision: Revision,
+}
+
+impl ExpandCacheKey {
+    pub fn new(object: String, relation: String, revision: Revision) -> Self {
+        Self {
+            object,
+            relation,
+            revision,
+        }
+    }
+}
+
+/// Cached expand result (list of users)
+pub type ExpandCacheValue = Vec<String>;
+
 /// In-memory cache for authorization checks
 pub struct AuthCache {
     check_cache: Cache<CheckCacheKey, CheckCacheValue>,
+    expand_cache: Cache<ExpandCacheKey, ExpandCacheValue>,
     hits: AtomicU64,
     misses: AtomicU64,
+    expand_hits: AtomicU64,
+    expand_misses: AtomicU64,
     invalidations: AtomicU64,
 }
 
@@ -55,10 +79,18 @@ impl AuthCache {
             .time_to_live(ttl)
             .build();
 
+        let expand_cache = Cache::builder()
+            .max_capacity(max_capacity)
+            .time_to_live(ttl)
+            .build();
+
         Self {
             check_cache,
+            expand_cache,
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
+            expand_hits: AtomicU64::new(0),
+            expand_misses: AtomicU64::new(0),
             invalidations: AtomicU64::new(0),
         }
     }
@@ -79,9 +111,26 @@ impl AuthCache {
         self.check_cache.insert(key, value).await;
     }
 
+    /// Get a cached expand result
+    pub async fn get_expand(&self, key: &ExpandCacheKey) -> Option<ExpandCacheValue> {
+        let result = self.expand_cache.get(key).await;
+        if result.is_some() {
+            self.expand_hits.fetch_add(1, Ordering::Relaxed);
+        } else {
+            self.expand_misses.fetch_add(1, Ordering::Relaxed);
+        }
+        result
+    }
+
+    /// Cache an expand result
+    pub async fn put_expand(&self, key: ExpandCacheKey, value: ExpandCacheValue) {
+        self.expand_cache.insert(key, value).await;
+    }
+
     /// Invalidate all cache entries
     pub async fn invalidate_all(&self) {
         self.check_cache.invalidate_all();
+        self.expand_cache.invalidate_all();
         self.invalidations.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -92,11 +141,13 @@ impl AuthCache {
         // A better approach would be to maintain a secondary index
         let _count = 0;
         self.check_cache.run_pending_tasks().await;
+        self.expand_cache.run_pending_tasks().await;
 
         // Since moka doesn't provide an efficient way to iterate and conditionally remove,
         // we'll invalidate all entries when a write occurs
         // This is conservative but correct
         self.check_cache.invalidate_all();
+        self.expand_cache.invalidate_all();
         self.invalidations.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -104,6 +155,9 @@ impl AuthCache {
     pub fn stats(&self) -> CacheStats {
         let hits = self.hits.load(Ordering::Relaxed);
         let misses = self.misses.load(Ordering::Relaxed);
+        let expand_hits = self.expand_hits.load(Ordering::Relaxed);
+        let expand_misses = self.expand_misses.load(Ordering::Relaxed);
+
         let total_requests = hits + misses;
         let hit_rate = if total_requests > 0 {
             (hits as f64 / total_requests as f64) * 100.0
@@ -111,12 +165,22 @@ impl AuthCache {
             0.0
         };
 
+        let expand_total_requests = expand_hits + expand_misses;
+        let expand_hit_rate = if expand_total_requests > 0 {
+            (expand_hits as f64 / expand_total_requests as f64) * 100.0
+        } else {
+            0.0
+        };
+
         CacheStats {
-            entry_count: self.check_cache.entry_count(),
-            weighted_size: self.check_cache.weighted_size(),
+            entry_count: self.check_cache.entry_count() + self.expand_cache.entry_count(),
+            weighted_size: self.check_cache.weighted_size() + self.expand_cache.weighted_size(),
             hits,
             misses,
             hit_rate,
+            expand_hits,
+            expand_misses,
+            expand_hit_rate,
             invalidations: self.invalidations.load(Ordering::Relaxed),
         }
     }
@@ -125,6 +189,8 @@ impl AuthCache {
     pub fn reset_stats(&self) {
         self.hits.store(0, Ordering::Relaxed);
         self.misses.store(0, Ordering::Relaxed);
+        self.expand_hits.store(0, Ordering::Relaxed);
+        self.expand_misses.store(0, Ordering::Relaxed);
         self.invalidations.store(0, Ordering::Relaxed);
     }
 }
@@ -142,6 +208,9 @@ pub struct CacheStats {
     pub hits: u64,
     pub misses: u64,
     pub hit_rate: f64,
+    pub expand_hits: u64,
+    pub expand_misses: u64,
+    pub expand_hit_rate: f64,
     pub invalidations: u64,
 }
 
@@ -396,5 +465,156 @@ mod tests {
         // Both should be independently cached
         assert_eq!(cache.get_check(&key_rev1).await, Some(Decision::Allow));
         assert_eq!(cache.get_check(&key_rev2).await, Some(Decision::Deny));
+    }
+
+    #[tokio::test]
+    async fn test_expand_cache_operations() {
+        let cache = AuthCache::default();
+
+        let key = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            revision: Revision(1),
+        };
+
+        // Initially empty
+        assert!(cache.get_expand(&key).await.is_none());
+
+        // Add users
+        let users = vec!["user:alice".to_string(), "user:bob".to_string()];
+        cache.put_expand(key.clone(), users.clone()).await;
+
+        // Should be cached
+        assert_eq!(cache.get_expand(&key).await, Some(users));
+
+        // Check stats
+        let stats = cache.stats();
+        assert_eq!(stats.expand_hits, 1);
+        assert_eq!(stats.expand_misses, 1);
+        assert_eq!(stats.expand_hit_rate, 50.0);
+    }
+
+    #[tokio::test]
+    async fn test_expand_cache_hit_miss() {
+        let cache = AuthCache::default();
+
+        let key1 = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            revision: Revision(1),
+        };
+
+        let key2 = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "editor".to_string(),
+            revision: Revision(1),
+        };
+
+        let users1 = vec!["user:alice".to_string()];
+        let users2 = vec!["user:bob".to_string()];
+
+        // Populate cache
+        cache.put_expand(key1.clone(), users1.clone()).await;
+        cache.put_expand(key2.clone(), users2.clone()).await;
+
+        // Hit on key1
+        assert_eq!(cache.get_expand(&key1).await, Some(users1));
+
+        // Hit on key2
+        assert_eq!(cache.get_expand(&key2).await, Some(users2));
+
+        // Stats should show hits
+        let stats = cache.stats();
+        assert_eq!(stats.expand_hits, 2);
+        assert_eq!(stats.expand_misses, 0);
+        assert_eq!(stats.expand_hit_rate, 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_expand_cache_invalidation() {
+        let cache = AuthCache::new(100, Duration::from_secs(60));
+
+        let key = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            revision: Revision(1),
+        };
+
+        let users = vec!["user:alice".to_string()];
+        cache.put_expand(key.clone(), users.clone()).await;
+        assert_eq!(cache.get_expand(&key).await, Some(users));
+
+        // Invalidate all
+        cache.invalidate_all().await;
+
+        // Should be gone
+        assert!(cache.get_expand(&key).await.is_none());
+
+        let stats = cache.stats();
+        assert_eq!(stats.invalidations, 1);
+    }
+
+    #[tokio::test]
+    async fn test_expand_cache_revision_isolation() {
+        let cache = AuthCache::default();
+
+        let key_rev1 = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            revision: Revision(1),
+        };
+
+        let key_rev2 = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            revision: Revision(2),
+        };
+
+        let users_rev1 = vec!["user:alice".to_string()];
+        let users_rev2 = vec!["user:alice".to_string(), "user:bob".to_string()];
+
+        cache.put_expand(key_rev1.clone(), users_rev1.clone()).await;
+        cache.put_expand(key_rev2.clone(), users_rev2.clone()).await;
+
+        // Both revisions should be independently cached
+        assert_eq!(cache.get_expand(&key_rev1).await, Some(users_rev1));
+        assert_eq!(cache.get_expand(&key_rev2).await, Some(users_rev2));
+    }
+
+    #[tokio::test]
+    async fn test_mixed_cache_stats() {
+        let cache = AuthCache::default();
+
+        // Check cache
+        let check_key = CheckCacheKey {
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+        cache.put_check(check_key.clone(), Decision::Allow).await;
+        let _ = cache.get_check(&check_key).await;
+
+        // Expand cache
+        let expand_key = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            revision: Revision(1),
+        };
+        let users = vec!["user:alice".to_string()];
+        cache.put_expand(expand_key.clone(), users).await;
+        let _ = cache.get_expand(&expand_key).await;
+
+        // Run pending tasks to ensure entries are synced
+        cache.check_cache.run_pending_tasks().await;
+        cache.expand_cache.run_pending_tasks().await;
+
+        // Both caches should have stats
+        let stats = cache.stats();
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.misses, 0);
+        assert_eq!(stats.expand_hits, 1);
+        assert_eq!(stats.expand_misses, 0);
+        assert_eq!(stats.entry_count, 2); // One check + one expand
     }
 }

@@ -311,6 +311,67 @@ fn bench_large_scale(c: &mut Criterion) {
     });
 }
 
+fn bench_expand_cache(c: &mut Criterion) {
+    use infera_cache::AuthCache;
+    use std::time::Duration;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    // Benchmark expand with cache enabled (repeated queries)
+    c.bench_function("expand_with_cache_hit", |b| {
+        let evaluator = rt.block_on(async {
+            let store = Arc::new(MemoryBackend::new());
+
+            let schema = Arc::new(Schema::new(vec![
+                TypeDef::new("doc".to_string(), vec![
+                    RelationDef::new("reader".to_string(), None),
+                    RelationDef::new("editor".to_string(), None),
+                    RelationDef::new("viewer".to_string(), Some(RelationExpr::Union(vec![
+                        RelationExpr::RelationRef { relation: "reader".to_string() },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
+                    ]))),
+                ]),
+            ]));
+
+            // Write 50 users
+            let mut tuples = Vec::new();
+            for i in 0..50 {
+                tuples.push(Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "reader".to_string(),
+                    user: format!("user:{}", i),
+                });
+            }
+            store.write(tuples).await.unwrap();
+
+            let cache = Arc::new(AuthCache::new(10_000, Duration::from_secs(300)));
+            Evaluator::new_with_cache(store, schema, None, Some(cache))
+        });
+
+        // First request will populate cache
+        let _ = rt.block_on(async {
+            let request = ExpandRequest {
+                resource: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                limit: None,
+                continuation_token: None,
+            };
+            evaluator.expand(request).await.unwrap()
+        });
+
+        // Now benchmark cached requests
+        b.to_async(&rt).iter(|| async {
+            let request = ExpandRequest {
+                resource: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                limit: None,
+                continuation_token: None,
+            };
+
+            black_box(evaluator.expand(request).await.unwrap())
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_direct_check,
@@ -318,6 +379,7 @@ criterion_group!(
     bench_complex_check,
     bench_expand,
     bench_parallel_expand,
+    bench_expand_cache,
     bench_large_scale
 );
 criterion_main!(benches);

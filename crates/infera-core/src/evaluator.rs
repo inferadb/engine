@@ -558,10 +558,39 @@ impl Evaluator {
         match expr {
             RelationExpr::This => {
                 // Direct relation - get actual users
-                let users = get_users_with_relation(&*ctx.store, object, &"".to_string(), ctx.revision).await?;
+                // Try cache first
+                let cache_key = if let Some(_cache) = &self.cache {
+                    Some(infera_cache::ExpandCacheKey::new(
+                        object.to_string(),
+                        "".to_string(), // "this" uses empty relation
+                        ctx.revision,
+                    ))
+                } else {
+                    None
+                };
+
+                let users = if let Some(ref key) = cache_key {
+                    if let Some(cache) = &self.cache {
+                        if let Some(cached_users) = cache.get_expand(key).await {
+                            cached_users
+                        } else {
+                            let users: Vec<String> = get_users_with_relation(&*ctx.store, object, &"".to_string(), ctx.revision).await?
+                                .into_iter().collect();
+                            cache.put_expand(key.clone(), users.clone()).await;
+                            users
+                        }
+                    } else {
+                        get_users_with_relation(&*ctx.store, object, &"".to_string(), ctx.revision).await?
+                            .into_iter().collect()
+                    }
+                } else {
+                    get_users_with_relation(&*ctx.store, object, &"".to_string(), ctx.revision).await?
+                        .into_iter().collect()
+                };
+
                 Ok(UsersetTree {
                     node_type: UsersetNodeType::Leaf {
-                        users: users.into_iter().collect(),
+                        users,
                     },
                     children: vec![],
                 })
@@ -640,6 +669,31 @@ impl Evaluator {
 
             RelationExpr::RelationRef { relation } => {
                 // Relation reference - recursively expand the referenced relation
+                // Try cache first
+                let cache_key = if let Some(_cache) = &self.cache {
+                    Some(infera_cache::ExpandCacheKey::new(
+                        object.to_string(),
+                        relation.clone(),
+                        ctx.revision,
+                    ))
+                } else {
+                    None
+                };
+
+                // Check cache
+                if let Some(ref key) = cache_key {
+                    if let Some(cache) = &self.cache {
+                        if let Some(cached_users) = cache.get_expand(key).await {
+                            return Ok(UsersetTree {
+                                node_type: UsersetNodeType::Leaf {
+                                    users: cached_users,
+                                },
+                                children: vec![],
+                            });
+                        }
+                    }
+                }
+
                 // Get the type definition for the current object
                 let type_name = object.split(':').next()
                     .ok_or_else(|| EvalError::Evaluation("Invalid object format".to_string()))?;
@@ -654,18 +708,34 @@ impl Evaluator {
                 let expr_opt = relation_def.expr.clone();
 
                 // If the referenced relation has no expression, it's a direct relation
-                if expr_opt.is_none() {
-                    let users = get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
-                    Ok(UsersetTree {
+                let tree = if expr_opt.is_none() {
+                    let users: Vec<String> = get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?
+                        .into_iter().collect();
+                    UsersetTree {
                         node_type: UsersetNodeType::Leaf {
-                            users: users.into_iter().collect(),
+                            users: users.clone(),
                         },
                         children: vec![],
-                    })
+                    }
                 } else {
                     // Recursively expand the referenced relation's expression
-                    self.build_userset_tree_with_users(object, expr_opt.as_ref().unwrap(), ctx).await
+                    self.build_userset_tree_with_users(object, expr_opt.as_ref().unwrap(), ctx).await?
+                };
+
+                // Cache the result
+                if let Some(ref key) = cache_key {
+                    if let Some(cache) = &self.cache {
+                        if let UsersetNodeType::Leaf { ref users } = tree.node_type {
+                            cache.put_expand(key.clone(), users.clone()).await;
+                        } else {
+                            // Collect users from the tree and cache them
+                            let users = self.collect_users_from_tree(&tree);
+                            cache.put_expand(key.clone(), users).await;
+                        }
+                    }
                 }
+
+                Ok(tree)
             }
         }
     }
