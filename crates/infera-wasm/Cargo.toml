@@ -18,3 +18,4 @@ infera-observe = { path = "../infera-observe" }
 
 [dev-dependencies]
 tokio-test = "0.4"
+wat = "1.0"
