@@ -38,8 +38,10 @@ serde_json = "1.0"
 # Tracing and observability
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-opentelemetry = "0.27"
 opentelemetry = "0.26"
-opentelemetry-otlp = "0.26"
+opentelemetry-otlp = { version = "0.26", features = ["tonic", "tokio"] }
+opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
 metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 
