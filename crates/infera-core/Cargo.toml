@@ -25,6 +25,7 @@ pest_derive = "2.7"
 infera-store = { path = "../infera-store" }
 infera-wasm = { path = "../infera-wasm" }
 infera-observe = { path = "../infera-observe" }
+infera-cache = { path = "../infera-cache" }
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -11,17 +11,38 @@ use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
 use crate::ipl::Schema;
 use infera_store::TupleStore;
 use infera_wasm::WasmHost;
+use infera_cache::{AuthCache, CheckCacheKey};
 
 /// The main policy evaluator
 pub struct Evaluator {
     store: Arc<dyn TupleStore>,
     wasm_host: Option<Arc<WasmHost>>,
     schema: Arc<Schema>,
+    cache: Option<Arc<AuthCache>>,
 }
 
 impl Evaluator {
     pub fn new(store: Arc<dyn TupleStore>, schema: Arc<Schema>, wasm_host: Option<Arc<WasmHost>>) -> Self {
-        Self { store, schema, wasm_host }
+        Self {
+            store,
+            schema,
+            wasm_host,
+            cache: Some(Arc::new(AuthCache::default())),
+        }
+    }
+
+    pub fn new_with_cache(
+        store: Arc<dyn TupleStore>,
+        schema: Arc<Schema>,
+        wasm_host: Option<Arc<WasmHost>>,
+        cache: Option<Arc<AuthCache>>,
+    ) -> Self {
+        Self {
+            store,
+            schema,
+            wasm_host,
+            cache,
+        }
     }
 
     /// Check if a subject has permission on a resource
@@ -38,6 +59,28 @@ impl Evaluator {
 
         // Get current revision to ensure consistent read
         let revision = self.store.get_revision().await?;
+
+        // Check cache if enabled
+        if let Some(cache) = &self.cache {
+            let cache_key = CheckCacheKey::new(
+                request.subject.clone(),
+                request.resource.clone(),
+                request.permission.clone(),
+                revision,
+            );
+            if let Some(cached_decision) = cache.get_check(&cache_key).await {
+                let decision = match cached_decision {
+                    infera_cache::Decision::Allow => Decision::Allow,
+                    infera_cache::Decision::Deny => Decision::Deny,
+                };
+                debug!(
+                    decision = ?decision,
+                    duration = ?start.elapsed(),
+                    "Permission check complete (from cache)"
+                );
+                return Ok(decision);
+            }
+        }
 
         // Create graph context for traversal
         let mut ctx = GraphContext::new(
@@ -56,6 +99,21 @@ impl Evaluator {
             Decision::Deny
         };
 
+        // Cache the result if enabled
+        if let Some(cache) = &self.cache {
+            let cache_key = CheckCacheKey::new(
+                request.subject.clone(),
+                request.resource.clone(),
+                request.permission.clone(),
+                revision,
+            );
+            let cache_decision = match decision {
+                Decision::Allow => infera_cache::Decision::Allow,
+                Decision::Deny => infera_cache::Decision::Deny,
+            };
+            cache.put_check(cache_key, cache_decision).await;
+        }
+
         debug!(
             decision = ?decision,
             duration = ?start.elapsed(),
@@ -63,6 +121,11 @@ impl Evaluator {
         );
 
         Ok(decision)
+    }
+
+    /// Get cache statistics
+    pub fn cache_stats(&self) -> Option<infera_cache::CacheStats> {
+        self.cache.as_ref().map(|c| c.stats())
     }
 
     /// Check with tracing for explainability
@@ -934,5 +997,121 @@ mod tests {
         // Alice should be denied (not an employee)
         let result = evaluator.check(request).await.unwrap();
         assert_eq!(result, Decision::Deny);
+    }
+
+    #[tokio::test]
+    async fn test_cache_hit() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let tuples = vec![Tuple {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            user: "user:alice".to_string(),
+        }];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = CheckRequest {
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+        };
+
+        // First check - cache miss
+        let result1 = evaluator.check(request.clone()).await.unwrap();
+        assert_eq!(result1, Decision::Allow);
+
+        let stats = evaluator.cache_stats().unwrap();
+        assert_eq!(stats.misses, 1);
+        assert_eq!(stats.hits, 0);
+
+        // Second check - cache hit
+        let result2 = evaluator.check(request).await.unwrap();
+        assert_eq!(result2, Decision::Allow);
+
+        let stats = evaluator.cache_stats().unwrap();
+        assert_eq!(stats.misses, 1);
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.hit_rate, 50.0);
+    }
+
+    #[tokio::test]
+    async fn test_cache_disabled() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let tuples = vec![Tuple {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            user: "user:alice".to_string(),
+        }];
+        store.write(tuples).await.unwrap();
+
+        // Create evaluator without cache
+        let evaluator = Evaluator::new_with_cache(store, schema, None, None);
+
+        let request = CheckRequest {
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+        };
+
+        let result = evaluator.check(request).await.unwrap();
+        assert_eq!(result, Decision::Allow);
+
+        // No cache stats available
+        assert!(evaluator.cache_stats().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cache_different_requests() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "reader".to_string(),
+                user: "user:bob".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Different subject
+        let request1 = CheckRequest {
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+        };
+
+        // Different resource
+        let request2 = CheckRequest {
+            subject: "user:bob".to_string(),
+            resource: "doc:guide".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+        };
+
+        evaluator.check(request1.clone()).await.unwrap();
+        evaluator.check(request2.clone()).await.unwrap();
+        evaluator.check(request1).await.unwrap(); // Cache hit
+        evaluator.check(request2).await.unwrap(); // Cache hit
+
+        let stats = evaluator.cache_stats().unwrap();
+        assert_eq!(stats.misses, 2); // Two different requests
+        assert_eq!(stats.hits, 2);   // Two repeated requests
+        assert_eq!(stats.hit_rate, 50.0);
     }
 }
