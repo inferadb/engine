@@ -1,0 +1,73 @@
+# Configuration for cargo-deny
+# https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+# The path where the advisory databases are cloned/fetched into
+db-path = "~/.cargo/advisory-db"
+# The url(s) of the advisory databases to use
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# Deny warnings from advisories
+vulnerability = "deny"
+# Deny unmaintained crates
+unmaintained = "warn"
+# Deny yanked crates
+yanked = "deny"
+# Deny crates with security notices
+notice = "warn"
+# Ignore specific advisories by ID
+ignore = [
+    # Example: "RUSTSEC-2020-0001",
+]
+
+[licenses]
+# Deny licenses that are not explicitly allowed
+unlicensed = "deny"
+# Allow specific licenses
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "BSL-1.1",  # Our own license
+]
+# Deny specific licenses
+deny = [
+    "GPL-3.0",
+    "AGPL-3.0",
+]
+# Copyleft licenses to check
+copyleft = "deny"
+confidence-threshold = 0.8
+
+[bans]
+# Warn on multiple versions of the same crate
+multiple-versions = "warn"
+# Deny wildcard dependencies
+wildcards = "deny"
+# Allow git dependencies only from specific sources
+allow-git = []
+# Deny specific crates
+deny = [
+    # Example: { name = "openssl", wrappers = ["openssl-sys"] },
+]
+# Skip certain crates from duplicate version checks
+skip = [
+    # Some crates commonly have multiple versions
+]
+# Skip checking certain trees
+skip-tree = [
+    # Example: { name = "windows-sys", depth = 3 },
+]
+
+[sources]
+# Deny crates from unknown registries
+unknown-registry = "deny"
+# Deny crates from git
+unknown-git = "deny"
+# Allow only crates.io
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# Allow git sources from specific organizations
+allow-git = []
