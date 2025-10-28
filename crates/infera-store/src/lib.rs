@@ -10,9 +10,11 @@ pub mod memory;
 #[cfg(feature = "fdb")]
 pub mod foundationdb;
 pub mod factory;
+pub mod metrics;
 
 pub use memory::MemoryBackend;
 pub use factory::{StorageFactory, StorageConfig, BackendType};
+pub use metrics::{StoreMetrics, MetricsSnapshot, OpTimer};
 
 #[cfg(feature = "fdb")]
 pub use foundationdb::FoundationDBBackend;
@@ -81,6 +83,11 @@ pub trait TupleStore: Send + Sync {
 
     /// Delete tuples matching the key
     async fn delete(&self, key: &TupleKey) -> Result<Revision>;
+
+    /// Get metrics snapshot (optional, returns None if not supported)
+    fn metrics(&self) -> Option<MetricsSnapshot> {
+        None
+    }
 }
 
 #[cfg(test)]

@@ -105,12 +105,14 @@ impl InferaService for InferaServiceImpl {
         let expand_request = CoreExpandRequest {
             resource: req.resource,
             relation: req.relation,
+            limit: None,
+            continuation_token: None,
         };
 
-        let tree = self.state.evaluator.expand(expand_request).await
+        let expand_response = self.state.evaluator.expand(expand_request).await
             .map_err(|e| Status::internal(format!("Evaluation error: {}", e)))?;
 
-        let proto_tree = convert_userset_tree_to_proto(tree);
+        let proto_tree = convert_userset_tree_to_proto(expand_response.tree);
 
         Ok(Response::new(ExpandResponse {
             tree: Some(proto_tree),

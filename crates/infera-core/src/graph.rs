@@ -7,7 +7,9 @@ use async_recursion::async_recursion;
 
 use crate::{Result, EvalError};
 use crate::ipl::{Schema, RelationExpr};
-use infera_store::{TupleStore, TupleKey, Revision, Tuple};
+use infera_store::{TupleStore, TupleKey, Revision};
+#[cfg(test)]
+use infera_store::Tuple;
 
 /// Graph traversal context
 pub struct GraphContext {
@@ -76,6 +78,7 @@ pub async fn has_direct_tuple(
     user: &str,
     revision: Revision,
 ) -> Result<bool> {
+    // Check for specific user
     let key = TupleKey {
         object: object.to_string(),
         relation: relation.to_string(),
@@ -83,7 +86,19 @@ pub async fn has_direct_tuple(
     };
 
     let tuples = store.read(&key, revision).await?;
-    Ok(!tuples.is_empty())
+    if !tuples.is_empty() {
+        return Ok(true);
+    }
+
+    // Also check for wildcard user (user:*)
+    let wildcard_key = TupleKey {
+        object: object.to_string(),
+        relation: relation.to_string(),
+        user: Some("user:*".to_string()),
+    };
+
+    let wildcard_tuples = store.read(&wildcard_key, revision).await?;
+    Ok(!wildcard_tuples.is_empty())
 }
 
 /// Get all users with a specific relation on an object
@@ -101,6 +116,43 @@ pub async fn get_users_with_relation(
 
     let tuples = store.read(&key, revision).await?;
     Ok(tuples.into_iter().map(|t| t.user).collect())
+}
+
+/// Batch prefetch users with a specific relation for multiple objects
+/// This is useful for graph traversal optimizations where we know we'll need
+/// the same relation for many objects (e.g., ComputedUserset, TupleToUserset)
+pub async fn prefetch_users_batch(
+    store: &dyn TupleStore,
+    objects: &[String],
+    relation: &str,
+    revision: Revision,
+) -> Result<std::collections::HashMap<String, Vec<String>>> {
+    use futures::future::join_all;
+
+    // Create parallel fetch tasks for each object
+    let tasks: Vec<_> = objects
+        .iter()
+        .map(|object| {
+            let obj = object.clone();
+            let rel = relation.to_string();
+            async move {
+                let users = get_users_with_relation(store, &obj, &rel, revision).await?;
+                Ok::<_, crate::EvalError>((obj, users))
+            }
+        })
+        .collect();
+
+    // Execute all fetches concurrently
+    let results = join_all(tasks).await;
+
+    // Collect into HashMap
+    let mut map = std::collections::HashMap::new();
+    for result in results {
+        let (object, users) = result?;
+        map.insert(object, users);
+    }
+
+    Ok(map)
 }
 
 /// Resolve a userset (get all users in a userset)
@@ -223,9 +275,13 @@ async fn evaluate_relation_expr(
             Ok(base_users)
         }
 
-        RelationExpr::WasmModule { module_name: _ } => {
-            // WASM modules not yet implemented
-            Err(EvalError::Evaluation("WASM modules not yet implemented".to_string()))
+        RelationExpr::WasmModule { module_name } => {
+            // WASM modules require specific user context and cannot enumerate users
+            // They can only be used in check operations, not in userset resolution
+            Err(EvalError::Evaluation(format!(
+                "WASM module '{}' cannot be used for user enumeration - use check operations instead",
+                module_name
+            )))
         }
     }
 }

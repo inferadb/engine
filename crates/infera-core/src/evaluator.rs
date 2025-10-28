@@ -6,7 +6,7 @@ use std::time::Instant;
 use tracing::{instrument, debug};
 
 use crate::{CheckRequest, Decision, ExpandRequest, ExpandResponse, UsersetTree, UsersetNodeType, Result, EvalError};
-use crate::graph::{GraphContext, resolve_userset, has_direct_tuple};
+use crate::graph::{GraphContext, has_direct_tuple};
 use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
 use crate::ipl::Schema;
 use infera_store::TupleStore;
@@ -89,12 +89,16 @@ impl Evaluator {
             revision,
         );
 
-        // Resolve the userset for the permission on the resource
-        let userset = resolve_userset(&request.resource, &request.permission, &mut ctx).await?;
+        // Build evaluation tree for this specific check
+        let root = self.build_evaluation_node(
+            &request.resource,
+            &request.permission,
+            &request.subject,
+            &mut ctx,
+        ).await?;
 
-        // Check if the subject is in the userset
-        // Also check for wildcard user (user:*) which grants access to all users
-        let decision = if userset.contains(&request.subject) || userset.contains("user:*") {
+        // Determine decision from evaluation result
+        let decision = if root.result {
             Decision::Allow
         } else {
             Decision::Deny
@@ -372,11 +376,43 @@ impl Evaluator {
             }
 
             RelationExpr::WasmModule { module_name } => {
-                // WASM not yet implemented
-                Err(EvalError::Evaluation(format!(
-                    "WASM module '{}' not yet implemented",
-                    module_name
-                )))
+                // Execute WASM module to determine access
+                let _span = infera_observe::span_utils::wasm_span(module_name);
+                let _guard = _span.enter();
+
+                let wasm_host = self.wasm_host.as_ref()
+                    .ok_or_else(|| EvalError::Evaluation("WASM host not configured".to_string()))?;
+
+                let exec_context = infera_wasm::ExecutionContext {
+                    subject: user.to_string(),
+                    resource: object.to_string(),
+                    permission: "check".to_string(),  // Default permission name
+                    context: None,
+                };
+
+                debug!(
+                    module = %module_name,
+                    subject = %user,
+                    resource = %object,
+                    "Executing WASM module"
+                );
+
+                let result = wasm_host.execute(module_name, "check", exec_context)
+                    .map_err(|e| {
+                        debug!(module = %module_name, error = %e, "WASM execution failed");
+                        EvalError::Evaluation(format!("WASM execution failed: {}", e))
+                    })?;
+
+                debug!(module = %module_name, result = %result, "WASM module completed");
+                infera_observe::span_utils::record_wasm_result(&_span, 0, if result { 1 } else { 0 });
+
+                Ok(EvaluationNode {
+                    node_type: NodeType::WasmModule {
+                        module_name: module_name.clone(),
+                    },
+                    result,
+                    children: vec![],
+                    })
             }
         }
     }
@@ -460,90 +496,6 @@ impl Evaluator {
         })
     }
 
-    /// Build userset tree from relation expression
-    #[async_recursion::async_recursion]
-    #[allow(clippy::only_used_in_recursion)]
-    async fn build_userset_tree(&self, expr: &crate::ipl::RelationExpr) -> Result<UsersetTree> {
-        use crate::ipl::RelationExpr;
-
-        match expr {
-            RelationExpr::This => {
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::This,
-                    children: vec![],
-                })
-            }
-
-            RelationExpr::RelationRef { relation } => {
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::ComputedUserset {
-                        relation: relation.clone(),
-                    },
-                    children: vec![],
-                })
-            }
-
-            RelationExpr::ComputedUserset { relation, tupleset } => {
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::TupleToUserset {
-                        tupleset: tupleset.clone(),
-                        computed: relation.clone(),
-                    },
-                    children: vec![],
-                })
-            }
-
-            RelationExpr::TupleToUserset { tupleset, computed } => {
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::TupleToUserset {
-                        tupleset: tupleset.clone(),
-                        computed: computed.clone(),
-                    },
-                    children: vec![],
-                })
-            }
-
-            RelationExpr::Union(exprs) => {
-                let mut children = vec![];
-                for expr in exprs {
-                    children.push(self.build_userset_tree(expr).await?);
-                }
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::Union,
-                    children,
-                })
-            }
-
-            RelationExpr::Intersection(exprs) => {
-                let mut children = vec![];
-                for expr in exprs {
-                    children.push(self.build_userset_tree(expr).await?);
-                }
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::Intersection,
-                    children,
-                })
-            }
-
-            RelationExpr::Exclusion { base, subtract } => {
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::Exclusion,
-                    children: vec![
-                        self.build_userset_tree(base).await?,
-                        self.build_userset_tree(subtract).await?,
-                    ],
-                })
-            }
-
-            RelationExpr::WasmModule { module_name } => {
-                Err(EvalError::Evaluation(format!(
-                    "WASM module '{}' not yet implemented",
-                    module_name
-                )))
-            }
-        }
-    }
-
     /// Build userset tree with actual user resolution
     #[async_recursion::async_recursion]
     async fn build_userset_tree_with_users(
@@ -600,10 +552,28 @@ impl Evaluator {
                 // Get users from computed relation on tupleset
                 let tupleset_objects = get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
 
+                // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
-                for obj in tupleset_objects {
-                    let users = get_users_with_relation(&*ctx.store, &obj, relation, ctx.revision).await?;
-                    all_users.extend(users);
+                if tupleset_objects.len() > 1 {
+                    // Batch prefetch for multiple objects
+                    let prefetched = crate::graph::prefetch_users_batch(
+                        &*ctx.store,
+                        &tupleset_objects,
+                        relation,
+                        ctx.revision
+                    ).await?;
+
+                    for obj in &tupleset_objects {
+                        if let Some(users) = prefetched.get(obj) {
+                            all_users.extend(users.iter().cloned());
+                        }
+                    }
+                } else {
+                    // Single object - use direct fetch
+                    for obj in tupleset_objects {
+                        let users = get_users_with_relation(&*ctx.store, &obj, relation, ctx.revision).await?;
+                        all_users.extend(users);
+                    }
                 }
 
                 Ok(UsersetTree {
@@ -618,11 +588,28 @@ impl Evaluator {
                 // Get objects from tupleset
                 let tupleset_objects = get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
 
-                // For each object, get users with computed relation
+                // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
-                for obj in tupleset_objects {
-                    let users = get_users_with_relation(&*ctx.store, &obj, computed, ctx.revision).await?;
-                    all_users.extend(users);
+                if tupleset_objects.len() > 1 {
+                    // Batch prefetch for multiple objects
+                    let prefetched = crate::graph::prefetch_users_batch(
+                        &*ctx.store,
+                        &tupleset_objects,
+                        computed,
+                        ctx.revision
+                    ).await?;
+
+                    for obj in &tupleset_objects {
+                        if let Some(users) = prefetched.get(obj) {
+                            all_users.extend(users.iter().cloned());
+                        }
+                    }
+                } else {
+                    // Single object - use direct fetch
+                    for obj in tupleset_objects {
+                        let users = get_users_with_relation(&*ctx.store, &obj, computed, ctx.revision).await?;
+                        all_users.extend(users);
+                    }
                 }
 
                 Ok(UsersetTree {
@@ -661,8 +648,12 @@ impl Evaluator {
             }
 
             RelationExpr::WasmModule { module_name } => {
+                // WASM modules in expand are treated as computed usersets
+                // We need to enumerate all users and test each one
+                // For now, return an empty userset since we can't enumerate all possible users
+                // A proper implementation would require domain-specific logic
                 Err(EvalError::Evaluation(format!(
-                    "WASM module '{}' not yet implemented in expand",
+                    "WASM module '{}' cannot be used in expand - WASM modules require specific user context",
                     module_name
                 )))
             }

@@ -32,6 +32,7 @@ infera-cache = { path = "../infera-cache" }
 tokio-test = "0.4"
 proptest = { workspace = true }
 criterion = { workspace = true }
+wat = "1.0"
 
 [[bench]]
 name = "ipl_parser"

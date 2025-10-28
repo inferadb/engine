@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use async_trait::async_trait;
 
-use crate::{TupleStore, TupleKey, Tuple, Revision, Result};
+use crate::{TupleStore, TupleKey, Tuple, Revision, Result, StoreMetrics, MetricsSnapshot, OpTimer};
 
 /// A versioned tuple with its creation revision
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +18,7 @@ struct VersionedTuple {
 /// In-memory tuple store implementation with full indexing and revision support
 pub struct MemoryBackend {
     data: Arc<RwLock<MemoryStore>>,
+    metrics: Arc<StoreMetrics>,
 }
 
 struct MemoryStore {
@@ -51,6 +52,7 @@ impl MemoryBackend {
                 revision: Revision::zero(),
                 revision_history: BTreeMap::new(),
             })),
+            metrics: Arc::new(StoreMetrics::new()),
         }
     }
 
@@ -84,6 +86,7 @@ impl Default for MemoryBackend {
 #[async_trait]
 impl TupleStore for MemoryBackend {
     async fn read(&self, key: &TupleKey, revision: Revision) -> Result<Vec<Tuple>> {
+        let timer = OpTimer::new();
         let store = self.data.read().await;
 
         // Find matching tuple indices
@@ -123,10 +126,12 @@ impl TupleStore for MemoryBackend {
             })
             .collect();
 
+        self.metrics.record_read(timer.elapsed(), false);
         Ok(tuples)
     }
 
     async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision> {
+        let timer = OpTimer::new();
         let mut store = self.data.write().await;
 
         // Increment revision
@@ -200,6 +205,11 @@ impl TupleStore for MemoryBackend {
         // Track revision history
         store.revision_history.insert(current_revision, new_indices);
 
+        // Update metrics
+        let tuple_bytes: usize = batch_tuples.len() * 64; // Approximate bytes per tuple
+        self.metrics.record_write(timer.elapsed(), false);
+        self.metrics.update_key_space(store.tuples.len() as u64, tuple_bytes as u64);
+
         Ok(current_revision)
     }
 
@@ -209,6 +219,7 @@ impl TupleStore for MemoryBackend {
     }
 
     async fn delete(&self, key: &TupleKey) -> Result<Revision> {
+        let timer = OpTimer::new();
         let mut store = self.data.write().await;
 
         // Increment revision
@@ -246,7 +257,13 @@ impl TupleStore for MemoryBackend {
             store.tuples[idx].deleted_at = Some(current_revision);
         }
 
+        self.metrics.record_delete(timer.elapsed(), false);
+
         Ok(current_revision)
+    }
+
+    fn metrics(&self) -> Option<MetricsSnapshot> {
+        Some(self.metrics.snapshot())
     }
 }
 
@@ -631,6 +648,57 @@ mod tests {
         // GC revisions before rev2
         let removed = store.gc_before(rev2).await.unwrap();
         assert!(removed > 0);
+    }
+
+    #[tokio::test]
+    async fn test_metrics_tracking() {
+        let store = MemoryBackend::new();
+
+        // Initial metrics should show no operations
+        let metrics = store.metrics().unwrap();
+        assert_eq!(metrics.read_count, 0);
+        assert_eq!(metrics.write_count, 0);
+        assert_eq!(metrics.delete_count, 0);
+
+        // Write some data
+        let tuple = Tuple {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            user: "user:alice".to_string(),
+        };
+        let rev = store.write(vec![tuple.clone()]).await.unwrap();
+
+        // Metrics should show 1 write
+        let metrics = store.metrics().unwrap();
+        assert_eq!(metrics.write_count, 1);
+        assert!(metrics.total_keys > 0);
+
+        // Read the data
+        let key = TupleKey {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            user: None,
+        };
+        let _ = store.read(&key, rev).await.unwrap();
+
+        // Metrics should show 1 read
+        let metrics = store.metrics().unwrap();
+        assert_eq!(metrics.read_count, 1);
+        assert_eq!(metrics.write_count, 1);
+
+        // Delete the data
+        let _ = store.delete(&key).await.unwrap();
+
+        // Metrics should show 1 delete
+        let metrics = store.metrics().unwrap();
+        assert_eq!(metrics.read_count, 1);
+        assert_eq!(metrics.write_count, 1);
+        assert_eq!(metrics.delete_count, 1);
+
+        // All operations should have recorded latency
+        assert!(metrics.read_avg_latency_us > 0 || metrics.read_count == 0);
+        assert!(metrics.write_avg_latency_us > 0 || metrics.write_count == 0);
+        assert!(metrics.delete_avg_latency_us > 0 || metrics.delete_count == 0);
     }
 
     // Property-based tests with proptest

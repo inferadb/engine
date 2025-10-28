@@ -103,9 +103,9 @@ struct CheckResponse {
 async fn expand_handler(
     State(state): State<AppState>,
     Json(request): Json<ExpandRequest>,
-) -> Result<Json<infera_core::UsersetTree>> {
-    let tree = state.evaluator.expand(request).await?;
-    Ok(Json(tree))
+) -> Result<Json<infera_core::ExpandResponse>> {
+    let response = state.evaluator.expand(request).await?;
+    Ok(Json(response))
 }
 
 /// Write tuples endpoint
@@ -444,7 +444,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        let tree: infera_core::UsersetTree = serde_json::from_slice(&body).unwrap();
-        assert!(matches!(tree.node_type, infera_core::UsersetNodeType::Union));
+        let expand_response: infera_core::ExpandResponse = serde_json::from_slice(&body).unwrap();
+        assert!(matches!(expand_response.tree.node_type, infera_core::UsersetNodeType::Union));
     }
 }
