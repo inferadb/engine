@@ -2,6 +2,9 @@
 //!
 //! Handles configuration loading from files, environment variables, and CLI args.
 
+pub mod secrets;
+pub mod validation;
+
 use std::path::Path;
 
 use config::{Config as ConfigBuilder, ConfigError, File, Environment};
