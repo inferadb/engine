@@ -1,0 +1,75 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/infera-core",
+    "crates/infera-store",
+    "crates/infera-wasm",
+    "crates/infera-repl",
+    "crates/infera-api",
+    "crates/infera-cache",
+    "crates/infera-observe",
+    "crates/infera-config",
+    "crates/infera-bin",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "BSL-1.1"
+authors = ["InferaDB Project"]
+repository = "https://github.com/inferadb/server"
+homepage = "https://inferadb.com"
+
+[workspace.dependencies]
+# Core async runtime
+tokio = { version = "1.41", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Tracing and observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+opentelemetry = "0.26"
+opentelemetry-otlp = "0.26"
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+
+# Web frameworks
+axum = { version = "0.7", features = ["tokio"] }
+tonic = "0.12"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+
+# WASM runtime
+wasmtime = "27.0"
+
+# Storage
+foundationdb = { version = "0.9", optional = true }
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+# Configuration
+config = "0.14"
+clap = { version = "4.5", features = ["derive"] }
+
+# Testing
+proptest = "1.6"
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.bench]
+inherits = "release"

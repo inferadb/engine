@@ -1,0 +1,107 @@
+# Mise configuration for InferaDB Policy Decision Engine
+# https://mise.jdx.dev/
+
+[tools]
+# Rust toolchain - using stable with common components
+rust = "stable"
+
+# Additional development tools
+"cargo:cargo-watch" = "latest"          # Auto-rebuild on file changes
+"cargo:cargo-edit" = "latest"           # cargo add, upgrade, rm commands
+"cargo:cargo-nextest" = "latest"        # Next-generation test runner
+"cargo:cargo-audit" = "latest"          # Security vulnerability scanning
+"cargo:cargo-deny" = "latest"           # Lint dependencies
+"cargo:cargo-outdated" = "latest"       # Check for outdated dependencies
+"cargo:cargo-expand" = "latest"         # Expand macros
+"cargo:cargo-criterion" = "latest"      # Benchmarking support
+"cargo:cargo-llvm-cov" = "latest"       # Code coverage
+
+# Optional: Protobuf compiler for gRPC (uncomment if needed)
+# protobuf = "latest"
+
+[env]
+# Rust optimization settings for development
+CARGO_INCREMENTAL = "1"
+CARGO_TERM_COLOR = "always"
+RUST_BACKTRACE = "1"
+
+# Performance tuning for compilation
+CARGO_BUILD_JOBS = "{{ num_cpus() }}"
+
+# Enable faster linker on macOS (mold not available)
+# RUSTFLAGS = "-C link-arg=-fuse-ld=zld"
+
+[tasks.dev]
+description = "Start development server with auto-reload"
+run = "cargo watch -x 'run --bin infera-bin'"
+
+[tasks.test]
+description = "Run all tests"
+run = "cargo nextest run --workspace"
+
+[tasks.test-unit]
+description = "Run unit tests only"
+run = "cargo nextest run --lib --workspace"
+
+[tasks.test-integration]
+description = "Run integration tests"
+run = "cargo nextest run --test '*' --workspace"
+
+[tasks.bench]
+description = "Run benchmarks"
+run = "cargo bench --workspace"
+
+[tasks.check]
+description = "Run all checks (fmt, clippy, test)"
+run = [
+    "cargo fmt --check",
+    "cargo clippy --workspace --all-targets -- -D warnings",
+    "cargo test --workspace"
+]
+
+[tasks.fmt]
+description = "Format code"
+run = "cargo fmt --all"
+
+[tasks.lint]
+description = "Run clippy linter"
+run = "cargo clippy --workspace --all-targets -- -D warnings"
+
+[tasks.audit]
+description = "Audit dependencies for security vulnerabilities"
+run = "cargo audit"
+
+[tasks.deny]
+description = "Check dependencies against cargo-deny rules"
+run = "cargo deny check"
+
+[tasks.coverage]
+description = "Generate code coverage report"
+run = "cargo llvm-cov --workspace --html"
+
+[tasks.build-release]
+description = "Build optimized release binary"
+run = "cargo build --release --workspace"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "cargo clean"
+
+[tasks.doc]
+description = "Generate and open documentation"
+run = "cargo doc --workspace --open --no-deps"
+
+[tasks.expand]
+description = "Expand macros in specified file (usage: mise run expand -- path/to/file.rs)"
+run = "cargo expand"
+
+[tasks.outdated]
+description = "Check for outdated dependencies"
+run = "cargo outdated --workspace"
+
+[tasks.setup]
+description = "Setup development environment"
+run = [
+    "rustup component add rustfmt clippy rust-src rust-analyzer",
+    "cargo fetch"
+]
