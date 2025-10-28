@@ -605,10 +605,8 @@ impl Evaluator {
             }
 
             RelationExpr::Union(exprs) => {
-                let mut children = vec![];
-                for expr in exprs {
-                    children.push(self.build_userset_tree_with_users(object, expr, ctx).await?);
-                }
+                // Parallelize union branch expansion
+                let children = self.expand_branches_parallel(object, exprs, ctx).await?;
                 Ok(UsersetTree {
                     node_type: UsersetNodeType::Union,
                     children,
@@ -616,10 +614,8 @@ impl Evaluator {
             }
 
             RelationExpr::Intersection(exprs) => {
-                let mut children = vec![];
-                for expr in exprs {
-                    children.push(self.build_userset_tree_with_users(object, expr, ctx).await?);
-                }
+                // Parallelize intersection branch expansion
+                let children = self.expand_branches_parallel(object, exprs, ctx).await?;
                 Ok(UsersetTree {
                     node_type: UsersetNodeType::Intersection,
                     children,
@@ -627,12 +623,11 @@ impl Evaluator {
             }
 
             RelationExpr::Exclusion { base, subtract } => {
+                // Parallelize exclusion: evaluate base and subtract concurrently
+                let children = self.expand_branches_parallel(object, &[base.as_ref().clone(), subtract.as_ref().clone()], ctx).await?;
                 Ok(UsersetTree {
                     node_type: UsersetNodeType::Exclusion,
-                    children: vec![
-                        self.build_userset_tree_with_users(object, base, ctx).await?,
-                        self.build_userset_tree_with_users(object, subtract, ctx).await?,
-                    ],
+                    children,
                 })
             }
 
@@ -673,6 +668,45 @@ impl Evaluator {
                 }
             }
         }
+    }
+
+    /// Expand multiple branches in parallel
+    /// Creates a separate GraphContext for each branch to enable concurrent evaluation
+    async fn expand_branches_parallel(
+        &self,
+        object: &str,
+        exprs: &[crate::ipl::RelationExpr],
+        ctx: &GraphContext,
+    ) -> Result<Vec<UsersetTree>> {
+        use futures::future::join_all;
+
+        // Create tasks for parallel evaluation
+        let tasks: Vec<_> = exprs
+            .iter()
+            .map(|expr| {
+                // Clone context for each branch (Arc fields are cheap to clone)
+                let mut branch_ctx = GraphContext::new(
+                    Arc::clone(&ctx.schema),
+                    Arc::clone(&ctx.store),
+                    ctx.revision,
+                );
+                // Copy the visited set for cycle detection
+                branch_ctx.visited = ctx.visited.clone();
+
+                let object = object.to_string();
+                let expr = expr.clone();
+
+                async move {
+                    self.build_userset_tree_with_users(&object, &expr, &mut branch_ctx).await
+                }
+            })
+            .collect();
+
+        // Execute all branches concurrently
+        let results = join_all(tasks).await;
+
+        // Collect results or return first error
+        results.into_iter().collect()
     }
 
     /// Collect all users from a userset tree (with deduplication)
@@ -1554,6 +1588,95 @@ mod tests {
         // Verify tree structure is Exclusion with Leaf children
         assert!(matches!(response.tree.node_type, UsersetNodeType::Exclusion));
         assert_eq!(response.tree.children.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_expand_parallel_correctness() {
+        // Test that parallel expansion produces correct results with complex nested unions
+        let store = Arc::new(MemoryBackend::new());
+
+        // Create a schema with multiple parallel branches: admin | editor | viewer
+        let schema = Arc::new(Schema::new(vec![
+            TypeDef::new("doc".to_string(), vec![
+                RelationDef::new("admin".to_string(), None),
+                RelationDef::new("editor".to_string(), None),
+                RelationDef::new("viewer".to_string(), None),
+                RelationDef::new("contributor".to_string(), None),
+                RelationDef::new("any_access".to_string(), Some(RelationExpr::Union(vec![
+                    RelationExpr::RelationRef { relation: "admin".to_string() },
+                    RelationExpr::RelationRef { relation: "editor".to_string() },
+                    RelationExpr::RelationRef { relation: "viewer".to_string() },
+                    RelationExpr::RelationRef { relation: "contributor".to_string() },
+                ]))),
+            ]),
+        ]));
+
+        // Write users to different relations (some overlap intentionally)
+        store.write(vec![
+            // alice is admin
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "admin".to_string(),
+                user: "user:alice".to_string(),
+            },
+            // bob is editor
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "editor".to_string(),
+                user: "user:bob".to_string(),
+            },
+            // charlie is viewer
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                user: "user:charlie".to_string(),
+            },
+            // dave is contributor
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "contributor".to_string(),
+                user: "user:dave".to_string(),
+            },
+            // eve is both editor and viewer (test deduplication)
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "editor".to_string(),
+                user: "user:eve".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                user: "user:eve".to_string(),
+            },
+        ]).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
+            resource: "doc:readme".to_string(),
+            relation: "any_access".to_string(),
+        };
+
+        let response = evaluator.expand(request).await.unwrap();
+
+        // Should have 5 unique users (alice, bob, charlie, dave, eve - with eve deduplicated)
+        assert_eq!(response.users.len(), 5);
+        assert!(response.users.contains(&"user:alice".to_string()));
+        assert!(response.users.contains(&"user:bob".to_string()));
+        assert!(response.users.contains(&"user:charlie".to_string()));
+        assert!(response.users.contains(&"user:dave".to_string()));
+        assert!(response.users.contains(&"user:eve".to_string()));
+
+        // Verify tree structure is Union with 4 Leaf children
+        assert!(matches!(response.tree.node_type, UsersetNodeType::Union));
+        assert_eq!(response.tree.children.len(), 4);
+
+        // All children should be Leaf nodes (resolved RelationRefs)
+        for child in &response.tree.children {
+            assert!(matches!(child.node_type, UsersetNodeType::Leaf { .. }));
+        }
     }
 
     #[tokio::test]

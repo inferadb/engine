@@ -153,6 +153,8 @@ fn bench_expand(c: &mut Criterion) {
             let request = ExpandRequest {
                 resource: "doc:0".to_string(),
                 relation: "owner".to_string(),
+                limit: None,
+                continuation_token: None,
             };
 
             black_box(evaluator.expand(request).await.unwrap())
@@ -166,6 +168,123 @@ fn bench_expand(c: &mut Criterion) {
             let request = ExpandRequest {
                 resource: "doc:0".to_string(),
                 relation: "viewer".to_string(), // Complex union expression
+                limit: None,
+                continuation_token: None,
+            };
+
+            black_box(evaluator.expand(request).await.unwrap())
+        });
+    });
+}
+
+fn bench_parallel_expand(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    // Benchmark parallel expansion with multiple branches
+    c.bench_function("expand_parallel_4_branches", |b| {
+        let evaluator = rt.block_on(async {
+            let store = Arc::new(MemoryBackend::new());
+
+            // Create schema with 4 independent branches
+            let schema = Arc::new(Schema::new(vec![
+                TypeDef::new("doc".to_string(), vec![
+                    RelationDef::new("admin".to_string(), None),
+                    RelationDef::new("editor".to_string(), None),
+                    RelationDef::new("viewer".to_string(), None),
+                    RelationDef::new("contributor".to_string(), None),
+                    RelationDef::new("any_access".to_string(), Some(RelationExpr::Union(vec![
+                        RelationExpr::RelationRef { relation: "admin".to_string() },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
+                        RelationExpr::RelationRef { relation: "viewer".to_string() },
+                        RelationExpr::RelationRef { relation: "contributor".to_string() },
+                    ]))),
+                ]),
+            ]));
+
+            // Create 100 users distributed across the 4 branches
+            let mut tuples = Vec::new();
+            for i in 0..100 {
+                let relation = match i % 4 {
+                    0 => "admin",
+                    1 => "editor",
+                    2 => "viewer",
+                    _ => "contributor",
+                };
+                tuples.push(Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: relation.to_string(),
+                    user: format!("user:{}", i),
+                });
+            }
+            store.write(tuples).await.unwrap();
+
+            Evaluator::new(store, schema, None)
+        });
+
+        b.to_async(&rt).iter(|| async {
+            let request = ExpandRequest {
+                resource: "doc:readme".to_string(),
+                relation: "any_access".to_string(),
+                limit: None,
+                continuation_token: None,
+            };
+
+            black_box(evaluator.expand(request).await.unwrap())
+        });
+    });
+
+    // Benchmark parallel expansion with nested intersections
+    c.bench_function("expand_parallel_intersection", |b| {
+        let evaluator = rt.block_on(async {
+            let store = Arc::new(MemoryBackend::new());
+
+            let schema = Arc::new(Schema::new(vec![
+                TypeDef::new("doc".to_string(), vec![
+                    RelationDef::new("group_a".to_string(), None),
+                    RelationDef::new("group_b".to_string(), None),
+                    RelationDef::new("group_c".to_string(), None),
+                    RelationDef::new("all_groups".to_string(), Some(RelationExpr::Intersection(vec![
+                        RelationExpr::RelationRef { relation: "group_a".to_string() },
+                        RelationExpr::RelationRef { relation: "group_b".to_string() },
+                        RelationExpr::RelationRef { relation: "group_c".to_string() },
+                    ]))),
+                ]),
+            ]));
+
+            // Create overlapping user sets
+            let mut tuples = Vec::new();
+            for i in 0..50 {
+                tuples.push(Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "group_a".to_string(),
+                    user: format!("user:{}", i),
+                });
+                if i < 30 {
+                    tuples.push(Tuple {
+                        object: "doc:readme".to_string(),
+                        relation: "group_b".to_string(),
+                        user: format!("user:{}", i),
+                    });
+                }
+                if i < 20 {
+                    tuples.push(Tuple {
+                        object: "doc:readme".to_string(),
+                        relation: "group_c".to_string(),
+                        user: format!("user:{}", i),
+                    });
+                }
+            }
+            store.write(tuples).await.unwrap();
+
+            Evaluator::new(store, schema, None)
+        });
+
+        b.to_async(&rt).iter(|| async {
+            let request = ExpandRequest {
+                resource: "doc:readme".to_string(),
+                relation: "all_groups".to_string(),
+                limit: None,
+                continuation_token: None,
             };
 
             black_box(evaluator.expand(request).await.unwrap())
@@ -198,6 +317,7 @@ criterion_group!(
     bench_union_check,
     bench_complex_check,
     bench_expand,
+    bench_parallel_expand,
     bench_large_scale
 );
 criterion_main!(benches);
