@@ -23,6 +23,23 @@ pub enum Decision {
 pub struct ExpandRequest {
     pub resource: String,
     pub relation: String,
+    /// Optional limit on number of users to return (default: no limit)
+    pub limit: Option<usize>,
+    /// Optional continuation token from previous request
+    pub continuation_token: Option<String>,
+}
+
+/// Response from an expand operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpandResponse {
+    /// The userset tree showing the structure
+    pub tree: UsersetTree,
+    /// All users in the expanded set (deduplicated)
+    pub users: Vec<String>,
+    /// Continuation token for paginated results (if more results available)
+    pub continuation_token: Option<String>,
+    /// Total number of users (may be approximate if paginated)
+    pub total_count: Option<usize>,
 }
 
 /// A tree representing the expanded userset

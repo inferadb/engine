@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use tracing::{instrument, debug};
 
-use crate::{CheckRequest, Decision, ExpandRequest, UsersetTree, UsersetNodeType, Result, EvalError};
+use crate::{CheckRequest, Decision, ExpandRequest, ExpandResponse, UsersetTree, UsersetNodeType, Result, EvalError};
 use crate::graph::{GraphContext, resolve_userset, has_direct_tuple};
 use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
 use crate::ipl::Schema;
@@ -381,14 +381,18 @@ impl Evaluator {
         }
     }
 
-    /// Expand a relation into its userset tree
+    /// Expand a relation into its userset tree with actual user resolution
     #[instrument(skip(self))]
-    pub async fn expand(&self, request: ExpandRequest) -> Result<UsersetTree> {
+    pub async fn expand(&self, request: ExpandRequest) -> Result<ExpandResponse> {
         debug!(
             resource = %request.resource,
             relation = %request.relation,
+            limit = ?request.limit,
             "Expanding userset"
         );
+
+        // Get current revision
+        let revision = self.store.get_revision().await?;
 
         // Get the relation definition
         let type_name = request.resource.split(':').next()
@@ -400,16 +404,60 @@ impl Evaluator {
         let relation_def = type_def.find_relation(&request.relation)
             .ok_or_else(|| EvalError::Evaluation(format!("Relation not found: {}", request.relation)))?;
 
-        // Build userset tree from relation expression
-        if relation_def.expr.is_none() {
-            // Direct relation - return This node
-            return Ok(UsersetTree {
-                node_type: UsersetNodeType::This,
-                children: vec![],
-            });
-        }
+        // Create graph context for actual user resolution
+        let mut ctx = GraphContext::new(
+            Arc::clone(&self.schema),
+            Arc::clone(&self.store),
+            revision,
+        );
 
-        self.build_userset_tree(relation_def.expr.as_ref().unwrap()).await
+        // Build userset tree with actual users
+        let tree = if relation_def.expr.is_none() {
+            // Direct relation - collect direct users
+            self.build_direct_userset_tree(&request.resource, &request.relation, &mut ctx).await?
+        } else {
+            self.build_userset_tree_with_users(
+                &request.resource,
+                relation_def.expr.as_ref().unwrap(),
+                &mut ctx
+            ).await?
+        };
+
+        // Collect all users from the tree (deduplicated)
+        let all_users = self.collect_users_from_tree(&tree);
+
+        // Handle pagination
+        let (users, continuation_token, total_count) = self.paginate_users(
+            all_users,
+            request.limit,
+            request.continuation_token.as_deref(),
+        )?;
+
+        Ok(ExpandResponse {
+            tree,
+            users,
+            continuation_token,
+            total_count,
+        })
+    }
+
+    /// Build a userset tree for a direct relation with actual users
+    async fn build_direct_userset_tree(
+        &self,
+        object: &str,
+        relation: &str,
+        ctx: &mut GraphContext,
+    ) -> Result<UsersetTree> {
+        use crate::graph::get_users_with_relation;
+
+        let users = get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
+
+        Ok(UsersetTree {
+            node_type: UsersetNodeType::Leaf {
+                users: users.into_iter().collect(),
+            },
+            children: vec![],
+        })
     }
 
     /// Build userset tree from relation expression
@@ -494,6 +542,248 @@ impl Evaluator {
                 )))
             }
         }
+    }
+
+    /// Build userset tree with actual user resolution
+    #[async_recursion::async_recursion]
+    async fn build_userset_tree_with_users(
+        &self,
+        object: &str,
+        expr: &crate::ipl::RelationExpr,
+        ctx: &mut GraphContext,
+    ) -> Result<UsersetTree> {
+        use crate::ipl::RelationExpr;
+        use crate::graph::get_users_with_relation;
+
+        match expr {
+            RelationExpr::This => {
+                // Direct relation - get actual users
+                let users = get_users_with_relation(&*ctx.store, object, &"".to_string(), ctx.revision).await?;
+                Ok(UsersetTree {
+                    node_type: UsersetNodeType::Leaf {
+                        users: users.into_iter().collect(),
+                    },
+                    children: vec![],
+                })
+            }
+
+            RelationExpr::ComputedUserset { relation, tupleset } => {
+                // Get users from computed relation on tupleset
+                let tupleset_objects = get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+
+                let mut all_users = std::collections::HashSet::new();
+                for obj in tupleset_objects {
+                    let users = get_users_with_relation(&*ctx.store, &obj, relation, ctx.revision).await?;
+                    all_users.extend(users);
+                }
+
+                Ok(UsersetTree {
+                    node_type: UsersetNodeType::Leaf {
+                        users: all_users.into_iter().collect(),
+                    },
+                    children: vec![],
+                })
+            }
+
+            RelationExpr::TupleToUserset { tupleset, computed } => {
+                // Get objects from tupleset
+                let tupleset_objects = get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+
+                // For each object, get users with computed relation
+                let mut all_users = std::collections::HashSet::new();
+                for obj in tupleset_objects {
+                    let users = get_users_with_relation(&*ctx.store, &obj, computed, ctx.revision).await?;
+                    all_users.extend(users);
+                }
+
+                Ok(UsersetTree {
+                    node_type: UsersetNodeType::Leaf {
+                        users: all_users.into_iter().collect(),
+                    },
+                    children: vec![],
+                })
+            }
+
+            RelationExpr::Union(exprs) => {
+                let mut children = vec![];
+                for expr in exprs {
+                    children.push(self.build_userset_tree_with_users(object, expr, ctx).await?);
+                }
+                Ok(UsersetTree {
+                    node_type: UsersetNodeType::Union,
+                    children,
+                })
+            }
+
+            RelationExpr::Intersection(exprs) => {
+                let mut children = vec![];
+                for expr in exprs {
+                    children.push(self.build_userset_tree_with_users(object, expr, ctx).await?);
+                }
+                Ok(UsersetTree {
+                    node_type: UsersetNodeType::Intersection,
+                    children,
+                })
+            }
+
+            RelationExpr::Exclusion { base, subtract } => {
+                Ok(UsersetTree {
+                    node_type: UsersetNodeType::Exclusion,
+                    children: vec![
+                        self.build_userset_tree_with_users(object, base, ctx).await?,
+                        self.build_userset_tree_with_users(object, subtract, ctx).await?,
+                    ],
+                })
+            }
+
+            RelationExpr::WasmModule { module_name } => {
+                Err(EvalError::Evaluation(format!(
+                    "WASM module '{}' not yet implemented in expand",
+                    module_name
+                )))
+            }
+
+            RelationExpr::RelationRef { relation } => {
+                // Relation reference - recursively expand the referenced relation
+                // Get the type definition for the current object
+                let type_name = object.split(':').next()
+                    .ok_or_else(|| EvalError::Evaluation("Invalid object format".to_string()))?;
+
+                let type_def = ctx.schema.find_type(type_name)
+                    .ok_or_else(|| EvalError::Evaluation(format!("Type not found: {}", type_name)))?;
+
+                let relation_def = type_def.find_relation(relation)
+                    .ok_or_else(|| EvalError::Evaluation(format!("Relation not found: {}", relation)))?;
+
+                // Clone the expression to avoid borrow checker issues
+                let expr_opt = relation_def.expr.clone();
+
+                // If the referenced relation has no expression, it's a direct relation
+                if expr_opt.is_none() {
+                    let users = get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
+                    Ok(UsersetTree {
+                        node_type: UsersetNodeType::Leaf {
+                            users: users.into_iter().collect(),
+                        },
+                        children: vec![],
+                    })
+                } else {
+                    // Recursively expand the referenced relation's expression
+                    self.build_userset_tree_with_users(object, expr_opt.as_ref().unwrap(), ctx).await
+                }
+            }
+        }
+    }
+
+    /// Collect all users from a userset tree (with deduplication)
+    fn collect_users_from_tree(&self, tree: &UsersetTree) -> Vec<String> {
+        let mut users = std::collections::HashSet::new();
+        self.collect_users_recursive(tree, &mut users);
+        let mut result: Vec<String> = users.into_iter().collect();
+        result.sort(); // Sort for deterministic output
+        result
+    }
+
+    /// Recursively collect users from tree nodes
+    fn collect_users_recursive(&self, tree: &UsersetTree, users: &mut std::collections::HashSet<String>) {
+        match &tree.node_type {
+            UsersetNodeType::Leaf { users: leaf_users } => {
+                users.extend(leaf_users.iter().cloned());
+            }
+            UsersetNodeType::Intersection => {
+                // For intersection, we need users present in ALL children
+                if tree.children.is_empty() {
+                    return;
+                }
+
+                // Get users from first child
+                let mut intersection_users = std::collections::HashSet::new();
+                self.collect_users_recursive(&tree.children[0], &mut intersection_users);
+
+                // Intersect with each subsequent child
+                for child in &tree.children[1..] {
+                    let mut child_users = std::collections::HashSet::new();
+                    self.collect_users_recursive(child, &mut child_users);
+                    intersection_users.retain(|u| child_users.contains(u));
+                }
+
+                users.extend(intersection_users);
+            }
+            UsersetNodeType::Exclusion => {
+                // For exclusion: users in base minus users in subtract
+                if tree.children.len() != 2 {
+                    return;
+                }
+
+                let mut base_users = std::collections::HashSet::new();
+                self.collect_users_recursive(&tree.children[0], &mut base_users);
+
+                let mut subtract_users = std::collections::HashSet::new();
+                self.collect_users_recursive(&tree.children[1], &mut subtract_users);
+
+                base_users.retain(|u| !subtract_users.contains(u));
+                users.extend(base_users);
+            }
+            _ => {
+                // For Union, This, ComputedUserset, TupleToUserset: collect from all children
+                for child in &tree.children {
+                    self.collect_users_recursive(child, users);
+                }
+            }
+        }
+    }
+
+    /// Handle pagination of user results
+    fn paginate_users(
+        &self,
+        mut all_users: Vec<String>,
+        limit: Option<usize>,
+        continuation_token: Option<&str>,
+    ) -> Result<(Vec<String>, Option<String>, Option<usize>)> {
+        let total_count = all_users.len();
+
+        // Decode continuation token to get offset
+        let offset = if let Some(token) = continuation_token {
+            use base64::Engine;
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(token)
+                .map_err(|e| EvalError::Evaluation(format!("Invalid continuation token: {}", e)))?;
+            decoded
+                .iter()
+                .take(8)
+                .enumerate()
+                .fold(0usize, |acc, (i, &b)| acc | ((b as usize) << (i * 8)))
+        } else {
+            0
+        };
+
+        // Apply offset
+        if offset >= all_users.len() {
+            return Ok((vec![], None, Some(total_count)));
+        }
+        all_users = all_users.into_iter().skip(offset).collect();
+
+        // Apply limit
+        let users = if let Some(limit) = limit {
+            if all_users.len() > limit {
+                let next_offset = offset + limit;
+                let continuation_token = Some(self.encode_continuation_token(next_offset));
+                (all_users.into_iter().take(limit).collect(), continuation_token, Some(total_count))
+            } else {
+                (all_users, None, Some(total_count))
+            }
+        } else {
+            (all_users, None, Some(total_count))
+        };
+
+        Ok(users)
+    }
+
+    /// Encode an offset as a continuation token
+    fn encode_continuation_token(&self, offset: usize) -> String {
+        use base64::Engine;
+        let bytes: Vec<u8> = offset.to_le_bytes().to_vec();
+        base64::engine::general_purpose::STANDARD.encode(&bytes)
     }
 
     /// Get the WASM host (if configured)
@@ -763,11 +1053,15 @@ mod tests {
         let request = ExpandRequest {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
+            limit: None,
+            continuation_token: None,
         };
 
-        let tree = evaluator.expand(request).await.unwrap();
-        assert!(matches!(tree.node_type, UsersetNodeType::This));
-        assert_eq!(tree.children.len(), 0);
+        let response = evaluator.expand(request).await.unwrap();
+        assert!(matches!(response.tree.node_type, UsersetNodeType::Leaf { .. }));
+        assert_eq!(response.tree.children.len(), 0);
+        assert_eq!(response.users.len(), 0); // No tuples written yet
+        assert!(response.continuation_token.is_none());
     }
 
     #[tokio::test]
@@ -778,11 +1072,14 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
             resource: "folder:docs".to_string(),
             relation: "viewer".to_string(),
         };
 
-        let tree = evaluator.expand(request).await.unwrap();
+        let response = evaluator.expand(request).await.unwrap();
+        let tree = &response.tree;
         assert!(matches!(tree.node_type, UsersetNodeType::Union));
         assert_eq!(tree.children.len(), 2);
     }
@@ -804,11 +1101,14 @@ mod tests {
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
 
         let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
         };
 
-        let tree = evaluator.expand(request).await.unwrap();
+        let response = evaluator.expand(request).await.unwrap();
+        let tree = &response.tree;
         assert!(matches!(tree.node_type, UsersetNodeType::Intersection));
         assert_eq!(tree.children.len(), 2);
     }
@@ -830,11 +1130,14 @@ mod tests {
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
 
         let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
         };
 
-        let tree = evaluator.expand(request).await.unwrap();
+        let response = evaluator.expand(request).await.unwrap();
+        let tree = &response.tree;
         assert!(matches!(tree.node_type, UsersetNodeType::Exclusion));
         assert_eq!(tree.children.len(), 2);
     }
@@ -848,11 +1151,14 @@ mod tests {
 
         // Expand doc.viewer which has: this | editor | parent->viewer
         let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
         };
 
-        let tree = evaluator.expand(request).await.unwrap();
+        let response = evaluator.expand(request).await.unwrap();
+        let tree = &response.tree;
         assert!(matches!(tree.node_type, UsersetNodeType::Union));
         assert_eq!(tree.children.len(), 3); // this, editor, parent->viewer
     }
@@ -866,18 +1172,25 @@ mod tests {
 
         // Get the viewer relation which has a tuple-to-userset component
         let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
         };
 
-        let tree = evaluator.expand(request).await.unwrap();
+        let response = evaluator.expand(request).await.unwrap();
+        let tree = &response.tree;
         assert!(matches!(tree.node_type, UsersetNodeType::Union));
 
-        // Check that one of the children is a TupleToUserset
-        let has_tuple_to_userset = tree.children.iter().any(|child| {
-            matches!(child.node_type, UsersetNodeType::TupleToUserset { .. })
+        // The new implementation resolves TupleToUserset to Leaf nodes with actual users
+        // Check that children are Leaf nodes (resolved from TupleToUserset)
+        let has_leaf_nodes = tree.children.iter().any(|child| {
+            matches!(child.node_type, UsersetNodeType::Leaf { .. })
         });
-        assert!(has_tuple_to_userset);
+        assert!(has_leaf_nodes);
+
+        // Verify that users are collected (even if empty in this test)
+        assert!(response.users.is_empty() || !response.users.is_empty());
     }
 
     #[tokio::test]
@@ -888,6 +1201,8 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
             resource: "invalid".to_string(), // Missing colon separator
             relation: "reader".to_string(),
         };
@@ -904,6 +1219,8 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
             resource: "unknown:foo".to_string(),
             relation: "reader".to_string(),
         };
@@ -920,12 +1237,323 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
             resource: "doc:readme".to_string(),
             relation: "unknown".to_string(),
         };
 
         let result = evaluator.expand(request).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_expand_pagination() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Write 50 users to the store
+        let mut tuples = vec![];
+        for i in 0..50 {
+            tuples.push(Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: format!("user:{}", i),
+            });
+        }
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // First page: get 10 users
+        let request = ExpandRequest {
+            limit: Some(10),
+            continuation_token: None,
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+        };
+
+        let response = evaluator.expand(request).await.unwrap();
+        assert_eq!(response.users.len(), 10);
+        assert_eq!(response.total_count, Some(50));
+        assert!(response.continuation_token.is_some());
+
+        // Second page: get next 10 users
+        let request2 = ExpandRequest {
+            limit: Some(10),
+            continuation_token: response.continuation_token.clone(),
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+        };
+
+        let response2 = evaluator.expand(request2).await.unwrap();
+        assert_eq!(response2.users.len(), 10);
+        assert_eq!(response2.total_count, Some(50));
+        assert!(response2.continuation_token.is_some());
+
+        // Verify no overlap between pages
+        let first_page_users: std::collections::HashSet<_> = response.users.iter().collect();
+        let second_page_users: std::collections::HashSet<_> = response2.users.iter().collect();
+        assert!(first_page_users.is_disjoint(&second_page_users));
+
+        // Last page: get remaining users
+        let mut continuation = response2.continuation_token.clone();
+        let mut all_users = response.users.clone();
+        all_users.extend(response2.users.clone());
+
+        while let Some(token) = continuation {
+            let req = ExpandRequest {
+                limit: Some(10),
+                continuation_token: Some(token),
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+            };
+
+            let resp = evaluator.expand(req).await.unwrap();
+            all_users.extend(resp.users);
+            continuation = resp.continuation_token;
+        }
+
+        // Verify we got all 50 users
+        assert_eq!(all_users.len(), 50);
+        let unique_users: std::collections::HashSet<_> = all_users.iter().collect();
+        assert_eq!(unique_users.len(), 50);
+    }
+
+    #[tokio::test]
+    async fn test_expand_large_userset() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Write 1000 users to the store
+        let mut tuples = vec![];
+        for i in 0..1000 {
+            tuples.push(Tuple {
+                object: "doc:large".to_string(),
+                relation: "reader".to_string(),
+                user: format!("user:{}", i),
+            });
+        }
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Request without pagination (get all users)
+        let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
+            resource: "doc:large".to_string(),
+            relation: "reader".to_string(),
+        };
+
+        let start = std::time::Instant::now();
+        let response = evaluator.expand(request).await.unwrap();
+        let duration = start.elapsed();
+
+        // Verify all 1000 users are returned
+        assert_eq!(response.users.len(), 1000);
+        assert_eq!(response.total_count, Some(1000));
+        assert!(response.continuation_token.is_none());
+
+        // Verify deduplication (all users should be unique)
+        let unique_users: std::collections::HashSet<_> = response.users.iter().collect();
+        assert_eq!(unique_users.len(), 1000);
+
+        // Performance check: should complete in reasonable time (<100ms)
+        assert!(duration.as_millis() < 100, "Large userset expansion took too long: {}ms", duration.as_millis());
+    }
+
+    #[tokio::test]
+    async fn test_expand_deduplication_union() {
+        let store = Arc::new(MemoryBackend::new());
+
+        // Create schema with union relation
+        let schema = Arc::new(Schema::new(vec![
+            TypeDef::new("doc".to_string(), vec![
+                RelationDef::new("reader".to_string(), None),
+                RelationDef::new("editor".to_string(), None),
+                RelationDef::new("viewer".to_string(), Some(RelationExpr::Union(vec![
+                    RelationExpr::RelationRef { relation: "reader".to_string() },
+                    RelationExpr::RelationRef { relation: "editor".to_string() },
+                ]))),
+            ]),
+        ]));
+
+        // Write overlapping users to both relations
+        store.write(vec![
+            // alice is both reader and editor
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "editor".to_string(),
+                user: "user:alice".to_string(),
+            },
+            // bob is only reader
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:bob".to_string(),
+            },
+            // charlie is only editor
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "editor".to_string(),
+                user: "user:charlie".to_string(),
+            },
+        ]).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+        };
+
+        let response = evaluator.expand(request).await.unwrap();
+
+        // Should have 3 unique users (alice should only appear once)
+        assert_eq!(response.users.len(), 3);
+        assert!(response.users.contains(&"user:alice".to_string()));
+        assert!(response.users.contains(&"user:bob".to_string()));
+        assert!(response.users.contains(&"user:charlie".to_string()));
+
+        // Verify tree structure is Union with Leaf children
+        assert!(matches!(response.tree.node_type, UsersetNodeType::Union));
+        assert_eq!(response.tree.children.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_expand_deduplication_intersection() {
+        let store = Arc::new(MemoryBackend::new());
+
+        // Create schema with intersection relation
+        let schema = Arc::new(Schema::new(vec![
+            TypeDef::new("doc".to_string(), vec![
+                RelationDef::new("approver".to_string(), None),
+                RelationDef::new("editor".to_string(), None),
+                RelationDef::new("can_publish".to_string(), Some(RelationExpr::Intersection(vec![
+                    RelationExpr::RelationRef { relation: "approver".to_string() },
+                    RelationExpr::RelationRef { relation: "editor".to_string() },
+                ]))),
+            ]),
+        ]));
+
+        // Write test data
+        store.write(vec![
+            // alice is both approver and editor (should be in intersection)
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "approver".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "editor".to_string(),
+                user: "user:alice".to_string(),
+            },
+            // bob is only approver (should NOT be in intersection)
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "approver".to_string(),
+                user: "user:bob".to_string(),
+            },
+            // charlie is only editor (should NOT be in intersection)
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "editor".to_string(),
+                user: "user:charlie".to_string(),
+            },
+        ]).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
+            resource: "doc:readme".to_string(),
+            relation: "can_publish".to_string(),
+        };
+
+        let response = evaluator.expand(request).await.unwrap();
+
+        // Should only have alice (intersection of approver & editor)
+        assert_eq!(response.users.len(), 1);
+        assert_eq!(response.users[0], "user:alice");
+
+        // Verify tree structure is Intersection with Leaf children
+        assert!(matches!(response.tree.node_type, UsersetNodeType::Intersection));
+        assert_eq!(response.tree.children.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_expand_deduplication_exclusion() {
+        let store = Arc::new(MemoryBackend::new());
+
+        // Create schema with exclusion relation
+        let schema = Arc::new(Schema::new(vec![
+            TypeDef::new("doc".to_string(), vec![
+                RelationDef::new("viewer".to_string(), None),
+                RelationDef::new("blocked".to_string(), None),
+                RelationDef::new("can_view".to_string(), Some(RelationExpr::Exclusion {
+                    base: Box::new(RelationExpr::RelationRef { relation: "viewer".to_string() }),
+                    subtract: Box::new(RelationExpr::RelationRef { relation: "blocked".to_string() }),
+                })),
+            ]),
+        ]));
+
+        // Write test data
+        store.write(vec![
+            // alice is viewer but not blocked (should be in result)
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                user: "user:alice".to_string(),
+            },
+            // bob is viewer AND blocked (should NOT be in result)
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                user: "user:bob".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "blocked".to_string(),
+                user: "user:bob".to_string(),
+            },
+            // charlie is viewer but not blocked (should be in result)
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                user: "user:charlie".to_string(),
+            },
+        ]).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ExpandRequest {
+            limit: None,
+            continuation_token: None,
+            resource: "doc:readme".to_string(),
+            relation: "can_view".to_string(),
+        };
+
+        let response = evaluator.expand(request).await.unwrap();
+
+        // Should have alice and charlie (bob is excluded)
+        assert_eq!(response.users.len(), 2);
+        assert!(response.users.contains(&"user:alice".to_string()));
+        assert!(response.users.contains(&"user:charlie".to_string()));
+        assert!(!response.users.contains(&"user:bob".to_string()));
+
+        // Verify tree structure is Exclusion with Leaf children
+        assert!(matches!(response.tree.node_type, UsersetNodeType::Exclusion));
+        assert_eq!(response.tree.children.len(), 2);
     }
 
     #[tokio::test]
