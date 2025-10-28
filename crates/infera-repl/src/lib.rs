@@ -5,6 +5,11 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod token;
+pub mod snapshot;
+
+pub use token::RevisionToken;
+
 #[derive(Debug, Error)]
 pub enum ReplError {
     #[error("Conflict detected")]
@@ -15,42 +20,12 @@ pub enum ReplError {
 
     #[error("Replication error: {0}")]
     Replication(String),
+
+    #[error("Store error: {0}")]
+    Store(#[from] infera_store::StoreError),
 }
 
 pub type Result<T> = std::result::Result<T, ReplError>;
-
-/// A zookie-style revision token for snapshot consistency
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RevisionToken {
-    pub node_id: String,
-    pub revision: u64,
-    pub vector_clock: Vec<(String, u64)>,
-}
-
-impl RevisionToken {
-    pub fn new(node_id: String, revision: u64) -> Self {
-        Self {
-            node_id: node_id.clone(),
-            revision,
-            vector_clock: vec![(node_id, revision)],
-        }
-    }
-
-    /// Check if this token is causally after another
-    pub fn is_after(&self, other: &RevisionToken) -> bool {
-        for (node, clock) in &other.vector_clock {
-            let our_clock = self.vector_clock.iter()
-                .find(|(n, _)| n == node)
-                .map(|(_, c)| c)
-                .unwrap_or(&0);
-
-            if our_clock < clock {
-                return false;
-            }
-        }
-        true
-    }
-}
 
 /// Change feed for replication
 pub struct ChangeFeed {
@@ -96,18 +71,4 @@ pub enum Operation {
 /// Stream of changes
 pub struct ChangeStream {
     // TODO: Implement
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_revision_token_causality() {
-        let token1 = RevisionToken::new("node1".to_string(), 1);
-        let token2 = RevisionToken::new("node1".to_string(), 2);
-
-        assert!(!token1.is_after(&token2));
-        assert!(token2.is_after(&token1));
-    }
 }
