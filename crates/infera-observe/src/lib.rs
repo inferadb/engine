@@ -14,6 +14,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 pub mod span_utils;
 pub mod metrics;
+pub mod logging;
 
 /// Configuration for OpenTelemetry tracing
 #[derive(Debug, Clone)]
