@@ -1,44 +1,16 @@
 //! IPL (Infera Policy Language) parser and interpreter
 
-use crate::{EvalError, Result};
+pub mod ast;
+pub mod parser;
 
-/// Parse IPL policy definition
-pub fn parse_policy(source: &str) -> Result<Policy> {
-    // TODO: Implement pest-based parser
-    // For now, return a placeholder
-    Err(EvalError::Parse("Not yet implemented".to_string()))
-}
+// Re-export main types
+pub use ast::{RelationDef, RelationExpr, Schema, TypeDef};
+pub use parser::parse_schema;
 
-/// A parsed policy definition
-#[derive(Debug, Clone)]
-pub struct Policy {
-    pub name: String,
-    pub relations: Vec<Relation>,
-}
+use crate::Result;
 
-#[derive(Debug, Clone)]
-pub struct Relation {
-    pub name: String,
-    pub definition: RelationDefinition,
-}
-
-#[derive(Debug, Clone)]
-pub enum RelationDefinition {
-    This,
-    ComputedUserset { relation: String },
-    TupleToUserset { tupleset: String, computed: String },
-    Union(Vec<RelationDefinition>),
-    Intersection(Vec<RelationDefinition>),
-    Exclusion { base: Box<RelationDefinition>, subtract: Box<RelationDefinition> },
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parser_placeholder() {
-        let result = parse_policy("type document");
-        assert!(result.is_err());
-    }
+/// Parse IPL policy definition (alias for parse_schema)
+#[deprecated(note = "Use parse_schema instead")]
+pub fn parse_policy(source: &str) -> Result<Schema> {
+    parse_schema(source)
 }

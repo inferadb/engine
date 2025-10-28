@@ -1,0 +1,64 @@
+// IPL (Infera Policy Language) Grammar
+// Defines authorization schemas with types and relations
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+
+// Identifiers
+ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+// Schema is a collection of type definitions
+schema = { SOI ~ type_def* ~ EOI }
+
+// Type definition: type <name> { ... }
+type_def = {
+    "type" ~ ident ~ "{" ~ relation_def* ~ "}"
+}
+
+// Relation definition: relation <name>: <expr>
+relation_def = {
+    "relation" ~ ident ~ (":" ~ relation_expr)?
+}
+
+// Relation expressions
+relation_expr = { union_expr }
+
+union_expr = { intersection_expr ~ ("|" ~ intersection_expr)* }
+
+intersection_expr = { exclusion_expr ~ ("&" ~ exclusion_expr)* }
+
+exclusion_expr = { primary_expr ~ ("-" ~ primary_expr)? }
+
+primary_expr = {
+    "(" ~ relation_expr ~ ")" |
+    computed_userset |
+    tuple_to_userset |
+    wasm_module |
+    this_ref |
+    relation_ref
+}
+
+// this: direct tuples for this relation
+this_ref = { "this" }
+
+// Relation reference: just an identifier referring to another relation
+relation_ref = { ident }
+
+// Computed userset: <relation> from <tupleset_relation>
+computed_userset = {
+    ident ~ "from" ~ ident
+}
+
+// Tuple to userset: <tupleset_relation>-><computed_relation>
+tuple_to_userset = {
+    ident ~ "->" ~ ident
+}
+
+// WASM module invocation: module(<module_name>)
+wasm_module = {
+    "module" ~ "(" ~ string ~ ")"
+}
+
+// String literal
+string = @{ "\"" ~ inner_string ~ "\"" }
+inner_string = @{ (!("\"") ~ ANY)* }
