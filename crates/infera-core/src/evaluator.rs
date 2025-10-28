@@ -669,6 +669,147 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_expand_intersection() {
+        let schema = Schema::new(vec![
+            TypeDef::new("doc".to_string(), vec![
+                RelationDef::new("reader".to_string(), None),
+                RelationDef::new("employee".to_string(), None),
+                RelationDef::new("viewer".to_string(), Some(RelationExpr::Intersection(vec![
+                    RelationExpr::RelationRef { relation: "reader".to_string() },
+                    RelationExpr::RelationRef { relation: "employee".to_string() },
+                ]))),
+            ]),
+        ]);
+
+        let store = Arc::new(MemoryBackend::new());
+        let evaluator = Evaluator::new(store, Arc::new(schema), None);
+
+        let request = ExpandRequest {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+        };
+
+        let tree = evaluator.expand(request).await.unwrap();
+        assert!(matches!(tree.node_type, UsersetNodeType::Intersection));
+        assert_eq!(tree.children.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_expand_exclusion() {
+        let schema = Schema::new(vec![
+            TypeDef::new("doc".to_string(), vec![
+                RelationDef::new("editor".to_string(), None),
+                RelationDef::new("blocked".to_string(), None),
+                RelationDef::new("viewer".to_string(), Some(RelationExpr::Exclusion {
+                    base: Box::new(RelationExpr::RelationRef { relation: "editor".to_string() }),
+                    subtract: Box::new(RelationExpr::RelationRef { relation: "blocked".to_string() }),
+                })),
+            ]),
+        ]);
+
+        let store = Arc::new(MemoryBackend::new());
+        let evaluator = Evaluator::new(store, Arc::new(schema), None);
+
+        let request = ExpandRequest {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+        };
+
+        let tree = evaluator.expand(request).await.unwrap();
+        assert!(matches!(tree.node_type, UsersetNodeType::Exclusion));
+        assert_eq!(tree.children.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_expand_nested() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Expand doc.viewer which has: this | editor | parent->viewer
+        let request = ExpandRequest {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+        };
+
+        let tree = evaluator.expand(request).await.unwrap();
+        assert!(matches!(tree.node_type, UsersetNodeType::Union));
+        assert_eq!(tree.children.len(), 3); // this, editor, parent->viewer
+    }
+
+    #[tokio::test]
+    async fn test_expand_tuple_to_userset() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Get the viewer relation which has a tuple-to-userset component
+        let request = ExpandRequest {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+        };
+
+        let tree = evaluator.expand(request).await.unwrap();
+        assert!(matches!(tree.node_type, UsersetNodeType::Union));
+
+        // Check that one of the children is a TupleToUserset
+        let has_tuple_to_userset = tree.children.iter().any(|child| {
+            matches!(child.node_type, UsersetNodeType::TupleToUserset { .. })
+        });
+        assert!(has_tuple_to_userset);
+    }
+
+    #[tokio::test]
+    async fn test_expand_invalid_resource() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ExpandRequest {
+            resource: "invalid".to_string(), // Missing colon separator
+            relation: "reader".to_string(),
+        };
+
+        let result = evaluator.expand(request).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_expand_unknown_type() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ExpandRequest {
+            resource: "unknown:foo".to_string(),
+            relation: "reader".to_string(),
+        };
+
+        let result = evaluator.expand(request).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_expand_unknown_relation() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ExpandRequest {
+            resource: "doc:readme".to_string(),
+            relation: "unknown".to_string(),
+        };
+
+        let result = evaluator.expand(request).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
     async fn test_exclusion_check() {
         let schema = Schema::new(vec![
             TypeDef::new("doc".to_string(), vec![
