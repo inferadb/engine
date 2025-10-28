@@ -24,6 +24,7 @@ homepage = "https://inferadb.com"
 # Core async runtime
 tokio = { version = "1.41", features = ["full"] }
 async-trait = "0.1"
+async-recursion = "1.0"
 futures = "0.3"
 
 # Error handling

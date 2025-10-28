@@ -3,15 +3,12 @@
 //! Core reasoning and policy evaluation engine for InferaDB.
 //! Handles IPL parsing, relationship graph traversal, and decision evaluation.
 
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use infera_store::{TupleStore, Revision};
-use infera_wasm::WasmHost;
 use thiserror::Error;
 
 pub mod evaluator;
+pub mod graph;
 pub mod ipl;
+pub mod trace;
 pub mod types;
 
 pub use evaluator::Evaluator;
@@ -39,8 +36,6 @@ pub type Result<T> = std::result::Result<T, EvalError>;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_core_module() {
         // Placeholder test

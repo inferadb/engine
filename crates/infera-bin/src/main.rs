@@ -7,8 +7,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 
-use infera_config::{Config, load_or_default};
+use infera_config::load_or_default;
 use infera_core::Evaluator;
+use infera_core::ipl::Schema;
 use infera_observe;
 use infera_store::MemoryBackend;
 use infera_wasm::WasmHost;
@@ -59,8 +60,12 @@ async fn main() -> Result<()> {
         tracing::warn!("Failed to initialize WASM host");
     }
 
+    // Create empty schema (TODO: Load from config)
+    let schema = Arc::new(Schema::new(vec![]));
+    tracing::info!("Schema loaded");
+
     // Create evaluator
-    let evaluator = Arc::new(Evaluator::new(store, wasm_host));
+    let evaluator = Arc::new(Evaluator::new(store, schema, wasm_host));
     tracing::info!("Policy evaluator initialized");
 
     // Start API server

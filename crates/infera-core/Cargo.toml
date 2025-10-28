@@ -8,6 +8,7 @@ authors.workspace = true
 [dependencies]
 tokio = { workspace = true }
 async-trait = { workspace = true }
+async-recursion = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
@@ -32,4 +33,8 @@ criterion = { workspace = true }
 
 [[bench]]
 name = "ipl_parser"
+harness = false
+
+[[bench]]
+name = "evaluator"
 harness = false
