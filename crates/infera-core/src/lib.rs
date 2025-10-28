@@ -8,6 +8,8 @@ use thiserror::Error;
 pub mod evaluator;
 pub mod graph;
 pub mod ipl;
+pub mod optimizer;
+pub mod parallel;
 pub mod trace;
 pub mod types;
 
