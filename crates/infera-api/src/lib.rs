@@ -20,6 +20,7 @@ use infera_config::Config;
 use infera_store::{Tuple, Revision, TupleStore};
 
 pub mod routes;
+pub mod grpc;
 
 #[derive(Debug, Error)]
 pub enum ApiError {
@@ -159,7 +160,7 @@ pub struct WriteResponse {
     pub tuples_written: usize,
 }
 
-/// Start the API server
+/// Start the REST API server
 pub async fn serve(
     evaluator: Arc<Evaluator>,
     store: Arc<dyn TupleStore>,
@@ -173,10 +174,63 @@ pub async fn serve(
     let app = create_router(state);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
-    info!("Starting server on {}", addr);
+    info!("Starting REST API server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
+/// Start the gRPC server
+pub async fn serve_grpc(
+    evaluator: Arc<Evaluator>,
+    store: Arc<dyn TupleStore>,
+    config: Arc<Config>,
+) -> anyhow::Result<()> {
+    use tonic::transport::Server;
+    use grpc::proto::infera_service_server::InferaServiceServer;
+
+    let state = AppState {
+        evaluator,
+        store,
+        config: config.clone(),
+    };
+
+    let service = grpc::InferaServiceImpl::new(state);
+
+    // Use port + 1 for gRPC by default
+    let grpc_port = config.server.port + 1;
+    let addr = format!("{}:{}", config.server.host, grpc_port).parse()?;
+
+    info!("Starting gRPC server on {}", addr);
+
+    Server::builder()
+        .add_service(InferaServiceServer::new(service))
+        .serve(addr)
+        .await?;
+
+    Ok(())
+}
+
+/// Start both REST and gRPC servers concurrently
+pub async fn serve_both(
+    evaluator: Arc<Evaluator>,
+    store: Arc<dyn TupleStore>,
+    config: Arc<Config>,
+) -> anyhow::Result<()> {
+    let rest_evaluator = Arc::clone(&evaluator);
+    let rest_store = Arc::clone(&store);
+    let rest_config = Arc::clone(&config);
+
+    let grpc_evaluator = Arc::clone(&evaluator);
+    let grpc_store = Arc::clone(&store);
+    let grpc_config = Arc::clone(&config);
+
+    tokio::try_join!(
+        serve(rest_evaluator, rest_store, rest_config),
+        serve_grpc(grpc_evaluator, grpc_store, grpc_config),
+    )?;
 
     Ok(())
 }

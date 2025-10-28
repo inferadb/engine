@@ -13,6 +13,7 @@ pub mod types;
 
 pub use evaluator::Evaluator;
 pub use types::*;
+pub use trace::{DecisionTrace, EvaluationNode, NodeType};
 
 #[derive(Debug, Error)]
 pub enum EvalError {

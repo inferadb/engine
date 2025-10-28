@@ -16,11 +16,18 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
+# gRPC dependencies
+tonic = "0.12"
+prost = "0.13"
+
 # Internal dependencies
 infera-core = { path = "../infera-core" }
 infera-store = { path = "../infera-store" }
 infera-config = { path = "../infera-config" }
 infera-observe = { path = "../infera-observe" }
+
+[build-dependencies]
+tonic-build = "0.12"
 
 [dev-dependencies]
 tokio-test = "0.4"

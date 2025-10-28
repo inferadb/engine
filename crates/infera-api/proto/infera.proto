@@ -1,0 +1,238 @@
+syntax = "proto3";
+
+package infera.v1;
+
+// The main Infera authorization service
+service InferaService {
+  // Check if a subject has permission on a resource
+  rpc Check(CheckRequest) returns (CheckResponse);
+
+  // Check with detailed trace for debugging
+  rpc CheckWithTrace(CheckRequest) returns (CheckWithTraceResponse);
+
+  // Expand a relation into its userset tree
+  rpc Expand(ExpandRequest) returns (ExpandResponse);
+
+  // Write tuples to the store
+  rpc Write(WriteRequest) returns (WriteResponse);
+
+  // Delete tuples from the store
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+
+  // Health check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// Check permission request
+message CheckRequest {
+  // Subject (e.g., "user:alice")
+  string subject = 1;
+
+  // Resource (e.g., "doc:readme")
+  string resource = 2;
+
+  // Permission to check (e.g., "reader")
+  string permission = 3;
+
+  // Optional context data
+  optional string context = 4;
+}
+
+// Check response
+message CheckResponse {
+  // Decision (allow or deny)
+  Decision decision = 1;
+}
+
+// Check with trace response
+message CheckWithTraceResponse {
+  // Decision (allow or deny)
+  Decision decision = 1;
+
+  // Evaluation trace
+  DecisionTrace trace = 2;
+}
+
+// Decision enum
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_ALLOW = 1;
+  DECISION_DENY = 2;
+}
+
+// Decision trace for explainability
+message DecisionTrace {
+  // Final decision
+  Decision decision = 1;
+
+  // Root evaluation node
+  EvaluationNode root = 2;
+
+  // Duration in microseconds
+  uint64 duration_micros = 3;
+
+  // Number of tuples read
+  uint64 tuples_read = 4;
+
+  // Number of relations evaluated
+  uint64 relations_evaluated = 5;
+}
+
+// Evaluation node in the trace tree
+message EvaluationNode {
+  // Type of evaluation
+  NodeType node_type = 1;
+
+  // Result at this node
+  bool result = 2;
+
+  // Child nodes
+  repeated EvaluationNode children = 3;
+}
+
+// Node type in evaluation
+message NodeType {
+  oneof type {
+    DirectCheck direct_check = 1;
+    ComputedUserset computed_userset = 2;
+    TupleToUserset tuple_to_userset = 3;
+    Union union = 4;
+    Intersection intersection = 5;
+    Exclusion exclusion = 6;
+    WasmModule wasm_module = 7;
+  }
+}
+
+message DirectCheck {
+  string object = 1;
+  string relation = 2;
+  string user = 3;
+}
+
+message ComputedUserset {
+  string relation = 1;
+  string tupleset = 2;
+}
+
+message TupleToUserset {
+  string tupleset = 1;
+  string computed = 2;
+}
+
+message Union {}
+message Intersection {}
+message Exclusion {}
+
+message WasmModule {
+  string module_name = 1;
+}
+
+// Expand request
+message ExpandRequest {
+  // Resource to expand (e.g., "doc:readme")
+  string resource = 1;
+
+  // Relation to expand (e.g., "viewer")
+  string relation = 2;
+}
+
+// Expand response
+message ExpandResponse {
+  // Userset tree
+  UsersetTree tree = 1;
+}
+
+// Userset tree node
+message UsersetTree {
+  // Node type
+  UsersetNodeType node_type = 1;
+
+  // Child nodes
+  repeated UsersetTree children = 2;
+}
+
+// Userset node type
+message UsersetNodeType {
+  oneof type {
+    This this = 1;
+    ComputedUsersetRef computed_userset = 2;
+    TupleToUsersetRef tuple_to_userset = 3;
+    UnionNode union = 4;
+    IntersectionNode intersection = 5;
+    ExclusionNode exclusion = 6;
+    Leaf leaf = 7;
+  }
+}
+
+message This {}
+
+message ComputedUsersetRef {
+  string relation = 1;
+}
+
+message TupleToUsersetRef {
+  string tupleset = 1;
+  string computed = 2;
+}
+
+message UnionNode {}
+message IntersectionNode {}
+message ExclusionNode {}
+
+message Leaf {
+  repeated string users = 1;
+}
+
+// Write request
+message WriteRequest {
+  // Tuples to write
+  repeated Tuple tuples = 1;
+}
+
+// Write response
+message WriteResponse {
+  // Revision token
+  string revision = 1;
+
+  // Number of tuples written
+  uint64 tuples_written = 2;
+}
+
+// Delete request
+message DeleteRequest {
+  // Tuples to delete
+  repeated Tuple tuples = 1;
+}
+
+// Delete response
+message DeleteResponse {
+  // Revision token
+  string revision = 1;
+
+  // Number of tuples deleted
+  uint64 tuples_deleted = 2;
+}
+
+// Tuple representing a relationship
+message Tuple {
+  // Object (e.g., "doc:readme")
+  string object = 1;
+
+  // Relation (e.g., "reader")
+  string relation = 2;
+
+  // User (e.g., "user:alice")
+  string user = 3;
+}
+
+// Health check request
+message HealthRequest {}
+
+// Health check response
+message HealthResponse {
+  // Status (e.g., "healthy")
+  string status = 1;
+
+  // Service name
+  string service = 2;
+}
