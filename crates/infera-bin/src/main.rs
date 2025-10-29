@@ -45,6 +45,9 @@ async fn main() -> Result<()> {
         config.server.port = port;
     }
 
+    // Validate authentication configuration
+    config.auth.validate();
+
     let config = Arc::new(config);
 
     // Initialize storage backend

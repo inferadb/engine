@@ -220,6 +220,47 @@ impl Default for AuthConfig {
     }
 }
 
+impl AuthConfig {
+    /// Validate the authentication configuration and log warnings for potential issues
+    pub fn validate(&self) {
+        // Warn if authentication is enabled but JWKS base URL is missing
+        if self.enabled && self.jwks_base_url.is_empty() {
+            tracing::warn!(
+                "Authentication is enabled but jwks_base_url is empty. \
+                 Tenant JWT authentication will not work."
+            );
+        }
+
+        // Warn if internal JWT sources are configured but both are missing
+        let has_internal_path = self.internal_jwks_path.is_some();
+        let has_internal_env = self.internal_jwks_env.is_some();
+
+        if !has_internal_path && !has_internal_env {
+            tracing::info!(
+                "No internal JWT JWKS source configured. \
+                 Internal service-to-service authentication will not be available. \
+                 Set internal_jwks_path or internal_jwks_env to enable."
+            );
+        }
+
+        // Warn if replay protection is enabled but Redis URL is missing
+        if self.replay_protection && self.redis_url.is_none() {
+            tracing::warn!(
+                "Replay protection is enabled but redis_url is not configured. \
+                 Replay protection will not function."
+            );
+        }
+
+        // Info about accepted algorithms
+        if self.accepted_algorithms.is_empty() {
+            tracing::warn!(
+                "No accepted signature algorithms configured. \
+                 All JWT signatures will be rejected."
+            );
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -272,5 +313,84 @@ mod tests {
         assert_eq!(config.server.port, 8080);
         assert_eq!(config.server.host, "127.0.0.1");
         assert!(config.cache.enabled);
+    }
+
+    #[test]
+    fn test_auth_config_validation_enabled_without_jwks_url() {
+        let _subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .with_test_writer()
+            .try_init();
+
+        let mut config = AuthConfig::default();
+        config.enabled = true;
+        config.jwks_base_url = String::new();
+
+        // Should warn but not panic
+        config.validate();
+    }
+
+    #[test]
+    fn test_auth_config_validation_no_internal_jwks_source() {
+        let _subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_test_writer()
+            .try_init();
+
+        let mut config = AuthConfig::default();
+        config.internal_jwks_path = None;
+        config.internal_jwks_env = None;
+
+        // Should log info but not panic
+        config.validate();
+    }
+
+    #[test]
+    fn test_auth_config_validation_replay_protection_without_redis() {
+        let _subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .with_test_writer()
+            .try_init();
+
+        let mut config = AuthConfig::default();
+        config.replay_protection = true;
+        config.redis_url = None;
+
+        // Should warn but not panic
+        config.validate();
+    }
+
+    #[test]
+    fn test_auth_config_validation_no_accepted_algorithms() {
+        let _subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .with_test_writer()
+            .try_init();
+
+        let mut config = AuthConfig::default();
+        config.accepted_algorithms = vec![];
+
+        // Should warn but not panic
+        config.validate();
+    }
+
+    #[test]
+    fn test_auth_config_validation_valid_config() {
+        let _subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_test_writer()
+            .try_init();
+
+        let config = AuthConfig {
+            enabled: true,
+            jwks_base_url: "https://auth.example.com".to_string(),
+            internal_jwks_env: Some("JWKS_ENV".to_string()),
+            replay_protection: false,
+            accepted_algorithms: vec!["EdDSA".to_string()],
+            ..Default::default()
+        };
+
+        // Should not log any warnings
+        config.validate();
     }
 }
