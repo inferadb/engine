@@ -31,12 +31,17 @@
 pub mod context;
 /// Authentication errors
 pub mod error;
+/// Axum extractors for authentication
+pub mod extractor;
 /// JWT validation and claims
 pub mod jwt;
 /// JWKS caching and fetching
 pub mod jwks_cache;
+/// Axum middleware for authentication
+pub mod middleware;
 
 // Re-export key types
 pub use context::{AuthContext, AuthMethod};
 pub use error::AuthError;
+pub use extractor::{OptionalAuth, RequireAuth};
 pub use jwks_cache::{Jwk, JwksCache};

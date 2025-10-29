@@ -337,6 +337,7 @@ mod tests {
             evaluator,
             store,
             config,
+            jwks_cache: None,
         }
     }
 

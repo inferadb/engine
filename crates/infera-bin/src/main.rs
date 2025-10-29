@@ -7,6 +7,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 
+use infera_auth::jwks_cache::JwksCache;
 use infera_config::load_or_default;
 use infera_core::Evaluator;
 use infera_core::ipl::Schema;
@@ -67,6 +68,40 @@ async fn main() -> Result<()> {
     let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, wasm_host));
     tracing::info!("Policy evaluator initialized");
 
+    // Initialize JWKS cache if authentication is enabled
+    let jwks_cache = if config.auth.enabled {
+        tracing::info!("Authentication ENABLED - initializing JWKS cache");
+
+        // Create the moka cache with TTL and stale-while-revalidate support
+        use std::time::Duration;
+        let cache = Arc::new(
+            moka::future::Cache::builder()
+                .max_capacity(1000) // Up to 1000 tenants
+                .time_to_live(Duration::from_secs(config.auth.jwks_cache_ttl))
+                .time_to_idle(Duration::from_secs(config.auth.jwks_cache_ttl * 2))
+                .build()
+        );
+
+        // Create the JWKS cache
+        let jwks_cache = JwksCache::new(
+            config.auth.jwks_base_url.clone(),
+            cache,
+            Duration::from_secs(config.auth.jwks_cache_ttl),
+        );
+
+        tracing::info!(
+            "JWKS cache initialized with TTL: {}s, base URL: {}",
+            config.auth.jwks_cache_ttl,
+            config.auth.jwks_base_url
+        );
+
+        Some(Arc::new(jwks_cache))
+    } else {
+        tracing::warn!("Authentication DISABLED - API endpoints will not require authentication");
+        tracing::warn!("This mode should ONLY be used in development/testing environments");
+        None
+    };
+
     // Start API server
     tracing::info!(
         "Starting API server on {}:{}",
@@ -74,7 +109,7 @@ async fn main() -> Result<()> {
         config.server.port
     );
 
-    infera_api::serve(evaluator, store, config).await?;
+    infera_api::serve(evaluator, store, config, jwks_cache).await?;
 
     Ok(())
 }

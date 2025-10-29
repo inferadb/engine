@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
 
+use infera_auth::jwks_cache::JwksCache;
 use infera_core::{CheckRequest, Decision, Evaluator, ExpandRequest};
 use infera_config::Config;
 use infera_store::{Tuple, TupleStore};
@@ -96,15 +97,41 @@ pub struct AppState {
     pub evaluator: Arc<Evaluator>,
     pub store: Arc<dyn TupleStore>,
     pub config: Arc<Config>,
+    pub jwks_cache: Option<Arc<JwksCache>>,
 }
 
 /// Create the API router
 pub fn create_router(state: AppState) -> Router {
-    Router::new()
-        .route("/health", get(health_check))
+    // Protected routes that require authentication
+    let protected_routes = Router::new()
         .route("/check", post(check_handler))
         .route("/expand", post(expand_handler))
-        .route("/write", post(write_handler))
+        .route("/write", post(write_handler));
+
+    // Apply authentication middleware if enabled and JWKS cache is available
+    let protected_routes = if state.config.auth.enabled {
+        if let Some(jwks_cache) = &state.jwks_cache {
+            info!("Authentication ENABLED - applying auth middleware to protected routes");
+            let jwks_cache = Arc::clone(jwks_cache);
+            let auth_enabled = state.config.auth.enabled;
+
+            protected_routes.layer(axum::middleware::from_fn(move |req, next| {
+                let jwks_cache = Arc::clone(&jwks_cache);
+                infera_auth::middleware::optional_auth_middleware(auth_enabled, jwks_cache, req, next)
+            }))
+        } else {
+            tracing::warn!("Authentication ENABLED but JWKS cache not initialized - skipping auth");
+            protected_routes
+        }
+    } else {
+        tracing::warn!("Authentication DISABLED - requests will not be authenticated");
+        protected_routes
+    };
+
+    // Combine health (unprotected) with protected routes
+    Router::new()
+        .route("/health", get(health_check))
+        .merge(protected_routes)
         .with_state(state)
 }
 
@@ -118,9 +145,25 @@ async fn health_check() -> impl IntoResponse {
 
 /// Authorization check endpoint
 async fn check_handler(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<CheckRequest>,
 ) -> Result<Json<CheckResponse>> {
+    // If auth is enabled and present, validate scope
+    if state.config.auth.enabled {
+        if let Some(auth_ctx) = auth.0 {
+            // Require inferadb.check scope
+            infera_auth::middleware::require_scope(&auth_ctx, "inferadb.check")
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            // TODO: Add tenant isolation check when we have multi-tenant support
+            // For now, we just log the authenticated tenant
+            tracing::debug!("Check request from tenant: {}", auth_ctx.tenant_id);
+        } else {
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+        }
+    }
+
     let decision = state.evaluator.check(request).await?;
 
     Ok(Json(CheckResponse {
@@ -138,18 +181,46 @@ struct CheckResponse {
 
 /// Expand endpoint
 async fn expand_handler(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<ExpandRequest>,
 ) -> Result<Json<infera_core::ExpandResponse>> {
+    // If auth is enabled and present, validate scope
+    if state.config.auth.enabled {
+        if let Some(auth_ctx) = auth.0 {
+            // Require inferadb.expand scope (or check scope as fallback)
+            infera_auth::middleware::require_any_scope(&auth_ctx, &["inferadb.expand", "inferadb.check"])
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!("Expand request from tenant: {}", auth_ctx.tenant_id);
+        } else {
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+        }
+    }
+
     let response = state.evaluator.expand(request).await?;
     Ok(Json(response))
 }
 
 /// Write tuples endpoint
 async fn write_handler(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<WriteRequest>,
 ) -> Result<Json<WriteResponse>> {
+    // If auth is enabled and present, validate scope
+    if state.config.auth.enabled {
+        if let Some(auth_ctx) = auth.0 {
+            // Require inferadb.write scope
+            infera_auth::middleware::require_scope(&auth_ctx, "inferadb.write")
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!("Write request from tenant: {}", auth_ctx.tenant_id);
+        } else {
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+        }
+    }
+
     // Validate request
     if request.tuples.is_empty() {
         return Err(ApiError::InvalidRequest("No tuples provided".to_string()));
@@ -202,11 +273,13 @@ pub async fn serve(
     evaluator: Arc<Evaluator>,
     store: Arc<dyn TupleStore>,
     config: Arc<Config>,
+    jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
     let state = AppState {
         evaluator,
         store,
         config: config.clone(),
+        jwks_cache,
     };
     let app = create_router(state);
 
@@ -224,6 +297,7 @@ pub async fn serve_grpc(
     evaluator: Arc<Evaluator>,
     store: Arc<dyn TupleStore>,
     config: Arc<Config>,
+    jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
     use tonic::transport::Server;
     use grpc::proto::infera_service_server::InferaServiceServer;
@@ -232,6 +306,7 @@ pub async fn serve_grpc(
         evaluator,
         store,
         config: config.clone(),
+        jwks_cache,
     };
 
     let service = grpc::InferaServiceImpl::new(state);
@@ -255,18 +330,21 @@ pub async fn serve_both(
     evaluator: Arc<Evaluator>,
     store: Arc<dyn TupleStore>,
     config: Arc<Config>,
+    jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
     let rest_evaluator = Arc::clone(&evaluator);
     let rest_store = Arc::clone(&store);
     let rest_config = Arc::clone(&config);
+    let rest_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
 
     let grpc_evaluator = Arc::clone(&evaluator);
     let grpc_store = Arc::clone(&store);
     let grpc_config = Arc::clone(&config);
+    let grpc_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
 
     tokio::try_join!(
-        serve(rest_evaluator, rest_store, rest_config),
-        serve_grpc(grpc_evaluator, grpc_store, grpc_config),
+        serve(rest_evaluator, rest_store, rest_config, rest_jwks_cache),
+        serve_grpc(grpc_evaluator, grpc_store, grpc_config, grpc_jwks_cache),
     )?;
 
     Ok(())
@@ -296,12 +374,16 @@ mod tests {
             ]),
         ]));
         let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
-        let config = Arc::new(infera_config::Config::default());
+        let mut config = infera_config::Config::default();
+        // Disable auth for tests by default
+        config.auth.enabled = false;
+        let config = Arc::new(config);
 
         AppState {
             evaluator,
             store,
             config,
+            jwks_cache: None,
         }
     }
 

@@ -24,6 +24,7 @@ base64 = { workspace = true }
 reqwest = { workspace = true }
 tokio = { workspace = true }
 moka = { workspace = true }
+axum = { workspace = true }
 
 # Internal dependencies
 infera-cache = { path = "../infera-cache" }

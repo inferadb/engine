@@ -14,8 +14,10 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
 tracing = { workspace = true }
+moka = { workspace = true }
 
 # Internal dependencies
+infera-auth = { path = "../infera-auth" }
 infera-core = { path = "../infera-core" }
 infera-store = { path = "../infera-store" }
 infera-wasm = { path = "../infera-wasm" }

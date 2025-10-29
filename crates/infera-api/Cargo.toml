@@ -21,6 +21,7 @@ tonic = "0.12"
 prost = "0.13"
 
 # Internal dependencies
+infera-auth = { path = "../infera-auth" }
 infera-core = { path = "../infera-core" }
 infera-store = { path = "../infera-store" }
 infera-config = { path = "../infera-config" }
@@ -31,3 +32,11 @@ tonic-build = "0.12"
 
 [dev-dependencies]
 tokio-test = "0.4"
+moka = { workspace = true }
+ed25519-dalek = "2.1"
+rand = "0.8"
+base64 = "0.22"
+jsonwebtoken = { workspace = true }
+chrono = { workspace = true }
+uuid = "1.10"
+warp = "0.3"
