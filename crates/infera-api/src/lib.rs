@@ -22,6 +22,7 @@ use infera_store::{Tuple, TupleStore};
 
 pub mod routes;
 pub mod grpc;
+pub mod grpc_interceptor;
 
 #[derive(Debug, Error)]
 pub enum ApiError {
