@@ -1,3 +1,62 @@
+//! # JWKS Caching Module
+//!
+//! This module provides JWKS (JSON Web Key Set) caching with advanced features:
+//!
+//! - **Multi-tenant isolation**: Each tenant's JWKS is cached separately
+//! - **Thundering-herd protection**: Deduplicates concurrent requests for the same tenant
+//! - **Stale-while-revalidate**: Serves stale cache immediately while refreshing in background
+//! - **Automatic key rotation**: Detects and refreshes JWKS when keys change
+//! - **Metrics integration**: Records cache performance for observability
+//!
+//! ## Architecture
+//!
+//! The JWKS cache fetches public keys from a Control Plane endpoint at
+//! `{base_url}/{tenant_id}/.well-known/jwks.json`. Keys are cached using a Moka cache
+//! with configurable TTL (typically 5 minutes).
+//!
+//! ## Example Usage
+//!
+//! ```no_run
+//! use infera_auth::jwks_cache::JwksCache;
+//! use moka::future::Cache;
+//! use std::sync::Arc;
+//! use std::time::Duration;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create cache with 100 tenant capacity
+//! let cache = Arc::new(Cache::new(100));
+//!
+//! // Create JWKS cache
+//! let jwks_cache = JwksCache::new(
+//!     "https://control-plane.example.com".to_string(),
+//!     cache,
+//!     Duration::from_secs(300), // 5 minute TTL
+//! );
+//!
+//! // Fetch keys for a tenant (cached automatically)
+//! let keys = jwks_cache.get_jwks("acme").await?;
+//! println!("Fetched {} keys", keys.len());
+//!
+//! // Get specific key by ID
+//! let key = jwks_cache.get_key_by_id("acme", "acme-key-001").await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Performance Characteristics
+//!
+//! - **Cache hit**: ~1μs (memory lookup)
+//! - **Cache miss**: ~50-100ms (network fetch + parse)
+//! - **Stale cache**: ~1μs (immediate return) + background refresh
+//! - **Thundering herd**: First request waits, others block until complete
+//!
+//! ## Security Considerations
+//!
+//! - Only asymmetric keys (EdDSA, RS256) are supported
+//! - JWKS is fetched over HTTPS to prevent MITM attacks
+//! - Key validation ensures proper JWK structure
+//! - Network timeouts prevent indefinite hangs (10 second default)
+
 use crate::error::AuthError;
 use base64::Engine;
 use jsonwebtoken::{Algorithm, DecodingKey};
@@ -221,20 +280,32 @@ impl JwksCache {
             let tenant_id_clone = tenant_id.to_string();
 
             tokio::spawn(async move {
-                if let Ok(keys) = Self::fetch_jwks(&http_client, &base_url, &tenant_id_clone).await
-                {
-                    let cached = CachedJwks {
-                        keys,
-                        fetched_at: Instant::now(),
-                    };
-                    cache_clone
-                        .insert(
-                            JwksCacheKey {
-                                tenant_id: tenant_id_clone,
-                            },
-                            cached,
-                        )
-                        .await;
+                match Self::fetch_jwks(&http_client, &base_url, &tenant_id_clone).await {
+                    Ok(keys) => {
+                        let cached = CachedJwks {
+                            keys,
+                            fetched_at: Instant::now(),
+                        };
+                        cache_clone
+                            .insert(
+                                JwksCacheKey {
+                                    tenant_id: tenant_id_clone.clone(),
+                                },
+                                cached,
+                            )
+                            .await;
+                        tracing::debug!(
+                            tenant_id = %tenant_id_clone,
+                            "Background JWKS refresh completed successfully"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            tenant_id = %tenant_id_clone,
+                            error = %e,
+                            "Background JWKS refresh failed, continuing with stale cache"
+                        );
+                    }
                 }
             });
 

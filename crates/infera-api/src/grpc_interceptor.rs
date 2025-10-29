@@ -196,6 +196,11 @@ fn auth_error_to_status(error: AuthError) -> Status {
         AuthError::MissingClaim(_) => Status::unauthenticated(error.to_string()),
         AuthError::UnsupportedAlgorithm(_) => Status::unauthenticated(error.to_string()),
         AuthError::JwksError(_) => Status::internal(error.to_string()),
+        AuthError::OidcDiscoveryFailed(_) => Status::internal(error.to_string()),
+        AuthError::IntrospectionFailed(_) => Status::internal(error.to_string()),
+        AuthError::InvalidIntrospectionResponse(_) => Status::internal(error.to_string()),
+        AuthError::TokenInactive => Status::unauthenticated("Token is inactive"),
+        AuthError::MissingTenantId => Status::unauthenticated(error.to_string()),
     }
 }
 

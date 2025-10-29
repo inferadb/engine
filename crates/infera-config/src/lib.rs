@@ -141,6 +141,20 @@ pub struct AuthConfig {
     /// OAuth introspection endpoint (optional)
     pub oauth_introspection_endpoint: Option<String>,
 
+    /// OAuth introspection client ID for authentication (optional)
+    pub oauth_introspection_client_id: Option<String>,
+
+    /// OAuth introspection client secret for authentication (optional)
+    pub oauth_introspection_client_secret: Option<String>,
+
+    /// OIDC discovery cache TTL in seconds
+    #[serde(default = "default_oidc_discovery_cache_ttl")]
+    pub oidc_discovery_cache_ttl: u64,
+
+    /// OAuth introspection result cache TTL in seconds
+    #[serde(default = "default_introspection_cache_ttl")]
+    pub introspection_cache_ttl: u64,
+
     /// Internal JWKS file path (optional)
     pub internal_jwks_path: Option<PathBuf>,
 
@@ -191,6 +205,14 @@ fn default_jwks_base_url() -> String {
     "https://auth.inferadb.com/.well-known".to_string()
 }
 
+fn default_oidc_discovery_cache_ttl() -> u64 {
+    86400 // 24 hours in seconds
+}
+
+fn default_introspection_cache_ttl() -> u64 {
+    60 // 1 minute in seconds
+}
+
 fn default_internal_issuer() -> String {
     "https://internal.inferadb.com".to_string()
 }
@@ -211,6 +233,10 @@ impl Default for AuthConfig {
             replay_protection: default_replay_protection(),
             jwks_base_url: default_jwks_base_url(),
             oauth_introspection_endpoint: None,
+            oauth_introspection_client_id: None,
+            oauth_introspection_client_secret: None,
+            oidc_discovery_cache_ttl: default_oidc_discovery_cache_ttl(),
+            introspection_cache_ttl: default_introspection_cache_ttl(),
             internal_jwks_path: None,
             internal_jwks_env: Some("INFERADB_INTERNAL_JWKS".to_string()),
             internal_issuer: default_internal_issuer(),

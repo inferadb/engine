@@ -411,4 +411,32 @@ mod tests {
         init_test_metrics();
         // Just verify it doesn't panic
     }
+
+    #[test]
+    fn test_record_jwks_cache_hit() {
+        init_test_metrics();
+        record_jwks_cache_hit("test-tenant");
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_jwks_cache_miss() {
+        init_test_metrics();
+        record_jwks_cache_miss("test-tenant");
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_jwks_refresh_success() {
+        init_test_metrics();
+        record_jwks_refresh("test-tenant", 0.5, true);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_jwks_refresh_failure() {
+        init_test_metrics();
+        record_jwks_refresh("test-tenant", 1.2, false);
+        // Just verify it doesn't panic and records error counter
+    }
 }

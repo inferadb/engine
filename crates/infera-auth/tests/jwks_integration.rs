@@ -165,6 +165,49 @@ async fn test_stale_while_revalidate() {
 }
 
 #[tokio::test]
+async fn test_stale_while_revalidate_with_failed_refresh() {
+    // Start mock JWKS server
+    let (base_url, handle) = start_mock_jwks_server().await;
+
+    // Create cache with very short TTL (1 second)
+    let cache = Arc::new(Cache::new(100));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(1));
+
+    // First fetch - populate cache
+    let keys1 = jwks_cache
+        .get_jwks("stale-test")
+        .await
+        .expect("Failed to fetch JWKS");
+
+    // Wait for TTL to expire
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    // Stop the mock server to simulate network failure
+    drop(handle);
+
+    // Second fetch - should return stale value despite background refresh failure
+    let keys2 = jwks_cache
+        .get_jwks("stale-test")
+        .await
+        .expect("Should return stale JWKS even though server is down");
+
+    // Should still get the same stale data
+    assert_eq!(keys1[0].kid, keys2[0].kid);
+
+    // Wait for background refresh to fail
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Third fetch should still return stale data (background refresh failed)
+    let keys3 = jwks_cache
+        .get_jwks("stale-test")
+        .await
+        .expect("Should continue to serve stale JWKS after failed refresh");
+
+    // All keys should be identical - still serving original stale cache
+    assert_eq!(keys1[0].kid, keys3[0].kid);
+}
+
+#[tokio::test]
 async fn test_multi_tenant_isolation() {
     // Start mock JWKS server
     let (base_url, _handle) = start_mock_jwks_server().await;

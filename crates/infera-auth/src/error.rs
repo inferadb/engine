@@ -42,6 +42,26 @@ pub enum AuthError {
     /// JWKS-related errors
     #[error("JWKS error: {0}")]
     JwksError(String),
+
+    /// OIDC discovery failed
+    #[error("OIDC discovery failed: {0}")]
+    OidcDiscoveryFailed(String),
+
+    /// Token introspection failed
+    #[error("Introspection failed: {0}")]
+    IntrospectionFailed(String),
+
+    /// Invalid introspection response
+    #[error("Invalid introspection response: {0}")]
+    InvalidIntrospectionResponse(String),
+
+    /// Token is inactive (from introspection)
+    #[error("Token is inactive")]
+    TokenInactive,
+
+    /// Required tenant_id claim missing from OAuth token
+    #[error("Missing tenant_id claim in OAuth token")]
+    MissingTenantId,
 }
 
 impl From<jsonwebtoken::errors::Error> for AuthError {
@@ -93,5 +113,23 @@ mod tests {
         let auth_err: AuthError = jwt_err.into();
 
         assert!(matches!(auth_err, AuthError::TokenExpired));
+    }
+
+    #[test]
+    fn test_oauth_error_variants() {
+        let err = AuthError::OidcDiscoveryFailed("endpoint not found".into());
+        assert_eq!(err.to_string(), "OIDC discovery failed: endpoint not found");
+
+        let err = AuthError::IntrospectionFailed("connection refused".into());
+        assert_eq!(err.to_string(), "Introspection failed: connection refused");
+
+        let err = AuthError::InvalidIntrospectionResponse("malformed JSON".into());
+        assert_eq!(err.to_string(), "Invalid introspection response: malformed JSON");
+
+        let err = AuthError::TokenInactive;
+        assert_eq!(err.to_string(), "Token is inactive");
+
+        let err = AuthError::MissingTenantId;
+        assert_eq!(err.to_string(), "Missing tenant_id claim in OAuth token");
     }
 }

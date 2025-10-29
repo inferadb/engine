@@ -357,6 +357,33 @@ pub fn is_jwt(token: &str) -> bool {
     parts.len() == 3
 }
 
+/// Extract tenant_id from OAuth token claims
+///
+/// OAuth tokens MUST have an explicit tenant_id claim. Unlike tenant JWTs
+/// which can extract the tenant from the issuer, OAuth tokens must provide
+/// the tenant_id explicitly.
+///
+/// # Arguments
+///
+/// * `claims` - The JWT claims from the OAuth token
+///
+/// # Returns
+///
+/// The tenant_id string
+///
+/// # Errors
+///
+/// Returns `AuthError::MissingTenantId` if:
+/// - The `tenant_id` claim is missing
+/// - The `tenant_id` claim is empty
+pub fn extract_tenant_from_oauth(claims: &JwtClaims) -> Result<String, AuthError> {
+    match &claims.tenant_id {
+        Some(tenant_id) if !tenant_id.is_empty() => Ok(tenant_id.clone()),
+        Some(_) => Err(AuthError::MissingTenantId),
+        None => Err(AuthError::MissingTenantId),
+    }
+}
+
 /// Validate an OAuth JWT and create AuthContext
 ///
 /// # Arguments
@@ -674,5 +701,62 @@ mod tests {
 
         // Hash should be SHA-256 length (64 hex chars)
         assert_eq!(hash1.len(), 64);
+    }
+
+    #[test]
+    fn test_extract_tenant_from_oauth_with_valid_tenant_id() {
+        let claims = JwtClaims {
+            iss: "https://oauth.example.com".to_string(),
+            sub: "user123".to_string(),
+            aud: "api".to_string(),
+            exp: 9999999999,
+            iat: 1234567890,
+            nbf: None,
+            jti: None,
+            scope: "read write".to_string(),
+            tenant_id: Some("acme-corp".to_string()),
+        };
+
+        let result = extract_tenant_from_oauth(&claims);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "acme-corp");
+    }
+
+    #[test]
+    fn test_extract_tenant_from_oauth_with_missing_tenant_id() {
+        let claims = JwtClaims {
+            iss: "https://oauth.example.com".to_string(),
+            sub: "user123".to_string(),
+            aud: "api".to_string(),
+            exp: 9999999999,
+            iat: 1234567890,
+            nbf: None,
+            jti: None,
+            scope: "read write".to_string(),
+            tenant_id: None,
+        };
+
+        let result = extract_tenant_from_oauth(&claims);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), AuthError::MissingTenantId));
+    }
+
+    #[test]
+    fn test_extract_tenant_from_oauth_with_empty_tenant_id() {
+        let claims = JwtClaims {
+            iss: "https://oauth.example.com".to_string(),
+            sub: "user123".to_string(),
+            aud: "api".to_string(),
+            exp: 9999999999,
+            iat: 1234567890,
+            nbf: None,
+            jti: None,
+            scope: "read write".to_string(),
+            tenant_id: Some("".to_string()),
+        };
+
+        let result = extract_tenant_from_oauth(&claims);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), AuthError::MissingTenantId));
     }
 }
