@@ -154,6 +154,32 @@ pub fn init_metrics_descriptions() {
         "Duration of JWKS fetch operations in seconds"
     );
 
+    // OAuth metrics
+    describe_counter!(
+        "inferadb_oauth_jwt_validations_total",
+        "Total number of OAuth JWT validation attempts"
+    );
+    describe_counter!(
+        "inferadb_oauth_introspections_total",
+        "Total number of OAuth token introspection attempts"
+    );
+    describe_counter!(
+        "inferadb_oauth_introspection_cache_hits_total",
+        "Total number of OAuth introspection cache hits"
+    );
+    describe_counter!(
+        "inferadb_oauth_introspection_cache_misses_total",
+        "Total number of OAuth introspection cache misses"
+    );
+    describe_counter!(
+        "inferadb_oidc_discovery_total",
+        "Total number of OIDC discovery attempts"
+    );
+    describe_histogram!(
+        "inferadb_oauth_introspection_duration_seconds",
+        "Duration of OAuth token introspection in seconds"
+    );
+
     // System metrics
     describe_gauge!(
         "inferadb_build_info",
@@ -311,6 +337,48 @@ pub fn record_jwks_refresh(tenant_id: &str, duration_seconds: f64, success: bool
         .record(duration_seconds);
 }
 
+/// Record an OAuth JWT validation attempt
+pub fn record_oauth_jwt_validation(issuer: &str, success: bool) {
+    let result = if success { "success" } else { "failure" };
+    counter!(
+        "inferadb_oauth_jwt_validations_total",
+        "issuer" => issuer.to_string(),
+        "result" => result
+    ).increment(1);
+}
+
+/// Record an OAuth token introspection attempt
+pub fn record_oauth_introspection(success: bool, duration_seconds: f64) {
+    let result = if success { "success" } else { "failure" };
+    counter!(
+        "inferadb_oauth_introspections_total",
+        "result" => result
+    ).increment(1);
+
+    histogram!("inferadb_oauth_introspection_duration_seconds")
+        .record(duration_seconds);
+}
+
+/// Record an OAuth introspection cache hit
+pub fn record_oauth_introspection_cache_hit() {
+    counter!("inferadb_oauth_introspection_cache_hits_total").increment(1);
+}
+
+/// Record an OAuth introspection cache miss
+pub fn record_oauth_introspection_cache_miss() {
+    counter!("inferadb_oauth_introspection_cache_misses_total").increment(1);
+}
+
+/// Record an OIDC discovery attempt
+pub fn record_oidc_discovery(issuer: &str, success: bool) {
+    let result = if success { "success" } else { "failure" };
+    counter!(
+        "inferadb_oidc_discovery_total",
+        "issuer" => issuer.to_string(),
+        "result" => result
+    ).increment(1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -438,5 +506,61 @@ mod tests {
         init_test_metrics();
         record_jwks_refresh("test-tenant", 1.2, false);
         // Just verify it doesn't panic and records error counter
+    }
+
+    #[test]
+    fn test_record_oauth_jwt_validation_success() {
+        init_test_metrics();
+        record_oauth_jwt_validation("https://oauth.example.com", true);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_oauth_jwt_validation_failure() {
+        init_test_metrics();
+        record_oauth_jwt_validation("https://oauth.example.com", false);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_oauth_introspection_success() {
+        init_test_metrics();
+        record_oauth_introspection(true, 0.05);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_oauth_introspection_failure() {
+        init_test_metrics();
+        record_oauth_introspection(false, 0.1);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_oauth_introspection_cache_hit() {
+        init_test_metrics();
+        record_oauth_introspection_cache_hit();
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_oauth_introspection_cache_miss() {
+        init_test_metrics();
+        record_oauth_introspection_cache_miss();
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_oidc_discovery_success() {
+        init_test_metrics();
+        record_oidc_discovery("https://oauth.example.com", true);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_oidc_discovery_failure() {
+        init_test_metrics();
+        record_oidc_discovery("https://oauth.example.com", false);
+        // Just verify it doesn't panic
     }
 }

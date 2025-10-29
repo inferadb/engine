@@ -286,11 +286,13 @@ impl IntrospectionClient {
             // Check cache
             if let Some(cached) = cache.get(&cache_key).await {
                 tracing::debug!("Introspection cache hit");
+                infera_observe::metrics::record_oauth_introspection_cache_hit();
                 return Ok(cached);
             }
 
             // Cache miss - perform introspection
             tracing::debug!("Introspection cache miss");
+            infera_observe::metrics::record_oauth_introspection_cache_miss();
             let response = self.introspect_uncached(token, endpoint).await?;
 
             // Cache the result
@@ -309,31 +311,41 @@ impl IntrospectionClient {
         token: &str,
         endpoint: &str,
     ) -> Result<IntrospectionResponse, AuthError> {
+        let start = std::time::Instant::now();
         let mut params = HashMap::new();
         params.insert("token", token);
 
-        let response = self
-            .http_client
-            .post(endpoint)
-            .form(&params)
-            .send()
-            .await
-            .map_err(|e| {
-                AuthError::JwksError(format!("Token introspection request failed: {}", e))
+        let result = async {
+            let response = self
+                .http_client
+                .post(endpoint)
+                .form(&params)
+                .send()
+                .await
+                .map_err(|e| {
+                    AuthError::JwksError(format!("Token introspection request failed: {}", e))
+                })?;
+
+            if !response.status().is_success() {
+                return Err(AuthError::JwksError(format!(
+                    "Token introspection failed with status: {}",
+                    response.status()
+                )));
+            }
+
+            let introspection_response: IntrospectionResponse = response.json().await.map_err(|e| {
+                AuthError::JwksError(format!("Failed to parse introspection response: {}", e))
             })?;
 
-        if !response.status().is_success() {
-            return Err(AuthError::JwksError(format!(
-                "Token introspection failed with status: {}",
-                response.status()
-            )));
-        }
+            Ok(introspection_response)
+        }.await;
 
-        let introspection_response: IntrospectionResponse = response.json().await.map_err(|e| {
-            AuthError::JwksError(format!("Failed to parse introspection response: {}", e))
-        })?;
+        // Record metrics
+        let duration = start.elapsed().as_secs_f64();
+        let success = result.is_ok();
+        infera_observe::metrics::record_oauth_introspection(success, duration);
 
-        Ok(introspection_response)
+        result
     }
 
     /// Hash a token using SHA-256 for cache key
@@ -424,75 +436,86 @@ pub async fn validate_oauth_jwt(
     let mut validation = Validation::new(header.alg);
     validation.insecure_disable_signature_validation();
     validation.validate_exp = false;
+    validation.validate_aud = false; // Don't validate audience in initial decode
 
     let unverified = decode::<JwtClaims>(token, &DecodingKey::from_secret(&[]), &validation)
         .map_err(|e| AuthError::InvalidTokenFormat(format!("Failed to decode JWT: {}", e)))?;
 
     let issuer = unverified.claims.iss.clone();
 
-    // Fetch JWKS from OAuth issuer
-    let jwks = oauth_client.fetch_oauth_jwks(&issuer).await?;
+    // Validation logic wrapped with metrics
+    let result = async {
+        // Fetch JWKS from OAuth issuer
+        let jwks = oauth_client.fetch_oauth_jwks(&issuer).await?;
 
-    // Select appropriate key
-    let kid = header.kid.as_deref();
-    let key = OAuthJwksClient::select_key(&jwks, kid, alg)?;
+        // Select appropriate key
+        let kid = header.kid.as_deref();
+        let key = OAuthJwksClient::select_key(&jwks, kid, alg)?;
 
-    // Convert JWK to DecodingKey
-    let decoding_key = jwk_to_decoding_key(key)?;
+        // Convert JWK to DecodingKey
+        let decoding_key = jwk_to_decoding_key(key)?;
 
-    // Now validate with proper signature verification
-    let mut validation = Validation::new(header.alg);
-    validation.validate_exp = true;
-    validation.validate_nbf = true;
+        // Now validate with proper signature verification
+        let mut validation = Validation::new(header.alg);
+        validation.validate_exp = true;
+        validation.validate_nbf = true;
 
-    if let Some(aud) = expected_audience {
-        validation.set_audience(&[aud]);
-    } else {
-        validation.validate_aud = false;
-    }
-
-    let token_data = decode::<JwtClaims>(token, &decoding_key, &validation).map_err(|e| {
-        match e.kind() {
-            jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
-            jsonwebtoken::errors::ErrorKind::ImmatureSignature => AuthError::TokenNotYetValid,
-            jsonwebtoken::errors::ErrorKind::InvalidSignature => AuthError::InvalidSignature,
-            jsonwebtoken::errors::ErrorKind::InvalidAudience => {
-                AuthError::InvalidAudience("Audience mismatch".to_string())
-            }
-            _ => AuthError::InvalidTokenFormat(format!("JWT validation failed: {}", e)),
+        if let Some(aud) = expected_audience {
+            validation.set_audience(&[aud]);
+        } else {
+            validation.validate_aud = false;
         }
-    })?;
 
-    let claims = token_data.claims;
+        let token_data = decode::<JwtClaims>(token, &decoding_key, &validation).map_err(|e| {
+            match e.kind() {
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
+                jsonwebtoken::errors::ErrorKind::ImmatureSignature => AuthError::TokenNotYetValid,
+                jsonwebtoken::errors::ErrorKind::InvalidSignature => AuthError::InvalidSignature,
+                jsonwebtoken::errors::ErrorKind::InvalidAudience => {
+                    AuthError::InvalidAudience("Audience mismatch".to_string())
+                }
+                _ => AuthError::InvalidTokenFormat(format!("JWT validation failed: {}", e)),
+            }
+        })?;
 
-    // Extract tenant_id - look for it in the claims
-    // OAuth tokens might have it as a custom claim or in the sub
-    let tenant_id = claims
-        .extract_tenant_id()
-        .unwrap_or_else(|_| claims.sub.clone());
+        let claims = token_data.claims;
 
-    // Parse scopes
-    let scopes: Vec<String> = claims
-        .scope
-        .split_whitespace()
-        .map(|s| s.to_string())
-        .collect();
+        // Extract tenant_id - look for it in the claims
+        // OAuth tokens might have it as a custom claim or in the sub
+        let tenant_id = claims
+            .extract_tenant_id()
+            .unwrap_or_else(|_| claims.sub.clone());
 
-    // Create AuthContext
-    let auth_context = AuthContext {
-        tenant_id,
-        client_id: claims.sub.clone(),
-        key_id: kid.unwrap_or("").to_string(),
-        auth_method: AuthMethod::OAuthAccessToken,
-        scopes,
-        issued_at: chrono::DateTime::from_timestamp(claims.iat as i64, 0)
-            .unwrap_or_else(Utc::now),
-        expires_at: chrono::DateTime::from_timestamp(claims.exp as i64, 0)
-            .unwrap_or_else(|| Utc::now() + chrono::Duration::seconds(300)),
-        jti: claims.jti.clone(),
-    };
+        // Parse scopes
+        let scopes: Vec<String> = claims
+            .scope
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
 
-    Ok(auth_context)
+        // Create AuthContext
+        let auth_context = AuthContext {
+            tenant_id,
+            client_id: claims.sub.clone(),
+            key_id: kid.unwrap_or("").to_string(),
+            auth_method: AuthMethod::OAuthAccessToken,
+            scopes,
+            issued_at: chrono::DateTime::from_timestamp(claims.iat as i64, 0)
+                .unwrap_or_else(Utc::now),
+            expires_at: chrono::DateTime::from_timestamp(claims.exp as i64, 0)
+                .unwrap_or_else(|| Utc::now() + chrono::Duration::seconds(300)),
+            jti: claims.jti.clone(),
+        };
+
+        Ok(auth_context)
+    }
+    .await;
+
+    // Record metrics
+    let success = result.is_ok();
+    infera_observe::metrics::record_oauth_jwt_validation(&issuer, success);
+
+    result
 }
 
 /// Convert JWK to jsonwebtoken DecodingKey

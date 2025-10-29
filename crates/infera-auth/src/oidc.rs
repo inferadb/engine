@@ -111,59 +111,73 @@ impl OidcDiscoveryClient {
             format!("{}/.well-known/openid-configuration", issuer_url)
         };
 
-        // Fetch discovery document
-        let response = self
-            .http_client
-            .get(&discovery_url)
-            .send()
-            .await
-            .map_err(|e| {
-                AuthError::JwksError(format!("Failed to fetch OIDC discovery: {}", e))
+        // Perform discovery and record metrics
+        let result = async {
+            // Fetch discovery document
+            let response = self
+                .http_client
+                .get(&discovery_url)
+                .send()
+                .await
+                .map_err(|e| {
+                    AuthError::JwksError(format!("Failed to fetch OIDC discovery: {}", e))
+                })?;
+
+            if !response.status().is_success() {
+                return Err(AuthError::JwksError(format!(
+                    "OIDC discovery failed with status: {}",
+                    response.status()
+                )));
+            }
+
+            // Parse response
+            let config: OidcConfiguration = response.json().await.map_err(|e| {
+                AuthError::JwksError(format!("Failed to parse OIDC discovery response: {}", e))
             })?;
 
-        if !response.status().is_success() {
-            return Err(AuthError::JwksError(format!(
-                "OIDC discovery failed with status: {}",
-                response.status()
-            )));
+            // Validate required fields
+            if config.issuer.is_empty() {
+                return Err(AuthError::JwksError(
+                    "OIDC discovery: missing 'issuer' field".to_string(),
+                ));
+            }
+
+            if config.jwks_uri.is_empty() {
+                return Err(AuthError::JwksError(
+                    "OIDC discovery: missing 'jwks_uri' field".to_string(),
+                ));
+            }
+
+            if config.token_endpoint.is_empty() {
+                return Err(AuthError::JwksError(
+                    "OIDC discovery: missing 'token_endpoint' field".to_string(),
+                ));
+            }
+
+            Ok(config)
+        }.await;
+
+        // Record metrics
+        let success = result.is_ok();
+        infera_observe::metrics::record_oidc_discovery(issuer_url, success);
+
+        match result {
+            Ok(config) => {
+                // Cache the result
+                self.cache
+                    .insert(issuer_url.to_string(), config.clone())
+                    .await;
+
+                tracing::info!(
+                    issuer = %issuer_url,
+                    jwks_uri = %config.jwks_uri,
+                    "OIDC discovery successful"
+                );
+
+                Ok(config)
+            }
+            Err(e) => Err(e),
         }
-
-        // Parse response
-        let config: OidcConfiguration = response.json().await.map_err(|e| {
-            AuthError::JwksError(format!("Failed to parse OIDC discovery response: {}", e))
-        })?;
-
-        // Validate required fields
-        if config.issuer.is_empty() {
-            return Err(AuthError::JwksError(
-                "OIDC discovery: missing 'issuer' field".to_string(),
-            ));
-        }
-
-        if config.jwks_uri.is_empty() {
-            return Err(AuthError::JwksError(
-                "OIDC discovery: missing 'jwks_uri' field".to_string(),
-            ));
-        }
-
-        if config.token_endpoint.is_empty() {
-            return Err(AuthError::JwksError(
-                "OIDC discovery: missing 'token_endpoint' field".to_string(),
-            ));
-        }
-
-        // Cache the result
-        self.cache
-            .insert(issuer_url.to_string(), config.clone())
-            .await;
-
-        tracing::info!(
-            issuer = %issuer_url,
-            jwks_uri = %config.jwks_uri,
-            "OIDC discovery successful"
-        );
-
-        Ok(config)
     }
 
     /// Get cached configuration if available
