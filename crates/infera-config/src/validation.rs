@@ -307,6 +307,7 @@ mod tests {
                 metrics_enabled: true,
                 tracing_enabled: true,
             },
+            auth: crate::AuthConfig::default(),
         };
 
         match validate(&config) {

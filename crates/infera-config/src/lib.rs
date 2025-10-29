@@ -5,7 +5,7 @@
 pub mod secrets;
 pub mod validation;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use config::{Config as ConfigBuilder, ConfigError, File, Environment};
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,8 @@ pub struct Config {
     pub store: StoreConfig,
     pub cache: CacheConfig,
     pub observability: ObservabilityConfig,
+    #[serde(default)]
+    pub auth: AuthConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,6 +104,104 @@ fn default_tracing_enabled() -> bool {
     true
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    /// Enable authentication (false for development/testing)
+    #[serde(default = "default_auth_enabled")]
+    pub enabled: bool,
+
+    /// JWKS cache TTL in seconds
+    #[serde(default = "default_jwks_cache_ttl")]
+    pub jwks_cache_ttl: u64,
+
+    /// Accepted signature algorithms
+    #[serde(default = "default_accepted_algorithms")]
+    pub accepted_algorithms: Vec<String>,
+
+    /// Enforce audience validation
+    #[serde(default = "default_enforce_audience")]
+    pub enforce_audience: bool,
+
+    /// Expected audience value
+    #[serde(default = "default_audience")]
+    pub audience: String,
+
+    /// Enforce scope validation
+    #[serde(default = "default_enforce_scopes")]
+    pub enforce_scopes: bool,
+
+    /// Enable replay protection (requires Redis)
+    #[serde(default = "default_replay_protection")]
+    pub replay_protection: bool,
+
+    /// Control Plane JWKS base URL
+    #[serde(default = "default_jwks_base_url")]
+    pub jwks_base_url: String,
+
+    /// OAuth introspection endpoint (optional)
+    pub oauth_introspection_endpoint: Option<String>,
+
+    /// Internal JWKS file path (optional)
+    pub internal_jwks_path: Option<PathBuf>,
+
+    /// Internal JWKS environment variable name (optional)
+    pub internal_jwks_env: Option<String>,
+
+    /// Redis URL for replay protection (optional)
+    pub redis_url: Option<String>,
+}
+
+fn default_auth_enabled() -> bool {
+    false // Disabled by default for development
+}
+
+fn default_jwks_cache_ttl() -> u64 {
+    300 // 5 minutes
+}
+
+fn default_accepted_algorithms() -> Vec<String> {
+    vec!["EdDSA".to_string(), "RS256".to_string()]
+}
+
+fn default_enforce_audience() -> bool {
+    true
+}
+
+fn default_audience() -> String {
+    "https://api.inferadb.com/evaluate".to_string()
+}
+
+fn default_enforce_scopes() -> bool {
+    true
+}
+
+fn default_replay_protection() -> bool {
+    false
+}
+
+fn default_jwks_base_url() -> String {
+    "https://auth.inferadb.com/.well-known".to_string()
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_auth_enabled(),
+            jwks_cache_ttl: default_jwks_cache_ttl(),
+            accepted_algorithms: default_accepted_algorithms(),
+            enforce_audience: default_enforce_audience(),
+            audience: default_audience(),
+            enforce_scopes: default_enforce_scopes(),
+            replay_protection: default_replay_protection(),
+            jwks_base_url: default_jwks_base_url(),
+            oauth_introspection_endpoint: None,
+            internal_jwks_path: None,
+            internal_jwks_env: Some("INFERADB_INTERNAL_JWKS".to_string()),
+            redis_url: None,
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -124,6 +224,7 @@ impl Default for Config {
                 metrics_enabled: default_metrics_enabled(),
                 tracing_enabled: default_tracing_enabled(),
             },
+            auth: AuthConfig::default(),
         }
     }
 }

@@ -6,6 +6,7 @@ members = [
     "crates/infera-wasm",
     "crates/infera-repl",
     "crates/infera-api",
+    "crates/infera-auth",
     "crates/infera-cache",
     "crates/infera-observe",
     "crates/infera-config",
@@ -67,6 +68,17 @@ clap = { version = "4.5", features = ["derive"] }
 # Testing
 proptest = "1.6"
 criterion = { version = "0.5", features = ["async_tokio"] }
+
+# Authentication
+jsonwebtoken = "9.3"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+rsa = "0.9"
+sha2 = "0.10"
+secrecy = "0.10"
+zeroize = "1.8"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4"] }
+base64 = "0.22"
 
 [profile.release]
 opt-level = 3

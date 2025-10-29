@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -32,17 +32,54 @@ pub enum ApiError {
 
     #[error("Internal error: {0}")]
     Internal(String),
+
+    // Authentication errors
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
+
+    #[error("Invalid token format: {0}")]
+    InvalidTokenFormat(String),
+
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
+
+    #[error("Unknown tenant: {0}")]
+    UnknownTenant(String),
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
-            ApiError::Evaluation(_) => (StatusCode::FORBIDDEN, self.to_string()),
-            ApiError::InvalidRequest(_) => (StatusCode::BAD_REQUEST, self.to_string()),
-            ApiError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+        let (status, message, headers) = match self {
+            ApiError::Evaluation(_) => (StatusCode::FORBIDDEN, self.to_string(), None),
+            ApiError::InvalidRequest(_) => (StatusCode::BAD_REQUEST, self.to_string(), None),
+            ApiError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string(), None),
+
+            // Authentication errors with WWW-Authenticate header
+            ApiError::Unauthorized(_) => {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    header::WWW_AUTHENTICATE,
+                    HeaderValue::from_static("Bearer realm=\"InferaDB\""),
+                );
+                (StatusCode::UNAUTHORIZED, self.to_string(), Some(headers))
+            },
+            ApiError::InvalidTokenFormat(_) => {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    header::WWW_AUTHENTICATE,
+                    HeaderValue::from_static("Bearer realm=\"InferaDB\", error=\"invalid_token\""),
+                );
+                (StatusCode::UNAUTHORIZED, self.to_string(), Some(headers))
+            },
+            ApiError::Forbidden(_) => (StatusCode::FORBIDDEN, self.to_string(), None),
+            ApiError::UnknownTenant(_) => (StatusCode::NOT_FOUND, self.to_string(), None),
         };
 
-        (status, Json(ErrorResponse { error: message })).into_response()
+        let mut response = (status, Json(ErrorResponse { error: message })).into_response();
+        if let Some(h) = headers {
+            response.headers_mut().extend(h);
+        }
+        response
     }
 }
 
