@@ -20,6 +20,8 @@ chrono = { workspace = true }
 # gRPC dependencies
 tonic = "0.12"
 prost = "0.13"
+pin-project = "1.1"
+futures = { workspace = true }
 
 # Internal dependencies
 infera-auth = { path = "../infera-auth" }
@@ -41,3 +43,6 @@ jsonwebtoken = { workspace = true }
 chrono = { workspace = true }
 uuid = "1.10"
 warp = "0.3"
+tempfile = "3.8"
+portpicker = "0.1"
+infera-test-fixtures = { path = "../infera-test-fixtures" }

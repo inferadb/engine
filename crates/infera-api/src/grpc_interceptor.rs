@@ -161,24 +161,23 @@ impl AuthInterceptor {
     }
 }
 
-/// Implement tonic interceptor trait
+/// Synchronous interceptor implementation
+///
+/// This uses futures::executor::block_on which doesn't conflict with tokio runtime
 impl tonic::service::Interceptor for AuthInterceptor {
     fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
-        // Run async authentication in a blocking context
-        // Use tokio::runtime::Handle to block on the future
-        let auth_result = tokio::runtime::Handle::current()
-            .block_on(self.authenticate(request.metadata()));
+        let auth_future = self.authenticate(request.metadata());
+
+        // Use futures::executor::block_on instead of tokio::runtime::Handle::block_on
+        // This works even when inside a tokio runtime
+        let auth_result = futures::executor::block_on(auth_future);
 
         match auth_result {
             Ok(auth_ctx) => {
-                // Insert AuthContext into request extensions
                 request.extensions_mut().insert(auth_ctx);
                 Ok(request)
             }
-            Err(e) => {
-                // Map auth errors to gRPC status codes
-                Err(auth_error_to_status(e))
-            }
+            Err(e) => Err(auth_error_to_status(e)),
         }
     }
 }

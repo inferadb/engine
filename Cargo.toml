@@ -11,6 +11,7 @@ members = [
     "crates/infera-observe",
     "crates/infera-config",
     "crates/infera-bin",
+    "crates/infera-test-fixtures",
 ]
 
 [workspace.package]

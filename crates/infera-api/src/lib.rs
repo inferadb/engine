@@ -307,7 +307,7 @@ pub async fn serve_grpc(
         evaluator,
         store,
         config: config.clone(),
-        jwks_cache,
+        jwks_cache: jwks_cache.clone(),
     };
 
     let service = grpc::InferaServiceImpl::new(state);
@@ -316,12 +316,49 @@ pub async fn serve_grpc(
     let grpc_port = config.server.port + 1;
     let addr = format!("{}:{}", config.server.host, grpc_port).parse()?;
 
-    info!("Starting gRPC server on {}", addr);
+    // Set up authentication if enabled
+    if config.auth.enabled {
+        if let Some(cache) = jwks_cache {
+            info!("Starting gRPC server on {} with authentication enabled", addr);
 
-    Server::builder()
-        .add_service(InferaServiceServer::new(service))
-        .serve(addr)
-        .await?;
+            // Try to load internal JWKS if configured
+            let internal_loader = infera_auth::InternalJwksLoader::from_config(
+                config.auth.internal_jwks_path.as_deref(),
+                config.auth.internal_jwks_env.as_deref(),
+            )
+            .ok()
+            .map(Arc::new);
+
+            if internal_loader.is_some() {
+                info!("Internal JWT authentication enabled for gRPC");
+            }
+
+            // Create auth interceptor
+            let interceptor = grpc_interceptor::AuthInterceptor::new(
+                cache,
+                internal_loader,
+                Arc::new(config.auth.clone()),
+            );
+
+            // Add service with interceptor
+            Server::builder()
+                .add_service(InferaServiceServer::with_interceptor(service, interceptor))
+                .serve(addr)
+                .await?;
+        } else {
+            return Err(anyhow::anyhow!(
+                "Authentication enabled but JWKS cache not initialized"
+            ));
+        }
+    } else {
+        info!("Starting gRPC server on {} WITHOUT authentication", addr);
+        tracing::warn!("gRPC authentication is DISABLED - use only in development/testing");
+
+        Server::builder()
+            .add_service(InferaServiceServer::new(service))
+            .serve(addr)
+            .await?;
+    }
 
     Ok(())
 }
