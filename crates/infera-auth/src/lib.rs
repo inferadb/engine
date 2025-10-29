@@ -33,7 +33,10 @@ pub mod context;
 pub mod error;
 /// JWT validation and claims
 pub mod jwt;
+/// JWKS caching and fetching
+pub mod jwks_cache;
 
 // Re-export key types
 pub use context::{AuthContext, AuthMethod};
 pub use error::AuthError;
+pub use jwks_cache::{Jwk, JwksCache};

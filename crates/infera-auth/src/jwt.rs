@@ -170,7 +170,7 @@ pub fn validate_algorithm(alg: &str, accepted_algorithms: &[String]) -> Result<(
     Ok(())
 }
 
-/// Verify JWT signature with a public key (placeholder - will be enhanced with JWKS in Phase 2)
+/// Verify JWT signature with a public key
 pub fn verify_signature(
     token: &str,
     key: &DecodingKey,
@@ -184,6 +184,113 @@ pub fn verify_signature(
     let token_data = decode::<JwtClaims>(token, key, &validation)?;
 
     Ok(token_data.claims)
+}
+
+/// Verify JWT signature using JWKS cache
+///
+/// This is the primary JWT verification function that:
+/// 1. Decodes the JWT header to extract the key ID (`kid`) and algorithm
+/// 2. Extracts the tenant ID from the JWT claims
+/// 3. Fetches the corresponding public key from the JWKS cache
+/// 4. Verifies the JWT signature using the public key
+///
+/// The JWKS cache handles key fetching, caching, and rotation automatically.
+///
+/// # Arguments
+///
+/// * `token` - The JWT token to verify (as a string)
+/// * `jwks_cache` - The JWKS cache instance
+///
+/// # Returns
+///
+/// Returns the validated JWT claims if verification succeeds.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The JWT is malformed or missing required fields (`kid`, tenant ID)
+/// - The algorithm is not supported (only EdDSA and RS256 are allowed)
+/// - The key cannot be found in JWKS (even after refresh)
+/// - The signature is invalid
+///
+/// # Example
+///
+/// ```no_run
+/// use infera_auth::jwt::verify_with_jwks;
+/// use infera_auth::jwks_cache::JwksCache;
+/// use moka::future::Cache;
+/// use std::sync::Arc;
+/// use std::time::Duration;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Setup JWKS cache
+/// let cache = Arc::new(Cache::new(100));
+/// let jwks_cache = JwksCache::new(
+///     "https://control-plane.example.com".to_string(),
+///     cache,
+///     Duration::from_secs(300),
+/// );
+///
+/// // Verify a JWT
+/// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6ImFjbWUta2V5LTAwMSJ9...";
+/// let claims = verify_with_jwks(token, &jwks_cache).await?;
+///
+/// println!("Verified claims for tenant: {}", claims.iss);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn verify_with_jwks(
+    token: &str,
+    jwks_cache: &crate::jwks_cache::JwksCache,
+) -> Result<JwtClaims, AuthError> {
+    // 1. Decode header to get algorithm and key ID
+    let header = decode_jwt_header(token)?;
+
+    let kid = header.kid.ok_or_else(|| {
+        AuthError::InvalidTokenFormat("JWT header missing 'kid' field".into())
+    })?;
+
+    // Validate algorithm
+    let alg_str = format!("{:?}", header.alg);
+    validate_algorithm(&alg_str, &["EdDSA".to_string(), "RS256".to_string()])?;
+
+    // 2. Decode claims without verification to extract tenant ID
+    let claims = decode_jwt_claims(token)?;
+    let tenant_id = claims.extract_tenant_id()?;
+
+    // 3. Get key from JWKS cache
+    let jwk = match jwks_cache.get_key_by_id(&tenant_id, &kid).await {
+        Ok(key) => key,
+        Err(_) => {
+            // Key not found - retry with fresh JWKS fetch
+            tracing::info!(
+                tenant_id = %tenant_id,
+                kid = %kid,
+                "Key not found in JWKS, forcing refresh"
+            );
+
+            // Force a fresh fetch by getting all keys
+            let keys = jwks_cache.get_jwks(&tenant_id).await?;
+
+            // Try to find the key again
+            keys.into_iter()
+                .find(|k| k.kid == kid)
+                .ok_or_else(|| {
+                    AuthError::JwksError(format!(
+                        "Key '{}' not found in JWKS for tenant '{}'",
+                        kid, tenant_id
+                    ))
+                })?
+        }
+    };
+
+    // 4. Convert JWK to DecodingKey
+    let decoding_key = jwk.to_decoding_key()?;
+
+    // 5. Verify signature
+    let verified_claims = verify_signature(token, &decoding_key, header.alg)?;
+
+    Ok(verified_claims)
 }
 
 #[cfg(test)]

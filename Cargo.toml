@@ -79,6 +79,7 @@ zeroize = "1.8"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4"] }
 base64 = "0.22"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 
 [profile.release]
 opt-level = 3

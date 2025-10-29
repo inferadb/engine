@@ -132,6 +132,28 @@ pub fn init_metrics_descriptions() {
         "Number of currently active API connections"
     );
 
+    // Authentication/JWKS metrics
+    describe_counter!(
+        "inferadb_jwks_cache_hits_total",
+        "Total number of JWKS cache hits"
+    );
+    describe_counter!(
+        "inferadb_jwks_cache_misses_total",
+        "Total number of JWKS cache misses"
+    );
+    describe_counter!(
+        "inferadb_jwks_refresh_total",
+        "Total number of JWKS refresh operations"
+    );
+    describe_counter!(
+        "inferadb_jwks_refresh_errors_total",
+        "Total number of JWKS refresh errors"
+    );
+    describe_histogram!(
+        "inferadb_jwks_fetch_duration_seconds",
+        "Duration of JWKS fetch operations in seconds"
+    );
+
     // System metrics
     describe_gauge!(
         "inferadb_build_info",
@@ -265,6 +287,28 @@ pub fn set_build_info(version: &str, commit: &str) {
 /// Update uptime metric
 pub fn update_uptime(seconds: u64) {
     gauge!("inferadb_uptime_seconds").set(seconds as f64);
+}
+
+/// Record a JWKS cache hit
+pub fn record_jwks_cache_hit(tenant_id: &str) {
+    counter!("inferadb_jwks_cache_hits_total", "tenant_id" => tenant_id.to_string()).increment(1);
+}
+
+/// Record a JWKS cache miss
+pub fn record_jwks_cache_miss(tenant_id: &str) {
+    counter!("inferadb_jwks_cache_misses_total", "tenant_id" => tenant_id.to_string()).increment(1);
+}
+
+/// Record a JWKS refresh operation
+pub fn record_jwks_refresh(tenant_id: &str, duration_seconds: f64, success: bool) {
+    counter!("inferadb_jwks_refresh_total", "tenant_id" => tenant_id.to_string()).increment(1);
+
+    if !success {
+        counter!("inferadb_jwks_refresh_errors_total", "tenant_id" => tenant_id.to_string()).increment(1);
+    }
+
+    histogram!("inferadb_jwks_fetch_duration_seconds", "tenant_id" => tenant_id.to_string())
+        .record(duration_seconds);
 }
 
 #[cfg(test)]
