@@ -1,0 +1,20 @@
+# Configuration for cargo-audit
+# https://github.com/RustSec/rustsec/tree/main/cargo-audit
+
+[advisories]
+# Ignore specific advisories
+ignore = [
+    # shlex is unmaintained but used only as a build dependency
+    # through cc -> cmake -> aws-lc-sys chain. No security impact.
+    "RUSTSEC-2024-0006",  # shlex unmaintained
+
+    # Add other advisories here as they are discovered in CI
+]
+
+[output]
+# Only deny actual vulnerabilities and yanked crates
+# Warnings for unmaintained crates are acceptable for transitive dependencies
+deny = ["unsound", "yanked"]
+warn = ["unmaintained"]
+format = "json"
+quiet = false

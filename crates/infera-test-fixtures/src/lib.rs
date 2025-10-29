@@ -7,6 +7,7 @@ pub mod internal_jwt;
 
 pub use internal_jwt::{
     InternalClaims,
+    InternalKeyPair,
     generate_internal_keypair,
     generate_internal_jwt,
     create_internal_jwks,

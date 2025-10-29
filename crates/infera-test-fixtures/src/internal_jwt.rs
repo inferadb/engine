@@ -80,12 +80,20 @@ impl InternalClaims {
     }
 }
 
+/// Test keypair holder with both the signing key and JWKs
+pub struct InternalKeyPair {
+    pub signing_key: SigningKey,
+    pub private_jwk: Jwk,
+    pub public_jwk: Jwk,
+}
+
 /// Generate an Ed25519 keypair for internal JWT testing
 ///
-/// Returns (private_jwk, public_jwk) where:
-/// - private_jwk contains the 'd' parameter for signing
-/// - public_jwk contains only the public 'x' parameter for verification
-pub fn generate_internal_keypair() -> (Jwk, Jwk) {
+/// Returns InternalKeyPair containing:
+/// - signing_key: The actual Ed25519 signing key
+/// - private_jwk: JWK with kid for the private key
+/// - public_jwk: JWK for verification (goes in JWKS)
+pub fn generate_internal_keypair() -> InternalKeyPair {
     let signing_key = SigningKey::generate(&mut OsRng);
     let verifying_key = signing_key.verifying_key();
 
@@ -96,7 +104,7 @@ pub fn generate_internal_keypair() -> (Jwk, Jwk) {
 
     let kid = uuid::Uuid::new_v4().to_string();
 
-    // Create private JWK (for signing)
+    // Create private JWK (for signing - stores kid)
     let private_jwk = Jwk {
         kty: "OKP".to_string(),
         crv: Some("Ed25519".to_string()),
@@ -120,27 +128,25 @@ pub fn generate_internal_keypair() -> (Jwk, Jwk) {
         use_: Some("sig".to_string()),
     };
 
-    (private_jwk, public_jwk)
+    InternalKeyPair {
+        signing_key,
+        private_jwk,
+        public_jwk,
+    }
 }
 
-/// Generate an internal JWT signed with a new Ed25519 key
-///
-/// Note: For testing purposes, this generates a fresh signing key each time.
-/// The kid from the provided JWK is used in the JWT header.
+/// Generate an internal JWT signed with the provided keypair
 ///
 /// # Arguments
 ///
-/// * `private_key_jwk` - The JWK containing the kid to use
+/// * `keypair` - The InternalKeyPair containing the signing key
 /// * `claims` - The claims to include in the JWT
 ///
 /// # Returns
 ///
 /// A signed JWT string
-pub fn generate_internal_jwt(private_key_jwk: &Jwk, claims: InternalClaims) -> String {
-    // For testing, generate a fresh Ed25519 signing key
-    // This is acceptable for tests where we just need a valid JWT structure
-    let signing_key = SigningKey::generate(&mut OsRng);
-    let private_bytes = signing_key.to_bytes();
+pub fn generate_internal_jwt(keypair: &InternalKeyPair, claims: InternalClaims) -> String {
+    let private_bytes = keypair.signing_key.to_bytes();
 
     // Create PKCS8 DER encoding for Ed25519
     // Ed25519 private keys in PKCS#8 format have this structure
@@ -158,7 +164,7 @@ pub fn generate_internal_jwt(private_key_jwk: &Jwk, claims: InternalClaims) -> S
 
     // Create JWT header with kid
     let mut header = Header::new(Algorithm::EdDSA);
-    header.kid = Some(private_key_jwk.kid.clone());
+    header.kid = Some(keypair.private_jwk.kid.clone());
 
     // Encode JWT
     encode(&header, &claims, &encoding_key).expect("Failed to encode JWT")
@@ -188,20 +194,20 @@ mod tests {
 
     #[test]
     fn test_generate_keypair() {
-        let (private_jwk, public_jwk) = generate_internal_keypair();
+        let keypair = generate_internal_keypair();
 
-        // Both should have same kid
-        assert_eq!(private_jwk.kid, public_jwk.kid);
+        // Both JWKs should have same kid
+        assert_eq!(keypair.private_jwk.kid, keypair.public_jwk.kid);
 
         // Both should be OKP/Ed25519
-        assert_eq!(private_jwk.kty, "OKP");
-        assert_eq!(private_jwk.crv, Some("Ed25519".to_string()));
-        assert_eq!(public_jwk.kty, "OKP");
-        assert_eq!(public_jwk.crv, Some("Ed25519".to_string()));
+        assert_eq!(keypair.private_jwk.kty, "OKP");
+        assert_eq!(keypair.private_jwk.crv, Some("Ed25519".to_string()));
+        assert_eq!(keypair.public_jwk.kty, "OKP");
+        assert_eq!(keypair.public_jwk.crv, Some("Ed25519".to_string()));
 
         // Both should have x parameter
-        assert!(private_jwk.x.is_some());
-        assert!(public_jwk.x.is_some());
+        assert!(keypair.private_jwk.x.is_some());
+        assert!(keypair.public_jwk.x.is_some());
     }
 
     #[test]
@@ -221,8 +227,8 @@ mod tests {
 
     #[test]
     fn test_create_internal_jwks() {
-        let (_private, public) = generate_internal_keypair();
-        let jwks = create_internal_jwks(vec![public]);
+        let keypair = generate_internal_keypair();
+        let jwks = create_internal_jwks(vec![keypair.public_jwk]);
 
         assert_eq!(jwks.keys.len(), 1);
         assert_eq!(jwks.issuer, "https://internal.inferadb.com");
@@ -231,9 +237,9 @@ mod tests {
 
     #[test]
     fn test_generate_jwt() {
-        let (private, _public) = generate_internal_keypair();
+        let keypair = generate_internal_keypair();
         let claims = InternalClaims::default();
-        let jwt = generate_internal_jwt(&private, claims);
+        let jwt = generate_internal_jwt(&keypair, claims);
 
         // JWT should have 3 parts
         assert_eq!(jwt.split('.').count(), 3);

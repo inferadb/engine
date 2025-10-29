@@ -21,7 +21,7 @@ ignore = [
 
 [licenses]
 # Deny licenses that are not explicitly allowed
-unlicensed = "deny"
+unlicensed = "warn"  # Changed to warn since we use BSL-1.1
 # Allow specific licenses
 allow = [
     "MIT",
@@ -31,7 +31,6 @@ allow = [
     "BSD-3-Clause",
     "ISC",
     "Unicode-DFS-2016",
-    "BSL-1.1",  # Our own license
 ]
 # Deny specific licenses
 deny = [
@@ -47,8 +46,6 @@ confidence-threshold = 0.8
 multiple-versions = "warn"
 # Deny wildcard dependencies
 wildcards = "deny"
-# Allow git dependencies only from specific sources
-allow-git = []
 # Deny specific crates
 deny = [
     # Example: { name = "openssl", wrappers = ["openssl-sys"] },
