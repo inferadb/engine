@@ -45,6 +45,8 @@ pub mod oauth;
 pub mod oidc;
 /// Internal service JWT authentication
 pub mod internal;
+/// Audit logging for authentication events
+pub mod audit;
 
 // Re-export key types
 pub use context::{AuthContext, AuthMethod};
@@ -54,3 +56,4 @@ pub use jwks_cache::{Jwk, JwksCache};
 pub use oauth::OAuthJwksClient;
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
 pub use internal::{InternalJwks, InternalJwksLoader};
+pub use audit::{AuditEvent, log_audit_event};

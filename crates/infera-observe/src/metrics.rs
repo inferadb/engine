@@ -132,7 +132,33 @@ pub fn init_metrics_descriptions() {
         "Number of currently active API connections"
     );
 
-    // Authentication/JWKS metrics
+    // Authentication metrics
+    describe_counter!(
+        "inferadb_auth_attempts_total",
+        "Total number of authentication attempts"
+    );
+    describe_counter!(
+        "inferadb_auth_success_total",
+        "Total number of successful authentications"
+    );
+    describe_counter!(
+        "inferadb_auth_failure_total",
+        "Total number of failed authentications"
+    );
+    describe_histogram!(
+        "inferadb_auth_duration_seconds",
+        "Duration of authentication operations in seconds"
+    );
+    describe_counter!(
+        "inferadb_jwt_signature_verifications_total",
+        "Total number of JWT signature verifications"
+    );
+    describe_counter!(
+        "inferadb_jwt_validation_errors_total",
+        "Total number of JWT validation errors"
+    );
+
+    // JWKS metrics
     describe_counter!(
         "inferadb_jwks_cache_hits_total",
         "Total number of JWKS cache hits"
@@ -152,6 +178,10 @@ pub fn init_metrics_descriptions() {
     describe_histogram!(
         "inferadb_jwks_fetch_duration_seconds",
         "Duration of JWKS fetch operations in seconds"
+    );
+    describe_counter!(
+        "inferadb_jwks_stale_served_total",
+        "Total number of times stale JWKS was served"
     );
 
     // OAuth metrics
@@ -315,6 +345,64 @@ pub fn update_uptime(seconds: u64) {
     gauge!("inferadb_uptime_seconds").set(seconds as f64);
 }
 
+/// Record an authentication attempt
+pub fn record_auth_attempt(method: &str, tenant_id: &str) {
+    counter!(
+        "inferadb_auth_attempts_total",
+        "method" => method.to_string(),
+        "tenant_id" => tenant_id.to_string()
+    ).increment(1);
+}
+
+/// Record a successful authentication
+pub fn record_auth_success(method: &str, tenant_id: &str, duration_seconds: f64) {
+    counter!(
+        "inferadb_auth_success_total",
+        "method" => method.to_string(),
+        "tenant_id" => tenant_id.to_string()
+    ).increment(1);
+
+    histogram!(
+        "inferadb_auth_duration_seconds",
+        "method" => method.to_string(),
+        "tenant_id" => tenant_id.to_string()
+    ).record(duration_seconds);
+}
+
+/// Record a failed authentication
+pub fn record_auth_failure(method: &str, error_type: &str, tenant_id: &str, duration_seconds: f64) {
+    counter!(
+        "inferadb_auth_failure_total",
+        "method" => method.to_string(),
+        "error_type" => error_type.to_string(),
+        "tenant_id" => tenant_id.to_string()
+    ).increment(1);
+
+    histogram!(
+        "inferadb_auth_duration_seconds",
+        "method" => method.to_string(),
+        "tenant_id" => tenant_id.to_string()
+    ).record(duration_seconds);
+}
+
+/// Record a JWT signature verification
+pub fn record_jwt_signature_verification(algorithm: &str, success: bool) {
+    let result = if success { "success" } else { "failure" };
+    counter!(
+        "inferadb_jwt_signature_verifications_total",
+        "algorithm" => algorithm.to_string(),
+        "result" => result
+    ).increment(1);
+}
+
+/// Record a JWT validation error
+pub fn record_jwt_validation_error(error_type: &str) {
+    counter!(
+        "inferadb_jwt_validation_errors_total",
+        "error_type" => error_type.to_string()
+    ).increment(1);
+}
+
 /// Record a JWKS cache hit
 pub fn record_jwks_cache_hit(tenant_id: &str) {
     counter!("inferadb_jwks_cache_hits_total", "tenant_id" => tenant_id.to_string()).increment(1);
@@ -335,6 +423,11 @@ pub fn record_jwks_refresh(tenant_id: &str, duration_seconds: f64, success: bool
 
     histogram!("inferadb_jwks_fetch_duration_seconds", "tenant_id" => tenant_id.to_string())
         .record(duration_seconds);
+}
+
+/// Record when stale JWKS is served (stale-while-revalidate)
+pub fn record_jwks_stale_served(tenant_id: &str) {
+    counter!("inferadb_jwks_stale_served_total", "tenant_id" => tenant_id.to_string()).increment(1);
 }
 
 /// Record an OAuth JWT validation attempt
@@ -561,6 +654,54 @@ mod tests {
     fn test_record_oidc_discovery_failure() {
         init_test_metrics();
         record_oidc_discovery("https://oauth.example.com", false);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_auth_attempt() {
+        init_test_metrics();
+        record_auth_attempt("tenant_jwt", "test-tenant");
+        record_auth_attempt("internal_jwt", "internal");
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_auth_success() {
+        init_test_metrics();
+        record_auth_success("tenant_jwt", "test-tenant", 0.01);
+        record_auth_success("oauth_jwt", "another-tenant", 0.02);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_auth_failure() {
+        init_test_metrics();
+        record_auth_failure("tenant_jwt", "token_expired", "test-tenant", 0.005);
+        record_auth_failure("oauth_jwt", "invalid_signature", "another-tenant", 0.008);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_jwt_signature_verification() {
+        init_test_metrics();
+        record_jwt_signature_verification("EdDSA", true);
+        record_jwt_signature_verification("RS256", false);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_jwt_validation_error() {
+        init_test_metrics();
+        record_jwt_validation_error("expired");
+        record_jwt_validation_error("invalid_signature");
+        record_jwt_validation_error("missing_claim");
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_jwks_stale_served() {
+        init_test_metrics();
+        record_jwks_stale_served("test-tenant");
         // Just verify it doesn't panic
     }
 }

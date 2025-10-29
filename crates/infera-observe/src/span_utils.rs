@@ -185,6 +185,136 @@ pub fn record_optimization(span: &Span, cost: usize, parallelizable: bool) {
     span.record("parallelizable", parallelizable);
 }
 
+/// Create a span for authentication operations
+///
+/// # Arguments
+/// * `method` - The authentication method (e.g., "tenant_jwt", "internal_jwt", "oauth_jwt")
+/// * `tenant_id` - The tenant identifier (if available)
+///
+/// # Returns
+/// A tracing span configured for authentication
+pub fn auth_span(method: &str, tenant_id: Option<&str>) -> Span {
+    match tenant_id {
+        Some(tid) => span!(
+            Level::INFO,
+            "authentication",
+            method = method,
+            tenant_id = tid,
+            duration_ms = tracing::field::Empty,
+            result = tracing::field::Empty,
+            error_type = tracing::field::Empty,
+        ),
+        None => span!(
+            Level::INFO,
+            "authentication",
+            method = method,
+            duration_ms = tracing::field::Empty,
+            result = tracing::field::Empty,
+            error_type = tracing::field::Empty,
+        ),
+    }
+}
+
+/// Create a span for JWKS fetch operations
+///
+/// # Arguments
+/// * `tenant_id` - The tenant identifier
+///
+/// # Returns
+/// A tracing span for JWKS fetch operations
+pub fn jwks_fetch_span(tenant_id: &str) -> Span {
+    span!(
+        Level::INFO,
+        "jwks_fetch",
+        tenant_id = tenant_id,
+        cache_status = tracing::field::Empty,
+        duration_ms = tracing::field::Empty,
+        result = tracing::field::Empty,
+    )
+}
+
+/// Create a span for OAuth JWT validation
+///
+/// # Arguments
+/// * `issuer` - The OAuth issuer URL
+///
+/// # Returns
+/// A tracing span for OAuth validation
+pub fn oauth_validation_span(issuer: &str) -> Span {
+    span!(
+        Level::INFO,
+        "oauth_validation",
+        issuer = issuer,
+        result = tracing::field::Empty,
+        error = tracing::field::Empty,
+    )
+}
+
+/// Create a span for OAuth token introspection
+///
+/// # Arguments
+/// * `endpoint` - The introspection endpoint URL
+///
+/// # Returns
+/// A tracing span for token introspection
+pub fn introspection_span(endpoint: &str) -> Span {
+    span!(
+        Level::INFO,
+        "token_introspection",
+        endpoint = endpoint,
+        cache_status = tracing::field::Empty,
+        duration_ms = tracing::field::Empty,
+        active = tracing::field::Empty,
+    )
+}
+
+/// Create a span for OIDC discovery
+///
+/// # Arguments
+/// * `issuer` - The OIDC issuer URL
+///
+/// # Returns
+/// A tracing span for OIDC discovery
+pub fn oidc_discovery_span(issuer: &str) -> Span {
+    span!(
+        Level::INFO,
+        "oidc_discovery",
+        issuer = issuer,
+        cache_status = tracing::field::Empty,
+        result = tracing::field::Empty,
+    )
+}
+
+/// Record authentication result in the current span
+///
+/// # Arguments
+/// * `span` - The span to record in
+/// * `success` - Whether authentication succeeded
+/// * `duration_ms` - Duration in milliseconds
+/// * `error_type` - Optional error type if authentication failed
+pub fn record_auth_result(span: &Span, success: bool, duration_ms: f64, error_type: Option<&str>) {
+    span.record("result", if success { "success" } else { "failure" });
+    span.record("duration_ms", duration_ms);
+    if let Some(err) = error_type {
+        span.record("error_type", err);
+    }
+}
+
+/// Record JWKS fetch result in the current span
+///
+/// # Arguments
+/// * `span` - The span to record in
+/// * `cache_status` - "hit", "miss", or "stale"
+/// * `duration_ms` - Duration in milliseconds (for fetch operations)
+/// * `success` - Whether the operation succeeded
+pub fn record_jwks_result(span: &Span, cache_status: &str, duration_ms: Option<f64>, success: bool) {
+    span.record("cache_status", cache_status);
+    if let Some(duration) = duration_ms {
+        span.record("duration_ms", duration);
+    }
+    span.record("result", if success { "success" } else { "failure" });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,6 +449,97 @@ mod tests {
         let span = optimization_span("can_view");
         let _entered = span.enter();
         record_optimization(&span, 15, true);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_auth_span_with_tenant() {
+        init_test_tracing();
+
+        let span = auth_span("tenant_jwt", Some("test-tenant"));
+        if let Some(metadata) = span.metadata() {
+            assert_eq!(metadata.name(), "authentication");
+            assert_eq!(metadata.level(), &Level::INFO);
+        }
+    }
+
+    #[test]
+    fn test_auth_span_without_tenant() {
+        init_test_tracing();
+
+        let span = auth_span("internal_jwt", None);
+        if let Some(metadata) = span.metadata() {
+            assert_eq!(metadata.name(), "authentication");
+        }
+    }
+
+    #[test]
+    fn test_jwks_fetch_span() {
+        init_test_tracing();
+
+        let span = jwks_fetch_span("test-tenant");
+        if let Some(metadata) = span.metadata() {
+            assert_eq!(metadata.name(), "jwks_fetch");
+        }
+    }
+
+    #[test]
+    fn test_oauth_validation_span() {
+        init_test_tracing();
+
+        let span = oauth_validation_span("https://oauth.example.com");
+        if let Some(metadata) = span.metadata() {
+            assert_eq!(metadata.name(), "oauth_validation");
+        }
+    }
+
+    #[test]
+    fn test_introspection_span() {
+        init_test_tracing();
+
+        let span = introspection_span("https://oauth.example.com/introspect");
+        if let Some(metadata) = span.metadata() {
+            assert_eq!(metadata.name(), "token_introspection");
+        }
+    }
+
+    #[test]
+    fn test_oidc_discovery_span() {
+        init_test_tracing();
+
+        let span = oidc_discovery_span("https://oauth.example.com");
+        if let Some(metadata) = span.metadata() {
+            assert_eq!(metadata.name(), "oidc_discovery");
+        }
+    }
+
+    #[test]
+    fn test_record_auth_result_success() {
+        init_test_tracing();
+
+        let span = auth_span("tenant_jwt", Some("test-tenant"));
+        let _entered = span.enter();
+        record_auth_result(&span, true, 5.2, None);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_auth_result_failure() {
+        init_test_tracing();
+
+        let span = auth_span("oauth_jwt", Some("test-tenant"));
+        let _entered = span.enter();
+        record_auth_result(&span, false, 10.5, Some("token_expired"));
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_record_jwks_result() {
+        init_test_tracing();
+
+        let span = jwks_fetch_span("test-tenant");
+        let _entered = span.enter();
+        record_jwks_result(&span, "miss", Some(150.0), true);
         // Just verify it doesn't panic
     }
 }

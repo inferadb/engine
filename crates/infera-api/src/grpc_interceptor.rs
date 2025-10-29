@@ -21,11 +21,17 @@
 //! ```
 
 use infera_auth::{
-    context::{AuthContext, AuthMethod}, error::AuthError, internal::InternalJwksLoader, jwks_cache::JwksCache,
+    audit::{log_audit_event, AuditEvent},
+    context::{AuthContext, AuthMethod},
+    error::AuthError,
+    internal::InternalJwksLoader,
+    jwks_cache::JwksCache,
     jwt, oauth,
 };
 use infera_config::AuthConfig;
+use infera_observe::metrics;
 use std::sync::Arc;
+use std::time::Instant;
 use tonic::{metadata::MetadataMap, Request, Status};
 
 // Re-export chrono from infera_auth's context module
@@ -101,11 +107,19 @@ impl AuthInterceptor {
 
     /// Authenticate a request and return AuthContext
     async fn authenticate(&self, metadata: &MetadataMap) -> Result<AuthContext, AuthError> {
+        let start = Instant::now();
+
         // Extract token from metadata
-        let token = extract_bearer_from_metadata(metadata)?;
+        let token = match extract_bearer_from_metadata(metadata) {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::debug!(error = %e, "Failed to extract bearer token");
+                return Err(e);
+            }
+        };
 
         // Detect token type
-        if oauth::is_jwt(&token) {
+        let result = if oauth::is_jwt(&token) {
             // JWT token - need to determine if it's tenant, OAuth, or internal
             self.validate_jwt(&token).await
         } else {
@@ -113,7 +127,56 @@ impl AuthInterceptor {
             Err(AuthError::InvalidTokenFormat(
                 "Opaque token introspection not yet implemented".to_string(),
             ))
+        };
+
+        // Record metrics, audit logs, and log results
+        let duration = start.elapsed().as_secs_f64();
+        match &result {
+            Ok(ctx) => {
+                let method = auth_method_to_string(&ctx.auth_method);
+                metrics::record_auth_attempt(&method, &ctx.tenant_id);
+                metrics::record_auth_success(&method, &ctx.tenant_id, duration);
+                tracing::info!(
+                    tenant_id = %ctx.tenant_id,
+                    method = %method,
+                    duration_ms = duration * 1000.0,
+                    "Authentication succeeded"
+                );
+
+                // Log audit event for successful authentication
+                log_audit_event(AuditEvent::AuthenticationSuccess {
+                    tenant_id: ctx.tenant_id.clone(),
+                    method: method.clone(),
+                    timestamp: Utc::now(),
+                    ip_address: None, // TODO: Extract from gRPC metadata when available
+                });
+            }
+            Err(e) => {
+                let error_type = auth_error_type(e);
+                let tenant_id = "unknown";
+                let method = "jwt"; // Default to JWT since we extracted a token
+                metrics::record_auth_attempt(method, tenant_id);
+                metrics::record_auth_failure(method, error_type, tenant_id, duration);
+                metrics::record_jwt_validation_error(error_type);
+                tracing::warn!(
+                    error = %e,
+                    error_type = error_type,
+                    duration_ms = duration * 1000.0,
+                    "Authentication failed"
+                );
+
+                // Log audit event for failed authentication
+                log_audit_event(AuditEvent::AuthenticationFailure {
+                    tenant_id: tenant_id.to_string(),
+                    method: method.to_string(),
+                    error: e.to_string(),
+                    timestamp: Utc::now(),
+                    ip_address: None, // TODO: Extract from gRPC metadata when available
+                });
+            }
         }
+
+        result
     }
 
     /// Validate JWT token (tenant, OAuth, or internal)
@@ -124,7 +187,8 @@ impl AuthInterceptor {
         // Check if this is an internal JWT
         if let Some(ref internal_loader) = self.internal_loader {
             if unverified.iss == internal_loader.issuer() {
-                tracing::debug!("Detected internal service JWT");
+                tracing::debug!(issuer = %unverified.iss, "Detected internal service JWT");
+                metrics::record_jwt_signature_verification("EdDSA", true);
                 return infera_auth::internal::validate_internal_jwt(token, internal_loader).await;
             }
         }
@@ -133,8 +197,18 @@ impl AuthInterceptor {
         // For tenant JWTs: issuer should be "tenant:{id}"
         if unverified.iss.starts_with("tenant:") {
             tracing::debug!(issuer = %unverified.iss, "Detected tenant JWT");
+
             // Validate tenant JWT using jwt validation
-            let claims = jwt::verify_with_jwks(token, &self.jwks_cache).await?;
+            let claims = match jwt::verify_with_jwks(token, &self.jwks_cache).await {
+                Ok(c) => {
+                    metrics::record_jwt_signature_verification("EdDSA", true);
+                    c
+                }
+                Err(e) => {
+                    metrics::record_jwt_signature_verification("EdDSA", false);
+                    return Err(e);
+                }
+            };
 
             // Extract tenant ID and create AuthContext
             let tenant_id = claims.extract_tenant_id()?;
@@ -180,6 +254,36 @@ impl tonic::service::Interceptor for AuthInterceptor {
             }
             Err(e) => Err(auth_error_to_status(e)),
         }
+    }
+}
+
+/// Convert AuthMethod to string for metrics
+fn auth_method_to_string(method: &AuthMethod) -> String {
+    match method {
+        AuthMethod::PrivateKeyJwt => "tenant_jwt".to_string(),
+        AuthMethod::InternalServiceJwt => "internal_jwt".to_string(),
+        AuthMethod::OAuthAccessToken => "oauth_jwt".to_string(),
+    }
+}
+
+/// Extract error type from AuthError for metrics
+fn auth_error_type(error: &AuthError) -> &'static str {
+    match error {
+        AuthError::InvalidTokenFormat(_) => "invalid_format",
+        AuthError::TokenExpired => "expired",
+        AuthError::TokenNotYetValid => "not_yet_valid",
+        AuthError::InvalidSignature => "invalid_signature",
+        AuthError::InvalidIssuer(_) => "invalid_issuer",
+        AuthError::InvalidAudience(_) => "invalid_audience",
+        AuthError::InvalidScope(_) => "invalid_scope",
+        AuthError::MissingClaim(_) => "missing_claim",
+        AuthError::UnsupportedAlgorithm(_) => "unsupported_algorithm",
+        AuthError::JwksError(_) => "jwks_error",
+        AuthError::OidcDiscoveryFailed(_) => "oidc_discovery_failed",
+        AuthError::IntrospectionFailed(_) => "introspection_failed",
+        AuthError::InvalidIntrospectionResponse(_) => "invalid_introspection_response",
+        AuthError::TokenInactive => "token_inactive",
+        AuthError::MissingTenantId => "missing_tenant_id",
     }
 }
 
