@@ -39,9 +39,18 @@ pub mod jwt;
 pub mod jwks_cache;
 /// Axum middleware for authentication
 pub mod middleware;
+/// OAuth 2.0 JWT validation
+pub mod oauth;
+/// OIDC Discovery client
+pub mod oidc;
+/// Internal service JWT authentication
+pub mod internal;
 
 // Re-export key types
 pub use context::{AuthContext, AuthMethod};
 pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
 pub use jwks_cache::{Jwk, JwksCache};
+pub use oauth::OAuthJwksClient;
+pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
+pub use internal::{InternalJwks, InternalJwksLoader};

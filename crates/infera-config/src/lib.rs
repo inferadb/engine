@@ -147,6 +147,14 @@ pub struct AuthConfig {
     /// Internal JWKS environment variable name (optional)
     pub internal_jwks_env: Option<String>,
 
+    /// Internal JWT issuer
+    #[serde(default = "default_internal_issuer")]
+    pub internal_issuer: String,
+
+    /// Internal JWT audience
+    #[serde(default = "default_internal_audience")]
+    pub internal_audience: String,
+
     /// Redis URL for replay protection (optional)
     pub redis_url: Option<String>,
 }
@@ -183,6 +191,14 @@ fn default_jwks_base_url() -> String {
     "https://auth.inferadb.com/.well-known".to_string()
 }
 
+fn default_internal_issuer() -> String {
+    "https://internal.inferadb.com".to_string()
+}
+
+fn default_internal_audience() -> String {
+    "https://api.inferadb.com/internal".to_string()
+}
+
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
@@ -197,6 +213,8 @@ impl Default for AuthConfig {
             oauth_introspection_endpoint: None,
             internal_jwks_path: None,
             internal_jwks_env: Some("INFERADB_INTERNAL_JWKS".to_string()),
+            internal_issuer: default_internal_issuer(),
+            internal_audience: default_internal_audience(),
             redis_url: None,
         }
     }
