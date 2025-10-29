@@ -526,17 +526,17 @@ impl Evaluator {
                         if let Some(cached_users) = cache.get_expand(key).await {
                             cached_users
                         } else {
-                            let users: Vec<String> = get_users_with_relation(&*ctx.store, object, &"".to_string(), ctx.revision).await?
+                            let users: Vec<String> = get_users_with_relation(&*ctx.store, object, "", ctx.revision).await?
                                 .into_iter().collect();
                             cache.put_expand(key.clone(), users.clone()).await;
                             users
                         }
                     } else {
-                        get_users_with_relation(&*ctx.store, object, &"".to_string(), ctx.revision).await?
+                        get_users_with_relation(&*ctx.store, object, "", ctx.revision).await?
                             .into_iter().collect()
                     }
                 } else {
-                    get_users_with_relation(&*ctx.store, object, &"".to_string(), ctx.revision).await?
+                    get_users_with_relation(&*ctx.store, object, "", ctx.revision).await?
                         .into_iter().collect()
                 };
 
@@ -780,6 +780,7 @@ impl Evaluator {
     }
 
     /// Recursively collect users from tree nodes
+    #[allow(clippy::only_used_in_recursion)]
     fn collect_users_recursive(&self, tree: &UsersetTree, users: &mut std::collections::HashSet<String>) {
         match &tree.node_type {
             UsersetNodeType::Leaf { users: leaf_users } => {

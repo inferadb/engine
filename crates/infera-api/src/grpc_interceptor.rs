@@ -81,6 +81,7 @@ pub fn extract_bearer_from_metadata(metadata: &MetadataMap) -> Result<String, Au
 pub struct AuthInterceptor {
     jwks_cache: Arc<JwksCache>,
     internal_loader: Option<Arc<InternalJwksLoader>>,
+    #[allow(dead_code)] // May be used for future auth config checks
     config: Arc<AuthConfig>,
 }
 
@@ -206,6 +207,7 @@ fn auth_error_to_status(error: AuthError) -> Status {
 /// # Errors
 ///
 /// Returns `UNAUTHENTICATED` status if AuthContext is missing from extensions.
+#[allow(clippy::result_large_err)]
 pub fn extract_auth<T>(request: &Request<T>) -> Result<AuthContext, Status> {
     request
         .extensions()

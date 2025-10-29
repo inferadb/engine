@@ -28,6 +28,7 @@ pub struct InternalClaims {
 
 impl InternalClaims {
     /// Create default internal claims for testing
+    #[allow(clippy::should_implement_trait)]
     pub fn default() -> Self {
         let now = chrono::Utc::now().timestamp() as u64;
         Self {
@@ -89,10 +90,8 @@ pub fn generate_internal_keypair() -> (Jwk, Jwk) {
     let verifying_key = signing_key.verifying_key();
 
     // Encode keys as base64url
-    let private_bytes = signing_key.to_bytes();
     let public_bytes = verifying_key.to_bytes();
 
-    let d_base64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(private_bytes);
     let x_base64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(public_bytes);
 
     let kid = uuid::Uuid::new_v4().to_string();

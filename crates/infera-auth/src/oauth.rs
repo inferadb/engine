@@ -17,6 +17,7 @@ use std::sync::Arc;
 /// OAuth JWKS fetcher that uses OIDC Discovery
 pub struct OAuthJwksClient {
     oidc_client: Arc<OidcDiscoveryClient>,
+    #[allow(dead_code)] // Will be used for OAuth token validation
     jwks_cache: Arc<JwksCache>,
 }
 
