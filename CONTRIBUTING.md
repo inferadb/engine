@@ -23,6 +23,9 @@ We are committed to providing a welcoming and inclusive environment for all cont
 # Fork the repository on GitHub, then:
 git clone https://github.com/YOUR_USERNAME/inferadb.git
 cd inferadb/server
+
+# Add upstream remote
+git remote add upstream https://github.com/inferadb/server
 ```
 
 ### 2. Set Up Development Environment
@@ -31,14 +34,20 @@ cd inferadb/server
 # Install Rust (if not already installed)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
+# Install Mise for task automation
+curl https://mise.run | sh
+
+# Trust configuration and install dependencies
+mise trust && mise install
+
 # Build the project
-cargo build
+mise run build
 
 # Run tests
-cargo test
+mise run test
 ```
 
-See [Building from Source](docs/building.md) for detailed setup instructions.
+See [Building from Source](docs/guides/building.md) for detailed setup instructions.
 
 ### 3. Create a Branch
 
@@ -63,16 +72,22 @@ git checkout -b fix/bug-description
 
 ```bash
 # Format code
-cargo fmt
+mise run fmt
 
-# Run clippy
-cargo clippy --all-features -- -D warnings
+# Run linter
+mise run lint
 
 # Run all tests
-cargo test --all-features
+mise run test
 
-# Run benchmarks (if performance-sensitive)
-cargo bench
+# Run all checks (format + lint + test)
+mise run check
+
+# Run security audit
+mise run audit
+
+# Run dependency checks
+mise run deny
 ```
 
 ### Commit Messages
@@ -126,11 +141,22 @@ Format: `type: subject`
 
 ### Rust Style
 
-We follow the official Rust style guide:
+We follow the official Rust style guide and enforce it with automated tools:
 
-- Use `cargo fmt` to format code
-- Use `cargo clippy` to catch common mistakes
+- Use `mise run fmt` (or `cargo fmt`) to format code
+- Use `mise run lint` (or `cargo clippy`) to catch common mistakes
 - Write idiomatic Rust code
+- Follow guidelines in [AGENTS.md](AGENTS.md) for code quality standards
+
+### Complete Developer Guide
+
+See [Developer Documentation](docs/developers/README.md) for comprehensive guidelines on:
+
+- Codebase structure and architecture
+- Development workflow and best practices
+- Internal APIs and extension points
+- Debugging tips and performance optimization
+- Rustdoc generation and documentation standards
 
 ### Naming Conventions
 
@@ -442,7 +468,11 @@ Instead:
 
 ## License
 
-By contributing to InferaDB, you agree that your contributions will be licensed under the Apache License 2.0 (or project license).
+By contributing to InferaDB, you agree that your contributions will be licensed under the [Business Source License 1.1](LICENSE).
+
+### Developer Certificate of Origin
+
+By making a contribution, you certify that you have the right to submit it under the project license. Your commits signify agreement to the [Developer Certificate of Origin (DCO)](https://developercertificate.org/).
 
 ## Recognition
 

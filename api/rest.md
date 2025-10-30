@@ -2,6 +2,10 @@
 
 InferaDB provides a RESTful HTTP/JSON API for authorization checks and tuple management.
 
+**🚀 Interactive API Explorer**: Try the API interactively with [Swagger UI](./swagger-ui.html)
+
+**📋 OpenAPI Specification**: View the complete [OpenAPI spec](./openapi.yaml)
+
 ## Base URL
 
 ```

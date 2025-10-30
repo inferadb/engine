@@ -2,6 +2,10 @@
 
 InferaDB provides a high-performance gRPC API for authorization checks, relation expansion, and tuple management. The gRPC API is ideal for production deployments requiring low latency and high throughput.
 
+**🚀 Interactive API Explorer**: Try the gRPC API with [grpcui](./grpc-explorer.html)
+
+**📋 Protocol Buffer Definition**: View the complete [proto file](../crates/infera-api/proto/infera.proto)
+
 ## Why gRPC?
 
 - **Performance**: Binary protocol with efficient serialization

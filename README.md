@@ -196,8 +196,12 @@ Comprehensive documentation organized by topic:
 
 ### API Reference
 
-- [REST API](docs/api/rest.md) - HTTP/JSON endpoints
-- [gRPC API](docs/api/grpc.md) - High-performance gRPC
+- [API Documentation Hub](api/README.md) - Complete API portal
+- [REST API Explorer (Swagger UI)](api/swagger-ui.html) - Interactive testing
+- [gRPC API Explorer](api/grpc-explorer.html) - Interactive gRPC testing
+- [REST API](api/rest.md) - HTTP/JSON endpoints
+- [gRPC API](api/grpc.md) - High-performance gRPC
+- [OpenAPI Spec](api/openapi.yaml) - OpenAPI 3.1 specification
 
 ### Core Concepts
 
@@ -240,8 +244,9 @@ _Benchmarks: 8-core CPU, memory backend, single region_
 
 We welcome contributions! Please see:
 
-- [Contributing Guide](CONTRIBUTING.md) - Contribution process
-- [Code of Conduct](CODE_OF_CONDUCT.md) - Community standards
+- [Contributing Guide](CONTRIBUTING.md) - Contribution process and guidelines
+- [Developer Documentation](docs/developers/README.md) - Codebase structure and development guide
+- [Code Style Guidelines](AGENTS.md) - Code quality standards
 - [Issue Tracker](https://github.com/inferadb/server/issues) - Report bugs or request features
 
 ## License

@@ -1,0 +1,705 @@
+openapi: 3.1.0
+info:
+  title: InferaDB API
+  version: 0.1.0
+  description: |
+    InferaDB is a high-performance authorization engine implementing Relationship-Based Access Control (ReBAC) in Rust.
+
+    ## Authentication
+
+    InferaDB uses JWT (JSON Web Token) authentication. Include your JWT in the `Authorization` header:
+
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+
+    Supported authentication methods:
+    - **Private-Key JWT (RFC 7523)** - For tenant SDKs and CLIs
+    - **OAuth 2.0 Bearer Tokens (RFC 6749)** - For dashboards and enterprise authentication
+    - **OpenID Connect (OIDC)** - Automatic JWKS discovery
+
+    See [Authentication Guide](../docs/security/authentication.md) for details on creating JWTs.
+
+    ## Rate Limiting
+
+    Rate limiting is configured per deployment. Default limits:
+    - 1000 requests per minute per IP
+    - 10000 requests per minute per tenant
+
+    Rate limit headers are included in responses:
+    ```
+    X-RateLimit-Limit: 1000
+    X-RateLimit-Remaining: 999
+    X-RateLimit-Reset: 1730905200
+    ```
+
+    ## Consistency Guarantees
+
+    - **Read-Your-Writes**: After a write, subsequent reads from the same client will see that write
+    - **Snapshot Isolation**: All operations within a request see a consistent snapshot
+    - **Eventual Consistency**: Multi-region deployments may have slight replication lag
+
+  contact:
+    name: InferaDB Support
+    url: https://github.com/inferadb/server/issues
+  license:
+    name: Business Source License 1.1
+    url: https://github.com/inferadb/server/blob/main/LICENSE
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+  - url: https://api.inferadb.com/v1
+    description: Production API
+
+tags:
+  - name: health
+    description: Health and status endpoints
+  - name: authorization
+    description: Authorization check and expansion endpoints
+  - name: tuples
+    description: Tuple management (write/delete)
+
+paths:
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check
+      description: Check if the service is running and healthy
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  value:
+                    status: healthy
+                    version: 0.1.0
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /check:
+    post:
+      tags:
+        - authorization
+      summary: Check permission
+      description: |
+        Check if a subject has a specific permission on a resource.
+
+        This is the primary authorization endpoint. It returns a simple allow/deny decision.
+
+        **Performance**: Typical latency is <5ms for simple checks, <20ms for complex nested relations.
+      operationId: checkPermission
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckRequest'
+            examples:
+              simple_check:
+                summary: Simple permission check
+                value:
+                  subject: user:alice
+                  resource: document:readme
+                  permission: can_view
+              with_context:
+                summary: Check with context for WASM modules
+                value:
+                  subject: user:alice
+                  resource: document:readme
+                  permission: can_view
+                  context:
+                    ip_address: 192.168.1.1
+                    time: '2024-01-15T10:30:00Z'
+      responses:
+        '200':
+          description: Check completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+              examples:
+                allow:
+                  value:
+                    decision: allow
+                deny:
+                  value:
+                    decision: deny
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /check/trace:
+    post:
+      tags:
+        - authorization
+      summary: Check permission with trace
+      description: |
+        Check permission and return detailed evaluation trace for debugging.
+
+        The trace shows the complete evaluation tree, including which relations were checked,
+        which rules fired, and why the final decision was made.
+
+        **Note**: This endpoint should only be used for debugging. Use `/check` for production.
+      operationId: checkPermissionWithTrace
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckRequest'
+      responses:
+        '200':
+          description: Check completed with trace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckTraceResponse'
+              examples:
+                traced_check:
+                  value:
+                    decision: allow
+                    trace:
+                      decision: allow
+                      node_type: union
+                      children:
+                        - decision: allow
+                          node_type: direct
+                          relation: viewer
+                          children: []
+                        - decision: deny
+                          node_type: computed_userset
+                          relation: editor
+                          children: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /expand:
+    post:
+      tags:
+        - authorization
+      summary: Expand relation
+      description: |
+        Expand a relation into a tree showing all users and how they have access.
+
+        This is useful for understanding who has access to a resource and why.
+        The returned tree shows the complete authorization graph.
+      operationId: expandRelation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpandRequest'
+            examples:
+              expand_viewers:
+                summary: Expand viewers of a document
+                value:
+                  resource: document:readme
+                  relation: can_view
+      responses:
+        '200':
+          description: Expansion completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpandResponse'
+              examples:
+                expansion:
+                  value:
+                    tree:
+                      node_type: union
+                      children:
+                        - node_type: this
+                          children: []
+                        - node_type: computed_userset
+                          relation: editor
+                          children:
+                            - node_type: this
+                              children: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Resource or relation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /write:
+    post:
+      tags:
+        - tuples
+      summary: Write tuples
+      description: |
+        Write one or more authorization tuples.
+
+        Tuples define relationships between users and resources. For example:
+        - `user:alice` is a `viewer` of `document:readme`
+        - `group:engineers` is a `member` of `org:acme`
+
+        **Best Practice**: Batch multiple tuples in a single request for better performance.
+      operationId: writeTuples
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WriteRequest'
+            examples:
+              single_tuple:
+                summary: Write single tuple
+                value:
+                  tuples:
+                    - object: document:readme
+                      relation: viewer
+                      user: user:alice
+              batch_tuples:
+                summary: Batch write multiple tuples
+                value:
+                  tuples:
+                    - object: document:readme
+                      relation: viewer
+                      user: user:alice
+                    - object: document:readme
+                      relation: editor
+                      user: user:bob
+                    - object: document:secret
+                      relation: viewer
+                      user: group:engineers
+      responses:
+        '200':
+          description: Tuples written successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteResponse'
+              examples:
+                written:
+                  value:
+                    revision: 42
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /delete:
+    post:
+      tags:
+        - tuples
+      summary: Delete tuples
+      description: |
+        Delete one or more authorization tuples.
+
+        **Note**: This endpoint is not yet implemented. Use the write endpoint to manage tuples.
+      operationId: deleteTuples
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteRequest'
+      responses:
+        '200':
+          description: Tuples deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '501':
+          description: Not implemented
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT authentication token.
+
+        Include your JWT in the Authorization header:
+        ```
+        Authorization: Bearer <your-jwt-token>
+        ```
+
+        See [Authentication Guide](../docs/security/authentication.md) for details.
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Health status of the service
+        version:
+          type: string
+          description: Version of the InferaDB server
+          example: 0.1.0
+
+    CheckRequest:
+      type: object
+      required:
+        - subject
+        - resource
+        - permission
+      properties:
+        subject:
+          type: string
+          description: The user or entity requesting access
+          example: user:alice
+          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+        resource:
+          type: string
+          description: The resource being accessed
+          example: document:readme
+          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+        permission:
+          type: string
+          description: The permission being checked
+          example: can_view
+          pattern: '^[a-z_][a-z0-9_]*$'
+        context:
+          type: object
+          description: Additional context for WASM modules (optional)
+          additionalProperties: true
+          example:
+            ip_address: 192.168.1.1
+            time: '2024-01-15T10:30:00Z'
+
+    CheckResponse:
+      type: object
+      required:
+        - decision
+      properties:
+        decision:
+          type: string
+          enum: [allow, deny]
+          description: The authorization decision
+
+    CheckTraceResponse:
+      type: object
+      required:
+        - decision
+        - trace
+      properties:
+        decision:
+          type: string
+          enum: [allow, deny]
+          description: The authorization decision
+        trace:
+          $ref: '#/components/schemas/TraceNode'
+
+    TraceNode:
+      type: object
+      required:
+        - decision
+        - node_type
+        - children
+      properties:
+        decision:
+          type: string
+          enum: [allow, deny]
+          description: Decision at this node
+        node_type:
+          type: string
+          enum:
+            - direct
+            - computed_userset
+            - union
+            - intersection
+            - exclusion
+            - tuple_to_userset
+          description: |
+            Type of evaluation node:
+            - `direct`: Direct tuple lookup
+            - `computed_userset`: Computed relation
+            - `union`: OR operation
+            - `intersection`: AND operation
+            - `exclusion`: EXCEPT operation
+            - `tuple_to_userset`: Indirect relation
+        relation:
+          type: string
+          description: Relation being evaluated (if applicable)
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraceNode'
+          description: Sub-evaluations
+
+    ExpandRequest:
+      type: object
+      required:
+        - resource
+        - relation
+      properties:
+        resource:
+          type: string
+          description: The resource to expand
+          example: document:readme
+          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+        relation:
+          type: string
+          description: The relation to expand
+          example: can_view
+          pattern: '^[a-z_][a-z0-9_]*$'
+
+    ExpandResponse:
+      type: object
+      required:
+        - tree
+      properties:
+        tree:
+          $ref: '#/components/schemas/ExpandNode'
+
+    ExpandNode:
+      type: object
+      required:
+        - node_type
+        - children
+      properties:
+        node_type:
+          type: string
+          enum:
+            - this
+            - computed_userset
+            - tuple_to_userset
+            - union
+            - intersection
+            - exclusion
+          description: |
+            Type of expand node:
+            - `this`: Direct relation
+            - `computed_userset`: Computed relation
+            - `tuple_to_userset`: Indirect relation
+            - `union`: OR operation
+            - `intersection`: AND operation
+            - `exclusion`: EXCEPT operation
+        relation:
+          type: string
+          description: Relation name (for computed_userset)
+        tupleset:
+          type: string
+          description: Tupleset relation (for tuple_to_userset)
+        computed:
+          type: string
+          description: Computed relation (for tuple_to_userset)
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpandNode'
+          description: Child nodes
+
+    Tuple:
+      type: object
+      required:
+        - object
+        - relation
+        - user
+      properties:
+        object:
+          type: string
+          description: The resource (object)
+          example: document:readme
+          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+        relation:
+          type: string
+          description: The relation
+          example: viewer
+          pattern: '^[a-z_][a-z0-9_]*$'
+        user:
+          type: string
+          description: The subject (user)
+          example: user:alice
+          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+
+    WriteRequest:
+      type: object
+      required:
+        - tuples
+      properties:
+        tuples:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tuple'
+          description: Array of tuples to write
+          minItems: 1
+          maxItems: 1000
+
+    WriteResponse:
+      type: object
+      required:
+        - revision
+      properties:
+        revision:
+          type: integer
+          format: int64
+          description: New revision number after write
+          example: 42
+
+    DeleteRequest:
+      type: object
+      required:
+        - tuples
+      properties:
+        tuples:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tuple'
+          description: Array of tuples to delete
+          minItems: 1
+          maxItems: 1000
+
+    DeleteResponse:
+      type: object
+      required:
+        - revision
+      properties:
+        revision:
+          type: integer
+          format: int64
+          description: New revision number after delete
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error type or category
+          example: Invalid request
+        message:
+          type: string
+          description: Detailed error message
+          example: Missing required field 'subject'
+        details:
+          type: object
+          description: Additional error details (optional)
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Invalid request format or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing_field:
+              value:
+                error: Invalid request
+                message: Missing required field 'subject'
+            invalid_format:
+              value:
+                error: Invalid request
+                message: Subject must match pattern 'type:id'
+
+    Unauthorized:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing_token:
+              value:
+                error: Unauthorized
+                message: Missing Authorization header
+            invalid_token:
+              value:
+                error: Unauthorized
+                message: Invalid JWT signature
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Request limit per window
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Remaining requests in current window
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+          description: Unix timestamp when the rate limit resets
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Rate limit exceeded
+            message: Too many requests. Please retry after 60 seconds.
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+            message: An unexpected error occurred
+
+x-tagGroups:
+  - name: Core
+    tags:
+      - health
+      - authorization
+  - name: Data Management
+    tags:
+      - tuples

@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InferaDB gRPC API Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            margin-bottom: 20px;
+        }
+
+        .header .links {
+            margin-top: 20px;
+        }
+
+        .header a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+
+        .header a:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .method-selector {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .method-selector h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .method-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .method-tab {
+            padding: 12px 24px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .method-tab:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .method-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .method-content {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .method-content.active {
+            display: block;
+        }
+
+        .method-content h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .method-content h4 {
+            margin-top: 25px;
+            margin-bottom: 12px;
+            color: #555;
+            font-size: 1.1em;
+        }
+
+        .method-content pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            border: 1px solid #e9ecef;
+        }
+
+        .method-content code {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .info-box {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #0c5460;
+            font-size: 1.1em;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .warning-box strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #856404;
+            font-size: 1.1em;
+        }
+
+        .installation {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+        }
+
+        .installation h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .step {
+            margin-bottom: 25px;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        ul {
+            margin: 15px 0 15px 30px;
+        }
+
+        li {
+            margin: 8px 0;
+        }
+
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .proto-link {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .button:hover {
+            background: #5568d3;
+            text-decoration: none;
+        }
+
+        .command {
+            position: relative;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .command::before {
+            content: '$ ';
+            color: #4ec9b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>InferaDB gRPC API Explorer</h1>
+        <p>Interactive gRPC API testing and documentation</p>
+        <div class="links">
+            <a href="./swagger-ui.html">REST API Explorer</a>
+            <a href="./grpc.md">gRPC API Docs</a>
+            <a href="../docs/security/authentication.md">Authentication Guide</a>
+            <a href="https://github.com/inferadb/server" target="_blank">GitHub</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="installation">
+            <h2>Getting Started with gRPC Explorer</h2>
+
+            <div class="info-box">
+                <strong>📋 Prerequisites</strong>
+                Make sure InferaDB is running locally:
+                <pre><code>docker run -p 8080:8080 -p 8081:8081 inferadb/server:latest</code></pre>
+                The gRPC server runs on port <strong>8081</strong> by default.
+            </div>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Install grpcui</strong>
+                <pre><code># macOS
+brew install grpcui
+
+# Linux/Windows (using go)
+go install github.com/fullstorydev/grpcui/cmd/grpcui@latest</code></pre>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Start the gRPC UI</strong>
+                <div class="command">grpcui -plaintext localhost:8081</div>
+                <p>This will open an interactive web UI in your browser at <code>http://localhost:8080</code> (or a different port if 8080 is taken).</p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Explore the API</strong>
+                <p>The gRPC UI provides an interactive form for each RPC method. You can:</p>
+                <ul>
+                    <li>Select a method from the dropdown</li>
+                    <li>Fill in the request fields</li>
+                    <li>Add authentication metadata (if needed)</li>
+                    <li>Invoke the method and see the response</li>
+                </ul>
+            </div>
+
+            <div class="warning-box">
+                <strong>🔐 Authentication</strong>
+                If authentication is enabled, add your JWT token as metadata:
+                <ul style="margin-top: 10px;">
+                    <li>Click "Add metadata"</li>
+                    <li>Name: <code>authorization</code></li>
+                    <li>Value: <code>Bearer &lt;your-jwt-token&gt;</code></li>
+                </ul>
+                See the <a href="../docs/security/authentication.md">Authentication Guide</a> for creating JWTs.
+            </div>
+        </div>
+
+        <div class="proto-link">
+            <strong>📄 Protocol Buffer Definition</strong>
+            <p>View the complete gRPC service definition: <a href="../crates/infera-api/proto/infera.proto" target="_blank">infera.proto</a></p>
+        </div>
+
+        <div class="method-selector">
+            <h2>RPC Methods Reference</h2>
+            <p>Click on a method to see example requests and responses:</p>
+
+            <div class="method-tabs">
+                <div class="method-tab active" data-method="health">Health</div>
+                <div class="method-tab" data-method="check">Check</div>
+                <div class="method-tab" data-method="check-trace">CheckWithTrace</div>
+                <div class="method-tab" data-method="expand">Expand</div>
+                <div class="method-tab" data-method="write">Write</div>
+                <div class="method-tab" data-method="delete">Delete</div>
+            </div>
+
+            <div class="method-content active" data-method="health">
+                <h3>Health Check</h3>
+                <p>Check if the gRPC server is running and healthy.</p>
+
+                <h4>Request</h4>
+                <pre><code>{
+  // Empty request
+}</code></pre>
+
+                <h4>Response</h4>
+                <pre><code>{
+  "status": "healthy",
+  "service": "inferadb"
+}</code></pre>
+
+                <h4>Using grpcurl</h4>
+                <div class="command">grpcurl -plaintext localhost:8081 infera.v1.InferaService/Health</div>
+            </div>
+
+            <div class="method-content" data-method="check">
+                <h3>Check Permission</h3>
+                <p>Check if a subject has a specific permission on a resource.</p>
+
+                <h4>Request</h4>
+                <pre><code>{
+  "subject": "user:alice",
+  "resource": "document:readme",
+  "permission": "viewer"
+}</code></pre>
+
+                <h4>Response</h4>
+                <pre><code>{
+  "decision": "DECISION_ALLOW"  // or "DECISION_DENY"
+}</code></pre>
+
+                <h4>Using grpcurl</h4>
+                <div class="command">grpcurl -plaintext -d '{"subject":"user:alice","resource":"document:readme","permission":"viewer"}' localhost:8081 infera.v1.InferaService/Check</div>
+            </div>
+
+            <div class="method-content" data-method="check-trace">
+                <h3>Check Permission with Trace</h3>
+                <p>Check permission and return detailed evaluation trace for debugging.</p>
+
+                <h4>Request</h4>
+                <pre><code>{
+  "subject": "user:alice",
+  "resource": "document:readme",
+  "permission": "viewer"
+}</code></pre>
+
+                <h4>Response</h4>
+                <pre><code>{
+  "decision": "DECISION_ALLOW",
+  "trace": {
+    "decision": "DECISION_ALLOW",
+    "root": {
+      "node_type": {
+        "union": {}
+      },
+      "result": true,
+      "children": [
+        {
+          "node_type": {
+            "direct_check": {
+              "object": "document:readme",
+              "relation": "viewer",
+              "user": "user:alice"
+            }
+          },
+          "result": true,
+          "children": []
+        }
+      ]
+    },
+    "duration_micros": 1234,
+    "tuples_read": 1,
+    "relations_evaluated": 2
+  }
+}</code></pre>
+
+                <h4>Using grpcurl</h4>
+                <div class="command">grpcurl -plaintext -d '{"subject":"user:alice","resource":"document:readme","permission":"viewer"}' localhost:8081 infera.v1.InferaService/CheckWithTrace</div>
+            </div>
+
+            <div class="method-content" data-method="expand">
+                <h3>Expand Relation</h3>
+                <p>Expand a relation into its complete userset tree.</p>
+
+                <h4>Request</h4>
+                <pre><code>{
+  "resource": "document:readme",
+  "relation": "viewer"
+}</code></pre>
+
+                <h4>Response</h4>
+                <pre><code>{
+  "tree": {
+    "node_type": {
+      "union": {}
+    },
+    "children": [
+      {
+        "node_type": {
+          "leaf": {
+            "users": ["user:alice", "user:bob"]
+          }
+        },
+        "children": []
+      },
+      {
+        "node_type": {
+          "computed_userset": {
+            "relation": "editor"
+          }
+        },
+        "children": [
+          {
+            "node_type": {
+              "leaf": {
+                "users": ["user:charlie"]
+              }
+            },
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+
+                <h4>Using grpcurl</h4>
+                <div class="command">grpcurl -plaintext -d '{"resource":"document:readme","relation":"viewer"}' localhost:8081 infera.v1.InferaService/Expand</div>
+            </div>
+
+            <div class="method-content" data-method="write">
+                <h3>Write Tuples</h3>
+                <p>Write one or more authorization tuples to the store.</p>
+
+                <h4>Request</h4>
+                <pre><code>{
+  "tuples": [
+    {
+      "object": "document:readme",
+      "relation": "viewer",
+      "user": "user:alice"
+    },
+    {
+      "object": "document:readme",
+      "relation": "editor",
+      "user": "user:bob"
+    }
+  ]
+}</code></pre>
+
+                <h4>Response</h4>
+                <pre><code>{
+  "revision": "1234567890",
+  "tuples_written": 2
+}</code></pre>
+
+                <h4>Using grpcurl</h4>
+                <div class="command">grpcurl -plaintext -d '{"tuples":[{"object":"document:readme","relation":"viewer","user":"user:alice"}]}' localhost:8081 infera.v1.InferaService/Write</div>
+            </div>
+
+            <div class="method-content" data-method="delete">
+                <h3>Delete Tuples</h3>
+                <p>Delete one or more authorization tuples from the store.</p>
+
+                <h4>Request</h4>
+                <pre><code>{
+  "tuples": [
+    {
+      "object": "document:readme",
+      "relation": "viewer",
+      "user": "user:alice"
+    }
+  ]
+}</code></pre>
+
+                <h4>Response</h4>
+                <pre><code>{
+  "revision": "1234567891",
+  "tuples_deleted": 1
+}</code></pre>
+
+                <h4>Using grpcurl</h4>
+                <div class="command">grpcurl -plaintext -d '{"tuples":[{"object":"document:readme","relation":"viewer","user":"user:alice"}]}' localhost:8081 infera.v1.InferaService/Delete</div>
+            </div>
+        </div>
+
+        <div class="installation">
+            <h2>Alternative Tools</h2>
+
+            <h3>grpcurl</h3>
+            <p>A command-line tool for interacting with gRPC servers (like curl for gRPC).</p>
+            <pre><code># Install
+brew install grpcurl  # macOS
+go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+
+# List services
+grpcurl -plaintext localhost:8081 list
+
+# List methods
+grpcurl -plaintext localhost:8081 list infera.v1.InferaService
+
+# Describe a method
+grpcurl -plaintext localhost:8081 describe infera.v1.InferaService.Check
+
+# Invoke a method
+grpcurl -plaintext -d '{"subject":"user:alice","resource":"doc:1","permission":"viewer"}' \
+  localhost:8081 infera.v1.InferaService/Check</code></pre>
+
+            <h3>BloomRPC</h3>
+            <p>A GUI client for testing gRPC services (like Postman for gRPC).</p>
+            <p>Download from: <a href="https://github.com/bloomrpc/bloomrpc" target="_blank">github.com/bloomrpc/bloomrpc</a></p>
+            <ul>
+                <li>Import the <code>infera.proto</code> file</li>
+                <li>Set the server address to <code>localhost:8081</code></li>
+                <li>Select a method and fill in the request</li>
+                <li>Click "Play" to invoke the method</li>
+            </ul>
+
+            <h3>Postman</h3>
+            <p>Postman now supports gRPC APIs natively.</p>
+            <ul>
+                <li>Create a new gRPC request</li>
+                <li>Enter server URL: <code>localhost:8081</code></li>
+                <li>Import the proto file or use server reflection</li>
+                <li>Select a method and send requests</li>
+            </ul>
+        </div>
+
+        <div class="proto-link">
+            <strong>📚 Additional Resources</strong>
+            <ul style="margin-top: 10px;">
+                <li><a href="./grpc.md">Full gRPC API Documentation</a></li>
+                <li><a href="../docs/guides/quickstart.md">Quick Start Guide</a></li>
+                <li><a href="../docs/security/authentication.md">Authentication Guide</a></li>
+                <li><a href="https://github.com/inferadb/server/tree/main/crates/infera-api/proto">Proto Files on GitHub</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Method tab switching
+        const tabs = document.querySelectorAll('.method-tab');
+        const contents = document.querySelectorAll('.method-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const method = tab.getAttribute('data-method');
+
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+
+                // Add active class to clicked tab and corresponding content
+                tab.classList.add('active');
+                document.querySelector(`.method-content[data-method="${method}"]`).classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

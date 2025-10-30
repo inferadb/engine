@@ -16,8 +16,12 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 
 ## API Reference
 
-- [REST API](api/rest.md) - HTTP/JSON API endpoints
-- [gRPC API](api/grpc.md) - High-performance gRPC interface
+- [API Documentation Hub](../api/README.md) - Complete API documentation portal
+- [REST API Explorer (Swagger UI)](../api/swagger-ui.html) - Interactive REST API testing
+- [gRPC API Explorer](../api/grpc-explorer.html) - Interactive gRPC API testing
+- [REST API Reference](../api/rest.md) - HTTP/JSON API endpoints
+- [gRPC API Reference](../api/grpc.md) - High-performance gRPC interface
+- [OpenAPI Specification](../api/openapi.yaml) - OpenAPI 3.1 spec
 
 ## Core Concepts
 
@@ -51,11 +55,19 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 
 - [WASM Integration](advanced/wasm.md) - Custom policy modules with WebAssembly
 
+## Developer Documentation
+
+- [Developer Guide](developers/README.md) - Complete developer documentation
+- [Contributing Guide](../CONTRIBUTING.md) - How to contribute to InferaDB
+- [Code Style Guidelines](../AGENTS.md) - Code quality standards
+- [Testing Guide](guides/testing.md) - Comprehensive testing documentation
+
 ## Quick Links
 
 - [GitHub Repository](https://github.com/inferadb/server)
 - [Issue Tracker](https://github.com/inferadb/server/issues)
+- [Discussions](https://github.com/inferadb/server/discussions)
 
 ## Support
 
-For questions, issues, or contributions, please see our [Contributing Guide](../CONTRIBUTING.md).
+For questions, issues, or contributions, please see our [Contributing Guide](../CONTRIBUTING.md) or [Developer Documentation](developers/README.md).

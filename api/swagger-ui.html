@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InferaDB API Explorer</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui.css">
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        #swagger-ui {
+            max-width: 1460px;
+            margin: 0 auto;
+        }
+
+        .topbar {
+            display: none;
+        }
+
+        .swagger-ui .info {
+            margin: 50px 0;
+        }
+
+        .swagger-ui .info .title {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .custom-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .custom-header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+            font-weight: 600;
+        }
+
+        .custom-header p {
+            margin: 5px 0;
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .custom-header .links {
+            margin-top: 20px;
+        }
+
+        .custom-header a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+
+        .custom-header a:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .auth-notice {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 30px;
+            font-size: 14px;
+        }
+
+        .auth-notice strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #856404;
+        }
+
+        .auth-notice code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="custom-header">
+        <h1>InferaDB API Explorer</h1>
+        <p>Interactive API documentation for InferaDB authorization engine</p>
+        <div class="links">
+            <a href="https://github.com/inferadb/server" target="_blank">GitHub</a>
+            <a href="../docs/guides/quickstart.md" target="_blank">Quick Start</a>
+            <a href="../docs/security/authentication.md" target="_blank">Authentication Guide</a>
+            <a href="./rest.md" target="_blank">REST API Docs</a>
+        </div>
+    </div>
+
+    <div class="auth-notice">
+        <strong>🔐 Authentication Required</strong>
+        To test the API endpoints that require authentication:
+        <ol style="margin: 10px 0 0 20px;">
+            <li>Click the <strong>"Authorize"</strong> button (🔓 icon) at the top right</li>
+            <li>Enter your JWT token in the format: <code>Bearer &lt;your-token&gt;</code></li>
+            <li>Click "Authorize" to save your credentials</li>
+        </ol>
+        See the <a href="../docs/security/authentication.md" target="_blank" style="color: #0066cc;">Authentication Guide</a> for details on creating JWTs.
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            // Determine the OpenAPI spec URL
+            // If running locally, use relative path. Otherwise, use absolute GitHub URL.
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const specUrl = isLocalhost
+                ? './openapi.yaml'
+                : 'https://raw.githubusercontent.com/inferadb/server/main/docs/api/openapi.yaml';
+
+            // Initialize Swagger UI
+            const ui = SwaggerUIBundle({
+                url: specUrl,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "BaseLayout",
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 3,
+                docExpansion: 'list',
+                filter: true,
+                showExtensions: true,
+                showCommonExtensions: true,
+                tryItOutEnabled: true,
+                requestSnippetsEnabled: true,
+                requestSnippets: {
+                    generators: {
+                        curl_bash: {
+                            title: "cURL",
+                            syntax: "bash"
+                        },
+                        curl_powershell: {
+                            title: "cURL (PowerShell)",
+                            syntax: "powershell"
+                        },
+                        curl_cmd: {
+                            title: "cURL (CMD)",
+                            syntax: "bash"
+                        }
+                    },
+                    defaultExpanded: true,
+                    languages: null
+                },
+                persistAuthorization: true,
+                // Custom server configuration
+                onComplete: function() {
+                    console.log('InferaDB API Explorer loaded successfully');
+
+                    // If running against localhost, pre-fill the server URL
+                    if (isLocalhost) {
+                        console.log('Running locally - using localhost server');
+                    }
+                },
+                // Request interceptor to add custom headers
+                requestInterceptor: function(req) {
+                    // Add any custom headers here if needed
+                    return req;
+                },
+                // Response interceptor for error handling
+                responseInterceptor: function(res) {
+                    // Log errors for debugging
+                    if (res.status >= 400) {
+                        console.error('API Error:', res.status, res.body);
+                    }
+                    return res;
+                }
+            });
+
+            window.ui = ui;
+        }
+    </script>
+</body>
+</html>
