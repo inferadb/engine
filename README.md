@@ -149,11 +149,12 @@ auth:
 
 ## Deployment
 
-InferaDB is production-ready with:
+InferaDB is production-ready with multiple deployment options:
 
 - **Docker**: Multi-stage builds with distroless base images
 - **Kubernetes**: Manifests with security contexts and health probes
 - **Helm**: Comprehensive chart with autoscaling and monitoring
+- **Terraform**: One-command cloud deployment on AWS and GCP
 - **Health Checks**: Liveness, readiness, and startup endpoints
 - **Graceful Shutdown**: Connection draining and clean termination
 
@@ -166,9 +167,16 @@ kubectl apply -k k8s/
 
 # Helm
 helm install inferadb ./helm
+
+# Terraform (AWS)
+cd terraform/examples/aws-complete && terraform apply
+
+# Terraform (GCP)
+cd terraform/examples/gcp-complete && terraform apply
 ```
 
 **→ Full deployment guide: [Deployment](docs/guides/deployment.md)**
+**→ Terraform modules: [terraform/](terraform/)**
 
 ## Documentation
 

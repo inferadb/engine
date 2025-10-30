@@ -10,6 +10,7 @@ This guide covers deploying InferaDB to production environments.
 - [Docker Deployment](#docker-deployment)
 - [Kubernetes Deployment](#kubernetes-deployment)
 - [Helm Deployment](#helm-deployment)
+- [Cloud Deployment with Terraform](#cloud-deployment-with-terraform)
 - [Configuration](#configuration)
 - [Security](#security)
 - [Monitoring](#monitoring)
@@ -223,6 +224,84 @@ helm install inferadb ./helm \
   --namespace inferadb \
   --create-namespace
 ```
+
+### 4. Cloud Deployment with Terraform
+
+Best for: Automated infrastructure provisioning on AWS or GCP
+
+InferaDB provides Terraform modules for one-command cloud deployments. See [Terraform README](../../terraform/README.md) for full documentation.
+
+**AWS Quick Start:**
+
+```bash
+cd terraform/examples/aws-complete
+
+# Configure variables
+cat > terraform.tfvars <<EOF
+cluster_name    = "inferadb-prod"
+aws_region      = "us-west-2"
+environment     = "production"
+
+# Restrict API access
+cluster_endpoint_public_access_cidrs = ["YOUR_IP/32"]
+
+# Node configuration
+node_instance_types = ["m5.xlarge"]
+node_desired_size   = 3
+node_max_size       = 10
+
+# InferaDB configuration
+inferadb_replica_count = 3
+inferadb_auth_enabled  = true
+EOF
+
+# Deploy everything (EKS + Redis + InferaDB)
+terraform init
+terraform apply
+
+# Configure kubectl
+aws eks update-kubeconfig --region us-west-2 --name inferadb-prod
+```
+
+**GCP Quick Start:**
+
+```bash
+cd terraform/examples/gcp-complete
+
+# Configure variables
+cat > terraform.tfvars <<EOF
+project_id      = "your-gcp-project"
+cluster_name    = "inferadb-prod"
+region          = "us-central1"
+environment     = "production"
+
+# Node configuration
+machine_type    = "n2-standard-4"
+
+# InferaDB configuration
+inferadb_replica_count = 3
+EOF
+
+# Deploy everything (GKE + Redis + InferaDB)
+terraform init
+terraform apply
+
+# Configure kubectl
+gcloud container clusters get-credentials inferadb-prod --region us-central1
+```
+
+**What Terraform Creates:**
+
+- **AWS**: EKS cluster, VPC, subnets, NAT gateways, ElastiCache Redis, Load Balancer, InferaDB deployment
+- **GCP**: GKE cluster, VPC, Cloud NAT, Memorystore Redis, Load Balancer, InferaDB deployment
+
+**Cost Estimates:**
+- AWS Complete: ~$695/month
+- AWS Minimal (dev): ~$60/month
+- GCP Complete: ~$650/month
+- GCP Minimal (dev): ~$75/month
+
+See [terraform/README.md](../../terraform/README.md) for detailed documentation.
 
 ## Configuration
 
