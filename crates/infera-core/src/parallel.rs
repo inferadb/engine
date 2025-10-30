@@ -56,9 +56,8 @@ impl ParallelEvaluator {
             if join_set.len() >= self.max_concurrency {
                 // Wait for at least one to complete
                 if let Some(result) = join_set.join_next().await {
-                    let decision = result.map_err(|e| {
-                        EvalError::Evaluation(format!("Task join error: {}", e))
-                    })??;
+                    let decision = result
+                        .map_err(|e| EvalError::Evaluation(format!("Task join error: {}", e)))??;
 
                     // For union, if any branch allows, we can return early
                     if decision == Decision::Allow {
@@ -115,9 +114,8 @@ impl ParallelEvaluator {
             // Limit concurrency
             if join_set.len() >= self.max_concurrency {
                 if let Some(result) = join_set.join_next().await {
-                    let decision = result.map_err(|e| {
-                        EvalError::Evaluation(format!("Task join error: {}", e))
-                    })??;
+                    let decision = result
+                        .map_err(|e| EvalError::Evaluation(format!("Task join error: {}", e)))??;
 
                     // For intersection, if any branch denies, we can return early
                     if decision == Decision::Deny {
@@ -165,7 +163,12 @@ impl ParallelEvaluator {
         // Evaluate base and subtract in parallel
         let (base_result, subtract_result) = tokio::join!(
             Self::evaluate_expression_branch(eval_base, req_base, &base, res_type_base),
-            Self::evaluate_expression_branch(eval_subtract, req_subtract, &subtract, res_type_subtract)
+            Self::evaluate_expression_branch(
+                eval_subtract,
+                req_subtract,
+                &subtract,
+                res_type_subtract
+            )
         );
 
         let base_decision = base_result?;
@@ -199,7 +202,7 @@ impl ParallelEvaluator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipl::{Schema, TypeDef, RelationDef, RelationExpr};
+    use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::MemoryBackend;
 
     async fn create_test_evaluator() -> Arc<Evaluator> {

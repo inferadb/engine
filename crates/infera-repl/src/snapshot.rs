@@ -2,8 +2,8 @@
 //!
 //! Provides snapshot isolation for reads at specific revision tokens
 
-use crate::{RevisionToken, ReplError, Result};
-use infera_store::{TupleStore, Revision, Tuple, TupleKey};
+use crate::{ReplError, Result, RevisionToken};
+use infera_store::{Revision, Tuple, TupleKey, TupleStore};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -33,11 +33,7 @@ impl SnapshotReader {
 
     /// Read tuples at a specific revision token
     /// Blocks until the revision is available or times out
-    pub async fn read_at_token(
-        &self,
-        key: &TupleKey,
-        token: &RevisionToken,
-    ) -> Result<Vec<Tuple>> {
+    pub async fn read_at_token(&self, key: &TupleKey, token: &RevisionToken) -> Result<Vec<Tuple>> {
         // Validate the token
         token.validate()?;
 

@@ -47,16 +47,10 @@ pub enum NodeType {
     },
 
     /// Computed userset evaluation
-    ComputedUserset {
-        relation: String,
-        tupleset: String,
-    },
+    ComputedUserset { relation: String, tupleset: String },
 
     /// Tuple to userset
-    TupleToUserset {
-        tupleset: String,
-        computed: String,
-    },
+    TupleToUserset { tupleset: String, computed: String },
 
     /// Union operation
     Union,
@@ -68,9 +62,7 @@ pub enum NodeType {
     Exclusion,
 
     /// WASM module execution
-    WasmModule {
-        module_name: String,
-    },
+    WasmModule { module_name: String },
 }
 
 impl DecisionTrace {
@@ -107,7 +99,6 @@ impl DecisionTrace {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,11 +115,7 @@ mod tests {
             children: Vec::new(),
         };
 
-        let trace = DecisionTrace::new(
-            Decision::Allow,
-            node,
-            Duration::from_micros(100),
-        );
+        let trace = DecisionTrace::new(Decision::Allow, node, Duration::from_micros(100));
 
         assert_eq!(trace.decision, Decision::Allow);
         assert_eq!(trace.tuples_read, 1);
@@ -162,11 +149,7 @@ mod tests {
             children: vec![child1, child2],
         };
 
-        let trace = DecisionTrace::new(
-            Decision::Allow,
-            root,
-            Duration::from_micros(100),
-        );
+        let trace = DecisionTrace::new(Decision::Allow, root, Duration::from_micros(100));
 
         assert_eq!(trace.tuples_read, 1);
         assert_eq!(trace.relations_evaluated, 1);

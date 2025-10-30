@@ -3,15 +3,18 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use tracing::{instrument, debug};
+use tracing::{debug, instrument};
 
-use crate::{CheckRequest, Decision, ExpandRequest, ExpandResponse, UsersetTree, UsersetNodeType, Result, EvalError};
-use crate::graph::{GraphContext, has_direct_tuple};
-use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
+use crate::graph::{has_direct_tuple, GraphContext};
 use crate::ipl::Schema;
+use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
+use crate::{
+    CheckRequest, Decision, EvalError, ExpandRequest, ExpandResponse, Result, UsersetNodeType,
+    UsersetTree,
+};
+use infera_cache::{AuthCache, CheckCacheKey};
 use infera_store::TupleStore;
 use infera_wasm::WasmHost;
-use infera_cache::{AuthCache, CheckCacheKey};
 
 /// The main policy evaluator
 pub struct Evaluator {
@@ -22,7 +25,11 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
-    pub fn new(store: Arc<dyn TupleStore>, schema: Arc<Schema>, wasm_host: Option<Arc<WasmHost>>) -> Self {
+    pub fn new(
+        store: Arc<dyn TupleStore>,
+        schema: Arc<Schema>,
+        wasm_host: Option<Arc<WasmHost>>,
+    ) -> Self {
         Self {
             store,
             schema,
@@ -83,19 +90,18 @@ impl Evaluator {
         }
 
         // Create graph context for traversal
-        let mut ctx = GraphContext::new(
-            Arc::clone(&self.schema),
-            Arc::clone(&self.store),
-            revision,
-        );
+        let mut ctx =
+            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision);
 
         // Build evaluation tree for this specific check
-        let root = self.build_evaluation_node(
-            &request.resource,
-            &request.permission,
-            &request.subject,
-            &mut ctx,
-        ).await?;
+        let root = self
+            .build_evaluation_node(
+                &request.resource,
+                &request.permission,
+                &request.subject,
+                &mut ctx,
+            )
+            .await?;
 
         // Determine decision from evaluation result
         let decision = if root.result {
@@ -142,19 +148,18 @@ impl Evaluator {
         let revision = self.store.get_revision().await?;
 
         // Create graph context
-        let mut ctx = GraphContext::new(
-            Arc::clone(&self.schema),
-            Arc::clone(&self.store),
-            revision,
-        );
+        let mut ctx =
+            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision);
 
         // Build evaluation tree
-        let root = self.build_evaluation_node(
-            &request.resource,
-            &request.permission,
-            &request.subject,
-            &mut ctx,
-        ).await?;
+        let root = self
+            .build_evaluation_node(
+                &request.resource,
+                &request.permission,
+                &request.subject,
+                &mut ctx,
+            )
+            .await?;
 
         // Get statistics from context
         let tuples_read = ctx.visited.len(); // Approximate
@@ -186,7 +191,8 @@ impl Evaluator {
         ctx: &mut GraphContext,
     ) -> Result<EvaluationNode> {
         // Check for direct tuple first
-        let has_direct = has_direct_tuple(&*ctx.store, object, relation, user, ctx.revision).await?;
+        let has_direct =
+            has_direct_tuple(&*ctx.store, object, relation, user, ctx.revision).await?;
 
         if has_direct {
             return Ok(EvaluationNode {
@@ -201,13 +207,18 @@ impl Evaluator {
         }
 
         // Get the relation definition
-        let type_name = object.split(':').next()
+        let type_name = object
+            .split(':')
+            .next()
             .ok_or_else(|| EvalError::Evaluation("Invalid object format".to_string()))?;
 
-        let type_def = ctx.schema.find_type(type_name)
+        let type_def = ctx
+            .schema
+            .find_type(type_name)
             .ok_or_else(|| EvalError::Evaluation(format!("Type not found: {}", type_name)))?;
 
-        let relation_def = type_def.find_relation(relation)
+        let relation_def = type_def
+            .find_relation(relation)
             .ok_or_else(|| EvalError::Evaluation(format!("Relation not found: {}", relation)))?;
 
         // Clone the expression to avoid borrow issues
@@ -227,7 +238,8 @@ impl Evaluator {
         }
 
         // Evaluate the relation expression
-        self.build_expr_node(object, &expr_opt.unwrap(), user, ctx).await
+        self.build_expr_node(object, &expr_opt.unwrap(), user, ctx)
+            .await
     }
 
     /// Build evaluation node for a relation expression
@@ -243,7 +255,8 @@ impl Evaluator {
 
         match expr {
             RelationExpr::This => {
-                let has_direct = has_direct_tuple(&*ctx.store, object, "this", user, ctx.revision).await?;
+                let has_direct =
+                    has_direct_tuple(&*ctx.store, object, "this", user, ctx.revision).await?;
                 Ok(EvaluationNode {
                     node_type: NodeType::DirectCheck {
                         object: object.to_string(),
@@ -256,7 +269,8 @@ impl Evaluator {
             }
 
             RelationExpr::RelationRef { relation } => {
-                self.build_evaluation_node(object, relation, user, ctx).await
+                self.build_evaluation_node(object, relation, user, ctx)
+                    .await
             }
 
             RelationExpr::ComputedUserset { relation, tupleset } => {
@@ -266,13 +280,16 @@ impl Evaluator {
                     object,
                     tupleset,
                     ctx.revision,
-                ).await?;
+                )
+                .await?;
 
                 let mut children = vec![];
                 let mut result = false;
 
                 for obj in tupleset_objects {
-                    let child = self.build_evaluation_node(&obj, relation, user, ctx).await?;
+                    let child = self
+                        .build_evaluation_node(&obj, relation, user, ctx)
+                        .await?;
                     if child.result {
                         result = true;
                     }
@@ -296,13 +313,16 @@ impl Evaluator {
                     object,
                     tupleset,
                     ctx.revision,
-                ).await?;
+                )
+                .await?;
 
                 let mut children = vec![];
                 let mut result = false;
 
                 for obj in tupleset_objects {
-                    let child = self.build_evaluation_node(&obj, computed, user, ctx).await?;
+                    let child = self
+                        .build_evaluation_node(&obj, computed, user, ctx)
+                        .await?;
                     if child.result {
                         result = true;
                     }
@@ -380,13 +400,15 @@ impl Evaluator {
                 let _span = infera_observe::span_utils::wasm_span(module_name);
                 let _guard = _span.enter();
 
-                let wasm_host = self.wasm_host.as_ref()
+                let wasm_host = self
+                    .wasm_host
+                    .as_ref()
                     .ok_or_else(|| EvalError::Evaluation("WASM host not configured".to_string()))?;
 
                 let exec_context = infera_wasm::ExecutionContext {
                     subject: user.to_string(),
                     resource: object.to_string(),
-                    permission: "check".to_string(),  // Default permission name
+                    permission: "check".to_string(), // Default permission name
                     context: None,
                 };
 
@@ -397,14 +419,19 @@ impl Evaluator {
                     "Executing WASM module"
                 );
 
-                let result = wasm_host.execute(module_name, "check", exec_context)
+                let result = wasm_host
+                    .execute(module_name, "check", exec_context)
                     .map_err(|e| {
                         debug!(module = %module_name, error = %e, "WASM execution failed");
                         EvalError::Evaluation(format!("WASM execution failed: {}", e))
                     })?;
 
                 debug!(module = %module_name, result = %result, "WASM module completed");
-                infera_observe::span_utils::record_wasm_result(&_span, 0, if result { 1 } else { 0 });
+                infera_observe::span_utils::record_wasm_result(
+                    &_span,
+                    0,
+                    if result { 1 } else { 0 },
+                );
 
                 Ok(EvaluationNode {
                     node_type: NodeType::WasmModule {
@@ -412,7 +439,7 @@ impl Evaluator {
                     },
                     result,
                     children: vec![],
-                    })
+                })
             }
         }
     }
@@ -431,32 +458,37 @@ impl Evaluator {
         let revision = self.store.get_revision().await?;
 
         // Get the relation definition
-        let type_name = request.resource.split(':').next()
+        let type_name = request
+            .resource
+            .split(':')
+            .next()
             .ok_or_else(|| EvalError::Evaluation("Invalid resource format".to_string()))?;
 
-        let type_def = self.schema.find_type(type_name)
+        let type_def = self
+            .schema
+            .find_type(type_name)
             .ok_or_else(|| EvalError::Evaluation(format!("Type not found: {}", type_name)))?;
 
-        let relation_def = type_def.find_relation(&request.relation)
-            .ok_or_else(|| EvalError::Evaluation(format!("Relation not found: {}", request.relation)))?;
+        let relation_def = type_def.find_relation(&request.relation).ok_or_else(|| {
+            EvalError::Evaluation(format!("Relation not found: {}", request.relation))
+        })?;
 
         // Create graph context for actual user resolution
-        let mut ctx = GraphContext::new(
-            Arc::clone(&self.schema),
-            Arc::clone(&self.store),
-            revision,
-        );
+        let mut ctx =
+            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision);
 
         // Build userset tree with actual users
         let tree = if relation_def.expr.is_none() {
             // Direct relation - collect direct users
-            self.build_direct_userset_tree(&request.resource, &request.relation, &mut ctx).await?
+            self.build_direct_userset_tree(&request.resource, &request.relation, &mut ctx)
+                .await?
         } else {
             self.build_userset_tree_with_users(
                 &request.resource,
                 relation_def.expr.as_ref().unwrap(),
-                &mut ctx
-            ).await?
+                &mut ctx,
+            )
+            .await?
         };
 
         // Collect all users from the tree (deduplicated)
@@ -504,8 +536,8 @@ impl Evaluator {
         expr: &crate::ipl::RelationExpr,
         ctx: &mut GraphContext,
     ) -> Result<UsersetTree> {
-        use crate::ipl::RelationExpr;
         use crate::graph::get_users_with_relation;
+        use crate::ipl::RelationExpr;
 
         match expr {
             RelationExpr::This => {
@@ -526,31 +558,37 @@ impl Evaluator {
                         if let Some(cached_users) = cache.get_expand(key).await {
                             cached_users
                         } else {
-                            let users: Vec<String> = get_users_with_relation(&*ctx.store, object, "", ctx.revision).await?
-                                .into_iter().collect();
+                            let users: Vec<String> =
+                                get_users_with_relation(&*ctx.store, object, "", ctx.revision)
+                                    .await?
+                                    .into_iter()
+                                    .collect();
                             cache.put_expand(key.clone(), users.clone()).await;
                             users
                         }
                     } else {
-                        get_users_with_relation(&*ctx.store, object, "", ctx.revision).await?
-                            .into_iter().collect()
+                        get_users_with_relation(&*ctx.store, object, "", ctx.revision)
+                            .await?
+                            .into_iter()
+                            .collect()
                     }
                 } else {
-                    get_users_with_relation(&*ctx.store, object, "", ctx.revision).await?
-                        .into_iter().collect()
+                    get_users_with_relation(&*ctx.store, object, "", ctx.revision)
+                        .await?
+                        .into_iter()
+                        .collect()
                 };
 
                 Ok(UsersetTree {
-                    node_type: UsersetNodeType::Leaf {
-                        users,
-                    },
+                    node_type: UsersetNodeType::Leaf { users },
                     children: vec![],
                 })
             }
 
             RelationExpr::ComputedUserset { relation, tupleset } => {
                 // Get users from computed relation on tupleset
-                let tupleset_objects = get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+                let tupleset_objects =
+                    get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
 
                 // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
@@ -560,8 +598,9 @@ impl Evaluator {
                         &*ctx.store,
                         &tupleset_objects,
                         relation,
-                        ctx.revision
-                    ).await?;
+                        ctx.revision,
+                    )
+                    .await?;
 
                     for obj in &tupleset_objects {
                         if let Some(users) = prefetched.get(obj) {
@@ -571,7 +610,9 @@ impl Evaluator {
                 } else {
                     // Single object - use direct fetch
                     for obj in tupleset_objects {
-                        let users = get_users_with_relation(&*ctx.store, &obj, relation, ctx.revision).await?;
+                        let users =
+                            get_users_with_relation(&*ctx.store, &obj, relation, ctx.revision)
+                                .await?;
                         all_users.extend(users);
                     }
                 }
@@ -586,7 +627,8 @@ impl Evaluator {
 
             RelationExpr::TupleToUserset { tupleset, computed } => {
                 // Get objects from tupleset
-                let tupleset_objects = get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+                let tupleset_objects =
+                    get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
 
                 // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
@@ -596,8 +638,9 @@ impl Evaluator {
                         &*ctx.store,
                         &tupleset_objects,
                         computed,
-                        ctx.revision
-                    ).await?;
+                        ctx.revision,
+                    )
+                    .await?;
 
                     for obj in &tupleset_objects {
                         if let Some(users) = prefetched.get(obj) {
@@ -607,7 +650,9 @@ impl Evaluator {
                 } else {
                     // Single object - use direct fetch
                     for obj in tupleset_objects {
-                        let users = get_users_with_relation(&*ctx.store, &obj, computed, ctx.revision).await?;
+                        let users =
+                            get_users_with_relation(&*ctx.store, &obj, computed, ctx.revision)
+                                .await?;
                         all_users.extend(users);
                     }
                 }
@@ -640,7 +685,13 @@ impl Evaluator {
 
             RelationExpr::Exclusion { base, subtract } => {
                 // Parallelize exclusion: evaluate base and subtract concurrently
-                let children = self.expand_branches_parallel(object, &[base.as_ref().clone(), subtract.as_ref().clone()], ctx).await?;
+                let children = self
+                    .expand_branches_parallel(
+                        object,
+                        &[base.as_ref().clone(), subtract.as_ref().clone()],
+                        ctx,
+                    )
+                    .await?;
                 Ok(UsersetTree {
                     node_type: UsersetNodeType::Exclusion,
                     children,
@@ -686,22 +737,29 @@ impl Evaluator {
                 }
 
                 // Get the type definition for the current object
-                let type_name = object.split(':').next()
+                let type_name = object
+                    .split(':')
+                    .next()
                     .ok_or_else(|| EvalError::Evaluation("Invalid object format".to_string()))?;
 
-                let type_def = ctx.schema.find_type(type_name)
-                    .ok_or_else(|| EvalError::Evaluation(format!("Type not found: {}", type_name)))?;
+                let type_def = ctx.schema.find_type(type_name).ok_or_else(|| {
+                    EvalError::Evaluation(format!("Type not found: {}", type_name))
+                })?;
 
-                let relation_def = type_def.find_relation(relation)
-                    .ok_or_else(|| EvalError::Evaluation(format!("Relation not found: {}", relation)))?;
+                let relation_def = type_def.find_relation(relation).ok_or_else(|| {
+                    EvalError::Evaluation(format!("Relation not found: {}", relation))
+                })?;
 
                 // Clone the expression to avoid borrow checker issues
                 let expr_opt = relation_def.expr.clone();
 
                 // If the referenced relation has no expression, it's a direct relation
                 let tree = if expr_opt.is_none() {
-                    let users: Vec<String> = get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?
-                        .into_iter().collect();
+                    let users: Vec<String> =
+                        get_users_with_relation(&*ctx.store, object, relation, ctx.revision)
+                            .await?
+                            .into_iter()
+                            .collect();
                     UsersetTree {
                         node_type: UsersetNodeType::Leaf {
                             users: users.clone(),
@@ -710,7 +768,8 @@ impl Evaluator {
                     }
                 } else {
                     // Recursively expand the referenced relation's expression
-                    self.build_userset_tree_with_users(object, expr_opt.as_ref().unwrap(), ctx).await?
+                    self.build_userset_tree_with_users(object, expr_opt.as_ref().unwrap(), ctx)
+                        .await?
                 };
 
                 // Cache the result
@@ -758,7 +817,8 @@ impl Evaluator {
                 let expr = expr.clone();
 
                 async move {
-                    self.build_userset_tree_with_users(&object, &expr, &mut branch_ctx).await
+                    self.build_userset_tree_with_users(&object, &expr, &mut branch_ctx)
+                        .await
                 }
             })
             .collect();
@@ -781,7 +841,11 @@ impl Evaluator {
 
     /// Recursively collect users from tree nodes
     #[allow(clippy::only_used_in_recursion)]
-    fn collect_users_recursive(&self, tree: &UsersetTree, users: &mut std::collections::HashSet<String>) {
+    fn collect_users_recursive(
+        &self,
+        tree: &UsersetTree,
+        users: &mut std::collections::HashSet<String>,
+    ) {
         match &tree.node_type {
             UsersetNodeType::Leaf { users: leaf_users } => {
                 users.extend(leaf_users.iter().cloned());
@@ -864,7 +928,11 @@ impl Evaluator {
             if all_users.len() > limit {
                 let next_offset = offset + limit;
                 let continuation_token = Some(self.encode_continuation_token(next_offset));
-                (all_users.into_iter().take(limit).collect(), continuation_token, Some(total_count))
+                (
+                    all_users.into_iter().take(limit).collect(),
+                    continuation_token,
+                    Some(total_count),
+                )
             } else {
                 (all_users, None, Some(total_count))
             }
@@ -891,42 +959,62 @@ impl Evaluator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::{MemoryBackend, Tuple};
-    use crate::ipl::{Schema, TypeDef, RelationDef, RelationExpr};
 
     fn create_simple_schema() -> Schema {
-        Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
-                RelationDef::new("reader".to_string(), None),
-            ]),
-        ])
+        Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![RelationDef::new("reader".to_string(), None)],
+        )])
     }
 
     fn create_complex_schema() -> Schema {
         Schema::new(vec![
-            TypeDef::new("folder".to_string(), vec![
-                RelationDef::new("owner".to_string(), None),
-                RelationDef::new("viewer".to_string(), Some(RelationExpr::Union(vec![
-                    RelationExpr::This,
-                    RelationExpr::RelationRef { relation: "owner".to_string() },
-                ]))),
-            ]),
-            TypeDef::new("doc".to_string(), vec![
-                RelationDef::new("parent".to_string(), None),
-                RelationDef::new("owner".to_string(), None),
-                RelationDef::new("editor".to_string(), Some(RelationExpr::Union(vec![
-                    RelationExpr::This,
-                    RelationExpr::RelationRef { relation: "owner".to_string() },
-                ]))),
-                RelationDef::new("viewer".to_string(), Some(RelationExpr::Union(vec![
-                    RelationExpr::This,
-                    RelationExpr::RelationRef { relation: "editor".to_string() },
-                    RelationExpr::TupleToUserset {
-                        tupleset: "parent".to_string(),
-                        computed: "viewer".to_string(),
-                    },
-                ]))),
-            ]),
+            TypeDef::new(
+                "folder".to_string(),
+                vec![
+                    RelationDef::new("owner".to_string(), None),
+                    RelationDef::new(
+                        "viewer".to_string(),
+                        Some(RelationExpr::Union(vec![
+                            RelationExpr::This,
+                            RelationExpr::RelationRef {
+                                relation: "owner".to_string(),
+                            },
+                        ])),
+                    ),
+                ],
+            ),
+            TypeDef::new(
+                "doc".to_string(),
+                vec![
+                    RelationDef::new("parent".to_string(), None),
+                    RelationDef::new("owner".to_string(), None),
+                    RelationDef::new(
+                        "editor".to_string(),
+                        Some(RelationExpr::Union(vec![
+                            RelationExpr::This,
+                            RelationExpr::RelationRef {
+                                relation: "owner".to_string(),
+                            },
+                        ])),
+                    ),
+                    RelationDef::new(
+                        "viewer".to_string(),
+                        Some(RelationExpr::Union(vec![
+                            RelationExpr::This,
+                            RelationExpr::RelationRef {
+                                relation: "editor".to_string(),
+                            },
+                            RelationExpr::TupleToUserset {
+                                tupleset: "parent".to_string(),
+                                computed: "viewer".to_string(),
+                            },
+                        ])),
+                    ),
+                ],
+            ),
         ])
     }
 
@@ -1089,13 +1177,11 @@ mod tests {
         let schema = Arc::new(create_complex_schema());
 
         // Alice is owner, editor = this | owner, viewer = this | editor | parent->viewer
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "owner".to_string(),
-                user: "user:alice".to_string(),
-            },
-        ];
+        let tuples = vec![Tuple {
+            object: "doc:readme".to_string(),
+            relation: "owner".to_string(),
+            user: "user:alice".to_string(),
+        }];
         store.write(tuples).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
@@ -1154,7 +1240,10 @@ mod tests {
         };
 
         let response = evaluator.expand(request).await.unwrap();
-        assert!(matches!(response.tree.node_type, UsersetNodeType::Leaf { .. }));
+        assert!(matches!(
+            response.tree.node_type,
+            UsersetNodeType::Leaf { .. }
+        ));
         assert_eq!(response.tree.children.len(), 0);
         assert_eq!(response.users.len(), 0); // No tuples written yet
         assert!(response.continuation_token.is_none());
@@ -1182,16 +1271,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_expand_intersection() {
-        let schema = Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("reader".to_string(), None),
                 RelationDef::new("employee".to_string(), None),
-                RelationDef::new("viewer".to_string(), Some(RelationExpr::Intersection(vec![
-                    RelationExpr::RelationRef { relation: "reader".to_string() },
-                    RelationExpr::RelationRef { relation: "employee".to_string() },
-                ]))),
-            ]),
-        ]);
+                RelationDef::new(
+                    "viewer".to_string(),
+                    Some(RelationExpr::Intersection(vec![
+                        RelationExpr::RelationRef {
+                            relation: "reader".to_string(),
+                        },
+                        RelationExpr::RelationRef {
+                            relation: "employee".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        )]);
 
         let store = Arc::new(MemoryBackend::new());
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
@@ -1211,16 +1308,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_expand_exclusion() {
-        let schema = Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("editor".to_string(), None),
                 RelationDef::new("blocked".to_string(), None),
-                RelationDef::new("viewer".to_string(), Some(RelationExpr::Exclusion {
-                    base: Box::new(RelationExpr::RelationRef { relation: "editor".to_string() }),
-                    subtract: Box::new(RelationExpr::RelationRef { relation: "blocked".to_string() }),
-                })),
-            ]),
-        ]);
+                RelationDef::new(
+                    "viewer".to_string(),
+                    Some(RelationExpr::Exclusion {
+                        base: Box::new(RelationExpr::RelationRef {
+                            relation: "editor".to_string(),
+                        }),
+                        subtract: Box::new(RelationExpr::RelationRef {
+                            relation: "blocked".to_string(),
+                        }),
+                    }),
+                ),
+            ],
+        )]);
 
         let store = Arc::new(MemoryBackend::new());
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
@@ -1280,9 +1385,10 @@ mod tests {
 
         // The new implementation resolves TupleToUserset to Leaf nodes with actual users
         // Check that children are Leaf nodes (resolved from TupleToUserset)
-        let has_leaf_nodes = tree.children.iter().any(|child| {
-            matches!(child.node_type, UsersetNodeType::Leaf { .. })
-        });
+        let has_leaf_nodes = tree
+            .children
+            .iter()
+            .any(|child| matches!(child.node_type, UsersetNodeType::Leaf { .. }));
         assert!(has_leaf_nodes);
 
         // Verify that users are collected (even if empty in this test)
@@ -1456,7 +1562,11 @@ mod tests {
         assert_eq!(unique_users.len(), 1000);
 
         // Performance check: should complete in reasonable time (<100ms)
-        assert!(duration.as_millis() < 100, "Large userset expansion took too long: {}ms", duration.as_millis());
+        assert!(
+            duration.as_millis() < 100,
+            "Large userset expansion took too long: {}ms",
+            duration.as_millis()
+        );
     }
 
     #[tokio::test]
@@ -1464,43 +1574,54 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Create schema with union relation
-        let schema = Arc::new(Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Arc::new(Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("reader".to_string(), None),
                 RelationDef::new("editor".to_string(), None),
-                RelationDef::new("viewer".to_string(), Some(RelationExpr::Union(vec![
-                    RelationExpr::RelationRef { relation: "reader".to_string() },
-                    RelationExpr::RelationRef { relation: "editor".to_string() },
-                ]))),
-            ]),
-        ]));
+                RelationDef::new(
+                    "viewer".to_string(),
+                    Some(RelationExpr::Union(vec![
+                        RelationExpr::RelationRef {
+                            relation: "reader".to_string(),
+                        },
+                        RelationExpr::RelationRef {
+                            relation: "editor".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        )]));
 
         // Write overlapping users to both relations
-        store.write(vec![
-            // alice is both reader and editor
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "reader".to_string(),
-                user: "user:alice".to_string(),
-            },
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "editor".to_string(),
-                user: "user:alice".to_string(),
-            },
-            // bob is only reader
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "reader".to_string(),
-                user: "user:bob".to_string(),
-            },
-            // charlie is only editor
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "editor".to_string(),
-                user: "user:charlie".to_string(),
-            },
-        ]).await.unwrap();
+        store
+            .write(vec![
+                // alice is both reader and editor
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "reader".to_string(),
+                    user: "user:alice".to_string(),
+                },
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "editor".to_string(),
+                    user: "user:alice".to_string(),
+                },
+                // bob is only reader
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "reader".to_string(),
+                    user: "user:bob".to_string(),
+                },
+                // charlie is only editor
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "editor".to_string(),
+                    user: "user:charlie".to_string(),
+                },
+            ])
+            .await
+            .unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1529,43 +1650,54 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Create schema with intersection relation
-        let schema = Arc::new(Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Arc::new(Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("approver".to_string(), None),
                 RelationDef::new("editor".to_string(), None),
-                RelationDef::new("can_publish".to_string(), Some(RelationExpr::Intersection(vec![
-                    RelationExpr::RelationRef { relation: "approver".to_string() },
-                    RelationExpr::RelationRef { relation: "editor".to_string() },
-                ]))),
-            ]),
-        ]));
+                RelationDef::new(
+                    "can_publish".to_string(),
+                    Some(RelationExpr::Intersection(vec![
+                        RelationExpr::RelationRef {
+                            relation: "approver".to_string(),
+                        },
+                        RelationExpr::RelationRef {
+                            relation: "editor".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        )]));
 
         // Write test data
-        store.write(vec![
-            // alice is both approver and editor (should be in intersection)
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "approver".to_string(),
-                user: "user:alice".to_string(),
-            },
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "editor".to_string(),
-                user: "user:alice".to_string(),
-            },
-            // bob is only approver (should NOT be in intersection)
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "approver".to_string(),
-                user: "user:bob".to_string(),
-            },
-            // charlie is only editor (should NOT be in intersection)
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "editor".to_string(),
-                user: "user:charlie".to_string(),
-            },
-        ]).await.unwrap();
+        store
+            .write(vec![
+                // alice is both approver and editor (should be in intersection)
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "approver".to_string(),
+                    user: "user:alice".to_string(),
+                },
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "editor".to_string(),
+                    user: "user:alice".to_string(),
+                },
+                // bob is only approver (should NOT be in intersection)
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "approver".to_string(),
+                    user: "user:bob".to_string(),
+                },
+                // charlie is only editor (should NOT be in intersection)
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "editor".to_string(),
+                    user: "user:charlie".to_string(),
+                },
+            ])
+            .await
+            .unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1583,7 +1715,10 @@ mod tests {
         assert_eq!(response.users[0], "user:alice");
 
         // Verify tree structure is Intersection with Leaf children
-        assert!(matches!(response.tree.node_type, UsersetNodeType::Intersection));
+        assert!(matches!(
+            response.tree.node_type,
+            UsersetNodeType::Intersection
+        ));
         assert_eq!(response.tree.children.len(), 2);
     }
 
@@ -1592,43 +1727,54 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Create schema with exclusion relation
-        let schema = Arc::new(Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Arc::new(Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("viewer".to_string(), None),
                 RelationDef::new("blocked".to_string(), None),
-                RelationDef::new("can_view".to_string(), Some(RelationExpr::Exclusion {
-                    base: Box::new(RelationExpr::RelationRef { relation: "viewer".to_string() }),
-                    subtract: Box::new(RelationExpr::RelationRef { relation: "blocked".to_string() }),
-                })),
-            ]),
-        ]));
+                RelationDef::new(
+                    "can_view".to_string(),
+                    Some(RelationExpr::Exclusion {
+                        base: Box::new(RelationExpr::RelationRef {
+                            relation: "viewer".to_string(),
+                        }),
+                        subtract: Box::new(RelationExpr::RelationRef {
+                            relation: "blocked".to_string(),
+                        }),
+                    }),
+                ),
+            ],
+        )]));
 
         // Write test data
-        store.write(vec![
-            // alice is viewer but not blocked (should be in result)
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "viewer".to_string(),
-                user: "user:alice".to_string(),
-            },
-            // bob is viewer AND blocked (should NOT be in result)
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "viewer".to_string(),
-                user: "user:bob".to_string(),
-            },
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "blocked".to_string(),
-                user: "user:bob".to_string(),
-            },
-            // charlie is viewer but not blocked (should be in result)
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "viewer".to_string(),
-                user: "user:charlie".to_string(),
-            },
-        ]).await.unwrap();
+        store
+            .write(vec![
+                // alice is viewer but not blocked (should be in result)
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "viewer".to_string(),
+                    user: "user:alice".to_string(),
+                },
+                // bob is viewer AND blocked (should NOT be in result)
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "viewer".to_string(),
+                    user: "user:bob".to_string(),
+                },
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "blocked".to_string(),
+                    user: "user:bob".to_string(),
+                },
+                // charlie is viewer but not blocked (should be in result)
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "viewer".to_string(),
+                    user: "user:charlie".to_string(),
+                },
+            ])
+            .await
+            .unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1648,7 +1794,10 @@ mod tests {
         assert!(!response.users.contains(&"user:bob".to_string()));
 
         // Verify tree structure is Exclusion with Leaf children
-        assert!(matches!(response.tree.node_type, UsersetNodeType::Exclusion));
+        assert!(matches!(
+            response.tree.node_type,
+            UsersetNodeType::Exclusion
+        ));
         assert_eq!(response.tree.children.len(), 2);
     }
 
@@ -1658,59 +1807,74 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Create a schema with multiple parallel branches: admin | editor | viewer
-        let schema = Arc::new(Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Arc::new(Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("admin".to_string(), None),
                 RelationDef::new("editor".to_string(), None),
                 RelationDef::new("viewer".to_string(), None),
                 RelationDef::new("contributor".to_string(), None),
-                RelationDef::new("any_access".to_string(), Some(RelationExpr::Union(vec![
-                    RelationExpr::RelationRef { relation: "admin".to_string() },
-                    RelationExpr::RelationRef { relation: "editor".to_string() },
-                    RelationExpr::RelationRef { relation: "viewer".to_string() },
-                    RelationExpr::RelationRef { relation: "contributor".to_string() },
-                ]))),
-            ]),
-        ]));
+                RelationDef::new(
+                    "any_access".to_string(),
+                    Some(RelationExpr::Union(vec![
+                        RelationExpr::RelationRef {
+                            relation: "admin".to_string(),
+                        },
+                        RelationExpr::RelationRef {
+                            relation: "editor".to_string(),
+                        },
+                        RelationExpr::RelationRef {
+                            relation: "viewer".to_string(),
+                        },
+                        RelationExpr::RelationRef {
+                            relation: "contributor".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        )]));
 
         // Write users to different relations (some overlap intentionally)
-        store.write(vec![
-            // alice is admin
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "admin".to_string(),
-                user: "user:alice".to_string(),
-            },
-            // bob is editor
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "editor".to_string(),
-                user: "user:bob".to_string(),
-            },
-            // charlie is viewer
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "viewer".to_string(),
-                user: "user:charlie".to_string(),
-            },
-            // dave is contributor
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "contributor".to_string(),
-                user: "user:dave".to_string(),
-            },
-            // eve is both editor and viewer (test deduplication)
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "editor".to_string(),
-                user: "user:eve".to_string(),
-            },
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "viewer".to_string(),
-                user: "user:eve".to_string(),
-            },
-        ]).await.unwrap();
+        store
+            .write(vec![
+                // alice is admin
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "admin".to_string(),
+                    user: "user:alice".to_string(),
+                },
+                // bob is editor
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "editor".to_string(),
+                    user: "user:bob".to_string(),
+                },
+                // charlie is viewer
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "viewer".to_string(),
+                    user: "user:charlie".to_string(),
+                },
+                // dave is contributor
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "contributor".to_string(),
+                    user: "user:dave".to_string(),
+                },
+                // eve is both editor and viewer (test deduplication)
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "editor".to_string(),
+                    user: "user:eve".to_string(),
+                },
+                Tuple {
+                    object: "doc:readme".to_string(),
+                    relation: "viewer".to_string(),
+                    user: "user:eve".to_string(),
+                },
+            ])
+            .await
+            .unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1743,16 +1907,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_exclusion_check() {
-        let schema = Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("editor".to_string(), None),
                 RelationDef::new("blocked".to_string(), None),
-                RelationDef::new("viewer".to_string(), Some(RelationExpr::Exclusion {
-                    base: Box::new(RelationExpr::RelationRef { relation: "editor".to_string() }),
-                    subtract: Box::new(RelationExpr::RelationRef { relation: "blocked".to_string() }),
-                })),
-            ]),
-        ]);
+                RelationDef::new(
+                    "viewer".to_string(),
+                    Some(RelationExpr::Exclusion {
+                        base: Box::new(RelationExpr::RelationRef {
+                            relation: "editor".to_string(),
+                        }),
+                        subtract: Box::new(RelationExpr::RelationRef {
+                            relation: "blocked".to_string(),
+                        }),
+                    }),
+                ),
+            ],
+        )]);
 
         let store = Arc::new(MemoryBackend::new());
 
@@ -1787,16 +1959,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_intersection_check() {
-        let schema = Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("reader".to_string(), None),
                 RelationDef::new("employee".to_string(), None),
-                RelationDef::new("viewer".to_string(), Some(RelationExpr::Intersection(vec![
-                    RelationExpr::RelationRef { relation: "reader".to_string() },
-                    RelationExpr::RelationRef { relation: "employee".to_string() },
-                ]))),
-            ]),
-        ]);
+                RelationDef::new(
+                    "viewer".to_string(),
+                    Some(RelationExpr::Intersection(vec![
+                        RelationExpr::RelationRef {
+                            relation: "reader".to_string(),
+                        },
+                        RelationExpr::RelationRef {
+                            relation: "employee".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        )]);
 
         let store = Arc::new(MemoryBackend::new());
 
@@ -1831,27 +2011,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_intersection_check_deny() {
-        let schema = Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("reader".to_string(), None),
                 RelationDef::new("employee".to_string(), None),
-                RelationDef::new("viewer".to_string(), Some(RelationExpr::Intersection(vec![
-                    RelationExpr::RelationRef { relation: "reader".to_string() },
-                    RelationExpr::RelationRef { relation: "employee".to_string() },
-                ]))),
-            ]),
-        ]);
+                RelationDef::new(
+                    "viewer".to_string(),
+                    Some(RelationExpr::Intersection(vec![
+                        RelationExpr::RelationRef {
+                            relation: "reader".to_string(),
+                        },
+                        RelationExpr::RelationRef {
+                            relation: "employee".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        )]);
 
         let store = Arc::new(MemoryBackend::new());
 
         // Alice is only reader, not employee
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
-                relation: "reader".to_string(),
-                user: "user:alice".to_string(),
-            },
-        ];
+        let tuples = vec![Tuple {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            user: "user:alice".to_string(),
+        }];
         store.write(tuples).await.unwrap();
 
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
@@ -1980,7 +2166,7 @@ mod tests {
 
         let stats = evaluator.cache_stats().unwrap();
         assert_eq!(stats.misses, 2); // Two different requests
-        assert_eq!(stats.hits, 2);   // Two repeated requests
+        assert_eq!(stats.hits, 2); // Two repeated requests
         assert_eq!(stats.hit_rate, 50.0);
     }
 }

@@ -1,8 +1,4 @@
-use axum::{
-    extract::Path,
-    routing::get,
-    Json, Router,
-};
+use axum::{extract::Path, routing::get, Json, Router};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use serde_json::json;
@@ -11,8 +7,8 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, OnceLock};
 use tokio::task::JoinHandle;
 
-use infera_auth::jwt::JwtClaims;
 use infera_auth::jwks_cache::Jwk;
+use infera_auth::jwt::JwtClaims;
 
 /// Thread-safe storage for test keypairs
 static TEST_KEYPAIRS: OnceLock<Arc<Mutex<HashMap<String, SigningKey>>>> = OnceLock::new();
@@ -87,11 +83,7 @@ pub async fn start_mock_jwks_server() -> (String, JoinHandle<()>) {
 }
 
 /// Generate a valid JWT signed by the tenant's private key
-pub fn generate_jwt_for_mock_jwks(
-    tenant: &str,
-    scopes: Vec<String>,
-    exp_secs: i64,
-) -> String {
+pub fn generate_jwt_for_mock_jwks(tenant: &str, scopes: Vec<String>, exp_secs: i64) -> String {
     let signing_key = get_test_keypair_for_tenant(tenant);
     let kid = format!("{}-key-001", tenant);
 
@@ -136,7 +128,8 @@ pub fn generate_jwt_for_mock_jwks(
         base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &der)
     );
 
-    let encoding_key = EncodingKey::from_ed_pem(pem.as_bytes()).expect("Failed to create encoding key");
+    let encoding_key =
+        EncodingKey::from_ed_pem(pem.as_bytes()).expect("Failed to create encoding key");
 
     encode(&header, &claims, &encoding_key).expect("Failed to encode JWT")
 }
@@ -173,11 +166,9 @@ mod tests {
 
         // Should be able to decode header
         let parts: Vec<&str> = jwt.split('.').collect();
-        let header_json = base64::Engine::decode(
-            &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-            parts[0],
-        )
-        .expect("Failed to decode header");
+        let header_json =
+            base64::Engine::decode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, parts[0])
+                .expect("Failed to decode header");
         let header: serde_json::Value =
             serde_json::from_slice(&header_json).expect("Failed to parse header");
 

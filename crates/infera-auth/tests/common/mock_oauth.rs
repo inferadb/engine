@@ -21,8 +21,8 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, OnceLock};
 use tokio::task::JoinHandle;
 
-use infera_auth::jwt::JwtClaims;
 use infera_auth::jwks_cache::Jwk;
+use infera_auth::jwt::JwtClaims;
 use infera_auth::oauth::IntrospectionResponse;
 
 /// Thread-safe storage for the OAuth server's signing key
@@ -82,9 +82,7 @@ struct OidcDiscoveryResponse {
 }
 
 /// OIDC discovery endpoint handler
-async fn oidc_discovery_handler(
-    State(base_url): State<String>,
-) -> Json<OidcDiscoveryResponse> {
+async fn oidc_discovery_handler(State(base_url): State<String>) -> Json<OidcDiscoveryResponse> {
     Json(OidcDiscoveryResponse {
         issuer: base_url.clone(),
         authorization_endpoint: format!("{}/authorize", base_url),
@@ -160,7 +158,8 @@ pub async fn start_mock_oauth_server() -> (String, JoinHandle<()>, OAuthServerSt
     let state_clone = state.clone();
 
     let app = Router::new()
-        .route("/.well-known/openid-configuration",
+        .route(
+            "/.well-known/openid-configuration",
             get({
                 let base_url = base_url_clone.clone();
                 move |_: ()| {
@@ -179,10 +178,11 @@ pub async fn start_mock_oauth_server() -> (String, JoinHandle<()>, OAuthServerSt
                         })
                     }
                 }
-            })
+            }),
         )
         .route("/jwks.json", get(oauth_jwks_handler))
-        .route("/introspect",
+        .route(
+            "/introspect",
             post({
                 let state = state_clone.clone();
                 move |axum::Form(req): axum::Form<IntrospectionRequest>| {
@@ -210,7 +210,7 @@ pub async fn start_mock_oauth_server() -> (String, JoinHandle<()>, OAuthServerSt
                         }
                     }
                 }
-            })
+            }),
         );
 
     // Spawn server
@@ -272,7 +272,8 @@ pub fn generate_oauth_jwt(
         base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &der)
     );
 
-    let encoding_key = EncodingKey::from_ed_pem(pem.as_bytes()).expect("Failed to create encoding key");
+    let encoding_key =
+        EncodingKey::from_ed_pem(pem.as_bytes()).expect("Failed to create encoding key");
     encode(&header, &claims, &encoding_key).expect("Failed to encode JWT")
 }
 
@@ -344,11 +345,9 @@ mod tests {
 
         // Should be able to decode header
         let parts: Vec<&str> = jwt.split('.').collect();
-        let header_json = base64::Engine::decode(
-            &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-            parts[0],
-        )
-        .expect("Failed to decode header");
+        let header_json =
+            base64::Engine::decode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, parts[0])
+                .expect("Failed to decode header");
         let header: serde_json::Value =
             serde_json::from_slice(&header_json).expect("Failed to parse header");
 
@@ -370,7 +369,8 @@ mod tests {
 
         assert!(response.status().is_success());
 
-        let introspection: IntrospectionResponse = response.json().await.expect("Failed to parse JSON");
+        let introspection: IntrospectionResponse =
+            response.json().await.expect("Failed to parse JSON");
         assert!(!introspection.active);
     }
 
@@ -403,7 +403,8 @@ mod tests {
 
         assert!(response.status().is_success());
 
-        let introspection: IntrospectionResponse = response.json().await.expect("Failed to parse JSON");
+        let introspection: IntrospectionResponse =
+            response.json().await.expect("Failed to parse JSON");
         assert!(introspection.active);
         assert_eq!(introspection.tenant_id, Some("acme".to_string()));
         assert_eq!(introspection.scope, Some("read write".to_string()));

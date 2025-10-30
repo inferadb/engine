@@ -7,7 +7,7 @@ pub mod validation;
 
 use std::path::{Path, PathBuf};
 
-use config::{Config as ConfigBuilder, ConfigError, File, Environment};
+use config::{Config as ConfigBuilder, ConfigError, Environment, File};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -171,6 +171,52 @@ pub struct AuthConfig {
 
     /// Redis URL for replay protection (optional)
     pub redis_url: Option<String>,
+
+    /// Clock skew tolerance in seconds (for timestamp validation)
+    #[serde(default = "default_clock_skew_seconds")]
+    pub clock_skew_seconds: Option<u64>,
+
+    /// Maximum token age in seconds (from iat to now)
+    #[serde(default = "default_max_token_age_seconds")]
+    pub max_token_age_seconds: Option<u64>,
+
+    /// Issuer allowlist (if set, only these issuers are accepted)
+    pub issuer_allowlist: Option<Vec<String>>,
+
+    /// Issuer blocklist (these issuers are always rejected)
+    pub issuer_blocklist: Option<Vec<String>>,
+
+    /// Allowed audience values (for audience validation)
+    #[serde(default = "default_allowed_audiences")]
+    pub allowed_audiences: Vec<String>,
+
+    /// Require JTI claim in all tokens
+    #[serde(default = "default_require_jti")]
+    pub require_jti: bool,
+
+    /// Enable OAuth token validation
+    #[serde(default = "default_oauth_enabled")]
+    pub oauth_enabled: bool,
+
+    /// OIDC discovery URL (for OAuth providers)
+    pub oidc_discovery_url: Option<String>,
+
+    /// OIDC client ID
+    pub oidc_client_id: Option<String>,
+
+    /// OIDC client secret
+    pub oidc_client_secret: Option<String>,
+
+    /// OAuth introspection URL
+    pub introspection_url: Option<String>,
+
+    /// Required scopes for authorization
+    #[serde(default = "default_required_scopes")]
+    pub required_scopes: Vec<String>,
+
+    /// JWKS URL (alternative to jwks_base_url)
+    #[serde(default = "default_jwks_url")]
+    pub jwks_url: String,
 }
 
 fn default_auth_enabled() -> bool {
@@ -195,6 +241,34 @@ fn default_audience() -> String {
 
 fn default_enforce_scopes() -> bool {
     true
+}
+
+fn default_clock_skew_seconds() -> Option<u64> {
+    Some(60) // 1 minute tolerance for clock differences
+}
+
+fn default_max_token_age_seconds() -> Option<u64> {
+    Some(86400) // 24 hours maximum token age
+}
+
+fn default_allowed_audiences() -> Vec<String> {
+    vec!["https://api.inferadb.com/evaluate".to_string()]
+}
+
+fn default_require_jti() -> bool {
+    false // Optional by default, but required when replay_protection is enabled
+}
+
+fn default_oauth_enabled() -> bool {
+    false
+}
+
+fn default_required_scopes() -> Vec<String> {
+    vec![]
+}
+
+fn default_jwks_url() -> String {
+    String::new()
 }
 
 fn default_replay_protection() -> bool {
@@ -242,17 +316,37 @@ impl Default for AuthConfig {
             internal_issuer: default_internal_issuer(),
             internal_audience: default_internal_audience(),
             redis_url: None,
+            clock_skew_seconds: default_clock_skew_seconds(),
+            max_token_age_seconds: default_max_token_age_seconds(),
+            issuer_allowlist: None,
+            issuer_blocklist: None,
+            allowed_audiences: default_allowed_audiences(),
+            require_jti: default_require_jti(),
+            oauth_enabled: default_oauth_enabled(),
+            oidc_discovery_url: None,
+            oidc_client_id: None,
+            oidc_client_secret: None,
+            introspection_url: None,
+            required_scopes: default_required_scopes(),
+            jwks_url: default_jwks_url(),
         }
     }
 }
 
 impl AuthConfig {
     /// Validate the authentication configuration and log warnings for potential issues
-    pub fn validate(&self) {
+    ///
+    /// This method performs comprehensive validation of security-related settings:
+    /// - Checks for forbidden algorithms (symmetric algorithms, "none")
+    /// - Validates replay protection configuration
+    /// - Warns about overly permissive clock skew settings
+    /// - Validates issuer and audience configuration
+    /// - Ensures required JTI when replay protection is enabled
+    pub fn validate(&self) -> Result<(), String> {
         // Warn if authentication is enabled but JWKS base URL is missing
-        if self.enabled && self.jwks_base_url.is_empty() {
+        if self.enabled && self.jwks_base_url.is_empty() && self.jwks_url.is_empty() {
             tracing::warn!(
-                "Authentication is enabled but jwks_base_url is empty. \
+                "Authentication is enabled but jwks_base_url and jwks_url are empty. \
                  Tenant JWT authentication will not work."
             );
         }
@@ -269,21 +363,94 @@ impl AuthConfig {
             );
         }
 
-        // Warn if replay protection is enabled but Redis URL is missing
-        if self.replay_protection && self.redis_url.is_none() {
-            tracing::warn!(
-                "Replay protection is enabled but redis_url is not configured. \
-                 Replay protection will not function."
+        // CRITICAL: Reject if accepted_algorithms is empty
+        if self.accepted_algorithms.is_empty() {
+            return Err(
+                "accepted_algorithms cannot be empty. At least one algorithm must be configured."
+                    .to_string(),
             );
         }
 
-        // Info about accepted algorithms
-        if self.accepted_algorithms.is_empty() {
-            tracing::warn!(
-                "No accepted signature algorithms configured. \
-                 All JWT signatures will be rejected."
+        // CRITICAL: Reject if accepted_algorithms contains forbidden algorithms
+        const FORBIDDEN: &[&str] = &["none", "HS256", "HS384", "HS512"];
+        for alg in &self.accepted_algorithms {
+            if FORBIDDEN.contains(&alg.as_str()) {
+                return Err(format!(
+                    "Algorithm '{}' is forbidden for security reasons (symmetric or none). \
+                     Only asymmetric algorithms (EdDSA, RS256, ES256, etc.) are allowed.",
+                    alg
+                ));
+            }
+        }
+
+        // CRITICAL: Reject if replay_protection enabled but no redis_url
+        if self.replay_protection && self.redis_url.is_none() {
+            return Err(
+                "replay_protection is enabled but redis_url is not configured. \
+                 Either disable replay_protection or configure redis_url."
+                    .to_string(),
             );
         }
+
+        // Warn if replay protection is enabled with require_jti false
+        if self.replay_protection && !self.require_jti {
+            tracing::warn!(
+                "replay_protection is enabled but require_jti is false. \
+                 Tokens without JTI will fail validation. Consider setting require_jti=true."
+            );
+        }
+
+        // Warn if using in-memory replay protection (when Redis is not configured)
+        if self.replay_protection && self.redis_url.is_none() {
+            tracing::warn!(
+                "In-memory replay protection is NOT suitable for multi-node deployments. \
+                 Configure redis_url for production use."
+            );
+        }
+
+        // Warn if clock skew is too permissive (> 5 minutes)
+        if let Some(skew) = self.clock_skew_seconds {
+            if skew > 300 {
+                tracing::warn!(
+                    clock_skew = %skew,
+                    "Clock skew tolerance is very high (> 5 minutes). \
+                     This may allow expired tokens to be accepted. \
+                     Recommended: 60 seconds or less."
+                );
+            }
+        }
+
+        // Warn if audience validation is disabled
+        if !self.enforce_audience {
+            tracing::warn!(
+                "Audience validation is disabled. This is a security risk. \
+                 Tokens intended for other services may be accepted. \
+                 Set enforce_audience=true for production."
+            );
+        }
+
+        // Warn if allowed_audiences is empty but enforce_audience is true
+        if self.enforce_audience && self.allowed_audiences.is_empty() {
+            tracing::warn!(
+                "Audience enforcement is enabled but allowed_audiences is empty. \
+                 All tokens will be rejected due to audience mismatch."
+            );
+        }
+
+        // Info about issuer validation
+        if self.issuer_allowlist.is_some() {
+            tracing::info!(
+                "Issuer allowlist is configured. Only tokens from allowed issuers will be accepted."
+            );
+        }
+
+        if self.issuer_blocklist.is_some() {
+            tracing::info!(
+                "Issuer blocklist is configured. Tokens from blocked issuers will be rejected."
+            );
+        }
+
+        Ok(())
     }
 }
 

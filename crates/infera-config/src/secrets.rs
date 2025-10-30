@@ -157,10 +157,7 @@ impl SecretProvider for MemorySecretProvider {
 /// Resolve secret references in strings
 ///
 /// Replaces patterns like ${SECRET_NAME} with actual secret values
-pub fn resolve_secrets(
-    input: &str,
-    provider: &dyn SecretProvider,
-) -> Result<String, SecretError> {
+pub fn resolve_secrets(input: &str, provider: &dyn SecretProvider) -> Result<String, SecretError> {
     let mut result = input.to_string();
     let mut start = 0;
 

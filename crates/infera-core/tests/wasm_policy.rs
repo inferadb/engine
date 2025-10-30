@@ -1,10 +1,10 @@
 //! Integration tests for WASM policy modules
 
-use std::sync::Arc;
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::{CheckRequest, Decision, Evaluator};
-use infera_core::ipl::{Schema, TypeDef, RelationDef, RelationExpr};
-use infera_store::{MemoryBackend, TupleStore, Tuple};
+use infera_store::{MemoryBackend, Tuple, TupleStore};
 use infera_wasm::WasmHost;
+use std::sync::Arc;
 
 /// Helper to create a simple schema with WASM module
 fn create_wasm_schema(module_name: &str) -> Schema {
@@ -296,10 +296,7 @@ async fn test_wasm_module_not_loaded() {
 
     let result = evaluator.check(request).await;
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("Module not found"));
+    assert!(result.unwrap_err().to_string().contains("Module not found"));
 }
 
 #[tokio::test]

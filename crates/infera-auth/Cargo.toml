@@ -25,6 +25,10 @@ reqwest = { workspace = true }
 tokio = { workspace = true }
 moka = { workspace = true }
 axum = { workspace = true }
+async-trait = "0.1"
+
+# Optional dependencies
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"], optional = true }
 
 # Internal dependencies
 infera-cache = { path = "../infera-cache" }
@@ -41,3 +45,4 @@ futures = { workspace = true }
 
 [features]
 default = []
+replay-protection = ["redis"]

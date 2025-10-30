@@ -307,7 +307,12 @@ pub fn record_auth_result(span: &Span, success: bool, duration_ms: f64, error_ty
 /// * `cache_status` - "hit", "miss", or "stale"
 /// * `duration_ms` - Duration in milliseconds (for fetch operations)
 /// * `success` - Whether the operation succeeded
-pub fn record_jwks_result(span: &Span, cache_status: &str, duration_ms: Option<f64>, success: bool) {
+pub fn record_jwks_result(
+    span: &Span,
+    cache_status: &str,
+    duration_ms: Option<f64>,
+    success: bool,
+) {
     span.record("cache_status", cache_status);
     if let Some(duration) = duration_ms {
         span.record("duration_ms", duration);

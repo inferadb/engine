@@ -6,22 +6,22 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use infera_api::{AppState, grpc::proto::infera_service_client::InferaServiceClient};
 use infera_api::grpc::proto::CheckRequest;
-use infera_auth::jwks_cache::JwksCache;
+use infera_api::{grpc::proto::infera_service_client::InferaServiceClient, AppState};
 use infera_auth::internal::InternalJwksLoader;
+use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
-use infera_core::{Evaluator, ipl::{Schema, TypeDef, RelationDef}};
-use infera_store::{TupleStore, MemoryBackend};
-use tonic::transport::{Server, Channel};
-use tonic::Request;
+use infera_core::{
+    ipl::{RelationDef, Schema, TypeDef},
+    Evaluator,
+};
+use infera_store::{MemoryBackend, TupleStore};
 use tonic::metadata::MetadataValue;
+use tonic::transport::{Channel, Server};
+use tonic::Request;
 
 use infera_test_fixtures::{
-    generate_internal_keypair,
-    generate_internal_jwt,
-    create_internal_jwks,
-    InternalClaims,
+    create_internal_jwks, generate_internal_jwt, generate_internal_keypair, InternalClaims,
 };
 
 fn create_test_schema() -> Arc<Schema> {
@@ -31,10 +31,7 @@ fn create_test_schema() -> Arc<Schema> {
     )]))
 }
 
-fn create_test_state(
-    jwks_cache: Option<Arc<JwksCache>>,
-    auth_enabled: bool,
-) -> AppState {
+fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
     let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
     let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
@@ -57,7 +54,7 @@ async fn start_grpc_server_with_auth(
     state: AppState,
     internal_loader: Option<Arc<InternalJwksLoader>>,
 ) -> (tokio::task::JoinHandle<()>, u16) {
-    use infera_api::grpc::{InferaServiceImpl, proto::infera_service_server::InferaServiceServer};
+    use infera_api::grpc::{proto::infera_service_server::InferaServiceServer, InferaServiceImpl};
     use infera_api::grpc_interceptor::AuthInterceptor;
 
     let port = portpicker::pick_unused_port().expect("No free ports");
@@ -119,11 +116,8 @@ async fn test_metrics_after_successful_auth() {
     .unwrap();
 
     // Create internal loader
-    let internal_loader = InternalJwksLoader::from_config(
-        Some(&jwks_path),
-        None,
-    )
-    .expect("Failed to create internal loader");
+    let internal_loader = InternalJwksLoader::from_config(Some(&jwks_path), None)
+        .expect("Failed to create internal loader");
 
     let cache = Arc::new(
         moka::future::Cache::builder()
@@ -139,11 +133,8 @@ async fn test_metrics_after_successful_auth() {
     ));
 
     let state = create_test_state(Some(jwks_cache), true);
-    let (server_handle, port) = start_grpc_server_with_auth(
-        state,
-        Some(Arc::new(internal_loader)),
-    )
-    .await;
+    let (server_handle, port) =
+        start_grpc_server_with_auth(state, Some(Arc::new(internal_loader))).await;
 
     let channel = Channel::from_shared(format!("http://127.0.0.1:{}", port))
         .unwrap()
@@ -256,11 +247,8 @@ async fn test_metrics_cardinality() {
     .unwrap();
 
     // Create internal loader
-    let internal_loader = InternalJwksLoader::from_config(
-        Some(&jwks_path),
-        None,
-    )
-    .expect("Failed to create internal loader");
+    let internal_loader = InternalJwksLoader::from_config(Some(&jwks_path), None)
+        .expect("Failed to create internal loader");
 
     let cache = Arc::new(
         moka::future::Cache::builder()
@@ -276,11 +264,8 @@ async fn test_metrics_cardinality() {
     ));
 
     let state = create_test_state(Some(jwks_cache), true);
-    let (server_handle, port) = start_grpc_server_with_auth(
-        state,
-        Some(Arc::new(internal_loader)),
-    )
-    .await;
+    let (server_handle, port) =
+        start_grpc_server_with_auth(state, Some(Arc::new(internal_loader))).await;
 
     let channel = Channel::from_shared(format!("http://127.0.0.1:{}", port))
         .unwrap()

@@ -65,9 +65,8 @@ impl JwtClaims {
 
 /// Decode JWT header without verification
 pub fn decode_jwt_header(token: &str) -> Result<Header, AuthError> {
-    decode_header(token).map_err(|e| {
-        AuthError::InvalidTokenFormat(format!("Failed to decode JWT header: {}", e))
-    })
+    decode_header(token)
+        .map_err(|e| AuthError::InvalidTokenFormat(format!("Failed to decode JWT header: {}", e)))
 }
 
 /// Decode JWT claims without verification (used to extract issuer for JWKS lookup)
@@ -81,16 +80,13 @@ pub fn decode_jwt_claims(token: &str) -> Result<JwtClaims, AuthError> {
     }
 
     // Decode payload (part 1) using base64 URL-safe encoding
-    let payload_bytes = URL_SAFE_NO_PAD
-        .decode(parts[1])
-        .map_err(|e| {
-            AuthError::InvalidTokenFormat(format!("Failed to decode JWT payload: {}", e))
-        })?;
+    let payload_bytes = URL_SAFE_NO_PAD.decode(parts[1]).map_err(|e| {
+        AuthError::InvalidTokenFormat(format!("Failed to decode JWT payload: {}", e))
+    })?;
 
     // Parse as JSON
-    let claims: JwtClaims = serde_json::from_slice(&payload_bytes).map_err(|e| {
-        AuthError::InvalidTokenFormat(format!("Failed to parse JWT claims: {}", e))
-    })?;
+    let claims: JwtClaims = serde_json::from_slice(&payload_bytes)
+        .map_err(|e| AuthError::InvalidTokenFormat(format!("Failed to parse JWT claims: {}", e)))?;
 
     // Validate required claims are present
     if claims.iss.is_empty() {
@@ -107,7 +103,10 @@ pub fn decode_jwt_claims(token: &str) -> Result<JwtClaims, AuthError> {
 }
 
 /// Validate JWT claims (timestamp and audience checks)
-pub fn validate_claims(claims: &JwtClaims, expected_audience: Option<&str>) -> Result<(), AuthError> {
+pub fn validate_claims(
+    claims: &JwtClaims,
+    expected_audience: Option<&str>,
+) -> Result<(), AuthError> {
     let now = Utc::now().timestamp() as u64;
 
     // Check expiration
@@ -246,9 +245,9 @@ pub async fn verify_with_jwks(
     // 1. Decode header to get algorithm and key ID
     let header = decode_jwt_header(token)?;
 
-    let kid = header.kid.ok_or_else(|| {
-        AuthError::InvalidTokenFormat("JWT header missing 'kid' field".into())
-    })?;
+    let kid = header
+        .kid
+        .ok_or_else(|| AuthError::InvalidTokenFormat("JWT header missing 'kid' field".into()))?;
 
     // Validate algorithm
     let alg_str = format!("{:?}", header.alg);
@@ -273,14 +272,12 @@ pub async fn verify_with_jwks(
             let keys = jwks_cache.get_jwks(&tenant_id).await?;
 
             // Try to find the key again
-            keys.into_iter()
-                .find(|k| k.kid == kid)
-                .ok_or_else(|| {
-                    AuthError::JwksError(format!(
-                        "Key '{}' not found in JWKS for tenant '{}'",
-                        kid, tenant_id
-                    ))
-                })?
+            keys.into_iter().find(|k| k.kid == kid).ok_or_else(|| {
+                AuthError::JwksError(format!(
+                    "Key '{}' not found in JWKS for tenant '{}'",
+                    kid, tenant_id
+                ))
+            })?
         }
     };
 

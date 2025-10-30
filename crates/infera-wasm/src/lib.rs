@@ -258,7 +258,10 @@ mod tests {
 
         let result = host.execute("test", "check", context);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), WasmError::FunctionNotFound(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            WasmError::FunctionNotFound(_)
+        ));
     }
 
     #[test]

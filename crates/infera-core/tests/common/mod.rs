@@ -1,8 +1,8 @@
 //! Helper utilities for integration tests
 
+use infera_core::ipl::Schema;
 use infera_core::{CheckRequest, Evaluator};
 use infera_store::{MemoryBackend, Tuple, TupleStore};
-use infera_core::ipl::Schema;
 use std::sync::Arc;
 
 /// Test fixture for setting up a complete evaluation environment
@@ -15,11 +15,8 @@ impl TestFixture {
     /// Create a new test fixture with the given schema
     pub fn new(schema: Schema) -> Self {
         let store = Arc::new(MemoryBackend::new());
-        let evaluator = Evaluator::new(
-            store.clone() as Arc<dyn TupleStore>,
-            Arc::new(schema),
-            None,
-        );
+        let evaluator =
+            Evaluator::new(store.clone() as Arc<dyn TupleStore>, Arc::new(schema), None);
 
         Self { store, evaluator }
     }

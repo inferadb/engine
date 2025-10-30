@@ -2,7 +2,7 @@
 //!
 //! Provides structured metrics using the `metrics` crate with Prometheus export.
 
-use metrics::{counter, histogram, gauge, describe_counter, describe_histogram, describe_gauge};
+use metrics::{counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram};
 
 /// Initialize all metric descriptions
 pub fn init_metrics_descriptions() {
@@ -25,10 +25,7 @@ pub fn init_metrics_descriptions() {
     );
 
     // Cache metrics
-    describe_counter!(
-        "inferadb_cache_hits_total",
-        "Total number of cache hits"
-    );
+    describe_counter!("inferadb_cache_hits_total", "Total number of cache hits");
     describe_counter!(
         "inferadb_cache_misses_total",
         "Total number of cache misses"
@@ -105,10 +102,7 @@ pub fn init_metrics_descriptions() {
         "inferadb_optimizations_total",
         "Total number of query optimizations performed"
     );
-    describe_histogram!(
-        "inferadb_query_cost_estimated",
-        "Estimated cost of queries"
-    );
+    describe_histogram!("inferadb_query_cost_estimated", "Estimated cost of queries");
     describe_counter!(
         "inferadb_parallel_evaluations_total",
         "Total number of parallel evaluations"
@@ -272,7 +266,12 @@ pub fn update_storage_stats(total_tuples: usize, revision: u64) {
 }
 
 /// Record a WASM invocation
-pub fn record_wasm_invocation(module: &str, duration_seconds: f64, fuel_consumed: u64, success: bool) {
+pub fn record_wasm_invocation(
+    module: &str,
+    duration_seconds: f64,
+    fuel_consumed: u64,
+    success: bool,
+) {
     counter!("inferadb_wasm_invocations_total", "module" => module.to_string()).increment(1);
 
     if !success {
@@ -309,21 +308,24 @@ pub fn record_api_request(endpoint: &str, method: &str, status_code: u16, durati
         "endpoint" => endpoint.to_string(),
         "method" => method.to_string(),
         "status" => status_code.to_string()
-    ).increment(1);
+    )
+    .increment(1);
 
     if status_code >= 400 {
         counter!(
             "inferadb_api_errors_total",
             "endpoint" => endpoint.to_string(),
             "status" => status_code.to_string()
-        ).increment(1);
+        )
+        .increment(1);
     }
 
     histogram!(
         "inferadb_api_request_duration_seconds",
         "endpoint" => endpoint.to_string(),
         "method" => method.to_string()
-    ).record(duration_seconds);
+    )
+    .record(duration_seconds);
 }
 
 /// Update active connections count
@@ -337,7 +339,8 @@ pub fn set_build_info(version: &str, commit: &str) {
         "inferadb_build_info",
         "version" => version.to_string(),
         "commit" => commit.to_string()
-    ).set(1.0);
+    )
+    .set(1.0);
 }
 
 /// Update uptime metric
@@ -351,7 +354,8 @@ pub fn record_auth_attempt(method: &str, tenant_id: &str) {
         "inferadb_auth_attempts_total",
         "method" => method.to_string(),
         "tenant_id" => tenant_id.to_string()
-    ).increment(1);
+    )
+    .increment(1);
 }
 
 /// Record a successful authentication
@@ -360,13 +364,15 @@ pub fn record_auth_success(method: &str, tenant_id: &str, duration_seconds: f64)
         "inferadb_auth_success_total",
         "method" => method.to_string(),
         "tenant_id" => tenant_id.to_string()
-    ).increment(1);
+    )
+    .increment(1);
 
     histogram!(
         "inferadb_auth_duration_seconds",
         "method" => method.to_string(),
         "tenant_id" => tenant_id.to_string()
-    ).record(duration_seconds);
+    )
+    .record(duration_seconds);
 }
 
 /// Record a failed authentication
@@ -376,13 +382,15 @@ pub fn record_auth_failure(method: &str, error_type: &str, tenant_id: &str, dura
         "method" => method.to_string(),
         "error_type" => error_type.to_string(),
         "tenant_id" => tenant_id.to_string()
-    ).increment(1);
+    )
+    .increment(1);
 
     histogram!(
         "inferadb_auth_duration_seconds",
         "method" => method.to_string(),
         "tenant_id" => tenant_id.to_string()
-    ).record(duration_seconds);
+    )
+    .record(duration_seconds);
 }
 
 /// Record a JWT signature verification
@@ -392,7 +400,8 @@ pub fn record_jwt_signature_verification(algorithm: &str, success: bool) {
         "inferadb_jwt_signature_verifications_total",
         "algorithm" => algorithm.to_string(),
         "result" => result
-    ).increment(1);
+    )
+    .increment(1);
 }
 
 /// Record a JWT validation error
@@ -400,7 +409,8 @@ pub fn record_jwt_validation_error(error_type: &str) {
     counter!(
         "inferadb_jwt_validation_errors_total",
         "error_type" => error_type.to_string()
-    ).increment(1);
+    )
+    .increment(1);
 }
 
 /// Record a JWKS cache hit
@@ -418,7 +428,8 @@ pub fn record_jwks_refresh(tenant_id: &str, duration_seconds: f64, success: bool
     counter!("inferadb_jwks_refresh_total", "tenant_id" => tenant_id.to_string()).increment(1);
 
     if !success {
-        counter!("inferadb_jwks_refresh_errors_total", "tenant_id" => tenant_id.to_string()).increment(1);
+        counter!("inferadb_jwks_refresh_errors_total", "tenant_id" => tenant_id.to_string())
+            .increment(1);
     }
 
     histogram!("inferadb_jwks_fetch_duration_seconds", "tenant_id" => tenant_id.to_string())
@@ -437,7 +448,8 @@ pub fn record_oauth_jwt_validation(issuer: &str, success: bool) {
         "inferadb_oauth_jwt_validations_total",
         "issuer" => issuer.to_string(),
         "result" => result
-    ).increment(1);
+    )
+    .increment(1);
 }
 
 /// Record an OAuth token introspection attempt
@@ -446,10 +458,10 @@ pub fn record_oauth_introspection(success: bool, duration_seconds: f64) {
     counter!(
         "inferadb_oauth_introspections_total",
         "result" => result
-    ).increment(1);
+    )
+    .increment(1);
 
-    histogram!("inferadb_oauth_introspection_duration_seconds")
-        .record(duration_seconds);
+    histogram!("inferadb_oauth_introspection_duration_seconds").record(duration_seconds);
 }
 
 /// Record an OAuth introspection cache hit
@@ -469,7 +481,8 @@ pub fn record_oidc_discovery(issuer: &str, success: bool) {
         "inferadb_oidc_discovery_total",
         "issuer" => issuer.to_string(),
         "result" => result
-    ).increment(1);
+    )
+    .increment(1);
 }
 
 #[cfg(test)]
@@ -481,8 +494,7 @@ mod tests {
 
     fn init_test_metrics() {
         INIT.call_once(|| {
-            let _ = metrics_exporter_prometheus::PrometheusBuilder::new()
-                .install();
+            let _ = metrics_exporter_prometheus::PrometheusBuilder::new().install();
             init_metrics_descriptions();
         });
     }

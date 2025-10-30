@@ -12,9 +12,9 @@ use opentelemetry_sdk::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-pub mod span_utils;
-pub mod metrics;
 pub mod logging;
+pub mod metrics;
+pub mod span_utils;
 pub mod tracing_config;
 
 /// Configuration for OpenTelemetry tracing
@@ -40,8 +40,8 @@ impl Default for TracingConfig {
 
 /// Initialize tracing with OpenTelemetry support
 pub fn init_tracing_with_config(config: TracingConfig) -> Result<()> {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,infera=debug"));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,infera=debug"));
 
     let subscriber = tracing_subscriber::registry()
         .with(env_filter)
@@ -151,7 +151,10 @@ mod tests {
             sample_rate: 0.5,
         };
         assert_eq!(custom_config.service_name, "test-service");
-        assert_eq!(custom_config.otlp_endpoint, Some("http://localhost:4317".to_string()));
+        assert_eq!(
+            custom_config.otlp_endpoint,
+            Some("http://localhost:4317".to_string())
+        );
         assert_eq!(custom_config.sample_rate, 0.5);
     }
 }

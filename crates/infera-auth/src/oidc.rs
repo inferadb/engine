@@ -54,10 +54,7 @@ impl OidcDiscoveryClient {
             .build()
             .expect("Failed to create HTTP client");
 
-        Self {
-            http_client,
-            cache,
-        }
+        Self { http_client, cache }
     }
 
     /// Discover OIDC configuration from issuer
@@ -106,7 +103,10 @@ impl OidcDiscoveryClient {
 
         // Construct well-known URL
         let discovery_url = if issuer_url.ends_with('/') {
-            format!("{}/.well-known/openid-configuration", issuer_url.trim_end_matches('/'))
+            format!(
+                "{}/.well-known/openid-configuration",
+                issuer_url.trim_end_matches('/')
+            )
         } else {
             format!("{}/.well-known/openid-configuration", issuer_url)
         };
@@ -155,7 +155,8 @@ impl OidcDiscoveryClient {
             }
 
             Ok(config)
-        }.await;
+        }
+        .await;
 
         // Record metrics
         let success = result.is_ok();
@@ -269,7 +270,10 @@ mod tests {
         let client = OidcDiscoveryClient::new(Duration::from_secs(300));
 
         // Initially empty
-        assert!(client.get_cached("https://auth.example.com").await.is_none());
+        assert!(client
+            .get_cached("https://auth.example.com")
+            .await
+            .is_none());
 
         // Manually insert for testing
         let config = OidcConfiguration {
@@ -294,6 +298,9 @@ mod tests {
         client.clear_cache().await;
 
         // Should be empty again
-        assert!(client.get_cached("https://auth.example.com").await.is_none());
+        assert!(client
+            .get_cached("https://auth.example.com")
+            .await
+            .is_none());
     }
 }

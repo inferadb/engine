@@ -62,6 +62,18 @@ pub enum AuthError {
     /// Required tenant_id claim missing from OAuth token
     #[error("Missing tenant_id claim in OAuth token")]
     MissingTenantId,
+
+    /// Token replay detected (JTI already seen)
+    #[error("Token replay detected")]
+    ReplayDetected,
+
+    /// Replay protection error
+    #[error("Replay protection error: {0}")]
+    ReplayProtectionError(String),
+
+    /// Token too old (issued at exceeds max age)
+    #[error("Token too old")]
+    TokenTooOld,
 }
 
 impl From<jsonwebtoken::errors::Error> for AuthError {
@@ -78,9 +90,7 @@ impl From<jsonwebtoken::errors::Error> for AuthError {
             ErrorKind::InvalidAudience => {
                 AuthError::InvalidAudience("Audience validation failed".into())
             }
-            ErrorKind::InvalidIssuer => {
-                AuthError::InvalidIssuer("Issuer validation failed".into())
-            }
+            ErrorKind::InvalidIssuer => AuthError::InvalidIssuer("Issuer validation failed".into()),
             ErrorKind::InvalidAlgorithm => {
                 AuthError::UnsupportedAlgorithm("Algorithm not supported".into())
             }
@@ -107,9 +117,8 @@ mod tests {
 
     #[test]
     fn test_error_from_jsonwebtoken() {
-        let jwt_err = jsonwebtoken::errors::Error::from(
-            jsonwebtoken::errors::ErrorKind::ExpiredSignature
-        );
+        let jwt_err =
+            jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::ExpiredSignature);
         let auth_err: AuthError = jwt_err.into();
 
         assert!(matches!(auth_err, AuthError::TokenExpired));
@@ -124,7 +133,10 @@ mod tests {
         assert_eq!(err.to_string(), "Introspection failed: connection refused");
 
         let err = AuthError::InvalidIntrospectionResponse("malformed JSON".into());
-        assert_eq!(err.to_string(), "Invalid introspection response: malformed JSON");
+        assert_eq!(
+            err.to_string(),
+            "Invalid introspection response: malformed JSON"
+        );
 
         let err = AuthError::TokenInactive;
         assert_eq!(err.to_string(), "Token is inactive");

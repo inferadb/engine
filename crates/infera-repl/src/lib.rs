@@ -4,12 +4,14 @@
 
 use thiserror::Error;
 
-pub mod token;
-pub mod snapshot;
 pub mod change_feed;
+pub mod snapshot;
+pub mod token;
 
+pub use change_feed::{
+    Change, ChangeFeed, ChangeFeedConfig, ChangeFilter, ChangeMetadata, ChangeStream, Operation,
+};
 pub use token::RevisionToken;
-pub use change_feed::{Change, ChangeFeed, ChangeStream, Operation, ChangeFilter, ChangeMetadata, ChangeFeedConfig};
 
 #[derive(Debug, Error)]
 pub enum ReplError {

@@ -1,0 +1,32 @@
+[package]
+name = "infera-auth-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.infera-auth]
+path = ".."
+
+[[bin]]
+name = "jwt_decode"
+path = "fuzz_targets/jwt_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "jwt_validation"
+path = "fuzz_targets/jwt_validation.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "bearer_extraction"
+path = "fuzz_targets/bearer_extraction.rs"
+test = false
+doc = false

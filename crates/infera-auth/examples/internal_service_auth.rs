@@ -45,13 +45,13 @@ struct InternalJwks {
 /// Internal JWT claims structure
 #[derive(Debug, Serialize, Deserialize)]
 struct InternalClaims {
-    iss: String,  // Issuer
-    sub: String,  // Subject (service name)
-    aud: String,  // Audience
-    exp: u64,     // Expiration time
-    nbf: u64,     // Not before
-    iat: u64,     // Issued at
-    jti: String,  // JWT ID (for replay protection)
+    iss: String, // Issuer
+    sub: String, // Subject (service name)
+    aud: String, // Audience
+    exp: u64,    // Expiration time
+    nbf: u64,    // Not before
+    iat: u64,    // Issued at
+    jti: String, // JWT ID (for replay protection)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

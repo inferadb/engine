@@ -17,22 +17,16 @@ pub struct QueryPlan {
 #[derive(Debug, Clone)]
 pub enum QueryStep {
     /// Direct tuple lookup
-    DirectLookup {
-        relation: String,
-    },
+    DirectLookup { relation: String },
     /// Compute a userset
     ComputeUserset {
         relation: String,
         computed_userset: String,
     },
     /// Evaluate a union (can be parallelized)
-    Union {
-        branches: Vec<QueryPlan>,
-    },
+    Union { branches: Vec<QueryPlan> },
     /// Evaluate an intersection (must check all)
-    Intersection {
-        branches: Vec<QueryPlan>,
-    },
+    Intersection { branches: Vec<QueryPlan> },
     /// Evaluate an exclusion (base minus subtract)
     Exclusion {
         base: Box<QueryPlan>,
@@ -76,7 +70,9 @@ impl QueryPlanner {
                     estimated_cost: 1, // Direct lookup is cheapest
                 }
             }
-            RelationExpr::RelationRef { relation: computed_userset } => {
+            RelationExpr::RelationRef {
+                relation: computed_userset,
+            } => {
                 // Reference to another relation (computed userset)
                 QueryPlan {
                     steps: vec![QueryStep::ComputeUserset {
@@ -87,7 +83,10 @@ impl QueryPlanner {
                     estimated_cost: 5, // Requires recursion
                 }
             }
-            RelationExpr::ComputedUserset { relation: computed_userset, .. } => {
+            RelationExpr::ComputedUserset {
+                relation: computed_userset,
+                ..
+            } => {
                 // Computed userset: `<relation> from <tupleset>`
                 QueryPlan {
                     steps: vec![QueryStep::ComputeUserset {
@@ -138,7 +137,11 @@ impl QueryPlanner {
                     branches.push(plan);
                 }
 
-                let avg_cost = if !branches.is_empty() { total_cost / 2 } else { 0 };
+                let avg_cost = if !branches.is_empty() {
+                    total_cost / 2
+                } else {
+                    0
+                };
 
                 QueryPlan {
                     steps: vec![QueryStep::Union { branches }],
@@ -533,8 +536,7 @@ mod tests {
         };
 
         let plan = QueryPlanner::plan_relation(&relation, "viewer");
-        let candidates =
-            QueryPlanner::identify_prefetch_candidates("document:readme", &plan);
+        let candidates = QueryPlanner::identify_prefetch_candidates("document:readme", &plan);
 
         // Should identify both the direct lookup and tuple-to-userset
         assert_eq!(candidates.len(), 2);

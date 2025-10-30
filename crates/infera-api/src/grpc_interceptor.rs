@@ -51,14 +51,14 @@ use chrono::{DateTime, Duration, Utc};
 pub fn extract_bearer_from_metadata(metadata: &MetadataMap) -> Result<String, AuthError> {
     // CRITICAL: Always use lowercase "authorization" not "Authorization"
     // gRPC normalizes all metadata keys to lowercase
-    let auth_value = metadata
-        .get("authorization")
-        .ok_or_else(|| AuthError::InvalidTokenFormat("Missing authorization metadata".to_string()))?;
+    let auth_value = metadata.get("authorization").ok_or_else(|| {
+        AuthError::InvalidTokenFormat("Missing authorization metadata".to_string())
+    })?;
 
     // Convert metadata value to string
-    let auth_str = auth_value
-        .to_str()
-        .map_err(|_| AuthError::InvalidTokenFormat("Invalid authorization header encoding".to_string()))?;
+    let auth_str = auth_value.to_str().map_err(|_| {
+        AuthError::InvalidTokenFormat("Invalid authorization header encoding".to_string())
+    })?;
 
     // Check for Bearer prefix
     if !auth_str.starts_with("Bearer ") {
@@ -70,7 +70,9 @@ pub fn extract_bearer_from_metadata(metadata: &MetadataMap) -> Result<String, Au
     // Extract token (skip "Bearer " prefix)
     let token = &auth_str[7..];
     if token.is_empty() {
-        return Err(AuthError::InvalidTokenFormat("Empty bearer token".to_string()));
+        return Err(AuthError::InvalidTokenFormat(
+            "Empty bearer token".to_string(),
+        ));
     }
 
     Ok(token.to_string())
@@ -220,8 +222,7 @@ impl AuthInterceptor {
                 key_id: String::new(), // TODO: Extract from JWT header
                 auth_method: AuthMethod::PrivateKeyJwt,
                 scopes,
-                issued_at: DateTime::from_timestamp(claims.iat as i64, 0)
-                    .unwrap_or_else(Utc::now),
+                issued_at: DateTime::from_timestamp(claims.iat as i64, 0).unwrap_or_else(Utc::now),
                 expires_at: DateTime::from_timestamp(claims.exp as i64, 0)
                     .unwrap_or_else(|| Utc::now() + Duration::seconds(300)),
                 jti: claims.jti.clone(),

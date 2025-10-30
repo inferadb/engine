@@ -1,9 +1,9 @@
 //! Sandboxed WASM execution with resource limits
 
+use crate::host::{ExecutionContext, HostFunctions, HostState, StoreLimits};
+use crate::{Result, WasmError};
 use std::time::Duration;
 use wasmtime::*;
-use crate::host::{HostState, HostFunctions, ExecutionContext, StoreLimits};
-use crate::{WasmError, Result};
 
 /// Configuration for WASM execution sandbox
 #[derive(Debug, Clone)]
@@ -73,11 +73,14 @@ impl Sandbox {
 
         // Set fuel limit (roughly corresponds to instruction count)
         // 1 million instructions should be plenty for policy checks
-        store.set_fuel(1_000_000)
+        store
+            .set_fuel(1_000_000)
             .map_err(|e| WasmError::Execution(format!("Failed to set fuel: {}", e)))?;
 
         // Instantiate the module
-        let instance = self.linker.instantiate(&mut store, module)
+        let instance = self
+            .linker
+            .instantiate(&mut store, module)
             .map_err(|e| WasmError::Execution(format!("Failed to instantiate: {}", e)))?;
 
         // Get the function
@@ -86,14 +89,13 @@ impl Sandbox {
             .map_err(|e| WasmError::FunctionNotFound(format!("{}: {}", function_name, e)))?;
 
         // Execute the function
-        let result = func.call(&mut store, ())
-            .map_err(|e| {
-                if e.to_string().contains("fuel") {
-                    WasmError::Execution("Instruction limit exceeded".to_string())
-                } else {
-                    WasmError::Execution(format!("Execution failed: {}", e))
-                }
-            })?;
+        let result = func.call(&mut store, ()).map_err(|e| {
+            if e.to_string().contains("fuel") {
+                WasmError::Execution("Instruction limit exceeded".to_string())
+            } else {
+                WasmError::Execution(format!("Execution failed: {}", e))
+            }
+        })?;
 
         Ok(result)
     }

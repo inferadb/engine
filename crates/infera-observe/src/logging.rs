@@ -68,8 +68,7 @@ pub fn init_logging(config: LogConfig) -> anyhow::Result<()> {
     let env_filter = if let Some(filter) = config.filter {
         EnvFilter::try_new(filter)?
     } else {
-        EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| EnvFilter::new("info,infera=debug"))
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,infera=debug"))
     };
 
     let fmt_span = if config.log_spans {

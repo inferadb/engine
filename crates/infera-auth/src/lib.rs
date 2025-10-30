@@ -27,33 +27,41 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Audit logging for authentication events
+pub mod audit;
 /// Authentication context and types
 pub mod context;
 /// Authentication errors
 pub mod error;
 /// Axum extractors for authentication
 pub mod extractor;
-/// JWT validation and claims
-pub mod jwt;
+/// Internal service JWT authentication
+pub mod internal;
 /// JWKS caching and fetching
 pub mod jwks_cache;
+/// JWT validation and claims
+pub mod jwt;
 /// Axum middleware for authentication
 pub mod middleware;
 /// OAuth 2.0 JWT validation
 pub mod oauth;
 /// OIDC Discovery client
 pub mod oidc;
-/// Internal service JWT authentication
-pub mod internal;
-/// Audit logging for authentication events
-pub mod audit;
+/// Replay protection for JWT tokens
+pub mod replay;
+/// Enhanced JWT claim validation
+pub mod validation;
 
 // Re-export key types
+pub use audit::{log_audit_event, AuditEvent};
 pub use context::{AuthContext, AuthMethod};
 pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
+pub use internal::{InternalJwks, InternalJwksLoader};
 pub use jwks_cache::{Jwk, JwksCache};
 pub use oauth::OAuthJwksClient;
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
-pub use internal::{InternalJwks, InternalJwksLoader};
-pub use audit::{AuditEvent, log_audit_event};
+pub use replay::{InMemoryReplayProtection, ReplayProtection};
+
+#[cfg(feature = "replay-protection")]
+pub use replay::RedisReplayProtection;

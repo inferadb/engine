@@ -31,7 +31,11 @@ impl RevisionToken {
     }
 
     /// Create a revision token with a specific vector clock
-    pub fn with_vector_clock(node_id: String, revision: u64, vector_clock: HashMap<String, u64>) -> Self {
+    pub fn with_vector_clock(
+        node_id: String,
+        revision: u64,
+        vector_clock: HashMap<String, u64>,
+    ) -> Self {
         Self {
             node_id,
             revision,
@@ -75,7 +79,8 @@ impl RevisionToken {
         let mut merged_clock = self.vector_clock.clone();
 
         for (node, other_rev) in &other.vector_clock {
-            merged_clock.entry(node.clone())
+            merged_clock
+                .entry(node.clone())
                 .and_modify(|rev| *rev = (*rev).max(*other_rev))
                 .or_insert(*other_rev);
         }
@@ -99,12 +104,11 @@ impl RevisionToken {
     /// Deserialize from base64-encoded JSON string
     pub fn decode(encoded: &str) -> Result<Self> {
         use base64::Engine;
-        let json = base64::engine::general_purpose::STANDARD.decode(encoded)
+        let json = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
             .map_err(|_e| ReplError::InvalidRevision)?;
-        let json_str = String::from_utf8(json)
-            .map_err(|_e| ReplError::InvalidRevision)?;
-        serde_json::from_str(&json_str)
-            .map_err(|_e| ReplError::InvalidRevision)
+        let json_str = String::from_utf8(json).map_err(|_e| ReplError::InvalidRevision)?;
+        serde_json::from_str(&json_str).map_err(|_e| ReplError::InvalidRevision)
     }
 
     /// Validate the token format

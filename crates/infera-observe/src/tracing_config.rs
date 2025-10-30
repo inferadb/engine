@@ -159,7 +159,10 @@ mod tests {
         assert_eq!(config.endpoint, "http://otel-collector:4317");
         assert!(!config.always_sample_failures);
         assert_eq!(config.service_name, "test-service");
-        assert_eq!(config.resource_attributes.get("env"), Some(&"production".to_string()));
+        assert_eq!(
+            config.resource_attributes.get("env"),
+            Some(&"production".to_string())
+        );
     }
 
     #[test]
@@ -223,14 +226,7 @@ mod tests {
             auth.result = tracing::field::Empty,
         );
 
-        apply_auth_semantic_conventions(
-            &span,
-            "internal_jwt",
-            None,
-            None,
-            "success",
-            None,
-        );
+        apply_auth_semantic_conventions(&span, "internal_jwt", None, None, "success", None);
 
         // Should not panic with minimal fields
     }

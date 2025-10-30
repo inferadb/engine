@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use infera_store::{MemoryBackend, Tuple, TupleKey, Revision, TupleStore};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use infera_store::{MemoryBackend, Revision, Tuple, TupleKey, TupleStore};
 use tokio::runtime::Runtime;
 
 fn bench_single_write(c: &mut Criterion) {
@@ -26,11 +26,13 @@ fn bench_single_read(c: &mut Criterion) {
 
     // Setup: write some tuples
     let rev = rt.block_on(async {
-        let tuples: Vec<_> = (0..100).map(|i| Tuple {
-            object: format!("doc:{}", i),
-            relation: "reader".to_string(),
-            user: "user:alice".to_string(),
-        }).collect();
+        let tuples: Vec<_> = (0..100)
+            .map(|i| Tuple {
+                object: format!("doc:{}", i),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            })
+            .collect();
         store.write(tuples).await.unwrap()
     });
 
@@ -52,23 +54,21 @@ fn bench_batch_write(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     for size in [10, 100, 1000].iter() {
-        c.bench_with_input(
-            BenchmarkId::new("batch write", size),
-            size,
-            |b, &size| {
-                let store = MemoryBackend::new();
-                b.iter(|| {
-                    rt.block_on(async {
-                        let tuples: Vec<_> = (0..size).map(|i| Tuple {
+        c.bench_with_input(BenchmarkId::new("batch write", size), size, |b, &size| {
+            let store = MemoryBackend::new();
+            b.iter(|| {
+                rt.block_on(async {
+                    let tuples: Vec<_> = (0..size)
+                        .map(|i| Tuple {
                             object: format!("doc:{}", i),
                             relation: "reader".to_string(),
                             user: "user:alice".to_string(),
-                        }).collect();
-                        store.write(tuples).await.unwrap()
-                    })
-                });
-            },
-        );
+                        })
+                        .collect();
+                    store.write(tuples).await.unwrap()
+                })
+            });
+        });
     }
 }
 
@@ -108,20 +108,22 @@ fn bench_read_with_filter(c: &mut Criterion) {
 
     // Setup: write tuples with multiple users
     let rev = rt.block_on(async {
-        let tuples: Vec<_> = (0..100).flat_map(|i| {
-            vec![
-                Tuple {
-                    object: format!("doc:{}", i),
-                    relation: "reader".to_string(),
-                    user: "user:alice".to_string(),
-                },
-                Tuple {
-                    object: format!("doc:{}", i),
-                    relation: "reader".to_string(),
-                    user: "user:bob".to_string(),
-                },
-            ]
-        }).collect();
+        let tuples: Vec<_> = (0..100)
+            .flat_map(|i| {
+                vec![
+                    Tuple {
+                        object: format!("doc:{}", i),
+                        relation: "reader".to_string(),
+                        user: "user:alice".to_string(),
+                    },
+                    Tuple {
+                        object: format!("doc:{}", i),
+                        relation: "reader".to_string(),
+                        user: "user:bob".to_string(),
+                    },
+                ]
+            })
+            .collect();
         store.write(tuples).await.unwrap()
     });
 
@@ -145,22 +147,23 @@ fn bench_reverse_lookup(c: &mut Criterion) {
 
     // Setup: write tuples
     let rev = rt.block_on(async {
-        let tuples: Vec<_> = (0..100).map(|i| Tuple {
-            object: format!("doc:{}", i),
-            relation: "reader".to_string(),
-            user: "user:alice".to_string(),
-        }).collect();
+        let tuples: Vec<_> = (0..100)
+            .map(|i| Tuple {
+                object: format!("doc:{}", i),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            })
+            .collect();
         store.write(tuples).await.unwrap()
     });
 
     c.bench_function("reverse lookup by user", |b| {
         b.iter(|| {
             rt.block_on(async {
-                store.query_by_user(
-                    black_box("user:alice"),
-                    black_box("reader"),
-                    black_box(rev)
-                ).await.unwrap()
+                store
+                    .query_by_user(black_box("user:alice"), black_box("reader"), black_box(rev))
+                    .await
+                    .unwrap()
             })
         })
     });
@@ -172,11 +175,13 @@ fn bench_large_dataset_query(c: &mut Criterion) {
 
     // Setup: write 10k tuples
     let rev = rt.block_on(async {
-        let tuples: Vec<_> = (0..10000).map(|i| Tuple {
-            object: format!("doc:{}", i),
-            relation: "reader".to_string(),
-            user: format!("user:{}", i % 100),
-        }).collect();
+        let tuples: Vec<_> = (0..10000)
+            .map(|i| Tuple {
+                object: format!("doc:{}", i),
+                relation: "reader".to_string(),
+                user: format!("user:{}", i % 100),
+            })
+            .collect();
         store.write(tuples).await.unwrap()
     });
 

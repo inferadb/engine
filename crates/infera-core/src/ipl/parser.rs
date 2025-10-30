@@ -77,7 +77,9 @@ fn parse_relation_def(pair: pest::iterators::Pair<Rule>) -> Result<RelationDef> 
 fn parse_relation_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
     match pair.as_rule() {
         Rule::relation_expr => {
-            let inner = pair.into_inner().next()
+            let inner = pair
+                .into_inner()
+                .next()
                 .ok_or_else(|| EvalError::Parse("Expected expression".to_string()))?;
             parse_relation_expr(inner)
         }
@@ -85,7 +87,10 @@ fn parse_relation_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr
         Rule::intersection_expr => parse_intersection_expr(pair),
         Rule::exclusion_expr => parse_exclusion_expr(pair),
         Rule::primary_expr => parse_primary_expr(pair),
-        _ => Err(EvalError::Parse(format!("Unexpected rule: {:?}", pair.as_rule()))),
+        _ => Err(EvalError::Parse(format!(
+            "Unexpected rule: {:?}",
+            pair.as_rule()
+        ))),
     }
 }
 
@@ -119,8 +124,11 @@ fn parse_intersection_expr(pair: pest::iterators::Pair<Rule>) -> Result<Relation
 
 fn parse_exclusion_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
     let mut inner = pair.into_inner();
-    let base = parse_primary_expr(inner.next()
-        .ok_or_else(|| EvalError::Parse("Expected base expression".to_string()))?)?;
+    let base = parse_primary_expr(
+        inner
+            .next()
+            .ok_or_else(|| EvalError::Parse("Expected base expression".to_string()))?,
+    )?;
 
     if let Some(subtract_pair) = inner.next() {
         let subtract = parse_primary_expr(subtract_pair)?;
@@ -134,7 +142,9 @@ fn parse_exclusion_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExp
 }
 
 fn parse_primary_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
-    let inner = pair.into_inner().next()
+    let inner = pair
+        .into_inner()
+        .next()
         .ok_or_else(|| EvalError::Parse("Expected primary expression".to_string()))?;
 
     match inner.as_rule() {
@@ -146,7 +156,10 @@ fn parse_primary_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr>
         Rule::tuple_to_userset => parse_tuple_to_userset(inner),
         Rule::wasm_module => parse_wasm_module(inner),
         Rule::relation_expr => parse_relation_expr(inner),
-        _ => Err(EvalError::Parse(format!("Unexpected primary expression: {:?}", inner.as_rule()))),
+        _ => Err(EvalError::Parse(format!(
+            "Unexpected primary expression: {:?}",
+            inner.as_rule()
+        ))),
     }
 }
 
@@ -187,7 +200,9 @@ fn parse_tuple_to_userset(pair: pest::iterators::Pair<Rule>) -> Result<RelationE
 }
 
 fn parse_wasm_module(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
-    let inner = pair.into_inner().next()
+    let inner = pair
+        .into_inner()
+        .next()
         .ok_or_else(|| EvalError::Parse("Expected module name string".to_string()))?;
 
     // The string rule is atomic (@), so we need to strip the quotes manually
@@ -335,7 +350,10 @@ mod tests {
         let schema = result.unwrap();
 
         match &schema.types[0].relations[0].expr {
-            Some(RelationExpr::Exclusion { base: _, subtract: _ }) => {
+            Some(RelationExpr::Exclusion {
+                base: _,
+                subtract: _,
+            }) => {
                 // Success
             }
             _ => panic!("Expected Exclusion"),

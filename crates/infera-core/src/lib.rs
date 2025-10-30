@@ -14,8 +14,8 @@ pub mod trace;
 pub mod types;
 
 pub use evaluator::Evaluator;
-pub use types::*;
 pub use trace::{DecisionTrace, EvaluationNode, NodeType};
+pub use types::*;
 
 #[derive(Debug, Error)]
 pub enum EvalError {

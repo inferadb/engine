@@ -5,8 +5,8 @@
 
 use crate::context::{AuthContext, AuthMethod};
 use crate::error::AuthError;
-use crate::jwt::JwtClaims;
 use crate::jwks_cache::{Jwk, JwksCache};
+use crate::jwt::JwtClaims;
 use crate::oidc::OidcDiscoveryClient;
 use chrono::Utc;
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
@@ -165,9 +165,7 @@ impl OAuthJwksClient {
                     || (alg == "EdDSA" && k.kty == "OKP" && k.crv.as_deref() == Some("Ed25519"))
                     || (alg == "RS256" && k.kty == "RSA")
             })
-            .ok_or_else(|| {
-                AuthError::JwksError(format!("No key found for algorithm: {}", alg))
-            })
+            .ok_or_else(|| AuthError::JwksError(format!("No key found for algorithm: {}", alg)))
     }
 }
 
@@ -333,12 +331,14 @@ impl IntrospectionClient {
                 )));
             }
 
-            let introspection_response: IntrospectionResponse = response.json().await.map_err(|e| {
-                AuthError::JwksError(format!("Failed to parse introspection response: {}", e))
-            })?;
+            let introspection_response: IntrospectionResponse =
+                response.json().await.map_err(|e| {
+                    AuthError::JwksError(format!("Failed to parse introspection response: {}", e))
+                })?;
 
             Ok(introspection_response)
-        }.await;
+        }
+        .await;
 
         // Record metrics
         let duration = start.elapsed().as_secs_f64();
@@ -466,8 +466,8 @@ pub async fn validate_oauth_jwt(
             validation.validate_aud = false;
         }
 
-        let token_data = decode::<JwtClaims>(token, &decoding_key, &validation).map_err(|e| {
-            match e.kind() {
+        let token_data =
+            decode::<JwtClaims>(token, &decoding_key, &validation).map_err(|e| match e.kind() {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
                 jsonwebtoken::errors::ErrorKind::ImmatureSignature => AuthError::TokenNotYetValid,
                 jsonwebtoken::errors::ErrorKind::InvalidSignature => AuthError::InvalidSignature,
@@ -475,8 +475,7 @@ pub async fn validate_oauth_jwt(
                     AuthError::InvalidAudience("Audience mismatch".to_string())
                 }
                 _ => AuthError::InvalidTokenFormat(format!("JWT validation failed: {}", e)),
-            }
-        })?;
+            })?;
 
         let claims = token_data.claims;
 
@@ -523,28 +522,29 @@ fn jwk_to_decoding_key(jwk: &Jwk) -> Result<DecodingKey, AuthError> {
     match jwk.kty.as_str() {
         "RSA" => {
             // For RSA, we need n and e
-            let n = jwk.n.as_ref().ok_or_else(|| {
-                AuthError::JwksError("RSA key missing 'n' parameter".to_string())
-            })?;
-            let e = jwk.e.as_ref().ok_or_else(|| {
-                AuthError::JwksError("RSA key missing 'e' parameter".to_string())
-            })?;
+            let n = jwk
+                .n
+                .as_ref()
+                .ok_or_else(|| AuthError::JwksError("RSA key missing 'n' parameter".to_string()))?;
+            let e = jwk
+                .e
+                .as_ref()
+                .ok_or_else(|| AuthError::JwksError("RSA key missing 'e' parameter".to_string()))?;
 
             Ok(DecodingKey::from_rsa_components(n, e)
                 .map_err(|e| AuthError::JwksError(format!("Invalid RSA key: {}", e)))?)
         }
         "OKP" => {
             // For EdDSA/Ed25519, we need x
-            let x = jwk.x.as_ref().ok_or_else(|| {
-                AuthError::JwksError("OKP key missing 'x' parameter".to_string())
-            })?;
+            let x = jwk
+                .x
+                .as_ref()
+                .ok_or_else(|| AuthError::JwksError("OKP key missing 'x' parameter".to_string()))?;
 
             // Decode base64url
-            let public_key_bytes = base64::Engine::decode(
-                &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                x,
-            )
-            .map_err(|e| AuthError::JwksError(format!("Invalid base64 in key: {}", e)))?;
+            let public_key_bytes =
+                base64::Engine::decode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, x)
+                    .map_err(|e| AuthError::JwksError(format!("Invalid base64 in key: {}", e)))?;
 
             Ok(DecodingKey::from_ed_der(&public_key_bytes))
         }

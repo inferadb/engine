@@ -98,7 +98,9 @@ pub fn validate_store(config: &StoreConfig) -> ValidationResult<()> {
         "foundationdb" => {
             // FoundationDB requires connection string
             if config.connection_string.is_none() {
-                return Err(ValidationError::MissingConnectionString(config.backend.clone()));
+                return Err(ValidationError::MissingConnectionString(
+                    config.backend.clone(),
+                ));
             }
             Ok(())
         }

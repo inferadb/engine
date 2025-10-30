@@ -10,13 +10,16 @@ use std::sync::Arc;
 
 use axum::{
     body::Body,
-    http::{Request, StatusCode, header},
+    http::{header, Request, StatusCode},
 };
 use infera_api::{create_router, AppState};
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
-use infera_core::{Evaluator, ipl::{Schema, TypeDef, RelationDef, RelationExpr}};
-use infera_store::{TupleStore, MemoryBackend};
+use infera_core::{
+    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
+    Evaluator,
+};
+use infera_store::{MemoryBackend, TupleStore};
 use serde_json::json;
 use tower::ServiceExt;
 
@@ -77,9 +80,7 @@ mod common {
             };
 
             let server = tokio::spawn(async move {
-                warp::serve(jwks_filter)
-                    .run(([127, 0, 0, 1], 0))
-                    .await;
+                warp::serve(jwks_filter).run(([127, 0, 0, 1], 0)).await;
             });
 
             // Give server time to start
@@ -96,7 +97,12 @@ mod common {
             }
         }
 
-        pub fn generate_jwt(&self, tenant_id: &str, scopes: &[&str], expires_in_secs: i64) -> String {
+        pub fn generate_jwt(
+            &self,
+            tenant_id: &str,
+            scopes: &[&str],
+            expires_in_secs: i64,
+        ) -> String {
             use jsonwebtoken::{encode, EncodingKey, Header};
             use serde::{Deserialize, Serialize};
 
@@ -276,12 +282,7 @@ async fn test_malformed_authorization_header() {
     });
 
     // Test various malformed headers
-    let test_cases = vec![
-        "NotBearer token",
-        "Bearer",
-        "Bearer ",
-        "Basic dXNlcjpwYXNz",
-    ];
+    let test_cases = vec!["NotBearer token", "Bearer", "Bearer ", "Basic dXNlcjpwYXNz"];
 
     for auth_value in test_cases {
         let response = app

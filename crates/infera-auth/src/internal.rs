@@ -23,8 +23,8 @@
 
 use crate::context::{AuthContext, AuthMethod};
 use crate::error::AuthError;
-use crate::jwt::JwtClaims;
 use crate::jwks_cache::Jwk;
+use crate::jwt::JwtClaims;
 use jsonwebtoken::{decode, decode_header, Validation};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -113,13 +113,11 @@ impl InternalJwks {
     /// - File contains invalid JSON
     /// - JWKS structure is invalid
     pub fn from_file(path: &Path) -> Result<Self, AuthError> {
-        let contents = std::fs::read_to_string(path).map_err(|e| {
-            AuthError::JwksError(format!("Failed to read JWKS file: {}", e))
-        })?;
+        let contents = std::fs::read_to_string(path)
+            .map_err(|e| AuthError::JwksError(format!("Failed to read JWKS file: {}", e)))?;
 
-        let jwks: InternalJwks = serde_json::from_str(&contents).map_err(|e| {
-            AuthError::JwksError(format!("Failed to parse JWKS JSON: {}", e))
-        })?;
+        let jwks: InternalJwks = serde_json::from_str(&contents)
+            .map_err(|e| AuthError::JwksError(format!("Failed to parse JWKS JSON: {}", e)))?;
 
         jwks.validate()?;
 
@@ -153,10 +151,7 @@ impl InternalJwks {
     /// - JWKS structure is invalid
     pub fn from_env(var_name: &str) -> Result<Self, AuthError> {
         let contents = std::env::var(var_name).map_err(|_| {
-            AuthError::JwksError(format!(
-                "Environment variable '{}' not set",
-                var_name
-            ))
+            AuthError::JwksError(format!("Environment variable '{}' not set", var_name))
         })?;
 
         let jwks: InternalJwks = serde_json::from_str(&contents).map_err(|e| {
@@ -217,7 +212,10 @@ impl InternalJwksLoader {
 
         // Try environment variable
         if let Some(env_var) = jwks_env {
-            tracing::info!(var = env_var, "Loading internal JWKS from environment variable");
+            tracing::info!(
+                var = env_var,
+                "Loading internal JWKS from environment variable"
+            );
             let jwks = InternalJwks::from_env(env_var)?;
             return Ok(Self::new(jwks));
         }
@@ -270,12 +268,13 @@ pub async fn validate_internal_jwt(
     loader: &InternalJwksLoader,
 ) -> Result<AuthContext, AuthError> {
     // Decode JWT header to get kid and algorithm
-    let header = decode_header(token)
-        .map_err(|e| AuthError::InvalidTokenFormat(format!("Failed to decode JWT header: {}", e)))?;
+    let header = decode_header(token).map_err(|e| {
+        AuthError::InvalidTokenFormat(format!("Failed to decode JWT header: {}", e))
+    })?;
 
-    let kid = header
-        .kid
-        .ok_or_else(|| AuthError::InvalidTokenFormat("JWT header missing 'kid' field".to_string()))?;
+    let kid = header.kid.ok_or_else(|| {
+        AuthError::InvalidTokenFormat("JWT header missing 'kid' field".to_string())
+    })?;
 
     // Get the key from loader
     let jwk = loader
@@ -291,11 +290,10 @@ pub async fn validate_internal_jwt(
     validation.set_audience(&[loader.audience()]);
 
     // Verify and decode JWT
-    let token_data = decode::<JwtClaims>(token, &decoding_key, &validation)
-        .map_err(|e| {
-            tracing::warn!(error = %e, "Internal JWT validation failed");
-            AuthError::from(e)
-        })?;
+    let token_data = decode::<JwtClaims>(token, &decoding_key, &validation).map_err(|e| {
+        tracing::warn!(error = %e, "Internal JWT validation failed");
+        AuthError::from(e)
+    })?;
 
     let claims = token_data.claims;
 
@@ -307,9 +305,7 @@ pub async fn validate_internal_jwt(
         .collect();
 
     // Use tenant_id from claims if present, otherwise default to "internal"
-    let tenant_id = claims
-        .tenant_id
-        .unwrap_or_else(|| "internal".to_string());
+    let tenant_id = claims.tenant_id.unwrap_or_else(|| "internal".to_string());
 
     // Create AuthContext with proper fields
     Ok(AuthContext {
@@ -431,10 +427,7 @@ mod tests {
 
     #[test]
     fn test_get_key_by_kid() {
-        let keys = vec![
-            create_test_jwk("key-1"),
-            create_test_jwk("key-2"),
-        ];
+        let keys = vec![create_test_jwk("key-1"), create_test_jwk("key-2")];
         let jwks = InternalJwks::new(
             "https://internal.inferadb.com".to_string(),
             "https://api.inferadb.com/internal".to_string(),
@@ -619,7 +612,8 @@ mod tests {
         std::env::set_var("TEST_LOADER_PRIORITY", env_jwks_json);
 
         // Test that file takes priority
-        let result = InternalJwksLoader::from_config(Some(&jwks_path), Some("TEST_LOADER_PRIORITY"));
+        let result =
+            InternalJwksLoader::from_config(Some(&jwks_path), Some("TEST_LOADER_PRIORITY"));
         assert!(result.is_ok());
 
         let loader = result.unwrap();

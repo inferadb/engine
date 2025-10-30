@@ -3,7 +3,7 @@
 //! These tests ensure that the WASM sandbox properly isolates modules
 //! and prevents malicious behavior.
 
-use infera_wasm::{WasmHost, SandboxConfig, ExecutionContext, StoreLimits};
+use infera_wasm::{ExecutionContext, SandboxConfig, StoreLimits, WasmHost};
 use std::time::Duration;
 
 /// Test that WASM modules cannot exceed memory limits
@@ -141,8 +141,10 @@ fn test_module_isolation() {
         )
     "#;
 
-    host.load_module("tenant1_module".to_string(), wat1.as_bytes()).unwrap();
-    host.load_module("tenant2_module".to_string(), wat2.as_bytes()).unwrap();
+    host.load_module("tenant1_module".to_string(), wat1.as_bytes())
+        .unwrap();
+    host.load_module("tenant2_module".to_string(), wat2.as_bytes())
+        .unwrap();
 
     let ctx = ExecutionContext {
         subject: "user:alice".to_string(),
@@ -152,7 +154,9 @@ fn test_module_isolation() {
     };
 
     // Each module should return its own result
-    let result1 = host.execute("tenant1_module", "check", ctx.clone()).unwrap();
+    let result1 = host
+        .execute("tenant1_module", "check", ctx.clone())
+        .unwrap();
     let result2 = host.execute("tenant2_module", "check", ctx).unwrap();
 
     assert!(result1);
@@ -253,7 +257,8 @@ fn test_deterministic_execution() {
         )
     "#;
 
-    host.load_module("deterministic".to_string(), wat.as_bytes()).unwrap();
+    host.load_module("deterministic".to_string(), wat.as_bytes())
+        .unwrap();
 
     let ctx = ExecutionContext {
         subject: "user:alice".to_string(),
@@ -305,7 +310,10 @@ fn test_memory_bounds_enforcement() {
 
         // Execution should fail due to out-of-bounds memory access
         let exec_result = host.execute("bounds_test", "check", ctx);
-        assert!(exec_result.is_err(), "Should fail on out-of-bounds memory access");
+        assert!(
+            exec_result.is_err(),
+            "Should fail on out-of-bounds memory access"
+        );
     } else {
         // If module validation catches this at load time, that's also acceptable
         // as it provides even stronger security
@@ -367,7 +375,8 @@ fn test_execution_time_limit() {
         )
     "#;
 
-    host.load_module("time_limit_test".to_string(), wat.as_bytes()).unwrap();
+    host.load_module("time_limit_test".to_string(), wat.as_bytes())
+        .unwrap();
 
     let ctx = ExecutionContext {
         subject: "user:alice".to_string(),
@@ -403,10 +412,12 @@ fn test_module_overwrite() {
         )
     "#;
 
-    host.load_module("test".to_string(), wat1.as_bytes()).unwrap();
+    host.load_module("test".to_string(), wat1.as_bytes())
+        .unwrap();
 
     // Load again with same name - should overwrite
-    host.load_module("test".to_string(), wat2.as_bytes()).unwrap();
+    host.load_module("test".to_string(), wat2.as_bytes())
+        .unwrap();
 
     let ctx = ExecutionContext {
         subject: "user:alice".to_string(),

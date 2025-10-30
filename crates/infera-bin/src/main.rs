@@ -9,8 +9,8 @@ use clap::Parser;
 
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::load_or_default;
-use infera_core::Evaluator;
 use infera_core::ipl::Schema;
+use infera_core::Evaluator;
 use infera_store::MemoryBackend;
 use infera_wasm::WasmHost;
 
@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
                 .max_capacity(1000) // Up to 1000 tenants
                 .time_to_live(Duration::from_secs(config.auth.jwks_cache_ttl))
                 .time_to_idle(Duration::from_secs(config.auth.jwks_cache_ttl * 2))
-                .build()
+                .build(),
         );
 
         // Create the JWKS cache

@@ -11,9 +11,7 @@ fn bench_plan_simple(c: &mut Criterion) {
     };
 
     c.bench_function("plan_simple_relation", |b| {
-        b.iter(|| {
-            QueryPlanner::plan_relation(black_box(&relation), black_box("viewer"))
-        })
+        b.iter(|| QueryPlanner::plan_relation(black_box(&relation), black_box("viewer")))
     });
 }
 
@@ -33,9 +31,7 @@ fn bench_plan_union(c: &mut Criterion) {
     };
 
     c.bench_function("plan_union_relation", |b| {
-        b.iter(|| {
-            QueryPlanner::plan_relation(black_box(&relation), black_box("viewer"))
-        })
+        b.iter(|| QueryPlanner::plan_relation(black_box(&relation), black_box("viewer")))
     });
 }
 
@@ -65,9 +61,7 @@ fn bench_plan_complex(c: &mut Criterion) {
     };
 
     c.bench_function("plan_complex_relation", |b| {
-        b.iter(|| {
-            QueryPlanner::plan_relation(black_box(&relation), black_box("viewer"))
-        })
+        b.iter(|| QueryPlanner::plan_relation(black_box(&relation), black_box("viewer")))
     });
 }
 
@@ -93,9 +87,7 @@ fn bench_analyze_plan(c: &mut Criterion) {
     let plan = QueryPlanner::plan_relation(&relation, "viewer");
 
     c.bench_function("analyze_plan", |b| {
-        b.iter(|| {
-            QueryPlanner::analyze_plan(black_box(&plan))
-        })
+        b.iter(|| QueryPlanner::analyze_plan(black_box(&plan)))
     });
 }
 

@@ -251,7 +251,9 @@ async fn test_jwt_verification_with_jwks() {
     assert_eq!(claims.scope, "inferadb.evaluate".to_string());
 
     // Verify tenant extraction
-    let tenant_id = claims.extract_tenant_id().expect("Failed to extract tenant");
+    let tenant_id = claims
+        .extract_tenant_id()
+        .expect("Failed to extract tenant");
     assert_eq!(tenant_id, "acme");
 
     // Create JWKS cache
@@ -360,11 +362,8 @@ async fn test_verify_with_jwks_key_rotation() {
     let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
 
     // Generate JWT for tenant "rotation-test"
-    let jwt = generate_jwt_for_mock_jwks(
-        "rotation-test",
-        vec!["inferadb.evaluate".to_string()],
-        300,
-    );
+    let jwt =
+        generate_jwt_for_mock_jwks("rotation-test", vec!["inferadb.evaluate".to_string()], 300);
 
     // First verification should succeed
     let claims = verify_with_jwks(&jwt, &jwks_cache)
@@ -385,7 +384,11 @@ async fn test_verify_with_jwks_key_rotation() {
 async fn test_jwks_fetch_404_error() {
     // Create cache with non-existent server
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new("http://127.0.0.1:1".to_string(), cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(
+        "http://127.0.0.1:1".to_string(),
+        cache,
+        Duration::from_secs(300),
+    );
 
     // Try to fetch JWKS - should fail due to connection error
     let result = jwks_cache.get_jwks("nonexistent").await;
@@ -480,7 +483,10 @@ async fn test_jwks_empty_keys_array() {
             let err_str = e.to_string();
             println!("Error message: {}", err_str);
             // Check for error about empty or no keys
-            assert!(err_str.contains("JWKS") && (err_str.contains("empty") || err_str.contains("no keys")));
+            assert!(
+                err_str.contains("JWKS")
+                    && (err_str.contains("empty") || err_str.contains("no keys"))
+            );
         }
         Ok(_) => panic!("Expected error for empty keys array"),
     }

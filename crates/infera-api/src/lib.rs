@@ -16,13 +16,13 @@ use thiserror::Error;
 use tracing::info;
 
 use infera_auth::jwks_cache::JwksCache;
-use infera_core::{CheckRequest, Decision, Evaluator, ExpandRequest};
 use infera_config::Config;
+use infera_core::{CheckRequest, Decision, Evaluator, ExpandRequest};
 use infera_store::{Tuple, TupleStore};
 
-pub mod routes;
 pub mod grpc;
 pub mod grpc_interceptor;
+pub mod routes;
 
 #[derive(Debug, Error)]
 pub enum ApiError {
@@ -64,7 +64,7 @@ impl IntoResponse for ApiError {
                     HeaderValue::from_static("Bearer realm=\"InferaDB\""),
                 );
                 (StatusCode::UNAUTHORIZED, self.to_string(), Some(headers))
-            },
+            }
             ApiError::InvalidTokenFormat(_) => {
                 let mut headers = HeaderMap::new();
                 headers.insert(
@@ -72,7 +72,7 @@ impl IntoResponse for ApiError {
                     HeaderValue::from_static("Bearer realm=\"InferaDB\", error=\"invalid_token\""),
                 );
                 (StatusCode::UNAUTHORIZED, self.to_string(), Some(headers))
-            },
+            }
             ApiError::Forbidden(_) => (StatusCode::FORBIDDEN, self.to_string(), None),
             ApiError::UnknownTenant(_) => (StatusCode::NOT_FOUND, self.to_string(), None),
         };
@@ -118,7 +118,12 @@ pub fn create_router(state: AppState) -> Router {
 
             protected_routes.layer(axum::middleware::from_fn(move |req, next| {
                 let jwks_cache = Arc::clone(&jwks_cache);
-                infera_auth::middleware::optional_auth_middleware(auth_enabled, jwks_cache, req, next)
+                infera_auth::middleware::optional_auth_middleware(
+                    auth_enabled,
+                    jwks_cache,
+                    req,
+                    next,
+                )
             }))
         } else {
             tracing::warn!("Authentication ENABLED but JWKS cache not initialized - skipping auth");
@@ -161,7 +166,9 @@ async fn check_handler(
             // For now, we just log the authenticated tenant
             tracing::debug!("Check request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+            return Err(ApiError::Unauthorized(
+                "Authentication required".to_string(),
+            ));
         }
     }
 
@@ -190,12 +197,17 @@ async fn expand_handler(
     if state.config.auth.enabled {
         if let Some(auth_ctx) = auth.0 {
             // Require inferadb.expand scope (or check scope as fallback)
-            infera_auth::middleware::require_any_scope(&auth_ctx, &["inferadb.expand", "inferadb.check"])
-                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+            infera_auth::middleware::require_any_scope(
+                &auth_ctx,
+                &["inferadb.expand", "inferadb.check"],
+            )
+            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
             tracing::debug!("Expand request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+            return Err(ApiError::Unauthorized(
+                "Authentication required".to_string(),
+            ));
         }
     }
 
@@ -218,7 +230,9 @@ async fn write_handler(
 
             tracing::debug!("Write request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+            return Err(ApiError::Unauthorized(
+                "Authentication required".to_string(),
+            ));
         }
     }
 
@@ -230,25 +244,39 @@ async fn write_handler(
     // Validate tuple format
     for tuple in &request.tuples {
         if tuple.object.is_empty() {
-            return Err(ApiError::InvalidRequest("Tuple object cannot be empty".to_string()));
+            return Err(ApiError::InvalidRequest(
+                "Tuple object cannot be empty".to_string(),
+            ));
         }
         if tuple.relation.is_empty() {
-            return Err(ApiError::InvalidRequest("Tuple relation cannot be empty".to_string()));
+            return Err(ApiError::InvalidRequest(
+                "Tuple relation cannot be empty".to_string(),
+            ));
         }
         if tuple.user.is_empty() {
-            return Err(ApiError::InvalidRequest("Tuple user cannot be empty".to_string()));
+            return Err(ApiError::InvalidRequest(
+                "Tuple user cannot be empty".to_string(),
+            ));
         }
         // Validate format (should contain colon)
         if !tuple.object.contains(':') {
-            return Err(ApiError::InvalidRequest(format!("Invalid object format '{}': must be 'type:id'", tuple.object)));
+            return Err(ApiError::InvalidRequest(format!(
+                "Invalid object format '{}': must be 'type:id'",
+                tuple.object
+            )));
         }
         if !tuple.user.contains(':') {
-            return Err(ApiError::InvalidRequest(format!("Invalid user format '{}': must be 'type:id'", tuple.user)));
+            return Err(ApiError::InvalidRequest(format!(
+                "Invalid user format '{}': must be 'type:id'",
+                tuple.user
+            )));
         }
     }
 
     // Write tuples to store
-    let revision = state.store.write(request.tuples.clone())
+    let revision = state
+        .store
+        .write(request.tuples.clone())
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to write tuples: {}", e)))?;
 
@@ -300,8 +328,8 @@ pub async fn serve_grpc(
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
-    use tonic::transport::Server;
     use grpc::proto::infera_service_server::InferaServiceServer;
+    use tonic::transport::Server;
 
     let state = AppState {
         evaluator,
@@ -319,7 +347,10 @@ pub async fn serve_grpc(
     // Set up authentication if enabled
     if config.auth.enabled {
         if let Some(cache) = jwks_cache {
-            info!("Starting gRPC server on {} with authentication enabled", addr);
+            info!(
+                "Starting gRPC server on {} with authentication enabled",
+                addr
+            );
 
             // Try to load internal JWKS if configured
             let internal_loader = infera_auth::InternalJwksLoader::from_config(
@@ -395,22 +426,28 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
-    use infera_core::ipl::{Schema, TypeDef, RelationDef, RelationExpr};
+    use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::MemoryBackend;
     use serde_json::json;
     use tower::ServiceExt; // for `oneshot`
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
-        let schema = Arc::new(Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Arc::new(Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("reader".to_string(), None),
-                RelationDef::new("editor".to_string(), Some(RelationExpr::Union(vec![
-                    RelationExpr::This,
-                    RelationExpr::RelationRef { relation: "reader".to_string() },
-                ]))),
-            ]),
-        ]));
+                RelationDef::new(
+                    "editor".to_string(),
+                    Some(RelationExpr::Union(vec![
+                        RelationExpr::This,
+                        RelationExpr::RelationRef {
+                            relation: "reader".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        )]));
         let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
         let mut config = infera_config::Config::default();
         // Disable auth for tests by default
@@ -430,7 +467,12 @@ mod tests {
         let app = create_router(create_test_state());
 
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -462,7 +504,9 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(response_json["decision"], "deny");
     }
@@ -496,7 +540,9 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let write_response: WriteResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(write_response.tuples_written, 1);
 
@@ -522,7 +568,9 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(check_response["decision"], "allow");
     }
@@ -600,8 +648,13 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let expand_response: infera_core::ExpandResponse = serde_json::from_slice(&body).unwrap();
-        assert!(matches!(expand_response.tree.node_type, infera_core::UsersetNodeType::Union));
+        assert!(matches!(
+            expand_response.tree.node_type,
+            infera_core::UsersetNodeType::Union
+        ));
     }
 }

@@ -29,26 +29,16 @@ pub enum RelationExpr {
     This,
 
     /// Reference to another relation: `editor`
-    RelationRef {
-        relation: String,
-    },
+    RelationRef { relation: String },
 
     /// Computed userset: `<relation> from <tupleset>`
-    ComputedUserset {
-        relation: String,
-        tupleset: String,
-    },
+    ComputedUserset { relation: String, tupleset: String },
 
     /// Tuple to userset: `<tupleset>-><computed>`
-    TupleToUserset {
-        tupleset: String,
-        computed: String,
-    },
+    TupleToUserset { tupleset: String, computed: String },
 
     /// WASM module invocation: `module("name")`
-    WasmModule {
-        module_name: String,
-    },
+    WasmModule { module_name: String },
 
     /// Union: `expr1 | expr2`
     Union(Vec<RelationExpr>),
@@ -102,14 +92,13 @@ mod tests {
 
     #[test]
     fn test_schema_creation() {
-        let schema = Schema::new(vec![
-            TypeDef::new(
-                "document".to_string(),
-                vec![
-                    RelationDef::new("viewer".to_string(), Some(RelationExpr::This)),
-                ],
-            ),
-        ]);
+        let schema = Schema::new(vec![TypeDef::new(
+            "document".to_string(),
+            vec![RelationDef::new(
+                "viewer".to_string(),
+                Some(RelationExpr::This),
+            )],
+        )]);
 
         assert_eq!(schema.types.len(), 1);
         assert_eq!(schema.types[0].name, "document");

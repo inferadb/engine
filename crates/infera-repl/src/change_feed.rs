@@ -4,11 +4,11 @@
 //! Supports multiple subscribers, filtering, and reconnection handling.
 
 use crate::{ReplError, Result};
-use infera_store::{Tuple, Revision};
+use infera_store::{Revision, Tuple};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::{broadcast, RwLock};
 
 /// Maximum number of buffered change events per subscriber
 const DEFAULT_CHANNEL_CAPACITY: usize = 1000;
@@ -167,10 +167,7 @@ impl ChangeFeed {
         let mut stats = self.stats.write().await;
         stats.subscribers = self.tx.receiver_count();
 
-        Ok(ChangeStream {
-            rx,
-            filter: None,
-        })
+        Ok(ChangeStream { rx, filter: None })
     }
 
     /// Subscribe to the change feed with a resource type filter
@@ -225,12 +222,8 @@ impl ChangeFilter {
             ChangeFilter::ResourceType(type_name) => {
                 change.resource_type() == Some(type_name.as_str())
             }
-            ChangeFilter::Relation(relation) => {
-                &change.tuple.relation == relation
-            }
-            ChangeFilter::Operation(op) => {
-                change.operation == *op
-            }
+            ChangeFilter::Relation(relation) => &change.tuple.relation == relation,
+            ChangeFilter::Operation(op) => change.operation == *op,
         }
     }
 }
@@ -290,7 +283,9 @@ impl ChangeStream {
                     return Err(ReplError::Replication("Stream closed".to_string()));
                 }
                 Err(broadcast::error::TryRecvError::Lagged(_)) => {
-                    return Err(ReplError::Replication("Stream lagged, resync required".to_string()));
+                    return Err(ReplError::Replication(
+                        "Stream lagged, resync required".to_string(),
+                    ));
                 }
             }
         }
@@ -463,9 +458,15 @@ mod tests {
         };
 
         // Publish both changes
-        feed.publish(Change::insert(Revision(1), tuple1.clone())).await.unwrap();
-        feed.publish(Change::insert(Revision(2), tuple2)).await.unwrap();
-        feed.publish(Change::insert(Revision(3), tuple1.clone())).await.unwrap();
+        feed.publish(Change::insert(Revision(1), tuple1.clone()))
+            .await
+            .unwrap();
+        feed.publish(Change::insert(Revision(2), tuple2))
+            .await
+            .unwrap();
+        feed.publish(Change::insert(Revision(3), tuple1.clone()))
+            .await
+            .unwrap();
 
         // Should only receive doc changes
         let received1 = stream.recv().await.unwrap();
@@ -492,7 +493,9 @@ mod tests {
             user: "user:alice".to_string(),
         };
 
-        feed.publish(Change::insert(Revision(1), tuple)).await.unwrap();
+        feed.publish(Change::insert(Revision(1), tuple))
+            .await
+            .unwrap();
 
         // Should receive the change
         let received = stream.try_recv().unwrap().unwrap();
@@ -515,8 +518,12 @@ mod tests {
             user: "user:alice".to_string(),
         };
 
-        feed.publish(Change::insert(Revision(1), tuple.clone())).await.unwrap();
-        feed.publish(Change::insert(Revision(2), tuple)).await.unwrap();
+        feed.publish(Change::insert(Revision(1), tuple.clone()))
+            .await
+            .unwrap();
+        feed.publish(Change::insert(Revision(2), tuple))
+            .await
+            .unwrap();
 
         let stats = feed.stats().await;
         assert_eq!(stats.published, 2);

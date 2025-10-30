@@ -49,9 +49,13 @@ async fn test_oauth_jwt_validation() {
     assert_eq!(jwks[0].alg, Some("EdDSA".to_string()));
 
     // Validate OAuth JWT (this is what will be called from gRPC interceptor)
-    let auth_ctx = infera_auth::oauth::validate_oauth_jwt(&token, &client, Some("https://api.inferadb.com/evaluate"))
-        .await
-        .expect("Failed to validate OAuth JWT");
+    let auth_ctx = infera_auth::oauth::validate_oauth_jwt(
+        &token,
+        &client,
+        Some("https://api.inferadb.com/evaluate"),
+    )
+    .await
+    .expect("Failed to validate OAuth JWT");
 
     // Verify AuthContext extracted correctly
     assert_eq!(auth_ctx.tenant_id, "acme");
@@ -78,8 +82,12 @@ async fn test_oauth_jwt_validation_expired() {
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Validate OAuth JWT - should fail with TokenExpired
-    let result = infera_auth::oauth::validate_oauth_jwt(&token, &client, Some("https://api.inferadb.com/evaluate"))
-        .await;
+    let result = infera_auth::oauth::validate_oauth_jwt(
+        &token,
+        &client,
+        Some("https://api.inferadb.com/evaluate"),
+    )
+    .await;
 
     assert!(result.is_err());
     assert!(matches!(
@@ -261,9 +269,13 @@ async fn test_oauth_jwt_missing_tenant_id() {
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Validate OAuth JWT
-    let auth_ctx = infera_auth::oauth::validate_oauth_jwt(&token, &client, Some("https://api.inferadb.com/evaluate"))
-        .await
-        .expect("Failed to validate OAuth JWT");
+    let auth_ctx = infera_auth::oauth::validate_oauth_jwt(
+        &token,
+        &client,
+        Some("https://api.inferadb.com/evaluate"),
+    )
+    .await
+    .expect("Failed to validate OAuth JWT");
 
     // Should use tenant_id if present, or fall back to sub
     assert!(!auth_ctx.tenant_id.is_empty());

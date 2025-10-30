@@ -139,12 +139,14 @@ impl Jwk {
             }
             "RSA" => {
                 // RS256 key
-                let n = self.n.as_ref().ok_or_else(|| {
-                    AuthError::JwksError("RSA key missing 'n' parameter".into())
-                })?;
-                let e = self.e.as_ref().ok_or_else(|| {
-                    AuthError::JwksError("RSA key missing 'e' parameter".into())
-                })?;
+                let n = self
+                    .n
+                    .as_ref()
+                    .ok_or_else(|| AuthError::JwksError("RSA key missing 'n' parameter".into()))?;
+                let e = self
+                    .e
+                    .as_ref()
+                    .ok_or_else(|| AuthError::JwksError("RSA key missing 'e' parameter".into()))?;
 
                 DecodingKey::from_rsa_components(n, e).map_err(|e| {
                     AuthError::JwksError(format!("Failed to create RSA decoding key: {}", e))
@@ -325,9 +327,7 @@ impl JwksCache {
                 if let Some(cached) = self.cache.get(&key).await {
                     return Ok(cached.keys);
                 }
-                return Err(AuthError::JwksError(
-                    "Concurrent fetch failed".into(),
-                ));
+                return Err(AuthError::JwksError("Concurrent fetch failed".into()));
             }
 
             // We're the first, create notify
@@ -339,8 +339,7 @@ impl JwksCache {
         // Fetch from Control Plane
         tracing::info!(tenant_id = %tenant_id, "JWKS cache miss, fetching from Control Plane");
         infera_observe::metrics::record_jwks_cache_miss(tenant_id);
-        let result =
-            Self::fetch_jwks(&self.http_client, &self.base_url, tenant_id).await;
+        let result = Self::fetch_jwks(&self.http_client, &self.base_url, tenant_id).await;
 
         // Clean up in-flight tracker and notify waiters
         {
@@ -363,14 +362,12 @@ impl JwksCache {
     pub async fn get_key_by_id(&self, tenant_id: &str, kid: &str) -> Result<Jwk, AuthError> {
         let keys = self.get_jwks(tenant_id).await?;
 
-        keys.into_iter()
-            .find(|k| k.kid == kid)
-            .ok_or_else(|| {
-                AuthError::JwksError(format!(
-                    "Key '{}' not found in tenant '{}' JWKS",
-                    kid, tenant_id
-                ))
-            })
+        keys.into_iter().find(|k| k.kid == kid).ok_or_else(|| {
+            AuthError::JwksError(format!(
+                "Key '{}' not found in tenant '{}' JWKS",
+                kid, tenant_id
+            ))
+        })
     }
 
     /// Fetch JWKS from Control Plane

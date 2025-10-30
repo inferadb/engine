@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use async_recursion::async_recursion;
 
-use crate::{Result, EvalError};
-use crate::ipl::{Schema, RelationExpr};
-use infera_store::{TupleStore, TupleKey, Revision};
+use crate::ipl::{RelationExpr, Schema};
+use crate::{EvalError, Result};
 #[cfg(test)]
 use infera_store::Tuple;
+use infera_store::{Revision, TupleKey, TupleStore};
 
 /// Graph traversal context
 pub struct GraphContext {
@@ -30,11 +30,7 @@ pub struct GraphContext {
 }
 
 impl GraphContext {
-    pub fn new(
-        schema: Arc<Schema>,
-        store: Arc<dyn TupleStore>,
-        revision: Revision,
-    ) -> Self {
+    pub fn new(schema: Arc<Schema>, store: Arc<dyn TupleStore>, revision: Revision) -> Self {
         Self {
             schema,
             store,
@@ -63,7 +59,7 @@ impl GraphContext {
     pub fn check_depth(&self) -> Result<()> {
         if self.visited.len() > self.max_depth {
             return Err(EvalError::Evaluation(
-                "Maximum traversal depth exceeded (possible cycle)".to_string()
+                "Maximum traversal depth exceeded (possible cycle)".to_string(),
             ));
         }
         Ok(())
@@ -174,13 +170,18 @@ pub async fn resolve_userset(
     ctx.visit(key.clone());
 
     // Get the type and relation definition
-    let type_name = object.split(':').next()
+    let type_name = object
+        .split(':')
+        .next()
         .ok_or_else(|| EvalError::Evaluation("Invalid object format".to_string()))?;
 
-    let type_def = ctx.schema.find_type(type_name)
+    let type_def = ctx
+        .schema
+        .find_type(type_name)
         .ok_or_else(|| EvalError::Evaluation(format!("Type not found: {}", type_name)))?;
 
-    let relation_def = type_def.find_relation(relation)
+    let relation_def = type_def
+        .find_relation(relation)
         .ok_or_else(|| EvalError::Evaluation(format!("Relation not found: {}", relation)))?;
 
     let mut users = HashSet::new();
@@ -190,7 +191,8 @@ pub async fn resolve_userset(
         let expr_clone = expr.clone();
         users = evaluate_relation_expr(object, relation, &expr_clone, ctx).await?;
     } else {
-        let direct_users = get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
+        let direct_users =
+            get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
         users.extend(direct_users);
     }
 
@@ -209,7 +211,8 @@ async fn evaluate_relation_expr(
     match expr {
         RelationExpr::This => {
             // Direct tuples for the current relation
-            let direct_users = get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
+            let direct_users =
+                get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
             Ok(direct_users.into_iter().collect())
         }
 
@@ -220,7 +223,8 @@ async fn evaluate_relation_expr(
 
         RelationExpr::ComputedUserset { relation, tupleset } => {
             // Get objects from tupleset, then compute relation on each
-            let tupleset_objects = get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+            let tupleset_objects =
+                get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
 
             let mut users = HashSet::new();
             for obj in tupleset_objects {
@@ -232,7 +236,8 @@ async fn evaluate_relation_expr(
 
         RelationExpr::TupleToUserset { tupleset, computed } => {
             // Get objects from tupleset, evaluate computed relation on each
-            let tupleset_objects = get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+            let tupleset_objects =
+                get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
 
             let mut users = HashSet::new();
             for obj in tupleset_objects {
@@ -289,8 +294,8 @@ async fn evaluate_relation_expr(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ipl::{RelationDef, Schema, TypeDef};
     use infera_store::MemoryBackend;
-    use crate::ipl::{Schema, TypeDef, RelationDef};
 
     #[tokio::test]
     async fn test_has_direct_tuple() {
@@ -304,23 +309,15 @@ mod tests {
 
         let rev = store.write(vec![tuple]).await.unwrap();
 
-        let has_tuple = has_direct_tuple(
-            &store,
-            "doc:readme",
-            "reader",
-            "user:alice",
-            rev
-        ).await.unwrap();
+        let has_tuple = has_direct_tuple(&store, "doc:readme", "reader", "user:alice", rev)
+            .await
+            .unwrap();
 
         assert!(has_tuple);
 
-        let no_tuple = has_direct_tuple(
-            &store,
-            "doc:readme",
-            "reader",
-            "user:bob",
-            rev
-        ).await.unwrap();
+        let no_tuple = has_direct_tuple(&store, "doc:readme", "reader", "user:bob", rev)
+            .await
+            .unwrap();
 
         assert!(!no_tuple);
     }
@@ -344,12 +341,9 @@ mod tests {
 
         let rev = store.write(tuples).await.unwrap();
 
-        let users = get_users_with_relation(
-            &store,
-            "doc:readme",
-            "reader",
-            rev
-        ).await.unwrap();
+        let users = get_users_with_relation(&store, "doc:readme", "reader", rev)
+            .await
+            .unwrap();
 
         assert_eq!(users.len(), 2);
         assert!(users.contains(&"user:alice".to_string()));
@@ -358,20 +352,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_cycle_detection() {
-        let schema = Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
-                RelationDef::new("reader".to_string(), None),
-            ]),
-        ]);
+        let schema = Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![RelationDef::new("reader".to_string(), None)],
+        )]);
 
         let store = Arc::new(MemoryBackend::new());
         let rev = store.get_revision().await.unwrap();
 
-        let mut ctx = GraphContext::new(
-            Arc::new(schema),
-            store,
-            rev,
-        );
+        let mut ctx = GraphContext::new(Arc::new(schema), store, rev);
 
         // Manually create a cycle
         ctx.visit("doc:readme#reader".to_string());

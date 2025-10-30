@@ -155,8 +155,7 @@ pub fn generate_internal_jwt(private_key_jwk: &Jwk, claims: InternalClaims) -> S
     ];
     pkcs8_der.extend_from_slice(&private_bytes);
 
-    let encoding_key =
-        EncodingKey::from_ed_der(&pkcs8_der);
+    let encoding_key = EncodingKey::from_ed_der(&pkcs8_der);
 
     // Create JWT header with kid
     let mut header = Header::new(Algorithm::EdDSA);

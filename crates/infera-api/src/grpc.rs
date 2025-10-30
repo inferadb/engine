@@ -2,17 +2,12 @@
 
 use tonic::{Request, Response, Status};
 
-use infera_core::{
-    CheckRequest as CoreCheckRequest,
-    Decision,
-    ExpandRequest as CoreExpandRequest,
-    DecisionTrace,
-    EvaluationNode,
-    NodeType as CoreNodeType,
-    UsersetTree,
-    UsersetNodeType as CoreUsersetNodeType,
-};
 use crate::AppState;
+use infera_core::{
+    CheckRequest as CoreCheckRequest, Decision, DecisionTrace, EvaluationNode,
+    ExpandRequest as CoreExpandRequest, NodeType as CoreNodeType,
+    UsersetNodeType as CoreUsersetNodeType, UsersetTree,
+};
 
 // Include generated proto code
 pub mod proto {
@@ -20,13 +15,9 @@ pub mod proto {
 }
 
 use proto::{
-    infera_service_server::InferaService,
-    CheckRequest, CheckResponse, CheckWithTraceResponse,
-    ExpandRequest, ExpandResponse,
-    WriteRequest, WriteResponse,
-    DeleteRequest, DeleteResponse,
-    HealthRequest, HealthResponse,
-    Decision as ProtoDecision,
+    infera_service_server::InferaService, CheckRequest, CheckResponse, CheckWithTraceResponse,
+    Decision as ProtoDecision, DeleteRequest, DeleteResponse, ExpandRequest, ExpandResponse,
+    HealthRequest, HealthResponse, WriteRequest, WriteResponse,
 };
 
 pub struct InferaServiceImpl {
@@ -54,7 +45,11 @@ impl InferaService for InferaServiceImpl {
             context: req.context.and_then(|s| serde_json::from_str(&s).ok()),
         };
 
-        let decision = self.state.evaluator.check(check_request).await
+        let decision = self
+            .state
+            .evaluator
+            .check(check_request)
+            .await
             .map_err(|e| Status::internal(format!("Evaluation error: {}", e)))?;
 
         let proto_decision = match decision {
@@ -80,7 +75,11 @@ impl InferaService for InferaServiceImpl {
             context: req.context.and_then(|s| serde_json::from_str(&s).ok()),
         };
 
-        let trace = self.state.evaluator.check_with_trace(check_request).await
+        let trace = self
+            .state
+            .evaluator
+            .check_with_trace(check_request)
+            .await
             .map_err(|e| Status::internal(format!("Evaluation error: {}", e)))?;
 
         let proto_decision = match trace.decision {
@@ -109,7 +108,11 @@ impl InferaService for InferaServiceImpl {
             continuation_token: None,
         };
 
-        let expand_response = self.state.evaluator.expand(expand_request).await
+        let expand_response = self
+            .state
+            .evaluator
+            .expand(expand_request)
+            .await
             .map_err(|e| Status::internal(format!("Evaluation error: {}", e)))?;
 
         let proto_tree = convert_userset_tree_to_proto(expand_response.tree);
@@ -129,7 +132,9 @@ impl InferaService for InferaServiceImpl {
             return Err(Status::invalid_argument("No tuples provided"));
         }
 
-        let tuples: Vec<infera_store::Tuple> = req.tuples.into_iter()
+        let tuples: Vec<infera_store::Tuple> = req
+            .tuples
+            .into_iter()
             .map(|t| infera_store::Tuple {
                 object: t.object,
                 relation: t.relation,
@@ -149,20 +154,26 @@ impl InferaService for InferaServiceImpl {
                 return Err(Status::invalid_argument("Tuple user cannot be empty"));
             }
             if !tuple.object.contains(':') {
-                return Err(Status::invalid_argument(
-                    format!("Invalid object format '{}': must be 'type:id'", tuple.object)
-                ));
+                return Err(Status::invalid_argument(format!(
+                    "Invalid object format '{}': must be 'type:id'",
+                    tuple.object
+                )));
             }
             if !tuple.user.contains(':') {
-                return Err(Status::invalid_argument(
-                    format!("Invalid user format '{}': must be 'type:id'", tuple.user)
-                ));
+                return Err(Status::invalid_argument(format!(
+                    "Invalid user format '{}': must be 'type:id'",
+                    tuple.user
+                )));
             }
         }
 
         let tuples_count = tuples.len();
 
-        let revision = self.state.store.write(tuples).await
+        let revision = self
+            .state
+            .store
+            .write(tuples)
+            .await
             .map_err(|e| Status::internal(format!("Failed to write tuples: {}", e)))?;
 
         Ok(Response::new(WriteResponse {
@@ -191,7 +202,11 @@ impl InferaService for InferaServiceImpl {
                 relation: tuple.relation,
                 user: Some(tuple.user),
             };
-            last_revision = self.state.store.delete(&key).await
+            last_revision = self
+                .state
+                .store
+                .delete(&key)
+                .await
                 .map_err(|e| Status::internal(format!("Failed to delete tuple: {}", e)))?;
         }
 
@@ -216,34 +231,30 @@ impl InferaService for InferaServiceImpl {
 fn convert_trace_to_proto(trace: DecisionTrace) -> proto::DecisionTrace {
     fn convert_node(node: EvaluationNode) -> proto::EvaluationNode {
         let node_type = match node.node_type {
-            CoreNodeType::DirectCheck { object, relation, user } => {
-                Some(proto::node_type::Type::DirectCheck(proto::DirectCheck {
-                    object,
-                    relation,
-                    user,
-                }))
-            }
+            CoreNodeType::DirectCheck {
+                object,
+                relation,
+                user,
+            } => Some(proto::node_type::Type::DirectCheck(proto::DirectCheck {
+                object,
+                relation,
+                user,
+            })),
             CoreNodeType::ComputedUserset { relation, tupleset } => {
-                Some(proto::node_type::Type::ComputedUserset(proto::ComputedUserset {
-                    relation,
-                    tupleset,
-                }))
+                Some(proto::node_type::Type::ComputedUserset(
+                    proto::ComputedUserset { relation, tupleset },
+                ))
             }
             CoreNodeType::TupleToUserset { tupleset, computed } => {
-                Some(proto::node_type::Type::TupleToUserset(proto::TupleToUserset {
-                    tupleset,
-                    computed,
-                }))
+                Some(proto::node_type::Type::TupleToUserset(
+                    proto::TupleToUserset { tupleset, computed },
+                ))
             }
-            CoreNodeType::Union => {
-                Some(proto::node_type::Type::Union(proto::Union {}))
-            }
+            CoreNodeType::Union => Some(proto::node_type::Type::Union(proto::Union {})),
             CoreNodeType::Intersection => {
                 Some(proto::node_type::Type::Intersection(proto::Intersection {}))
             }
-            CoreNodeType::Exclusion => {
-                Some(proto::node_type::Type::Exclusion(proto::Exclusion {}))
-            }
+            CoreNodeType::Exclusion => Some(proto::node_type::Type::Exclusion(proto::Exclusion {})),
             CoreNodeType::WasmModule { module_name } => {
                 Some(proto::node_type::Type::WasmModule(proto::WasmModule {
                     module_name,
@@ -274,12 +285,10 @@ fn convert_trace_to_proto(trace: DecisionTrace) -> proto::DecisionTrace {
 
 // Helper function to convert UsersetTree to proto
 fn convert_userset_tree_to_proto(tree: UsersetTree) -> proto::UsersetTree {
-    use proto::{UsersetNodeType, userset_node_type::Type};
+    use proto::{userset_node_type::Type, UsersetNodeType};
 
     let node_type = match tree.node_type {
-        CoreUsersetNodeType::This => {
-            Some(Type::This(proto::This {}))
-        }
+        CoreUsersetNodeType::This => Some(Type::This(proto::This {})),
         CoreUsersetNodeType::ComputedUserset { relation } => {
             Some(Type::ComputedUserset(proto::ComputedUsersetRef {
                 relation,
@@ -291,45 +300,50 @@ fn convert_userset_tree_to_proto(tree: UsersetTree) -> proto::UsersetTree {
                 computed,
             }))
         }
-        CoreUsersetNodeType::Union => {
-            Some(Type::Union(proto::UnionNode {}))
-        }
-        CoreUsersetNodeType::Intersection => {
-            Some(Type::Intersection(proto::IntersectionNode {}))
-        }
-        CoreUsersetNodeType::Exclusion => {
-            Some(Type::Exclusion(proto::ExclusionNode {}))
-        }
-        CoreUsersetNodeType::Leaf { users } => {
-            Some(Type::Leaf(proto::Leaf { users }))
-        }
+        CoreUsersetNodeType::Union => Some(Type::Union(proto::UnionNode {})),
+        CoreUsersetNodeType::Intersection => Some(Type::Intersection(proto::IntersectionNode {})),
+        CoreUsersetNodeType::Exclusion => Some(Type::Exclusion(proto::ExclusionNode {})),
+        CoreUsersetNodeType::Leaf { users } => Some(Type::Leaf(proto::Leaf { users })),
     };
 
     proto::UsersetTree {
         node_type: Some(UsersetNodeType { r#type: node_type }),
-        children: tree.children.into_iter().map(convert_userset_tree_to_proto).collect(),
+        children: tree
+            .children
+            .into_iter()
+            .map(convert_userset_tree_to_proto)
+            .collect(),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use infera_core::{Evaluator, ipl::{Schema, TypeDef, RelationDef, RelationExpr}};
-    use infera_store::{MemoryBackend, TupleStore};
     use infera_config::Config;
+    use infera_core::{
+        ipl::{RelationDef, RelationExpr, Schema, TypeDef},
+        Evaluator,
+    };
+    use infera_store::{MemoryBackend, TupleStore};
+    use std::sync::Arc;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
-        let schema = Arc::new(Schema::new(vec![
-            TypeDef::new("doc".to_string(), vec![
+        let schema = Arc::new(Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![
                 RelationDef::new("reader".to_string(), None),
-                RelationDef::new("editor".to_string(), Some(RelationExpr::Union(vec![
-                    RelationExpr::This,
-                    RelationExpr::RelationRef { relation: "reader".to_string() },
-                ]))),
-            ]),
-        ]));
+                RelationDef::new(
+                    "editor".to_string(),
+                    Some(RelationExpr::Union(vec![
+                        RelationExpr::This,
+                        RelationExpr::RelationRef {
+                            relation: "reader".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        )]));
         let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
         let config = Arc::new(Config::default());
 
@@ -417,9 +431,7 @@ mod tests {
     #[tokio::test]
     async fn test_grpc_write_validation_empty_tuples() {
         let service = InferaServiceImpl::new(create_test_state());
-        let request = Request::new(WriteRequest {
-            tuples: vec![],
-        });
+        let request = Request::new(WriteRequest { tuples: vec![] });
 
         let result = service.write(request).await;
         assert!(result.is_err());

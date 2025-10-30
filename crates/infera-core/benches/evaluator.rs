@@ -1,35 +1,56 @@
 use std::sync::Arc;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use infera_core::{Evaluator, CheckRequest, ExpandRequest};
-use infera_core::ipl::{Schema, TypeDef, RelationDef, RelationExpr};
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use infera_core::{CheckRequest, Evaluator, ExpandRequest};
 use infera_store::{MemoryBackend, Tuple, TupleStore};
 
 fn create_complex_schema() -> Schema {
     Schema::new(vec![
-        TypeDef::new("folder".to_string(), vec![
-            RelationDef::new("owner".to_string(), None),
-            RelationDef::new("viewer".to_string(), Some(RelationExpr::Union(vec![
-                RelationExpr::This,
-                RelationExpr::RelationRef { relation: "owner".to_string() },
-            ]))),
-        ]),
-        TypeDef::new("doc".to_string(), vec![
-            RelationDef::new("parent".to_string(), None),
-            RelationDef::new("owner".to_string(), None),
-            RelationDef::new("editor".to_string(), Some(RelationExpr::Union(vec![
-                RelationExpr::This,
-                RelationExpr::RelationRef { relation: "owner".to_string() },
-            ]))),
-            RelationDef::new("viewer".to_string(), Some(RelationExpr::Union(vec![
-                RelationExpr::This,
-                RelationExpr::RelationRef { relation: "editor".to_string() },
-                RelationExpr::TupleToUserset {
-                    tupleset: "parent".to_string(),
-                    computed: "viewer".to_string(),
-                },
-            ]))),
-        ]),
+        TypeDef::new(
+            "folder".to_string(),
+            vec![
+                RelationDef::new("owner".to_string(), None),
+                RelationDef::new(
+                    "viewer".to_string(),
+                    Some(RelationExpr::Union(vec![
+                        RelationExpr::This,
+                        RelationExpr::RelationRef {
+                            relation: "owner".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        ),
+        TypeDef::new(
+            "doc".to_string(),
+            vec![
+                RelationDef::new("parent".to_string(), None),
+                RelationDef::new("owner".to_string(), None),
+                RelationDef::new(
+                    "editor".to_string(),
+                    Some(RelationExpr::Union(vec![
+                        RelationExpr::This,
+                        RelationExpr::RelationRef {
+                            relation: "owner".to_string(),
+                        },
+                    ])),
+                ),
+                RelationDef::new(
+                    "viewer".to_string(),
+                    Some(RelationExpr::Union(vec![
+                        RelationExpr::This,
+                        RelationExpr::RelationRef {
+                            relation: "editor".to_string(),
+                        },
+                        RelationExpr::TupleToUserset {
+                            tupleset: "parent".to_string(),
+                            computed: "viewer".to_string(),
+                        },
+                    ])),
+                ),
+            ],
+        ),
     ])
 }
 
@@ -186,20 +207,32 @@ fn bench_parallel_expand(c: &mut Criterion) {
             let store = Arc::new(MemoryBackend::new());
 
             // Create schema with 4 independent branches
-            let schema = Arc::new(Schema::new(vec![
-                TypeDef::new("doc".to_string(), vec![
+            let schema = Arc::new(Schema::new(vec![TypeDef::new(
+                "doc".to_string(),
+                vec![
                     RelationDef::new("admin".to_string(), None),
                     RelationDef::new("editor".to_string(), None),
                     RelationDef::new("viewer".to_string(), None),
                     RelationDef::new("contributor".to_string(), None),
-                    RelationDef::new("any_access".to_string(), Some(RelationExpr::Union(vec![
-                        RelationExpr::RelationRef { relation: "admin".to_string() },
-                        RelationExpr::RelationRef { relation: "editor".to_string() },
-                        RelationExpr::RelationRef { relation: "viewer".to_string() },
-                        RelationExpr::RelationRef { relation: "contributor".to_string() },
-                    ]))),
-                ]),
-            ]));
+                    RelationDef::new(
+                        "any_access".to_string(),
+                        Some(RelationExpr::Union(vec![
+                            RelationExpr::RelationRef {
+                                relation: "admin".to_string(),
+                            },
+                            RelationExpr::RelationRef {
+                                relation: "editor".to_string(),
+                            },
+                            RelationExpr::RelationRef {
+                                relation: "viewer".to_string(),
+                            },
+                            RelationExpr::RelationRef {
+                                relation: "contributor".to_string(),
+                            },
+                        ])),
+                    ),
+                ],
+            )]));
 
             // Create 100 users distributed across the 4 branches
             let mut tuples = Vec::new();
@@ -238,18 +271,28 @@ fn bench_parallel_expand(c: &mut Criterion) {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            let schema = Arc::new(Schema::new(vec![
-                TypeDef::new("doc".to_string(), vec![
+            let schema = Arc::new(Schema::new(vec![TypeDef::new(
+                "doc".to_string(),
+                vec![
                     RelationDef::new("group_a".to_string(), None),
                     RelationDef::new("group_b".to_string(), None),
                     RelationDef::new("group_c".to_string(), None),
-                    RelationDef::new("all_groups".to_string(), Some(RelationExpr::Intersection(vec![
-                        RelationExpr::RelationRef { relation: "group_a".to_string() },
-                        RelationExpr::RelationRef { relation: "group_b".to_string() },
-                        RelationExpr::RelationRef { relation: "group_c".to_string() },
-                    ]))),
-                ]),
-            ]));
+                    RelationDef::new(
+                        "all_groups".to_string(),
+                        Some(RelationExpr::Intersection(vec![
+                            RelationExpr::RelationRef {
+                                relation: "group_a".to_string(),
+                            },
+                            RelationExpr::RelationRef {
+                                relation: "group_b".to_string(),
+                            },
+                            RelationExpr::RelationRef {
+                                relation: "group_c".to_string(),
+                            },
+                        ])),
+                    ),
+                ],
+            )]));
 
             // Create overlapping user sets
             let mut tuples = Vec::new();
@@ -321,16 +364,24 @@ fn bench_expand_cache(c: &mut Criterion) {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            let schema = Arc::new(Schema::new(vec![
-                TypeDef::new("doc".to_string(), vec![
+            let schema = Arc::new(Schema::new(vec![TypeDef::new(
+                "doc".to_string(),
+                vec![
                     RelationDef::new("reader".to_string(), None),
                     RelationDef::new("editor".to_string(), None),
-                    RelationDef::new("viewer".to_string(), Some(RelationExpr::Union(vec![
-                        RelationExpr::RelationRef { relation: "reader".to_string() },
-                        RelationExpr::RelationRef { relation: "editor".to_string() },
-                    ]))),
-                ]),
-            ]));
+                    RelationDef::new(
+                        "viewer".to_string(),
+                        Some(RelationExpr::Union(vec![
+                            RelationExpr::RelationRef {
+                                relation: "reader".to_string(),
+                            },
+                            RelationExpr::RelationRef {
+                                relation: "editor".to_string(),
+                            },
+                        ])),
+                    ),
+                ],
+            )]));
 
             // Write 50 users
             let mut tuples = Vec::new();

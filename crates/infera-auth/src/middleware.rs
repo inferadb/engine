@@ -8,8 +8,8 @@
 
 use crate::context::{AuthContext, AuthMethod};
 use crate::error::AuthError;
-use crate::jwt::verify_with_jwks;
 use crate::jwks_cache::JwksCache;
+use crate::jwt::verify_with_jwks;
 use axum::{
     body::Body,
     extract::Request,
@@ -67,9 +67,9 @@ pub fn extract_bearer_token(headers: &HeaderMap) -> Result<String, AuthError> {
         .ok_or_else(|| AuthError::InvalidTokenFormat("Missing Authorization header".into()))?;
 
     // Convert to string
-    let auth_str = auth_header
-        .to_str()
-        .map_err(|_| AuthError::InvalidTokenFormat("Invalid Authorization header encoding".into()))?;
+    let auth_str = auth_header.to_str().map_err(|_| {
+        AuthError::InvalidTokenFormat("Invalid Authorization header encoding".into())
+    })?;
 
     // Check for "Bearer " prefix (case-insensitive)
     if !auth_str.starts_with("Bearer ") && !auth_str.starts_with("bearer ") {
@@ -83,7 +83,9 @@ pub fn extract_bearer_token(headers: &HeaderMap) -> Result<String, AuthError> {
 
     // Ensure token is not empty
     if token.is_empty() {
-        return Err(AuthError::InvalidTokenFormat("Bearer token is empty".into()));
+        return Err(AuthError::InvalidTokenFormat(
+            "Bearer token is empty".into(),
+        ));
     }
 
     Ok(token.to_string())
@@ -169,18 +171,10 @@ pub async fn auth_middleware(
     let claims = verify_with_jwks(&token, &jwks_cache)
         .await
         .map_err(|e| match e {
-            AuthError::TokenExpired => {
-                unauthorized_response("Token expired")
-            }
-            AuthError::TokenNotYetValid => {
-                unauthorized_response("Token not yet valid")
-            }
-            AuthError::InvalidSignature => {
-                unauthorized_response("Invalid signature")
-            }
-            AuthError::InvalidTokenFormat(ref msg) => {
-                unauthorized_response(msg)
-            }
+            AuthError::TokenExpired => unauthorized_response("Token expired"),
+            AuthError::TokenNotYetValid => unauthorized_response("Token not yet valid"),
+            AuthError::InvalidSignature => unauthorized_response("Invalid signature"),
+            AuthError::InvalidTokenFormat(ref msg) => unauthorized_response(msg),
             AuthError::InvalidAudience(msg) => {
                 (StatusCode::FORBIDDEN, format!("Invalid audience: {}", msg)).into_response()
             }
@@ -293,7 +287,10 @@ mod tests {
     #[test]
     fn test_extract_bearer_token_with_whitespace() {
         let mut headers = HeaderMap::new();
-        headers.insert("authorization", "Bearer   token-with-spaces  ".parse().unwrap());
+        headers.insert(
+            "authorization",
+            "Bearer   token-with-spaces  ".parse().unwrap(),
+        );
 
         let token = extract_bearer_token(&headers).unwrap();
         assert_eq!(token, "token-with-spaces");

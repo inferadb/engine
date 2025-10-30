@@ -1,7 +1,7 @@
 //! Host functions available to WASM modules
 
-use wasmtime::*;
 use serde::{Deserialize, Serialize};
+use wasmtime::*;
 
 /// Context passed to WASM modules during execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,11 +90,21 @@ impl Default for StoreLimits {
 }
 
 impl ResourceLimiter for HostState {
-    fn memory_growing(&mut self, _current: usize, desired: usize, _maximum: Option<usize>) -> anyhow::Result<bool> {
+    fn memory_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        _maximum: Option<usize>,
+    ) -> anyhow::Result<bool> {
         Ok(desired <= self.store_limits.max_memory_bytes)
     }
 
-    fn table_growing(&mut self, _current: usize, desired: usize, _maximum: Option<usize>) -> anyhow::Result<bool> {
+    fn table_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        _maximum: Option<usize>,
+    ) -> anyhow::Result<bool> {
         Ok(desired as u32 <= self.store_limits.max_table_elements)
     }
 }
