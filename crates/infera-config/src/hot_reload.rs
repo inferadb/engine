@@ -80,16 +80,16 @@ impl HotReloadHandle {
             }
         });
 
-        info!("Hot reload watchers started for {}", self.config_path.display());
+        info!(
+            "Hot reload watchers started for {}",
+            self.config_path.display()
+        );
 
         Ok(())
     }
 
     /// Watch for file system changes
-    fn watch_file_changes(
-        handle: Arc<Self>,
-        config_path: PathBuf,
-    ) -> Result<(), HotReloadError> {
+    fn watch_file_changes(handle: Arc<Self>, config_path: PathBuf) -> Result<(), HotReloadError> {
         let (tx, rx) = std::sync::mpsc::channel();
 
         let mut watcher = RecommendedWatcher::new(
@@ -155,9 +155,8 @@ impl HotReloadHandle {
         *self.previous_config.write().await = Some(current.clone());
 
         // Try to load new config
-        let new_config = load(&self.config_path).map_err(|e| {
-            HotReloadError::LoadError(format!("Failed to load config: {}", e))
-        })?;
+        let new_config = load(&self.config_path)
+            .map_err(|e| HotReloadError::LoadError(format!("Failed to load config: {}", e)))?;
 
         // Validate new config
         if let Err(e) = self.validate_config(&new_config).await {
@@ -228,8 +227,8 @@ impl HotReloadHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
     use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[tokio::test]
     async fn test_hot_reload_handle_creation() {

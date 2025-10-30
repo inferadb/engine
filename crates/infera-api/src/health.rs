@@ -143,23 +143,21 @@ impl HealthTracker {
             .as_secs();
 
         // Check storage health with a simple read
-        let storage_status = match tokio::time::timeout(
-            Duration::from_secs(1),
-            store.get_revision()
-        ).await {
-            Ok(Ok(_)) => ComponentStatus {
-                status: HealthStatus::Healthy,
-                message: Some("Storage operational".to_string()),
-            },
-            Ok(Err(e)) => ComponentStatus {
-                status: HealthStatus::Unhealthy,
-                message: Some(format!("Storage error: {}", e)),
-            },
-            Err(_) => ComponentStatus {
-                status: HealthStatus::Degraded,
-                message: Some("Storage timeout".to_string()),
-            },
-        };
+        let storage_status =
+            match tokio::time::timeout(Duration::from_secs(1), store.get_revision()).await {
+                Ok(Ok(_)) => ComponentStatus {
+                    status: HealthStatus::Healthy,
+                    message: Some("Storage operational".to_string()),
+                },
+                Ok(Err(e)) => ComponentStatus {
+                    status: HealthStatus::Unhealthy,
+                    message: Some(format!("Storage error: {}", e)),
+                },
+                Err(_) => ComponentStatus {
+                    status: HealthStatus::Degraded,
+                    message: Some("Storage timeout".to_string()),
+                },
+            };
 
         // Cache is always healthy for in-memory cache
         let cache_status = ComponentStatus {
@@ -181,13 +179,14 @@ impl HealthTracker {
         };
 
         // Determine overall status
-        let overall_status = if !self.is_alive() || matches!(storage_status.status, HealthStatus::Unhealthy) {
-            HealthStatus::Unhealthy
-        } else if !self.is_ready() {
-            HealthStatus::Degraded
-        } else {
-            HealthStatus::Healthy
-        };
+        let overall_status =
+            if !self.is_alive() || matches!(storage_status.status, HealthStatus::Unhealthy) {
+                HealthStatus::Unhealthy
+            } else if !self.is_ready() {
+                HealthStatus::Degraded
+            } else {
+                HealthStatus::Healthy
+            };
 
         HealthResponse {
             status: overall_status,
@@ -208,9 +207,7 @@ impl HealthTracker {
 ///
 /// Indicates whether the service is running. If this fails, Kubernetes will restart the pod.
 /// This should only fail if the service is completely broken (e.g., deadlock, panic).
-pub async fn liveness_handler(
-    State(state): State<crate::AppState>,
-) -> impl IntoResponse {
+pub async fn liveness_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let tracker = &state.health_tracker;
     if tracker.is_alive() {
         (
@@ -236,9 +233,7 @@ pub async fn liveness_handler(
 ///
 /// Indicates whether the service is ready to accept traffic.
 /// If this fails, Kubernetes will remove the pod from the load balancer.
-pub async fn readiness_handler(
-    State(state): State<crate::AppState>,
-) -> impl IntoResponse {
+pub async fn readiness_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let health = state.health_tracker.check_health(&state.store).await;
 
     match health.status {
@@ -252,9 +247,7 @@ pub async fn readiness_handler(
 ///
 /// Indicates whether the service has completed initialization.
 /// Kubernetes will not send traffic until this succeeds.
-pub async fn startup_handler(
-    State(state): State<crate::AppState>,
-) -> impl IntoResponse {
+pub async fn startup_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let tracker = &state.health_tracker;
     if tracker.is_startup_complete() {
         (
@@ -277,9 +270,7 @@ pub async fn startup_handler(
 }
 
 /// Legacy health check endpoint (for backward compatibility)
-pub async fn health_check_handler(
-    State(state): State<crate::AppState>,
-) -> impl IntoResponse {
+pub async fn health_check_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let health = state.health_tracker.check_health(&state.store).await;
 
     match health.status {

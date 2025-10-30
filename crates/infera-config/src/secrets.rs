@@ -213,9 +213,7 @@ impl AwsSecretsProvider {
 impl SecretProvider for AwsSecretsProvider {
     fn get(&self, key: &str) -> Result<String, SecretError> {
         // Synchronous wrapper - requires tokio runtime
-        tokio::runtime::Handle::current().block_on(async {
-            self.get_async(key).await
-        })
+        tokio::runtime::Handle::current().block_on(async { self.get_async(key).await })
     }
 
     fn has(&self, key: &str) -> bool {
@@ -238,7 +236,9 @@ impl GcpSecretsProvider {
     pub async fn new(project_id: impl Into<String>) -> Result<Self, SecretError> {
         let secret = oauth2::read_application_secret("credentials.json")
             .await
-            .map_err(|e| SecretError::InvalidFormat(format!("Failed to read GCP credentials: {}", e)))?;
+            .map_err(|e| {
+                SecretError::InvalidFormat(format!("Failed to read GCP credentials: {}", e))
+            })?;
 
         let auth = oauth2::InstalledFlowAuthenticator::builder(
             secret,
@@ -268,7 +268,10 @@ impl GcpSecretsProvider {
 
     /// Get a secret from GCP Secret Manager (async)
     pub async fn get_async(&self, key: &str) -> Result<String, SecretError> {
-        let name = format!("projects/{}/secrets/{}/versions/latest", self.project_id, key);
+        let name = format!(
+            "projects/{}/secrets/{}/versions/latest",
+            self.project_id, key
+        );
 
         let (_, secret_version) = self
             .hub
@@ -292,9 +295,7 @@ impl GcpSecretsProvider {
 impl SecretProvider for GcpSecretsProvider {
     fn get(&self, key: &str) -> Result<String, SecretError> {
         // Synchronous wrapper - requires tokio runtime
-        tokio::runtime::Handle::current().block_on(async {
-            self.get_async(key).await
-        })
+        tokio::runtime::Handle::current().block_on(async { self.get_async(key).await })
     }
 
     fn has(&self, key: &str) -> bool {
@@ -319,8 +320,9 @@ impl AzureSecretsProvider {
 
         let vault_url_str = vault_url.into();
         let credential = DefaultAzureCredential::default();
-        let client = SecretClient::new(&vault_url_str, credential)
-            .map_err(|e| SecretError::InvalidFormat(format!("Azure Key Vault client error: {}", e)))?;
+        let client = SecretClient::new(&vault_url_str, credential).map_err(|e| {
+            SecretError::InvalidFormat(format!("Azure Key Vault client error: {}", e))
+        })?;
 
         Ok(Self {
             client,
@@ -344,9 +346,7 @@ impl AzureSecretsProvider {
 impl SecretProvider for AzureSecretsProvider {
     fn get(&self, key: &str) -> Result<String, SecretError> {
         // Synchronous wrapper - requires tokio runtime
-        tokio::runtime::Handle::current().block_on(async {
-            self.get_async(key).await
-        })
+        tokio::runtime::Handle::current().block_on(async { self.get_async(key).await })
     }
 
     fn has(&self, key: &str) -> bool {

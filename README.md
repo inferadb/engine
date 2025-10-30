@@ -92,23 +92,22 @@ InferaDB is built as a modular Rust workspace:
 ## Development Commands
 
 ```bash
-# Development
-mise run dev          # Start server with hot reload
-mise run test         # Run all tests
-mise run check        # Run fmt, clippy, and tests
+# One-time setup (installs Rust, cargo tools, etc.)
+mise trust && mise install
 
-# Code Quality
-mise run fmt          # Format code
-mise run lint         # Run clippy
-mise run audit        # Security audit
-mise run deny         # License and dependency checks
+# Daily development (standard cargo commands)
+cargo test                              # Run tests
+cargo build                             # Build debug binary
+cargo build --release                   # Build release binary
+cargo clippy --workspace -- -D warnings # Lint code
+cargo fmt                               # Format code
 
-# Documentation
-mise run doc          # Generate API docs
-mise run coverage     # Generate code coverage
-
-# Release
-mise run build-release  # Optimized production build
+# Or use Make for convenience
+make help        # Show all available commands
+make test        # Run all tests
+make check       # Run all quality checks (fmt + clippy + test + audit)
+make dev         # Start dev server with auto-reload
+make ci          # Simulate CI checks locally
 ```
 
 **→ See [Building from Source](docs/guides/building.md) for detailed setup**

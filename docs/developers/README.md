@@ -141,36 +141,32 @@ API layer with REST and gRPC:
 ### Daily Development
 
 ```bash
-# Format code
-mise run fmt
+# Use standard cargo commands
+cargo test                              # Run tests
+cargo build                             # Build debug
+cargo build --release                   # Build release
+cargo clippy --workspace -- -D warnings # Lint
+cargo fmt                               # Format
 
-# Run linter
-mise run lint
-
-# Run tests
-mise run test
-
-# Run all checks (fmt + lint + test)
-mise run check
-
-# Start development server
-mise run dev
-
-# Build optimized release
-mise run build-release
+# Or use Make shortcuts
+make test        # Run all tests
+make check       # Run all checks
+make dev         # Start dev server with watch
+make help        # Show all commands
 ```
 
 ### Before Committing
 
 ```bash
 # Ensure everything passes
-mise run check
+make check       # fmt + clippy + test + audit
 
-# Run security audit
-mise run audit
-
-# Run dependency checks
-mise run deny
+# Or individually
+cargo fmt --check
+cargo clippy --workspace -- -D warnings
+cargo test --workspace
+cargo audit
+cargo deny check
 
 # Generate documentation
 ./scripts/generate-docs.sh

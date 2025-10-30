@@ -30,9 +30,8 @@ fn arb_string() -> impl Strategy<Value = String> {
         Just("../../../etc/passwd".to_string()),
         Just("..\\..\\..\\windows\\system32".to_string()),
         // Null bytes and control characters
-        prop::collection::vec(0u8..32u8, 1..20).prop_map(|v| {
-            String::from_utf8(v).unwrap_or_else(|_| String::from("invalid"))
-        }),
+        prop::collection::vec(0u8..32u8, 1..20)
+            .prop_map(|v| { String::from_utf8(v).unwrap_or_else(|_| String::from("invalid")) }),
     ]
 }
 

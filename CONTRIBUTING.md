@@ -34,17 +34,17 @@ git remote add upstream https://github.com/inferadb/server
 # Install Rust (if not already installed)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Install Mise for task automation
+# Install Mise for tool management
 curl https://mise.run | sh
 
-# Trust configuration and install dependencies
+# One-time setup (installs tools and dependencies)
 mise trust && mise install
 
 # Build the project
-mise run build
+cargo build
 
 # Run tests
-mise run test
+cargo test
 ```
 
 See [Building from Source](docs/guides/building.md) for detailed setup instructions.
@@ -71,23 +71,15 @@ git checkout -b fix/bug-description
 ### Before Committing
 
 ```bash
-# Format code
-mise run fmt
+# Use standard cargo commands
+cargo fmt
+cargo clippy --workspace -- -D warnings
+cargo test --workspace
+cargo audit
 
-# Run linter
-mise run lint
-
-# Run all tests
-mise run test
-
-# Run all checks (format + lint + test)
-mise run check
-
-# Run security audit
-mise run audit
-
-# Run dependency checks
-mise run deny
+# Or use Make to run all checks at once
+make check  # Runs fmt, clippy, test, audit
+make ci     # Simulates CI environment
 ```
 
 ### Commit Messages

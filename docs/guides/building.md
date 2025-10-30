@@ -55,50 +55,58 @@ cargo bench
 
 ## Development Setup
 
-### Using Mise (Recommended)
+### One-Time Setup with Mise (Recommended)
 
-Mise provides convenient task definitions:
+Mise installs all development tools automatically:
 
 ```bash
-# Install Mise
+# Install Mise (if not already installed)
 curl https://mise.run | sh
 
-# Install project dependencies
-mise install
+# One-time setup: installs Rust, cargo tools, protobuf
+mise trust && mise install
 
-# Run development server
-mise run dev
-
-# Run tests
-mise run test
-
-# Run linter
-mise run lint
-
-# Format code
-mise run fmt
+# That's it! Now use standard cargo commands
 ```
 
-### Manual Setup
+### Standard Development Commands
+
+Use standard cargo commands for daily development:
 
 ```bash
-# Build in release mode
-cargo build --release
+# Run tests
+cargo test                              # All tests
+cargo test --package infera-core        # Specific package
+cargo nextest run                       # Using nextest (faster)
 
-# Run specific tests
-cargo test --package infera-core
+# Build
+cargo build                             # Debug build
+cargo build --release                   # Release build
+cargo check                             # Check without building
 
-# Run specific benchmark
-cargo bench --package infera-core --bench evaluator
+# Code quality
+cargo clippy --workspace -- -D warnings # Lint
+cargo fmt                               # Format code
+cargo audit                             # Security audit
 
-# Check code without building
-cargo check
+# Development server with auto-reload
+cargo watch -x 'run --bin inferadb'
 
-# Run clippy linter
-cargo clippy
+# Benchmarks
+cargo bench                             # All benchmarks
+cargo bench --package infera-core       # Specific package
+```
 
-# Format code
-cargo fmt
+### Make Shortcuts (Optional)
+
+For convenience, use Make for common tasks:
+
+```bash
+make help        # Show all available commands
+make test        # Run all tests
+make check       # Run fmt + clippy + test + audit
+make dev         # Start dev server with watch
+make ci          # Simulate CI checks locally
 ```
 
 ## Project Structure

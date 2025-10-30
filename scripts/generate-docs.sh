@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Generate comprehensive Rustdoc documentation for all crates
+#
+# This script uses mise if available to ensure the correct Rust version,
+# but falls back to system cargo if mise is not installed.
 
 set -euo pipefail
 

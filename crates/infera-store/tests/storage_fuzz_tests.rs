@@ -25,11 +25,7 @@ fn arb_tuple() -> impl Strategy<Value = Tuple> {
             Just("'; DROP TABLE tuples; --".to_string()),
             Just("../../etc/passwd".to_string()),
         ],
-        prop_oneof![
-            "[a-z]{1,50}",
-            Just(String::new()),
-            "\\PC{1,30}",
-        ],
+        prop_oneof!["[a-z]{1,50}", Just(String::new()), "\\PC{1,30}",],
         prop_oneof![
             "[a-zA-Z0-9_:-]{1,100}",
             Just("user:*".to_string()),
