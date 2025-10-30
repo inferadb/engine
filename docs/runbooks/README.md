@@ -36,15 +36,6 @@ Each runbook follows this structure:
 
 ## Quick Reference
 
-### Emergency Contacts
-
-| Role               | Contact     | Escalation Time |
-| ------------------ | ----------- | --------------- |
-| On-call Engineer   | Pagerduty   | Immediate       |
-| Platform Team Lead | Email/Slack | 15 minutes      |
-| Database Team      | Email/Slack | 30 minutes      |
-| Security Team      | Email/Slack | 1 hour          |
-
 ### Common Commands
 
 ```bash
@@ -86,13 +77,3 @@ kubectl rollout restart deployment/inferadb -n inferadb
 | Request Latency (p99) | 100ms   | 500ms    |
 | Error Rate            | 0.5%    | 1%       |
 | Pod Restart Count     | 3/hour  | 10/hour  |
-
-## Contributing
-
-When adding new runbooks:
-
-1. Use the template in `runbook-template.md`
-2. Include real commands and examples
-3. Test procedures in staging first
-4. Get peer review before merging
-5. Update this README
