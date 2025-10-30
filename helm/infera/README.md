@@ -131,38 +131,38 @@ helm uninstall inferadb --namespace inferadb
 
 ### Global Parameters
 
-| Name | Description | Value |
-|------|-------------|-------|
-| `image.repository` | InferaDB image repository | `inferadb` |
-| `image.tag` | Image tag (overrides Chart appVersion) | `""` |
-| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
-| `replicaCount` | Number of replicas | `3` |
+| Name               | Description                            | Value          |
+| ------------------ | -------------------------------------- | -------------- |
+| `image.repository` | InferaDB image repository              | `inferadb`     |
+| `image.tag`        | Image tag (overrides Chart appVersion) | `""`           |
+| `image.pullPolicy` | Image pull policy                      | `IfNotPresent` |
+| `replicaCount`     | Number of replicas                     | `3`            |
 
 ### Service Parameters
 
-| Name | Description | Value |
-|------|-------------|-------|
-| `service.type` | Kubernetes service type | `ClusterIP` |
-| `service.port` | HTTP service port | `8080` |
-| `service.grpcPort` | gRPC service port | `8081` |
+| Name               | Description             | Value       |
+| ------------------ | ----------------------- | ----------- |
+| `service.type`     | Kubernetes service type | `ClusterIP` |
+| `service.port`     | HTTP service port       | `8080`      |
+| `service.grpcPort` | gRPC service port       | `8081`      |
 
 ### Autoscaling Parameters
 
-| Name | Description | Value |
-|------|-------------|-------|
-| `autoscaling.enabled` | Enable HPA | `true` |
-| `autoscaling.minReplicas` | Minimum replicas | `3` |
-| `autoscaling.maxReplicas` | Maximum replicas | `20` |
-| `autoscaling.targetCPUUtilizationPercentage` | Target CPU % | `70` |
+| Name                                         | Description      | Value  |
+| -------------------------------------------- | ---------------- | ------ |
+| `autoscaling.enabled`                        | Enable HPA       | `true` |
+| `autoscaling.minReplicas`                    | Minimum replicas | `3`    |
+| `autoscaling.maxReplicas`                    | Maximum replicas | `20`   |
+| `autoscaling.targetCPUUtilizationPercentage` | Target CPU %     | `70`   |
 
 ### InferaDB Configuration
 
-| Name | Description | Value |
-|------|-------------|-------|
-| `config.server.workerThreads` | Tokio worker threads | `4` |
-| `config.store.backend` | Storage backend | `memory` |
-| `config.cache.enabled` | Enable caching | `true` |
-| `config.auth.enabled` | Enable authentication | `true` |
+| Name                          | Description           | Value    |
+| ----------------------------- | --------------------- | -------- |
+| `config.server.workerThreads` | Tokio worker threads  | `4`      |
+| `config.store.backend`        | Storage backend       | `memory` |
+| `config.cache.enabled`        | Enable caching        | `true`   |
+| `config.auth.enabled`         | Enable authentication | `true`   |
 
 See [values.yaml](values.yaml) for complete list.
 
@@ -181,6 +181,7 @@ serviceMonitor:
 ### Grafana Dashboards
 
 Import dashboards from the repository:
+
 - [grafana/overview-dashboard.json](../../grafana/overview-dashboard.json)
 - [grafana/performance-dashboard.json](../../grafana/performance-dashboard.json)
 
@@ -189,6 +190,7 @@ Import dashboards from the repository:
 ### Pod Security
 
 The chart enforces security best practices:
+
 - Non-root user (UID 65532)
 - Read-only root filesystem
 - No privilege escalation
@@ -212,10 +214,10 @@ spec:
   target:
     name: inferadb-secrets
   data:
-  - secretKey: jwksUrl
-    remoteRef:
-      key: inferadb/prod/auth
-      property: jwks_url
+    - secretKey: jwksUrl
+      remoteRef:
+        key: inferadb/prod/auth
+        property: jwks_url
 ```
 
 ## Examples

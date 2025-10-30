@@ -86,12 +86,12 @@ Controls the HTTP/gRPC server behavior.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `host` | string | `"127.0.0.1"` | Bind address for the server |
-| `port` | integer | `8080` | Port to listen on |
-| `worker_threads` | integer | CPU count | Number of Tokio worker threads |
-| `rate_limiting_enabled` | boolean | `true` | Enable rate limiting middleware |
+| Option                  | Type    | Default       | Description                     |
+| ----------------------- | ------- | ------------- | ------------------------------- |
+| `host`                  | string  | `"127.0.0.1"` | Bind address for the server     |
+| `port`                  | integer | `8080`        | Port to listen on               |
+| `worker_threads`        | integer | CPU count     | Number of Tokio worker threads  |
+| `rate_limiting_enabled` | boolean | `true`        | Enable rate limiting middleware |
 
 ### Example
 
@@ -124,10 +124,10 @@ Controls the tuple storage backend.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `backend` | string | `"memory"` | Storage backend: `"memory"` or `"foundationdb"` |
-| `connection_string` | string (optional) | `null` | Connection string for FoundationDB cluster file path |
+| Option              | Type              | Default    | Description                                          |
+| ------------------- | ----------------- | ---------- | ---------------------------------------------------- |
+| `backend`           | string            | `"memory"` | Storage backend: `"memory"` or `"foundationdb"`      |
+| `connection_string` | string (optional) | `null`     | Connection string for FoundationDB cluster file path |
 
 ### Example
 
@@ -164,11 +164,11 @@ Controls the in-memory check result cache.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `true` | Enable caching |
-| `max_capacity` | integer | `10000` | Maximum number of cached entries |
-| `ttl_seconds` | integer | `300` | Time-to-live for cache entries (5 minutes) |
+| Option         | Type    | Default | Description                                |
+| -------------- | ------- | ------- | ------------------------------------------ |
+| `enabled`      | boolean | `true`  | Enable caching                             |
+| `max_capacity` | integer | `10000` | Maximum number of cached entries           |
+| `ttl_seconds`  | integer | `300`   | Time-to-live for cache entries (5 minutes) |
 
 ### Example
 
@@ -198,11 +198,11 @@ Controls logging, metrics, and tracing.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `log_level` | string | `"info"` | Log level: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"` |
-| `metrics_enabled` | boolean | `true` | Enable Prometheus metrics export |
-| `tracing_enabled` | boolean | `true` | Enable OpenTelemetry distributed tracing |
+| Option            | Type    | Default  | Description                                                    |
+| ----------------- | ------- | -------- | -------------------------------------------------------------- |
+| `log_level`       | string  | `"info"` | Log level: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"` |
+| `metrics_enabled` | boolean | `true`   | Enable Prometheus metrics export                               |
+| `tracing_enabled` | boolean | `true`   | Enable OpenTelemetry distributed tracing                       |
 
 ### Example
 
@@ -231,59 +231,59 @@ Controls JWT authentication, OAuth, and authorization.
 
 ### Core Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable authentication (disable for local development only) |
-| `jwks_cache_ttl` | integer | `300` | JWKS cache TTL in seconds |
-| `accepted_algorithms` | array | `["EdDSA", "RS256"]` | Accepted JWT signature algorithms |
-| `enforce_audience` | boolean | `true` | Enforce audience claim validation |
-| `audience` | string | `"https://api.inferadb.com/evaluate"` | Expected audience value |
-| `allowed_audiences` | array | `["https://api.inferadb.com/evaluate"]` | List of allowed audience values |
-| `enforce_scopes` | boolean | `true` | Enforce scope-based authorization |
-| `required_scopes` | array | `[]` | Required scopes for API access |
-| `replay_protection` | boolean | `false` | Enable replay attack protection (requires Redis) |
-| `require_jti` | boolean | `false` | Require JTI claim in all tokens |
+| Option                | Type    | Default                                 | Description                                                |
+| --------------------- | ------- | --------------------------------------- | ---------------------------------------------------------- |
+| `enabled`             | boolean | `false`                                 | Enable authentication (disable for local development only) |
+| `jwks_cache_ttl`      | integer | `300`                                   | JWKS cache TTL in seconds                                  |
+| `accepted_algorithms` | array   | `["EdDSA", "RS256"]`                    | Accepted JWT signature algorithms                          |
+| `enforce_audience`    | boolean | `true`                                  | Enforce audience claim validation                          |
+| `audience`            | string  | `"https://api.inferadb.com/evaluate"`   | Expected audience value                                    |
+| `allowed_audiences`   | array   | `["https://api.inferadb.com/evaluate"]` | List of allowed audience values                            |
+| `enforce_scopes`      | boolean | `true`                                  | Enforce scope-based authorization                          |
+| `required_scopes`     | array   | `[]`                                    | Required scopes for API access                             |
+| `replay_protection`   | boolean | `false`                                 | Enable replay attack protection (requires Redis)           |
+| `require_jti`         | boolean | `false`                                 | Require JTI claim in all tokens                            |
 
 ### JWKS Configuration
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `jwks_base_url` | string | `"https://auth.inferadb.com/.well-known"` | Base URL for JWKS discovery |
-| `jwks_url` | string | `""` | Direct JWKS endpoint URL (alternative to `jwks_base_url`) |
+| Option          | Type   | Default                                   | Description                                               |
+| --------------- | ------ | ----------------------------------------- | --------------------------------------------------------- |
+| `jwks_base_url` | string | `"https://auth.inferadb.com/.well-known"` | Base URL for JWKS discovery                               |
+| `jwks_url`      | string | `""`                                      | Direct JWKS endpoint URL (alternative to `jwks_base_url`) |
 
 ### OAuth Configuration
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `oauth_enabled` | boolean | `false` | Enable OAuth 2.0 token introspection |
-| `oidc_discovery_url` | string (optional) | `null` | OIDC discovery endpoint |
-| `oidc_client_id` | string (optional) | `null` | OIDC client ID |
-| `oidc_client_secret` | string (optional) | `null` | OIDC client secret |
-| `oidc_discovery_cache_ttl` | integer | `86400` | OIDC discovery cache TTL (24 hours) |
-| `introspection_url` | string (optional) | `null` | OAuth introspection endpoint |
-| `introspection_cache_ttl` | integer | `60` | Introspection result cache TTL (1 minute) |
-| `oauth_introspection_endpoint` | string (optional) | `null` | Legacy introspection endpoint |
-| `oauth_introspection_client_id` | string (optional) | `null` | Legacy client ID |
-| `oauth_introspection_client_secret` | string (optional) | `null` | Legacy client secret |
+| Option                              | Type              | Default | Description                               |
+| ----------------------------------- | ----------------- | ------- | ----------------------------------------- |
+| `oauth_enabled`                     | boolean           | `false` | Enable OAuth 2.0 token introspection      |
+| `oidc_discovery_url`                | string (optional) | `null`  | OIDC discovery endpoint                   |
+| `oidc_client_id`                    | string (optional) | `null`  | OIDC client ID                            |
+| `oidc_client_secret`                | string (optional) | `null`  | OIDC client secret                        |
+| `oidc_discovery_cache_ttl`          | integer           | `86400` | OIDC discovery cache TTL (24 hours)       |
+| `introspection_url`                 | string (optional) | `null`  | OAuth introspection endpoint              |
+| `introspection_cache_ttl`           | integer           | `60`    | Introspection result cache TTL (1 minute) |
+| `oauth_introspection_endpoint`      | string (optional) | `null`  | Legacy introspection endpoint             |
+| `oauth_introspection_client_id`     | string (optional) | `null`  | Legacy client ID                          |
+| `oauth_introspection_client_secret` | string (optional) | `null`  | Legacy client secret                      |
 
 ### Internal Service JWT
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `internal_jwks_path` | string (optional) | `null` | Path to internal JWKS file |
-| `internal_jwks_env` | string (optional) | `"INFERADB_INTERNAL_JWKS"` | Environment variable containing internal JWKS |
-| `internal_issuer` | string | `"https://internal.inferadb.com"` | Expected issuer for internal JWTs |
-| `internal_audience` | string | `"https://api.inferadb.com/internal"` | Expected audience for internal JWTs |
+| Option               | Type              | Default                               | Description                                   |
+| -------------------- | ----------------- | ------------------------------------- | --------------------------------------------- |
+| `internal_jwks_path` | string (optional) | `null`                                | Path to internal JWKS file                    |
+| `internal_jwks_env`  | string (optional) | `"INFERADB_INTERNAL_JWKS"`            | Environment variable containing internal JWKS |
+| `internal_issuer`    | string            | `"https://internal.inferadb.com"`     | Expected issuer for internal JWTs             |
+| `internal_audience`  | string            | `"https://api.inferadb.com/internal"` | Expected audience for internal JWTs           |
 
 ### Security Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `clock_skew_seconds` | integer (optional) | `60` | Clock skew tolerance for timestamp validation |
+| Option                  | Type               | Default | Description                                    |
+| ----------------------- | ------------------ | ------- | ---------------------------------------------- |
+| `clock_skew_seconds`    | integer (optional) | `60`    | Clock skew tolerance for timestamp validation  |
 | `max_token_age_seconds` | integer (optional) | `86400` | Maximum token age from `iat` to now (24 hours) |
-| `issuer_allowlist` | array (optional) | `null` | Only accept tokens from these issuers |
-| `issuer_blocklist` | array (optional) | `null` | Reject tokens from these issuers |
-| `redis_url` | string (optional) | `null` | Redis URL for replay protection |
+| `issuer_allowlist`      | array (optional)   | `null`  | Only accept tokens from these issuers          |
+| `issuer_blocklist`      | array (optional)   | `null`  | Reject tokens from these issuers               |
+| `redis_url`             | string (optional)  | `null`  | Redis URL for replay protection                |
 
 ### Example - Development (No Auth)
 
@@ -575,22 +575,26 @@ oidc_discovery_cache_ttl = 86400
 ### Security
 
 1. **Never disable authentication in production**
+
    - Set `auth.enabled = true`
    - Use strong signature algorithms (EdDSA, RS256, ES256)
    - Never use symmetric algorithms (HS256, HS384, HS512)
 
 2. **Use secrets management**
+
    - Never commit secrets to configuration files
    - Use `${SECRET_NAME}` syntax for sensitive values
    - Use cloud secret managers (AWS/GCP/Azure) in production
    - Rotate secrets regularly
 
 3. **Enable replay protection**
+
    - Set `auth.replay_protection = true` in production
    - Configure Redis for distributed replay protection
    - Require JTI claims: `auth.require_jti = true`
 
 4. **Validate audiences and issuers**
+
    - Set `auth.enforce_audience = true`
    - Configure `auth.allowed_audiences` with specific values
    - Use `auth.issuer_allowlist` to restrict trusted issuers
@@ -604,11 +608,13 @@ oidc_discovery_cache_ttl = 86400
 ### Performance
 
 1. **Tune worker threads**
+
    - Set `server.worker_threads` to 2× CPU cores for CPU-bound workloads
    - Set to 4-8× CPU cores for I/O-bound workloads
    - Monitor CPU utilization and adjust
 
 2. **Optimize cache settings**
+
    - Increase `cache.max_capacity` for large datasets
    - Adjust `cache.ttl_seconds` based on update frequency
    - Monitor cache hit rate (target >80%)
@@ -621,11 +627,13 @@ oidc_discovery_cache_ttl = 86400
 ### Observability
 
 1. **Enable metrics and tracing**
+
    - Set `observability.metrics_enabled = true`
    - Set `observability.tracing_enabled = true`
    - Export to Prometheus and Jaeger/Zipkin
 
 2. **Choose appropriate log level**
+
    - Use `"info"` in production
    - Use `"debug"` for troubleshooting
    - Use `"warn"` or `"error"` for production with low disk space
@@ -640,15 +648,18 @@ oidc_discovery_cache_ttl = 86400
 ### Operations
 
 1. **Use environment variables for secrets**
+
    - Easier to rotate without config file changes
    - Better integration with orchestration platforms
 
 2. **Test configuration before deploying**
+
    - Validate configuration syntax
    - Test authentication with real tokens
    - Load test with production-like data
 
 3. **Use hot reload carefully**
+
    - Test configuration changes in staging first
    - Monitor logs for validation errors after reload
    - Keep a backup of the previous config

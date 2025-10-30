@@ -98,6 +98,7 @@ All policy functions must have this signature:
 ```
 
 **Return Value**:
+
 - `0` = Deny
 - Non-zero (typically `1`) = Allow
 
@@ -350,6 +351,7 @@ InferaDB uses wasmtime's "fuel" mechanism to limit CPU usage:
 **Default Fuel**: 1,000,000 instructions
 
 **Typical Usage**:
+
 - Simple policy: ~100-1,000 fuel
 - Complex policy: ~10,000-100,000 fuel
 
@@ -406,6 +408,7 @@ When the evaluator encounters a WASM relation:
 ### Execution Time
 
 **Typical Latencies**:
+
 - Module loading: <10ms (one-time cost)
 - Module compilation: <50ms (one-time cost, JIT)
 - Function execution: <1ms for simple policies
@@ -625,6 +628,7 @@ pub extern "C" fn check() -> i32 {
 ### 1. Keep Modules Simple
 
 Simple modules are:
+
 - Faster to compile
 - Easier to test
 - More maintainable

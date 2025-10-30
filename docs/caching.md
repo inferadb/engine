@@ -5,6 +5,7 @@ InferaDB includes an intelligent caching layer that dramatically improves author
 ## Overview
 
 The caching system uses:
+
 - **LRU eviction** with time-based expiration (Moka async cache)
 - **Revision-based keys** for correctness guarantees
 - **Automatic invalidation** on writes
@@ -74,16 +75,19 @@ pub struct CacheConfig {
 ### Configuration Options
 
 **Max Capacity** - Maximum number of entries before eviction:
+
 ```rust
 AuthCache::with_capacity(100_000)  // 100k entries
 ```
 
 **TTL (Time To Live)** - Entry expires after this duration:
+
 ```rust
 AuthCache::with_ttl(Duration::from_secs(600))  // 10 minutes
 ```
 
 **TTI (Time To Idle)** - Entry expires if not accessed:
+
 ```rust
 AuthCache::with_tti(Duration::from_secs(120))  // 2 minutes
 ```
@@ -185,17 +189,20 @@ cache.invalidate_before(revision).await;
 ### Invalidation Strategies
 
 **Revision-based (Default)**:
+
 - Cache keys include revision number
 - Old entries become unreachable automatically
 - Memory is reclaimed by LRU eviction
 
 **Selective invalidation (Recommended)**:
+
 - Only invalidates entries for modified resources
 - Uses secondary index to track resource -> cache key mappings
 - More efficient than invalidating all entries
 - Maintains high hit rates during writes
 
 **Eager invalidation (Optional)**:
+
 - Call `invalidate_all()` after writes
 - Frees memory immediately
 - May cause cache thrashing under high write load
@@ -222,6 +229,7 @@ cache.invalidate_resources(&resources).await;
 ```
 
 This is significantly more efficient than invalidating all entries, especially when:
+
 - You have a large cache
 - Writes affect only a small subset of resources
 - You want to maintain high hit rates during write operations
@@ -230,25 +238,26 @@ This is significantly more efficient than invalidating all entries, especially w
 
 ### Latency
 
-| Operation | Latency |
-|-----------|---------|
-| Cache hit | <100μs |
-| Cache miss + store | <1ms |
-| Cache write | <50μs |
+| Operation          | Latency |
+| ------------------ | ------- |
+| Cache hit          | <100μs  |
+| Cache miss + store | <1ms    |
+| Cache write        | <50μs   |
 
 ### Hit Rates
 
 Typical hit rates depend on workload:
 
-| Workload | Expected Hit Rate |
-|----------|-------------------|
-| Read-heavy | >90% |
-| Mixed | 70-80% |
-| Write-heavy | 50-70% |
+| Workload    | Expected Hit Rate |
+| ----------- | ----------------- |
+| Read-heavy  | >90%              |
+| Mixed       | 70-80%            |
+| Write-heavy | 50-70%            |
 
 ### Memory Usage
 
 Memory per cached entry:
+
 ```
 Entry size ≈ sizeof(CheckCacheKey) + sizeof(Decision) + overhead
           ≈ (50-100 bytes) + 1 byte + ~50 bytes
@@ -293,14 +302,17 @@ metrics::gauge!("cache_hit_rate", stats.hit_rate);
 Set up alerts for:
 
 **Low hit rate**: `cache_hit_rate < 50%`
+
 - May indicate cache is too small
 - Or workload has changed
 
 **High memory usage**: `cache_size_bytes > threshold`
+
 - Reduce max_capacity
 - Decrease TTL
 
 **High miss rate**: `cache_misses > threshold`
+
 - Cache warming may be needed
 - Consider increasing capacity
 
@@ -388,11 +400,13 @@ if stats.hit_rate < 0.5 {
 ### 2. Tune TTL Based on Workload
 
 **Short TTL** (30-60s):
+
 - High write rate
 - Strong consistency requirements
 - Lower memory usage
 
 **Long TTL** (5-10m):
+
 - Read-heavy workload
 - Eventual consistency acceptable
 - Better hit rates
@@ -430,6 +444,7 @@ result
 ### 5. Size the Cache Appropriately
 
 Rule of thumb:
+
 - 1% of total tuple count for typical workloads
 - 10% for read-heavy workloads
 - Monitor memory usage and adjust
@@ -441,12 +456,14 @@ Rule of thumb:
 **Symptoms**: `hit_rate < 50%`
 
 **Causes**:
+
 1. Cache too small (entries evicted too quickly)
 2. High write rate (many revisions)
 3. Queries not repeating
 4. TTL too short
 
 **Solutions**:
+
 - Increase `max_capacity`
 - Increase `ttl_seconds`
 - Analyze query patterns
@@ -457,11 +474,13 @@ Rule of thumb:
 **Symptoms**: Cache using too much memory
 
 **Causes**:
+
 1. `max_capacity` too high
 2. TTL too long
 3. Large cache keys (long strings)
 
 **Solutions**:
+
 - Reduce `max_capacity`
 - Reduce `ttl_seconds`
 - Implement cache entry size limits
@@ -472,11 +491,13 @@ Rule of thumb:
 **Symptoms**: Checks returning incorrect results
 
 **Causes**:
+
 1. Not including revision in cache key
 2. Clock skew between nodes
 3. Cache not invalidated after writes
 
 **Solutions**:
+
 - Always use revision-based keys
 - Synchronize clocks (NTP)
 - Call `invalidate_all()` after writes in critical paths
@@ -486,11 +507,13 @@ Rule of thumb:
 **Symptoms**: High miss rate despite sufficient capacity
 
 **Causes**:
+
 1. Frequent invalidations
 2. Working set larger than cache
 3. Poor cache key distribution
 
 **Solutions**:
+
 - Increase cache size
 - Review invalidation strategy
 - Partition cache by tenant/resource

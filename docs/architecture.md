@@ -45,6 +45,7 @@ InferaDB is a high-performance authorization service that implements Relationshi
 The API layer provides external interfaces for authorization queries and tuple management.
 
 **REST API** (`src/lib.rs`):
+
 - `/check` - Check if a subject has permission
 - `/expand` - Expand a relation into its constituent relationships
 - `/write` - Write authorization tuples
@@ -52,6 +53,7 @@ The API layer provides external interfaces for authorization queries and tuple m
 - JSON request/response format
 
 **gRPC API** (`src/grpc.rs`):
+
 - High-performance binary protocol
 - Same operations as REST API
 - Built with Tonic framework
@@ -62,12 +64,14 @@ The API layer provides external interfaces for authorization queries and tuple m
 The heart of InferaDB, responsible for policy evaluation and authorization decisions.
 
 **IPL Parser** (`src/ipl/`):
+
 - Parses IPL (Infera Policy Language) schemas
 - Uses Pest parser generator
 - Validates semantic correctness
 - Builds Abstract Syntax Tree (AST)
 
 **Policy Evaluator** (`src/evaluator.rs`):
+
 - Evaluates authorization checks
 - Implements graph traversal algorithms
 - Supports all relation types:
@@ -79,6 +83,7 @@ The heart of InferaDB, responsible for policy evaluation and authorization decis
 - Provides decision tracing for debugging
 
 **Query Optimizer** (`src/optimizer.rs`):
+
 - Analyzes relation definitions
 - Creates optimal query plans
 - Estimates query costs
@@ -86,6 +91,7 @@ The heart of InferaDB, responsible for policy evaluation and authorization decis
 - Suggests optimizations for expensive queries
 
 **Parallel Evaluator** (`src/parallel.rs`):
+
 - Executes relation branches in parallel
 - Manages concurrency limits
 - Implements early exit optimizations
@@ -96,6 +102,7 @@ The heart of InferaDB, responsible for policy evaluation and authorization decis
 Manages tuple storage with revision tracking for snapshot consistency.
 
 **Tuple Store Trait** (`src/lib.rs`):
+
 ```rust
 #[async_trait]
 pub trait TupleStore: Send + Sync {
@@ -106,12 +113,14 @@ pub trait TupleStore: Send + Sync {
 ```
 
 **Memory Backend** (`src/memory.rs`):
+
 - In-memory implementation for testing/development
 - BTreeMap-based indexing for fast lookups
 - Full revision history
 - Optimized for reads with RwLock
 
 **FoundationDB Backend** (`src/foundationdb.rs`):
+
 - Production-ready distributed storage (WIP)
 - ACID transactions
 - Horizontal scalability
@@ -121,6 +130,7 @@ pub trait TupleStore: Send + Sync {
 Intelligent caching of authorization results with automatic invalidation.
 
 **Features**:
+
 - LRU eviction with TTL expiration (Moka async cache)
 - Revision-based cache keys for correctness
 - Automatic invalidation on writes
@@ -128,6 +138,7 @@ Intelligent caching of authorization results with automatic invalidation.
 - Statistics reporting
 
 **Cache Key Design**:
+
 ```rust
 struct CheckCacheKey {
     subject: String,
@@ -142,6 +153,7 @@ struct CheckCacheKey {
 Secure execution of custom policy logic using WebAssembly.
 
 **Sandbox** (`src/sandbox.rs`):
+
 - Wasmtime-based isolation
 - Configurable resource limits:
   - Memory (default: 10MB)
@@ -150,6 +162,7 @@ Secure execution of custom policy logic using WebAssembly.
 - Host functions available to WASM modules
 
 **Host Functions** (`src/host.rs`):
+
 - `log(ptr, len)` - Logging from WASM
 - Execution context passed at invocation
 - Safe memory access with bounds checking
@@ -159,12 +172,14 @@ Secure execution of custom policy logic using WebAssembly.
 Consistency management and replication infrastructure.
 
 **Revision Tokens** (`src/token.rs`):
+
 - Zookie-style tokens for snapshot consistency
 - Vector clocks for causality tracking
 - Base64-encoded JSON serialization
 - Validation and causality checking
 
 **Snapshot Reader** (`src/snapshot.rs`):
+
 - Read-at-specific-revision support
 - Blocking with timeout for unavailable revisions
 - Enables linearizable reads
@@ -174,6 +189,7 @@ Consistency management and replication infrastructure.
 Metrics, tracing, and logging infrastructure.
 
 **Features**:
+
 - OpenTelemetry integration
 - Prometheus metrics export
 - Structured logging with tracing
@@ -325,17 +341,21 @@ InferaDB is built on Tokio's async runtime:
 ## Trade-offs
 
 ### In-Memory Store
+
 - **Pro**: Extremely fast (<1ms operations)
 - **Con**: Limited by single-node memory, no persistence
 
 ### FoundationDB Store
+
 - **Pro**: Distributed, durable, ACID transactions
 - **Con**: Higher latency (~5-10ms), operational complexity
 
 ### Graph Evaluation
+
 - **Pro**: Expressive, supports complex authorization models
 - **Con**: Evaluation cost grows with graph depth
 
 ### Caching
+
 - **Pro**: Massive performance improvement
 - **Con**: Memory usage, invalidation complexity

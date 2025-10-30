@@ -154,8 +154,8 @@ http {
 ```yaml
 # AWS API Gateway throttling settings
 throttle:
-  rateLimit: 1000  # requests per second
-  burstLimit: 2000  # max concurrent requests
+  rateLimit: 1000 # requests per second
+  burstLimit: 2000 # max concurrent requests
 ```
 
 ### Issuer and Audience Configuration
@@ -319,10 +319,10 @@ contacts:
 
 Before going to production, the following stakeholders must sign off:
 
-- [ ] **Security Team Lead**: ___________________ Date: __________
-- [ ] **Engineering Manager**: ___________________ Date: __________
-- [ ] **DevOps Lead**: __________________________ Date: __________
-- [ ] **Compliance Officer** (if applicable): _____ Date: __________
+- [ ] **Security Team Lead**: **\*\*\*\***\_\_\_**\*\*\*\*** Date: \***\*\_\_\*\***
+- [ ] **Engineering Manager**: **\*\*\*\***\_\_\_**\*\*\*\*** Date: \***\*\_\_\*\***
+- [ ] **DevOps Lead**: \***\*\*\*\*\*\*\***\_\_\***\*\*\*\*\*\*\*** Date: \***\*\_\_\*\***
+- [ ] **Compliance Officer** (if applicable): **\_** Date: \***\*\_\_\*\***
 
 ---
 

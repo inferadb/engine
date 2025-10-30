@@ -9,6 +9,7 @@ This directory contains pre-built Grafana dashboards for monitoring InferaDB in 
 **Purpose**: High-level view of system health and SLO compliance
 
 **Key Metrics**:
+
 - SLO compliance summary (availability, latency, error rate, cache hit rate)
 - Request rate and error rate trends
 - Latency percentiles (p50, p90, p99, p99.9)
@@ -29,6 +30,7 @@ This directory contains pre-built Grafana dashboards for monitoring InferaDB in 
 **Purpose**: Deep dive into performance characteristics and bottlenecks
 
 **Key Metrics**:
+
 - Request latency heatmap
 - Latency by percentile with SLO targets
 - Storage read/write latency
@@ -50,6 +52,7 @@ This directory contains pre-built Grafana dashboards for monitoring InferaDB in 
 **Purpose**: Monitor multi-region replication health and performance
 
 **Key Metrics**:
+
 - Replication lag by region
 - Replication target health
 - Changes replicated per second
@@ -72,6 +75,7 @@ This directory contains pre-built Grafana dashboards for monitoring InferaDB in 
 **Purpose**: Track errors, debug issues, and monitor error budget
 
 **Key Metrics**:
+
 - Error rate overview (5xx, 4xx)
 - Error budget burn rate (1h, 24h)
 - Errors by type and HTTP status code
@@ -92,6 +96,7 @@ This directory contains pre-built Grafana dashboards for monitoring InferaDB in 
 **Purpose**: Monitor cache performance and optimize hit rates
 
 **Key Metrics**:
+
 - Cache hit rate
 - Cache operations (hits, misses, evictions)
 - Cache size and entry count
@@ -152,9 +157,9 @@ Create a provisioning file:
 apiVersion: 1
 
 providers:
-  - name: 'InferaDB'
+  - name: "InferaDB"
     orgId: 1
-    folder: 'InferaDB'
+    folder: "InferaDB"
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
@@ -255,6 +260,7 @@ Some panels include embedded alerts that will fire when SLOs are violated. To en
 3. Alert conditions are pre-configured in the dashboards
 
 **Panels with alerts**:
+
 - **Overview**: p99 Latency SLO
 - **Performance**: (no embedded alerts, use Prometheus alerting)
 - **Replication**: Replication Lag SLO
@@ -281,18 +287,21 @@ Some panels include embedded alerts that will fire when SLOs are violated. To en
 All queries use standard PromQL. Common modifications:
 
 **Change time range**:
+
 ```promql
 # Change from 5m to 1m
 rate(inferadb_checks_total[1m])
 ```
 
 **Add filters**:
+
 ```promql
 # Filter by region
 rate(inferadb_checks_total{region="us-west-1"}[5m])
 ```
 
 **Aggregate differently**:
+
 ```promql
 # Sum by different label
 sum by (method) (rate(inferadb_checks_total[5m]))
@@ -320,11 +329,13 @@ Update thresholds in panel field config:
 We recommend organizing dashboards in folders:
 
 - **Folder**: `InferaDB - Production`
+
   - Overview Dashboard
   - Errors Dashboard
   - Replication Dashboard (if multi-region)
 
 - **Folder**: `InferaDB - Performance`
+
   - Performance Dashboard
   - Cache Dashboard
 
@@ -338,6 +349,7 @@ We recommend organizing dashboards in folders:
 ### 1. Use Time Range Picker
 
 Set appropriate time ranges for different use cases:
+
 - **Real-time monitoring**: Last 15 minutes
 - **Incident investigation**: Last 1-6 hours
 - **Performance analysis**: Last 24 hours
@@ -346,6 +358,7 @@ Set appropriate time ranges for different use cases:
 ### 2. Refresh Rates
 
 Adjust refresh rates based on use case:
+
 - **War room display**: 10-30 seconds
 - **Daily monitoring**: 1-5 minutes
 - **Historical analysis**: No auto-refresh
@@ -417,6 +430,7 @@ Link panels to related dashboards:
 **Cause**: Prometheus not scraping InferaDB metrics
 
 **Fix**:
+
 1. Check Prometheus targets: `http://prometheus:9090/targets`
 2. Verify InferaDB is exporting metrics: `curl http://localhost:9090/metrics`
 3. Check Prometheus scrape config includes InferaDB
@@ -426,6 +440,7 @@ Link panels to related dashboards:
 **Cause**: High cardinality metrics or long time ranges
 
 **Fix**:
+
 1. Reduce time range
 2. Increase evaluation interval in panel settings
 3. Use recording rules for expensive queries
@@ -436,6 +451,7 @@ Link panels to related dashboards:
 **Cause**: Grafana alerting not configured
 
 **Fix**:
+
 1. Enable alerting in `grafana.ini`:
    ```ini
    [alerting]
@@ -449,6 +465,7 @@ Link panels to related dashboards:
 **Cause**: Metric names changed or new metrics added
 
 **Fix**:
+
 1. Check latest metric names: `curl http://localhost:9090/metrics | grep inferadb`
 2. Update dashboard queries to match
 3. Re-export and re-import dashboard
@@ -460,6 +477,7 @@ Link panels to related dashboards:
 ### Regular Updates
 
 Update dashboards when:
+
 - New metrics are added
 - SLO targets change
 - New features are released

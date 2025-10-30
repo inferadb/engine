@@ -95,11 +95,13 @@ kubectl scale deployment inferadb --replicas=5 -n inferadb
 ### Autoscaling
 
 HPA is configured to scale based on:
+
 - CPU utilization (target: 70%)
 - Memory utilization (target: 80%)
 - Request rate (target: 1000 RPS)
 
 Limits:
+
 - Min replicas: 3
 - Max replicas: 20
 
@@ -108,18 +110,21 @@ Limits:
 The deployment includes three health probes:
 
 ### Liveness Probe
+
 - Path: `/health/live`
 - Initial delay: 10s
 - Period: 10s
 - Indicates if the pod is alive
 
 ### Readiness Probe
+
 - Path: `/health/ready`
 - Initial delay: 5s
 - Period: 5s
 - Indicates if the pod can serve traffic
 
 ### Startup Probe
+
 - Path: `/health/startup`
 - Initial delay: 0s
 - Period: 5s
@@ -132,19 +137,21 @@ The deployment includes three health probes:
 
 ```yaml
 env:
-- name: INFERA__STORE__BACKEND
-  value: "memory"
+  - name: INFERA__STORE__BACKEND
+    value: "memory"
 ```
 
 ### FoundationDB (Production)
 
 1. Install FoundationDB Operator:
+
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
 kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/samples/deployment.yaml
 ```
 
 2. Create FDB cluster:
+
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
@@ -159,6 +166,7 @@ spec:
 ```
 
 3. Update ConfigMap with cluster file location:
+
 ```yaml
 INFERA__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
 ```
@@ -190,13 +198,14 @@ spec:
     matchLabels:
       app: inferadb
   endpoints:
-  - port: metrics
-    interval: 30s
+    - port: metrics
+      interval: 30s
 ```
 
 ### Grafana Dashboards
 
 Import dashboards from `../grafana/`:
+
 - Overview dashboard
 - Performance dashboard
 - Errors dashboard
@@ -227,27 +236,27 @@ spec:
     matchLabels:
       app: inferadb
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
   ingress:
-  - from:
-    - podSelector: {}
-    ports:
-    - port: 8080
-    - port: 8081
+    - from:
+        - podSelector: {}
+      ports:
+        - port: 8080
+        - port: 8081
   egress:
-  - to:
-    - podSelector:
-        matchLabels:
-          app: foundationdb
-    ports:
-    - port: 4500
-  - to:
-    - podSelector:
-        matchLabels:
-          app: redis
-    ports:
-    - port: 6379
+    - to:
+        - podSelector:
+            matchLabels:
+              app: foundationdb
+      ports:
+        - port: 4500
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - port: 6379
 ```
 
 ## Troubleshooting
@@ -308,6 +317,7 @@ kubectl rollout undo deployment/inferadb -n inferadb
 ### Zero-Downtime Deployment
 
 The deployment is configured for zero-downtime updates:
+
 - `maxUnavailable: 0` ensures at least one pod is always running
 - `maxSurge: 1` allows one extra pod during rollout
 - PodDisruptionBudget ensures minimum 2 pods available

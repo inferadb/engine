@@ -93,6 +93,7 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: The host address to bind the server to.
 
 **Examples**:
+
 - `"127.0.0.1"` - Localhost only (development)
 - `"0.0.0.0"` - All interfaces (production)
 - `"192.168.1.100"` - Specific interface
@@ -106,6 +107,7 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: The port for the REST API server. The gRPC server will use `port + 1`.
 
 **Examples**:
+
 - `8080` - REST API on 8080, gRPC on 8081
 - `3000` - REST API on 3000, gRPC on 3001
 
@@ -118,6 +120,7 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: Number of worker threads for the Tokio runtime.
 
 **Recommendations**:
+
 - Development: 2-4 threads
 - Production: Number of CPU cores
 - High-load: 2x CPU cores
@@ -135,6 +138,7 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: The storage backend to use.
 
 **Options**:
+
 - `"memory"` - In-memory storage (default)
 - `"foundationdb"` - FoundationDB (requires FDB client libraries)
 
@@ -149,6 +153,7 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: Connection string for the storage backend.
 
 **Examples**:
+
 - Memory: Not used (null)
 - FoundationDB: Path to cluster file (e.g., `"/etc/foundationdb/fdb.cluster"`)
 
@@ -165,6 +170,7 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: Enable or disable result caching.
 
 **Recommendations**:
+
 - Development: `true` (for realistic performance)
 - Production: `true` (significant performance improvement)
 - Testing: `false` (for predictable behavior)
@@ -178,11 +184,13 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: Maximum number of cached entries.
 
 **Recommendations**:
+
 - Small deployments: 1,000 - 10,000
 - Medium deployments: 10,000 - 100,000
 - Large deployments: 100,000 - 1,000,000
 
 **Memory Usage**: Approximately 200-500 bytes per entry
+
 - 10,000 entries ≈ 2-5 MB
 - 100,000 entries ≈ 20-50 MB
 - 1,000,000 entries ≈ 200-500 MB
@@ -196,11 +204,13 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: Time-to-live for cached entries in seconds.
 
 **Recommendations**:
+
 - Low-latency workloads: 60-300 seconds (1-5 minutes)
 - Standard workloads: 300-600 seconds (5-10 minutes)
 - Static data: 3600+ seconds (1+ hour)
 
 **Trade-offs**:
+
 - **Shorter TTL**: More consistent data, higher database load
 - **Longer TTL**: Better performance, potentially stale data
 
@@ -219,6 +229,7 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 **Description**: Logging level for the application.
 
 **Options**:
+
 - `"error"` - Errors only
 - `"warn"` - Warnings and errors
 - `"info"` - Informational, warnings, and errors (recommended)
@@ -255,6 +266,7 @@ export RUST_LOG="infera=debug,infera_api=info,infera_store=warn"
 **Environment Variable**: `INFERA__OBSERVABILITY__TRACING_ENABLED`
 
 **Additional Configuration** (via environment variables):
+
 - `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP endpoint (e.g., `http://localhost:4317`)
 - `OTEL_SERVICE_NAME` - Service name (default: `inferadb`)
 
@@ -296,7 +308,7 @@ Optimized for production deployment:
 server:
   host: "0.0.0.0"
   port: 8080
-  worker_threads: 8  # Adjust based on CPU cores
+  worker_threads: 8 # Adjust based on CPU cores
 
 store:
   backend: "foundationdb"
@@ -327,7 +339,7 @@ store:
   backend: "memory"
 
 cache:
-  enabled: false  # Disable caching for predictable tests
+  enabled: false # Disable caching for predictable tests
 
 observability:
   log_level: "warn"
@@ -419,6 +431,7 @@ export INFERA__STORE__CONNECTION_STRING="$(cat /etc/inferadb/secrets/db_password
 ### External Secret Managers
 
 **Future Support**:
+
 - AWS Secrets Manager
 - Google Secret Manager
 - HashiCorp Vault
@@ -433,7 +446,7 @@ export INFERA__STORE__CONNECTION_STRING="$(cat /etc/inferadb/secrets/db_password
 **docker-compose.yml**:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   inferadb:
     image: inferadb:latest
@@ -502,24 +515,24 @@ spec:
   template:
     spec:
       containers:
-      - name: inferadb
-        image: inferadb:latest
-        ports:
-        - containerPort: 8080
-        - containerPort: 8081
-        env:
-        - name: INFERA__STORE__CONNECTION_STRING
-          valueFrom:
-            secretKeyRef:
-              name: inferadb-secrets
-              key: connection-string
-        volumeMounts:
-        - name: config
-          mountPath: /etc/inferadb
+        - name: inferadb
+          image: inferadb:latest
+          ports:
+            - containerPort: 8080
+            - containerPort: 8081
+          env:
+            - name: INFERA__STORE__CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: inferadb-secrets
+                  key: connection-string
+          volumeMounts:
+            - name: config
+              mountPath: /etc/inferadb
       volumes:
-      - name: config
-        configMap:
-          name: inferadb-config
+        - name: config
+          configMap:
+            name: inferadb-config
 ```
 
 ## Performance Tuning
@@ -530,7 +543,7 @@ spec:
 
 ```yaml
 server:
-  worker_threads: 8  # For 4-8 core machine
+  worker_threads: 8 # For 4-8 core machine
 ```
 
 **Benchmark** to find optimal value:
@@ -556,8 +569,8 @@ wrk -t 8 -c 100 -d 30s http://localhost:8080/check
 ```yaml
 cache:
   enabled: true
-  max_capacity: 500000  # Large cache
-  ttl_seconds: 600      # 10 minutes
+  max_capacity: 500000 # Large cache
+  ttl_seconds: 600 # 10 minutes
 ```
 
 **Low-latency workloads**:
@@ -566,7 +579,7 @@ cache:
 cache:
   enabled: true
   max_capacity: 100000
-  ttl_seconds: 60       # 1 minute for freshness
+  ttl_seconds: 60 # 1 minute for freshness
 ```
 
 ### Storage Backend
@@ -627,12 +640,13 @@ export INFERA__SERVER__PORT=8081
 
 ```yaml
 cache:
-  max_capacity: 10000  # Reduce from 100000
+  max_capacity: 10000 # Reduce from 100000
 ```
 
 ### Slow Performance
 
 **Check**:
+
 1. Cache enabled: `cache.enabled = true`
 2. Cache hit rate: Check `/metrics` endpoint
 3. Worker threads: Increase for high load
@@ -641,10 +655,10 @@ cache:
 
 ```yaml
 server:
-  worker_threads: 16  # Increase for high load
+  worker_threads: 16 # Increase for high load
 
 cache:
-  max_capacity: 200000  # Larger cache
+  max_capacity: 200000 # Larger cache
 ```
 
 ## Best Practices

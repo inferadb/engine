@@ -479,13 +479,13 @@ grpcurl -plaintext -d '{
 
 gRPC uses status codes to indicate errors. InferaDB returns the following codes:
 
-| Code | Description |
-|------|-------------|
-| `OK` (0) | Success |
-| `INVALID_ARGUMENT` (3) | Invalid request parameters |
-| `NOT_FOUND` (5) | Resource or relation not found |
-| `INTERNAL` (13) | Internal server error |
-| `UNAVAILABLE` (14) | Service temporarily unavailable |
+| Code                   | Description                     |
+| ---------------------- | ------------------------------- |
+| `OK` (0)               | Success                         |
+| `INVALID_ARGUMENT` (3) | Invalid request parameters      |
+| `NOT_FOUND` (5)        | Resource or relation not found  |
+| `INTERNAL` (13)        | Internal server error           |
+| `UNAVAILABLE` (14)     | Service temporarily unavailable |
 
 **Example Error (Go)**:
 
@@ -711,6 +711,7 @@ client.close()
 ## Performance Characteristics
 
 **Latency** (p99):
+
 - `Health`: <1ms
 - `Check` (cached): <0.5ms
 - `Check` (uncached, simple): <2ms
@@ -721,10 +722,12 @@ client.close()
 - `Delete`: <3ms
 
 **Throughput**:
+
 - Sustained: 50k-200k requests/second per core
 - Peak: 500k+ requests/second with connection pooling
 
 **Connection Pooling**:
+
 - gRPC reuses HTTP/2 connections
 - Recommended: 1-5 connections per client
 - Each connection multiplexes requests
@@ -878,24 +881,26 @@ grpcurl -plaintext -d '{
 
 ## Comparison: gRPC vs REST
 
-| Feature | gRPC | REST |
-|---------|------|------|
-| Protocol | HTTP/2 + Protobuf | HTTP/1.1 + JSON |
-| Latency | ~2ms (p99) | ~5ms (p99) |
-| Throughput | 200k RPS | 100k RPS |
-| Payload Size | Smaller (binary) | Larger (text) |
-| Type Safety | Strong (generated) | Weak (manual) |
-| Streaming | Yes (future) | Limited (SSE) |
-| Browser Support | Limited | Full |
-| Debugging | grpcurl, tools | curl, browser |
+| Feature         | gRPC               | REST            |
+| --------------- | ------------------ | --------------- |
+| Protocol        | HTTP/2 + Protobuf  | HTTP/1.1 + JSON |
+| Latency         | ~2ms (p99)         | ~5ms (p99)      |
+| Throughput      | 200k RPS           | 100k RPS        |
+| Payload Size    | Smaller (binary)   | Larger (text)   |
+| Type Safety     | Strong (generated) | Weak (manual)   |
+| Streaming       | Yes (future)       | Limited (SSE)   |
+| Browser Support | Limited            | Full            |
+| Debugging       | grpcurl, tools     | curl, browser   |
 
 **When to use gRPC**:
+
 - High-throughput production deployments
 - Service-to-service communication
 - Low-latency requirements
 - Strong typing needed
 
 **When to use REST**:
+
 - Browser-based applications
 - Simple integration requirements
 - Human-readable debugging

@@ -7,6 +7,7 @@ This guide covers how to build, test, and develop InferaDB from source.
 ### Required
 
 - **Rust** 1.75 or later
+
   ```bash
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
   ```
@@ -16,6 +17,7 @@ This guide covers how to build, test, and develop InferaDB from source.
 ### Optional
 
 - **Mise** - Task runner and development tool manager
+
   ```bash
   curl https://mise.run | sh
   ```
@@ -456,12 +458,14 @@ brew install openssl
 ### Slow Compilation
 
 1. **Use sccache** (compiler cache):
+
    ```bash
    cargo install sccache
    export RUSTC_WRAPPER=sccache
    ```
 
 2. **Increase parallel jobs**:
+
    ```bash
    # Add to ~/.cargo/config.toml
    [build]
@@ -469,6 +473,7 @@ brew install openssl
    ```
 
 3. **Use mold linker** (Linux only):
+
    ```bash
    # Install mold
    sudo apt-get install mold  # or build from source
@@ -482,10 +487,12 @@ brew install openssl
 ### Test Failures
 
 **Tests hang or timeout**:
+
 - Check for deadlocks in async code
 - Increase test timeout: `cargo test -- --test-threads=1`
 
 **Tests fail intermittently**:
+
 - Race condition in tests
 - Non-deterministic behavior
 - Run with `RUST_TEST_SHUFFLE=1` to detect
@@ -531,12 +538,14 @@ rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 ### VS Code
 
 Install extensions:
+
 - rust-analyzer
 - CodeLLDB (debugging)
 - Even Better TOML
 - crates
 
 Settings:
+
 ```json
 {
   "rust-analyzer.checkOnSave.command": "clippy",
@@ -547,6 +556,7 @@ Settings:
 ### IntelliJ IDEA / CLion
 
 Install plugins:
+
 - Rust
 - TOML
 
@@ -555,6 +565,7 @@ Enable Rust support in settings.
 ### Vim/Neovim
 
 Use rust-analyzer with LSP client:
+
 ```vim
 " Using coc.nvim
 Plug 'neoclide/coc.nvim', {'branch': 'release'}

@@ -26,11 +26,13 @@ pub struct MemoryBackend {
 ### Key Components
 
 1. **Tuple Storage**
+
    - HashMap for O(1) lookup by (object, relation, user)
    - Each key stores a vector of versions (MVCC)
    - Versions are ordered by revision
 
 2. **User Index**
+
    - Enables reverse lookups (find all objects for a user+relation)
    - BTreeMap for ordered iteration
    - Maintains revision history per entry
@@ -55,11 +57,13 @@ struct TupleVersion {
 ```
 
 **Benefits:**
+
 - Point-in-time reads without blocking writes
 - No read/write contention
 - Isolation between transactions
 
 **Example:**
+
 ```rust
 // Write at revision 1
 store.write(vec![Tuple { object: "doc:1", relation: "reader", user: "alice" }]).await?;
@@ -108,11 +112,13 @@ store.gc_before(Revision(2)).await?;
 ### Read
 
 **Signature:**
+
 ```rust
 async fn read(&self, key: &TupleKey, revision: Revision) -> Result<Vec<Tuple>>
 ```
 
 **Behavior:**
+
 1. Looks up tuples by (object, relation)
 2. Filters by user if specified in key
 3. Returns only tuples at or before the requested revision
@@ -122,6 +128,7 @@ async fn read(&self, key: &TupleKey, revision: Revision) -> Result<Vec<Tuple>>
 where n = total tuples, m = matching tuples
 
 **Example:**
+
 ```rust
 let key = TupleKey {
     object: "doc:readme".to_string(),
@@ -135,11 +142,13 @@ let tuples = store.read(&key, current_revision).await?;
 ### Write
 
 **Signature:**
+
 ```rust
 async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision>
 ```
 
 **Behavior:**
+
 1. Atomically increments global revision
 2. For each tuple:
    - Checks for duplicates
@@ -151,6 +160,7 @@ async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision>
 where n = tuples written, m = existing versions per tuple
 
 **Example:**
+
 ```rust
 let tuples = vec![
     Tuple { object: "doc:1", relation: "reader", user: "alice" },
@@ -163,11 +173,13 @@ let revision = store.write(tuples).await?;
 ### Delete
 
 **Signature:**
+
 ```rust
 async fn delete(&self, key: &TupleKey) -> Result<Revision>
 ```
 
 **Behavior:**
+
 1. Atomically increments global revision
 2. Marks matching tuples as deleted at new revision
 3. Preserves history (soft delete)
@@ -177,6 +189,7 @@ async fn delete(&self, key: &TupleKey) -> Result<Revision>
 where n = total tuples, m = matching tuples
 
 **Example:**
+
 ```rust
 // Delete all readers for doc:1
 let key = TupleKey {
@@ -200,6 +213,7 @@ store.delete(&key).await?;
 ### Query Patterns
 
 **Object + Relation Query:**
+
 ```rust
 // Find all users who can read doc:1
 let key = TupleKey {
@@ -211,12 +225,14 @@ let readers = store.read(&key, revision).await?;
 ```
 
 **User + Relation Query (Reverse Lookup):**
+
 ```rust
 // Find all documents alice can read
 let results = store.query_by_user("alice", "reader", revision).await?;
 ```
 
 **Wildcard Expansion:**
+
 ```rust
 // Get all relationships for an object
 let all_rels = store.query_by_object("doc:1", revision).await?;
@@ -226,14 +242,14 @@ let all_rels = store.query_by_object("doc:1", revision).await?;
 
 ### Throughput
 
-| Operation | Latency | Throughput |
-|-----------|---------|------------|
-| Single read | < 1μs | 1M+ ops/sec |
-| Single write | < 10μs | 100K+ ops/sec |
+| Operation         | Latency | Throughput     |
+| ----------------- | ------- | -------------- |
+| Single read       | < 1μs   | 1M+ ops/sec    |
+| Single write      | < 10μs  | 100K+ ops/sec  |
 | Batch write (100) | < 100μs | 1M+ tuples/sec |
-| Delete | < 10μs | 100K+ ops/sec |
+| Delete            | < 10μs  | 100K+ ops/sec  |
 
-*Benchmarks on Apple M1, single thread*
+_Benchmarks on Apple M1, single thread_
 
 ### Memory Usage
 
@@ -244,6 +260,7 @@ Index overhead: ~100 bytes per tuple
 ```
 
 **Example:**
+
 - 10,000 tuples with 10 versions each
 - Memory usage: ~200MB
 - With GC (keep 2 versions): ~20MB
@@ -312,6 +329,7 @@ proptest! {
 **Issue:** Data is lost on process restart
 
 **Workaround:**
+
 - Use FoundationDB backend for production
 - Implement export/import if needed
 - Use for development/testing only
@@ -321,11 +339,13 @@ proptest! {
 **Issue:** Dataset limited by available RAM
 
 **Guideline:**
+
 - Suitable for up to ~1M tuples
 - With GC: can handle more with older history removed
 - Monitor memory usage in production
 
 **Workaround:**
+
 - Aggressive GC policy
 - Migrate to FoundationDB for large datasets
 
@@ -334,6 +354,7 @@ proptest! {
 **Issue:** No distribution or replication
 
 **Workaround:**
+
 - Use FoundationDB for multi-node setups
 - Memory backend is development/testing only
 
@@ -342,6 +363,7 @@ proptest! {
 **Issue:** Writes are not persisted to disk
 
 **Workaround:**
+
 - Use FoundationDB for durability
 - Memory backend has atomic in-memory operations
 
@@ -391,17 +413,17 @@ println!("Memory estimate: {}MB", stats.memory_estimate_mb());
 
 ## Comparison with FoundationDB
 
-| Feature | Memory | FoundationDB |
-|---------|--------|--------------|
-| Setup | Zero config | Requires cluster |
-| Latency | < 1μs | < 5ms |
-| Throughput | 1M+ ops/sec | 100K+ ops/sec |
-| Persistence | ❌ No | ✅ Yes |
-| Distribution | ❌ Single node | ✅ Multi-node |
-| MVCC | ✅ Yes | ✅ Yes |
-| ACID | ⚠️ In-memory only | ✅ Yes |
-| Max dataset | ~1M tuples | Petabytes |
-| Use case | Dev/test | Production |
+| Feature      | Memory            | FoundationDB     |
+| ------------ | ----------------- | ---------------- |
+| Setup        | Zero config       | Requires cluster |
+| Latency      | < 1μs             | < 5ms            |
+| Throughput   | 1M+ ops/sec       | 100K+ ops/sec    |
+| Persistence  | ❌ No             | ✅ Yes           |
+| Distribution | ❌ Single node    | ✅ Multi-node    |
+| MVCC         | ✅ Yes            | ✅ Yes           |
+| ACID         | ⚠️ In-memory only | ✅ Yes           |
+| Max dataset  | ~1M tuples        | Petabytes        |
+| Use case     | Dev/test          | Production       |
 
 ## See Also
 

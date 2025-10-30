@@ -117,12 +117,14 @@ cargo test --test '*'
 **Example Tests**:
 
 1. **Document Management** ([`tests/document_management.rs`](../crates/infera-core/tests/document_management.rs))
+
    - Direct document permissions
    - Editor and viewer permissions
    - Hierarchical folder permissions
    - Permission revocation
 
 2. **Organization Hierarchy** ([`tests/organization_hierarchy.rs`](../crates/infera-core/tests/organization_hierarchy.rs))
+
    - Organization admin permissions
    - Team member permissions
    - Hierarchical org-to-team-to-project permissions
@@ -221,6 +223,7 @@ proptest! {
 ```
 
 **Coverage**: 8 property tests in memory backend covering:
+
 - Write-then-read roundtrip
 - Monotonic revision increases
 - Duplicate prevention
@@ -266,6 +269,7 @@ proptest! {
 ```
 
 **Coverage**: 22 fuzz tests covering:
+
 - Type names
 - Relation names
 - Expressions
@@ -290,18 +294,22 @@ cargo test --package infera-wasm --test sandbox_security
 **Example Tests**:
 
 1. **Memory Limit Enforcement**
+
    - Modules cannot exceed memory limits
    - Out-of-bounds access detected
 
 2. **Fuel Limit Enforcement**
+
    - Infinite loops are terminated
    - CPU limits prevent DoS
 
 3. **Filesystem/Network Isolation**
+
    - WASI disabled (no filesystem access)
    - No network access possible
 
 4. **Module Isolation**
+
    - Modules from different tenants isolated
    - No shared state between modules
 
@@ -389,6 +397,7 @@ criterion_main!(benches);
 ```
 
 **Benchmarks**:
+
 - IPL parser: <1ms for typical schemas
 - Memory backend: <1μs reads, 1M+ ops/sec
 - Evaluator: <10μs simple checks, <100μs complex checks

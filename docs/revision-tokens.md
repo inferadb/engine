@@ -45,6 +45,7 @@ eyJub2RlX2lkIjoibm9kZS11cy13ZXN0LTEiLCJyZXZpc2lvbiI6NDIsInZlY3Rvcl9jbG9jayI6eyJu
 ```
 
 This format allows tokens to be:
+
 - Included in HTTP headers
 - Passed as query parameters
 - Stored in cookies
@@ -213,6 +214,7 @@ let merged = token1.merge(&token2);
 ```
 
 This is useful for:
+
 - **Replication acknowledgment** - Track when all replicas have seen a write
 - **Distributed transactions** - Coordinate across multiple nodes
 - **Cache invalidation** - Ensure all caches are up to date
@@ -370,6 +372,7 @@ Error: Invalid revision token
 ```
 
 **Causes**:
+
 - Malformed base64 encoding
 - Invalid JSON structure
 - Empty node ID
@@ -385,12 +388,14 @@ Error: Timeout waiting for revision to become available
 ```
 
 **Causes**:
+
 - Replication lag
 - Network partition
 - Node failure
 - Client has token from future
 
 **Solutions**:
+
 - Increase timeout duration
 - Check replication health
 - Verify network connectivity

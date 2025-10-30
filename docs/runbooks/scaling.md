@@ -85,32 +85,32 @@ spec:
   minReplicas: 5
   maxReplicas: 50
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Pods
-    pods:
-      metric:
-        name: inferadb_requests_per_second
-      target:
-        type: AverageValue
-        averageValue: "1000"
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Pods
+      pods:
+        metric:
+          name: inferadb_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "1000"
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
-      - type: Percent
-        value: 50
-        periodSeconds: 60
+        - type: Percent
+          value: 50
+          periodSeconds: 60
     scaleUp:
       stabilizationWindowSeconds: 60
       policies:
-      - type: Percent
-        value: 100
-        periodSeconds: 30
+        - type: Percent
+          value: 100
+          periodSeconds: 30
 ```
 
 ### Scaling Best Practices
@@ -123,12 +123,12 @@ spec:
 
 ### Scaling Timeline
 
-| Action | Time to Complete | Notes |
-|--------|-----------------|-------|
-| kubectl scale | 30-60 seconds | New pods start |
-| Health check pass | 10-30 seconds | Pods become ready |
-| Full rollout | 1-3 minutes | All replicas healthy |
-| HPA decision | 30-60 seconds | Metric aggregation + decision |
+| Action            | Time to Complete | Notes                         |
+| ----------------- | ---------------- | ----------------------------- |
+| kubectl scale     | 30-60 seconds    | New pods start                |
+| Health check pass | 10-30 seconds    | Pods become ready             |
+| Full rollout      | 1-3 minutes      | All replicas healthy          |
+| HPA decision      | 30-60 seconds    | Metric aggregation + decision |
 
 ## Vertical Scaling
 
@@ -213,11 +213,11 @@ Configure conservative scale-down:
 ```yaml
 behavior:
   scaleDown:
-    stabilizationWindowSeconds: 300  # Wait 5 minutes
+    stabilizationWindowSeconds: 300 # Wait 5 minutes
     policies:
-    - type: Percent
-      value: 50  # Max 50% reduction per step
-      periodSeconds: 60
+      - type: Percent
+        value: 50 # Max 50% reduction per step
+        periodSeconds: 60
 ```
 
 ## Emergency Scaling
@@ -296,17 +296,20 @@ histogram_quantile(0.99, sum(rate(inferadb_request_duration_seconds_bucket[5m]))
 **Problem**: New pods stuck in Pending state
 
 **Investigation**:
+
 ```bash
 kubectl describe pod -n inferadb <pod-name>
 kubectl get events -n inferadb --sort-by='.lastTimestamp'
 ```
 
 **Common causes**:
+
 - Insufficient cluster resources
 - Image pull errors
 - PVC provisioning failures
 
 **Resolution**:
+
 - Scale down replicas or add cluster nodes
 - Check image availability
 - Verify storage provisioner
@@ -316,12 +319,14 @@ kubectl get events -n inferadb --sort-by='.lastTimestamp'
 **Problem**: OOM kills or crash loops
 
 **Investigation**:
+
 ```bash
 kubectl logs -n inferadb <pod-name> --previous
 kubectl top pods -n inferadb -l app=inferadb
 ```
 
 **Resolution**:
+
 - Increase memory limits
 - Reduce cache size
 - Check for memory leaks
@@ -331,6 +336,7 @@ kubectl top pods -n inferadb -l app=inferadb
 **Problem**: HPA not triggering autoscaling
 
 **Investigation**:
+
 ```bash
 kubectl get hpa inferadb -n inferadb
 kubectl describe hpa inferadb -n inferadb
@@ -338,11 +344,13 @@ kubectl top pods -n inferadb -l app=inferadb
 ```
 
 **Common causes**:
+
 - Metrics server not installed
 - Metric not available
 - Thresholds not met
 
 **Resolution**:
+
 ```bash
 # Check metrics server
 kubectl get deployment metrics-server -n kube-system
@@ -359,6 +367,7 @@ kubectl top pods -n inferadb
 **Problem**: Some pods handling more requests than others
 
 **Investigation**:
+
 ```bash
 # Check request distribution (Prometheus)
 sum(rate(inferadb_requests_total[5m])) by (pod)
@@ -368,6 +377,7 @@ kubectl get endpoints inferadb -n inferadb
 ```
 
 **Resolution**:
+
 - Verify service selector labels
 - Check pod readiness probes
 - Review load balancer configuration
@@ -391,10 +401,10 @@ Required = (100,000 / 5,000) × 1.5 = 30 replicas
 ### Resource Requirements
 
 | Workload | RPS/Pod | CPU/Pod | Memory/Pod | Replicas |
-|----------|---------|---------|------------|----------|
-| Light | 1,000 | 500m | 512Mi | 3-10 |
-| Medium | 5,000 | 1000m | 2Gi | 5-20 |
-| Heavy | 10,000 | 2000m | 4Gi | 10-50 |
+| -------- | ------- | ------- | ---------- | -------- |
+| Light    | 1,000   | 500m    | 512Mi      | 3-10     |
+| Medium   | 5,000   | 1000m   | 2Gi        | 5-20     |
+| Heavy    | 10,000  | 2000m   | 4Gi        | 10-50    |
 
 ### Cost Optimization
 

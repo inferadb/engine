@@ -27,6 +27,7 @@ Region (e.g., "us-west-1")
 ```
 
 **Key Types:**
+
 - `RegionId` - Unique identifier for a geographic region
 - `ZoneId` - Availability zone within a region
 - `NodeId` - Individual server instance
@@ -83,6 +84,7 @@ Handles conflicts when the same tuple is modified concurrently in different regi
 **Conflict Resolution Strategies:**
 
 #### Last-Write-Wins (LWW)
+
 Uses timestamp to determine winner. If timestamps are equal, uses source node as tiebreaker.
 
 ```rust
@@ -94,6 +96,7 @@ let resolver = ConflictResolver::new(ConflictResolutionStrategy::LastWriteWins);
 **Best for:** Simple deployments with synchronized clocks
 
 #### Source Priority
+
 Assigns priority to regions. Higher-priority regions always win conflicts.
 
 ```rust
@@ -108,6 +111,7 @@ let resolver = ConflictResolver::new(ConflictResolutionStrategy::SourcePriority)
 **Best for:** Primary/backup scenarios or data sovereignty requirements
 
 #### Insert Wins
+
 Inserts always win over deletes, preventing data loss.
 
 ```rust
@@ -117,6 +121,7 @@ let resolver = ConflictResolver::new(ConflictResolutionStrategy::InsertWins);
 **Best for:** Systems where data preservation is critical
 
 #### Custom
+
 Application-defined resolution logic.
 
 ```rust
@@ -131,6 +136,7 @@ let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom);
 Subscribes to local changes and replicates them to remote regions.
 
 **Features:**
+
 - **Batched Replication**: Groups changes for efficient transmission
 - **Retry Logic**: Exponential backoff with configurable max retries
 - **Failure Tracking**: Monitors consecutive failures per target
@@ -181,11 +187,11 @@ Routes requests to appropriate regions based on operation type and replication s
 
 **Routing Rules:**
 
-| Strategy | Read Requests | Write Requests |
-|----------|---------------|----------------|
-| **ActiveActive** | Local region | Local region |
-| **PrimaryReplica** | Local region | Primary region |
-| **MultiMaster** | Local region | Local region |
+| Strategy           | Read Requests | Write Requests |
+| ------------------ | ------------- | -------------- |
+| **ActiveActive**   | Local region  | Local region   |
+| **PrimaryReplica** | Local region  | Primary region |
+| **MultiMaster**    | Local region  | Local region   |
 
 **Failover:** If local region is unavailable, automatically fails over to healthy regions.
 
@@ -216,11 +222,13 @@ if router.is_region_available(&RegionId::new("us-west-1")).await {
 All regions can accept both reads and writes. Changes are replicated bi-directionally.
 
 **Pros:**
+
 - Lowest write latency (write locally)
 - Highest availability (any region can handle requests)
 - Best user experience globally
 
 **Cons:**
+
 - Must handle conflicts
 - More complex than primary-replica
 - Requires careful conflict resolution strategy
@@ -243,11 +251,13 @@ let topology = TopologyBuilder::new(
 One primary region accepts writes; replicas serve reads only.
 
 **Pros:**
+
 - No conflicts (single write source)
 - Simpler to reason about
 - Strong consistency guarantees
 
 **Cons:**
+
 - Higher write latency for remote clients
 - Primary is single point of failure for writes
 - Read-only replicas during primary outage
@@ -271,11 +281,13 @@ let topology = TopologyBuilder::new(
 Different regions can accept writes for different tenants/namespaces.
 
 **Pros:**
+
 - Data locality (tenant data stays in region)
 - Compliance friendly (GDPR, data residency)
 - Scalable (partitioned by tenant)
 
 **Cons:**
+
 - Requires partitioning strategy
 - More complex routing
 - Cross-tenant queries may be slower
@@ -332,27 +344,27 @@ The replication system exposes comprehensive Prometheus metrics:
 
 ### Counters
 
-| Metric | Description |
-|--------|-------------|
-| `inferadb_replication_changes_total` | Total changes replicated |
-| `inferadb_replication_failures_total` | Total replication failures |
-| `inferadb_replication_conflicts_total` | Total conflicts detected |
-| `inferadb_replication_conflicts_resolved_local` | Conflicts resolved by keeping local change |
+| Metric                                           | Description                                 |
+| ------------------------------------------------ | ------------------------------------------- |
+| `inferadb_replication_changes_total`             | Total changes replicated                    |
+| `inferadb_replication_failures_total`            | Total replication failures                  |
+| `inferadb_replication_conflicts_total`           | Total conflicts detected                    |
+| `inferadb_replication_conflicts_resolved_local`  | Conflicts resolved by keeping local change  |
 | `inferadb_replication_conflicts_resolved_remote` | Conflicts resolved by keeping remote change |
 
 ### Gauges
 
-| Metric | Description |
-|--------|-------------|
-| `inferadb_replication_lag_milliseconds` | Current replication lag |
+| Metric                                   | Description                 |
+| ---------------------------------------- | --------------------------- |
+| `inferadb_replication_lag_milliseconds`  | Current replication lag     |
 | `inferadb_replication_targets_connected` | Number of connected targets |
-| `inferadb_replication_targets_total` | Total configured targets |
+| `inferadb_replication_targets_total`     | Total configured targets    |
 
 ### Histograms
 
-| Metric | Description |
-|--------|-------------|
-| `inferadb_replication_batch_size` | Distribution of batch sizes |
+| Metric                                  | Description                        |
+| --------------------------------------- | ---------------------------------- |
+| `inferadb_replication_batch_size`       | Distribution of batch sizes        |
 | `inferadb_replication_duration_seconds` | Duration of replication operations |
 
 **Example Prometheus Queries:**
@@ -451,6 +463,7 @@ replication:
 **Topology:** US West ↔️ EU Central
 
 **Benefits:**
+
 - Low latency for US and EU users
 - High availability (either region can fail)
 - Simple conflict resolution
@@ -476,6 +489,7 @@ replication:
 **Topology:** US West (primary) → EU Central + AP Southeast (replicas)
 
 **Benefits:**
+
 - Strong consistency (single write source)
 - Global read performance
 - No conflicts
@@ -485,7 +499,7 @@ replication:
 ```yaml
 replication:
   strategy: primary_replica
-  local_region: us-west-1  # on primary
+  local_region: us-west-1 # on primary
   conflict_resolution: lww
   regions:
     - id: us-west-1
@@ -507,6 +521,7 @@ replication:
 **Topology:** Regional primaries with cross-region replication
 
 **Benefits:**
+
 - Data locality per region
 - Compliance friendly
 - Scalable by tenant
@@ -531,11 +546,13 @@ replication:
 **Symptoms:** `inferadb_replication_lag_milliseconds` increasing
 
 **Causes:**
+
 - Network latency between regions
 - Target region overloaded
 - Large batch sizes
 
 **Solutions:**
+
 1. Check network connectivity: `ping <target-endpoint>`
 2. Reduce batch size: `INFERA__REPLICATION__BATCH_SIZE=50`
 3. Increase parallelism (add more nodes)
@@ -546,11 +563,13 @@ replication:
 **Symptoms:** High `inferadb_replication_conflicts_total` rate
 
 **Causes:**
+
 - Concurrent writes to same tuples
 - Clock skew between regions
 - High write volume
 
 **Solutions:**
+
 1. Review conflict resolution strategy
 2. Consider primary-replica if consistency is critical
 3. Partition data by region (multi-master)
@@ -561,12 +580,14 @@ replication:
 **Symptoms:** Increasing `inferadb_replication_failures_total`
 
 **Causes:**
+
 - Target region down
 - Network partitions
 - Authentication failures
 - Resource exhaustion
 
 **Solutions:**
+
 1. Check target health: `curl <endpoint>/health`
 2. Verify credentials/certificates
 3. Check firewall rules
@@ -577,11 +598,13 @@ replication:
 **Symptoms:** `inferadb_replication_targets_connected` < `inferadb_replication_targets_total`
 
 **Causes:**
+
 - Node crashed
 - Network partition
 - Deployment in progress
 
 **Solutions:**
+
 1. Check node status: `systemctl status inferadb`
 2. Review node logs
 3. Verify routing configuration
@@ -598,7 +621,7 @@ Smaller batches = lower latency, more overhead
 
 ```yaml
 agent:
-  batch_size: 100  # Good default
+  batch_size: 100 # Good default
 ```
 
 ### Retry Configuration
@@ -631,6 +654,7 @@ agent:
 ### 1. Monitor Replication Health
 
 Set up alerts for:
+
 - Replication lag > 100ms
 - Conflict rate > 1% of writes
 - Target health < 100%
@@ -639,6 +663,7 @@ Set up alerts for:
 ### 2. Test Failover Scenarios
 
 Regularly test:
+
 - Region failures
 - Network partitions
 - Conflict resolution
@@ -683,4 +708,5 @@ Regularly test:
 ## Examples
 
 Complete examples are available in the integration tests:
+
 - [`crates/infera-repl/tests/replication_integration.rs`](../crates/infera-repl/tests/replication_integration.rs)

@@ -65,8 +65,9 @@ curl -X POST http://localhost:8080/api/v1/write \
 ```
 
 Response:
+
 ```json
-{"revision": 1}
+{ "revision": 1 }
 ```
 
 ### Step 3: Check Permission
@@ -84,8 +85,9 @@ curl -X POST http://localhost:8080/api/v1/check \
 ```
 
 Response:
+
 ```json
-{"decision": "allow"}
+{ "decision": "allow" }
 ```
 
 Check if Alice can delete (she can't):
@@ -101,8 +103,9 @@ curl -X POST http://localhost:8080/api/v1/check \
 ```
 
 Response:
+
 ```json
-{"decision": "deny"}
+{ "decision": "deny" }
 ```
 
 ## Example: Document Hierarchy
@@ -155,8 +158,9 @@ curl -X POST http://localhost:8080/api/v1/check \
 ```
 
 Response:
+
 ```json
-{"decision": "allow"}
+{ "decision": "allow" }
 ```
 
 ## Common Patterns
@@ -298,6 +302,7 @@ curl -X POST http://localhost:8080/api/v1/check/trace \
 ```
 
 Response shows evaluation tree:
+
 ```json
 {
   "decision": "allow",
@@ -339,6 +344,7 @@ This shows: Alice has `can_view` because she's a direct `viewer`.
 ### "Connection refused"
 
 Ensure the server is running:
+
 ```bash
 cargo run --release
 ```
@@ -346,22 +352,25 @@ cargo run --release
 ### "Invalid tuple format"
 
 Check that tuples have all required fields:
+
 ```json
 {
-  "object": "resource:id",    // Required
+  "object": "resource:id", // Required
   "relation": "relation_name", // Required
-  "user": "subject:id"         // Required
+  "user": "subject:id" // Required
 }
 ```
 
 ### "Decision is deny but should be allow"
 
 1. Check tuples are written correctly:
+
    ```bash
    # List doesn't exist yet, but you can verify via check
    ```
 
 2. Use trace to see evaluation:
+
    ```bash
    curl -X POST http://localhost:8080/api/v1/check/trace ...
    ```

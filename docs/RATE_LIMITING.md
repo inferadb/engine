@@ -18,13 +18,13 @@ Rate limiting protects against:
 
 ### Authentication Endpoints
 
-| Endpoint Pattern | Rate Limit (per minute) | Burst | Notes |
-|-----------------|-------------------------|-------|-------|
-| `/v1/check` | 1000 | 2000 | High-volume authorization checks |
-| `/v1/write` | 100 | 200 | Write operations should be less frequent |
-| `/v1/expand` | 500 | 1000 | Moderate-frequency expansion queries |
-| `/v1/lookup` | 500 | 1000 | Moderate-frequency lookups |
-| `/health` | Unlimited | - | Health checks should not be rate limited |
+| Endpoint Pattern | Rate Limit (per minute) | Burst | Notes                                    |
+| ---------------- | ----------------------- | ----- | ---------------------------------------- |
+| `/v1/check`      | 1000                    | 2000  | High-volume authorization checks         |
+| `/v1/write`      | 100                     | 200   | Write operations should be less frequent |
+| `/v1/expand`     | 500                     | 1000  | Moderate-frequency expansion queries     |
+| `/v1/lookup`     | 500                     | 1000  | Moderate-frequency lookups               |
+| `/health`        | Unlimited               | -     | Health checks should not be rate limited |
 
 ### Rate Limiting Dimensions
 
@@ -33,11 +33,13 @@ Rate limiting protects against:
 Limit requests from a single IP address to prevent single-source attacks.
 
 **Recommended Limits**:
+
 - **Normal operations**: 100 requests/minute per IP
 - **Burst allowance**: 200 requests/minute for 10 seconds
 - **Blocked period**: 60 seconds after limit exceeded
 
 **Configuration Example (Nginx)**:
+
 ```nginx
 limit_req_zone $binary_remote_addr zone=per_ip:10m rate=100r/m;
 
@@ -52,11 +54,13 @@ location /v1/ {
 Limit requests per tenant to ensure fair resource distribution.
 
 **Recommended Limits**:
+
 - **Standard tier**: 1,000 requests/minute per tenant
 - **Premium tier**: 10,000 requests/minute per tenant
 - **Enterprise tier**: Unlimited (or very high limit)
 
 **Configuration Example (Nginx)**:
+
 ```nginx
 # Extract tenant ID from JWT and use for rate limiting
 map $http_authorization $tenant_id {
@@ -78,6 +82,7 @@ location /v1/ {
 Limit requests per authenticated user.
 
 **Recommended Limits**:
+
 - **Per user**: 500 requests/minute
 - **Burst**: 1000 requests/minute for 10 seconds
 
@@ -88,6 +93,7 @@ Limit requests per authenticated user.
 Limit total requests to the system to prevent resource exhaustion.
 
 **Recommended Limits**:
+
 - **Total requests**: Based on capacity testing
 - **Example**: If server can handle 100,000 req/min, set limit to 80,000 req/min (80% capacity)
 
@@ -98,12 +104,14 @@ Limit total requests to the system to prevent resource exhaustion.
 Implement rate limiting at the reverse proxy layer (Nginx, HAProxy, Envoy).
 
 **Advantages**:
+
 - ✅ Low latency (no application involvement)
 - ✅ Mature, battle-tested implementations
 - ✅ Offloads work from application servers
 - ✅ Protects application from reaching rate limited endpoints
 
 **Disadvantages**:
+
 - ❌ Limited context (can't rate limit based on token claims)
 - ❌ Configuration can be complex for multi-tier limits
 
@@ -159,12 +167,14 @@ http {
 Use cloud-native API gateways (AWS API Gateway, Google Cloud API Gateway, Kong).
 
 **Advantages**:
+
 - ✅ Managed service (less operational burden)
 - ✅ Built-in rate limiting features
 - ✅ Integration with other cloud services
 - ✅ Analytics and monitoring included
 
 **Disadvantages**:
+
 - ❌ Vendor lock-in
 - ❌ Additional cost
 - ❌ Less control over implementation details
@@ -186,8 +196,8 @@ Resources:
       ApiId: !Ref InferaDBApi
       StageName: prod
       ThrottleSettings:
-        RateLimit: 1000  # requests per second
-        BurstLimit: 2000  # max concurrent requests
+        RateLimit: 1000 # requests per second
+        BurstLimit: 2000 # max concurrent requests
 ```
 
 #### Kong Example
@@ -218,11 +228,13 @@ plugins:
 Implement rate limiting in Rust using Tower middleware.
 
 **Advantages**:
+
 - ✅ Full context (can rate limit based on any request property)
 - ✅ Fine-grained control
 - ✅ Can customize response format
 
 **Disadvantages**:
+
 - ❌ Adds latency to every request
 - ❌ Consumes application resources
 - ❌ More complex to implement correctly
@@ -328,6 +340,7 @@ Recommendation: **Token Bucket** for InferaDB (allows short bursts)
 ### 3. Implement Graceful Degradation
 
 When approaching rate limit:
+
 - Return `X-RateLimit-Remaining` header with low value
 - Log warning for tenant to review usage
 
@@ -357,12 +370,12 @@ Include rate limits in API documentation:
 ```markdown
 ## Rate Limits
 
-| Tier | Requests per Minute | Burst |
-|------|---------------------|-------|
-| Free | 100 | 200 |
-| Standard | 1,000 | 2,000 |
-| Premium | 10,000 | 20,000 |
-| Enterprise | Custom | Custom |
+| Tier       | Requests per Minute | Burst  |
+| ---------- | ------------------- | ------ |
+| Free       | 100                 | 200    |
+| Standard   | 1,000               | 2,000  |
+| Premium    | 10,000              | 20,000 |
+| Enterprise | Custom              | Custom |
 
 Rate limit headers are included in all responses.
 ```

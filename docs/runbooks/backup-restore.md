@@ -145,52 +145,52 @@ metadata:
   name: fdb-backup
   namespace: inferadb
 spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
+  schedule: "0 2 * * *" # Daily at 2 AM
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: backup
-            image: foundationdb/foundationdb:7.1.38
-            command:
-            - /bin/bash
-            - -c
-            - |
-              DATE=$(date +%Y%m%d-%H%M%S)
-              DEST="blobstore://s3.amazonaws.com/my-bucket/fdb-backups/${DATE}"
+            - name: backup
+              image: foundationdb/foundationdb:7.1.38
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  DATE=$(date +%Y%m%d-%H%M%S)
+                  DEST="blobstore://s3.amazonaws.com/my-bucket/fdb-backups/${DATE}"
 
-              echo "Starting backup to ${DEST}"
-              fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup start -d ${DEST} -s"
+                  echo "Starting backup to ${DEST}"
+                  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup start -d ${DEST} -s"
 
-              echo "Waiting for backup to complete"
-              while true; do
-                STATUS=$(fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup status")
-                if echo "$STATUS" | grep -q "Backup complete"; then
-                  echo "Backup completed successfully"
-                  break
-                fi
-                sleep 30
-              done
-            volumeMounts:
-            - name: fdb-cluster-file
-              mountPath: /etc/foundationdb
-              readOnly: true
-            env:
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: aws-credentials
-                  key: access_key_id
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: aws-credentials
-                  key: secret_access_key
+                  echo "Waiting for backup to complete"
+                  while true; do
+                    STATUS=$(fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup status")
+                    if echo "$STATUS" | grep -q "Backup complete"; then
+                      echo "Backup completed successfully"
+                      break
+                    fi
+                    sleep 30
+                  done
+              volumeMounts:
+                - name: fdb-cluster-file
+                  mountPath: /etc/foundationdb
+                  readOnly: true
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: access_key_id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: secret_access_key
           volumes:
-          - name: fdb-cluster-file
-            secret:
-              secretName: fdb-cluster-file
+            - name: fdb-cluster-file
+              secret:
+                secretName: fdb-cluster-file
           restartPolicy: OnFailure
 ```
 
@@ -371,6 +371,7 @@ Before disaster strikes:
 **RPO**: Last backup (typically < 24 hours)
 
 **Steps**:
+
 1. Identify last good backup before deletion
 2. Stop writes to prevent further changes
 3. Restore from backup
@@ -383,6 +384,7 @@ Before disaster strikes:
 **RPO**: Continuous backup
 
 **Steps**:
+
 1. Provision new FDB cluster
 2. Configure backup agents
 3. Restore latest backup
@@ -395,6 +397,7 @@ Before disaster strikes:
 **RPO**: Continuous backup with cross-region replication
 
 **Steps**:
+
 1. Failover to secondary region
 2. Restore latest cross-region backup
 3. Update DNS/load balancer
@@ -405,13 +408,13 @@ Before disaster strikes:
 
 ### Recommended Retention
 
-| Backup Type | Retention Period | Frequency |
-|-------------|-----------------|-----------|
-| Continuous | 7 days | Real-time |
-| Daily Snapshots | 30 days | Daily 2 AM |
-| Weekly Snapshots | 90 days | Sunday 2 AM |
-| Monthly Snapshots | 1 year | 1st of month |
-| Quarterly Snapshots | 7 years | Jan/Apr/Jul/Oct |
+| Backup Type         | Retention Period | Frequency       |
+| ------------------- | ---------------- | --------------- |
+| Continuous          | 7 days           | Real-time       |
+| Daily Snapshots     | 30 days          | Daily 2 AM      |
+| Weekly Snapshots    | 90 days          | Sunday 2 AM     |
+| Monthly Snapshots   | 1 year           | 1st of month    |
+| Quarterly Snapshots | 7 years          | Jan/Apr/Jul/Oct |
 
 ### Cleanup Old Backups
 
@@ -428,6 +431,7 @@ aws s3api put-bucket-lifecycle-configuration \
 ```
 
 lifecycle.json:
+
 ```json
 {
   "Rules": [
@@ -492,30 +496,31 @@ kubectl delete namespace $NAMESPACE
 ```yaml
 # Alert on backup failures
 groups:
-- name: fdb-backup
-  rules:
-  - alert: FDBBackupFailed
-    expr: fdb_backup_status != 1
-    for: 15m
-    labels:
-      severity: critical
-    annotations:
-      summary: "FDB backup failed"
-      description: "Backup has been failing for 15 minutes"
+  - name: fdb-backup
+    rules:
+      - alert: FDBBackupFailed
+        expr: fdb_backup_status != 1
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FDB backup failed"
+          description: "Backup has been failing for 15 minutes"
 
-  - alert: FDBBackupStale
-    expr: time() - fdb_backup_last_success_timestamp > 86400
-    for: 1h
-    labels:
-      severity: warning
-    annotations:
-      summary: "FDB backup is stale"
-      description: "No successful backup in 24 hours"
+      - alert: FDBBackupStale
+        expr: time() - fdb_backup_last_success_timestamp > 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "FDB backup is stale"
+          description: "No successful backup in 24 hours"
 ```
 
 ### Backup Status Dashboard
 
 Track in monitoring dashboard:
+
 - Last successful backup timestamp
 - Backup size
 - Backup duration
@@ -529,6 +534,7 @@ Track in monitoring dashboard:
 **Problem**: Backup agent can't connect to FDB
 
 **Investigation**:
+
 ```bash
 kubectl logs -n inferadb deployment/fdb-backup-agent
 kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
@@ -536,6 +542,7 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 ```
 
 **Resolution**:
+
 - Verify cluster file is correct
 - Check network connectivity
 - Ensure backup agent has proper permissions
@@ -545,12 +552,14 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 **Problem**: Restore operation stuck
 
 **Investigation**:
+
 ```bash
 kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
   fdbcli -C /etc/foundationdb/fdb.cluster --exec "restore status"
 ```
 
 **Resolution**:
+
 - Check FDB cluster health
 - Verify backup files are accessible
 - Check storage credentials
@@ -561,11 +570,13 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 **Problem**: Backup destination running out of space
 
 **Investigation**:
+
 ```bash
 aws s3 ls s3://my-bucket/fdb-backups/ --recursive --summarize --human-readable
 ```
 
 **Resolution**:
+
 - Implement retention policy
 - Delete old backups
 - Increase storage quota

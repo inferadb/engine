@@ -8,12 +8,12 @@ InferaDB uses **multi-window, multi-burn-rate alerts** to catch SLO violations e
 
 ## Alert Severity Levels
 
-| Severity | Description | Response Time | Action Required |
-|----------|-------------|---------------|-----------------|
-| **P0 (Critical)** | SLO violation in progress, customer impact | Immediate | Page on-call engineer |
-| **P1 (High)** | SLO at risk, trending toward violation | 15 minutes | Notify on-call engineer |
-| **P2 (Medium)** | SLO warning, early indicator | 1 hour | Create ticket for next business day |
-| **P3 (Low)** | Informational, no immediate action needed | None | Log and review in weekly meeting |
+| Severity          | Description                                | Response Time | Action Required                     |
+| ----------------- | ------------------------------------------ | ------------- | ----------------------------------- |
+| **P0 (Critical)** | SLO violation in progress, customer impact | Immediate     | Page on-call engineer               |
+| **P1 (High)**     | SLO at risk, trending toward violation     | 15 minutes    | Notify on-call engineer             |
+| **P2 (Medium)**   | SLO warning, early indicator               | 1 hour        | Create ticket for next business day |
+| **P3 (Low)**      | Informational, no immediate action needed  | None          | Log and review in weekly meeting    |
 
 ## Alert Categories
 
@@ -22,34 +22,41 @@ InferaDB uses **multi-window, multi-burn-rate alerts** to catch SLO violations e
 Alerts that directly track SLO compliance:
 
 - **Availability SLO** (`slo: availability`)
+
   - Fast burn: 14.4x burn rate over 1 hour
   - Slow burn: 3x burn rate over 24 hours
   - Violation: 30-day error rate exceeds 0.1%
   - Budget warning: Error budget 50% consumed
 
 - **Latency SLO** (`slo: latency`)
+
   - p99 > 10ms (critical)
   - p99 > 8ms (warning)
   - p50 > 2ms, p90 > 5ms (degradation)
   - WASM p99 > 50ms
 
 - **Error Rate SLO** (`slo: error_rate`)
+
   - Error rate > 0.1%
   - Error rate > 0.05% (warning)
 
 - **Cache Hit Rate SLO** (`slo: cache`)
+
   - Hit rate < 80% (target)
   - Hit rate < 60% (critical)
 
 - **Storage Latency SLO** (`slo: storage_latency`)
+
   - Read/write p99 > 5ms
   - Read/write p99 > 4ms (warning)
 
 - **Replication Lag SLO** (`slo: replication`)
+
   - Lag > 100ms (target)
   - Lag > 500ms (critical)
 
 - **JWKS Freshness SLO** (`slo: jwks`)
+
   - Stale serving > 1/sec
 
 - **Evaluation Depth SLO** (`slo: evaluation`)
@@ -61,21 +68,26 @@ Alerts that directly track SLO compliance:
 Alerts for specific system components:
 
 - **Errors** (`category: errors`)
+
   - Storage errors
   - Evaluation errors
 
 - **Cache** (`category: cache`)
+
   - High eviction rate
 
 - **Replication** (`category: replication`)
+
   - Target unhealthy
   - High error rate
   - High conflict rate
 
 - **Auth** (`category: auth`)
+
   - JWKS refresh failures
 
 - **Capacity** (`category: capacity`)
+
   - CPU utilization > 70%
   - Memory utilization > 80%
   - Rapidly increasing request rate
@@ -99,13 +111,13 @@ Add InferaDB as a scrape target in `prometheus.yml`:
 
 ```yaml
 scrape_configs:
-  - job_name: 'inferadb'
+  - job_name: "inferadb"
     scrape_interval: 15s
     static_configs:
-      - targets: ['localhost:9090']  # Adjust to your InferaDB metrics endpoint
+      - targets: ["localhost:9090"] # Adjust to your InferaDB metrics endpoint
         labels:
-          environment: 'production'
-          region: 'us-west-1'
+          environment: "production"
+          region: "us-west-1"
 ```
 
 ### Step 2: Load Alerting Rules
@@ -138,8 +150,8 @@ Configure AlertManager to route InferaDB alerts appropriately:
 ```yaml
 # alertmanager.yml
 route:
-  receiver: 'default'
-  group_by: ['alertname', 'category', 'severity']
+  receiver: "default"
+  group_by: ["alertname", "category", "severity"]
   group_wait: 10s
   group_interval: 5m
   repeat_interval: 4h
@@ -148,46 +160,46 @@ route:
     # P0 alerts - page immediately
     - match:
         severity: P0
-      receiver: 'pagerduty-critical'
+      receiver: "pagerduty-critical"
       continue: true
 
     # P1 alerts - notify on-call
     - match:
         severity: P1
-      receiver: 'slack-oncall'
+      receiver: "slack-oncall"
       continue: true
 
     # P2 alerts - create ticket
     - match:
         severity: P2
-      receiver: 'jira-tickets'
+      receiver: "jira-tickets"
 
     # P3 alerts - log only
     - match:
         severity: P3
-      receiver: 'null'
+      receiver: "null"
 
 receivers:
-  - name: 'default'
+  - name: "default"
     # Default catch-all
 
-  - name: 'pagerduty-critical'
+  - name: "pagerduty-critical"
     pagerduty_configs:
-      - service_key: '<your-pagerduty-key>'
-        severity: 'critical'
+      - service_key: "<your-pagerduty-key>"
+        severity: "critical"
 
-  - name: 'slack-oncall'
+  - name: "slack-oncall"
     slack_configs:
-      - api_url: '<your-slack-webhook>'
-        channel: '#inferadb-alerts'
-        title: '{{ .GroupLabels.alertname }}'
-        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+      - api_url: "<your-slack-webhook>"
+        channel: "#inferadb-alerts"
+        title: "{{ .GroupLabels.alertname }}"
+        text: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
 
-  - name: 'jira-tickets'
+  - name: "jira-tickets"
     webhook_configs:
-      - url: '<your-jira-webhook>'
+      - url: "<your-jira-webhook>"
 
-  - name: 'null'
+  - name: "null"
     # Discard P3 alerts
 ```
 
@@ -231,6 +243,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/availability-slo`
 
 **Steps**:
+
 1. Check dashboard for error spike
 2. Identify affected endpoints/regions
 3. Check recent deployments (rollback if needed)
@@ -244,6 +257,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/latency-slo`
 
 **Steps**:
+
 1. Check which percentile is affected (p50/p90/p99)
 2. Review cache hit rate - low cache hits cause latency
 3. Check storage latency metrics
@@ -257,6 +271,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/error-rate-slo`
 
 **Steps**:
+
 1. Identify error types (storage, evaluation, auth)
 2. Check storage backend health
 3. Review evaluation errors for policy issues
@@ -269,6 +284,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/cache-slo`
 
 **Steps**:
+
 1. Check current cache size and memory usage
 2. Review eviction rate - high evictions indicate undersizing
 3. Analyze workload - write-heavy workloads have lower hit rates
@@ -280,6 +296,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/storage-latency-slo`
 
 **Steps**:
+
 1. Check storage backend metrics (FoundationDB, etc.)
 2. Review slow query logs
 3. Check for storage capacity issues
@@ -292,6 +309,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/replication-lag-slo`
 
 **Steps**:
+
 1. Identify which region has high lag
 2. Check network latency between regions
 3. Review replication target health
@@ -305,6 +323,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/jwks-slo`
 
 **Steps**:
+
 1. Check JWKS refresh errors
 2. Verify OAuth provider is reachable
 3. Review network connectivity to JWKS endpoint
@@ -317,6 +336,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/evaluation-depth-slo`
 
 **Steps**:
+
 1. Identify which policies have deep trees
 2. Check for circular references in policies
 3. Review hierarchical org structures
@@ -329,6 +349,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 **URL**: `https://docs.inferadb.dev/runbooks/service-down`
 
 **Steps**:
+
 1. Check process is running
 2. Review service logs for crash/panic
 3. Check infrastructure (VM, container)
@@ -394,11 +415,11 @@ histogram_quantile(0.99, rate(alertmanager_notification_latency_seconds_bucket[5
 
 ```yaml
 receivers:
-  - name: 'slack-alerts'
+  - name: "slack-alerts"
     slack_configs:
-      - api_url: '<webhook-url>'
-        channel: '#inferadb-alerts'
-        title: ':fire: {{ .GroupLabels.alertname }}'
+      - api_url: "<webhook-url>"
+        channel: "#inferadb-alerts"
+        title: ":fire: {{ .GroupLabels.alertname }}"
         text: |
           {{ range .Alerts }}
           *Severity*: {{ .Labels.severity }}
@@ -414,28 +435,28 @@ receivers:
 
 ```yaml
 receivers:
-  - name: 'pagerduty-critical'
+  - name: "pagerduty-critical"
     pagerduty_configs:
-      - service_key: '<integration-key>'
-        severity: '{{ .Labels.severity }}'
-        description: '{{ .Annotations.summary }}'
+      - service_key: "<integration-key>"
+        severity: "{{ .Labels.severity }}"
+        description: "{{ .Annotations.summary }}"
         details:
-          firing: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
-          dashboard: '{{ .Annotations.dashboard_url }}'
-          runbook: '{{ .Annotations.runbook_url }}'
+          firing: "{{ range .Alerts }}{{ .Annotations.description }}{{ end }}"
+          dashboard: "{{ .Annotations.dashboard_url }}"
+          runbook: "{{ .Annotations.runbook_url }}"
 ```
 
 ### Jira Integration
 
 ```yaml
 receivers:
-  - name: 'jira-tickets'
+  - name: "jira-tickets"
     webhook_configs:
-      - url: 'https://your-jira-instance/rest/api/2/issue'
+      - url: "https://your-jira-instance/rest/api/2/issue"
         http_config:
           basic_auth:
-            username: '<jira-user>'
-            password: '<jira-token>'
+            username: "<jira-user>"
+            password: "<jira-token>"
         send_resolved: false
 ```
 

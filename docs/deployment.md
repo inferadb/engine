@@ -52,11 +52,13 @@ InferaDB is a high-performance authorization database designed for cloud-native 
 ### Storage Backend Requirements
 
 #### Memory Backend (Development)
+
 - No additional requirements
 - Data lost on restart
 - Fast performance for testing
 
 #### FoundationDB Backend (Production)
+
 - FoundationDB 7.1+ cluster
 - Network access to FDB cluster
 - Cluster file (`fdb.cluster`)
@@ -126,7 +128,7 @@ docker run -d \
 **Docker Compose:**
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   inferadb:
@@ -134,7 +136,7 @@ services:
     ports:
       - "8080:8080"
       - "8081:8081"
-      - "9090:9090"  # Metrics
+      - "9090:9090" # Metrics
     environment:
       INFERA__SERVER__WORKER_THREADS: "4"
       INFERA__STORE__BACKEND: "memory"
@@ -228,14 +230,14 @@ helm install inferadb ./helm/infera \
 
 All configuration can be provided via environment variables using the `INFERA__` prefix:
 
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `INFERA__SERVER__HOST` | Server bind address | `0.0.0.0` |
-| `INFERA__SERVER__PORT` | HTTP port | `8080` |
-| `INFERA__SERVER__WORKER_THREADS` | Tokio worker threads | CPU count |
-| `INFERA__STORE__BACKEND` | Storage backend (`memory` or `foundationdb`) | `memory` |
-| `INFERA__CACHE__ENABLED` | Enable caching | `true` |
-| `INFERA__AUTH__ENABLED` | Enable authentication | `true` |
+| Environment Variable             | Description                                  | Default   |
+| -------------------------------- | -------------------------------------------- | --------- |
+| `INFERA__SERVER__HOST`           | Server bind address                          | `0.0.0.0` |
+| `INFERA__SERVER__PORT`           | HTTP port                                    | `8080`    |
+| `INFERA__SERVER__WORKER_THREADS` | Tokio worker threads                         | CPU count |
+| `INFERA__STORE__BACKEND`         | Storage backend (`memory` or `foundationdb`) | `memory`  |
+| `INFERA__CACHE__ENABLED`         | Enable caching                               | `true`    |
+| `INFERA__AUTH__ENABLED`          | Enable authentication                        | `true`    |
 
 See [Configuration Reference](../docs/configuration-reference.md) for complete list.
 
@@ -305,10 +307,10 @@ spec:
   target:
     name: inferadb-secrets
   data:
-  - secretKey: INFERA__AUTH__JWKS_URL
-    remoteRef:
-      key: inferadb/prod/auth
-      property: jwks_url
+    - secretKey: INFERA__AUTH__JWKS_URL
+      remoteRef:
+        key: inferadb/prod/auth
+        property: jwks_url
 ```
 
 #### 4. Docker Secrets
@@ -438,8 +440,8 @@ Configure logging format and level:
 
 ```yaml
 observability:
-  log_level: info  # trace, debug, info, warn, error
-  log_format: json  # or "text"
+  log_level: info # trace, debug, info, warn, error
+  log_format: json # or "text"
 ```
 
 **Structured JSON logs:**
@@ -523,18 +525,18 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0  # Zero downtime
+      maxUnavailable: 0 # Zero downtime
 
   template:
     spec:
       terminationGracePeriodSeconds: 30
       containers:
-      - name: inferadb
-        readinessProbe:
-          httpGet:
-            path: /health/ready
-            port: 8080
-          periodSeconds: 5
+        - name: inferadb
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            periodSeconds: 5
 ```
 
 ## Troubleshooting
@@ -651,26 +653,29 @@ kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
 
 ### Scaling Guidelines
 
-| Workload | Replicas | CPU/Replica | Memory/Replica | Backend |
-|----------|----------|-------------|----------------|---------|
-| Development | 1 | 100m | 128Mi | Memory |
-| Testing | 1-3 | 250m | 256Mi | Memory |
-| Staging | 3-5 | 500m | 512Mi | FoundationDB |
-| Production | 5-50 | 1000m | 2Gi | FoundationDB |
+| Workload    | Replicas | CPU/Replica | Memory/Replica | Backend      |
+| ----------- | -------- | ----------- | -------------- | ------------ |
+| Development | 1        | 100m        | 128Mi          | Memory       |
+| Testing     | 1-3      | 250m        | 256Mi          | Memory       |
+| Staging     | 3-5      | 500m        | 512Mi          | FoundationDB |
+| Production  | 5-50     | 1000m       | 2Gi            | FoundationDB |
 
 ### Resource Allocation
 
 **CPU:**
+
 - Worker threads = CPU cores
 - Over-provision for burst traffic
 - Monitor CPU throttling
 
 **Memory:**
+
 - Cache size ≈ 50% of memory
 - Account for request buffers
 - Monitor OOM kills
 
 **Storage:**
+
 - FoundationDB for persistence
 - Size based on tuple count
 - Plan for growth

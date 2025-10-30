@@ -49,16 +49,17 @@ inferadb_cache_hit_rate 85.3
 
 InferaDB tracks comprehensive authentication metrics for monitoring security and performance.
 
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `inferadb_auth_attempts_total` | Counter | `method`, `tenant_id` | Total number of authentication attempts |
-| `inferadb_auth_success_total` | Counter | `method`, `tenant_id` | Total number of successful authentications |
-| `inferadb_auth_failure_total` | Counter | `method`, `error_type`, `tenant_id` | Total number of failed authentications |
-| `inferadb_auth_duration_seconds` | Histogram | `method`, `tenant_id` | Duration of authentication operations |
-| `inferadb_jwt_signature_verifications_total` | Counter | `algorithm`, `result` | Total number of JWT signature verifications |
-| `inferadb_jwt_validation_errors_total` | Counter | `error_type` | Total number of JWT validation errors |
+| Metric                                       | Type      | Labels                              | Description                                 |
+| -------------------------------------------- | --------- | ----------------------------------- | ------------------------------------------- |
+| `inferadb_auth_attempts_total`               | Counter   | `method`, `tenant_id`               | Total number of authentication attempts     |
+| `inferadb_auth_success_total`                | Counter   | `method`, `tenant_id`               | Total number of successful authentications  |
+| `inferadb_auth_failure_total`                | Counter   | `method`, `error_type`, `tenant_id` | Total number of failed authentications      |
+| `inferadb_auth_duration_seconds`             | Histogram | `method`, `tenant_id`               | Duration of authentication operations       |
+| `inferadb_jwt_signature_verifications_total` | Counter   | `algorithm`, `result`               | Total number of JWT signature verifications |
+| `inferadb_jwt_validation_errors_total`       | Counter   | `error_type`                        | Total number of JWT validation errors       |
 
 **Label Values**:
+
 - **method**: `tenant_jwt`, `oauth_jwt`, `internal_jwt`
 - **error_type**: `invalid_format`, `expired`, `not_yet_valid`, `invalid_signature`, `invalid_issuer`, `invalid_audience`, `missing_claim`, `unsupported_algorithm`, `jwks_error`
 - **algorithm**: `EdDSA`, `RS256`
@@ -78,14 +79,14 @@ histogram_quantile(0.99, sum(rate(inferadb_auth_duration_seconds_bucket[5m])) by
 
 #### JWKS Cache Metrics
 
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `inferadb_jwks_cache_hits_total` | Counter | `tenant_id` | Total number of JWKS cache hits |
-| `inferadb_jwks_cache_misses_total` | Counter | `tenant_id` | Total number of JWKS cache misses |
-| `inferadb_jwks_refresh_total` | Counter | `tenant_id`, `result` | Total number of JWKS refresh operations |
-| `inferadb_jwks_refresh_errors_total` | Counter | `tenant_id` | Total number of JWKS refresh errors |
-| `inferadb_jwks_fetch_duration_seconds` | Histogram | `tenant_id` | Duration of JWKS fetch operations |
-| `inferadb_jwks_stale_served_total` | Counter | `tenant_id` | Number of times stale JWKS was served |
+| Metric                                 | Type      | Labels                | Description                             |
+| -------------------------------------- | --------- | --------------------- | --------------------------------------- |
+| `inferadb_jwks_cache_hits_total`       | Counter   | `tenant_id`           | Total number of JWKS cache hits         |
+| `inferadb_jwks_cache_misses_total`     | Counter   | `tenant_id`           | Total number of JWKS cache misses       |
+| `inferadb_jwks_refresh_total`          | Counter   | `tenant_id`, `result` | Total number of JWKS refresh operations |
+| `inferadb_jwks_refresh_errors_total`   | Counter   | `tenant_id`           | Total number of JWKS refresh errors     |
+| `inferadb_jwks_fetch_duration_seconds` | Histogram | `tenant_id`           | Duration of JWKS fetch operations       |
+| `inferadb_jwks_stale_served_total`     | Counter   | `tenant_id`           | Number of times stale JWKS was served   |
 
 **Example PromQL Queries**:
 
@@ -99,14 +100,14 @@ sum(rate(inferadb_jwks_refresh_errors_total[5m])) by (tenant_id)
 
 #### OAuth Metrics
 
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `inferadb_oauth_jwt_validations_total` | Counter | `issuer`, `result` | Total number of OAuth JWT validations |
-| `inferadb_oauth_introspections_total` | Counter | `result` | Total number of token introspections |
-| `inferadb_oauth_introspection_cache_hits_total` | Counter | | Total number of introspection cache hits |
-| `inferadb_oauth_introspection_cache_misses_total` | Counter | | Total number of introspection cache misses |
-| `inferadb_oauth_introspection_duration_seconds` | Histogram | | Duration of token introspection operations |
-| `inferadb_oidc_discovery_total` | Counter | `issuer`, `result` | Total number of OIDC discovery operations |
+| Metric                                            | Type      | Labels             | Description                                |
+| ------------------------------------------------- | --------- | ------------------ | ------------------------------------------ |
+| `inferadb_oauth_jwt_validations_total`            | Counter   | `issuer`, `result` | Total number of OAuth JWT validations      |
+| `inferadb_oauth_introspections_total`             | Counter   | `result`           | Total number of token introspections       |
+| `inferadb_oauth_introspection_cache_hits_total`   | Counter   |                    | Total number of introspection cache hits   |
+| `inferadb_oauth_introspection_cache_misses_total` | Counter   |                    | Total number of introspection cache misses |
+| `inferadb_oauth_introspection_duration_seconds`   | Histogram |                    | Duration of token introspection operations |
+| `inferadb_oidc_discovery_total`                   | Counter   | `issuer`, `result` | Total number of OIDC discovery operations  |
 
 **Example PromQL Queries**:
 
@@ -122,11 +123,11 @@ For comprehensive authentication metrics documentation, see [infera-observe/READ
 
 #### Authorization Check Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `inferadb_checks_total` | Counter | Total number of authorization checks |
-| `inferadb_checks_allowed_total` | Counter | Number of checks resulting in Allow |
-| `inferadb_checks_denied_total` | Counter | Number of checks resulting in Deny |
+| Metric                            | Type      | Description                                      |
+| --------------------------------- | --------- | ------------------------------------------------ |
+| `inferadb_checks_total`           | Counter   | Total number of authorization checks             |
+| `inferadb_checks_allowed_total`   | Counter   | Number of checks resulting in Allow              |
+| `inferadb_checks_denied_total`    | Counter   | Number of checks resulting in Deny               |
 | `inferadb_check_duration_seconds` | Histogram | Duration of authorization checks (p50, p90, p99) |
 
 **Example PromQL Queries**:
@@ -147,12 +148,12 @@ histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m]))
 
 #### Cache Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `inferadb_cache_hits_total` | Counter | Total number of cache hits |
-| `inferadb_cache_misses_total` | Counter | Total number of cache misses |
-| `inferadb_cache_entries` | Gauge | Current number of entries in cache |
-| `inferadb_cache_hit_rate` | Gauge | Current cache hit rate (0-100%) |
+| Metric                        | Type    | Description                        |
+| ----------------------------- | ------- | ---------------------------------- |
+| `inferadb_cache_hits_total`   | Counter | Total number of cache hits         |
+| `inferadb_cache_misses_total` | Counter | Total number of cache misses       |
+| `inferadb_cache_entries`      | Gauge   | Current number of entries in cache |
+| `inferadb_cache_hit_rate`     | Gauge   | Current cache hit rate (0-100%)    |
 
 **Example PromQL Queries**:
 
@@ -169,14 +170,14 @@ inferadb_cache_entries
 
 #### Storage Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `inferadb_storage_reads_total` | Counter | Total number of storage read operations |
-| `inferadb_storage_writes_total` | Counter | Total number of storage write operations |
-| `inferadb_storage_read_duration_seconds` | Histogram | Duration of storage read operations |
-| `inferadb_storage_write_duration_seconds` | Histogram | Duration of storage write operations |
-| `inferadb_storage_tuples_total` | Gauge | Total number of tuples in storage |
-| `inferadb_storage_revision` | Gauge | Current storage revision number |
+| Metric                                    | Type      | Description                              |
+| ----------------------------------------- | --------- | ---------------------------------------- |
+| `inferadb_storage_reads_total`            | Counter   | Total number of storage read operations  |
+| `inferadb_storage_writes_total`           | Counter   | Total number of storage write operations |
+| `inferadb_storage_read_duration_seconds`  | Histogram | Duration of storage read operations      |
+| `inferadb_storage_write_duration_seconds` | Histogram | Duration of storage write operations     |
+| `inferadb_storage_tuples_total`           | Gauge     | Total number of tuples in storage        |
+| `inferadb_storage_revision`               | Gauge     | Current storage revision number          |
 
 **Example PromQL Queries**:
 
@@ -196,12 +197,12 @@ rate(inferadb_storage_tuples_total[1h])
 
 #### WASM Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `inferadb_wasm_invocations_total` | Counter | Total number of WASM module invocations |
-| `inferadb_wasm_errors_total` | Counter | Total number of WASM execution errors |
-| `inferadb_wasm_duration_seconds` | Histogram | Duration of WASM module executions |
-| `inferadb_wasm_fuel_consumed` | Histogram | Amount of fuel consumed by WASM |
+| Metric                            | Type      | Description                             |
+| --------------------------------- | --------- | --------------------------------------- |
+| `inferadb_wasm_invocations_total` | Counter   | Total number of WASM module invocations |
+| `inferadb_wasm_errors_total`      | Counter   | Total number of WASM execution errors   |
+| `inferadb_wasm_duration_seconds`  | Histogram | Duration of WASM module executions      |
+| `inferadb_wasm_fuel_consumed`     | Histogram | Amount of fuel consumed by WASM         |
 
 **Example PromQL Queries**:
 
@@ -218,10 +219,10 @@ histogram_quantile(0.99, rate(inferadb_wasm_duration_seconds_bucket[5m]))
 
 #### Evaluation Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `inferadb_evaluations_total` | Counter | Total number of relation evaluations |
-| `inferadb_evaluation_depth` | Histogram | Depth of relation evaluation trees |
+| Metric                         | Type      | Description                            |
+| ------------------------------ | --------- | -------------------------------------- |
+| `inferadb_evaluations_total`   | Counter   | Total number of relation evaluations   |
+| `inferadb_evaluation_depth`    | Histogram | Depth of relation evaluation trees     |
 | `inferadb_evaluation_branches` | Histogram | Number of branches evaluated per check |
 
 **Example PromQL Queries**:
@@ -239,27 +240,27 @@ histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))
 
 #### Query Optimization Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `inferadb_optimizations_total` | Counter | Total number of query optimizations performed |
-| `inferadb_query_cost_estimated` | Histogram | Estimated cost of queries |
+| Metric                          | Type      | Description                                   |
+| ------------------------------- | --------- | --------------------------------------------- |
+| `inferadb_optimizations_total`  | Counter   | Total number of query optimizations performed |
+| `inferadb_query_cost_estimated` | Histogram | Estimated cost of queries                     |
 
 #### Replication Metrics
 
 InferaDB tracks comprehensive replication metrics for monitoring multi-region deployments.
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `inferadb_replication_changes_total` | Counter | Total number of changes replicated to remote regions |
-| `inferadb_replication_failures_total` | Counter | Total number of replication failures |
-| `inferadb_replication_conflicts_total` | Counter | Total number of replication conflicts detected |
-| `inferadb_replication_conflicts_resolved_local` | Counter | Number of conflicts resolved by keeping local change |
-| `inferadb_replication_conflicts_resolved_remote` | Counter | Number of conflicts resolved by keeping remote change |
-| `inferadb_replication_lag_milliseconds` | Gauge | Current replication lag in milliseconds |
-| `inferadb_replication_targets_connected` | Gauge | Number of replication targets currently connected |
-| `inferadb_replication_targets_total` | Gauge | Total number of configured replication targets |
-| `inferadb_replication_batch_size` | Histogram | Distribution of replication batch sizes |
-| `inferadb_replication_duration_seconds` | Histogram | Duration of replication operations in seconds |
+| Metric                                           | Type      | Description                                           |
+| ------------------------------------------------ | --------- | ----------------------------------------------------- |
+| `inferadb_replication_changes_total`             | Counter   | Total number of changes replicated to remote regions  |
+| `inferadb_replication_failures_total`            | Counter   | Total number of replication failures                  |
+| `inferadb_replication_conflicts_total`           | Counter   | Total number of replication conflicts detected        |
+| `inferadb_replication_conflicts_resolved_local`  | Counter   | Number of conflicts resolved by keeping local change  |
+| `inferadb_replication_conflicts_resolved_remote` | Counter   | Number of conflicts resolved by keeping remote change |
+| `inferadb_replication_lag_milliseconds`          | Gauge     | Current replication lag in milliseconds               |
+| `inferadb_replication_targets_connected`         | Gauge     | Number of replication targets currently connected     |
+| `inferadb_replication_targets_total`             | Gauge     | Total number of configured replication targets        |
+| `inferadb_replication_batch_size`                | Histogram | Distribution of replication batch sizes               |
+| `inferadb_replication_duration_seconds`          | Histogram | Duration of replication operations in seconds         |
 
 **Example PromQL Queries**:
 
@@ -326,12 +327,12 @@ For detailed replication documentation, see [Multi-Region Replication](replicati
 
 #### API Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `inferadb_api_requests_total{endpoint,method}` | Counter | Total API requests by endpoint and method |
-| `inferadb_api_errors_total{endpoint,status}` | Counter | Total API errors by endpoint and status code |
-| `inferadb_api_request_duration_seconds{endpoint}` | Histogram | API request duration by endpoint |
-| `inferadb_api_active_connections` | Gauge | Number of currently active connections |
+| Metric                                            | Type      | Description                                  |
+| ------------------------------------------------- | --------- | -------------------------------------------- |
+| `inferadb_api_requests_total{endpoint,method}`    | Counter   | Total API requests by endpoint and method    |
+| `inferadb_api_errors_total{endpoint,status}`      | Counter   | Total API errors by endpoint and status code |
+| `inferadb_api_request_duration_seconds{endpoint}` | Histogram | API request duration by endpoint             |
+| `inferadb_api_active_connections`                 | Gauge     | Number of currently active connections       |
 
 **Example PromQL Queries**:
 
@@ -354,10 +355,10 @@ inferadb_api_active_connections
 
 #### System Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
+| Metric                                | Type  | Description                  |
+| ------------------------------------- | ----- | ---------------------------- |
 | `inferadb_build_info{version,commit}` | Gauge | Build information (always 1) |
-| `inferadb_uptime_seconds` | Gauge | Time since server started |
+| `inferadb_uptime_seconds`             | Gauge | Time since server started    |
 
 **Example PromQL Queries**:
 
@@ -583,6 +584,7 @@ export RUST_LOG=infera=debug,infera_api=info
 ```
 
 **Log Levels**:
+
 - `error`: Errors only
 - `warn`: Warnings and errors
 - `info`: Informational, warnings, and errors (default)
@@ -677,10 +679,10 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'inferadb'
+  - job_name: "inferadb"
     static_configs:
-      - targets: ['localhost:8080']
-    metrics_path: '/metrics'
+      - targets: ["localhost:8080"]
+    metrics_path: "/metrics"
 ```
 
 **Start Prometheus**:
@@ -804,18 +806,21 @@ groups:
 ### Performance Thresholds
 
 **Latency**:
+
 - p50 < 5ms (good)
 - p90 < 10ms (acceptable)
 - p99 < 50ms (threshold)
 - p99 > 100ms (investigate)
 
 **Cache Hit Rate**:
+
 - \> 90%: Excellent
 - 70-90%: Good
 - 50-70%: Acceptable
 - < 50%: Poor (investigate)
 
 **Error Rate**:
+
 - < 0.1%: Excellent
 - 0.1-1%: Acceptable
 - 1-5%: Warning
@@ -860,6 +865,7 @@ grpcurl -plaintext -d '{
 ### 1. Monitor Key Metrics
 
 Focus on:
+
 - Request rate
 - Latency (p50, p90, p99)
 - Error rate
@@ -868,6 +874,7 @@ Focus on:
 ### 2. Set Alerts
 
 Alert on:
+
 - High error rate (> 5%)
 - High latency (p99 > 100ms)
 - Low cache hit rate (< 50%)
@@ -897,6 +904,7 @@ export OTEL_TRACES_SAMPLER_ARG=0.1  # 10% sampling
 ### 5. Aggregate Logs
 
 Send logs to centralized logging:
+
 - Elasticsearch + Kibana
 - Grafana Loki
 - AWS CloudWatch

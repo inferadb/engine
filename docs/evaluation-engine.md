@@ -99,6 +99,7 @@ type document {
 ```
 
 Evaluation:
+
 1. Look up tuple `(document:readme, viewer, user:alice)`
 2. If exists, return Allow; otherwise Deny
 
@@ -125,6 +126,7 @@ check("user:anyone", "doc:readme", "public_viewer") # Allow
 ```
 
 **Use Cases**:
+
 - Public documents accessible to everyone
 - Organization-wide resources
 - Default permissions for all authenticated users
@@ -144,6 +146,7 @@ type document {
 ```
 
 Evaluation:
+
 1. Evaluate `viewer` relation
 2. If Allow, return Allow
 3. Otherwise, evaluate `editor` relation
@@ -164,6 +167,7 @@ type document {
 ```
 
 Evaluation:
+
 1. Evaluate `approver` relation
 2. If Deny, return Deny (short-circuit)
 3. Evaluate `editor` relation
@@ -184,6 +188,7 @@ type document {
 ```
 
 Evaluation:
+
 1. Evaluate `viewer` relation
 2. If Deny, return Deny (no access to revoke)
 3. Evaluate `blocked` relation
@@ -202,6 +207,7 @@ type document {
 ```
 
 Evaluation:
+
 1. Parse relation reference `editor`
 2. Recursively evaluate `editor` relation on same resource
 3. Return result
@@ -218,6 +224,7 @@ type document {
 ```
 
 Evaluation:
+
 1. Look up tuples `(document:readme, parent, ?)`
 2. For each result (e.g., `folder:shared`):
    - Evaluate `viewer` relation on that resource
@@ -393,6 +400,7 @@ decision
 **Cache Key**: `{subject}/{resource}/{permission}/{revision}`
 
 **Benefits**:
+
 - Repeated checks are <1ms (cache hit)
 - Reduces database load
 - Scales horizontally
@@ -400,10 +408,12 @@ decision
 ### 2. Short-Circuit Evaluation
 
 **Union** (OR):
+
 - Stop at first Allow
 - Don't evaluate remaining branches
 
 **Intersection** (AND):
+
 - Stop at first Deny
 - Don't evaluate remaining branches
 
@@ -424,6 +434,7 @@ relation can_access = (owner | editor) & not_blocked
 ```
 
 Evaluation plan:
+
 1. Evaluate `owner` and `editor` in parallel
 2. If both Deny, short-circuit (no need to check `not_blocked`)
 3. Otherwise evaluate `not_blocked`
@@ -546,6 +557,7 @@ Err(EvalError::Store(StoreError::...))
 The evaluation engine has comprehensive test coverage:
 
 **Unit Tests** ([`crates/infera-core/src/evaluator.rs`](../crates/infera-core/src/evaluator.rs)):
+
 - Direct tuple checks
 - Union/intersection/exclusion operations
 - Computed usersets
@@ -554,11 +566,13 @@ The evaluation engine has comprehensive test coverage:
 - Max depth limits
 
 **Integration Tests** ([`crates/infera-core/tests/`](../crates/infera-core/tests/)):
+
 - Document management scenario
 - Organization hierarchy scenario
 - Role-based access control scenario
 
 **Benchmarks** ([`crates/infera-core/benches/evaluator.rs`](../crates/infera-core/benches/evaluator.rs)):
+
 - Simple checks: <10μs
 - Complex nested checks: <100μs
 - Deep hierarchies: <1ms
@@ -633,6 +647,7 @@ println!("Userset tree: {:#?}", tree);
 Deep nesting impacts performance. Aim for 3-5 levels maximum.
 
 **Good**:
+
 ```ipl
 type document {
   relation parent: folder
@@ -641,6 +656,7 @@ type document {
 ```
 
 **Avoid**:
+
 ```ipl
 // 10+ levels of nesting
 relation viewer = viewer from parent from parent from parent...

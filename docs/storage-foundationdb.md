@@ -28,18 +28,21 @@ InferaDB uses FoundationDB's **subspace** feature to organize data into three lo
 ### Subspaces
 
 **1. Tuples Subspace**
+
 - Stores actual tuple data with revision tracking
 - Key: `(object, relation, user, revision)`
 - Value: `"active"` or `"deleted"` marker
 - Enables MVCC by maintaining version history
 
 **2. Revisions Subspace**
+
 - Tracks global revision counter
 - Key: `"current"`
 - Value: Latest revision number (JSON-encoded u64)
 - Atomically incremented in transactions
 
 **3. Indexes Subspace**
+
 - Two index types for efficient queries:
   - **Object index**: Forward lookup (object+relation → users)
   - **User index**: Reverse lookup (user+relation → objects)
@@ -61,11 +64,13 @@ pub struct FoundationDBBackend {
 ### Prerequisites
 
 1. **FoundationDB Cluster**
+
    - Version 6.3 or higher recommended
    - Running fdbserver instances
    - Configured cluster file
 
 2. **FoundationDB Client Library**
+
    ```bash
    # macOS
    brew install foundationdb
@@ -98,12 +103,14 @@ cargo test --features fdb -- --ignored
 ### Configuration
 
 **Method 1: Default Cluster File**
+
 ```rust
 let backend = FoundationDBBackend::new().await?;
 // Uses /etc/foundationdb/fdb.cluster
 ```
 
 **Method 2: Custom Cluster File**
+
 ```rust
 let backend = FoundationDBBackend::with_cluster_file(
     Some("/path/to/fdb.cluster")
@@ -111,6 +118,7 @@ let backend = FoundationDBBackend::with_cluster_file(
 ```
 
 **Method 3: Storage Factory**
+
 ```rust
 use infera_store::{StorageFactory, StorageConfig};
 
@@ -121,6 +129,7 @@ let store = StorageFactory::create(config).await?;
 ```
 
 **Method 4: Configuration File**
+
 ```toml
 # config.toml
 [store]
@@ -141,6 +150,7 @@ let store = StorageFactory::from_str(
 ### Read Operation
 
 **Transaction Flow:**
+
 1. Begin FDB transaction
 2. Query index subspace for matching keys (range read)
 3. Filter by revision (≤ requested revision)
@@ -149,6 +159,7 @@ let store = StorageFactory::from_str(
 6. Return tuples
 
 **Example:**
+
 ```rust
 let key = TupleKey {
     object: "doc:readme".to_string(),
@@ -161,6 +172,7 @@ let tuples = store.read(&key, revision).await?;
 ```
 
 **Performance:**
+
 - Latency: 1-5ms (depends on cluster size and network)
 - Throughput: 10K-100K reads/sec per node
 - Scales horizontally with cluster size
@@ -168,6 +180,7 @@ let tuples = store.read(&key, revision).await?;
 ### Write Operation
 
 **Transaction Flow:**
+
 1. Begin FDB transaction
 2. Read and increment global revision counter
 3. For each tuple:
@@ -177,6 +190,7 @@ let tuples = store.read(&key, revision).await?;
 4. Commit transaction (automatic retries on conflict)
 
 **Example:**
+
 ```rust
 let tuples = vec![
     Tuple {
@@ -195,11 +209,13 @@ let revision = store.write(tuples).await?;
 ```
 
 **Atomicity:**
+
 - All tuples in a batch written at same revision
 - Either all succeed or all fail
 - FDB handles automatic retries on conflicts
 
 **Performance:**
+
 - Latency: 5-10ms (includes commit time)
 - Throughput: 10K-50K writes/sec per cluster
 - Batch writes are more efficient
@@ -207,6 +223,7 @@ let revision = store.write(tuples).await?;
 ### Delete Operation
 
 **Transaction Flow:**
+
 1. Begin FDB transaction
 2. Increment global revision
 3. Find all matching tuples (by object+relation or specific user)
@@ -214,6 +231,7 @@ let revision = store.write(tuples).await?;
 5. Commit transaction
 
 **Example:**
+
 ```rust
 // Delete all readers
 let key = TupleKey {
@@ -233,6 +251,7 @@ store.delete(&key).await?;
 ```
 
 **Soft Deletes:**
+
 - Deletes are markers, not physical removals
 - Enables MVCC (read old versions)
 - FDB's compaction cleans up old data automatically
@@ -253,6 +272,7 @@ let tuples = store.read(&key, rev1).await?;  // Sees state at rev1
 ```
 
 **Isolation Levels:**
+
 - Serializable isolation by default
 - Snapshot reads at any revision
 - No read-write conflicts (MVCC)
@@ -260,16 +280,19 @@ let tuples = store.read(&key, rev1).await?;  // Sees state at rev1
 ### Revision Management
 
 **Global Revision Counter:**
+
 - Monotonically increasing
 - Atomically incremented per transaction
 - Enables point-in-time queries
 
 **Revision History:**
+
 - Each tuple stores all versions with revisions
 - Read at any past revision
 - Automatic cleanup via FDB compaction
 
 **Example:**
+
 ```rust
 // Write at revision 1
 let rev1 = store.write(tuples_v1).await?;
@@ -285,11 +308,13 @@ let data_at_rev2 = store.read(&key, rev2).await?;
 ### Horizontal Scalability
 
 **Scale Out:**
+
 - Add more fdbserver processes to increase capacity
 - Data automatically redistributes
 - No application changes needed
 
 **Performance Scaling:**
+
 ```
 1 node:   10K ops/sec
 3 nodes:  30K ops/sec
@@ -298,6 +323,7 @@ let data_at_rev2 = store.read(&key, rev2).await?;
 ```
 
 **Storage Scaling:**
+
 - FDB handles petabyte-scale data
 - Automatic sharding and rebalancing
 - No manual partitioning required
@@ -305,16 +331,19 @@ let data_at_rev2 = store.read(&key, rev2).await?;
 ### High Availability
 
 **Replication:**
+
 - Configurable replication factor (default: 3)
 - Data replicated across failure domains
 - Synchronous replication for consistency
 
 **Automatic Failover:**
+
 - Node failures detected in seconds
 - Automatic promotion of replicas
 - No data loss on single node failure
 
 **Recovery:**
+
 ```
 Node failure:     < 5 seconds to recover
 Data center loss: < 60 seconds (with multi-DC setup)
@@ -337,6 +366,7 @@ for tuple in tuples {
 ```
 
 **Benchmarks:**
+
 ```
 Single writes: 10ms per write, 100 writes/sec
 Batch (100):   50ms per batch, 2000 writes/sec (20x faster)
@@ -345,6 +375,7 @@ Batch (100):   50ms per batch, 2000 writes/sec (20x faster)
 ### Read Optimization
 
 **Use Range Reads:**
+
 ```rust
 // Efficient: Single range read from index
 let key = TupleKey {
@@ -356,6 +387,7 @@ store.read(&key, revision).await?;
 ```
 
 **Caching:**
+
 ```rust
 // Enable InferaDB's cache layer
 let cache = AuthCache::new(10_000, Duration::from_secs(300));
@@ -365,11 +397,13 @@ let cache = AuthCache::new(10_000, Duration::from_secs(300));
 ### Transaction Sizes
 
 **Limits:**
+
 - Max transaction size: 10MB
 - Max keys per transaction: ~100K
 - Max transaction duration: 5 seconds
 
 **Best Practices:**
+
 - Keep transactions small (<1MB)
 - Batch operations when possible
 - Split very large writes across multiple transactions
@@ -377,12 +411,14 @@ let cache = AuthCache::new(10_000, Duration::from_secs(300));
 ### Cluster Configuration
 
 **Storage Engine:**
+
 ```bash
 # SSDs recommended for best performance
 fdbcli> configure ssd
 ```
 
 **Replication:**
+
 ```bash
 # Triple replication (default, recommended)
 fdbcli> configure triple
@@ -392,6 +428,7 @@ fdbcli> configure double
 ```
 
 **Region Setup:**
+
 ```bash
 # Multi-region for disaster recovery
 fdbcli> configure regions
@@ -402,6 +439,7 @@ fdbcli> configure regions
 ### Key Metrics
 
 **Latency:**
+
 ```rust
 use std::time::Instant;
 
@@ -413,6 +451,7 @@ println!("Read latency: {:?}", latency);
 ```
 
 **Throughput:**
+
 ```bash
 # Use fdbcli to monitor cluster
 fdbcli> status details
@@ -425,6 +464,7 @@ fdbcli> status details
 ```
 
 **FDB Status:**
+
 ```bash
 fdbcli> status
 
@@ -438,12 +478,14 @@ fdbcli> status
 ### Alerting
 
 **Critical Alerts:**
+
 - Transaction timeouts > 100ms
 - Replication factor below target
 - Storage capacity > 80%
 - Process failures
 
 **Warning Alerts:**
+
 - Latency p99 > 10ms
 - Storage capacity > 60%
 - Network saturation
@@ -475,6 +517,7 @@ fdbrestore status
 ### Disaster Recovery
 
 **Multi-Region Setup:**
+
 1. Deploy FDB cluster across regions
 2. Configure region-aware replication
 3. Set up cross-region backup
@@ -487,6 +530,7 @@ fdbrestore status
 **Issue:** Max 10MB per transaction
 
 **Workaround:**
+
 ```rust
 // Split large batches
 for chunk in tuples.chunks(1000) {
@@ -499,6 +543,7 @@ for chunk in tuples.chunks(1000) {
 **Issue:** Max 10KB per key
 
 **Workaround:**
+
 - Keep object/relation/user names reasonably sized
 - Use IDs instead of long strings
 - InferaDB's design stays well within limits
@@ -508,6 +553,7 @@ for chunk in tuples.chunks(1000) {
 **Issue:** Requires FDB cluster setup and maintenance
 
 **Mitigation:**
+
 - Use managed FDB service if available
 - Follow FDB operational best practices
 - Start with 3-node cluster for simplicity
@@ -517,6 +563,7 @@ for chunk in tuples.chunks(1000) {
 **Issue:** Each operation involves network round-trip
 
 **Mitigation:**
+
 - Deploy InferaDB close to FDB cluster
 - Use same data center/region
 - Enable caching layer
@@ -528,12 +575,15 @@ for chunk in tuples.chunks(1000) {
 **Symptom:** "Failed to initialize FDB" error
 
 **Solutions:**
+
 1. Verify FDB cluster is running:
+
    ```bash
    fdbcli> status
    ```
 
 2. Check cluster file exists:
+
    ```bash
    ls -la /etc/foundationdb/fdb.cluster
    ```
@@ -548,6 +598,7 @@ for chunk in tuples.chunks(1000) {
 **Symptom:** "Transaction exceeded 5 second time limit"
 
 **Solutions:**
+
 1. Reduce transaction size
 2. Check FDB cluster health
 3. Increase timeout (not recommended):
@@ -560,6 +611,7 @@ for chunk in tuples.chunks(1000) {
 **Symptom:** High latency (>20ms)
 
 **Solutions:**
+
 1. Check FDB cluster status
 2. Verify network latency to FDB
 3. Enable caching

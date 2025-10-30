@@ -4,13 +4,13 @@ kind: Kustomization
 namespace: inferadb
 
 resources:
-- rbac.yaml
-- configmap.yaml
-- secret.yaml
-- deployment.yaml
-- service.yaml
-- hpa.yaml
-- pdb.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - secret.yaml
+  - deployment.yaml
+  - service.yaml
+  - hpa.yaml
+  - pdb.yaml
 
 commonLabels:
   app.kubernetes.io/name: inferadb
@@ -18,18 +18,18 @@ commonLabels:
   app.kubernetes.io/managed-by: kustomize
 
 configMapGenerator:
-- name: inferadb-config
-  behavior: merge
-  envs:
-  - config.env
+  - name: inferadb-config
+    behavior: merge
+    envs:
+      - config.env
 
 secretGenerator:
-- name: inferadb-secrets
-  behavior: merge
-  envs:
-  - secrets.env
+  - name: inferadb-secrets
+    behavior: merge
+    envs:
+      - secrets.env
 
 images:
-- name: inferadb
-  newName: inferadb
-  newTag: latest
+  - name: inferadb
+    newName: inferadb
+    newTag: latest

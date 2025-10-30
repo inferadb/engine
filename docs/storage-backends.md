@@ -5,6 +5,7 @@ InferaDB provides a flexible storage abstraction layer that allows you to choose
 ## Overview
 
 The storage layer is responsible for:
+
 - **Persistent tuple storage** - Storing authorization relationship tuples
 - **Revision management** - MVCC (Multi-Version Concurrency Control) for consistent reads
 - **Indexing** - Efficient lookups by object, relation, and user
@@ -19,6 +20,7 @@ The storage layer is responsible for:
 The in-memory backend stores all data in RAM using Rust's standard collections. It's the default backend and requires no external dependencies.
 
 **Features:**
+
 - Zero configuration required
 - Perfect for development and testing
 - Fast performance (sub-microsecond latency)
@@ -26,11 +28,13 @@ The in-memory backend stores all data in RAM using Rust's standard collections. 
 - Garbage collection for old revisions
 
 **Limitations:**
+
 - Data is not persisted to disk
 - Limited to single-node deployment
 - Memory-bound (suitable for datasets up to ~1M tuples)
 
 **Best for:**
+
 - Local development
 - Unit and integration testing
 - Small-scale deployments
@@ -45,6 +49,7 @@ See [Memory Backend Documentation](./storage-memory.md) for details.
 The FoundationDB backend provides distributed, ACID transactions with horizontal scalability and high availability.
 
 **Features:**
+
 - Full ACID transactions across nodes
 - Horizontal scalability (petabyte scale)
 - High availability with automatic failover
@@ -53,11 +58,13 @@ The FoundationDB backend provides distributed, ACID transactions with horizontal
 - Automatic data replication
 
 **Requirements:**
+
 - FoundationDB cluster (6.3+)
 - Compile with `--features fdb`
 - FoundationDB client library
 
 **Best for:**
+
 - Production deployments
 - Multi-region setups
 - Large datasets (millions+ tuples)
@@ -152,21 +159,22 @@ pub trait TupleStore: Send + Sync {
 ```
 
 This abstraction ensures:
+
 - **Backend agnostic code** - Write once, run on any backend
 - **Easy testing** - Use memory backend in tests, production backend in deployment
 - **Zero-cost abstraction** - No runtime overhead beyond the storage layer
 
 ## Choosing a Backend
 
-| Criteria | Memory | FoundationDB |
-|----------|--------|--------------|
-| Setup complexity | ✅ None | ⚠️ Requires FDB cluster |
-| Performance | ✅ Sub-microsecond | ✅ Sub-5ms p99 |
-| Scalability | ❌ Single node | ✅ Horizontal scaling |
-| Persistence | ❌ RAM only | ✅ Durable storage |
-| High availability | ❌ No | ✅ Yes |
-| Production ready | ⚠️ Small scale | ✅ Yes |
-| Cost | ✅ Free | ⚠️ Infrastructure cost |
+| Criteria          | Memory             | FoundationDB            |
+| ----------------- | ------------------ | ----------------------- |
+| Setup complexity  | ✅ None            | ⚠️ Requires FDB cluster |
+| Performance       | ✅ Sub-microsecond | ✅ Sub-5ms p99          |
+| Scalability       | ❌ Single node     | ✅ Horizontal scaling   |
+| Persistence       | ❌ RAM only        | ✅ Durable storage      |
+| High availability | ❌ No              | ✅ Yes                  |
+| Production ready  | ⚠️ Small scale     | ✅ Yes                  |
+| Cost              | ✅ Free            | ⚠️ Infrastructure cost  |
 
 **Quick Decision Guide:**
 
@@ -239,11 +247,13 @@ impl StorageFactory {
 ## Performance Considerations
 
 ### Memory Backend
+
 - **Reads**: O(log n) for indexed lookups
 - **Writes**: O(log n) for insertion + index updates
 - **Space**: O(n × revisions) - grows with data and history
 
 ### FoundationDB Backend
+
 - **Reads**: Network latency + FDB key lookup (typically <5ms)
 - **Writes**: Network latency + FDB transaction commit (typically <10ms)
 - **Space**: Efficient storage with FDB's built-in compaction
@@ -260,6 +270,7 @@ impl StorageFactory {
 To migrate from Memory to FoundationDB (or vice versa):
 
 1. **Export data** from source backend:
+
 ```rust
 let source = StorageFactory::memory();
 let current_rev = source.get_revision().await?;
@@ -270,6 +281,7 @@ let mut all_tuples = Vec::new();
 ```
 
 2. **Import data** to target backend:
+
 ```rust
 let target = StorageFactory::from_str("foundationdb", cluster_file).await?;
 target.write(all_tuples).await?;
@@ -282,20 +294,25 @@ target.write(all_tuples).await?;
 ### Memory Backend Issues
 
 **Problem**: Out of memory errors
+
 - **Solution**: Use FoundationDB backend or implement periodic GC
 
 **Problem**: Data lost on restart
+
 - **Solution**: Memory backend is not persistent by design. Use FoundationDB for persistence.
 
 ### FoundationDB Backend Issues
 
 **Problem**: Connection errors
+
 - **Solution**: Verify FDB cluster is running and cluster file path is correct
 
 **Problem**: Transaction timeouts
+
 - **Solution**: Check FDB cluster health, increase transaction timeout if needed
 
 **Problem**: Slow performance
+
 - **Solution**: Check FDB cluster capacity, optimize batch sizes, enable caching
 
 ## See Also

@@ -40,7 +40,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 65532
@@ -57,7 +57,7 @@ service:
   # grpcNodePort: 30081
   # loadBalancerIP: ""  # Only used when service.type is LoadBalancer
   headless:
-    enabled: false  # Enable for StatefulSet deployments
+    enabled: false # Enable for StatefulSet deployments
 
 # Ingress configuration
 ingress:
@@ -148,8 +148,8 @@ config:
     rateLimitPeriod: 60
 
   store:
-    backend: "memory"  # or "foundationdb"
-    connectionString: ""  # /etc/foundationdb/fdb.cluster for FDB
+    backend: "memory" # or "foundationdb"
+    connectionString: "" # /etc/foundationdb/fdb.cluster for FDB
     timeout: 5000
     maxRetryDelay: 1000
     transactionTimeout: 5000
@@ -220,7 +220,7 @@ externalSecrets:
   enabled: false
   secretStoreRef:
     name: ""
-    kind: SecretStore  # or ClusterSecretStore
+    kind: SecretStore # or ClusterSecretStore
   refreshInterval: 1h
   data: []
     # - secretKey: INFERA__AUTH__JWKS_URL

@@ -15,6 +15,7 @@ SLOs define the target reliability and performance characteristics for InferaDB.
 **Definition**: Percentage of time the service successfully responds to requests.
 
 **SLI Calculation**:
+
 ```promql
 # Availability over 30 days
 sum(rate(inferadb_checks_total[30d])) - sum(rate(inferadb_api_errors_total{code=~"5.."}[30d]))
@@ -26,6 +27,7 @@ sum(rate(inferadb_checks_total[30d])) - sum(rate(inferadb_api_errors_total{code=
 **Measurement Window**: 30-day rolling window
 
 **Exclusions**:
+
 - Scheduled maintenance (with 48h notice)
 - Client errors (4xx status codes)
 - DDoS attacks
@@ -42,12 +44,14 @@ sum(rate(inferadb_checks_total[30d])) - sum(rate(inferadb_api_errors_total{code=
 **Definition**: 99th percentile of authorization check latency must be below 10 milliseconds.
 
 **SLI Calculation**:
+
 ```promql
 # p99 latency for checks
 histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000
 ```
 
 **Additional Targets**:
+
 - **p50 < 2ms**: Median latency for typical requests
 - **p90 < 5ms**: 90th percentile latency
 - **p99.9 < 50ms**: Tail latency for complex evaluations
@@ -55,6 +59,7 @@ histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 100
 **Measurement Window**: 5-minute rolling window
 
 **Exclusions**:
+
 - Requests with WASM policy execution (tracked separately)
 - First request after cold start
 - Requests during cache warming
@@ -62,6 +67,7 @@ histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 100
 **Rationale**: Authorization is on the critical path for user requests. 10ms p99 allows for authorization checks without significantly impacting user-perceived latency (typical web requests: 100-200ms).
 
 **WASM Latency SLO**:
+
 - **Target**: p99 < 50ms for WASM-enhanced checks
 - WASM execution adds overhead but enables custom policies
 
@@ -74,6 +80,7 @@ histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 100
 **Definition**: Less than 0.1% of requests result in 5xx server errors.
 
 **SLI Calculation**:
+
 ```promql
 # Error rate over 5 minutes
 sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
@@ -85,6 +92,7 @@ sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
 **Error Budget**: 1 error per 1,000 requests
 
 **Exclusions**:
+
 - Client errors (4xx): validation errors, auth failures, not found
 - Rate limit errors (429)
 - Upstream service failures (if properly handled)
@@ -100,6 +108,7 @@ sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
 **Definition**: At least 80% of authorization checks should be served from cache.
 
 **SLI Calculation**:
+
 ```promql
 # Cache hit rate
 sum(rate(inferadb_cache_hits_total[5m]))
@@ -121,6 +130,7 @@ sum(rate(inferadb_cache_hits_total[5m]))
 **Definition**: 99th percentile of storage read/write operations must complete within 5 milliseconds.
 
 **SLI Calculation**:
+
 ```promql
 # p99 storage read latency
 histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000
@@ -142,6 +152,7 @@ histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m]
 **Definition**: Changes should replicate to remote regions within 100 milliseconds.
 
 **SLI Calculation**:
+
 ```promql
 # Current replication lag
 inferadb_replication_lag_milliseconds
@@ -162,6 +173,7 @@ inferadb_replication_lag_milliseconds
 **Definition**: Stale JWKS keys should be served for less than 1 second during refresh.
 
 **SLI Calculation**:
+
 ```promql
 # Stale serves per minute
 rate(inferadb_jwks_stale_served_total[1m])
@@ -176,6 +188,7 @@ rate(inferadb_jwks_stale_served_total[1m])
 **Definition**: 99% of authorization checks should resolve within 10 levels of graph traversal.
 
 **SLI Calculation**:
+
 ```promql
 # p99 evaluation depth
 histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))
@@ -239,12 +252,12 @@ sum(rate(inferadb_cache_hits_total[5m]))
 
 ### Alert Severity Levels
 
-| Severity | Description | Response Time | Escalation |
-|----------|-------------|---------------|------------|
-| **P0 (Critical)** | SLO violation in progress, customer impact | Immediate | Page on-call |
-| **P1 (High)** | SLO at risk, trending toward violation | 15 minutes | Notify on-call |
-| **P2 (Medium)** | SLO warning, early indicator | 1 hour | Ticket for next business day |
-| **P3 (Low)** | SLO healthy, informational | None | Log only |
+| Severity          | Description                                | Response Time | Escalation                   |
+| ----------------- | ------------------------------------------ | ------------- | ---------------------------- |
+| **P0 (Critical)** | SLO violation in progress, customer impact | Immediate     | Page on-call                 |
+| **P1 (High)**     | SLO at risk, trending toward violation     | 15 minutes    | Notify on-call               |
+| **P2 (Medium)**   | SLO warning, early indicator               | 1 hour        | Ticket for next business day |
+| **P3 (Low)**      | SLO healthy, informational                 | None          | Log only                     |
 
 ### Alert Burn Rate
 
@@ -283,18 +296,21 @@ Use **multi-window, multi-burn-rate alerts** to catch SLO violations early while
 ## SLO Targets by Environment
 
 ### Production
+
 - Availability: 99.9%
 - Latency p99: <10ms
 - Error rate: <0.1%
 - Cache hit rate: >80%
 
 ### Staging
+
 - Availability: 99.5%
 - Latency p99: <20ms
 - Error rate: <0.5%
 - Cache hit rate: >70%
 
 ### Development
+
 - No strict SLOs (best effort)
 - Used for testing and experimentation
 
@@ -305,6 +321,7 @@ Use **multi-window, multi-burn-rate alerts** to catch SLO violations early while
 ### Monthly SLO Review
 
 **Agenda**:
+
 1. Review SLO compliance for past 30 days
 2. Analyze error budget spend
 3. Review incidents and root causes
@@ -336,13 +353,13 @@ SLOs should evolve with the system:
 
 ### Scaling Triggers
 
-| Metric | Threshold | Action |
-|--------|-----------|--------|
-| CPU utilization | >70% sustained | Add instances |
-| Memory utilization | >80% | Add instances or increase memory |
-| Cache hit rate | <70% | Increase cache size |
-| Storage latency p99 | >8ms | Scale storage or optimize queries |
-| Replication lag | >200ms | Add regions or increase bandwidth |
+| Metric              | Threshold      | Action                            |
+| ------------------- | -------------- | --------------------------------- |
+| CPU utilization     | >70% sustained | Add instances                     |
+| Memory utilization  | >80%           | Add instances or increase memory  |
+| Cache hit rate      | <70%           | Increase cache size               |
+| Storage latency p99 | >8ms           | Scale storage or optimize queries |
+| Replication lag     | >200ms         | Add regions or increase bandwidth |
 
 ### Cost vs. Reliability Trade-offs
 
@@ -359,12 +376,14 @@ SLOs should evolve with the system:
 **Observation**: p99 latency increased from 5ms to 15ms
 
 **Investigation**:
+
 1. Check dashboard: Which endpoint is slow?
 2. Query Prometheus: `histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m]))`
 3. Examine traces: Identify slow component (storage, cache miss, evaluation)
 4. Check recent changes: Recent deployment?
 
 **Response**:
+
 - If cache-related: Increase cache size or TTL
 - If storage-related: Optimize queries or scale storage
 - If evaluation-related: Optimize policy or add caching
@@ -377,6 +396,7 @@ SLOs should evolve with the system:
 **Observation**: 99.9% availability target missed, 0% error budget remaining
 
 **Action**:
+
 1. **Immediate**: Freeze all non-critical deployments
 2. **Investigate**: Root cause analysis of increased errors
 3. **Fix**: Address underlying issue
@@ -397,6 +417,6 @@ SLOs should evolve with the system:
 
 ## Revision History
 
-| Date | Version | Changes |
-|------|---------|---------|
-| 2025-01-15 | 1.0 | Initial SLO definitions |
+| Date       | Version | Changes                 |
+| ---------- | ------- | ----------------------- |
+| 2025-01-15 | 1.0     | Initial SLO definitions |

@@ -5,6 +5,7 @@ IPL is InferaDB's domain-specific language for defining authorization policies. 
 ## Overview
 
 IPL schemas define **types** and their **relations**. Relations can be:
+
 - Direct (stored as tuples)
 - Computed (derived from other relations)
 - Combined using set operations (union, intersection, exclusion)
@@ -64,9 +65,11 @@ type document {
 **Semantics**: User has `can_view` if they are a `viewer` OR `editor` OR `owner`.
 
 **Example tuples**:
+
 ```
 document:readme#editor@user:alice
 ```
+
 Query: `Check(user:alice, document:readme, can_view)` → **Allow**
 
 ### Intersection (AND) - `&`
@@ -85,10 +88,12 @@ type document {
 **Semantics**: User has `can_view_sensitive` only if they are BOTH a `viewer` AND have `sensitive_clearance`.
 
 **Example tuples**:
+
 ```
 document:secret#viewer@user:alice
 document:secret#sensitive_clearance@user:alice
 ```
+
 Query: `Check(user:alice, document:secret, can_view_sensitive)` → **Allow**
 
 ### Exclusion (EXCEPT) - `-`
@@ -107,12 +112,15 @@ type document {
 **Semantics**: User has `can_view` if they are a `viewer` AND NOT `blocked`.
 
 **Example tuples**:
+
 ```
 document:readme#viewer@user:alice
 document:readme#viewer@user:bob
 document:readme#blocked@user:bob
 ```
+
 Queries:
+
 - `Check(user:alice, document:readme, can_view)` → **Allow**
 - `Check(user:bob, document:readme, can_view)` → **Deny** (blocked)
 
@@ -145,14 +153,17 @@ type folder {
 ```
 
 **Semantics**:
+
 1. User is directly a `viewer` of the folder, OR
 2. User is a `viewer` of the parent folder (inherited access)
 
 **Example tuples**:
+
 ```
 folder:root#viewer@user:alice
 folder:sub#parent@folder:root
 ```
+
 Query: `Check(user:alice, folder:sub, can_view)` → **Allow** (inherited from root)
 
 **Syntax**: `<relation> from <tupleset_relation>`
@@ -191,6 +202,7 @@ type document {
 ```
 
 **Access Patterns**:
+
 1. Direct viewer/owner
 2. Inherited from parent folder
 3. Organization membership grants access
@@ -211,6 +223,7 @@ type approval_request {
 ```
 
 **Semantics**:
+
 - `pending`: Has requested but not yet approved
 - `approved`: Both requested and approved
 - `can_approve`: Can approve requests (approvers or admins)
@@ -230,6 +243,7 @@ type document {
 The WASM module receives execution context and returns 0 (deny) or non-zero (allow).
 
 **WASM Module Interface**:
+
 ```rust
 struct ExecutionContext {
     subject: String,
@@ -280,12 +294,14 @@ primary_expr = "this"
 ### Direct Tuple Lookup
 
 When evaluating `relation viewer = this`:
+
 1. Query store for tuples: `<resource>#viewer@*`
 2. Check if user is in result set
 
 ### Computed Relation Evaluation
 
 When evaluating `relation can_view = viewer | editor`:
+
 1. Evaluate `viewer` sub-expression
 2. Evaluate `editor` sub-expression
 3. Return **Allow** if ANY evaluates to Allow (union semantics)
@@ -293,6 +309,7 @@ When evaluating `relation can_view = viewer | editor`:
 ### Tuple-to-Userset Evaluation
 
 When evaluating `viewer from parent`:
+
 1. Query tuples for `<resource>#parent@*` (find parents)
 2. For each parent resource:
    - Recursively check if user has `viewer` on parent

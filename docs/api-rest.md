@@ -34,6 +34,7 @@ GET /health
 ```
 
 **Status Codes**:
+
 - `200 OK` - Service is healthy
 
 ---
@@ -60,6 +61,7 @@ Content-Type: application/json
 ```
 
 **Parameters**:
+
 - `subject` (string, required): The user or entity requesting access
 - `resource` (string, required): The resource being accessed
 - `permission` (string, required): The permission being checked
@@ -74,9 +76,11 @@ Content-Type: application/json
 ```
 
 **Fields**:
+
 - `decision` (string): Either `"allow"` or `"deny"`
 
 **Status Codes**:
+
 - `200 OK` - Check completed successfully
 - `400 Bad Request` - Invalid request format
 - `500 Internal Server Error` - Evaluation error
@@ -84,6 +88,7 @@ Content-Type: application/json
 #### Examples
 
 **Allow Decision**:
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/check \
   -H "Content-Type: application/json" \
@@ -95,6 +100,7 @@ curl -X POST http://localhost:8080/api/v1/check \
 ```
 
 Response:
+
 ```json
 {
   "decision": "allow"
@@ -102,6 +108,7 @@ Response:
 ```
 
 **Deny Decision**:
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/check \
   -H "Content-Type: application/json" \
@@ -113,6 +120,7 @@ curl -X POST http://localhost:8080/api/v1/check \
 ```
 
 Response:
+
 ```json
 {
   "decision": "deny"
@@ -167,6 +175,7 @@ Content-Type: application/json
 ```
 
 **Trace Node Fields**:
+
 - `decision` (string): Decision at this node
 - `node_type` (string): Type of evaluation node
   - `direct` - Direct tuple lookup
@@ -199,6 +208,7 @@ Content-Type: application/json
 ```
 
 **Parameters**:
+
 - `resource` (string, required): The resource to expand
 - `relation` (string, required): The relation to expand
 
@@ -229,6 +239,7 @@ Content-Type: application/json
 ```
 
 **Node Types**:
+
 - `this` - Direct relation
 - `computed_userset` - Computed relation with `relation` field
 - `tuple_to_userset` - Indirect relation with `tupleset` and `computed` fields
@@ -237,6 +248,7 @@ Content-Type: application/json
 - `exclusion` - EXCEPT operation
 
 **Status Codes**:
+
 - `200 OK` - Expansion completed
 - `400 Bad Request` - Invalid request
 - `404 Not Found` - Resource or relation not found
@@ -271,6 +283,7 @@ Content-Type: application/json
 ```
 
 **Parameters**:
+
 - `tuples` (array, required): Array of tuples to write
   - `object` (string): The resource
   - `relation` (string): The relation
@@ -285,9 +298,11 @@ Content-Type: application/json
 ```
 
 **Fields**:
+
 - `revision` (number): New revision number after write
 
 **Status Codes**:
+
 - `200 OK` - Tuples written successfully
 - `400 Bad Request` - Invalid tuple format
 - `500 Internal Server Error` - Write error
@@ -309,6 +324,7 @@ curl -X POST http://localhost:8080/api/v1/write \
 ```
 
 Response:
+
 ```json
 {
   "revision": 1
@@ -337,6 +353,7 @@ All endpoints may return error responses in this format:
 ```
 
 **Common Error Codes**:
+
 - `400 Bad Request` - Malformed request
 - `404 Not Found` - Resource not found
 - `500 Internal Server Error` - Server error
@@ -369,6 +386,7 @@ curl -X POST http://localhost:8080/api/v1/check -d '...'
 ## Performance Characteristics
 
 **Typical Latencies**:
+
 - `/health`: <1ms
 - `/check` (cached): <1ms
 - `/check` (uncached, simple): <5ms
@@ -377,6 +395,7 @@ curl -X POST http://localhost:8080/api/v1/check -d '...'
 - `/write`: <5ms
 
 **Throughput**:
+
 - Sustained: 10k-100k requests/second (depends on cache hit rate)
 
 ## Best Practices
@@ -401,10 +420,10 @@ The same check will be cached:
 
 ```javascript
 // First call - queries evaluator
-await check({subject: "user:alice", resource: "doc:1", permission: "view"});
+await check({ subject: "user:alice", resource: "doc:1", permission: "view" });
 
 // Second call - hits cache (very fast)
-await check({subject: "user:alice", resource: "doc:1", permission: "view"});
+await check({ subject: "user:alice", resource: "doc:1", permission: "view" });
 ```
 
 ### 3. Batch Writes
@@ -415,16 +434,22 @@ Batch multiple tuple writes in a single request:
 // Good - single request
 await write({
   tuples: [
-    {object: "doc:1", relation: "viewer", user: "user:alice"},
-    {object: "doc:1", relation: "editor", user: "user:bob"},
-    {object: "doc:2", relation: "viewer", user: "user:alice"}
-  ]
+    { object: "doc:1", relation: "viewer", user: "user:alice" },
+    { object: "doc:1", relation: "editor", user: "user:bob" },
+    { object: "doc:2", relation: "viewer", user: "user:alice" },
+  ],
 });
 
 // Avoid - multiple requests
-await write({tuples: [{object: "doc:1", relation: "viewer", user: "user:alice"}]});
-await write({tuples: [{object: "doc:1", relation: "editor", user: "user:bob"}]});
-await write({tuples: [{object: "doc:2", relation: "viewer", user: "user:alice"}]});
+await write({
+  tuples: [{ object: "doc:1", relation: "viewer", user: "user:alice" }],
+});
+await write({
+  tuples: [{ object: "doc:1", relation: "editor", user: "user:bob" }],
+});
+await write({
+  tuples: [{ object: "doc:2", relation: "viewer", user: "user:alice" }],
+});
 ```
 
 ### 4. Use Tracing for Debugging
@@ -447,22 +472,22 @@ Always check status codes and handle errors:
 
 ```javascript
 try {
-  const response = await fetch('/api/v1/check', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({subject, resource, permission})
+  const response = await fetch("/api/v1/check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subject, resource, permission }),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    console.error('Check failed:', error.message);
+    console.error("Check failed:", error.message);
     return false; // Fail closed
   }
 
   const result = await response.json();
-  return result.decision === 'allow';
+  return result.decision === "allow";
 } catch (error) {
-  console.error('Network error:', error);
+  console.error("Network error:", error);
   return false; // Fail closed on errors
 }
 ```
@@ -475,22 +500,28 @@ try {
 class InferaClient {
   constructor(private baseUrl: string) {}
 
-  async check(subject: string, resource: string, permission: string): Promise<boolean> {
+  async check(
+    subject: string,
+    resource: string,
+    permission: string
+  ): Promise<boolean> {
     const response = await fetch(`${this.baseUrl}/check`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({subject, resource, permission})
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, resource, permission }),
     });
 
     const result = await response.json();
-    return result.decision === 'allow';
+    return result.decision === "allow";
   }
 
-  async write(tuples: Array<{object: string, relation: string, user: string}>): Promise<number> {
+  async write(
+    tuples: Array<{ object: string; relation: string; user: string }>
+  ): Promise<number> {
     const response = await fetch(`${this.baseUrl}/write`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({tuples})
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tuples }),
     });
 
     const result = await response.json();
@@ -499,8 +530,8 @@ class InferaClient {
 }
 
 // Usage
-const client = new InferaClient('http://localhost:8080/api/v1');
-const allowed = await client.check('user:alice', 'document:readme', 'can_view');
+const client = new InferaClient("http://localhost:8080/api/v1");
+const allowed = await client.check("user:alice", "document:readme", "can_view");
 ```
 
 ### Python
