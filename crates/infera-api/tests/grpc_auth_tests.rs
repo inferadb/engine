@@ -191,11 +191,16 @@ fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> 
 
     let config = Arc::new(config);
 
+    let health_tracker = Arc::new(infera_api::health::HealthTracker::new());
+    health_tracker.set_ready(true);
+    health_tracker.set_startup_complete(true);
+
     AppState {
         evaluator,
         store,
         config,
         jwks_cache,
+        health_tracker,
     }
 }
 

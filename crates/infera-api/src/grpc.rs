@@ -471,11 +471,16 @@ mod tests {
         let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
         let config = Arc::new(Config::default());
 
+        let health_tracker = Arc::new(crate::health::HealthTracker::new());
+        health_tracker.set_ready(true);
+        health_tracker.set_startup_complete(true);
+
         AppState {
             evaluator,
             store,
             config,
             jwks_cache: None,
+            health_tracker,
         }
     }
 

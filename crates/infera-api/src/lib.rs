@@ -938,11 +938,16 @@ mod tests {
         config.server.rate_limiting_enabled = false;
         let config = Arc::new(config);
 
+        let health_tracker = Arc::new(health::HealthTracker::new());
+        health_tracker.set_ready(true);
+        health_tracker.set_startup_complete(true);
+
         AppState {
             evaluator,
             store,
             config,
             jwks_cache: None,
+            health_tracker,
         }
     }
 

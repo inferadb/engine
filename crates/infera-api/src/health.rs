@@ -341,6 +341,7 @@ mod tests {
         let tracker = HealthTracker::new();
         std::thread::sleep(std::time::Duration::from_millis(100));
         let uptime = tracker.uptime_seconds();
-        assert!(uptime >= 0);
+        // Uptime should be positive (comparison is always true for u64 but kept for documentation)
+        assert!(uptime < 1000); // Should be less than 1000 seconds for this test
     }
 }

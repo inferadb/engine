@@ -25,7 +25,7 @@ use tower::ServiceExt;
 
 // Re-use the mock JWKS infrastructure from infera-auth tests
 mod common {
-    use ed25519_dalek::{Signer, SigningKey};
+    use ed25519_dalek::SigningKey;
     use rand::rngs::OsRng;
     use serde_json::json;
     use std::sync::Arc;
@@ -176,11 +176,16 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
 
     let config = Arc::new(config);
 
+    let health_tracker = Arc::new(infera_api::health::HealthTracker::new());
+    health_tracker.set_ready(true);
+    health_tracker.set_startup_complete(true);
+
     AppState {
         evaluator,
         store,
         config,
         jwks_cache,
+        health_tracker,
     }
 }
 

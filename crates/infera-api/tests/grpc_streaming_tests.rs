@@ -31,11 +31,16 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for tests
 
+    let health_tracker = Arc::new(infera_api::health::HealthTracker::new());
+    health_tracker.set_ready(true);
+    health_tracker.set_startup_complete(true);
+
     let state = AppState {
         evaluator,
         store,
         config: Arc::new(config),
         jwks_cache: None,
+        health_tracker,
     };
 
     let service = InferaServiceImpl::new(state);
