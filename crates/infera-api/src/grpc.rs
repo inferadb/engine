@@ -1,4 +1,30 @@
 //! gRPC service implementation
+//!
+//! This module provides both server and client implementations for the InferaDB gRPC API.
+//!
+//! # Client Usage
+//!
+//! ```no_run
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! use infera_api::grpc::InferaServiceClient;
+//! use infera_api::grpc::proto::{CheckRequest};
+//!
+//! // Connect to server
+//! let mut client = InferaServiceClient::connect("http://localhost:8080").await?;
+//!
+//! // Make a check request
+//! let request = tonic::Request::new(CheckRequest {
+//!     subject: "user:alice".to_string(),
+//!     resource: "doc:readme".to_string(),
+//!     permission: "reader".to_string(),
+//!     context: None,
+//! });
+//!
+//! let response = client.check(request).await?;
+//! println!("Decision: {:?}", response.into_inner().decision);
+//! # Ok(())
+//! # }
+//! ```
 
 use tonic::{Request, Response, Status};
 
@@ -13,6 +39,9 @@ use infera_core::{
 pub mod proto {
     tonic::include_proto!("infera.v1");
 }
+
+// Re-export client for external use
+pub use proto::infera_service_client::InferaServiceClient;
 
 use proto::{
     infera_service_server::InferaService, CheckRequest, CheckResponse, CheckWithTraceResponse,
@@ -213,6 +242,97 @@ impl InferaService for InferaServiceImpl {
         Ok(Response::new(DeleteResponse {
             revision: last_revision.0.to_string(),
             tuples_deleted: tuples_count as u64,
+        }))
+    }
+
+    type ExpandStreamStream = std::pin::Pin<
+        Box<dyn futures::Stream<Item = Result<proto::ExpandStreamResponse, Status>> + Send + 'static>,
+    >;
+
+    async fn expand_stream(
+        &self,
+        request: Request<ExpandRequest>,
+    ) -> Result<Response<Self::ExpandStreamStream>, Status> {
+        let req = request.into_inner();
+
+        let expand_request = CoreExpandRequest {
+            resource: req.resource,
+            relation: req.relation,
+            limit: None,
+            continuation_token: None,
+        };
+
+        // Execute expansion
+        let response = self
+            .state
+            .evaluator
+            .expand(expand_request)
+            .await
+            .map_err(|e| Status::internal(format!("Expansion failed: {}", e)))?;
+
+        // Convert tree to proto
+        let tree = convert_userset_tree_to_proto(response.tree);
+        let users = response.users;
+        let total_users = users.len() as u64;
+
+        // Create stream of users followed by summary
+        let stream = futures::stream::iter(
+            users
+                .into_iter()
+                .map(|user| {
+                    Ok(proto::ExpandStreamResponse {
+                        payload: Some(proto::expand_stream_response::Payload::User(user)),
+                    })
+                })
+                .chain(std::iter::once(Ok(proto::ExpandStreamResponse {
+                    payload: Some(proto::expand_stream_response::Payload::Summary(
+                        proto::ExpandStreamSummary {
+                            tree: Some(tree),
+                            total_users,
+                        },
+                    )),
+                }))),
+        );
+
+        Ok(Response::new(Box::pin(stream)))
+    }
+
+    async fn write_stream(
+        &self,
+        request: Request<tonic::Streaming<WriteRequest>>,
+    ) -> Result<Response<WriteResponse>, Status> {
+        use futures::StreamExt;
+
+        let mut stream = request.into_inner();
+        let mut all_tuples = Vec::new();
+
+        // Collect all tuples from the stream
+        while let Some(write_req) = stream.next().await {
+            let write_req = write_req?;
+            for tuple in write_req.tuples {
+                all_tuples.push(infera_store::Tuple {
+                    object: tuple.object,
+                    relation: tuple.relation,
+                    user: tuple.user,
+                });
+            }
+        }
+
+        if all_tuples.is_empty() {
+            return Err(Status::invalid_argument("No tuples provided"));
+        }
+
+        // Write all tuples in a batch
+        let revision = self
+            .state
+            .store
+            .write(all_tuples.clone())
+            .await
+            .map_err(|e| Status::internal(format!("Write failed: {}", e)))?;
+
+        Ok(Response::new(WriteResponse {
+            revision: revision.0.to_string(),
+            tuples_written: all_tuples.len() as u64,
         }))
     }
 

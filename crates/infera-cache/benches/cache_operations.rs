@@ -203,12 +203,50 @@ fn bench_cache_invalidation(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_cache_selective_invalidation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cache_selective_invalidation");
+    group.throughput(Throughput::Elements(1));
+
+    for size in [100, 1_000, 10_000].iter() {
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            b.to_async(tokio::runtime::Runtime::new().unwrap())
+                .iter_custom(|iters| async move {
+                    let cache = setup_cache(size).await;
+                    let revision = Revision::zero();
+
+                    let start = std::time::Instant::now();
+                    for _ in 0..iters {
+                        // Populate cache with entries for 10 different resources
+                        for i in 0..10 {
+                            for j in 0..10 {
+                                let key = CheckCacheKey::new(
+                                    format!("user:{}", j),
+                                    format!("doc:{}", i),
+                                    "can_view".to_string(),
+                                    revision,
+                                );
+                                cache.put_check(key, Decision::Allow).await;
+                            }
+                        }
+
+                        // Selectively invalidate only one resource (10% of entries)
+                        black_box(cache.invalidate_resources(&["doc:0".to_string()]).await);
+                    }
+                    start.elapsed()
+                });
+        });
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_cache_insert,
     bench_cache_get_hit,
     bench_cache_get_miss,
     bench_cache_concurrent_access,
-    bench_cache_invalidation
+    bench_cache_invalidation,
+    bench_cache_selective_invalidation
 );
 criterion_main!(benches);

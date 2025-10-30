@@ -1311,4 +1311,41 @@ mod tests {
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(delete_response.tuples_deleted, 2);
     }
+
+    #[tokio::test]
+    async fn test_rate_limiting_disabled() {
+        // Verify rate limiting can be disabled in configuration
+        let state = create_test_state();
+        assert!(!state.config.server.rate_limiting_enabled);
+
+        let app = create_router(state);
+
+        let request_body = json!({
+            "subject": "user:alice",
+            "resource": "doc:readme",
+            "permission": "reader",
+            "context": null
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Should succeed with rate limiting disabled
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    // Note: Full rate limiting integration tests require a running HTTP server
+    // with actual TCP connections to properly test IP-based rate limiting.
+    // The tower-governor middleware is configured and enabled by default
+    // in production (server.rate_limiting_enabled = true).
+    // See docs/RATE_LIMITING.md for manual testing procedures.
 }

@@ -13,8 +13,14 @@ service InferaService {
   // Expand a relation into its userset tree
   rpc Expand(ExpandRequest) returns (ExpandResponse);
 
+  // Stream expand results (for large usersets)
+  rpc ExpandStream(ExpandRequest) returns (stream ExpandStreamResponse);
+
   // Write tuples to the store
   rpc Write(WriteRequest) returns (WriteResponse);
+
+  // Stream write operations (for batch imports)
+  rpc WriteStream(stream WriteRequest) returns (WriteResponse);
 
   // Delete tuples from the store
   rpc Delete(DeleteRequest) returns (DeleteResponse);
@@ -140,6 +146,24 @@ message ExpandRequest {
 message ExpandResponse {
   // Userset tree
   UsersetTree tree = 1;
+}
+
+// Expand stream response (one user at a time)
+message ExpandStreamResponse {
+  oneof payload {
+    // A single user in the expanded set
+    string user = 1;
+    // Final summary with tree
+    ExpandStreamSummary summary = 2;
+  }
+}
+
+// Summary sent at end of expand stream
+message ExpandStreamSummary {
+  // Complete userset tree
+  UsersetTree tree = 1;
+  // Total number of users
+  uint64 total_users = 2;
 }
 
 // Userset tree node

@@ -160,16 +160,26 @@ let new_revision = store.write(tuples).await?;
 
 ### Manual Invalidation
 
-Invalidate all entries before a specific revision:
-
-```rust
-cache.invalidate_before(revision).await;
-```
-
 Invalidate all entries:
 
 ```rust
 cache.invalidate_all().await;
+```
+
+Invalidate entries for specific resources only (selective invalidation):
+
+```rust
+// Extract affected resources from tuples
+let resources = AuthCache::extract_affected_resources(&tuples);
+
+// Only invalidate cache entries for those resources
+cache.invalidate_resources(&resources).await;
+```
+
+Invalidate all entries before a specific revision (backward compatibility):
+
+```rust
+cache.invalidate_before(revision).await;
 ```
 
 ### Invalidation Strategies
@@ -179,10 +189,42 @@ cache.invalidate_all().await;
 - Old entries become unreachable automatically
 - Memory is reclaimed by LRU eviction
 
+**Selective invalidation (Recommended)**:
+- Only invalidates entries for modified resources
+- Uses secondary index to track resource -> cache key mappings
+- More efficient than invalidating all entries
+- Maintains high hit rates during writes
+
 **Eager invalidation (Optional)**:
 - Call `invalidate_all()` after writes
 - Frees memory immediately
 - May cause cache thrashing under high write load
+
+### How Selective Invalidation Works
+
+The cache maintains a secondary index that maps resources to cache keys:
+
+```rust
+// When caching a check result
+cache.put_check(key, decision).await;
+// Internally: resource_index["doc:readme"] = {key1, key2, ...}
+
+// When writing tuples
+let tuples = vec![
+    Tuple { object: "doc:readme", relation: "viewer", user: "user:alice" }
+];
+let resources = AuthCache::extract_affected_resources(&tuples);
+// resources = ["doc:readme"]
+
+cache.invalidate_resources(&resources).await;
+// Only invalidates cache entries for "doc:readme"
+// Other entries remain cached
+```
+
+This is significantly more efficient than invalidating all entries, especially when:
+- You have a large cache
+- Writes affect only a small subset of resources
+- You want to maintain high hit rates during write operations
 
 ## Performance Characteristics
 

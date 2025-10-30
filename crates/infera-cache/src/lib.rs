@@ -2,11 +2,14 @@
 //!
 //! Optimizes common queries with deterministic caching.
 
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 
 use infera_store::Revision;
 
@@ -65,6 +68,10 @@ pub type ExpandCacheValue = Vec<String>;
 pub struct AuthCache {
     check_cache: Cache<CheckCacheKey, CheckCacheValue>,
     expand_cache: Cache<ExpandCacheKey, ExpandCacheValue>,
+    /// Secondary index: resource -> set of check cache keys that reference it
+    check_resource_index: Arc<RwLock<HashMap<String, HashSet<CheckCacheKey>>>>,
+    /// Secondary index: object -> set of expand cache keys that reference it
+    expand_object_index: Arc<RwLock<HashMap<String, HashSet<ExpandCacheKey>>>>,
     hits: AtomicU64,
     misses: AtomicU64,
     expand_hits: AtomicU64,
@@ -87,6 +94,8 @@ impl AuthCache {
         Self {
             check_cache,
             expand_cache,
+            check_resource_index: Arc::new(RwLock::new(HashMap::new())),
+            expand_object_index: Arc::new(RwLock::new(HashMap::new())),
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
             expand_hits: AtomicU64::new(0),
@@ -108,6 +117,14 @@ impl AuthCache {
 
     /// Cache a check result
     pub async fn put_check(&self, key: CheckCacheKey, value: CheckCacheValue) {
+        // Update the secondary index
+        let mut index = self.check_resource_index.write().await;
+        index
+            .entry(key.resource.clone())
+            .or_insert_with(HashSet::new)
+            .insert(key.clone());
+        drop(index);
+
         self.check_cache.insert(key, value).await;
     }
 
@@ -124,6 +141,14 @@ impl AuthCache {
 
     /// Cache an expand result
     pub async fn put_expand(&self, key: ExpandCacheKey, value: ExpandCacheValue) {
+        // Update the secondary index
+        let mut index = self.expand_object_index.write().await;
+        index
+            .entry(key.object.clone())
+            .or_insert_with(HashSet::new)
+            .insert(key.clone());
+        drop(index);
+
         self.expand_cache.insert(key, value).await;
     }
 
@@ -131,24 +156,61 @@ impl AuthCache {
     pub async fn invalidate_all(&self) {
         self.check_cache.invalidate_all();
         self.expand_cache.invalidate_all();
+
+        // Clear secondary indexes
+        self.check_resource_index.write().await.clear();
+        self.expand_object_index.write().await.clear();
+
         self.invalidations.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Invalidate cache entries for a specific revision or older
     pub async fn invalidate_before(&self, _revision: Revision) {
-        // Iterate through all entries and remove those with older revisions
-        // Note: This is not the most efficient approach but works for now
-        // A better approach would be to maintain a secondary index
-        let _count = 0;
-        self.check_cache.run_pending_tasks().await;
-        self.expand_cache.run_pending_tasks().await;
+        // For backward compatibility, invalidate all entries
+        // Use invalidate_resources for selective invalidation
+        self.invalidate_all().await;
+    }
 
-        // Since moka doesn't provide an efficient way to iterate and conditionally remove,
-        // we'll invalidate all entries when a write occurs
-        // This is conservative but correct
-        self.check_cache.invalidate_all();
-        self.expand_cache.invalidate_all();
+    /// Invalidate cache entries for specific resources only
+    /// This is more efficient than invalidating all entries
+    pub async fn invalidate_resources(&self, resources: &[String]) {
+        if resources.is_empty() {
+            return;
+        }
+
+        // Invalidate check cache entries for affected resources
+        let mut check_index = self.check_resource_index.write().await;
+        for resource in resources {
+            if let Some(keys) = check_index.remove(resource) {
+                for key in keys {
+                    self.check_cache.invalidate(&key).await;
+                }
+            }
+        }
+        drop(check_index);
+
+        // Invalidate expand cache entries for affected objects
+        let mut expand_index = self.expand_object_index.write().await;
+        for object in resources {
+            if let Some(keys) = expand_index.remove(object) {
+                for key in keys {
+                    self.expand_cache.invalidate(&key).await;
+                }
+            }
+        }
+        drop(expand_index);
+
         self.invalidations.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Extract affected resources from tuples for selective invalidation
+    /// Returns a list of unique object IDs that were modified
+    pub fn extract_affected_resources(tuples: &[infera_store::Tuple]) -> Vec<String> {
+        let mut resources = HashSet::new();
+        for tuple in tuples {
+            resources.insert(tuple.object.clone());
+        }
+        resources.into_iter().collect()
     }
 
     /// Get cache statistics
@@ -616,5 +678,527 @@ mod tests {
         assert_eq!(stats.expand_hits, 1);
         assert_eq!(stats.expand_misses, 0);
         assert_eq!(stats.entry_count, 2); // One check + one expand
+    }
+
+    #[tokio::test]
+    async fn test_selective_invalidation_check_cache() {
+        let cache = AuthCache::new(100, Duration::from_secs(60));
+
+        // Cache entries for different resources
+        let key1 = CheckCacheKey {
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+
+        let key2 = CheckCacheKey {
+            subject: "user:bob".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "write".to_string(),
+            revision: Revision(1),
+        };
+
+        let key3 = CheckCacheKey {
+            subject: "user:alice".to_string(),
+            resource: "doc:other".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+
+        cache.put_check(key1.clone(), Decision::Allow).await;
+        cache.put_check(key2.clone(), Decision::Deny).await;
+        cache.put_check(key3.clone(), Decision::Allow).await;
+
+        assert_eq!(cache.get_check(&key1).await, Some(Decision::Allow));
+        assert_eq!(cache.get_check(&key2).await, Some(Decision::Deny));
+        assert_eq!(cache.get_check(&key3).await, Some(Decision::Allow));
+
+        // Invalidate only entries for "doc:readme"
+        cache
+            .invalidate_resources(&["doc:readme".to_string()])
+            .await;
+
+        // key1 and key2 should be invalidated (both reference doc:readme)
+        assert!(cache.get_check(&key1).await.is_none());
+        assert!(cache.get_check(&key2).await.is_none());
+
+        // key3 should still be cached (references doc:other)
+        assert_eq!(cache.get_check(&key3).await, Some(Decision::Allow));
+
+        let stats = cache.stats();
+        assert_eq!(stats.invalidations, 1);
+    }
+
+    #[tokio::test]
+    async fn test_selective_invalidation_expand_cache() {
+        let cache = AuthCache::new(100, Duration::from_secs(60));
+
+        // Cache entries for different objects
+        let key1 = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            revision: Revision(1),
+        };
+
+        let key2 = ExpandCacheKey {
+            object: "doc:readme".to_string(),
+            relation: "editor".to_string(),
+            revision: Revision(1),
+        };
+
+        let key3 = ExpandCacheKey {
+            object: "doc:other".to_string(),
+            relation: "reader".to_string(),
+            revision: Revision(1),
+        };
+
+        let users1 = vec!["user:alice".to_string()];
+        let users2 = vec!["user:bob".to_string()];
+        let users3 = vec!["user:charlie".to_string()];
+
+        cache.put_expand(key1.clone(), users1.clone()).await;
+        cache.put_expand(key2.clone(), users2.clone()).await;
+        cache.put_expand(key3.clone(), users3.clone()).await;
+
+        assert_eq!(cache.get_expand(&key1).await, Some(users1));
+        assert_eq!(cache.get_expand(&key2).await, Some(users2));
+        assert_eq!(cache.get_expand(&key3).await, Some(users3.clone()));
+
+        // Invalidate only entries for "doc:readme"
+        cache
+            .invalidate_resources(&["doc:readme".to_string()])
+            .await;
+
+        // key1 and key2 should be invalidated (both reference doc:readme)
+        assert!(cache.get_expand(&key1).await.is_none());
+        assert!(cache.get_expand(&key2).await.is_none());
+
+        // key3 should still be cached (references doc:other)
+        assert_eq!(cache.get_expand(&key3).await, Some(users3));
+    }
+
+    #[tokio::test]
+    async fn test_selective_invalidation_multiple_resources() {
+        let cache = AuthCache::new(100, Duration::from_secs(60));
+
+        let key1 = CheckCacheKey {
+            subject: "user:alice".to_string(),
+            resource: "doc:1".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+
+        let key2 = CheckCacheKey {
+            subject: "user:alice".to_string(),
+            resource: "doc:2".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+
+        let key3 = CheckCacheKey {
+            subject: "user:alice".to_string(),
+            resource: "doc:3".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+
+        cache.put_check(key1.clone(), Decision::Allow).await;
+        cache.put_check(key2.clone(), Decision::Allow).await;
+        cache.put_check(key3.clone(), Decision::Allow).await;
+
+        // Invalidate doc:1 and doc:3, but not doc:2
+        cache
+            .invalidate_resources(&["doc:1".to_string(), "doc:3".to_string()])
+            .await;
+
+        assert!(cache.get_check(&key1).await.is_none());
+        assert_eq!(cache.get_check(&key2).await, Some(Decision::Allow));
+        assert!(cache.get_check(&key3).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_extract_affected_resources() {
+        let tuples = vec![
+            infera_store::Tuple {
+                object: "doc:1".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            infera_store::Tuple {
+                object: "doc:1".to_string(),
+                relation: "editor".to_string(),
+                user: "user:bob".to_string(),
+            },
+            infera_store::Tuple {
+                object: "doc:2".to_string(),
+                relation: "reader".to_string(),
+                user: "user:charlie".to_string(),
+            },
+        ];
+
+        let resources = AuthCache::extract_affected_resources(&tuples);
+
+        // Should extract unique objects
+        assert_eq!(resources.len(), 2);
+        assert!(resources.contains(&"doc:1".to_string()));
+        assert!(resources.contains(&"doc:2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_invalidate_resources_empty_list() {
+        let cache = AuthCache::new(100, Duration::from_secs(60));
+
+        let key = CheckCacheKey {
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+
+        cache.put_check(key.clone(), Decision::Allow).await;
+        assert_eq!(cache.get_check(&key).await, Some(Decision::Allow));
+
+        // Invalidate with empty list should do nothing
+        cache.invalidate_resources(&[]).await;
+
+        // Entry should still be cached
+        assert_eq!(cache.get_check(&key).await, Some(Decision::Allow));
+
+        let stats = cache.stats();
+        assert_eq!(stats.invalidations, 0);
+    }
+
+    // Concurrency tests
+    #[tokio::test]
+    async fn test_concurrent_reads() {
+        let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
+
+        let key = CheckCacheKey {
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+
+        // Pre-populate cache
+        cache.put_check(key.clone(), Decision::Allow).await;
+
+        // Spawn 100 concurrent readers
+        let mut handles = vec![];
+        for _ in 0..100 {
+            let cache = cache.clone();
+            let key = key.clone();
+            let handle = tokio::spawn(async move {
+                for _ in 0..10 {
+                    let result = cache.get_check(&key).await;
+                    assert_eq!(result, Some(Decision::Allow));
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all readers
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // All reads should have been hits
+        let stats = cache.stats();
+        assert_eq!(stats.hits, 1000); // 100 tasks * 10 reads each
+        assert_eq!(stats.misses, 0);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_writes() {
+        let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
+
+        // Spawn 100 concurrent writers
+        let mut handles = vec![];
+        for i in 0..100 {
+            let cache = cache.clone();
+            let handle = tokio::spawn(async move {
+                for j in 0..10 {
+                    let key = CheckCacheKey {
+                        subject: format!("user:{}", i),
+                        resource: format!("doc:{}", j),
+                        permission: "read".to_string(),
+                        revision: Revision(1),
+                    };
+                    cache.put_check(key, Decision::Allow).await;
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all writers
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Run pending tasks to sync cache state
+        cache.check_cache.run_pending_tasks().await;
+
+        // All entries should be present
+        let stats = cache.stats();
+        assert_eq!(stats.entry_count, 1000); // 100 users * 10 docs
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_reads_and_writes() {
+        let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
+
+        let mut handles = vec![];
+
+        // Spawn 50 writers
+        for i in 0..50 {
+            let cache = cache.clone();
+            let handle = tokio::spawn(async move {
+                for j in 0..10 {
+                    let key = CheckCacheKey {
+                        subject: format!("user:{}", i),
+                        resource: format!("doc:{}", j),
+                        permission: "read".to_string(),
+                        revision: Revision(1),
+                    };
+                    cache.put_check(key, Decision::Allow).await;
+                    tokio::time::sleep(Duration::from_micros(10)).await;
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Spawn 50 readers
+        for i in 0..50 {
+            let cache = cache.clone();
+            let handle = tokio::spawn(async move {
+                for j in 0..10 {
+                    let key = CheckCacheKey {
+                        subject: format!("user:{}", i),
+                        resource: format!("doc:{}", j),
+                        permission: "read".to_string(),
+                        revision: Revision(1),
+                    };
+                    // May or may not find the entry depending on timing
+                    let _ = cache.get_check(&key).await;
+                    tokio::time::sleep(Duration::from_micros(10)).await;
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all tasks
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Run pending tasks to sync cache state
+        cache.check_cache.run_pending_tasks().await;
+
+        // Should have some hits and misses
+        let stats = cache.stats();
+        assert!(stats.hits + stats.misses > 0);
+        assert_eq!(stats.entry_count, 500); // 50 users * 10 docs
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_invalidation() {
+        let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
+
+        // Pre-populate cache with entries for 10 different resources
+        for i in 0..10 {
+            for j in 0..10 {
+                let key = CheckCacheKey {
+                    subject: format!("user:{}", j),
+                    resource: format!("doc:{}", i),
+                    permission: "read".to_string(),
+                    revision: Revision(1),
+                };
+                cache.put_check(key, Decision::Allow).await;
+            }
+        }
+
+        // Run pending tasks to sync state
+        cache.check_cache.run_pending_tasks().await;
+
+        let stats = cache.stats();
+        assert_eq!(stats.entry_count, 100);
+
+        let mut handles = vec![];
+
+        // Spawn 10 concurrent invalidators, each invalidating a different resource
+        for i in 0..10 {
+            let cache = cache.clone();
+            let handle = tokio::spawn(async move {
+                cache
+                    .invalidate_resources(&[format!("doc:{}", i)])
+                    .await;
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all invalidators
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Run pending tasks to sync state
+        cache.check_cache.run_pending_tasks().await;
+
+        // All entries should be invalidated
+        let stats = cache.stats();
+        assert_eq!(stats.entry_count, 0);
+        assert_eq!(stats.invalidations, 10);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_invalidation_with_reads() {
+        let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
+
+        // Pre-populate cache
+        for i in 0..50 {
+            let key = CheckCacheKey {
+                subject: format!("user:{}", i),
+                resource: "doc:shared".to_string(),
+                permission: "read".to_string(),
+                revision: Revision(1),
+            };
+            cache.put_check(key, Decision::Allow).await;
+        }
+
+        let mut handles = vec![];
+
+        // Spawn readers
+        for i in 0..50 {
+            let cache = cache.clone();
+            let handle = tokio::spawn(async move {
+                let key = CheckCacheKey {
+                    subject: format!("user:{}", i),
+                    resource: "doc:shared".to_string(),
+                    permission: "read".to_string(),
+                    revision: Revision(1),
+                };
+                for _ in 0..10 {
+                    let _ = cache.get_check(&key).await;
+                    tokio::time::sleep(Duration::from_micros(10)).await;
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Spawn invalidator
+        let cache_clone = cache.clone();
+        let invalidator = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+            cache_clone
+                .invalidate_resources(&["doc:shared".to_string()])
+                .await;
+        });
+        handles.push(invalidator);
+
+        // Wait for all tasks
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Should have both hits and misses due to invalidation
+        let stats = cache.stats();
+        assert!(stats.hits > 0); // Some reads before invalidation
+        assert!(stats.misses > 0); // Some reads after invalidation
+        assert_eq!(stats.invalidations, 1);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_expand_cache_operations() {
+        let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
+
+        let mut handles = vec![];
+
+        // Spawn concurrent expand cache writers
+        for i in 0..50 {
+            let cache = cache.clone();
+            let handle = tokio::spawn(async move {
+                for j in 0..5 {
+                    let key = ExpandCacheKey {
+                        object: format!("doc:{}", i),
+                        relation: format!("rel:{}", j),
+                        revision: Revision(1),
+                    };
+                    let users = vec![format!("user:{}", i)];
+                    cache.put_expand(key, users).await;
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Spawn concurrent expand cache readers
+        for i in 0..50 {
+            let cache = cache.clone();
+            let handle = tokio::spawn(async move {
+                for j in 0..5 {
+                    let key = ExpandCacheKey {
+                        object: format!("doc:{}", i),
+                        relation: format!("rel:{}", j),
+                        revision: Revision(1),
+                    };
+                    let _ = cache.get_expand(&key).await;
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all tasks
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        let stats = cache.stats();
+        assert_eq!(stats.entry_count, 250); // 50 docs * 5 relations
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_secondary_index_updates() {
+        let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
+
+        let mut handles = vec![];
+
+        // Spawn tasks that add entries for the same resource
+        for i in 0..100 {
+            let cache = cache.clone();
+            let handle = tokio::spawn(async move {
+                let key = CheckCacheKey {
+                    subject: format!("user:{}", i),
+                    resource: "doc:shared".to_string(),
+                    permission: "read".to_string(),
+                    revision: Revision(1),
+                };
+                cache.put_check(key, Decision::Allow).await;
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all writers
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Run pending tasks to sync state
+        cache.check_cache.run_pending_tasks().await;
+
+        // All entries should be in cache
+        let stats = cache.stats();
+        assert_eq!(stats.entry_count, 100);
+
+        // Now invalidate the shared resource
+        cache
+            .invalidate_resources(&["doc:shared".to_string()])
+            .await;
+
+        // Run pending tasks to sync state
+        cache.check_cache.run_pending_tasks().await;
+
+        // All entries should be gone
+        let stats = cache.stats();
+        assert_eq!(stats.entry_count, 0);
     }
 }
