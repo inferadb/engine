@@ -13,8 +13,8 @@ use infera_api::grpc::proto::{
     infera_service_client::InferaServiceClient, DeleteRequest, Tuple as ProtoTuple, WriteRequest,
 };
 use infera_observe::metrics::{
-    record_replication_batch, record_replication_changes, record_replication_conflict,
-    record_replication_failure, update_replication_lag, update_replication_targets,
+    record_replication_batch, record_replication_changes, record_replication_failure,
+    update_replication_targets,
 };
 use infera_store::TupleStore;
 use std::collections::HashMap;
@@ -54,6 +54,7 @@ impl Default for ReplicationConfig {
 
 /// Represents a replication target (remote node)
 struct ReplicationTarget {
+    #[allow(dead_code)] // Used for future replication routing logic
     region_id: RegionId,
     node_id: NodeId,
     endpoint: String,
@@ -136,8 +137,10 @@ pub struct ReplicationAgent {
     /// Local change feed to subscribe to
     change_feed: Arc<ChangeFeed>,
     /// Tuple store for conflict resolution
+    #[allow(dead_code)] // Used in future conflict resolution logic
     store: Arc<dyn TupleStore>,
     /// Conflict resolver
+    #[allow(dead_code)] // Used in future conflict resolution logic
     conflict_resolver: Arc<ConflictResolver>,
     /// Replication configuration
     config: ReplicationConfig,
