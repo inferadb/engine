@@ -36,6 +36,7 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 ### Operations
 - [Configuration](configuration.md) - Configuration options and tuning
 - [Observability](observability.md) - Metrics, tracing, and logging
+- [Authentication](../AUTHENTICATION.md) - Authentication implementation guide
 
 ## Project Status
 
@@ -47,7 +48,19 @@ InferaDB is under active development. Current implementation status:
 - FoundationDB storage backend with distributed transactions
 - Storage abstraction layer with flexible backend selection
 - Policy evaluation engine with all relation types (union, intersection, exclusion, computed usersets)
-- REST and gRPC APIs
+- REST and gRPC APIs with authentication
+- **Authentication & Authorization**:
+  - Private-Key JWT (RFC 7523) for tenant SDK/CLI authentication
+  - OAuth 2.0 Bearer Token validation with OIDC discovery
+  - Internal Service JWT for control plane authentication
+  - JWKS caching with stale-while-revalidate pattern
+  - Comprehensive audit logging (JSON structured events)
+  - gRPC interceptor-based authentication middleware
+- **Observability**:
+  - Prometheus metrics (18 authentication/JWKS/OAuth metrics)
+  - OpenTelemetry distributed tracing with semantic conventions
+  - Structured audit logging for security events
+  - Comprehensive metrics documentation with example queries
 - WASM module integration with sandboxing
 - Intelligent caching system with TTL and LRU eviction
 - Query optimization infrastructure with parallel evaluation
@@ -58,12 +71,10 @@ InferaDB is under active development. Current implementation status:
 🚧 **In Progress:**
 - Change feed for replication
 - Multi-region replication
-- Enhanced documentation
 
 📋 **Planned:**
-- Enhanced observability
 - Production deployment tools
-- Client SDKs
+- Client SDKs with authentication support
 
 ## Quick Links
 

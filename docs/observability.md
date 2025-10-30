@@ -45,6 +45,81 @@ inferadb_cache_hit_rate 85.3
 
 ### Available Metrics
 
+#### Authentication Metrics
+
+InferaDB tracks comprehensive authentication metrics for monitoring security and performance.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `inferadb_auth_attempts_total` | Counter | `method`, `tenant_id` | Total number of authentication attempts |
+| `inferadb_auth_success_total` | Counter | `method`, `tenant_id` | Total number of successful authentications |
+| `inferadb_auth_failure_total` | Counter | `method`, `error_type`, `tenant_id` | Total number of failed authentications |
+| `inferadb_auth_duration_seconds` | Histogram | `method`, `tenant_id` | Duration of authentication operations |
+| `inferadb_jwt_signature_verifications_total` | Counter | `algorithm`, `result` | Total number of JWT signature verifications |
+| `inferadb_jwt_validation_errors_total` | Counter | `error_type` | Total number of JWT validation errors |
+
+**Label Values**:
+- **method**: `tenant_jwt`, `oauth_jwt`, `internal_jwt`
+- **error_type**: `invalid_format`, `expired`, `not_yet_valid`, `invalid_signature`, `invalid_issuer`, `invalid_audience`, `missing_claim`, `unsupported_algorithm`, `jwks_error`
+- **algorithm**: `EdDSA`, `RS256`
+
+**Example PromQL Queries**:
+
+```promql
+# Authentication success rate
+sum(rate(inferadb_auth_success_total[5m])) / sum(rate(inferadb_auth_attempts_total[5m])) * 100
+
+# Authentication failures by error type
+sum(rate(inferadb_auth_failure_total[5m])) by (error_type)
+
+# p99 authentication latency
+histogram_quantile(0.99, sum(rate(inferadb_auth_duration_seconds_bucket[5m])) by (le))
+```
+
+#### JWKS Cache Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `inferadb_jwks_cache_hits_total` | Counter | `tenant_id` | Total number of JWKS cache hits |
+| `inferadb_jwks_cache_misses_total` | Counter | `tenant_id` | Total number of JWKS cache misses |
+| `inferadb_jwks_refresh_total` | Counter | `tenant_id`, `result` | Total number of JWKS refresh operations |
+| `inferadb_jwks_refresh_errors_total` | Counter | `tenant_id` | Total number of JWKS refresh errors |
+| `inferadb_jwks_fetch_duration_seconds` | Histogram | `tenant_id` | Duration of JWKS fetch operations |
+| `inferadb_jwks_stale_served_total` | Counter | `tenant_id` | Number of times stale JWKS was served |
+
+**Example PromQL Queries**:
+
+```promql
+# JWKS cache hit rate
+sum(rate(inferadb_jwks_cache_hits_total[5m])) / (sum(rate(inferadb_jwks_cache_hits_total[5m])) + sum(rate(inferadb_jwks_cache_misses_total[5m]))) * 100
+
+# JWKS fetch errors by tenant
+sum(rate(inferadb_jwks_refresh_errors_total[5m])) by (tenant_id)
+```
+
+#### OAuth Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `inferadb_oauth_jwt_validations_total` | Counter | `issuer`, `result` | Total number of OAuth JWT validations |
+| `inferadb_oauth_introspections_total` | Counter | `result` | Total number of token introspections |
+| `inferadb_oauth_introspection_cache_hits_total` | Counter | | Total number of introspection cache hits |
+| `inferadb_oauth_introspection_cache_misses_total` | Counter | | Total number of introspection cache misses |
+| `inferadb_oauth_introspection_duration_seconds` | Histogram | | Duration of token introspection operations |
+| `inferadb_oidc_discovery_total` | Counter | `issuer`, `result` | Total number of OIDC discovery operations |
+
+**Example PromQL Queries**:
+
+```promql
+# OAuth validation success rate by issuer
+sum(rate(inferadb_oauth_jwt_validations_total{result="success"}[5m])) by (issuer) / sum(rate(inferadb_oauth_jwt_validations_total[5m])) by (issuer) * 100
+
+# Token introspection rate
+sum(rate(inferadb_oauth_introspections_total[5m]))
+```
+
+For comprehensive authentication metrics documentation, see [infera-observe/README.md](../crates/infera-observe/README.md).
+
 #### Authorization Check Metrics
 
 | Metric | Type | Description |
@@ -331,6 +406,86 @@ inferadb-check [3.2ms]
   └─ cache-write [0.3ms]
       ttl_seconds: 300
 ```
+
+---
+
+## Audit Logging
+
+InferaDB provides comprehensive audit logging for all authentication events to support security monitoring, compliance, and incident response.
+
+### Event Types
+
+#### AuthenticationSuccess
+
+Logged at **INFO** level when authentication succeeds:
+
+```json
+{
+  "event_type": "AuthenticationSuccess",
+  "tenant_id": "acme",
+  "method": "tenant_jwt",
+  "timestamp": "2025-01-15T10:30:45Z",
+  "ip_address": "192.168.1.100"
+}
+```
+
+#### AuthenticationFailure
+
+Logged at **WARN** level when authentication fails:
+
+```json
+{
+  "event_type": "AuthenticationFailure",
+  "tenant_id": "unknown",
+  "method": "tenant_jwt",
+  "error": "Token expired",
+  "timestamp": "2025-01-15T10:30:45Z",
+  "ip_address": "192.168.1.100"
+}
+```
+
+#### ScopeViolation
+
+Logged at **WARN** level when a request lacks required scope:
+
+```json
+{
+  "event_type": "ScopeViolation",
+  "tenant_id": "acme",
+  "required_scope": "admin",
+  "timestamp": "2025-01-15T10:30:45Z"
+}
+```
+
+#### TenantIsolationViolation
+
+Logged at **WARN** level when cross-tenant access is attempted:
+
+```json
+{
+  "event_type": "TenantIsolationViolation",
+  "tenant_id": "acme",
+  "attempted_tenant": "bigcorp",
+  "timestamp": "2025-01-15T10:30:45Z"
+}
+```
+
+### Querying Audit Logs
+
+Audit logs are structured JSON and can be queried using log aggregation tools:
+
+```bash
+# Find all failed authentications in the last hour
+jq 'select(.event_type == "AuthenticationFailure" and .timestamp > "2025-01-15T09:00:00Z")'
+
+# Find all authentication attempts from specific IP
+jq 'select(.ip_address == "192.168.1.100")'
+
+# Count failures by error type
+jq 'select(.event_type == "AuthenticationFailure") | .error' | sort | uniq -c
+```
+
+For comprehensive audit logging documentation, see [infera-observe/README.md](../crates/infera-observe/README.md#audit-logging).
 
 ---
 

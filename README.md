@@ -13,6 +13,7 @@ InferaDB is organized as a modular Rust workspace with the following crates:
 - **infera-wasm** - WebAssembly policy module runtime with sandboxing
 - **infera-repl** - Replication and consistency management with revision tokens
 - **infera-api** - REST and gRPC API layer (AuthZEN-compatible)
+- **infera-auth** - Authentication and authorization (JWT, OAuth 2.0, JWKS caching, audit logging)
 - **infera-cache** - Caching layer for computed usersets and authorization checks
 - **infera-observe** - Observability with tracing, metrics, and structured logging
 - **infera-config** - Configuration management supporting files, env vars, and CLI args
