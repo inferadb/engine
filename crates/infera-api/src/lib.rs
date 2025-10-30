@@ -215,6 +215,41 @@ pub fn create_router(state: AppState) -> Router {
 
 // Health check handlers moved to health.rs module
 
+/// Graceful shutdown signal handler
+///
+/// Waits for SIGTERM (Kubernetes) or SIGINT (Ctrl+C) and initiates graceful shutdown.
+async fn shutdown_signal() {
+    use tokio::signal;
+
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("Received SIGINT (Ctrl+C), initiating graceful shutdown");
+        }
+        _ = terminate => {
+            info!("Received SIGTERM, initiating graceful shutdown");
+        }
+    }
+
+    info!("Shutdown signal received, draining connections...");
+}
+
 /// Authorization check endpoint
 async fn check_handler(
     auth: infera_auth::extractor::OptionalAuth,
