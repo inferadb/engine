@@ -37,6 +37,9 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 ### Operations
 - [Configuration](configuration.md) - Configuration options and tuning
 - [Observability](observability.md) - Metrics, tracing, and logging
+- [Service Level Objectives](slos.md) - SLO definitions and error budget policy
+- [Prometheus Alerts](../prometheus/README.md) - Prometheus alerting deployment and runbooks
+- [Grafana Dashboards](../grafana/README.md) - Monitoring dashboard installation and usage
 - [Authentication](../AUTHENTICATION.md) - Authentication implementation guide
 
 ### Security
@@ -76,6 +79,9 @@ InferaDB is under active development. Current implementation status:
   - OpenTelemetry distributed tracing with semantic conventions
   - Structured audit logging for security events
   - Comprehensive metrics documentation with example queries
+  - Service Level Objectives (8 SLOs with measurable targets)
+  - Production-ready Prometheus alerting rules (50+ alerts)
+  - Grafana dashboards (5 dashboards: overview, performance, replication, errors, cache)
 - WASM module integration with sandboxing
 - Intelligent caching system with TTL and LRU eviction
 - Query optimization infrastructure with parallel evaluation

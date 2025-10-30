@@ -1,0 +1,370 @@
+{
+  "dashboard": {
+    "title": "InferaDB - Cache Performance",
+    "tags": ["inferadb", "cache", "performance"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Cache Hit Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "(sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))) * 100",
+            "legendFormat": "Hit Rate % (target: >80%)",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Hit Rate %", "min": 0, "max": 100 },
+          { "format": "short" }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [80], "type": "lt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "Cache Hit Rate SLO",
+          "noDataState": "no_data",
+          "notifications": []
+        },
+        "thresholds": [
+          {
+            "value": 80,
+            "colorMode": "critical",
+            "op": "lt",
+            "fill": true,
+            "line": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Cache Operations/sec",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(inferadb_cache_hits_total[5m])",
+            "legendFormat": "Hits/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(inferadb_cache_misses_total[5m])",
+            "legendFormat": "Misses/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(inferadb_cache_evictions_total[5m])",
+            "legendFormat": "Evictions/sec",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Operations/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Cache Size",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "inferadb_cache_size_bytes",
+            "legendFormat": "Cache Size",
+            "refId": "A"
+          },
+          {
+            "expr": "inferadb_cache_entries",
+            "legendFormat": "Entry Count",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "bytes", "label": "Size" },
+          { "format": "short", "label": "Entries" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Cache Memory Usage %",
+        "type": "gauge",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "(inferadb_cache_size_bytes / inferadb_cache_max_size_bytes) * 100",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 70, "color": "yellow" },
+                { "value": 85, "color": "orange" },
+                { "value": 95, "color": "red" }
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Eviction Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "rate(inferadb_cache_evictions_total[5m])",
+            "legendFormat": "Evictions/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "(rate(inferadb_cache_evictions_total[5m]) / rate(inferadb_cache_hits_total[5m])) * 100",
+            "legendFormat": "Eviction Rate %",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Evictions/sec" },
+          { "format": "percent", "label": "Eviction Rate %" }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Cache TTL Distribution",
+        "type": "heatmap",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum(increase(inferadb_cache_ttl_seconds_bucket[1m])) by (le)",
+            "format": "heatmap",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "calculate": true,
+          "cellGap": 2,
+          "color": {
+            "mode": "scheme",
+            "scheme": "Spectral"
+          },
+          "yAxis": {
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Cache Hit Rate by Key Type",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+        "targets": [
+          {
+            "expr": "sum by (key_type) (rate(inferadb_cache_hits_total[5m])) / (sum by (key_type) (rate(inferadb_cache_hits_total[5m])) + sum by (key_type) (rate(inferadb_cache_misses_total[5m]))) * 100",
+            "legendFormat": "{{key_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Hit Rate %", "min": 0, "max": 100 },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Most Cached Keys",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+        "targets": [
+          {
+            "expr": "topk(20, sum by (key_type) (increase(inferadb_cache_hits_total[1h])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": {
+                "key_type": "Key Type",
+                "Value": "Hits (1h)"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Cache Performance Metrics",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+        "targets": [
+          {
+            "expr": "(sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))) * 100",
+            "legendFormat": "Hit Rate %",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(inferadb_cache_hits_total[5m]))",
+            "legendFormat": "Hits/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(inferadb_cache_misses_total[5m]))",
+            "legendFormat": "Misses/sec",
+            "refId": "C"
+          },
+          {
+            "expr": "inferadb_cache_entries",
+            "legendFormat": "Entries",
+            "refId": "D"
+          },
+          {
+            "expr": "inferadb_cache_size_bytes",
+            "legendFormat": "Size",
+            "refId": "E"
+          },
+          {
+            "expr": "sum(rate(inferadb_cache_evictions_total[5m]))",
+            "legendFormat": "Evictions/sec",
+            "refId": "F"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "orientation": "horizontal",
+          "textMode": "value_and_name",
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "Hit Rate %" },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "value": null, "color": "red" },
+                      { "value": 60, "color": "yellow" },
+                      { "value": 80, "color": "green" }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": { "id": "byName", "options": "Size" },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "bytes"
+                }
+              ]
+            },
+            {
+              "matcher": { "id": "byRegexp", "options": "/.*\\/sec/" },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "ops"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 10,
+        "title": "Cache Latency Impact",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket{cache=\"hit\"}[5m])) * 1000",
+            "legendFormat": "p99 Cache Hit",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket{cache=\"miss\"}[5m])) * 1000",
+            "legendFormat": "p99 Cache Miss",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Latency" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Saved Storage Operations (via Cache)",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+        "targets": [
+          {
+            "expr": "sum(increase(inferadb_cache_hits_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

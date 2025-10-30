@@ -1,0 +1,371 @@
+{
+  "dashboard": {
+    "title": "InferaDB - Errors & Debugging",
+    "tags": ["inferadb", "errors", "debugging"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Error Rate Overview",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(inferadb_api_errors_total{code=~\"5..\"}[5m]))",
+            "legendFormat": "5xx Errors/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(inferadb_api_errors_total{code=~\"4..\"}[5m]))",
+            "legendFormat": "4xx Errors/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "(sum(rate(inferadb_api_errors_total{code=~\"5..\"}[5m])) / sum(rate(inferadb_checks_total[5m]))) * 100",
+            "legendFormat": "5xx Error Rate %",
+            "refId": "C",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Errors/sec" },
+          { "format": "percent", "label": "Error Rate %" }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [0.1], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["C", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "Error Rate SLO",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 2,
+        "title": "Error Budget Burn Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "(sum(rate(inferadb_api_errors_total{code=~\"5..\"}[1h])) / sum(rate(inferadb_checks_total[1h]))) / 0.001",
+            "legendFormat": "1h Burn Rate (target: 1x)",
+            "refId": "A"
+          },
+          {
+            "expr": "(sum(rate(inferadb_api_errors_total{code=~\"5..\"}[24h])) / sum(rate(inferadb_checks_total[24h]))) / 0.001",
+            "legendFormat": "24h Burn Rate (target: 1x)",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Burn Rate (multiplier)" },
+          { "format": "short" }
+        ],
+        "thresholds": [
+          {
+            "value": 1,
+            "colorMode": "custom",
+            "op": "gt",
+            "fill": false,
+            "line": true,
+            "lineColor": "yellow"
+          },
+          {
+            "value": 14.4,
+            "colorMode": "critical",
+            "op": "gt",
+            "fill": true,
+            "line": true
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Errors by Type",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum by (error_type) (rate(inferadb_api_errors_total[5m]))",
+            "legendFormat": "{{error_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Errors/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Errors by HTTP Status Code",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum by (code) (increase(inferadb_api_errors_total[1h]))",
+            "legendFormat": "{{code}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "donut",
+          "displayLabels": ["name", "percent"]
+        }
+      },
+      {
+        "id": 5,
+        "title": "Storage Errors",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum by (operation) (rate(inferadb_storage_errors_total[5m]))",
+            "legendFormat": "{{operation}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Storage Errors/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Evaluation Errors",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum by (reason) (rate(inferadb_evaluation_errors_total[5m]))",
+            "legendFormat": "{{reason}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Evaluation Errors/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Auth Errors",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+        "targets": [
+          {
+            "expr": "rate(inferadb_auth_failures_total[5m])",
+            "legendFormat": "Auth Failures/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(inferadb_jwks_refresh_errors_total[5m])",
+            "legendFormat": "JWKS Refresh Errors/sec",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Errors/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Replication Errors",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+        "targets": [
+          {
+            "expr": "sum by (target_region, error_type) (rate(inferadb_replication_errors_total[5m]))",
+            "legendFormat": "{{target_region}} - {{error_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Errors/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Top 10 Error Sources (Last Hour)",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+        "targets": [
+          {
+            "expr": "topk(10, sum by (error_type, code) (increase(inferadb_api_errors_total[1h])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": {
+                "error_type": "Error Type",
+                "code": "Status Code",
+                "Value": "Count (1h)"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Error Rate by Endpoint",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+        "targets": [
+          {
+            "expr": "topk(10, sum by (method) (rate(inferadb_api_errors_total{code=~\"5..\"}[5m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": {
+                "method": "Endpoint",
+                "Value": "Errors/sec"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Request Success Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 40 },
+        "targets": [
+          {
+            "expr": "1 - (sum(rate(inferadb_api_errors_total{code=~\"5..\"}[5m])) / sum(rate(inferadb_checks_total[5m])))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "red" },
+                { "value": 0.99, "color": "yellow" },
+                { "value": 0.999, "color": "green" }
+              ]
+            },
+            "unit": "percentunit"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "Total 5xx Errors (1h)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 40 },
+        "targets": [
+          {
+            "expr": "sum(increase(inferadb_api_errors_total{code=~\"5..\"}[1h]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": 10, "color": "yellow" },
+                { "value": 100, "color": "red" }
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Total 4xx Errors (1h)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 40 },
+        "targets": [
+          {
+            "expr": "sum(increase(inferadb_api_errors_total{code=~\"4..\"}[1h]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 14,
+        "title": "JWKS Stale Serves",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 40 },
+        "targets": [
+          {
+            "expr": "sum(increase(inferadb_jwks_stale_served_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": 60, "color": "yellow" },
+                { "value": 300, "color": "red" }
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      }
+    ]
+  }
+}
