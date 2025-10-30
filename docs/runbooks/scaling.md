@@ -41,7 +41,7 @@ kubectl rollout status deployment/inferadb -n inferadb
 
 ```bash
 # Update values
-helm upgrade inferadb ./helm/infera \
+helm upgrade inferadb ./helm \
   --set replicaCount=10 \
   --namespace inferadb
 
@@ -164,7 +164,7 @@ resources:
 ```
 
 ```bash
-helm upgrade inferadb ./helm/infera \
+helm upgrade inferadb ./helm \
   -f values-prod.yaml \
   --namespace inferadb
 ```

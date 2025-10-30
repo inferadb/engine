@@ -193,13 +193,13 @@ kubectl logs -n inferadb -l app=inferadb --tail=100
 
 Best for: Kubernetes with parameterized configuration
 
-See [Helm README](../helm/infera/README.md) for detailed instructions.
+See [Helm README](../../helm/README.md) for detailed instructions.
 
 **Quick Start:**
 
 ```bash
 # Install with defaults
-helm install inferadb ./helm/infera --namespace inferadb --create-namespace
+helm install inferadb ./helm --namespace inferadb --create-namespace
 
 # Install with custom values
 cat > values-prod.yaml <<EOF
@@ -218,7 +218,7 @@ autoscaling:
   maxReplicas: 50
 EOF
 
-helm install inferadb ./helm/infera \
+helm install inferadb ./helm \
   -f values-prod.yaml \
   --namespace inferadb \
   --create-namespace
@@ -496,7 +496,7 @@ kubectl rollout undo deployment/inferadb -n inferadb
 
 ```bash
 # Upgrade to new version
-helm upgrade inferadb ./helm/infera \
+helm upgrade inferadb ./helm \
   --set image.tag=v2.0.0 \
   --namespace inferadb
 
@@ -688,8 +688,8 @@ kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
 
 ## See Also
 
-- [Kubernetes Deployment](../k8s/README.md)
-- [Helm Chart](../helm/infera/README.md)
+- [Kubernetes Deployment](../../k8s/README.md)
+- [Helm Chart](../../helm/README.md)
 - [Configuration Reference](configuration.md)
 - [Observability Guide](../operations/observability.md)
-- [Operational Runbooks](runbooks/)
+- [Operational Runbooks](../runbooks/)

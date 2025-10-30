@@ -165,7 +165,7 @@ docker run -p 8080:8080 inferadb:latest
 kubectl apply -k k8s/
 
 # Helm
-helm install inferadb ./helm/infera
+helm install inferadb ./helm
 ```
 
 **→ Full deployment guide: [Deployment](docs/guides/deployment.md)**

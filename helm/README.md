@@ -33,7 +33,7 @@ helm install inferadb inferadb/inferadb --namespace inferadb --create-namespace
 ### Install from Source
 
 ```bash
-helm install inferadb ./helm/infera --namespace inferadb --create-namespace
+helm install inferadb ./helm --namespace inferadb --create-namespace
 ```
 
 ## Configuration
@@ -182,8 +182,8 @@ serviceMonitor:
 
 Import dashboards from the repository:
 
-- [grafana/overview-dashboard.json](../../grafana/overview-dashboard.json)
-- [grafana/performance-dashboard.json](../../grafana/performance-dashboard.json)
+- [grafana/overview-dashboard.json](../grafana/overview-dashboard.json)
+- [grafana/performance-dashboard.json](../grafana/performance-dashboard.json)
 
 ## Security
 
@@ -225,13 +225,13 @@ spec:
 ### Minimal Installation
 
 ```bash
-helm install inferadb ./helm/infera --set config.auth.enabled=false
+helm install inferadb ./helm --set config.auth.enabled=false
 ```
 
 ### High Availability
 
 ```bash
-helm install inferadb ./helm/infera \
+helm install inferadb ./helm \
   --set replicaCount=5 \
   --set autoscaling.minReplicas=5 \
   --set autoscaling.maxReplicas=50 \
@@ -251,7 +251,7 @@ config:
     replayProtection: true
 EOF
 
-helm install inferadb ./helm/infera -f prod-values.yaml
+helm install inferadb ./helm -f prod-values.yaml
 ```
 
 ## Troubleshooting
@@ -271,7 +271,7 @@ helm get values inferadb --namespace inferadb
 ### Debug Templates
 
 ```bash
-helm template inferadb ./helm/infera --debug
+helm template inferadb ./helm --debug
 ```
 
 ## Support

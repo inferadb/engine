@@ -477,7 +477,7 @@ kubectl exec -it -n $NAMESPACE deployment/fdb-backup-agent -- \
   fdbcli -C /etc/foundationdb/fdb.cluster --exec "restore start -r $BACKUP_URL -w"
 
 # Deploy InferaDB
-helm install inferadb-test ./helm/infera \
+helm install inferadb-test ./helm \
   --namespace $NAMESPACE \
   --set config.store.backend=foundationdb
 

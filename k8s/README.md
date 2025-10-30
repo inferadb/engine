@@ -347,7 +347,7 @@ kubectl rollout restart deployment/inferadb -n inferadb
 
 ## See Also
 
-- [Deployment Documentation](../docs/deployment/)
-- [Configuration Reference](../docs/configuration-reference.md)
+- [Deployment Documentation](../docs/guides/deployment.md)
+- [Configuration Reference](../docs/guides/configuration.md)
 - [Operational Runbooks](../docs/runbooks/)
-- [Helm Chart](../helm/infera/)
+- [Helm Chart](../helm/)

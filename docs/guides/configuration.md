@@ -867,4 +867,4 @@ cache:
 - [Deployment Guide](deployment.md) - Production deployment
 - [Observability Guide](../operations/observability.md) - Metrics and tracing
 - [Kubernetes Deployment](../k8s/README.md) - K8s manifests
-- [Helm Chart](../helm/infera/README.md) - Helm deployment
+- [Helm Chart](../../helm/README.md) - Helm deployment

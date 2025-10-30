@@ -69,4 +69,4 @@ Configuration:
 
 For more information, see:
   - Documentation: https://docs.inferadb.com
-  - Chart README: https://github.com/inferadb/inferadb/tree/main/helm/infera
+  - Chart README: https://github.com/inferadb/inferadb/tree/main/helm
