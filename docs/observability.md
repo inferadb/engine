@@ -243,6 +243,85 @@ histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))
 |--------|------|-------------|
 | `inferadb_optimizations_total` | Counter | Total number of query optimizations performed |
 | `inferadb_query_cost_estimated` | Histogram | Estimated cost of queries |
+
+#### Replication Metrics
+
+InferaDB tracks comprehensive replication metrics for monitoring multi-region deployments.
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `inferadb_replication_changes_total` | Counter | Total number of changes replicated to remote regions |
+| `inferadb_replication_failures_total` | Counter | Total number of replication failures |
+| `inferadb_replication_conflicts_total` | Counter | Total number of replication conflicts detected |
+| `inferadb_replication_conflicts_resolved_local` | Counter | Number of conflicts resolved by keeping local change |
+| `inferadb_replication_conflicts_resolved_remote` | Counter | Number of conflicts resolved by keeping remote change |
+| `inferadb_replication_lag_milliseconds` | Gauge | Current replication lag in milliseconds |
+| `inferadb_replication_targets_connected` | Gauge | Number of replication targets currently connected |
+| `inferadb_replication_targets_total` | Gauge | Total number of configured replication targets |
+| `inferadb_replication_batch_size` | Histogram | Distribution of replication batch sizes |
+| `inferadb_replication_duration_seconds` | Histogram | Duration of replication operations in seconds |
+
+**Example PromQL Queries**:
+
+```promql
+# Replication lag
+inferadb_replication_lag_milliseconds
+
+# Replication throughput (changes per second)
+rate(inferadb_replication_changes_total[5m])
+
+# Replication failure rate
+rate(inferadb_replication_failures_total[5m])
+
+# Conflict rate (conflicts per second)
+rate(inferadb_replication_conflicts_total[5m])
+
+# Conflict resolution distribution
+sum(rate(inferadb_replication_conflicts_resolved_local[5m])) / sum(rate(inferadb_replication_conflicts_total[5m])) * 100
+
+# Target health (percentage of connected targets)
+inferadb_replication_targets_connected / inferadb_replication_targets_total * 100
+
+# Average batch size
+avg(rate(inferadb_replication_batch_size_sum[5m]) / rate(inferadb_replication_batch_size_count[5m]))
+
+# p99 replication duration
+histogram_quantile(0.99, rate(inferadb_replication_duration_seconds_bucket[5m]))
+```
+
+**Recommended Alerts**:
+
+```yaml
+# Alert when replication lag exceeds 100ms
+- alert: HighReplicationLag
+  expr: inferadb_replication_lag_milliseconds > 100
+  for: 5m
+  annotations:
+    summary: "High replication lag ({{ $value }}ms)"
+
+# Alert when target health drops below 100%
+- alert: ReplicationTargetUnhealthy
+  expr: (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
+  for: 2m
+  annotations:
+    summary: "Replication target unhealthy"
+
+# Alert on high failure rate
+- alert: HighReplicationFailureRate
+  expr: rate(inferadb_replication_failures_total[5m]) > 0.01
+  for: 5m
+  annotations:
+    summary: "High replication failure rate"
+
+# Alert on high conflict rate
+- alert: HighConflictRate
+  expr: rate(inferadb_replication_conflicts_total[5m]) / rate(inferadb_replication_changes_total[5m]) > 0.01
+  for: 10m
+  annotations:
+    summary: "High conflict rate (>1% of changes)"
+```
+
+For detailed replication documentation, see [Multi-Region Replication](replication.md).
 | `inferadb_parallel_evaluations_total` | Counter | Total number of parallel evaluations |
 
 #### API Metrics
