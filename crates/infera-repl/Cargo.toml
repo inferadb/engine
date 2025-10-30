@@ -17,6 +17,10 @@ base64 = "0.21"
 # Internal dependencies
 infera-store = { path = "../infera-store" }
 infera-observe = { path = "../infera-observe" }
+infera-api = { path = "../infera-api" }
+
+# gRPC for replication
+tonic = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

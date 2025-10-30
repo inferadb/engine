@@ -11,7 +11,7 @@ InferaDB is organized as a modular Rust workspace with the following crates:
 - **infera-core** - Policy evaluation engine and IPL (Infera Policy Language) interpreter
 - **infera-store** - Storage abstraction with support for multiple backends (FoundationDB, in-memory)
 - **infera-wasm** - WebAssembly policy module runtime with sandboxing
-- **infera-repl** - Replication and consistency management with revision tokens
+- **infera-repl** - Multi-region replication with conflict resolution, change feed, and revision tokens
 - **infera-api** - REST and gRPC API layer (AuthZEN-compatible)
 - **infera-auth** - Authentication and authorization (JWT, OAuth 2.0, JWKS caching, audit logging)
 - **infera-cache** - Caching layer for computed usersets and authorization checks
@@ -158,6 +158,7 @@ Comprehensive developer documentation is available in the `docs/` directory:
 - **[IPL Language Guide](docs/ipl-language.md)** - Policy definition language reference
 - **[REST API Reference](docs/api-rest.md)** - HTTP/JSON API documentation
 - **[Caching System](docs/caching.md)** - Intelligent caching implementation
+- **[Multi-Region Replication](docs/replication.md)** - Active-active replication and conflict resolution
 - **[Revision Tokens](docs/revision-tokens.md)** - Snapshot consistency with Zookies
 - **[Building from Source](docs/building.md)** - Development setup and build instructions
 

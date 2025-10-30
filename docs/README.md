@@ -23,6 +23,7 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 - [Caching System](caching.md) - Intelligent authorization result caching
 - [Query Optimization](query-optimization.md) - Parallel evaluation and planning
 - [Revision Tokens](revision-tokens.md) - Snapshot consistency with Zookies
+- [Multi-Region Replication](replication.md) - Active-active replication and conflict resolution
 
 ### APIs
 - [REST API Reference](api-rest.md) - HTTP/JSON API endpoints
@@ -62,8 +63,16 @@ InferaDB is under active development. Current implementation status:
   - JWKS caching with stale-while-revalidate pattern
   - Comprehensive audit logging (JSON structured events)
   - gRPC interceptor-based authentication middleware
+- **Multi-Region Replication**:
+  - Change feed for real-time change propagation
+  - Three replication strategies (ActiveActive, PrimaryReplica, MultiMaster)
+  - Four conflict resolution strategies (LWW, SourcePriority, InsertWins, Custom)
+  - Region-aware routing with automatic failover
+  - Batched replication with retry logic and exponential backoff
+  - 10 Prometheus metrics for monitoring replication health
+  - Comprehensive testing (70 tests covering all scenarios)
 - **Observability**:
-  - Prometheus metrics (18 authentication/JWKS/OAuth metrics)
+  - Prometheus metrics (28 total: 18 auth + 10 replication)
   - OpenTelemetry distributed tracing with semantic conventions
   - Structured audit logging for security events
   - Comprehensive metrics documentation with example queries
@@ -73,10 +82,6 @@ InferaDB is under active development. Current implementation status:
 - Revision tokens for snapshot consistency
 - Comprehensive security testing (fuzzing, sandbox isolation)
 - Property-based testing with proptest
-
-🚧 **In Progress:**
-- Change feed for replication
-- Multi-region replication
 
 📋 **Planned:**
 - Production deployment tools

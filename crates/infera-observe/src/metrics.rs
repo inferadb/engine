@@ -204,6 +204,48 @@ pub fn init_metrics_descriptions() {
         "Duration of OAuth token introspection in seconds"
     );
 
+    // Replication metrics
+    describe_counter!(
+        "inferadb_replication_changes_total",
+        "Total number of changes replicated to remote regions"
+    );
+    describe_counter!(
+        "inferadb_replication_failures_total",
+        "Total number of replication failures"
+    );
+    describe_counter!(
+        "inferadb_replication_conflicts_total",
+        "Total number of replication conflicts detected"
+    );
+    describe_counter!(
+        "inferadb_replication_conflicts_resolved_local",
+        "Number of conflicts resolved by keeping local change"
+    );
+    describe_counter!(
+        "inferadb_replication_conflicts_resolved_remote",
+        "Number of conflicts resolved by keeping remote change"
+    );
+    describe_gauge!(
+        "inferadb_replication_lag_milliseconds",
+        "Current replication lag in milliseconds"
+    );
+    describe_gauge!(
+        "inferadb_replication_targets_connected",
+        "Number of replication targets currently connected"
+    );
+    describe_gauge!(
+        "inferadb_replication_targets_total",
+        "Total number of configured replication targets"
+    );
+    describe_histogram!(
+        "inferadb_replication_batch_size",
+        "Size of replication batches"
+    );
+    describe_histogram!(
+        "inferadb_replication_duration_seconds",
+        "Duration of replication operations in seconds"
+    );
+
     // System metrics
     describe_gauge!(
         "inferadb_build_info",
@@ -716,4 +758,55 @@ mod tests {
         record_jwks_stale_served("test-tenant");
         // Just verify it doesn't panic
     }
+
+    #[test]
+    fn test_record_replication_metrics() {
+        init_test_metrics();
+        record_replication_changes(10, 0.5);
+        record_replication_failure(2);
+        record_replication_conflict("local");
+        record_replication_conflict("remote");
+        update_replication_lag(50);
+        update_replication_targets(3, 5);
+        record_replication_batch(25);
+        // Just verify it doesn't panic
+    }
+}
+
+/// Record replication changes
+pub fn record_replication_changes(count: u64, duration_seconds: f64) {
+    counter!("inferadb_replication_changes_total").increment(count);
+    histogram!("inferadb_replication_duration_seconds").record(duration_seconds);
+}
+
+/// Record replication failure
+pub fn record_replication_failure(count: u64) {
+    counter!("inferadb_replication_failures_total").increment(count);
+}
+
+/// Record replication conflict
+pub fn record_replication_conflict(resolution: &str) {
+    counter!("inferadb_replication_conflicts_total").increment(1);
+
+    match resolution {
+        "local" => counter!("inferadb_replication_conflicts_resolved_local").increment(1),
+        "remote" => counter!("inferadb_replication_conflicts_resolved_remote").increment(1),
+        _ => {}
+    }
+}
+
+/// Update replication lag
+pub fn update_replication_lag(lag_milliseconds: u64) {
+    gauge!("inferadb_replication_lag_milliseconds").set(lag_milliseconds as f64);
+}
+
+/// Update replication targets
+pub fn update_replication_targets(connected: usize, total: usize) {
+    gauge!("inferadb_replication_targets_connected").set(connected as f64);
+    gauge!("inferadb_replication_targets_total").set(total as f64);
+}
+
+/// Record replication batch
+pub fn record_replication_batch(batch_size: usize) {
+    histogram!("inferadb_replication_batch_size").record(batch_size as f64);
 }
