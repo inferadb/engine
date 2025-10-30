@@ -18,6 +18,7 @@ serviceAccount:
   create: true
   annotations: {}
   name: ""
+  automount: false
 
 # Pod annotations
 podAnnotations:
@@ -51,6 +52,12 @@ service:
   grpcPort: 8081
   metricsPort: 9090
   annotations: {}
+  sessionAffinity: None
+  # nodePort: 30080  # Only used when service.type is NodePort
+  # grpcNodePort: 30081
+  # loadBalancerIP: ""  # Only used when service.type is LoadBalancer
+  headless:
+    enabled: false  # Enable for StatefulSet deployments
 
 # Ingress configuration
 ingress:
@@ -134,21 +141,32 @@ config:
     host: "0.0.0.0"
     port: 8080
     workerThreads: 4
+    maxConnections: 10000
+    requestTimeout: 30
     rateLimitingEnabled: true
+    rateLimitRequests: 100
+    rateLimitPeriod: 60
 
   store:
     backend: "memory"  # or "foundationdb"
     connectionString: ""  # /etc/foundationdb/fdb.cluster for FDB
+    timeout: 5000
+    maxRetryDelay: 1000
+    transactionTimeout: 5000
 
   cache:
     enabled: true
     maxCapacity: 100000
     ttlSeconds: 600
+    evictionPolicy: "lru"
 
   observability:
     logLevel: "info"
+    logFormat: "json"
     metricsEnabled: true
-    tracingEnabled: true
+    tracingEnabled: false
+    tracingEndpoint: ""
+    tracingSampleRate: 0.1
 
   auth:
     enabled: true
@@ -167,8 +185,17 @@ config:
       - "authz:write"
     replayProtection: true
     requireJti: true
-    clockSkewSeconds: 30
-    maxTokenAgeSeconds: 3600
+    allowedClockSkew: 30
+    maxTokenAge: 3600
+    oidc:
+      enabled: false
+      issuer: ""
+      clientId: ""
+      redirectUri: ""
+      scopes: []
+
+  # Optional: provide full config file as YAML string
+  configFile: ""
 
 # Secrets (use external secret manager in production)
 secrets:
@@ -177,9 +204,29 @@ secrets:
 
   # Redis URL for replay protection
   redisUrl: "redis://redis-master:6379"
+  redisPassword: ""
 
   # OAuth client secret
   oidcClientSecret: ""
+
+  # FoundationDB cluster file content
+  fdbClusterFile: ""
+
+  # Additional custom secrets
+  additional: {}
+
+# External Secrets Operator integration
+externalSecrets:
+  enabled: false
+  secretStoreRef:
+    name: ""
+    kind: SecretStore  # or ClusterSecretStore
+  refreshInterval: 1h
+  data: []
+    # - secretKey: INFERA__AUTH__JWKS_URL
+    #   remoteRef:
+    #     key: inferadb/prod/auth
+    #     property: jwks_url
 
 # Health check configuration
 healthCheck:
@@ -242,7 +289,9 @@ serviceMonitor:
   interval: 30s
   scrapeTimeout: 10s
   labels: {}
-  annotations: {}
+  honorLabels: true
+  relabelings: []
+  metricRelabelings: []
 
 # External dependencies
 foundationdb:

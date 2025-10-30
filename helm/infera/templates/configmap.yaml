@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inferadb.fullname" . }}-config
+  labels:
+    {{- include "inferadb.labels" . | nindent 4 }}
+data:
+  # Server configuration
+  INFERA__SERVER__HOST: "0.0.0.0"
+  INFERA__SERVER__PORT: "{{ .Values.service.port }}"
+  INFERA__SERVER__WORKER_THREADS: "{{ .Values.config.server.workerThreads }}"
+  INFERA__SERVER__MAX_CONNECTIONS: "{{ .Values.config.server.maxConnections }}"
+  INFERA__SERVER__REQUEST_TIMEOUT: "{{ .Values.config.server.requestTimeout }}"
+  INFERA__SERVER__RATE_LIMITING_ENABLED: "{{ .Values.config.server.rateLimitingEnabled }}"
+  {{- if .Values.config.server.rateLimitingEnabled }}
+  INFERA__SERVER__RATE_LIMIT_REQUESTS: "{{ .Values.config.server.rateLimitRequests }}"
+  INFERA__SERVER__RATE_LIMIT_PERIOD: "{{ .Values.config.server.rateLimitPeriod }}"
+  {{- end }}
+
+  # Storage configuration
+  INFERA__STORE__BACKEND: "{{ .Values.config.store.backend }}"
+  {{- if eq .Values.config.store.backend "foundationdb" }}
+  INFERA__STORE__CONNECTION_STRING: "{{ .Values.config.store.connectionString }}"
+  INFERA__STORE__TIMEOUT: "{{ .Values.config.store.timeout }}"
+  INFERA__STORE__MAX_RETRY_DELAY: "{{ .Values.config.store.maxRetryDelay }}"
+  INFERA__STORE__TRANSACTION_TIMEOUT: "{{ .Values.config.store.transactionTimeout }}"
+  {{- end }}
+
+  # Cache configuration
+  INFERA__CACHE__ENABLED: "{{ .Values.config.cache.enabled }}"
+  {{- if .Values.config.cache.enabled }}
+  INFERA__CACHE__MAX_CAPACITY: "{{ .Values.config.cache.maxCapacity }}"
+  INFERA__CACHE__TTL_SECONDS: "{{ .Values.config.cache.ttlSeconds }}"
+  INFERA__CACHE__EVICTION_POLICY: "{{ .Values.config.cache.evictionPolicy }}"
+  {{- end }}
+
+  # Authentication configuration
+  INFERA__AUTH__ENABLED: "{{ .Values.config.auth.enabled }}"
+  {{- if .Values.config.auth.enabled }}
+  INFERA__AUTH__REPLAY_PROTECTION: "{{ .Values.config.auth.replayProtection }}"
+  INFERA__AUTH__ALLOWED_CLOCK_SKEW: "{{ .Values.config.auth.allowedClockSkew }}"
+  INFERA__AUTH__MAX_TOKEN_AGE: "{{ .Values.config.auth.maxTokenAge }}"
+  {{- if .Values.config.auth.oidc.enabled }}
+  INFERA__AUTH__OIDC_ENABLED: "true"
+  INFERA__AUTH__OIDC_ISSUER: "{{ .Values.config.auth.oidc.issuer }}"
+  INFERA__AUTH__OIDC_CLIENT_ID: "{{ .Values.config.auth.oidc.clientId }}"
+  INFERA__AUTH__OIDC_REDIRECT_URI: "{{ .Values.config.auth.oidc.redirectUri }}"
+  {{- if .Values.config.auth.oidc.scopes }}
+  INFERA__AUTH__OIDC_SCOPES: "{{ join "," .Values.config.auth.oidc.scopes }}"
+  {{- end }}
+  {{- end }}
+  {{- end }}
+
+  # Observability configuration
+  INFERA__OBSERVABILITY__METRICS_ENABLED: "{{ .Values.config.observability.metricsEnabled }}"
+  INFERA__OBSERVABILITY__TRACING_ENABLED: "{{ .Values.config.observability.tracingEnabled }}"
+  {{- if .Values.config.observability.tracingEnabled }}
+  INFERA__OBSERVABILITY__TRACING_ENDPOINT: "{{ .Values.config.observability.tracingEndpoint }}"
+  INFERA__OBSERVABILITY__TRACING_SAMPLE_RATE: "{{ .Values.config.observability.tracingSampleRate }}"
+  {{- end }}
+  INFERA__OBSERVABILITY__LOG_LEVEL: "{{ .Values.config.observability.logLevel }}"
+  INFERA__OBSERVABILITY__LOG_FORMAT: "{{ .Values.config.observability.logFormat }}"
+
+  {{- if .Values.config.configFile }}
+  config.yaml: |
+    {{- .Values.config.configFile | nindent 4 }}
+  {{- end }}

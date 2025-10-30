@@ -1,0 +1,72 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+{{- if .Values.ingress.enabled }}
+
+InferaDB is available at:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+
+Get the application URL by running:
+
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "inferadb.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+
+{{- else if contains "LoadBalancer" .Values.service.type }}
+
+Get the application URL by running:
+
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        You can watch the status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "inferadb.fullname" . }}'
+
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "inferadb.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+
+{{- else if contains "ClusterIP" .Values.service.type }}
+
+InferaDB is available at (from within the cluster):
+
+  http://{{ include "inferadb.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+
+To access from outside the cluster, run:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "inferadb.fullname" . }} 8080:{{ .Values.service.port }}
+
+Then visit http://localhost:8080
+
+{{- end }}
+
+Health Checks:
+  - Liveness:  http://{{ include "inferadb.fullname" . }}:{{ .Values.service.port }}/health/live
+  - Readiness: http://{{ include "inferadb.fullname" . }}:{{ .Values.service.port }}/health/ready
+  - Startup:   http://{{ include "inferadb.fullname" . }}:{{ .Values.service.port }}/health/startup
+
+{{- if .Values.serviceMonitor.enabled }}
+
+Prometheus ServiceMonitor is enabled. Metrics are available at:
+  http://{{ include "inferadb.fullname" . }}:9090/metrics
+
+{{- end }}
+
+Configuration:
+  - Storage Backend: {{ .Values.config.store.backend }}
+  - Authentication: {{ if .Values.config.auth.enabled }}Enabled{{ else }}Disabled{{ end }}
+  - Cache: {{ if .Values.config.cache.enabled }}Enabled{{ else }}Disabled{{ end }}
+  {{- if .Values.autoscaling.enabled }}
+  - Autoscaling: Enabled ({{ .Values.autoscaling.minReplicas }}-{{ .Values.autoscaling.maxReplicas }} replicas)
+  {{- else }}
+  - Replicas: {{ .Values.replicaCount }}
+  {{- end }}
+
+For more information, see:
+  - Documentation: https://docs.inferadb.com
+  - Chart README: https://github.com/inferadb/inferadb/tree/main/helm/infera
