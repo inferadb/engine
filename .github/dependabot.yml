@@ -12,8 +12,6 @@ updates:
       time: "09:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 10
-    assignees:
-      - "inferadb-security-team"
     labels:
       - "dependencies"
       - "rust"
