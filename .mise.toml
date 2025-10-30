@@ -17,7 +17,7 @@ rust = "stable"
 "cargo:cargo-llvm-cov" = "latest"       # Code coverage
 
 # Optional: Protobuf compiler for gRPC (uncomment if needed)
-# protobuf = "latest"
+protobuf = "latest"
 
 [env]
 # Rust optimization settings for development
@@ -33,7 +33,7 @@ CARGO_BUILD_JOBS = "{{ num_cpus() }}"
 
 [tasks.dev]
 description = "Start development server with auto-reload"
-run = "cargo watch -x 'run --bin infera-bin'"
+run = "cargo watch -x 'run --bin inferadb'"
 
 [tasks.test]
 description = "Run all tests"
