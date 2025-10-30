@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Rust build artifacts
+target/
+**/*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Testing
+tests/fixtures/
+benches/
+
+# Misc
+.env
+.env.*
+*.log
+tmp/
+temp/
+
+# Kubernetes and Helm (not needed in image)
+k8s/
+helm/
+deployment/
+
+# Scripts
+scripts/
+Makefile
+
+# License files (already embedded in binary metadata)
+LICENSE
+NOTICE

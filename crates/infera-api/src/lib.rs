@@ -28,6 +28,7 @@ use infera_store::{Tuple, TupleStore};
 
 pub mod grpc;
 pub mod grpc_interceptor;
+pub mod health;
 pub mod routes;
 
 #[derive(Debug, Error)]
@@ -127,6 +128,7 @@ pub struct AppState {
     pub store: Arc<dyn TupleStore>,
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
+    pub health_tracker: Arc<health::HealthTracker>,
 }
 
 /// Create the API router
@@ -181,9 +183,12 @@ pub fn create_router(state: AppState) -> Router {
         protected_routes
     };
 
-    // Combine health (unprotected) with protected routes
+    // Combine health endpoints (unprotected) with protected routes
     let router = Router::new()
-        .route("/health", get(health_check))
+        .route("/health", get(health::health_check_handler))
+        .route("/health/live", get(health::liveness_handler))
+        .route("/health/ready", get(health::readiness_handler))
+        .route("/health/startup", get(health::startup_handler))
         .merge(protected_routes)
         .with_state(state.clone());
 
@@ -208,13 +213,7 @@ pub fn create_router(state: AppState) -> Router {
     }
 }
 
-/// Health check endpoint
-async fn health_check() -> impl IntoResponse {
-    Json(serde_json::json!({
-        "status": "healthy",
-        "service": "inferadb"
-    }))
-}
+// Health check handlers moved to health.rs module
 
 /// Authorization check endpoint
 async fn check_handler(
@@ -724,11 +723,19 @@ pub async fn serve(
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
+    // Create health tracker
+    let health_tracker = Arc::new(health::HealthTracker::new());
+
+    // Mark service as ready to accept traffic
+    health_tracker.set_ready(true);
+    health_tracker.set_startup_complete(true);
+
     let state = AppState {
         evaluator,
         store,
         config: config.clone(),
         jwks_cache,
+        health_tracker,
     };
     let app = create_router(state);
 
@@ -736,7 +743,22 @@ pub async fn serve(
     info!("Starting REST API server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, app).await?;
+
+    // Setup graceful shutdown
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+    // Spawn task to handle shutdown signals
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        let _ = shutdown_tx.send(());
+    });
+
+    // Serve with graceful shutdown
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            shutdown_rx.await.ok();
+        })
+        .await?;
 
     Ok(())
 }
@@ -751,11 +773,17 @@ pub async fn serve_grpc(
     use grpc::proto::infera_service_server::InferaServiceServer;
     use tonic::transport::Server;
 
+    // Create health tracker
+    let health_tracker = Arc::new(health::HealthTracker::new());
+    health_tracker.set_ready(true);
+    health_tracker.set_startup_complete(true);
+
     let state = AppState {
         evaluator,
         store,
         config: config.clone(),
         jwks_cache: jwks_cache.clone(),
+        health_tracker,
     };
 
     let service = grpc::InferaServiceImpl::new(state);
