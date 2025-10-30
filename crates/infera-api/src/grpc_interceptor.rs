@@ -285,6 +285,9 @@ fn auth_error_type(error: &AuthError) -> &'static str {
         AuthError::InvalidIntrospectionResponse(_) => "invalid_introspection_response",
         AuthError::TokenInactive => "token_inactive",
         AuthError::MissingTenantId => "missing_tenant_id",
+        AuthError::ReplayDetected => "replay_detected",
+        AuthError::ReplayProtectionError(_) => "replay_protection_error",
+        AuthError::TokenTooOld => "token_too_old",
     }
 }
 
@@ -306,6 +309,9 @@ fn auth_error_to_status(error: AuthError) -> Status {
         AuthError::InvalidIntrospectionResponse(_) => Status::internal(error.to_string()),
         AuthError::TokenInactive => Status::unauthenticated("Token is inactive"),
         AuthError::MissingTenantId => Status::unauthenticated(error.to_string()),
+        AuthError::ReplayDetected => Status::unauthenticated("Token replay detected"),
+        AuthError::ReplayProtectionError(_) => Status::internal(error.to_string()),
+        AuthError::TokenTooOld => Status::unauthenticated("Token is too old"),
     }
 }
 

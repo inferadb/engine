@@ -150,6 +150,7 @@ mod tests {
             host: "127.0.0.1".to_string(),
             port: 0,
             worker_threads: 4,
+            rate_limiting_enabled: true,
         };
         assert!(matches!(
             validate_server(&config),
@@ -163,6 +164,7 @@ mod tests {
             host: "".to_string(),
             port: 8080,
             worker_threads: 4,
+            rate_limiting_enabled: true,
         };
         assert!(matches!(
             validate_server(&config),
@@ -176,6 +178,7 @@ mod tests {
             host: "127.0.0.1".to_string(),
             port: 8080,
             worker_threads: 0,
+            rate_limiting_enabled: true,
         };
         assert!(matches!(
             validate_server(&config),
@@ -294,6 +297,7 @@ mod tests {
                 host: "".to_string(),
                 port: 0,
                 worker_threads: 0,
+                rate_limiting_enabled: true,
             },
             store: StoreConfig {
                 backend: "invalid".to_string(),

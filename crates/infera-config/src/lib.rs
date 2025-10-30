@@ -30,6 +30,13 @@ pub struct ServerConfig {
 
     #[serde(default = "default_worker_threads")]
     pub worker_threads: usize,
+
+    #[serde(default = "default_rate_limiting_enabled")]
+    pub rate_limiting_enabled: bool,
+}
+
+fn default_rate_limiting_enabled() -> bool {
+    true // Enabled by default for production safety
 }
 
 fn default_host() -> String {
@@ -481,6 +488,7 @@ impl Default for Config {
                 host: default_host(),
                 port: default_port(),
                 worker_threads: default_worker_threads(),
+                rate_limiting_enabled: default_rate_limiting_enabled(),
             },
             store: StoreConfig {
                 backend: default_backend(),

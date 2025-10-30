@@ -52,6 +52,7 @@ axum = { version = "0.7", features = ["tokio"] }
 tonic = "0.12"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["trace", "cors"] }
+tower_governor = "0.4"
 
 # WASM runtime
 wasmtime = "27.0"

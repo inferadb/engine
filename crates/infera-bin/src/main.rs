@@ -46,7 +46,10 @@ async fn main() -> Result<()> {
     }
 
     // Validate authentication configuration
-    config.auth.validate();
+    if let Err(e) = config.auth.validate() {
+        eprintln!("Configuration validation error: {}", e);
+        std::process::exit(1);
+    }
 
     let config = Arc::new(config);
 

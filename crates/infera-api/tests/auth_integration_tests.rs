@@ -166,12 +166,13 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
     let mut config = Config::default();
 
-    // Enable auth for these tests
+    // Enable auth for these tests but disable rate limiting
     if jwks_cache.is_some() {
         config.auth.enabled = true;
     } else {
         config.auth.enabled = false;
     }
+    config.server.rate_limiting_enabled = false;
 
     let config = Arc::new(config);
 

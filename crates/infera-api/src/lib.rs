@@ -7,12 +7,18 @@ use std::sync::Arc;
 use axum::{
     extract::State,
     http::{header, HeaderMap, HeaderValue, StatusCode},
-    response::{IntoResponse, Response},
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse, Response,
+    },
     routing::{get, post},
     Json, Router,
 };
+use futures::stream::{self, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tower_http::{compression::CompressionLayer, cors::CorsLayer};
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tracing::info;
 
 use infera_auth::jwks_cache::JwksCache;
@@ -47,6 +53,12 @@ pub enum ApiError {
 
     #[error("Unknown tenant: {0}")]
     UnknownTenant(String),
+
+    #[error("Rate limit exceeded")]
+    RateLimitExceeded,
+
+    #[error("Revision mismatch: expected {expected}, got {actual}")]
+    RevisionMismatch { expected: String, actual: String },
 }
 
 impl IntoResponse for ApiError {
@@ -75,6 +87,20 @@ impl IntoResponse for ApiError {
             }
             ApiError::Forbidden(_) => (StatusCode::FORBIDDEN, self.to_string(), None),
             ApiError::UnknownTenant(_) => (StatusCode::NOT_FOUND, self.to_string(), None),
+
+            // Rate limit error with Retry-After header
+            ApiError::RateLimitExceeded => {
+                let mut headers = HeaderMap::new();
+                headers.insert(header::RETRY_AFTER, HeaderValue::from_static("60"));
+                headers.insert("x-ratelimit-limit", HeaderValue::from_static("1000"));
+                headers.insert("x-ratelimit-remaining", HeaderValue::from_static("0"));
+                (StatusCode::TOO_MANY_REQUESTS, self.to_string(), Some(headers))
+            }
+
+            // Optimistic locking conflict
+            ApiError::RevisionMismatch { .. } => {
+                (StatusCode::CONFLICT, self.to_string(), None)
+            }
         };
 
         let mut response = (status, Json(ErrorResponse { error: message })).into_response();
@@ -103,11 +129,30 @@ pub struct AppState {
 
 /// Create the API router
 pub fn create_router(state: AppState) -> Router {
+    // Configure rate limiting: 1000 requests per minute per IP
+    // Based on docs/RATE_LIMITING.md recommendations
+    let governor_conf = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(1000 / 60) // 1000 requests per minute = ~16.67 per second
+            .burst_size(2000) // Allow bursts up to 2000 requests
+            .use_headers() // Add rate limit headers to responses
+            .finish()
+            .unwrap(),
+    );
+
+    let governor_layer = GovernorLayer {
+        config: governor_conf,
+    };
+
     // Protected routes that require authentication
     let protected_routes = Router::new()
         .route("/check", post(check_handler))
         .route("/expand", post(expand_handler))
-        .route("/write", post(write_handler));
+        .route("/expand/stream", post(expand_stream_handler))
+        .route("/write", post(write_handler))
+        .route("/delete", post(delete_handler))
+        .route("/simulate", post(simulate_handler))
+        .route("/explain", post(explain_handler));
 
     // Apply authentication middleware if enabled and JWKS cache is available
     let protected_routes = if state.config.auth.enabled {
@@ -135,10 +180,30 @@ pub fn create_router(state: AppState) -> Router {
     };
 
     // Combine health (unprotected) with protected routes
-    Router::new()
+    let router = Router::new()
         .route("/health", get(health_check))
         .merge(protected_routes)
-        .with_state(state)
+        .with_state(state.clone());
+
+    // Add CORS, compression, and rate limiting layers
+    // Note: Rate limiting is applied to all routes except /health (which is separate)
+    let router = router
+        .layer(
+            CorsLayer::new()
+                .allow_origin(tower_http::cors::Any)
+                .allow_methods(tower_http::cors::Any)
+                .allow_headers(tower_http::cors::Any),
+        )
+        .layer(CompressionLayer::new());
+
+    // Add rate limiting if enabled
+    if state.config.server.rate_limiting_enabled {
+        info!("Rate limiting ENABLED - applying governor layer");
+        router.layer(governor_layer)
+    } else {
+        info!("Rate limiting DISABLED - skipping governor layer");
+        router
+    }
 }
 
 /// Health check endpoint
@@ -215,6 +280,65 @@ async fn expand_handler(
     Ok(Json(response))
 }
 
+/// Streaming expand endpoint using Server-Sent Events
+///
+/// Returns users as they're discovered, enabling progressive rendering
+/// for large result sets.
+async fn expand_stream_handler(
+    auth: infera_auth::extractor::OptionalAuth,
+    State(state): State<AppState>,
+    Json(request): Json<ExpandRequest>,
+) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // If auth is enabled and present, validate scope
+    if state.config.auth.enabled {
+        if let Some(auth_ctx) = auth.0 {
+            // Require inferadb.expand scope (or check scope as fallback)
+            infera_auth::middleware::require_any_scope(
+                &auth_ctx,
+                &["inferadb.expand", "inferadb.check"],
+            )
+            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!("Streaming expand request from tenant: {}", auth_ctx.tenant_id);
+        } else {
+            return Err(ApiError::Unauthorized(
+                "Authentication required".to_string(),
+            ));
+        }
+    }
+
+    // Execute the expand operation
+    let response = state.evaluator.expand(request).await?;
+
+    // Create a stream that sends each user as a separate SSE event
+    let users = response.users;
+    let tree = response.tree;
+    let continuation_token = response.continuation_token;
+    let total_count = response.total_count;
+
+    let stream = stream::iter(users.into_iter().enumerate().map(|(idx, user)| {
+        let data = serde_json::json!({
+            "user": user,
+            "index": idx,
+        });
+
+        Event::default().json_data(data)
+    }))
+    .chain(stream::once(async move {
+        // Send final summary event
+        let summary = serde_json::json!({
+            "tree": tree,
+            "continuation_token": continuation_token,
+            "total_count": total_count,
+            "complete": true
+        });
+
+        Event::default().event("summary").json_data(summary)
+    }));
+
+    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
+}
+
 /// Write tuples endpoint
 async fn write_handler(
     auth: infera_auth::extractor::OptionalAuth,
@@ -273,6 +397,23 @@ async fn write_handler(
         }
     }
 
+    // Optimistic locking: Check expected revision if provided
+    if let Some(expected_rev) = &request.expected_revision {
+        let current_rev = state
+            .store
+            .get_revision()
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to get revision: {}", e)))?;
+
+        let current_rev_str = current_rev.0.to_string();
+        if &current_rev_str != expected_rev {
+            return Err(ApiError::RevisionMismatch {
+                expected: expected_rev.clone(),
+                actual: current_rev_str,
+            });
+        }
+    }
+
     // Write tuples to store
     let revision = state
         .store
@@ -289,12 +430,286 @@ async fn write_handler(
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WriteRequest {
     pub tuples: Vec<Tuple>,
+    /// Optional expected revision for optimistic locking
+    /// If provided, the write will only succeed if the current store revision matches
+    pub expected_revision: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WriteResponse {
     pub revision: String,
     pub tuples_written: usize,
+}
+
+/// Delete tuples endpoint
+async fn delete_handler(
+    auth: infera_auth::extractor::OptionalAuth,
+    State(state): State<AppState>,
+    Json(request): Json<DeleteRequest>,
+) -> Result<Json<DeleteResponse>> {
+    // If auth is enabled and present, validate scope
+    if state.config.auth.enabled {
+        if let Some(auth_ctx) = auth.0 {
+            // Require inferadb.write scope (delete is a write operation)
+            infera_auth::middleware::require_scope(&auth_ctx, "inferadb.write")
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!("Delete request from tenant: {}", auth_ctx.tenant_id);
+        } else {
+            return Err(ApiError::Unauthorized(
+                "Authentication required".to_string(),
+            ));
+        }
+    }
+
+    // Validate request
+    if request.tuples.is_empty() {
+        return Err(ApiError::InvalidRequest("No tuples provided".to_string()));
+    }
+
+    // Validate and convert tuples to TupleKeys
+    let mut keys = Vec::new();
+    for tuple in &request.tuples {
+        if tuple.object.is_empty() {
+            return Err(ApiError::InvalidRequest(
+                "Tuple object cannot be empty".to_string(),
+            ));
+        }
+        if tuple.relation.is_empty() {
+            return Err(ApiError::InvalidRequest(
+                "Tuple relation cannot be empty".to_string(),
+            ));
+        }
+        if tuple.user.is_empty() {
+            return Err(ApiError::InvalidRequest(
+                "Tuple user cannot be empty".to_string(),
+            ));
+        }
+        // Validate format (should contain colon)
+        if !tuple.object.contains(':') {
+            return Err(ApiError::InvalidRequest(format!(
+                "Invalid object format '{}': must be 'type:id'",
+                tuple.object
+            )));
+        }
+        if !tuple.user.contains(':') {
+            return Err(ApiError::InvalidRequest(format!(
+                "Invalid user format '{}': must be 'type:id'",
+                tuple.user
+            )));
+        }
+
+        // Create TupleKey for deletion
+        use infera_store::TupleKey;
+        keys.push(TupleKey {
+            object: tuple.object.clone(),
+            relation: tuple.relation.clone(),
+            user: Some(tuple.user.clone()),
+        });
+    }
+
+    // Optimistic locking: Check expected revision if provided
+    if let Some(expected_rev) = &request.expected_revision {
+        let current_rev = state
+            .store
+            .get_revision()
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to get revision: {}", e)))?;
+
+        let current_rev_str = current_rev.0.to_string();
+        if &current_rev_str != expected_rev {
+            return Err(ApiError::RevisionMismatch {
+                expected: expected_rev.clone(),
+                actual: current_rev_str,
+            });
+        }
+    }
+
+    // Delete tuples from store
+    let mut last_revision = None;
+    let mut deleted_count = 0;
+
+    for key in keys {
+        match state.store.delete(&key).await {
+            Ok(revision) => {
+                last_revision = Some(revision);
+                deleted_count += 1;
+            }
+            Err(e) => {
+                tracing::warn!("Failed to delete tuple {:?}: {}", key, e);
+                // Continue deleting other tuples even if one fails
+            }
+        }
+    }
+
+    // Return the last revision from successful deletes
+    let revision =
+        last_revision.ok_or_else(|| ApiError::Internal("No tuples were deleted".to_string()))?;
+
+    Ok(Json(DeleteResponse {
+        revision: revision.0.to_string(),
+        tuples_deleted: deleted_count,
+    }))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DeleteRequest {
+    pub tuples: Vec<Tuple>,
+    /// Optional expected revision for optimistic locking
+    /// If provided, the delete will only succeed if the current store revision matches
+    pub expected_revision: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DeleteResponse {
+    pub revision: String,
+    pub tuples_deleted: usize,
+}
+
+/// Simulate endpoint - run checks with ephemeral context tuples
+async fn simulate_handler(
+    auth: infera_auth::extractor::OptionalAuth,
+    State(state): State<AppState>,
+    Json(request): Json<SimulateRequest>,
+) -> Result<Json<SimulateResponse>> {
+    // If auth is enabled and present, validate scope
+    if state.config.auth.enabled {
+        if let Some(auth_ctx) = auth.0 {
+            // Require inferadb.check scope for simulation
+            infera_auth::middleware::require_any_scope(
+                &auth_ctx,
+                &["inferadb.check", "inferadb.simulate"],
+            )
+            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!("Simulate request from tenant: {}", auth_ctx.tenant_id);
+        } else {
+            return Err(ApiError::Unauthorized(
+                "Authentication required".to_string(),
+            ));
+        }
+    }
+
+    // Validate context tuples
+    if request.context_tuples.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "At least one context tuple required".to_string(),
+        ));
+    }
+
+    for tuple in &request.context_tuples {
+        if tuple.object.is_empty() || tuple.relation.is_empty() || tuple.user.is_empty() {
+            return Err(ApiError::InvalidRequest("Invalid tuple format".to_string()));
+        }
+    }
+
+    // Create an ephemeral in-memory store with ONLY the context tuples
+    // This simulates authorization decisions with temporary/what-if data
+    use infera_store::MemoryBackend;
+    let ephemeral_store = Arc::new(MemoryBackend::new());
+
+    // Write context tuples to ephemeral store
+    ephemeral_store
+        .write(request.context_tuples.clone())
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to write context tuples: {}", e)))?;
+
+    // Create a temporary evaluator with the ephemeral store
+    // Create a minimal schema for simulation (empty schema allows all relations)
+    use infera_core::ipl::Schema;
+    let temp_schema = Arc::new(Schema { types: Vec::new() });
+    let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None);
+
+    // Run the check with the ephemeral data
+    let check_request = CheckRequest {
+        subject: request.check.subject,
+        resource: request.check.resource,
+        permission: request.check.permission,
+        context: request.check.context,
+    };
+
+    let decision = temp_evaluator.check(check_request).await?;
+
+    Ok(Json(SimulateResponse {
+        decision,
+        context_tuples_count: request.context_tuples.len(),
+    }))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SimulateRequest {
+    pub context_tuples: Vec<Tuple>,
+    pub check: SimulateCheck,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SimulateCheck {
+    pub subject: String,
+    pub resource: String,
+    pub permission: String,
+    pub context: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SimulateResponse {
+    pub decision: Decision,
+    pub context_tuples_count: usize,
+}
+
+/// Explain endpoint - return full decision trace
+async fn explain_handler(
+    auth: infera_auth::extractor::OptionalAuth,
+    State(state): State<AppState>,
+    Json(request): Json<ExplainRequest>,
+) -> Result<Json<ExplainResponse>> {
+    // If auth is enabled and present, validate scope
+    if state.config.auth.enabled {
+        if let Some(auth_ctx) = auth.0 {
+            // Require inferadb.check scope
+            infera_auth::middleware::require_any_scope(
+                &auth_ctx,
+                &["inferadb.check", "inferadb.explain"],
+            )
+            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!("Explain request from tenant: {}", auth_ctx.tenant_id);
+        } else {
+            return Err(ApiError::Unauthorized(
+                "Authentication required".to_string(),
+            ));
+        }
+    }
+
+    // Run check with trace enabled
+    let check_request = CheckRequest {
+        subject: request.subject,
+        resource: request.resource,
+        permission: request.permission,
+        context: request.context,
+    };
+
+    let start = std::time::Instant::now();
+    let trace = state.evaluator.check_with_trace(check_request).await?;
+    let duration_ms = start.elapsed().as_millis() as u64;
+
+    Ok(Json(ExplainResponse {
+        trace,
+        execution_time_ms: duration_ms,
+    }))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExplainRequest {
+    pub subject: String,
+    pub resource: String,
+    pub permission: String,
+    pub context: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExplainResponse {
+    pub trace: infera_core::DecisionTrace,
+    pub execution_time_ms: u64,
 }
 
 /// Start the REST API server
@@ -450,8 +865,9 @@ mod tests {
         )]));
         let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
         let mut config = infera_config::Config::default();
-        // Disable auth for tests by default
+        // Disable auth and rate limiting for tests
         config.auth.enabled = false;
+        config.server.rate_limiting_enabled = false;
         let config = Arc::new(config);
 
         AppState {
@@ -656,5 +1072,243 @@ mod tests {
             expand_response.tree.node_type,
             infera_core::UsersetNodeType::Union
         ));
+    }
+
+    #[tokio::test]
+    async fn test_delete() {
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // First, write a tuple
+        let write_request = json!({
+            "tuples": [{
+                "object": "doc:test",
+                "relation": "reader",
+                "user": "user:bob"
+            }]
+        });
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Verify the tuple exists
+        let check_request = json!({
+            "subject": "user:bob",
+            "resource": "doc:test",
+            "permission": "reader",
+            "context": null
+        });
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(check_response["decision"], "allow");
+
+        // Now delete the tuple
+        let delete_request = json!({
+            "tuples": [{
+                "object": "doc:test",
+                "relation": "reader",
+                "user": "user:bob"
+            }]
+        });
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(delete_response.tuples_deleted, 1);
+
+        // Verify the tuple is deleted
+        let check_request = json!({
+            "subject": "user:bob",
+            "resource": "doc:test",
+            "permission": "reader",
+            "context": null
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(check_response["decision"], "deny");
+    }
+
+    #[tokio::test]
+    async fn test_delete_validation_empty_tuples() {
+        let app = create_router(create_test_state());
+
+        let delete_request = json!({
+            "tuples": []
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_delete_validation_invalid_format() {
+        let app = create_router(create_test_state());
+
+        let delete_request = json!({
+            "tuples": [{
+                "object": "invalid_no_colon",
+                "relation": "reader",
+                "user": "user:alice"
+            }]
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_delete_batch() {
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // Write multiple tuples
+        let write_request = json!({
+            "tuples": [
+                {
+                    "object": "doc:batch1",
+                    "relation": "reader",
+                    "user": "user:charlie"
+                },
+                {
+                    "object": "doc:batch2",
+                    "relation": "reader",
+                    "user": "user:charlie"
+                }
+            ]
+        });
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Delete both tuples in batch
+        let delete_request = json!({
+            "tuples": [
+                {
+                    "object": "doc:batch1",
+                    "relation": "reader",
+                    "user": "user:charlie"
+                },
+                {
+                    "object": "doc:batch2",
+                    "relation": "reader",
+                    "user": "user:charlie"
+                }
+            ]
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(delete_response.tuples_deleted, 2);
     }
 }
