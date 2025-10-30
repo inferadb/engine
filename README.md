@@ -23,15 +23,13 @@ InferaDB is organized as a modular Rust workspace with the following crates:
 
 ### Prerequisites
 
-- Rust 1.90 or later (managed via [Mise](https://mise.jdx.dev/))
+- [Mise](https://mise.jdx.dev/)
+- Make
+- Rust 1.9+
 
 ### Setup
 
 ```bash
-# Install Mise if not already installed
-# macOS: brew install mise
-# Linux: curl https://mise.run | sh
-
 # Trust the configuration
 mise trust
 
@@ -67,8 +65,8 @@ mise run build-release
 mise run doc
 
 # Security auditing
-cargo audit          # Check for known vulnerabilities
-cargo deny check     # Check licenses and security policies
+mise run audit # cargo-audit
+mise run deny # cargo-deny
 ```
 
 ### Configuration
@@ -162,19 +160,12 @@ Comprehensive developer documentation is available in the `docs/` directory:
 - **[Revision Tokens](docs/revision-tokens.md)** - Snapshot consistency with Zookies
 - **[Building from Source](docs/building.md)** - Development setup and build instructions
 
-**Security Documentation:**
-
-- **[Authentication Guide](AUTHENTICATION.md)** - JWT, OAuth 2.0, and JWKS implementation
-- **[Security Audit Checklist](SECURITY.md)** - Comprehensive security guidelines
-- **[Production Hardening](docs/PRODUCTION_HARDENING.md)** - Deployment security checklist
-- **[Penetration Testing](docs/PENTEST.md)** - Security testing procedures
-
 See [docs/README.md](docs/README.md) for the complete documentation index.
 
 ## License
 
-Business Source License 1.1 - see [LICENSE](LICENSE)
+InferaDB is made available under the Business Source License 1.1 license. It's free for non-commercial use, and licensable for commercial applications. See our [LICENSE](LICENSE) for additional information.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and [PROJECT.md](PROJECT.md) for detailed architectural documentation.
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for guidance.
