@@ -2,6 +2,7 @@
 //!
 //! Handles configuration loading from files, environment variables, and CLI args.
 
+pub mod hot_reload;
 pub mod secrets;
 pub mod validation;
 

@@ -1,11 +1,22 @@
 //! Secrets management
 //!
-//! Handles loading secrets from environment variables and files
+//! Handles loading secrets from environment variables, files, and cloud secret managers
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use thiserror::Error;
+
+#[cfg(feature = "aws-secrets")]
+use aws_config::BehaviorVersion;
+#[cfg(feature = "aws-secrets")]
+use aws_sdk_secretsmanager::Client as SecretsManagerClient;
+
+#[cfg(feature = "gcp-secrets")]
+use google_secretmanager1::{hyper, hyper_rustls, oauth2, SecretManager};
+
+#[cfg(feature = "azure-secrets")]
+use azure_security_keyvault::SecretClient;
 
 #[derive(Debug, Error)]
 pub enum SecretError {
@@ -151,6 +162,195 @@ impl SecretProvider for MemorySecretProvider {
 
     fn has(&self, key: &str) -> bool {
         self.secrets.contains_key(key)
+    }
+}
+
+/// AWS Secrets Manager provider
+///
+/// Fetches secrets from AWS Secrets Manager
+#[cfg(feature = "aws-secrets")]
+pub struct AwsSecretsProvider {
+    client: SecretsManagerClient,
+    region: String,
+}
+
+#[cfg(feature = "aws-secrets")]
+impl AwsSecretsProvider {
+    /// Create a new AWS Secrets Manager provider
+    pub async fn new(region: impl Into<String>) -> Result<Self, SecretError> {
+        let region_str = region.into();
+        let config = aws_config::defaults(BehaviorVersion::latest())
+            .region(aws_config::Region::new(region_str.clone()))
+            .load()
+            .await;
+
+        let client = SecretsManagerClient::new(&config);
+
+        Ok(Self {
+            client,
+            region: region_str,
+        })
+    }
+
+    /// Get a secret from AWS Secrets Manager (async)
+    pub async fn get_async(&self, key: &str) -> Result<String, SecretError> {
+        let result = self
+            .client
+            .get_secret_value()
+            .secret_id(key)
+            .send()
+            .await
+            .map_err(|e| SecretError::InvalidFormat(format!("AWS Secrets Manager error: {}", e)))?;
+
+        result
+            .secret_string()
+            .ok_or_else(|| SecretError::NotFound(key.to_string()))
+            .map(|s| s.to_string())
+    }
+}
+
+#[cfg(feature = "aws-secrets")]
+impl SecretProvider for AwsSecretsProvider {
+    fn get(&self, key: &str) -> Result<String, SecretError> {
+        // Synchronous wrapper - requires tokio runtime
+        tokio::runtime::Handle::current().block_on(async {
+            self.get_async(key).await
+        })
+    }
+
+    fn has(&self, key: &str) -> bool {
+        self.get(key).is_ok()
+    }
+}
+
+/// GCP Secret Manager provider
+///
+/// Fetches secrets from Google Cloud Secret Manager
+#[cfg(feature = "gcp-secrets")]
+pub struct GcpSecretsProvider {
+    hub: SecretManager<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>,
+    project_id: String,
+}
+
+#[cfg(feature = "gcp-secrets")]
+impl GcpSecretsProvider {
+    /// Create a new GCP Secret Manager provider
+    pub async fn new(project_id: impl Into<String>) -> Result<Self, SecretError> {
+        let secret = oauth2::read_application_secret("credentials.json")
+            .await
+            .map_err(|e| SecretError::InvalidFormat(format!("Failed to read GCP credentials: {}", e)))?;
+
+        let auth = oauth2::InstalledFlowAuthenticator::builder(
+            secret,
+            oauth2::InstalledFlowReturnMethod::HTTPRedirect,
+        )
+        .build()
+        .await
+        .map_err(|e| SecretError::InvalidFormat(format!("GCP auth error: {}", e)))?;
+
+        let hub = SecretManager::new(
+            hyper::Client::builder().build(
+                hyper_rustls::HttpsConnectorBuilder::new()
+                    .with_native_roots()
+                    .unwrap()
+                    .https_or_http()
+                    .enable_http1()
+                    .build(),
+            ),
+            auth,
+        );
+
+        Ok(Self {
+            hub,
+            project_id: project_id.into(),
+        })
+    }
+
+    /// Get a secret from GCP Secret Manager (async)
+    pub async fn get_async(&self, key: &str) -> Result<String, SecretError> {
+        let name = format!("projects/{}/secrets/{}/versions/latest", self.project_id, key);
+
+        let (_, secret_version) = self
+            .hub
+            .projects()
+            .secrets_versions_access(&name)
+            .doit()
+            .await
+            .map_err(|e| SecretError::InvalidFormat(format!("GCP Secret Manager error: {}", e)))?;
+
+        let payload = secret_version
+            .payload
+            .and_then(|p| p.data)
+            .ok_or_else(|| SecretError::NotFound(key.to_string()))?;
+
+        String::from_utf8(payload)
+            .map_err(|e| SecretError::InvalidFormat(format!("Invalid UTF-8 in secret: {}", e)))
+    }
+}
+
+#[cfg(feature = "gcp-secrets")]
+impl SecretProvider for GcpSecretsProvider {
+    fn get(&self, key: &str) -> Result<String, SecretError> {
+        // Synchronous wrapper - requires tokio runtime
+        tokio::runtime::Handle::current().block_on(async {
+            self.get_async(key).await
+        })
+    }
+
+    fn has(&self, key: &str) -> bool {
+        self.get(key).is_ok()
+    }
+}
+
+/// Azure Key Vault provider
+///
+/// Fetches secrets from Azure Key Vault
+#[cfg(feature = "azure-secrets")]
+pub struct AzureSecretsProvider {
+    client: SecretClient,
+    vault_url: String,
+}
+
+#[cfg(feature = "azure-secrets")]
+impl AzureSecretsProvider {
+    /// Create a new Azure Key Vault provider
+    pub async fn new(vault_url: impl Into<String>) -> Result<Self, SecretError> {
+        use azure_identity::DefaultAzureCredential;
+
+        let vault_url_str = vault_url.into();
+        let credential = DefaultAzureCredential::default();
+        let client = SecretClient::new(&vault_url_str, credential)
+            .map_err(|e| SecretError::InvalidFormat(format!("Azure Key Vault client error: {}", e)))?;
+
+        Ok(Self {
+            client,
+            vault_url: vault_url_str,
+        })
+    }
+
+    /// Get a secret from Azure Key Vault (async)
+    pub async fn get_async(&self, key: &str) -> Result<String, SecretError> {
+        let secret = self
+            .client
+            .get(key)
+            .await
+            .map_err(|e| SecretError::InvalidFormat(format!("Azure Key Vault error: {}", e)))?;
+
+        Ok(secret.value().to_string())
+    }
+}
+
+#[cfg(feature = "azure-secrets")]
+impl SecretProvider for AzureSecretsProvider {
+    fn get(&self, key: &str) -> Result<String, SecretError> {
+        // Synchronous wrapper - requires tokio runtime
+        tokio::runtime::Handle::current().block_on(async {
+            self.get_async(key).await
+        })
+    }
+
+    fn has(&self, key: &str) -> bool {
+        self.get(key).is_ok()
     }
 }
 
