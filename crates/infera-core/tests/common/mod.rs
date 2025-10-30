@@ -3,6 +3,7 @@
 use infera_core::ipl::Schema;
 use infera_core::{CheckRequest, Evaluator};
 use infera_store::{MemoryBackend, Tuple, TupleStore};
+use infera_wasm::WasmHost;
 use std::sync::Arc;
 
 /// Test fixture for setting up a complete evaluation environment
@@ -17,6 +18,18 @@ impl TestFixture {
         let store = Arc::new(MemoryBackend::new());
         let evaluator =
             Evaluator::new(store.clone() as Arc<dyn TupleStore>, Arc::new(schema), None);
+
+        Self { store, evaluator }
+    }
+
+    /// Create a new test fixture with the given schema and WASM host
+    pub fn new_with_wasm(schema: Schema, wasm_host: Arc<WasmHost>) -> Self {
+        let store = Arc::new(MemoryBackend::new());
+        let evaluator = Evaluator::new(
+            store.clone() as Arc<dyn TupleStore>,
+            Arc::new(schema),
+            Some(wasm_host),
+        );
 
         Self { store, evaluator }
     }
