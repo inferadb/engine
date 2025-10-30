@@ -1,0 +1,30 @@
+apiVersion: v2
+name: inferadb
+description: High-performance authorization policy decision engine
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+keywords:
+  - authorization
+  - policy
+  - rbac
+  - abac
+  - permission
+  - access-control
+
+home: https://github.com/inferadb/inferadb
+sources:
+  - https://github.com/inferadb/inferadb
+
+maintainers:
+  - name: InferaDB Team
+    email: team@inferadb.com
+
+icon: https://inferadb.com/logo.svg
+
+dependencies: []
+
+annotations:
+  category: Security
+  licenses: BSL-1.1
