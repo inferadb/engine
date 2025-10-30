@@ -2,8 +2,8 @@ pub mod internal_jwt_helpers;
 pub mod mock_jwks;
 pub mod mock_oauth;
 
-use infera_auth::{AuthContext, AuthMethod};
 use chrono::{Duration, Utc};
+use infera_auth::{AuthContext, AuthMethod};
 
 /// Create a test AuthContext without JWT validation
 ///
@@ -23,10 +23,7 @@ pub fn test_auth_context() -> AuthContext {
         client_id: "test-client".to_string(),
         key_id: "test-key-1".to_string(),
         auth_method: AuthMethod::PrivateKeyJwt,
-        scopes: vec![
-            "inferadb.check".to_string(),
-            "inferadb.write".to_string(),
-        ],
+        scopes: vec!["inferadb.check".to_string(), "inferadb.write".to_string()],
         issued_at: Utc::now(),
         expires_at: Utc::now() + Duration::hours(1),
         jti: Some("test-jti-123".to_string()),

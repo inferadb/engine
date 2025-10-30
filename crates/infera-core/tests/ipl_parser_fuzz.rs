@@ -32,10 +32,8 @@ proptest! {
 
         let result = parse_schema(&schema);
         // Deep nesting should either parse or fail gracefully
-        match result {
-            Ok(_) => {}, // Success is fine
-            Err(_) => {}, // Failure is fine as long as no panic
-        }
+        // Success or failure both acceptable as long as no panic
+        let _ = result;
     }
 
     #[test]
@@ -56,7 +54,7 @@ proptest! {
         for i in 0..count {
             schema.push_str(&format!("  relation rel{}: user\n", i));
         }
-        schema.push_str("}");
+        schema.push('}');
 
         let _ = parse_schema(&schema);
     }

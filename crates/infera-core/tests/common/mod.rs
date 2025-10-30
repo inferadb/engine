@@ -1,5 +1,7 @@
 //! Helper utilities for integration tests
 
+#![allow(dead_code)] // Some test files use subsets of these utilities
+
 use infera_core::ipl::Schema;
 use infera_core::{CheckRequest, Evaluator};
 use infera_store::{MemoryBackend, Tuple, TupleStore};

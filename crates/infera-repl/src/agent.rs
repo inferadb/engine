@@ -348,7 +348,10 @@ impl ReplicationAgent {
             }
 
             if !success {
-                error!("Failed to replicate batch to {} after {} retries", node_id, config.max_retries);
+                error!(
+                    "Failed to replicate batch to {} after {} retries",
+                    node_id, config.max_retries
+                );
                 let mut stats_guard = stats.write().await;
                 stats_guard.replication_failures += batch.len() as u64;
                 drop(stats_guard);
@@ -401,9 +404,10 @@ impl ReplicationAgent {
             let mut request = tonic::Request::new(WriteRequest { tuples });
             request.set_timeout(config.request_timeout);
 
-            client.write(request).await.map_err(|e| {
-                ReplError::Replication(format!("Write request failed: {}", e))
-            })?;
+            client
+                .write(request)
+                .await
+                .map_err(|e| ReplError::Replication(format!("Write request failed: {}", e)))?;
         }
 
         // Send deletes
@@ -420,9 +424,10 @@ impl ReplicationAgent {
             let mut request = tonic::Request::new(DeleteRequest { tuples });
             request.set_timeout(config.request_timeout);
 
-            client.delete(request).await.map_err(|e| {
-                ReplError::Replication(format!("Delete request failed: {}", e))
-            })?;
+            client
+                .delete(request)
+                .await
+                .map_err(|e| ReplError::Replication(format!("Delete request failed: {}", e)))?;
         }
 
         Ok(())
@@ -480,15 +485,18 @@ mod tests {
     #[tokio::test]
     async fn test_replication_agent_creation() {
         let topology = Arc::new(RwLock::new(
-            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
-                .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
-                .add_zone(
-                    RegionId::new("us-west-1"),
-                    ZoneId::new("us-west-1a"),
-                    "Zone A".to_string(),
-                )
-                .build()
-                .unwrap(),
+            TopologyBuilder::new(
+                ReplicationStrategy::ActiveActive,
+                RegionId::new("us-west-1"),
+            )
+            .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
+            .add_zone(
+                RegionId::new("us-west-1"),
+                ZoneId::new("us-west-1a"),
+                "Zone A".to_string(),
+            )
+            .build()
+            .unwrap(),
         ));
 
         let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());

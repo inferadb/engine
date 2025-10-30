@@ -336,24 +336,14 @@ impl TopologyBuilder {
     }
 
     /// Add a region with zones and nodes
-    pub fn add_region(
-        mut self,
-        region_id: RegionId,
-        name: String,
-        is_primary: bool,
-    ) -> Self {
+    pub fn add_region(mut self, region_id: RegionId, name: String, is_primary: bool) -> Self {
         let region = Region::new(region_id, name, is_primary);
         self.topology.add_region(region);
         self
     }
 
     /// Add a zone to a region
-    pub fn add_zone(
-        mut self,
-        region_id: RegionId,
-        zone_id: ZoneId,
-        name: String,
-    ) -> Self {
+    pub fn add_zone(mut self, region_id: RegionId, zone_id: ZoneId, name: String) -> Self {
         if let Some(region) = self.topology.get_region_mut(&region_id) {
             region.add_zone(Zone::new(zone_id, name));
         }
@@ -377,12 +367,9 @@ impl TopologyBuilder {
     }
 
     /// Set replication targets for a region (which regions it replicates to)
-    pub fn set_replication_targets(
-        mut self,
-        source: RegionId,
-        targets: Vec<RegionId>,
-    ) -> Self {
-        self.topology.set_replication_targets(source, targets.into_iter().collect());
+    pub fn set_replication_targets(mut self, source: RegionId, targets: Vec<RegionId>) -> Self {
+        self.topology
+            .set_replication_targets(source, targets.into_iter().collect());
         self
     }
 
@@ -415,7 +402,11 @@ mod tests {
             NodeId::new("node1"),
             "localhost:50051".to_string(),
         )
-        .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), false)
+        .add_region(
+            RegionId::new("eu-central-1"),
+            "EU Central 1".to_string(),
+            false,
+        )
         .add_zone(
             RegionId::new("eu-central-1"),
             ZoneId::new("eu-central-1a"),
@@ -450,7 +441,11 @@ mod tests {
             RegionId::new("us-west-1"),
         )
         .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), true)
-        .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), false)
+        .add_region(
+            RegionId::new("eu-central-1"),
+            "EU Central 1".to_string(),
+            false,
+        )
         .set_replication_targets(
             RegionId::new("us-west-1"),
             vec![RegionId::new("eu-central-1")],
@@ -458,7 +453,10 @@ mod tests {
         .build()
         .unwrap();
 
-        assert_eq!(topology.get_primary_region().unwrap().id, RegionId::new("us-west-1"));
+        assert_eq!(
+            topology.get_primary_region().unwrap().id,
+            RegionId::new("us-west-1")
+        );
     }
 
     #[test]
@@ -472,10 +470,8 @@ mod tests {
 
     #[test]
     fn test_topology_validation_invalid_local_region() {
-        let mut topology = Topology::new(
-            ReplicationStrategy::ActiveActive,
-            RegionId::new("invalid"),
-        );
+        let mut topology =
+            Topology::new(ReplicationStrategy::ActiveActive, RegionId::new("invalid"));
         topology.add_region(Region::new(
             RegionId::new("us-west-1"),
             "US West 1".to_string(),
@@ -570,11 +566,22 @@ mod tests {
             RegionId::new("us-west-1"),
         )
         .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
-        .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), false)
-        .add_region(RegionId::new("ap-southeast-1"), "AP Southeast 1".to_string(), false)
+        .add_region(
+            RegionId::new("eu-central-1"),
+            "EU Central 1".to_string(),
+            false,
+        )
+        .add_region(
+            RegionId::new("ap-southeast-1"),
+            "AP Southeast 1".to_string(),
+            false,
+        )
         .set_replication_targets(
             RegionId::new("us-west-1"),
-            vec![RegionId::new("eu-central-1"), RegionId::new("ap-southeast-1")],
+            vec![
+                RegionId::new("eu-central-1"),
+                RegionId::new("ap-southeast-1"),
+            ],
         )
         .build()
         .unwrap();

@@ -345,5 +345,5 @@ async fn test_wasm_with_trace() {
         }
         _ => panic!("Expected WasmModule node type"),
     }
-    assert_eq!(trace.root.result, true);
+    assert!(trace.root.result);
 }

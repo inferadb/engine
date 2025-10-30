@@ -41,7 +41,7 @@ pub type Result<T> = std::result::Result<T, EvalError>;
 mod tests {
     #[test]
     fn test_core_module() {
-        // Placeholder test
-        assert!(true);
+        // Core module exports are tested via integration tests
+        // This placeholder ensures the test module compiles
     }
 }

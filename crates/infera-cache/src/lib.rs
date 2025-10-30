@@ -1030,9 +1030,7 @@ mod tests {
         for i in 0..10 {
             let cache = cache.clone();
             let handle = tokio::spawn(async move {
-                cache
-                    .invalidate_resources(&[format!("doc:{}", i)])
-                    .await;
+                cache.invalidate_resources(&[format!("doc:{}", i)]).await;
             });
             handles.push(handle);
         }

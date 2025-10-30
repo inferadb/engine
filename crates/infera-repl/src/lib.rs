@@ -16,7 +16,9 @@ pub use agent::{ReplicationAgent, ReplicationConfig, ReplicationStats};
 pub use change_feed::{
     Change, ChangeFeed, ChangeFeedConfig, ChangeFilter, ChangeMetadata, ChangeStream, Operation,
 };
-pub use conflict::{Conflict, ConflictResolutionStrategy, ConflictResolver, ConflictStats, Resolution};
+pub use conflict::{
+    Conflict, ConflictResolutionStrategy, ConflictResolver, ConflictStats, Resolution,
+};
 pub use router::{RequestType, Router, RoutingDecision};
 pub use token::RevisionToken;
 pub use topology::{

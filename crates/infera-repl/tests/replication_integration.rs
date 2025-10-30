@@ -143,11 +143,7 @@ async fn test_topology_active_active() {
         ReplicationStrategy::ActiveActive,
         RegionId::new("us-west-1"),
     )
-    .add_region(
-        RegionId::new("us-west-1"),
-        "US West 1".to_string(),
-        false,
-    )
+    .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
     .add_zone(
         RegionId::new("us-west-1"),
         ZoneId::new("us-west-1a"),
@@ -345,15 +341,18 @@ async fn test_change_feed_with_filtering() {
 #[tokio::test]
 async fn test_replication_agent_creation_and_shutdown() {
     let topology = Arc::new(RwLock::new(
-        TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
-            .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
-            .add_zone(
-                RegionId::new("us-west-1"),
-                ZoneId::new("us-west-1a"),
-                "Zone A".to_string(),
-            )
-            .build()
-            .unwrap(),
+        TopologyBuilder::new(
+            ReplicationStrategy::ActiveActive,
+            RegionId::new("us-west-1"),
+        )
+        .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
+        .add_zone(
+            RegionId::new("us-west-1"),
+            ZoneId::new("us-west-1a"),
+            "Zone A".to_string(),
+        )
+        .build()
+        .unwrap(),
     ));
 
     let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
@@ -390,11 +389,7 @@ async fn test_network_partition_simulation() {
         ReplicationStrategy::ActiveActive,
         RegionId::new("us-west-1"),
     )
-    .add_region(
-        RegionId::new("us-west-1"),
-        "US West 1".to_string(),
-        false,
-    )
+    .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
     .add_zone(
         RegionId::new("us-west-1"),
         ZoneId::new("us-west-1a"),
@@ -529,7 +524,9 @@ async fn test_failover_scenario() {
     // 4. Resume operations
 
     // For this test, we verify the topology structure supports this pattern
-    assert!(topology.get_region(&RegionId::new("eu-central-1")).is_some());
+    assert!(topology
+        .get_region(&RegionId::new("eu-central-1"))
+        .is_some());
 }
 
 #[tokio::test]

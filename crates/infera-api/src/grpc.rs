@@ -246,7 +246,11 @@ impl InferaService for InferaServiceImpl {
     }
 
     type ExpandStreamStream = std::pin::Pin<
-        Box<dyn futures::Stream<Item = Result<proto::ExpandStreamResponse, Status>> + Send + 'static>,
+        Box<
+            dyn futures::Stream<Item = Result<proto::ExpandStreamResponse, Status>>
+                + Send
+                + 'static,
+        >,
     >;
 
     async fn expand_stream(

@@ -17,8 +17,8 @@ use axum::{
 use futures::stream::{self, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tower_http::{compression::CompressionLayer, cors::CorsLayer};
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer};
 use tracing::info;
 
 use infera_auth::jwks_cache::JwksCache;
@@ -94,13 +94,15 @@ impl IntoResponse for ApiError {
                 headers.insert(header::RETRY_AFTER, HeaderValue::from_static("60"));
                 headers.insert("x-ratelimit-limit", HeaderValue::from_static("1000"));
                 headers.insert("x-ratelimit-remaining", HeaderValue::from_static("0"));
-                (StatusCode::TOO_MANY_REQUESTS, self.to_string(), Some(headers))
+                (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    self.to_string(),
+                    Some(headers),
+                )
             }
 
             // Optimistic locking conflict
-            ApiError::RevisionMismatch { .. } => {
-                (StatusCode::CONFLICT, self.to_string(), None)
-            }
+            ApiError::RevisionMismatch { .. } => (StatusCode::CONFLICT, self.to_string(), None),
         };
 
         let mut response = (status, Json(ErrorResponse { error: message })).into_response();
@@ -299,7 +301,10 @@ async fn expand_stream_handler(
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!("Streaming expand request from tenant: {}", auth_ctx.tenant_id);
+            tracing::debug!(
+                "Streaming expand request from tenant: {}",
+                auth_ctx.tenant_id
+            );
         } else {
             return Err(ApiError::Unauthorized(
                 "Authentication required".to_string(),
