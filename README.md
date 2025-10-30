@@ -65,6 +65,10 @@ mise run build-release
 
 # Generate documentation
 mise run doc
+
+# Security auditing
+cargo audit          # Check for known vulnerabilities
+cargo deny check     # Check licenses and security policies
 ```
 
 ### Configuration
@@ -156,6 +160,13 @@ Comprehensive developer documentation is available in the `docs/` directory:
 - **[Caching System](docs/caching.md)** - Intelligent caching implementation
 - **[Revision Tokens](docs/revision-tokens.md)** - Snapshot consistency with Zookies
 - **[Building from Source](docs/building.md)** - Development setup and build instructions
+
+**Security Documentation:**
+
+- **[Authentication Guide](AUTHENTICATION.md)** - JWT, OAuth 2.0, and JWKS implementation
+- **[Security Audit Checklist](SECURITY.md)** - Comprehensive security guidelines
+- **[Production Hardening](docs/PRODUCTION_HARDENING.md)** - Deployment security checklist
+- **[Penetration Testing](docs/PENTEST.md)** - Security testing procedures
 
 See [docs/README.md](docs/README.md) for the complete documentation index.
 

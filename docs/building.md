@@ -326,13 +326,43 @@ cargo outdated
 
 ### Audit Dependencies for Security Issues
 
+InferaDB uses two tools for security auditing:
+
+#### cargo-audit
+
+Checks for known security vulnerabilities in dependencies:
+
 ```bash
 # Install cargo-audit
 cargo install cargo-audit
 
-# Run audit
+# Run security audit
 cargo audit
 ```
+
+Configuration: `.cargo/audit.toml`
+
+#### cargo-deny
+
+Comprehensive license and security policy enforcement:
+
+```bash
+# Install cargo-deny
+cargo install cargo-deny
+
+# Check licenses, advisories, and bans
+cargo deny check
+
+# Check only advisories
+cargo deny check advisories
+
+# Check only licenses
+cargo deny check licenses
+```
+
+Configuration: `deny.toml`
+
+See [SECURITY.md](../SECURITY.md) for the complete security audit checklist and [AUTHENTICATION.md](../AUTHENTICATION.md) for authentication security guidelines.
 
 ## Building Specific Features
 

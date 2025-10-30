@@ -38,6 +38,12 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 - [Observability](observability.md) - Metrics, tracing, and logging
 - [Authentication](../AUTHENTICATION.md) - Authentication implementation guide
 
+### Security
+- [Security Audit Checklist](../SECURITY.md) - Comprehensive security audit guidelines
+- [Production Hardening](PRODUCTION_HARDENING.md) - Production deployment security checklist
+- [Penetration Testing Guide](PENTEST.md) - Security testing procedures
+- [Rate Limiting](RATE_LIMITING.md) - Rate limiting recommendations
+
 ## Project Status
 
 InferaDB is under active development. Current implementation status:
