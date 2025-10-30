@@ -708,12 +708,12 @@ Key metrics to monitor:
 - **Relations Evaluated**: Average relations evaluated per check
 - **Error Rate**: Percentage of failed checks
 
-See [Observability](observability.md) for details.
+See [Observability](../operations/observability.md) for details.
 
 ## Next Steps
 
-- [IPL Language Guide](ipl-language.md) - Learn the policy definition language
+- [IPL Language Guide](ipl.md) - Learn the policy definition language
 - [Query Optimization](query-optimization.md) - Optimize complex queries
-- [WASM Integration](wasm-integration.md) - Add custom logic with WebAssembly
+- [WASM Integration](../advanced/wasm.md) - Add custom logic with WebAssembly
 - [Caching System](caching.md) - Configure caching for performance
-- [API Reference](api-rest.md) - Use the evaluation engine via REST/gRPC
+- [API Reference](../api/rest.md) - Use the evaluation engine via REST/gRPC

@@ -334,7 +334,7 @@ This shows: Alice has `can_view` because she's a direct `viewer`.
 
 ## Next Steps
 
-1. **Read the [IPL Language Guide](ipl-language.md)** to learn the full policy language
+1. **Read the [IPL Language Guide](core/ipl.md)** to learn the full policy language
 2. **Explore the [Architecture](architecture.md)** to understand how InferaDB works
 3. **Check the [API Reference](api-rest.md)** for complete API documentation
 4. **See [Building from Source](building.md)** for development setup
@@ -455,7 +455,7 @@ print("✓ Test passed")
 ## Explore Further
 
 - [Complete API Reference](api-rest.md)
-- [IPL Language Guide](ipl-language.md)
+- [IPL Language Guide](core/ipl.md)
 - [gRPC API](api-grpc.md)
 - [WASM Integration](wasm-integration.md)
 - [Caching System](caching.md)

@@ -2,58 +2,54 @@
 
 Welcome to the InferaDB developer documentation. This documentation covers the architecture, implementation, and usage of InferaDB - a high-performance authorization service implementing Relationship-Based Access Control (ReBAC).
 
-## Documentation Index
+## Getting Started
 
-### Getting Started
+- [Quick Start Guide](quickstart.md) - Get up and running quickly
+- [Architecture Overview](architecture.md) - System design and components
 
-- [Architecture Overview](architecture.md) - System design and component overview
-- [Quick Start Guide](quickstart.md) - Get up and running with InferaDB
+## User Guides
 
-### Core Concepts
+- [Building from Source](guides/building.md) - Development setup and build instructions
+- [Configuration](guides/configuration.md) - Configuration options and environment variables
+- [Deployment](guides/deployment.md) - Production deployment guide
+- [Testing](guides/testing.md) - Running and writing tests
 
-- [IPL (Infera Policy Language)](ipl-language.md) - Policy definition language
-- [Relationship-Based Access Control](rebac-concepts.md) - ReBAC fundamentals
-- [Evaluation Engine](evaluation-engine.md) - How authorization decisions are made
+## API Reference
 
-### Components
+- [REST API](api/rest.md) - HTTP/JSON API endpoints
+- [gRPC API](api/grpc.md) - High-performance gRPC interface
 
-- **Storage Layer**
-  - [Storage Backends Overview](storage-backends.md) - Backend comparison and selection guide
-  - [Memory Backend](storage-memory.md) - In-memory storage for development and testing
-  - [FoundationDB Backend](storage-foundationdb.md) - Production-ready distributed storage
-- [Policy Evaluation](evaluation-engine.md) - Graph traversal and decision making
-- [WASM Integration](wasm-integration.md) - Custom policy modules with WebAssembly
-- [Caching System](caching.md) - Intelligent authorization result caching
-- [Query Optimization](query-optimization.md) - Parallel evaluation and planning
-- [Revision Tokens](revision-tokens.md) - Snapshot consistency with Zookies
-- [Multi-Region Replication](replication.md) - Active-active replication and conflict resolution
+## Core Concepts
 
-### APIs
+- [Evaluation Engine](core/evaluation.md) - How authorization decisions are made
+- [IPL Language](core/ipl.md) - Infera Policy Language syntax
+- [Caching System](core/caching.md) - Authorization result caching
+- [Revision Tokens](core/revisions.md) - Snapshot consistency with Zookies
 
-- [REST API Reference](api-rest.md) - HTTP/JSON API endpoints
-- [gRPC API Reference](api-grpc.md) - High-performance gRPC interface
+## Storage Backends
 
-### Development
+- [Storage Overview](storage/overview.md) - Backend comparison and selection
+- [Memory Backend](storage/memory.md) - In-memory storage for development
+- [FoundationDB Backend](storage/foundationdb.md) - Production distributed storage
 
-- [Building from Source](building.md) - Development setup and build instructions
-- [Testing Guide](testing.md) - Running tests and writing new tests
-- [Contributing](../CONTRIBUTING.md) - Contribution guidelines
+## Operations & Monitoring
 
-### Operations
+- [Observability](operations/observability.md) - Metrics, tracing, and logging
+- [Performance Baselines](operations/performance.md) - Expected performance characteristics
+- [Service Level Objectives](operations/slos.md) - SLO definitions and error budgets
+- [Multi-Region Replication](operations/replication.md) - Active-active replication
+- [Operational Runbooks](runbooks/README.md) - Day-to-day operations procedures
 
-- [Configuration](configuration.md) - Configuration options and tuning
-- [Observability](observability.md) - Metrics, tracing, and logging
-- [Service Level Objectives](slos.md) - SLO definitions and error budget policy
-- [Prometheus Alerts](../prometheus/README.md) - Prometheus alerting deployment and runbooks
-- [Grafana Dashboards](../grafana/README.md) - Monitoring dashboard installation and usage
-- [Authentication](../AUTHENTICATION.md) - Authentication implementation guide
+## Security
 
-### Security
+- [Authentication](security/authentication.md) - JWT/OAuth authentication guide
+- [Production Hardening](security/hardening.md) - Security checklist for production
+- [Rate Limiting](security/ratelimiting.md) - Rate limiting recommendations
+- [Penetration Testing](security/pentest.md) - Security testing procedures
 
-- [Security Audit Checklist](../SECURITY.md) - Comprehensive security audit guidelines
-- [Production Hardening](PRODUCTION_HARDENING.md) - Production deployment security checklist
-- [Penetration Testing Guide](PENTEST.md) - Security testing procedures
-- [Rate Limiting](RATE_LIMITING.md) - Rate limiting recommendations
+## Advanced Topics
+
+- [WASM Integration](advanced/wasm.md) - Custom policy modules with WebAssembly
 
 ## Project Status
 
@@ -74,6 +70,7 @@ InferaDB is under active development. Current implementation status:
   - JWKS caching with stale-while-revalidate pattern
   - Comprehensive audit logging (JSON structured events)
   - gRPC interceptor-based authentication middleware
+  - Replay protection with Redis
 - **Multi-Region Replication**:
   - Change feed for real-time change propagation
   - Three replication strategies (ActiveActive, PrimaryReplica, MultiMaster)
@@ -90,6 +87,13 @@ InferaDB is under active development. Current implementation status:
   - Service Level Objectives (8 SLOs with measurable targets)
   - Production-ready Prometheus alerting rules (50+ alerts)
   - Grafana dashboards (5 dashboards: overview, performance, replication, errors, cache)
+- **Deployment & Operations**:
+  - Multi-stage Docker images with distroless base
+  - Kubernetes manifests with security contexts and health probes
+  - Helm chart with comprehensive configuration options
+  - Health check endpoints (liveness, readiness, startup)
+  - Graceful shutdown with connection draining
+  - Operational runbooks for scaling, backup/restore, incident response
 - WASM module integration with sandboxing
 - Intelligent caching system with TTL and LRU eviction
 - Query optimization infrastructure with parallel evaluation
@@ -99,8 +103,8 @@ InferaDB is under active development. Current implementation status:
 
 📋 **Planned:**
 
-- Production deployment tools
 - Client SDKs with authentication support
+- Additional storage backend integrations
 
 ## Quick Links
 

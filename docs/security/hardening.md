@@ -182,7 +182,7 @@ throttle:
 ### Security Testing
 
 - [ ] **Vulnerability scan**: Run automated vulnerability scanner
-- [ ] **Penetration test**: Conduct penetration test using [PENTEST.md](PENTEST.md) guide
+- [ ] **Penetration test**: Conduct penetration test using [pentest.md](pentest.md) guide
 - [ ] **Algorithm confusion test**: Verify "none" and HS256 are rejected
 - [ ] **Expired token test**: Verify expired tokens are rejected
 - [ ] **Replay test**: Verify replay protection works (if enabled)
@@ -305,7 +305,7 @@ contacts:
 ### Internal Documentation
 
 - [SECURITY.md](../SECURITY.md) - Security audit checklist
-- [PENTEST.md](PENTEST.md) - Penetration testing guide
+- [pentest.md](pentest.md) - Penetration testing guide
 - [AUTHENTICATION.md](../AUTHENTICATION.md) - Authentication architecture
 
 ### External References

@@ -1023,7 +1023,7 @@ For production deployments:
 
 ## See Also
 
-- [Configuration Reference](configuration-reference.md)
-- [Deployment Guide](deployment.md)
-- [Observability Guide](observability.md)
+- [Configuration Reference](../guides/configuration.md)
+- [Deployment Guide](../guides/deployment.md)
+- [Observability Guide](../operations/observability.md)
 - [Security Best Practices](security.md)

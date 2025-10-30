@@ -239,7 +239,7 @@ All configuration can be provided via environment variables using the `INFERA__`
 | `INFERA__CACHE__ENABLED`         | Enable caching                               | `true`    |
 | `INFERA__AUTH__ENABLED`          | Enable authentication                        | `true`    |
 
-See [Configuration Reference](../docs/configuration-reference.md) for complete list.
+See [Configuration Reference](../docs/configuration.md) for complete list.
 
 ### Configuration File
 
@@ -690,6 +690,6 @@ kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
 
 - [Kubernetes Deployment](../k8s/README.md)
 - [Helm Chart](../helm/infera/README.md)
-- [Configuration Reference](configuration-reference.md)
-- [Observability Guide](observability.md)
+- [Configuration Reference](configuration.md)
+- [Observability Guide](../operations/observability.md)
 - [Operational Runbooks](runbooks/)

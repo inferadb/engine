@@ -365,7 +365,7 @@ export OTEL_SERVICE_NAME="inferadb"
 
 Controls JWT authentication, OAuth, and authorization.
 
-For detailed authentication setup, see [Authentication Guide](authentication.md).
+For detailed authentication setup, see [Authentication Guide](../security/authentication.md).
 
 ### Core Options
 
@@ -863,8 +863,8 @@ cache:
 
 ## See Also
 
-- [Authentication Guide](authentication.md) - Detailed authentication setup
+- [Authentication Guide](../security/authentication.md) - Detailed authentication setup
 - [Deployment Guide](deployment.md) - Production deployment
-- [Observability Guide](observability.md) - Metrics and tracing
+- [Observability Guide](../operations/observability.md) - Metrics and tracing
 - [Kubernetes Deployment](../k8s/README.md) - K8s manifests
 - [Helm Chart](../helm/infera/README.md) - Helm deployment

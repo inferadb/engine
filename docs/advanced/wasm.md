@@ -811,7 +811,7 @@ let config = SandboxConfig {
 
 ## Next Steps
 
-- [Evaluation Engine](evaluation-engine.md) - How policies are evaluated
-- [IPL Language Guide](ipl-language.md) - Policy definition language
+- [Evaluation Engine](../core/evaluation.md) - How policies are evaluated
+- [IPL Language Guide](../core/ipl.md) - Policy definition language
 - [Security Testing](../PLAN.md#73-security-testing) - Test WASM sandbox security
-- [API Reference](api-rest.md) - Use WASM policies via API
+- [API Reference](../api/rest.md) - Use WASM policies via API
