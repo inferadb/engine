@@ -455,7 +455,7 @@ async fn test_full_validation_flow_success() {
 
 #[tokio::test]
 async fn test_full_validation_flow_replay_detected() {
-    let config = default_config();
+    let _config = default_config();
     let claims = test_claims(
         future_timestamp(3600),
         now(),

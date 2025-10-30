@@ -232,7 +232,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_discovery_url_construction() {
-        let client = OidcDiscoveryClient::new(Duration::from_secs(300));
+        let _client = OidcDiscoveryClient::new(Duration::from_secs(300));
 
         // Test with trailing slash
         let url_with_slash = "https://auth.example.com/";

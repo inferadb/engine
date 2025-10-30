@@ -334,6 +334,23 @@ impl Default for AuthConfig {
 }
 
 impl AuthConfig {
+    /// Log startup warnings about authentication configuration
+    ///
+    /// Should be called at application startup to warn about development-mode settings.
+    pub fn log_startup_warnings(&self) {
+        if !self.enabled {
+            tracing::warn!(
+                "⚠️  AUTHENTICATION IS DISABLED ⚠️\n\
+                 \n\
+                 This configuration is ONLY safe for local development and testing.\n\
+                 DO NOT use this configuration in production environments.\n\
+                 \n\
+                 To enable authentication, set: auth.enabled = true\n\
+                 "
+            );
+        }
+    }
+
     /// Validate the authentication configuration and log warnings for potential issues
     ///
     /// This method performs comprehensive validation of security-related settings:
@@ -343,6 +360,9 @@ impl AuthConfig {
     /// - Validates issuer and audience configuration
     /// - Ensures required JTI when replay protection is enabled
     pub fn validate(&self) -> Result<(), String> {
+        // Log startup warnings
+        self.log_startup_warnings();
+
         // Warn if authentication is enabled but JWKS base URL is missing
         if self.enabled && self.jwks_base_url.is_empty() && self.jwks_url.is_empty() {
             tracing::warn!(
