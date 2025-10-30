@@ -20,7 +20,7 @@ chrono = { workspace = true }
 
 # gRPC dependencies
 tonic = "0.12"
-prost = "0.13"
+prost = "0.14"
 pin-project = "1.1"
 futures = { workspace = true }
 
