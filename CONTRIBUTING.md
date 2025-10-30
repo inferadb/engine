@@ -90,6 +90,7 @@ feat: add support for WASM policy modules
 Format: `type: subject`
 
 **Types**:
+
 - `feat` - New feature
 - `fix` - Bug fix
 - `docs` - Documentation changes
@@ -101,6 +102,7 @@ Format: `type: subject`
 ### Submitting a Pull Request
 
 1. **Push your branch**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -108,6 +110,7 @@ Format: `type: subject`
 2. **Open a pull request** on GitHub
 
 3. **Describe your changes**:
+
    - What does this PR do?
    - Why is this change needed?
    - How has it been tested?
@@ -152,7 +155,7 @@ fn generic<Store: TupleStore>() { }
 
 Document public APIs with doc comments:
 
-```rust
+````rust
 /// Checks if a subject has permission on a resource.
 ///
 /// # Arguments
@@ -181,7 +184,7 @@ Document public APIs with doc comments:
 pub async fn check(&self, request: CheckRequest) -> Result<Decision> {
     // ...
 }
-```
+````
 
 ### Error Handling
 
@@ -350,15 +353,14 @@ server/
 ├── tests/               # Integration tests
 ├── benches/             # Benchmarks
 ├── Cargo.toml          # Workspace definition
-├── PLAN.md             # Project roadmap
 └── CONTRIBUTING.md     # This file
 ```
 
 ## Getting Help
 
 - **Documentation**: See `docs/` directory
-- **Issues**: https://github.com/your-org/inferadb/issues
-- **Discussions**: https://github.com/your-org/inferadb/discussions
+- **Issues**: https://github.com/inferadb/server/issues
+- **Discussions**: https://github.com/inferadb/server/discussions
 - **Discord**: Join our community server (link TBD)
 
 ## Feature Requests
@@ -396,6 +398,7 @@ When reporting bugs:
 Brief description of the bug.
 
 **Steps to Reproduce**:
+
 1. Step one
 2. Step two
 3. Step three
@@ -408,7 +411,9 @@ What actually happens.
 
 **Logs/Errors**:
 ```
+
 Error messages or logs here
+
 ```
 
 **Additional Context**:
@@ -429,6 +434,7 @@ When optimizing performance:
 **DO NOT** open public issues for security vulnerabilities.
 
 Instead:
+
 1. Email security@inferadb.io (or maintainer email)
 2. Include detailed description
 3. Wait for response before disclosure
@@ -441,6 +447,7 @@ By contributing to InferaDB, you agree that your contributions will be licensed 
 ## Recognition
 
 Contributors will be:
+
 - Listed in `CONTRIBUTORS.md`
 - Credited in release notes
 - Mentioned in documentation (where appropriate)
@@ -448,6 +455,7 @@ Contributors will be:
 ## Questions?
 
 Don't hesitate to ask questions:
+
 - Open a discussion on GitHub
 - Ask in pull request comments
 - Join our Discord community

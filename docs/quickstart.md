@@ -12,7 +12,7 @@ Get InferaDB up and running in 5 minutes.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/inferadb.git
+git clone https://github.com/inferadb/server.git
 cd inferadb/server
 ```
 

@@ -29,7 +29,7 @@ This guide covers how to build, test, and develop InferaDB from source.
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/inferadb.git
+git clone https://github.com/inferadb/server.git
 cd inferadb/server
 ```
 
@@ -611,6 +611,6 @@ jobs:
 ## Getting Help
 
 - **Documentation**: See `docs/` directory
-- **Issues**: https://github.com/your-org/inferadb/issues
-- **Discussions**: https://github.com/your-org/inferadb/discussions
+- **Issues**: https://github.com/inferadb/server/issues
+- **Discussions**: https://github.com/inferadb/server/discussions
 - **Discord**: [Community Discord](https://discord.gg/inferadb)
