@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: inferadb
+
+resources:
+- rbac.yaml
+- configmap.yaml
+- secret.yaml
+- deployment.yaml
+- service.yaml
+- hpa.yaml
+- pdb.yaml
+
+commonLabels:
+  app.kubernetes.io/name: inferadb
+  app.kubernetes.io/component: server
+  app.kubernetes.io/managed-by: kustomize
+
+configMapGenerator:
+- name: inferadb-config
+  behavior: merge
+  envs:
+  - config.env
+
+secretGenerator:
+- name: inferadb-secrets
+  behavior: merge
+  envs:
+  - secrets.env
+
+images:
+- name: inferadb
+  newName: inferadb
+  newTag: latest

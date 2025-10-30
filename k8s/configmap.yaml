@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferadb-config
+  labels:
+    app: inferadb
+    component: server
+data:
+  # Environment variables
+  INFERA__SERVER__WORKER_THREADS: "4"
+  INFERA__SERVER__RATE_LIMITING_ENABLED: "true"
+
+  INFERA__STORE__BACKEND: "foundationdb"
+  INFERA__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
+
+  INFERA__CACHE__ENABLED: "true"
+  INFERA__CACHE__MAX_CAPACITY: "100000"
+  INFERA__CACHE__TTL_SECONDS: "600"
+
+  INFERA__OBSERVABILITY__LOG_LEVEL: "info"
+  INFERA__OBSERVABILITY__METRICS_ENABLED: "true"
+  INFERA__OBSERVABILITY__TRACING_ENABLED: "true"
+
+  INFERA__AUTH__ENABLED: "true"
+  INFERA__AUTH__JWKS_CACHE_TTL: "300"
+  INFERA__AUTH__ENFORCE_AUDIENCE: "true"
+  INFERA__AUTH__ENFORCE_SCOPES: "true"
+  INFERA__AUTH__REPLAY_PROTECTION: "true"
+  INFERA__AUTH__REQUIRE_JTI: "true"
+  INFERA__AUTH__CLOCK_SKEW_SECONDS: "30"
+  INFERA__AUTH__MAX_TOKEN_AGE_SECONDS: "3600"
+
+  # Configuration file
+  config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      worker_threads: 4
+      rate_limiting_enabled: true
+
+    store:
+      backend: "foundationdb"
+      connection_string: "/etc/foundationdb/fdb.cluster"
+
+    cache:
+      enabled: true
+      max_capacity: 100000
+      ttl_seconds: 600
+
+    observability:
+      log_level: "info"
+      metrics_enabled: true
+      tracing_enabled: true
+
+    auth:
+      enabled: true
+      jwks_cache_ttl: 300
+      accepted_algorithms:
+        - "EdDSA"
+        - "RS256"
+        - "ES256"
+      enforce_audience: true
+      audience: "https://api.inferadb.com/evaluate"
+      allowed_audiences:
+        - "https://api.inferadb.com/evaluate"
+      enforce_scopes: true
+      required_scopes:
+        - "authz:check"
+        - "authz:write"
+      replay_protection: true
+      require_jti: true
+      clock_skew_seconds: 30
+      max_token_age_seconds: 3600
+      jwks_url: "${INFERA__AUTH__JWKS_URL}"
+      redis_url: "${INFERA__AUTH__REDIS_URL}"
