@@ -154,72 +154,6 @@ impl InferaService for InferaServiceImpl {
         }))
     }
 
-    async fn write_relationships(
-        &self,
-        request: Request<WriteRequest>,
-    ) -> Result<Response<WriteResponse>, Status> {
-        let req = request.into_inner();
-
-        if req.relationships.is_empty() {
-            return Err(Status::invalid_argument("No relationships provided"));
-        }
-
-        let relationships: Vec<Relationship> = req
-            .relationships
-            .into_iter()
-            .map(|t| Relationship {
-                resource: t.resource,
-                relation: t.relation,
-                subject: t.subject,
-            })
-            .collect();
-
-        // Validate relationship format
-        for relationship in &relationships {
-            if relationship.resource.is_empty() {
-                return Err(Status::invalid_argument(
-                    "Relationship resource cannot be empty",
-                ));
-            }
-            if relationship.relation.is_empty() {
-                return Err(Status::invalid_argument(
-                    "Relationship relation cannot be empty",
-                ));
-            }
-            if relationship.subject.is_empty() {
-                return Err(Status::invalid_argument(
-                    "Relationship subject cannot be empty",
-                ));
-            }
-            if !relationship.resource.contains(':') {
-                return Err(Status::invalid_argument(format!(
-                    "Invalid object format '{}': must be 'type:id'",
-                    relationship.resource
-                )));
-            }
-            if !relationship.subject.contains(':') {
-                return Err(Status::invalid_argument(format!(
-                    "Invalid user format '{}': must be 'type:id'",
-                    relationship.subject
-                )));
-            }
-        }
-
-        let relationships_count = relationships.len();
-
-        let revision = self
-            .state
-            .store
-            .write(relationships)
-            .await
-            .map_err(|e| Status::internal(format!("Failed to write relationships: {}", e)))?;
-
-        Ok(Response::new(WriteResponse {
-            revision: revision.0.to_string(),
-            relationships_written: relationships_count as u64,
-        }))
-    }
-
     async fn delete_relationships(
         &self,
         request: Request<DeleteRequest>,
@@ -364,7 +298,7 @@ impl InferaService for InferaServiceImpl {
         Ok(Response::new(Box::pin(stream)))
     }
 
-    async fn write_relationships_stream(
+    async fn write_relationships(
         &self,
         request: Request<tonic::Streaming<WriteRequest>>,
     ) -> Result<Response<WriteResponse>, Status> {
@@ -387,6 +321,37 @@ impl InferaService for InferaServiceImpl {
 
         if all_relationships.is_empty() {
             return Err(Status::invalid_argument("No relationships provided"));
+        }
+
+        // Validate relationship format
+        for relationship in &all_relationships {
+            if relationship.resource.is_empty() {
+                return Err(Status::invalid_argument(
+                    "Relationship resource cannot be empty",
+                ));
+            }
+            if relationship.relation.is_empty() {
+                return Err(Status::invalid_argument(
+                    "Relationship relation cannot be empty",
+                ));
+            }
+            if relationship.subject.is_empty() {
+                return Err(Status::invalid_argument(
+                    "Relationship subject cannot be empty",
+                ));
+            }
+            if !relationship.resource.contains(':') {
+                return Err(Status::invalid_argument(format!(
+                    "Invalid object format '{}': must be 'type:id'",
+                    relationship.resource
+                )));
+            }
+            if !relationship.subject.contains(':') {
+                return Err(Status::invalid_argument(format!(
+                    "Invalid user format '{}': must be 'type:id'",
+                    relationship.subject
+                )));
+            }
         }
 
         // Write all relationships in a batch
@@ -706,37 +671,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_grpc_write_and_check() {
-        let state = create_test_state();
-        let service = InferaServiceImpl::new(state);
-
-        // Write a relationship
-        let write_request = Request::new(WriteRequest {
-            relationships: vec![proto::Relationship {
-                resource: "doc:readme".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:alice".to_string(),
-            }],
-        });
-
-        let write_response = service.write_relationships(write_request).await.unwrap();
-        let write_result = write_response.into_inner();
-        assert_eq!(write_result.relationships_written, 1);
-
-        // Check permission
-        let check_request = Request::new(CheckRequest {
-            subject: "user:alice".to_string(),
-            resource: "doc:readme".to_string(),
-            permission: "reader".to_string(),
-            context: None,
-        });
-
-        let check_response = service.check(check_request).await.unwrap();
-        let check_result = check_response.into_inner();
-        assert_eq!(check_result.decision, ProtoDecision::Allow as i32);
-    }
-
-    #[tokio::test]
     async fn test_grpc_expand() {
         let service = InferaServiceImpl::new(create_test_state());
         let request = Request::new(ExpandRequest {
@@ -748,34 +682,6 @@ mod tests {
         let expand_response = response.into_inner();
 
         assert!(expand_response.tree.is_some());
-    }
-
-    #[tokio::test]
-    async fn test_grpc_write_validation_empty_relationships() {
-        let service = InferaServiceImpl::new(create_test_state());
-        let request = Request::new(WriteRequest {
-            relationships: vec![],
-        });
-
-        let result = service.write_relationships(request).await;
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code(), tonic::Code::InvalidArgument);
-    }
-
-    #[tokio::test]
-    async fn test_grpc_write_validation_invalid_object_format() {
-        let service = InferaServiceImpl::new(create_test_state());
-        let request = Request::new(WriteRequest {
-            relationships: vec![proto::Relationship {
-                resource: "invalid".to_string(), // Missing colon
-                relation: "reader".to_string(),
-                subject: "user:alice".to_string(),
-            }],
-        });
-
-        let result = service.write_relationships(request).await;
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code(), tonic::Code::InvalidArgument);
     }
 
     #[tokio::test]

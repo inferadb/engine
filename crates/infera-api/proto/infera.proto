@@ -16,11 +16,8 @@ service InferaService {
   // Stream expand results (for large usersets)
   rpc ExpandStream(ExpandRequest) returns (stream ExpandStreamResponse);
 
-  // Write relationships to the store
-  rpc WriteRelationships(WriteRequest) returns (WriteResponse);
-
-  // Stream write operations (for batch imports)
-  rpc WriteRelationshipsStream(stream WriteRequest) returns (WriteResponse);
+  // Write relationships to the store (streaming for single and batch operations)
+  rpc WriteRelationships(stream WriteRequest) returns (WriteResponse);
 
   // Delete relationships from the store
   rpc DeleteRelationships(DeleteRequest) returns (DeleteResponse);

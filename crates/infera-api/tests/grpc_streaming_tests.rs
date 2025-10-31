@@ -76,7 +76,7 @@ async fn test_expand_stream() {
     let (mut client, _addr) = setup_test_server().await;
 
     // First write some tuples
-    let write_req = Request::new(WriteRequest {
+    let write_req = WriteRequest {
         relationships: vec![
             ProtoRelationship {
                 resource: "doc:test".to_string(),
@@ -94,9 +94,10 @@ async fn test_expand_stream() {
                 subject: "user:charlie".to_string(),
             },
         ],
-    });
+    };
 
-    client.write_relationships(write_req).await.unwrap();
+    let stream = futures::stream::once(async { write_req });
+    client.write_relationships(stream).await.unwrap();
 
     // Now stream expand results
     let expand_req = Request::new(ExpandRequest {
@@ -168,7 +169,7 @@ async fn test_write_stream() {
     ];
 
     let stream = futures::stream::iter(requests);
-    let response = client.write_relationships_stream(stream).await.unwrap();
+    let response = client.write_relationships(stream).await.unwrap();
 
     let inner = response.into_inner();
     assert_eq!(inner.relationships_written, 4);
