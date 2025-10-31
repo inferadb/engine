@@ -3,7 +3,9 @@
 //! Provides abstract database operations and revision consistency management.
 
 use async_trait::async_trait;
-use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult};
+use infera_types::{
+    DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult,
+};
 
 pub mod factory;
 #[cfg(feature = "fdb")]

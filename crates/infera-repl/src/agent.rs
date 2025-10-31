@@ -405,11 +405,13 @@ impl ReplicationAgent {
                 })
                 .collect();
 
-            let mut request = tonic::Request::new(WriteRequest { relationships });
+            let write_request = WriteRequest { relationships };
+            let stream = futures::stream::once(async { write_request });
+            let mut request = tonic::Request::new(stream);
             request.set_timeout(config.request_timeout);
 
             client
-                .write(request)
+                .write_relationships(request)
                 .await
                 .map_err(|e| ReplError::Replication(format!("Write request failed: {}", e)))?;
         }
@@ -425,11 +427,17 @@ impl ReplicationAgent {
                 })
                 .collect();
 
-            let mut request = tonic::Request::new(DeleteRequest { relationships });
+            let delete_request = DeleteRequest {
+                filter: None,
+                relationships,
+                limit: None,
+            };
+            let stream = futures::stream::once(async { delete_request });
+            let mut request = tonic::Request::new(stream);
             request.set_timeout(config.request_timeout);
 
             client
-                .delete(request)
+                .delete_relationships(request)
                 .await
                 .map_err(|e| ReplError::Replication(format!("Delete request failed: {}", e)))?;
         }

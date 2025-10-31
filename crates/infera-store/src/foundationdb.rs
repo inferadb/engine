@@ -530,8 +530,8 @@ impl RelationshipStore for FoundationDBBackend {
                             deleted_keys.insert(unique_key);
 
                             // Write deletion marker at new revision
-                            let del_key =
-                                relationships_subspace.pack(&(&resource, &relation, &subject, revision.0));
+                            let del_key = relationships_subspace
+                                .pack(&(&resource, &relation, &subject, revision.0));
                             trx.set(&del_key, b"deleted");
                             deleted_count += 1;
                         }

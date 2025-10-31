@@ -213,9 +213,9 @@ impl InferaService for InferaServiceImpl {
 
             // Apply default limit of 1000 if not specified, 0 means unlimited
             let limit = match limit_override.flatten() {
-                Some(0) => None,         // 0 means unlimited
+                Some(0) => None,             // 0 means unlimited
                 Some(n) => Some(n as usize), // Explicit limit
-                None => Some(1000),      // Default limit
+                None => Some(1000),          // Default limit
             };
 
             // Perform batch deletion
@@ -249,12 +249,10 @@ impl InferaService for InferaServiceImpl {
                 subject: Some(relationship.subject),
             };
 
-            last_revision = self
-                .state
-                .store
-                .delete(&key)
-                .await
-                .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
+            last_revision =
+                self.state.store.delete(&key).await.map_err(|e| {
+                    Status::internal(format!("Failed to delete relationship: {}", e))
+                })?;
 
             total_deleted += 1;
         }

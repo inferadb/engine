@@ -26,8 +26,8 @@ use infera_config::Config;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::{
-    CheckRequest, Decision, DeleteFilter, ExpandRequest, ExpandResponse,
-    ListRelationshipsRequest, ListResourcesRequest, Relationship, RelationshipKey,
+    CheckRequest, Decision, DeleteFilter, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
+    ListResourcesRequest, Relationship, RelationshipKey,
 };
 
 #[cfg(test)]
@@ -522,7 +522,10 @@ async fn delete_relationships_handler(
 
     // Validate that at least one deletion method is specified
     let has_filter = request.filter.is_some();
-    let has_relationships = request.relationships.as_ref().map_or(false, |r| !r.is_empty());
+    let has_relationships = request
+        .relationships
+        .as_ref()
+        .is_some_and(|r| !r.is_empty());
 
     if !has_filter && !has_relationships {
         return Err(ApiError::InvalidRequest(
@@ -562,9 +565,9 @@ async fn delete_relationships_handler(
 
         // Apply default limit of 1000 if not specified, 0 means unlimited
         let limit = match request.limit {
-            Some(0) => None,              // 0 means unlimited
-            Some(n) => Some(n),           // Explicit limit
-            None => Some(1000),           // Default limit
+            Some(0) => None,    // 0 means unlimited
+            Some(n) => Some(n), // Explicit limit
+            None => Some(1000), // Default limit
         };
 
         // Perform batch deletion
