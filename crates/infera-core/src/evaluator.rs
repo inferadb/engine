@@ -9,8 +9,8 @@ use crate::graph::{has_direct_tuple, GraphContext};
 use crate::ipl::Schema;
 use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
 use crate::{
-    CheckRequest, Decision, EvalError, ExpandRequest, ExpandResponse, Result, UsersetNodeType,
-    UsersetTree,
+    CheckRequest, Decision, EvalError, ExpandRequest, ExpandResponse, ListResourcesRequest,
+    ListResourcesResponse, Result, UsersetNodeType, UsersetTree,
 };
 use infera_cache::{AuthCache, CheckCacheKey};
 use infera_store::TupleStore;
@@ -948,6 +948,183 @@ impl Evaluator {
         use base64::Engine;
         let bytes: Vec<u8> = offset.to_le_bytes().to_vec();
         base64::engine::general_purpose::STANDARD.encode(&bytes)
+    }
+
+    /// List all resources of a given type that a subject can access
+    #[instrument(skip(self))]
+    pub async fn list_resources(
+        &self,
+        request: ListResourcesRequest,
+    ) -> Result<ListResourcesResponse> {
+        debug!(
+            subject = %request.subject,
+            resource_type = %request.resource_type,
+            permission = %request.permission,
+            limit = ?request.limit,
+            "Listing accessible resources"
+        );
+
+        let start = Instant::now();
+
+        // Get current revision to ensure consistent read
+        let revision = self.store.get_revision().await?;
+
+        // List all resources of the given type
+        let all_resources = self
+            .store
+            .list_objects_by_type(&request.resource_type, revision)
+            .await?;
+
+        debug!(
+            "Found {} total resources of type '{}'",
+            all_resources.len(),
+            request.resource_type
+        );
+
+        // Decode cursor to get offset if provided
+        let offset = if let Some(cursor) = &request.cursor {
+            self.decode_continuation_token(cursor)?
+        } else {
+            0
+        };
+
+        // Apply offset and ID pattern filtering
+        let resources_to_check: Vec<String> = all_resources
+            .into_iter()
+            .filter(|resource| {
+                // Apply resource ID pattern filter if provided
+                if let Some(pattern) = &request.resource_id_pattern {
+                    Self::matches_glob_pattern(resource, pattern)
+                } else {
+                    true
+                }
+            })
+            .skip(offset)
+            .take(request.limit.unwrap_or(usize::MAX))
+            .collect();
+
+        // Check each resource for access
+        let mut accessible_resources = Vec::new();
+        let mut checked = 0;
+
+        for resource in resources_to_check {
+            checked += 1;
+
+            // Create a check request for this resource
+            let check_request = CheckRequest {
+                subject: request.subject.clone(),
+                resource: resource.clone(),
+                permission: request.permission.clone(),
+                context: None,
+            };
+
+            // Use the existing check method
+            let decision = self.check(check_request).await?;
+
+            if decision == Decision::Allow {
+                accessible_resources.push(resource);
+            }
+
+            // Apply limit if specified
+            if let Some(limit) = request.limit {
+                if accessible_resources.len() >= limit {
+                    break;
+                }
+            }
+        }
+
+        // Determine if there are more results
+        let has_more = checked < usize::MAX
+            && accessible_resources.len() == request.limit.unwrap_or(usize::MAX);
+        let cursor = if has_more {
+            Some(self.encode_continuation_token(offset + checked))
+        } else {
+            None
+        };
+
+        debug!(
+            accessible_count = accessible_resources.len(),
+            checked_count = checked,
+            duration = ?start.elapsed(),
+            "List resources complete"
+        );
+
+        Ok(ListResourcesResponse {
+            resources: accessible_resources,
+            cursor,
+            total_count: Some(checked),
+        })
+    }
+
+    /// Decode a continuation token to get the offset
+    fn decode_continuation_token(&self, token: &str) -> Result<usize> {
+        use base64::Engine;
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(token)
+            .map_err(|e| EvalError::Evaluation(format!("Invalid continuation token: {}", e)))?;
+
+        Ok(decoded
+            .iter()
+            .take(8)
+            .enumerate()
+            .fold(0usize, |acc, (i, &b)| acc | ((b as usize) << (i * 8))))
+    }
+
+    /// Match a string against a glob pattern
+    /// Supports:
+    /// - `*` matches any sequence of characters (including none)
+    /// - `?` matches exactly one character
+    /// - All other characters match literally
+    fn matches_glob_pattern(text: &str, pattern: &str) -> bool {
+        let text_chars: Vec<char> = text.chars().collect();
+        let pattern_chars: Vec<char> = pattern.chars().collect();
+
+        Self::glob_match_recursive(&text_chars, &pattern_chars, 0, 0)
+    }
+
+    /// Recursive helper for glob pattern matching
+    fn glob_match_recursive(
+        text: &[char],
+        pattern: &[char],
+        text_idx: usize,
+        pattern_idx: usize,
+    ) -> bool {
+        // If both exhausted, match succeeds
+        if pattern_idx == pattern.len() {
+            return text_idx == text.len();
+        }
+
+        // Handle wildcard *
+        if pattern[pattern_idx] == '*' {
+            // Try matching zero characters
+            if Self::glob_match_recursive(text, pattern, text_idx, pattern_idx + 1) {
+                return true;
+            }
+            // Try matching one or more characters
+            for i in text_idx..text.len() {
+                if Self::glob_match_recursive(text, pattern, i + 1, pattern_idx + 1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // If text exhausted but pattern isn't, no match
+        if text_idx == text.len() {
+            return false;
+        }
+
+        // Handle single character wildcard ?
+        if pattern[pattern_idx] == '?' {
+            return Self::glob_match_recursive(text, pattern, text_idx + 1, pattern_idx + 1);
+        }
+
+        // Handle literal character match
+        if text[text_idx] == pattern[pattern_idx] {
+            return Self::glob_match_recursive(text, pattern, text_idx + 1, pattern_idx + 1);
+        }
+
+        false
     }
 
     /// Get the WASM host (if configured)
@@ -2168,5 +2345,446 @@ mod tests {
         assert_eq!(stats.misses, 2); // Two different requests
         assert_eq!(stats.hits, 2); // Two repeated requests
         assert_eq!(stats.hit_rate, 50.0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_basic() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create some documents and give alice access to some of them
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:secret".to_string(),
+                relation: "reader".to_string(),
+                user: "user:bob".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "reader".to_string(),
+            limit: None,
+            cursor: None,
+            resource_id_pattern: None,
+        };
+
+        let response = evaluator.list_resources(request).await.unwrap();
+
+        // Alice should have access to readme and guide, but not secret
+        assert_eq!(response.resources.len(), 2);
+        assert!(response.resources.contains(&"doc:readme".to_string()));
+        assert!(response.resources.contains(&"doc:guide".to_string()));
+        assert!(!response.resources.contains(&"doc:secret".to_string()));
+        assert!(response.cursor.is_none()); // No more results
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_no_access() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create documents but don't give charlie any access
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "reader".to_string(),
+                user: "user:bob".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListResourcesRequest {
+            subject: "user:charlie".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "reader".to_string(),
+            limit: None,
+            cursor: None,
+            resource_id_pattern: None,
+        };
+
+        let response = evaluator.list_resources(request).await.unwrap();
+
+        // Charlie should have no access
+        assert_eq!(response.resources.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_with_limit() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create multiple documents alice can access
+        let tuples = vec![
+            Tuple {
+                object: "doc:1".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:2".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:3".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:4".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:5".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Request with limit of 2
+        let request = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "reader".to_string(),
+            limit: Some(2),
+            cursor: None,
+            resource_id_pattern: None,
+        };
+
+        let response = evaluator.list_resources(request).await.unwrap();
+
+        // Should only return 2 resources
+        assert_eq!(response.resources.len(), 2);
+        assert!(response.cursor.is_some()); // Should have a cursor for pagination
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_pagination() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create 10 documents alice can access
+        let mut tuples = vec![];
+        for i in 1..=10 {
+            tuples.push(Tuple {
+                object: format!("doc:{}", i),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            });
+        }
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // First page: get 3 resources
+        let request1 = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "reader".to_string(),
+            limit: Some(3),
+            cursor: None,
+            resource_id_pattern: None,
+        };
+
+        let response1 = evaluator.list_resources(request1).await.unwrap();
+        assert_eq!(response1.resources.len(), 3);
+        assert!(response1.cursor.is_some());
+
+        // Second page: use cursor
+        let request2 = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "reader".to_string(),
+            limit: Some(3),
+            cursor: response1.cursor.clone(),
+            resource_id_pattern: None,
+        };
+
+        let response2 = evaluator.list_resources(request2).await.unwrap();
+        assert_eq!(response2.resources.len(), 3);
+
+        // Verify no overlap between pages
+        let first_page: std::collections::HashSet<_> = response1.resources.iter().collect();
+        let second_page: std::collections::HashSet<_> = response2.resources.iter().collect();
+        assert!(first_page.is_disjoint(&second_page));
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_empty_type() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // No documents exist of this type
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "folder".to_string(),
+            permission: "reader".to_string(),
+            limit: None,
+            cursor: None,
+            resource_id_pattern: None,
+        };
+
+        let response = evaluator.list_resources(request).await.unwrap();
+
+        // Should return empty list
+        assert_eq!(response.resources.len(), 0);
+        assert!(response.cursor.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_with_union_relation() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        // Alice is owner of doc1, direct viewer of doc2
+        // viewer = this | editor | parent->viewer
+        let tuples = vec![
+            Tuple {
+                object: "doc:1".to_string(),
+                relation: "owner".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:2".to_string(),
+                relation: "viewer".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:3".to_string(),
+                relation: "reader".to_string(),
+                user: "user:bob".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "viewer".to_string(),
+            limit: None,
+            cursor: None,
+            resource_id_pattern: None,
+        };
+
+        let response = evaluator.list_resources(request).await.unwrap();
+
+        // Alice should have access to doc:1 (via owner->editor->viewer) and doc:2 (direct)
+        assert_eq!(response.resources.len(), 2);
+        assert!(response.resources.contains(&"doc:1".to_string()));
+        assert!(response.resources.contains(&"doc:2".to_string()));
+        assert!(!response.resources.contains(&"doc:3".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_with_wildcard_pattern() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create documents with various names
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:readme_v2".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:tutorial".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Test wildcard pattern "readme*"
+        let request = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "reader".to_string(),
+            limit: None,
+            cursor: None,
+            resource_id_pattern: Some("doc:readme*".to_string()),
+        };
+
+        let response = evaluator.list_resources(request).await.unwrap();
+
+        // Should match "doc:readme" and "doc:readme_v2" but not "doc:guide" or "doc:tutorial"
+        assert_eq!(response.resources.len(), 2);
+        assert!(response.resources.contains(&"doc:readme".to_string()));
+        assert!(response.resources.contains(&"doc:readme_v2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_with_question_mark_pattern() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create documents with single character variations
+        let tuples = vec![
+            Tuple {
+                object: "doc:file1".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:file2".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:file10".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Test ? pattern - matches single character
+        let request = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "reader".to_string(),
+            limit: None,
+            cursor: None,
+            resource_id_pattern: Some("doc:file?".to_string()),
+        };
+
+        let response = evaluator.list_resources(request).await.unwrap();
+
+        // Should match "doc:file1" and "doc:file2" but not "doc:file10" (has 2 chars after "file")
+        assert_eq!(response.resources.len(), 2);
+        assert!(response.resources.contains(&"doc:file1".to_string()));
+        assert!(response.resources.contains(&"doc:file2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_with_mixed_pattern() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let tuples = vec![
+            Tuple {
+                object: "doc:project_abc_report".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:project_xyz_report".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:project_abc_summary".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Test mixed pattern "project_*_report"
+        let request = ListResourcesRequest {
+            subject: "user:alice".to_string(),
+            resource_type: "doc".to_string(),
+            permission: "reader".to_string(),
+            limit: None,
+            cursor: None,
+            resource_id_pattern: Some("doc:project_*_report".to_string()),
+        };
+
+        let response = evaluator.list_resources(request).await.unwrap();
+
+        // Should match both *_report files but not *_summary
+        assert_eq!(response.resources.len(), 2);
+        assert!(response
+            .resources
+            .contains(&"doc:project_abc_report".to_string()));
+        assert!(response
+            .resources
+            .contains(&"doc:project_xyz_report".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_glob_pattern_matching() {
+        // Test basic wildcard
+        assert!(Evaluator::matches_glob_pattern("doc:readme", "doc:readme"));
+        assert!(Evaluator::matches_glob_pattern("doc:readme", "doc:*"));
+        assert!(Evaluator::matches_glob_pattern("doc:readme", "*"));
+        assert!(Evaluator::matches_glob_pattern("doc:readme", "doc:read*"));
+        assert!(Evaluator::matches_glob_pattern(
+            "doc:readme_v2",
+            "doc:readme*"
+        ));
+
+        // Test question mark
+        assert!(Evaluator::matches_glob_pattern("doc:file1", "doc:file?"));
+        assert!(Evaluator::matches_glob_pattern("doc:file2", "doc:file?"));
+        assert!(!Evaluator::matches_glob_pattern("doc:file10", "doc:file?"));
+
+        // Test mixed patterns
+        assert!(Evaluator::matches_glob_pattern(
+            "project_abc_report",
+            "project_*_report"
+        ));
+        assert!(Evaluator::matches_glob_pattern(
+            "project_xyz_report",
+            "project_*_report"
+        ));
+        assert!(!Evaluator::matches_glob_pattern(
+            "project_abc_summary",
+            "project_*_report"
+        ));
+
+        // Test edge cases
+        assert!(Evaluator::matches_glob_pattern("", ""));
+        assert!(Evaluator::matches_glob_pattern("", "*"));
+        assert!(!Evaluator::matches_glob_pattern("a", ""));
+        assert!(Evaluator::matches_glob_pattern("abc", "a*c"));
+        assert!(Evaluator::matches_glob_pattern("abc", "a?c"));
+        assert!(!Evaluator::matches_glob_pattern("abbc", "a?c"));
     }
 }

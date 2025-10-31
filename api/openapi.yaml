@@ -255,6 +255,160 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /list-resources:
+    post:
+      tags:
+        - authorization
+      summary: List accessible resources
+      description: |
+        Lookup all resources of a given type that a subject can access with a specific permission.
+
+        This is the reverse of `/check` - instead of checking if a subject has access to one specific resource,
+        this returns all resources the subject can access.
+
+        **Use Cases**:
+        - Listing files a user can view
+        - Showing organizations a user is a member of
+        - Finding all documents a user can edit
+
+        **Performance**: Typical latency varies with resource count:
+        - 1K resources: <10ms
+        - 10K resources: <100ms
+        - 100K resources: <1s (use pagination)
+
+        **Pagination**: Use `limit` and `cursor` to paginate through large result sets.
+      operationId: listResources
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListResourcesRequest'
+            examples:
+              list_viewable_docs:
+                summary: List all documents a user can view
+                value:
+                  subject: user:alice
+                  resource_type: document
+                  permission: can_view
+              with_pagination:
+                summary: Paginated lookup with limit
+                value:
+                  subject: user:alice
+                  resource_type: document
+                  permission: can_view
+                  limit: 100
+              continue_pagination:
+                summary: Continue paginated lookup with cursor
+                value:
+                  subject: user:alice
+                  resource_type: document
+                  permission: can_view
+                  limit: 100
+                  cursor: eyJvZmZzZXQiOjEwMH0=
+      responses:
+        '200':
+          description: Lookup completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResourcesResponse'
+              examples:
+                found_resources:
+                  value:
+                    resources:
+                      - document:readme
+                      - document:guide
+                      - document:tutorial
+                    total_count: 3
+                with_pagination:
+                  value:
+                    resources:
+                      - document:1
+                      - document:2
+                    cursor: eyJvZmZzZXQiOjJ9
+                    total_count: 2
+                no_resources:
+                  value:
+                    resources: []
+                    total_count: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /list-resources/stream:
+    post:
+      tags:
+        - authorization
+      summary: List resources with Server-Sent Events streaming
+      description: |
+        List accessible resources and stream them as they're discovered using Server-Sent Events (SSE).
+
+        This is useful for large result sets where you want to show results progressively
+        instead of waiting for the entire response.
+
+        **Events**:
+        - `message` events: Individual resources as they're discovered
+        - `summary` event: Final metadata (cursor, total_count, complete flag)
+
+        **Example client code**:
+        ```javascript
+        const eventSource = new EventSource('/api/v1/list-resources/stream');
+        eventSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log('Found resource:', data.resource);
+        };
+        eventSource.addEventListener('summary', (event) => {
+          const summary = JSON.parse(event.data);
+          console.log('Complete:', summary.complete);
+          eventSource.close();
+        });
+        ```
+      operationId: listResourcesStream
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListResourcesRequest'
+      responses:
+        '200':
+          description: SSE stream of resources
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream with two event types:
+                  1. `message` events containing individual resources
+                  2. `summary` event with final metadata
+              examples:
+                stream_example:
+                  value: |
+                    data: {"resource":"document:readme","index":0}
+
+                    data: {"resource":"document:guide","index":1}
+
+                    event: summary
+                    data: {"cursor":null,"total_count":2,"complete":true}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /write:
     post:
       tags:
@@ -536,6 +690,93 @@ components:
           items:
             $ref: '#/components/schemas/ExpandNode'
           description: Child nodes
+
+    ListResourcesRequest:
+      type: object
+      required:
+        - subject
+        - resource_type
+        - permission
+      properties:
+        subject:
+          type: string
+          description: The user or entity requesting access
+          example: user:alice
+          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+        resource_type:
+          type: string
+          description: |
+            The type of resources to lookup (e.g., "document", "folder", "org").
+            This matches the first part of the resource identifier before the colon.
+          example: document
+          pattern: '^[a-z_][a-z0-9_]*$'
+        permission:
+          type: string
+          description: The permission to check for each resource
+          example: can_view
+          pattern: '^[a-z_][a-z0-9_]*$'
+        limit:
+          type: integer
+          format: int32
+          description: |
+            Maximum number of resources to return. Use for pagination.
+            If omitted, all matching resources are returned (not recommended for large datasets).
+          example: 100
+          minimum: 1
+          maximum: 10000
+        cursor:
+          type: string
+          description: |
+            Continuation token from a previous response.
+            Use to fetch the next page of results.
+          example: eyJvZmZzZXQiOjEwMH0=
+        resource_id_pattern:
+          type: string
+          description: |
+            Optional glob pattern to filter resource IDs. Supports wildcards:
+            - `*` matches any sequence of characters
+            - `?` matches exactly one character
+
+            Examples:
+            - `doc:readme*` matches doc:readme, doc:readme123, doc:readme_final
+            - `doc:file?` matches doc:file1, doc:fileA, but not doc:file12
+            - `doc:project_*_report` matches doc:project_a_report, doc:project_xyz_report
+          example: doc:readme*
+
+    ListResourcesResponse:
+      type: object
+      required:
+        - resources
+      properties:
+        resources:
+          type: array
+          items:
+            type: string
+            pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          description: |
+            List of resource identifiers the subject can access.
+            Each resource is in the format "type:id" (e.g., "document:readme").
+          example:
+            - document:readme
+            - document:guide
+            - document:tutorial
+        cursor:
+          type: string
+          description: |
+            Continuation token for fetching the next page.
+            Present only if there are more results available.
+            Pass this value in the next request's `cursor` field.
+          example: eyJvZmZzZXQiOjEwMH0=
+          nullable: true
+        total_count:
+          type: integer
+          format: int64
+          description: |
+            Total number of resources checked in this request.
+            This may be less than the actual total if pagination is used.
+            This is NOT the total number of accessible resources across all pages.
+          example: 100
+          nullable: true
 
     Tuple:
       type: object

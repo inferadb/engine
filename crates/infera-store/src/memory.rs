@@ -262,6 +262,40 @@ impl TupleStore for MemoryBackend {
         Ok(current_revision)
     }
 
+    async fn list_objects_by_type(&self, object_type: &str, revision: Revision) -> Result<Vec<String>> {
+        let timer = OpTimer::new();
+        let store = self.data.read().await;
+
+        // Build the type prefix (e.g., "document:")
+        let type_prefix = format!("{}:", object_type);
+
+        // Collect unique objects that match the type prefix and have active tuples at this revision
+        let mut objects = std::collections::HashSet::new();
+
+        for (object, indices) in &store.object_index {
+            // Check if object matches the type prefix
+            if object.starts_with(&type_prefix) {
+                // Check if this object has any active tuples at the given revision
+                let has_active = indices.iter().any(|&idx| {
+                    let vt = &store.tuples[idx];
+                    vt.created_at <= revision &&
+                    (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
+                });
+
+                if has_active {
+                    objects.insert(object.clone());
+                }
+            }
+        }
+
+        // Convert to sorted vector for deterministic output
+        let mut result: Vec<String> = objects.into_iter().collect();
+        result.sort();
+
+        self.metrics.record_read(timer.elapsed(), false);
+        Ok(result)
+    }
+
     fn metrics(&self) -> Option<MetricsSnapshot> {
         Some(self.metrics.snapshot())
     }

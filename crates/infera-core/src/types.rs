@@ -79,3 +79,32 @@ pub struct Tuple {
     pub relation: String,
     pub user: String,
 }
+
+/// A request to list resources accessible by a subject
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListResourcesRequest {
+    /// Subject (e.g., "user:alice")
+    pub subject: String,
+    /// Resource type to filter by (e.g., "document")
+    pub resource_type: String,
+    /// Permission to check (e.g., "can_view")
+    pub permission: String,
+    /// Optional limit on number of resources to return
+    pub limit: Option<usize>,
+    /// Optional continuation token from previous request
+    pub cursor: Option<String>,
+    /// Optional resource ID pattern filter (supports wildcards: * and ?)
+    /// Examples: "doc:readme*", "user:alice_?", "folder:*/subfolder"
+    pub resource_id_pattern: Option<String>,
+}
+
+/// Response from a list resources operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListResourcesResponse {
+    /// List of accessible resources
+    pub resources: Vec<String>,
+    /// Continuation token for pagination (if more results available)
+    pub cursor: Option<String>,
+    /// Total count estimate (may be approximate if paginated)
+    pub total_count: Option<usize>,
+}

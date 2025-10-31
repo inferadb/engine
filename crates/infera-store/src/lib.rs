@@ -84,6 +84,10 @@ pub trait TupleStore: Send + Sync {
     /// Delete tuples matching the key
     async fn delete(&self, key: &TupleKey) -> Result<Revision>;
 
+    /// List all distinct objects of a given type prefix (e.g., "document", "folder")
+    /// Returns unique object identifiers like ["document:1", "document:2"]
+    async fn list_objects_by_type(&self, object_type: &str, revision: Revision) -> Result<Vec<String>>;
+
     /// Get metrics snapshot (optional, returns None if not supported)
     fn metrics(&self) -> Option<MetricsSnapshot> {
         None

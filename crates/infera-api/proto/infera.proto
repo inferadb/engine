@@ -27,6 +27,9 @@ service InferaService {
 
   // Health check
   rpc Health(HealthRequest) returns (HealthResponse);
+
+  // List resources accessible by a subject
+  rpc ListResources(ListResourcesRequest) returns (stream ListResourcesResponse);
 }
 
 // Check permission request
@@ -259,4 +262,38 @@ message HealthResponse {
 
   // Service name
   string service = 2;
+}
+
+// List resources request
+message ListResourcesRequest {
+  // Subject (e.g., "user:alice")
+  string subject = 1;
+
+  // Resource type to filter by (e.g., "document")
+  string resource_type = 2;
+
+  // Permission to check (e.g., "can_view")
+  string permission = 3;
+
+  // Optional limit on number of resources to return
+  optional uint32 limit = 4;
+
+  // Optional continuation token from previous request
+  optional string cursor = 5;
+
+  // Optional resource ID pattern filter (supports wildcards: * matches any characters, ? matches single character)
+  // Examples: "doc:readme*", "user:alice_?", "folder:*/subfolder"
+  optional string resource_id_pattern = 6;
+}
+
+// List resources response (streamed)
+message ListResourcesResponse {
+  // Resource ID (e.g., "document:readme")
+  string resource = 1;
+
+  // Continuation token for pagination (only set in final message)
+  optional string cursor = 2;
+
+  // Total count estimate (only set in final message, may be approximate)
+  optional uint64 total_count = 3;
 }

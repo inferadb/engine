@@ -31,8 +31,8 @@ use tonic::{Request, Response, Status};
 use crate::AppState;
 use infera_core::{
     CheckRequest as CoreCheckRequest, Decision, DecisionTrace, EvaluationNode,
-    ExpandRequest as CoreExpandRequest, NodeType as CoreNodeType,
-    UsersetNodeType as CoreUsersetNodeType, UsersetTree,
+    ExpandRequest as CoreExpandRequest, ListResourcesRequest as CoreListResourcesRequest,
+    NodeType as CoreNodeType, UsersetNodeType as CoreUsersetNodeType, UsersetTree,
 };
 
 // Include generated proto code
@@ -46,7 +46,8 @@ pub use proto::infera_service_client::InferaServiceClient;
 use proto::{
     infera_service_server::InferaService, CheckRequest, CheckResponse, CheckWithTraceResponse,
     Decision as ProtoDecision, DeleteRequest, DeleteResponse, ExpandRequest, ExpandResponse,
-    HealthRequest, HealthResponse, WriteRequest, WriteResponse,
+    HealthRequest, HealthResponse, ListResourcesRequest, ListResourcesResponse, WriteRequest,
+    WriteResponse,
 };
 
 pub struct InferaServiceImpl {
@@ -338,6 +339,70 @@ impl InferaService for InferaServiceImpl {
             revision: revision.0.to_string(),
             tuples_written: all_tuples.len() as u64,
         }))
+    }
+
+    type ListResourcesStream = std::pin::Pin<
+        Box<dyn futures::Stream<Item = Result<ListResourcesResponse, Status>> + Send + 'static>,
+    >;
+
+    async fn list_resources(
+        &self,
+        request: Request<ListResourcesRequest>,
+    ) -> Result<Response<Self::ListResourcesStream>, Status> {
+        let req = request.into_inner();
+
+        // Validate request
+        if req.subject.is_empty() {
+            return Err(Status::invalid_argument("Subject cannot be empty"));
+        }
+        if req.resource_type.is_empty() {
+            return Err(Status::invalid_argument("Resource type cannot be empty"));
+        }
+        if req.permission.is_empty() {
+            return Err(Status::invalid_argument("Permission cannot be empty"));
+        }
+
+        let list_request = CoreListResourcesRequest {
+            subject: req.subject,
+            resource_type: req.resource_type,
+            permission: req.permission,
+            limit: req.limit.map(|l| l as usize),
+            cursor: req.cursor,
+            resource_id_pattern: req.resource_id_pattern,
+        };
+
+        // Execute list
+        let response = self
+            .state
+            .evaluator
+            .list_resources(list_request)
+            .await
+            .map_err(|e| Status::internal(format!("List failed: {}", e)))?;
+
+        // Create stream of resources
+        let resources = response.resources;
+        let cursor = response.cursor;
+        let total_count = response.total_count.map(|c| c as u64);
+
+        // Stream each resource followed by a final message with metadata
+        let stream = futures::stream::iter(
+            resources
+                .into_iter()
+                .map(|resource| {
+                    Ok(ListResourcesResponse {
+                        resource,
+                        cursor: None,
+                        total_count: None,
+                    })
+                })
+                .chain(std::iter::once(Ok(ListResourcesResponse {
+                    resource: String::new(), // Empty resource in final message
+                    cursor,
+                    total_count,
+                }))),
+        );
+
+        Ok(Response::new(Box::pin(stream)))
     }
 
     async fn health(

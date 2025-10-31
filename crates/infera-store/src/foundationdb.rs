@@ -386,6 +386,67 @@ impl TupleStore for FoundationDBBackend {
         debug!("Deleted tuples matching {}:{} at revision {:?}", key.object, key.relation, result);
         Ok(result)
     }
+
+    async fn list_objects_by_type(&self, object_type: &str, revision: Revision) -> Result<Vec<String>> {
+        let db = Arc::clone(&self.db);
+        let object_type = object_type.to_string();
+        let index_subspace = self.index_subspace.clone();
+        let tuples_subspace = self.tuples_subspace.clone();
+
+        // Build the type prefix (e.g., "document:")
+        let type_prefix = format!("{}:", object_type);
+        let type_end = format!("{};\u{0}", object_type); // Next string after "type:"
+
+        let result = db
+            .run(move |trx, _maybe_committed| async move {
+                // Query range of all objects with this type prefix
+                let start_key = index_subspace.pack(&("obj", type_prefix.as_str()));
+                let end_key = index_subspace.pack(&("obj", type_end.as_str()));
+
+                let range = trx.get_range(&foundationdb::RangeOption {
+                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                    limit: None,
+                    reverse: false,
+                    mode: foundationdb::StreamingMode::WantAll,
+                }, 1, false).await?;
+
+                let mut objects = std::collections::HashSet::new();
+
+                for kv in range.iter() {
+                    // Unpack: ("obj", object, relation, user, rev)
+                    let unpacked: (String, String, String, String, u64) = unpack(
+                        &kv.key()[index_subspace.bytes().len()..]
+                    ).map_err(|e| FdbError::from(format!("Failed to unpack index: {}", e)))?;
+
+                    let (_prefix, object, relation, user, rev) = unpacked;
+
+                    // Only include tuples at or before requested revision
+                    if rev > revision.0 {
+                        continue;
+                    }
+
+                    // Check if this tuple is still active at the requested revision
+                    let tuple_key = tuples_subspace.pack(&(&object, &relation, &user, rev));
+                    if let Some(value) = trx.get(&tuple_key, false).await? {
+                        if &value == b"active" {
+                            objects.insert(object);
+                        }
+                    }
+                }
+
+                // Convert to sorted vector for deterministic output
+                let mut result: Vec<String> = objects.into_iter().collect();
+                result.sort();
+
+                Ok(result)
+            })
+            .await
+            .map_err(|e| StoreError::Database(format!("Failed to list objects by type: {}", e)))?;
+
+        debug!("Listed {} objects of type '{}'", result.len(), object_type);
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
