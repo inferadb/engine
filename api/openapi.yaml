@@ -57,8 +57,8 @@ tags:
     description: Health and status endpoints
   - name: authorization
     description: Authorization check and expansion endpoints
-  - name: tuples
-    description: Tuple management (write/delete)
+  - name: relationships
+    description: Relationship management (write/delete/list)
 
 paths:
   /health:
@@ -69,23 +69,23 @@ paths:
       description: Check if the service is running and healthy
       operationId: healthCheck
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
+                $ref: "#/components/schemas/HealthResponse"
               examples:
                 healthy:
                   value:
                     status: healthy
                     version: 0.1.0
-        '503':
+        "503":
           description: Service unavailable
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /check:
     post:
@@ -106,7 +106,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CheckRequest'
+              $ref: "#/components/schemas/CheckRequest"
             examples:
               simple_check:
                 summary: Simple permission check
@@ -122,14 +122,14 @@ paths:
                   permission: can_view
                   context:
                     ip_address: 192.168.1.1
-                    time: '2024-01-15T10:30:00Z'
+                    time: "2024-01-15T10:30:00Z"
       responses:
-        '200':
+        "200":
           description: Check completed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CheckResponse'
+                $ref: "#/components/schemas/CheckResponse"
               examples:
                 allow:
                   value:
@@ -137,14 +137,14 @@ paths:
                 deny:
                   value:
                     decision: deny
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /check/trace:
     post:
@@ -166,14 +166,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CheckRequest'
+              $ref: "#/components/schemas/CheckRequest"
       responses:
-        '200':
+        "200":
           description: Check completed with trace
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CheckTraceResponse'
+                $ref: "#/components/schemas/CheckTraceResponse"
               examples:
                 traced_check:
                   value:
@@ -190,12 +190,12 @@ paths:
                           node_type: computed_userset
                           relation: editor
                           children: []
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /expand:
     post:
@@ -215,7 +215,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExpandRequest'
+              $ref: "#/components/schemas/ExpandRequest"
             examples:
               expand_viewers:
                 summary: Expand viewers of a document
@@ -223,12 +223,12 @@ paths:
                   resource: document:readme
                   relation: can_view
       responses:
-        '200':
+        "200":
           description: Expansion completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpandResponse'
+                $ref: "#/components/schemas/ExpandResponse"
               examples:
                 expansion:
                   value:
@@ -242,18 +242,18 @@ paths:
                           children:
                             - node_type: this
                               children: []
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
           description: Resource or relation not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /list-resources:
     post:
@@ -285,7 +285,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ListResourcesRequest'
+              $ref: "#/components/schemas/ListResourcesRequest"
             examples:
               list_viewable_docs:
                 summary: List all documents a user can view
@@ -309,12 +309,12 @@ paths:
                   limit: 100
                   cursor: eyJvZmZzZXQiOjEwMH0=
       responses:
-        '200':
+        "200":
           description: Lookup completed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListResourcesResponse'
+                $ref: "#/components/schemas/ListResourcesResponse"
               examples:
                 found_resources:
                   value:
@@ -334,14 +334,14 @@ paths:
                   value:
                     resources: []
                     total_count: 0
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /list-resources/stream:
     post:
@@ -379,9 +379,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ListResourcesRequest'
+              $ref: "#/components/schemas/ListResourcesRequest"
       responses:
-        '200':
+        "200":
           description: SSE stream of resources
           content:
             text/event-stream:
@@ -400,22 +400,22 @@ paths:
 
                     event: summary
                     data: {"cursor":null,"total_count":2,"complete":true}
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /list-relationships:
     post:
       tags:
-        - tuples
-      summary: List relationships (tuples)
+        - relationships
+      summary: List relationships
       description: |
-        List authorization relationships (tuples) with optional filtering.
+        List authorization relationships with optional filtering.
 
         This endpoint is useful for:
         - **Debugging**: Inspect what relationships exist in the system
@@ -440,7 +440,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ListRelationshipsRequest'
+              $ref: "#/components/schemas/ListRelationshipsRequest"
             examples:
               all_relationships:
                 summary: List all relationships
@@ -463,12 +463,12 @@ paths:
                   relation: "viewer"
                   subject: "user:alice"
       responses:
-        '200':
+        "200":
           description: List of matching relationships
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListRelationshipsResponse'
+                $ref: "#/components/schemas/ListRelationshipsResponse"
               examples:
                 success:
                   value:
@@ -481,19 +481,19 @@ paths:
                         subject: "user:bob"
                     cursor: null
                     total_count: 2
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /list-relationships/stream:
     post:
       tags:
-        - tuples
+        - relationships
       summary: List relationships with Server-Sent Events streaming
       description: |
         List relationships and stream them as they're discovered using Server-Sent Events (SSE).
@@ -526,9 +526,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ListRelationshipsRequest'
+              $ref: "#/components/schemas/ListRelationshipsRequest"
       responses:
-        '200':
+        "200":
           description: SSE stream of relationships
           content:
             text/event-stream:
@@ -547,29 +547,29 @@ paths:
 
                     event: summary
                     data: {"cursor":null,"total_count":2,"complete":true}
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /write:
     post:
       tags:
-        - tuples
-      summary: Write tuples
+        - relationships
+      summary: Write relationships
       description: |
-        Write one or more authorization tuples.
+        Write one or more authorization relationships.
 
-        Tuples define relationships between users and resources. For example:
+        Relationships define access control relationships between subjects and resources. For example:
         - `user:alice` is a `viewer` of `document:readme`
         - `group:engineers` is a `member` of `org:acme`
 
-        **Best Practice**: Batch multiple tuples in a single request for better performance.
-      operationId: writeTuples
+        **Best Practice**: Batch multiple relationships in a single request for better performance.
+      operationId: writeRelationships
       security:
         - bearerAuth: []
       requestBody:
@@ -577,56 +577,56 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/WriteRequest'
+              $ref: "#/components/schemas/WriteRequest"
             examples:
-              single_tuple:
-                summary: Write single tuple
+              single_relationship:
+                summary: Write single relationship
                 value:
-                  tuples:
-                    - object: document:readme
+                  relationships:
+                    - resource: document:readme
                       relation: viewer
-                      user: user:alice
-              batch_tuples:
-                summary: Batch write multiple tuples
+                      subject: user:alice
+              batch_relationships:
+                summary: Batch write multiple relationships
                 value:
-                  tuples:
-                    - object: document:readme
+                  relationships:
+                    - resource: document:readme
                       relation: viewer
-                      user: user:alice
-                    - object: document:readme
+                      subject: user:alice
+                    - resource: document:readme
                       relation: editor
-                      user: user:bob
-                    - object: document:secret
+                      subject: user:bob
+                    - resource: document:secret
                       relation: viewer
-                      user: group:engineers
+                      subject: group:engineers
       responses:
-        '200':
-          description: Tuples written successfully
+        "200":
+          description: Relationships written successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WriteResponse'
+                $ref: "#/components/schemas/WriteResponse"
               examples:
                 written:
                   value:
                     revision: 42
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /delete:
     post:
       tags:
-        - tuples
-      summary: Delete tuples
+        - relationships
+      summary: Delete relationships
       description: |
-        Delete one or more authorization tuples.
+        Delete one or more authorization relationships.
 
-        **Note**: This endpoint is not yet implemented. Use the write endpoint to manage tuples.
-      operationId: deleteTuples
+        **Note**: This endpoint is not yet implemented. Use the write endpoint to manage relationships.
+      operationId: deleteRelationships
       security:
         - bearerAuth: []
       requestBody:
@@ -634,24 +634,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeleteRequest'
+              $ref: "#/components/schemas/DeleteRequest"
       responses:
-        '200':
-          description: Tuples deleted successfully
+        "200":
+          description: Relationships deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeleteResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '501':
+                $ref: "#/components/schemas/DeleteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "501":
           description: Not implemented
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   securitySchemes:
@@ -696,24 +696,24 @@ components:
           type: string
           description: The user or entity requesting access
           example: user:alice
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
         resource:
           type: string
           description: The resource being accessed
           example: document:readme
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
         permission:
           type: string
           description: The permission being checked
           example: can_view
-          pattern: '^[a-z_][a-z0-9_]*$'
+          pattern: "^[a-z_][a-z0-9_]*$"
         context:
           type: object
           description: Additional context for WASM modules (optional)
           additionalProperties: true
           example:
             ip_address: 192.168.1.1
-            time: '2024-01-15T10:30:00Z'
+            time: "2024-01-15T10:30:00Z"
 
     CheckResponse:
       type: object
@@ -736,7 +736,7 @@ components:
           enum: [allow, deny]
           description: The authorization decision
         trace:
-          $ref: '#/components/schemas/TraceNode'
+          $ref: "#/components/schemas/TraceNode"
 
     TraceNode:
       type: object
@@ -757,22 +757,22 @@ components:
             - union
             - intersection
             - exclusion
-            - tuple_to_userset
+            - related_object_userset
           description: |
             Type of evaluation node:
-            - `direct`: Direct tuple lookup
+            - `direct`: Direct relationship lookup
             - `computed_userset`: Computed relation
             - `union`: OR operation
             - `intersection`: AND operation
             - `exclusion`: EXCEPT operation
-            - `tuple_to_userset`: Indirect relation
+            - `related_object_userset`: Related object userset (follow relationship to compute permission on related objects)
         relation:
           type: string
           description: Relation being evaluated (if applicable)
         children:
           type: array
           items:
-            $ref: '#/components/schemas/TraceNode'
+            $ref: "#/components/schemas/TraceNode"
           description: Sub-evaluations
 
     ExpandRequest:
@@ -785,12 +785,12 @@ components:
           type: string
           description: The resource to expand
           example: document:readme
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
         relation:
           type: string
           description: The relation to expand
           example: can_view
-          pattern: '^[a-z_][a-z0-9_]*$'
+          pattern: "^[a-z_][a-z0-9_]*$"
 
     ExpandResponse:
       type: object
@@ -798,7 +798,7 @@ components:
         - tree
       properties:
         tree:
-          $ref: '#/components/schemas/ExpandNode'
+          $ref: "#/components/schemas/ExpandNode"
 
     ExpandNode:
       type: object
@@ -811,7 +811,7 @@ components:
           enum:
             - this
             - computed_userset
-            - tuple_to_userset
+            - related_object_userset
             - union
             - intersection
             - exclusion
@@ -819,23 +819,23 @@ components:
             Type of expand node:
             - `this`: Direct relation
             - `computed_userset`: Computed relation
-            - `tuple_to_userset`: Indirect relation
+            - `related_object_userset`: Related object userset (follow relationship to compute permission on related objects)
             - `union`: OR operation
             - `intersection`: AND operation
             - `exclusion`: EXCEPT operation
         relation:
           type: string
           description: Relation name (for computed_userset)
-        tupleset:
+        relationship:
           type: string
-          description: Tupleset relation (for tuple_to_userset)
+          description: Relationship name (for related_object_userset)
         computed:
           type: string
-          description: Computed relation (for tuple_to_userset)
+          description: Computed relation (for related_object_userset)
         children:
           type: array
           items:
-            $ref: '#/components/schemas/ExpandNode'
+            $ref: "#/components/schemas/ExpandNode"
           description: Child nodes
 
     ListResourcesRequest:
@@ -849,19 +849,19 @@ components:
           type: string
           description: The user or entity requesting access
           example: user:alice
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
         resource_type:
           type: string
           description: |
             The type of resources to lookup (e.g., "document", "folder", "org").
             This matches the first part of the resource identifier before the colon.
           example: document
-          pattern: '^[a-z_][a-z0-9_]*$'
+          pattern: "^[a-z_][a-z0-9_]*$"
         permission:
           type: string
           description: The permission to check for each resource
           example: can_view
-          pattern: '^[a-z_][a-z0-9_]*$'
+          pattern: "^[a-z_][a-z0-9_]*$"
         limit:
           type: integer
           format: int32
@@ -899,7 +899,7 @@ components:
           type: array
           items:
             type: string
-            pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+            pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
           description: |
             List of resource identifiers the subject can access.
             Each resource is in the format "type:id" (e.g., "document:readme").
@@ -934,7 +934,7 @@ components:
             Optional filter by exact resource.
             If provided, only relationships with this resource are returned.
           example: doc:readme
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
           nullable: true
         relation:
           type: string
@@ -942,7 +942,7 @@ components:
             Optional filter by relation type.
             If provided, only relationships with this relation are returned.
           example: viewer
-          pattern: '^[a-z_][a-z0-9_]*$'
+          pattern: "^[a-z_][a-z0-9_]*$"
           nullable: true
         subject:
           type: string
@@ -950,7 +950,7 @@ components:
             Optional filter by exact subject.
             If provided, only relationships with this subject are returned.
           example: user:alice
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
           nullable: true
         limit:
           type: integer
@@ -978,10 +978,10 @@ components:
         relationships:
           type: array
           items:
-            $ref: '#/components/schemas/Relationship'
+            $ref: "#/components/schemas/Relationship"
           description: |
             List of relationships matching the filter criteria.
-            Each relationship represents an authorization tuple between
+            Each relationship represents an authorization relationship between
             a subject and a resource.
           example:
             - resource: doc:readme
@@ -1018,51 +1018,28 @@ components:
           type: string
           description: The resource being accessed
           example: document:readme
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
         relation:
           type: string
           description: The relation type
           example: viewer
-          pattern: '^[a-z_][a-z0-9_]*$'
+          pattern: "^[a-z_][a-z0-9_]*$"
         subject:
           type: string
           description: The subject (user or entity)
           example: user:alice
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
-
-    Tuple:
-      type: object
-      required:
-        - object
-        - relation
-        - user
-      properties:
-        object:
-          type: string
-          description: The resource (object)
-          example: document:readme
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
-        relation:
-          type: string
-          description: The relation
-          example: viewer
-          pattern: '^[a-z_][a-z0-9_]*$'
-        user:
-          type: string
-          description: The subject (user)
-          example: user:alice
-          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
 
     WriteRequest:
       type: object
       required:
-        - tuples
+        - relationships
       properties:
-        tuples:
+        relationships:
           type: array
           items:
-            $ref: '#/components/schemas/Tuple'
-          description: Array of tuples to write
+            $ref: "#/components/schemas/Relationship"
+          description: Array of relationships to write
           minItems: 1
           maxItems: 1000
 
@@ -1080,13 +1057,13 @@ components:
     DeleteRequest:
       type: object
       required:
-        - tuples
+        - relationships
       properties:
-        tuples:
+        relationships:
           type: array
           items:
-            $ref: '#/components/schemas/Tuple'
-          description: Array of tuples to delete
+            $ref: "#/components/schemas/Relationship"
+          description: Array of relationships to delete
           minItems: 1
           maxItems: 1000
 
@@ -1124,7 +1101,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
           examples:
             missing_field:
               value:
@@ -1140,7 +1117,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
           examples:
             missing_token:
               value:
@@ -1173,7 +1150,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
           example:
             error: Rate limit exceeded
             message: Too many requests. Please retry after 60 seconds.
@@ -1183,7 +1160,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
           example:
             error: Internal server error
             message: An unexpected error occurred
@@ -1195,4 +1172,4 @@ x-tagGroups:
       - authorization
   - name: Data Management
     tags:
-      - tuples
+      - relationships

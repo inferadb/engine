@@ -107,7 +107,7 @@ message NodeType {
   oneof type {
     DirectCheck direct_check = 1;
     ComputedUserset computed_userset = 2;
-    TupleToUserset tuple_to_userset = 3;
+    RelatedObjectUserset related_object_userset = 3;
     Union union = 4;
     Intersection intersection = 5;
     Exclusion exclusion = 6;
@@ -123,11 +123,11 @@ message DirectCheck {
 
 message ComputedUserset {
   string relation = 1;
-  string tupleset = 2;
+  string relationship = 2;
 }
 
-message TupleToUserset {
-  string tupleset = 1;
+message RelatedObjectUserset {
+  string relationship = 1;
   string computed = 2;
 }
 
@@ -186,7 +186,7 @@ message UsersetNodeType {
   oneof type {
     This this = 1;
     ComputedUsersetRef computed_userset = 2;
-    TupleToUsersetRef tuple_to_userset = 3;
+    RelatedObjectUsersetRef related_object_userset = 3;
     UnionNode union = 4;
     IntersectionNode intersection = 5;
     ExclusionNode exclusion = 6;
@@ -200,8 +200,8 @@ message ComputedUsersetRef {
   string relation = 1;
 }
 
-message TupleToUsersetRef {
-  string tupleset = 1;
+message RelatedObjectUsersetRef {
+  string relationship = 1;
   string computed = 2;
 }
 

@@ -498,15 +498,15 @@ fn convert_trace_to_proto(trace: DecisionTrace) -> proto::DecisionTrace {
             } => Some(proto::node_type::Type::ComputedUserset(
                 proto::ComputedUserset {
                     relation,
-                    tupleset: relationship,
+                    relationship,
                 },
             )),
             CoreNodeType::RelatedObjectUserset {
                 relationship,
                 computed,
-            } => Some(proto::node_type::Type::TupleToUserset(
-                proto::TupleToUserset {
-                    tupleset: relationship,
+            } => Some(proto::node_type::Type::RelatedObjectUserset(
+                proto::RelatedObjectUserset {
+                    relationship,
                     computed,
                 },
             )),
@@ -557,8 +557,8 @@ fn convert_userset_tree_to_proto(tree: UsersetTree) -> proto::UsersetTree {
         CoreUsersetNodeType::RelatedObjectUserset {
             relationship,
             computed,
-        } => Some(Type::TupleToUserset(proto::TupleToUsersetRef {
-            tupleset: relationship,
+        } => Some(Type::RelatedObjectUserset(proto::RelatedObjectUsersetRef {
+            relationship,
             computed,
         })),
         CoreUsersetNodeType::Union => Some(Type::Union(proto::UnionNode {})),
