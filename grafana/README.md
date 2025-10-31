@@ -114,6 +114,90 @@ This directory contains pre-built Grafana dashboards for monitoring InferaDB in 
 
 ---
 
+### 6. Authorization Overview Dashboard (`authorization-overview-dashboard.json`)
+
+**Purpose**: High-level view of authorization operations and query patterns
+
+**Key Metrics**:
+
+- Query operation distribution (Evaluate, ListResources, ListSubjects, etc.)
+- Authorization decision rates (Allow/Deny)
+- Query operation trends over time
+- Top operations by volume
+- Average latency by operation type
+- Decision allow/deny ratio
+- Total authorization checks (hourly/daily)
+
+**Best For**: Understanding authorization workload patterns, capacity planning, API usage analysis
+
+**Refresh Rate**: 30 seconds
+
+---
+
+### 7. Query Performance Dashboard (`query-performance-dashboard.json`)
+
+**Purpose**: Detailed performance analysis for different query operation types
+
+**Key Metrics**:
+
+- Query latency percentiles by operation (p50, p90, p99)
+- Slowest operations (p99 latency)
+- Average query duration by operation
+- Operation throughput
+- Latency heatmap
+- Check operation performance (p50, p90, p99, p99.9)
+- Evaluation complexity (depth distribution)
+
+**Best For**: Performance optimization, identifying slow operations, latency debugging
+
+**Refresh Rate**: 30 seconds
+
+---
+
+### 8. Access Patterns Dashboard (`access-patterns-dashboard.json`)
+
+**Purpose**: Analyze resource and subject access patterns
+
+**Key Metrics**:
+
+- Most checked resources
+- Most active subjects
+- Resource type distribution
+- Permission distribution
+- Resource check rate trends
+- Subject activity trends
+- Most checked permissions
+- Resource type check trends
+
+**Best For**: Security auditing, understanding access patterns, identifying unusual activity
+
+**Refresh Rate**: 30 seconds
+
+---
+
+### 9. Condition Performance Dashboard (`condition-performance-dashboard.json`)
+
+**Purpose**: Monitor WASM and condition evaluation performance
+
+**Key Metrics**:
+
+- Condition evaluation rate (total, success, failure)
+- Condition success rate
+- WASM invocations and errors
+- Condition evaluation latency by type
+- WASM execution latency by module
+- Condition evaluation trends
+- WASM fuel consumption
+- Slowest condition types
+- Most used WASM modules
+- Condition failure rate
+
+**Best For**: WASM performance tuning, condition debugging, policy optimization
+
+**Refresh Rate**: 30 seconds
+
+---
+
 ## Installation
 
 ### Prerequisites
@@ -331,13 +415,20 @@ We recommend organizing dashboards in folders:
 - **Folder**: `InferaDB - Production`
 
   - Overview Dashboard
+  - Authorization Overview Dashboard
   - Errors Dashboard
   - Replication Dashboard (if multi-region)
 
 - **Folder**: `InferaDB - Performance`
 
   - Performance Dashboard
+  - Query Performance Dashboard
   - Cache Dashboard
+  - Condition Performance Dashboard
+
+- **Folder**: `InferaDB - Security & Access`
+
+  - Access Patterns Dashboard
 
 - **Folder**: `InferaDB - Development`
   - Custom/experimental dashboards

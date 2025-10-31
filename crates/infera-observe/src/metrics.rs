@@ -255,6 +255,52 @@ pub fn init_metrics_descriptions() {
         "inferadb_uptime_seconds",
         "Time since server started in seconds"
     );
+
+    // Authorization query type metrics
+    describe_counter!(
+        "inferadb_query_operations_total",
+        "Total number of API operations by query type (Evaluate, ListResources, ListSubjects, etc.)"
+    );
+    describe_histogram!(
+        "inferadb_query_operation_duration_seconds",
+        "Duration of API operations by query type in seconds"
+    );
+
+    // Access pattern metrics
+    describe_counter!(
+        "inferadb_resource_checks_total",
+        "Total number of authorization checks per resource"
+    );
+    describe_counter!(
+        "inferadb_subject_checks_total",
+        "Total number of authorization checks per subject"
+    );
+    describe_counter!(
+        "inferadb_permission_checks_total",
+        "Total number of authorization checks per permission type"
+    );
+    describe_counter!(
+        "inferadb_resource_type_checks_total",
+        "Total number of authorization checks per resource type"
+    );
+
+    // Condition evaluation metrics
+    describe_counter!(
+        "inferadb_condition_evaluations_total",
+        "Total number of condition evaluations (WASM, contextual)"
+    );
+    describe_histogram!(
+        "inferadb_condition_evaluation_duration_seconds",
+        "Duration of condition evaluations in seconds"
+    );
+    describe_counter!(
+        "inferadb_condition_evaluation_success_total",
+        "Total number of successful condition evaluations"
+    );
+    describe_counter!(
+        "inferadb_condition_evaluation_failure_total",
+        "Total number of failed condition evaluations"
+    );
 }
 
 /// Record an authorization check
@@ -809,4 +855,61 @@ pub fn update_replication_targets(connected: usize, total: usize) {
 /// Record replication batch
 pub fn record_replication_batch(batch_size: usize) {
     histogram!("inferadb_replication_batch_size").record(batch_size as f64);
+}
+
+/// Record a query operation by type
+pub fn record_query_operation(operation: &str, duration_seconds: f64) {
+    counter!("inferadb_query_operations_total", "operation" => operation.to_string()).increment(1);
+    histogram!(
+        "inferadb_query_operation_duration_seconds",
+        "operation" => operation.to_string()
+    )
+    .record(duration_seconds);
+}
+
+/// Record an access pattern - resource check
+pub fn record_resource_check(resource: &str, resource_type: &str) {
+    counter!("inferadb_resource_checks_total", "resource" => resource.to_string()).increment(1);
+    counter!("inferadb_resource_type_checks_total", "resource_type" => resource_type.to_string())
+        .increment(1);
+}
+
+/// Record an access pattern - subject check
+pub fn record_subject_check(subject: &str) {
+    counter!("inferadb_subject_checks_total", "subject" => subject.to_string()).increment(1);
+}
+
+/// Record an access pattern - permission check
+pub fn record_permission_check(permission: &str) {
+    counter!("inferadb_permission_checks_total", "permission" => permission.to_string())
+        .increment(1);
+}
+
+/// Record a condition evaluation
+pub fn record_condition_evaluation(condition_type: &str, duration_seconds: f64, success: bool) {
+    counter!(
+        "inferadb_condition_evaluations_total",
+        "condition_type" => condition_type.to_string()
+    )
+    .increment(1);
+
+    histogram!(
+        "inferadb_condition_evaluation_duration_seconds",
+        "condition_type" => condition_type.to_string()
+    )
+    .record(duration_seconds);
+
+    if success {
+        counter!(
+            "inferadb_condition_evaluation_success_total",
+            "condition_type" => condition_type.to_string()
+        )
+        .increment(1);
+    } else {
+        counter!(
+            "inferadb_condition_evaluation_failure_total",
+            "condition_type" => condition_type.to_string()
+        )
+        .increment(1);
+    }
 }

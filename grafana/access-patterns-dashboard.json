@@ -1,0 +1,208 @@
+{
+  "dashboard": {
+    "title": "InferaDB - Access Patterns",
+    "tags": ["inferadb", "authorization", "access-patterns"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Most Checked Resources",
+        "type": "table",
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "topk(20, sum by (resource) (rate(inferadb_resource_checks_total[5m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": { "resource": "Resource", "Value": "Checks/sec" }
+            }
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Most Active Subjects",
+        "type": "table",
+        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "topk(20, sum by (subject) (rate(inferadb_subject_checks_total[5m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": { "subject": "Subject", "Value": "Checks/sec" }
+            }
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Resource Type Distribution",
+        "type": "piechart",
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
+        "targets": [
+          {
+            "expr": "sum by (resource_type) (rate(inferadb_resource_type_checks_total[5m]))",
+            "legendFormat": "{{resource_type}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "displayLabels": ["name", "percent"],
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Permission Distribution",
+        "type": "piechart",
+        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
+        "targets": [
+          {
+            "expr": "sum by (permission) (rate(inferadb_permission_checks_total[5m]))",
+            "legendFormat": "{{permission}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "displayLabels": ["name", "percent"],
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Resource Check Rate Trends",
+        "type": "graph",
+        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+        "targets": [
+          {
+            "expr": "topk(10, sum by (resource) (rate(inferadb_resource_checks_total[5m])))",
+            "legendFormat": "{{resource}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "reqps", "label": "Checks/sec" },
+          { "format": "short" }
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "rightSide": true,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 6,
+        "title": "Subject Activity Trends",
+        "type": "graph",
+        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 30 },
+        "targets": [
+          {
+            "expr": "topk(10, sum by (subject) (rate(inferadb_subject_checks_total[5m])))",
+            "legendFormat": "{{subject}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "reqps", "label": "Checks/sec" },
+          { "format": "short" }
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "rightSide": true,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 7,
+        "title": "Most Checked Permissions",
+        "type": "table",
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 40 },
+        "targets": [
+          {
+            "expr": "topk(15, sum by (permission) (rate(inferadb_permission_checks_total[5m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": { "permission": "Permission", "Value": "Checks/sec" }
+            }
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Resource Type Check Trends",
+        "type": "graph",
+        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 40 },
+        "targets": [
+          {
+            "expr": "sum by (resource_type) (rate(inferadb_resource_type_checks_total[5m]))",
+            "legendFormat": "{{resource_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "reqps", "label": "Checks/sec" },
+          { "format": "short" }
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "rightSide": false,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      }
+    ]
+  }
+}
