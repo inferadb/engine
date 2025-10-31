@@ -96,7 +96,7 @@ async fn test_expand_stream() {
         ],
     });
 
-    client.write(write_req).await.unwrap();
+    client.write_relationships(write_req).await.unwrap();
 
     // Now stream expand results
     let expand_req = Request::new(ExpandRequest {
@@ -168,7 +168,7 @@ async fn test_write_stream() {
     ];
 
     let stream = futures::stream::iter(requests);
-    let response = client.write_stream(stream).await.unwrap();
+    let response = client.write_relationships_stream(stream).await.unwrap();
 
     let inner = response.into_inner();
     assert_eq!(inner.relationships_written, 4);

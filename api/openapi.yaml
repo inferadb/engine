@@ -556,7 +556,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /write:
+  /write-relationships:
     post:
       tags:
         - relationships

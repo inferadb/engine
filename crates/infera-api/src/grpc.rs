@@ -154,7 +154,7 @@ impl InferaService for InferaServiceImpl {
         }))
     }
 
-    async fn write(
+    async fn write_relationships(
         &self,
         request: Request<WriteRequest>,
     ) -> Result<Response<WriteResponse>, Status> {
@@ -364,7 +364,7 @@ impl InferaService for InferaServiceImpl {
         Ok(Response::new(Box::pin(stream)))
     }
 
-    async fn write_stream(
+    async fn write_relationships_stream(
         &self,
         request: Request<tonic::Streaming<WriteRequest>>,
     ) -> Result<Response<WriteResponse>, Status> {
@@ -719,7 +719,7 @@ mod tests {
             }],
         });
 
-        let write_response = service.write(write_request).await.unwrap();
+        let write_response = service.write_relationships(write_request).await.unwrap();
         let write_result = write_response.into_inner();
         assert_eq!(write_result.relationships_written, 1);
 
@@ -757,7 +757,7 @@ mod tests {
             relationships: vec![],
         });
 
-        let result = service.write(request).await;
+        let result = service.write_relationships(request).await;
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), tonic::Code::InvalidArgument);
     }
@@ -773,7 +773,7 @@ mod tests {
             }],
         });
 
-        let result = service.write(request).await;
+        let result = service.write_relationships(request).await;
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), tonic::Code::InvalidArgument);
     }

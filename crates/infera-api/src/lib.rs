@@ -170,7 +170,7 @@ pub fn create_router(state: AppState) -> Router {
             "/list-relationships/stream",
             post(list_relationships_stream_handler),
         )
-        .route("/write", post(write_handler))
+        .route("/write-relationships", post(write_relationships_handler))
         .route("/delete-relationships", post(delete_relationships_handler))
         .route("/simulate", post(simulate_handler))
         .route("/explain", post(explain_handler));
@@ -396,7 +396,7 @@ async fn expand_stream_handler(
 }
 
 /// Write relationships endpoint
-async fn write_handler(
+async fn write_relationships_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<WriteRequest>,
@@ -1408,7 +1408,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1465,7 +1465,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1492,7 +1492,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1555,7 +1555,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1726,7 +1726,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1841,7 +1841,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1991,7 +1991,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2055,7 +2055,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2126,7 +2126,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2245,7 +2245,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2364,7 +2364,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2433,7 +2433,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2527,7 +2527,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write")
+                    .uri("/write-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
