@@ -105,7 +105,7 @@ async fn test_expand_stream() {
         relation: "reader".to_string(),
     });
 
-    let mut stream = client.expand_stream(expand_req).await.unwrap().into_inner();
+    let mut stream = client.expand(expand_req).await.unwrap().into_inner();
 
     let mut users = Vec::new();
     let mut got_summary = false;
@@ -186,7 +186,7 @@ async fn test_expand_stream_empty() {
         relation: "reader".to_string(),
     });
 
-    let mut stream = client.expand_stream(expand_req).await.unwrap().into_inner();
+    let mut stream = client.expand(expand_req).await.unwrap().into_inner();
 
     let mut users = Vec::new();
     let mut got_summary = false;

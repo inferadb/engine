@@ -4,7 +4,7 @@
 //! ensuring robustness against malformed requests, edge cases, and potential security issues.
 
 use infera_api::grpc::proto::{
-    CheckRequest as ProtoCheckRequest, DeleteRequest, Relationship as ProtoRelationship,
+    DeleteRequest, EvaluateRequest as ProtoEvaluateRequest, Relationship as ProtoRelationship,
     WriteRequest,
 };
 use proptest::prelude::*;
@@ -58,11 +58,12 @@ proptest! {
         permission in arb_string(),
     ) {
         // Create a check request with fuzzed inputs
-        let request = ProtoCheckRequest {
+        let request = ProtoEvaluateRequest {
             subject,
             resource,
             permission,
             context: None,
+            trace: None,
         };
 
         // The request should be constructible without panicking
@@ -117,11 +118,12 @@ proptest! {
     fn fuzz_long_fields(length in 0usize..10000) {
         let long_string = "a".repeat(length);
 
-        let request = ProtoCheckRequest {
+        let request = ProtoEvaluateRequest {
             subject: long_string.clone(),
             resource: long_string.clone(),
             permission: long_string,
             context: None,
+            trace: None,
         };
 
         // Should construct without panicking
@@ -136,11 +138,12 @@ proptest! {
             object = format!("{}:level{}", object, i);
         }
 
-        let request = ProtoCheckRequest {
+        let request = ProtoEvaluateRequest {
             subject: "user:test".to_string(),
             resource: object.clone(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         // Should construct without panicking
@@ -150,11 +153,12 @@ proptest! {
     /// Fuzz with special characters in identifiers
     #[test]
     fn fuzz_special_chars(special in "[!@#$%^&*(){}\\[\\];:'\"<>,.?/|\\\\]{1,20}") {
-        let request = ProtoCheckRequest {
+        let request = ProtoEvaluateRequest {
             subject: format!("user:{}", special),
             resource: format!("doc:{}", special),
             permission: special,
             context: None,
+            trace: None,
         };
 
         // Should construct without panicking
@@ -183,11 +187,12 @@ proptest! {
     /// Fuzz with Unicode characters
     #[test]
     fn fuzz_unicode(unicode in "\\PC{1,50}") {
-        let request = ProtoCheckRequest {
+        let request = ProtoEvaluateRequest {
             subject: format!("user:{}", unicode),
             resource: format!("doc:{}", unicode),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         // Should handle Unicode gracefully
@@ -204,11 +209,12 @@ proptest! {
         Just("../../etc/passwd"),
         Just("\\x00\\x01\\x02"),
     ]) {
-        let request = ProtoCheckRequest {
+        let request = ProtoEvaluateRequest {
             subject: pattern.to_string(),
             resource: pattern.to_string(),
             permission: pattern.to_string(),
             context: None,
+            trace: None,
         };
 
         // Should construct without panicking (validation can reject, but no crashes)
@@ -226,11 +232,12 @@ proptest! {
         Just("\r\n"),
         Just("   \t\n\r  "),
     ]) {
-        let request = ProtoCheckRequest {
+        let request = ProtoEvaluateRequest {
             subject: ws.to_string(),
             resource: ws.to_string(),
             permission: ws.to_string(),
             context: None,
+            trace: None,
         };
 
         // Should construct without panicking
@@ -276,11 +283,12 @@ proptest! {
     #[test]
     fn fuzz_field_separators(sep_count in 0usize..100) {
         let separators = ":".repeat(sep_count);
-        let request = ProtoCheckRequest {
+        let request = ProtoEvaluateRequest {
             subject: format!("user{}", separators),
             resource: format!("doc{}", separators),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         // Should construct without panicking
@@ -297,23 +305,26 @@ mod integration_tests {
     fn test_api_resilience_to_malformed_input() {
         // Create various malformed requests
         let malformed_requests = vec![
-            ProtoCheckRequest {
+            ProtoEvaluateRequest {
                 subject: "".to_string(),
                 resource: "".to_string(),
                 permission: "".to_string(),
                 context: None,
+                trace: None,
             },
-            ProtoCheckRequest {
+            ProtoEvaluateRequest {
                 subject: "a".repeat(10000),
                 resource: "b".repeat(10000),
                 permission: "c".repeat(10000),
                 context: None,
+                trace: None,
             },
-            ProtoCheckRequest {
+            ProtoEvaluateRequest {
                 subject: "user:alice".to_string(),
                 resource: "../../../etc/passwd".to_string(),
                 permission: "'; DROP TABLE users; --".to_string(),
                 context: None,
+                trace: None,
             },
         ];
 

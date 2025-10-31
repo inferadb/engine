@@ -8,21 +8,32 @@
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! use infera_api::grpc::InferaServiceClient;
 //! use infera_api::grpc::proto::{EvaluateRequest};
+//! use futures::StreamExt;
 //!
 //! // Connect to server
 //! let mut client = InferaServiceClient::connect("http://localhost:8080").await?;
 //!
-//! // Make an evaluate request
-//! let request = tonic::Request::new(EvaluateRequest {
+//! // Make an evaluate request (evaluate is a bidirectional streaming RPC)
+//! let request = EvaluateRequest {
 //!     subject: "user:alice".to_string(),
 //!     resource: "doc:readme".to_string(),
 //!     permission: "reader".to_string(),
 //!     context: None,
 //!     trace: None,
-//! });
+//! };
 //!
-//! let response = client.evaluate(request).await?;
-//! println!("Decision: {:?}", response.into_inner().decision);
+//! // Create a stream with the request
+//! let stream = futures::stream::once(async { request });
+//! let request = tonic::Request::new(stream);
+//!
+//! // Send the request and get the response stream
+//! let mut response_stream = client.evaluate(request).await?.into_inner();
+//!
+//! // Read the first response from the stream
+//! if let Some(response) = response_stream.next().await {
+//!     let response = response?;
+//!     println!("Decision: {:?}", response.decision);
+//! }
 //! # Ok(())
 //! # }
 //! ```
@@ -32,10 +43,11 @@ use tonic::{Request, Response, Status};
 use crate::AppState;
 use infera_core::{DecisionTrace, EvaluationNode, NodeType as CoreNodeType};
 use infera_types::{
-    EvaluateRequest as CoreEvaluateRequest, Decision, DeleteFilter as CoreDeleteFilter,
+    Decision, DeleteFilter as CoreDeleteFilter, EvaluateRequest as CoreEvaluateRequest,
     ExpandRequest as CoreExpandRequest, ListRelationshipsRequest as CoreListRelationshipsRequest,
-    ListResourcesRequest as CoreListResourcesRequest, ListSubjectsRequest as CoreListSubjectsRequest,
-    Relationship, RelationshipKey, Revision, UsersetNodeType as CoreUsersetNodeType, UsersetTree,
+    ListResourcesRequest as CoreListResourcesRequest,
+    ListSubjectsRequest as CoreListSubjectsRequest, Relationship, RelationshipKey, Revision,
+    UsersetNodeType as CoreUsersetNodeType, UsersetTree,
 };
 
 // Include generated proto code
@@ -47,9 +59,9 @@ pub mod proto {
 pub use proto::infera_service_client::InferaServiceClient;
 
 use proto::{
-    infera_service_server::InferaService, EvaluateRequest, EvaluateResponse,
-    Decision as ProtoDecision, DeleteRequest, DeleteResponse, ExpandRequest, HealthRequest,
-    HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
+    infera_service_server::InferaService, Decision as ProtoDecision, DeleteRequest, DeleteResponse,
+    EvaluateRequest, EvaluateResponse, ExpandRequest, HealthRequest, HealthResponse,
+    ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
     ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse, WriteRequest, WriteResponse,
 };
 
@@ -178,11 +190,7 @@ impl InferaService for InferaServiceImpl {
     }
 
     type ExpandStream = std::pin::Pin<
-        Box<
-            dyn futures::Stream<Item = Result<proto::ExpandResponse, Status>>
-                + Send
-                + 'static,
-        >,
+        Box<dyn futures::Stream<Item = Result<proto::ExpandResponse, Status>> + Send + 'static>,
     >;
 
     async fn expand(

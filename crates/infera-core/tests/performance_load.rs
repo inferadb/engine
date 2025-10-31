@@ -6,7 +6,7 @@
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::Evaluator;
 use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{CheckRequest, Decision, ExpandRequest, Relationship};
+use infera_types::{Decision, EvaluateRequest, ExpandRequest, Relationship};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -178,11 +178,12 @@ async fn test_sustained_throughput_100k_rps() {
             for i in 0..requests_per_worker {
                 let req_start = Instant::now();
 
-                let request = CheckRequest {
+                let request = EvaluateRequest {
                     subject: format!("subject:user{}", (worker_id * 1000 + i) % 100),
                     resource: format!("resource:doc{}", i % 1000),
                     permission: "viewer".to_string(),
                     context: None,
+                    trace: None,
                 };
 
                 let _ = evaluator.check(request).await;
@@ -263,11 +264,12 @@ async fn test_latency_p99_under_10ms() {
             for i in 0..requests_per_worker {
                 let req_start = Instant::now();
 
-                let request = CheckRequest {
+                let request = EvaluateRequest {
                     subject: format!("subject:user{}", (worker_id + i) % 10),
                     resource: format!("resource:doc{}", i % 100),
                     permission: "viewer".to_string(),
                     context: None,
+                    trace: None,
                 };
 
                 let _ = evaluator.check(request).await;
@@ -346,11 +348,12 @@ async fn test_spike_load() {
             let mut latencies = Vec::new();
             for i in 0..normal_requests_per_worker {
                 let start = Instant::now();
-                let request = CheckRequest {
+                let request = EvaluateRequest {
                     subject: format!("subject:user{}", i % 50),
                     resource: format!("resource:doc{}", i % 500),
                     permission: "viewer".to_string(),
                     context: None,
+                    trace: None,
                 };
                 let _ = evaluator.check(request).await;
                 latencies.push(start.elapsed());
@@ -376,11 +379,12 @@ async fn test_spike_load() {
             let mut latencies = Vec::new();
             for i in 0..spike_requests_per_worker {
                 let start = Instant::now();
-                let request = CheckRequest {
+                let request = EvaluateRequest {
                     subject: format!("subject:user{}", i % 50),
                     resource: format!("resource:doc{}", i % 500),
                     permission: "viewer".to_string(),
                     context: None,
+                    trace: None,
                 };
                 let _ = evaluator.check(request).await;
                 latencies.push(start.elapsed());
@@ -453,11 +457,12 @@ async fn test_stress_beyond_capacity() {
                 let mut worker_latencies = Vec::new();
                 for i in 0..requests_per_worker {
                     let req_start = Instant::now();
-                    let request = CheckRequest {
+                    let request = EvaluateRequest {
                         subject: format!("subject:user{}", (worker_id * 100 + i) % 200),
                         resource: format!("resource:doc{}", i % 5000),
                         permission: "viewer".to_string(),
                         context: None,
+                        trace: None,
                     };
                     let _ = evaluator.check(request).await;
                     worker_latencies.push(req_start.elapsed());
@@ -540,11 +545,12 @@ async fn test_soak_24h_simulation() {
                     break;
                 }
 
-                let request = CheckRequest {
+                let request = EvaluateRequest {
                     subject: format!("subject:user{}", (worker_id * 100 + i) % 100),
                     resource: format!("resource:doc{}", i % 1000),
                     permission: "viewer".to_string(),
                     context: None,
+                    trace: None,
                 };
 
                 match evaluator.check(request).await {
@@ -672,11 +678,12 @@ async fn test_large_graph_1m_relationships() {
             for i in 0..requests_per_worker {
                 let req_start = Instant::now();
 
-                let request = CheckRequest {
+                let request = EvaluateRequest {
                     subject: format!("subject:user{}", (worker_id * 1000 + i) % 10000),
                     resource: format!("resource:doc{}", i * 1000),
                     permission: "viewer".to_string(),
                     context: None,
+                    trace: None,
                 };
 
                 let _ = evaluator.check(request).await;
@@ -757,11 +764,12 @@ async fn test_deep_nesting_10_levels() {
     for level in 0..=15 {
         let req_start = Instant::now();
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "resource:root".to_string(),
             permission: format!("level{}", level),
             context: None,
+            trace: None,
         };
 
         let decision = evaluator.check(request).await.expect("Check failed");

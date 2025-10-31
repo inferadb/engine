@@ -27,7 +27,7 @@ use infera_core::DecisionTrace;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::{
-    EvaluateRequest, Decision, DeleteFilter, ExpandRequest, ListRelationshipsRequest,
+    Decision, DeleteFilter, EvaluateRequest, ExpandRequest, ListRelationshipsRequest,
     ListResourcesRequest, ListSubjectsRequest, Relationship, RelationshipKey,
 };
 
@@ -407,10 +407,12 @@ async fn evaluate_stream_handler(
         })
         .chain(futures::stream::once(async move {
             // Send summary event at the end
-            Event::default().event("summary").json_data(EvaluateSummary {
-                total: total_evaluations,
-                complete: true,
-            })
+            Event::default()
+                .event("summary")
+                .json_data(EvaluateSummary {
+                    total: total_evaluations,
+                    complete: true,
+                })
         }));
 
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
@@ -1165,19 +1167,14 @@ async fn list_subjects_stream_handler(
     let cursor = response.cursor;
     let total_count = response.total_count;
 
-    let stream = stream::iter(
-        subjects
-            .into_iter()
-            .enumerate()
-            .map(|(idx, subject)| {
-                let data = serde_json::json!({
-                    "subject": subject,
-                    "index": idx,
-                });
+    let stream = stream::iter(subjects.into_iter().enumerate().map(|(idx, subject)| {
+        let data = serde_json::json!({
+            "subject": subject,
+            "index": idx,
+        });
 
-                Event::default().json_data(data)
-            }),
-    )
+        Event::default().json_data(data)
+    }))
     .chain(stream::once(async move {
         // Send final summary event
         let summary = serde_json::json!({
@@ -1415,12 +1412,14 @@ mod tests {
     #[derive(serde::Deserialize, Debug)]
     struct ExpandSseUser {
         subject: String,
+        #[allow(dead_code)]
         index: usize,
     }
 
     #[derive(serde::Deserialize, Debug)]
     struct ExpandSseSummary {
         tree: UsersetTree,
+        #[allow(dead_code)]
         total_count: Option<u64>,
         complete: bool,
     }
@@ -1557,7 +1556,9 @@ mod tests {
                     .method("POST")
                     .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
+                    .body(Body::from(
+                        serde_json::to_string(&evaluate_request).unwrap(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -1709,7 +1710,9 @@ mod tests {
                     .method("POST")
                     .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
+                    .body(Body::from(
+                        serde_json::to_string(&evaluate_request).unwrap(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -1771,7 +1774,9 @@ mod tests {
                     .method("POST")
                     .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
+                    .body(Body::from(
+                        serde_json::to_string(&evaluate_request).unwrap(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -2102,7 +2107,9 @@ mod tests {
                     .method("POST")
                     .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
+                    .body(Body::from(
+                        serde_json::to_string(&evaluate_request).unwrap(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -2132,7 +2139,9 @@ mod tests {
                     .method("POST")
                     .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
+                    .body(Body::from(
+                        serde_json::to_string(&evaluate_request).unwrap(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -2231,7 +2240,9 @@ mod tests {
                     .method("POST")
                     .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
+                    .body(Body::from(
+                        serde_json::to_string(&evaluate_request).unwrap(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -2261,7 +2272,9 @@ mod tests {
                     .method("POST")
                     .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
+                    .body(Body::from(
+                        serde_json::to_string(&evaluate_request).unwrap(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -2583,7 +2596,9 @@ mod tests {
                     .method("POST")
                     .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
+                    .body(Body::from(
+                        serde_json::to_string(&evaluate_request).unwrap(),
+                    ))
                     .unwrap(),
             )
             .await

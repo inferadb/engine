@@ -6,7 +6,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use infera_api::grpc::proto::CheckRequest as ProtoCheckRequest;
+use futures::StreamExt;
+use infera_api::grpc::proto::EvaluateRequest as ProtoEvaluateRequest;
 use infera_api::{grpc::proto::infera_service_client::InferaServiceClient, AppState};
 use infera_auth::internal::InternalJwksLoader;
 use infera_auth::jwks_cache::JwksCache;
@@ -153,12 +154,16 @@ async fn test_metrics_after_successful_auth() {
     let claims = InternalClaims::default();
     let token = generate_internal_jwt(&keypair, claims);
 
-    let mut request = Request::new(ProtoCheckRequest {
+    let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
         context: None,
-    });
+        trace: None,
+    };
+
+    let stream = futures::stream::once(async { req });
+    let mut request = Request::new(stream);
 
     // Add valid internal token to metadata
     request.metadata_mut().insert(
@@ -166,7 +171,7 @@ async fn test_metrics_after_successful_auth() {
         MetadataValue::try_from(format!("Bearer {}", token)).unwrap(),
     );
 
-    let response = client.check(request).await;
+    let response = client.evaluate(request).await;
     assert!(response.is_ok(), "Authentication should succeed");
 
     // Note: In a real implementation, we would query the /metrics endpoint here
@@ -209,12 +214,16 @@ async fn test_metrics_after_failed_auth() {
 
     let mut client = InferaServiceClient::new(channel);
 
-    let mut request = Request::new(ProtoCheckRequest {
+    let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
         context: None,
-    });
+        trace: None,
+    };
+
+    let stream = futures::stream::once(async { req });
+    let mut request = Request::new(stream);
 
     // Add invalid token to metadata
     request.metadata_mut().insert(
@@ -222,7 +231,7 @@ async fn test_metrics_after_failed_auth() {
         MetadataValue::from_static("Bearer invalid-jwt-token"),
     );
 
-    let response = client.check(request).await;
+    let response = client.evaluate(request).await;
     assert!(response.is_err(), "Authentication should fail");
 
     // Note: Metrics are recorded via the metrics crate and would be
@@ -285,19 +294,23 @@ async fn test_metrics_cardinality() {
         let claims = InternalClaims::default();
         let token = generate_internal_jwt(&keypair, claims);
 
-        let mut request = Request::new(ProtoCheckRequest {
+        let req = ProtoEvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
-        });
+            trace: None,
+        };
+
+        let stream = futures::stream::once(async { req });
+        let mut request = Request::new(stream);
 
         request.metadata_mut().insert(
             "authorization",
             MetadataValue::try_from(format!("Bearer {}", token)).unwrap(),
         );
 
-        let _response = client.check(request).await;
+        let _response = client.evaluate(request).await;
     }
 
     // All requests should use the same tenant_id label value

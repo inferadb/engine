@@ -198,17 +198,19 @@ async fn test_auth_disabled_allows_unauthenticated_requests() {
     let app = create_router(state);
 
     let check_request = json!({
-        "subject": "user:alice",
-        "resource": "doc:readme",
-        "permission": "reader",
-        "context": null
+        "evaluations": [{
+            "subject": "user:alice",
+            "resource": "doc:readme",
+            "permission": "reader",
+            "context": null
+        }]
     });
 
     let response = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/check")
+                .uri("/evaluate")
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::to_string(&check_request).unwrap()))
                 .unwrap(),
@@ -239,17 +241,19 @@ async fn test_missing_authorization_header() {
     let app = create_router(state);
 
     let check_request = json!({
-        "subject": "user:alice",
-        "resource": "doc:readme",
-        "permission": "reader",
-        "context": null
+        "evaluations": [{
+            "subject": "user:alice",
+            "resource": "doc:readme",
+            "permission": "reader",
+            "context": null
+        }]
     });
 
     let response = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/check")
+                .uri("/evaluate")
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::to_string(&check_request).unwrap()))
                 .unwrap(),
@@ -283,10 +287,12 @@ async fn test_malformed_authorization_header() {
     let app = create_router(state);
 
     let check_request = json!({
-        "subject": "user:alice",
-        "resource": "doc:readme",
-        "permission": "reader",
-        "context": null
+        "evaluations": [{
+            "subject": "user:alice",
+            "resource": "doc:readme",
+            "permission": "reader",
+            "context": null
+        }]
     });
 
     // Test various malformed headers
@@ -298,7 +304,7 @@ async fn test_malformed_authorization_header() {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
                     .header("authorization", auth_value)
                     .body(Body::from(serde_json::to_string(&check_request).unwrap()))
@@ -373,10 +379,12 @@ async fn test_invalid_jwt_format() {
     let app = create_router(state);
 
     let check_request = json!({
-        "subject": "user:alice",
-        "resource": "doc:readme",
-        "permission": "reader",
-        "context": null
+        "evaluations": [{
+            "subject": "user:alice",
+            "resource": "doc:readme",
+            "permission": "reader",
+            "context": null
+        }]
     });
 
     // Invalid JWT - not even base64
@@ -384,7 +392,7 @@ async fn test_invalid_jwt_format() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/check")
+                .uri("/evaluate")
                 .header("content-type", "application/json")
                 .header("authorization", "Bearer not-a-valid-jwt")
                 .body(Body::from(serde_json::to_string(&check_request).unwrap()))

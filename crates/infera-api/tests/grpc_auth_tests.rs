@@ -10,7 +10,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use infera_api::grpc::proto::{CheckRequest as ProtoCheckRequest, HealthRequest};
+use futures::StreamExt;
+use infera_api::grpc::proto::{EvaluateRequest as ProtoEvaluateRequest, HealthRequest};
 use infera_api::{grpc::proto::infera_service_client::InferaServiceClient, AppState};
 use infera_auth::internal::InternalJwksLoader;
 use infera_auth::jwks_cache::JwksCache;
@@ -299,14 +300,17 @@ async fn test_grpc_check_without_token() {
 
     let mut client = InferaServiceClient::new(channel);
 
-    let request = Request::new(ProtoCheckRequest {
+    let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
         context: None,
-    });
+        trace: None,
+    };
 
-    let response = client.check(request).await;
+    let stream = futures::stream::once(async { req });
+    let request = Request::new(stream);
+    let response = client.evaluate(request).await;
 
     assert!(response.is_err());
     let err = response.unwrap_err();
@@ -342,12 +346,16 @@ async fn test_grpc_check_with_invalid_token() {
 
     let mut client = InferaServiceClient::new(channel);
 
-    let mut request = Request::new(ProtoCheckRequest {
+    let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
         context: None,
-    });
+        trace: None,
+    };
+
+    let stream = futures::stream::once(async { req });
+    let mut request = Request::new(stream);
 
     // Add invalid token to metadata
     request.metadata_mut().insert(
@@ -355,7 +363,7 @@ async fn test_grpc_check_with_invalid_token() {
         MetadataValue::from_static("Bearer invalid-jwt-token"),
     );
 
-    let response = client.check(request).await;
+    let response = client.evaluate(request).await;
 
     assert!(response.is_err());
     let err = response.unwrap_err();
@@ -398,12 +406,16 @@ async fn test_grpc_check_with_tenant_jwt() {
     let tenant_id = "test-tenant-123";
     let token = mock_jwks.generate_tenant_jwt(tenant_id, &["inferadb.check"], 3600);
 
-    let mut request = Request::new(ProtoCheckRequest {
+    let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
         context: None,
-    });
+        trace: None,
+    };
+
+    let stream = futures::stream::once(async { req });
+    let mut request = Request::new(stream);
 
     // Add valid token to metadata
     request.metadata_mut().insert(
@@ -411,10 +423,11 @@ async fn test_grpc_check_with_tenant_jwt() {
         MetadataValue::try_from(format!("Bearer {}", token)).unwrap(),
     );
 
-    let response = client.check(request).await;
+    let response = client.evaluate(request).await;
 
     assert!(response.is_ok(), "Expected success with valid tenant JWT");
-    let check_response = response.unwrap().into_inner();
+    let mut resp_stream = response.unwrap().into_inner();
+    let check_response = resp_stream.next().await.unwrap().unwrap();
 
     // Should be DENY because no tuples are written
     assert_eq!(check_response.decision, 2); // Decision::Deny = 2
@@ -472,12 +485,16 @@ async fn test_grpc_check_with_internal_jwt() {
     let claims = InternalClaims::default();
     let token = generate_internal_jwt(&keypair, claims);
 
-    let mut request = Request::new(ProtoCheckRequest {
+    let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
         context: None,
-    });
+        trace: None,
+    };
+
+    let stream = futures::stream::once(async { req });
+    let mut request = Request::new(stream);
 
     // Add valid internal token to metadata
     request.metadata_mut().insert(
@@ -485,7 +502,7 @@ async fn test_grpc_check_with_internal_jwt() {
         MetadataValue::try_from(format!("Bearer {}", token)).unwrap(),
     );
 
-    let response = client.check(request).await;
+    let response = client.evaluate(request).await;
 
     if let Err(e) = &response {
         eprintln!("gRPC error: code={:?}, message={}", e.code(), e.message());
@@ -495,7 +512,8 @@ async fn test_grpc_check_with_internal_jwt() {
         "Expected success with valid internal JWT, got: {:?}",
         response.as_ref().err()
     );
-    let check_response = response.unwrap().into_inner();
+    let mut resp_stream = response.unwrap().into_inner();
+    let check_response = resp_stream.next().await.unwrap().unwrap();
 
     // Should be DENY because no tuples are written
     assert_eq!(check_response.decision, 2); // Decision::Deny = 2
@@ -553,12 +571,16 @@ async fn test_grpc_check_with_expired_internal_jwt() {
     let claims = InternalClaims::expired();
     let token = generate_internal_jwt(&keypair, claims);
 
-    let mut request = Request::new(ProtoCheckRequest {
+    let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
         context: None,
-    });
+        trace: None,
+    };
+
+    let stream = futures::stream::once(async { req });
+    let mut request = Request::new(stream);
 
     // Add expired token to metadata
     request.metadata_mut().insert(
@@ -566,7 +588,7 @@ async fn test_grpc_check_with_expired_internal_jwt() {
         MetadataValue::try_from(format!("Bearer {}", token)).unwrap(),
     );
 
-    let response = client.check(request).await;
+    let response = client.evaluate(request).await;
 
     assert!(response.is_err());
     let err = response.unwrap_err();
@@ -605,12 +627,16 @@ async fn test_grpc_lowercase_authorization_metadata() {
 
     let mut client = InferaServiceClient::new(channel);
 
-    let mut request = Request::new(ProtoCheckRequest {
+    let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
         context: None,
-    });
+        trace: None,
+    };
+
+    let stream = futures::stream::once(async { req });
+    let mut request = Request::new(stream);
 
     // Use lowercase "authorization" key
     request.metadata_mut().insert(
@@ -618,7 +644,7 @@ async fn test_grpc_lowercase_authorization_metadata() {
         MetadataValue::from_static("Bearer invalid-token"),
     );
 
-    let response = client.check(request).await;
+    let response = client.evaluate(request).await;
 
     // Should get UNAUTHENTICATED (not missing metadata)
     assert!(response.is_err());

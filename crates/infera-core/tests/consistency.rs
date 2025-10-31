@@ -6,7 +6,7 @@
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::Evaluator;
 use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{CheckRequest, Decision, Relationship, RelationshipKey};
+use infera_types::{Decision, EvaluateRequest, Relationship, RelationshipKey};
 use std::sync::Arc;
 use tokio::task::JoinSet;
 
@@ -73,11 +73,12 @@ async fn test_write_then_read_different_evaluators() {
         .expect("Failed to write");
 
     // Read with evaluator2 - should see the write
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:doc1".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let decision = evaluator2.check(request).await.expect("Check failed");
@@ -221,7 +222,7 @@ async fn test_concurrent_reads() {
                 None,
             );
 
-            let request = CheckRequest {
+            let request = EvaluateRequest {
                 subject: if i % 2 == 0 {
                     "user:alice".to_string()
                 } else {
@@ -234,6 +235,7 @@ async fn test_concurrent_reads() {
                 },
                 permission: "viewer".to_string(),
                 context: None,
+                trace: None,
             };
 
             evaluator.check(request).await
@@ -315,11 +317,12 @@ async fn test_concurrent_write_and_read() {
                 None,
             );
 
-            let request = CheckRequest {
+            let request = EvaluateRequest {
                 subject: format!("subject:writer{}", i),
                 resource: format!("document:doc{}", i),
                 permission: "viewer".to_string(),
                 context: None,
+                trace: None,
             };
 
             // May succeed or fail depending on race
@@ -421,11 +424,12 @@ async fn test_read_your_own_writes() {
                 None,
             );
 
-            let request = CheckRequest {
+            let request = EvaluateRequest {
                 subject: format!("subject:user{}", i),
                 resource: format!("document:doc{}", i),
                 permission: "viewer".to_string(),
                 context: None,
+                trace: None,
             };
 
             evaluator.check(request).await
@@ -517,18 +521,20 @@ async fn test_conflicting_writes_both_preserved() {
     let schema = Arc::new(create_simple_schema());
     let evaluator = Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None);
 
-    let alice_req = CheckRequest {
+    let alice_req = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:doc1".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
-    let bob_req = CheckRequest {
+    let bob_req = EvaluateRequest {
         subject: "user:bob".to_string(),
         resource: "document:doc1".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     assert_eq!(
@@ -571,11 +577,12 @@ async fn test_cross_region_consistency() {
     let eval_a = Evaluator::new(region_a as Arc<dyn RelationshipStore>, schema.clone(), None);
     let eval_b = Evaluator::new(region_b as Arc<dyn RelationshipStore>, schema, None);
 
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:global1".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let decision_a = eval_a

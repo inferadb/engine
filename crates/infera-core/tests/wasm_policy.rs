@@ -3,7 +3,7 @@
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::Evaluator;
 use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{CheckRequest, Decision, Relationship};
+use infera_types::{Decision, EvaluateRequest, Relationship};
 use infera_wasm::WasmHost;
 use std::sync::Arc;
 
@@ -80,11 +80,12 @@ async fn test_wasm_allow_policy() {
     );
 
     // Test check - should allow due to WASM module
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let decision = evaluator.check(request).await.unwrap();
@@ -119,11 +120,12 @@ async fn test_wasm_deny_policy() {
     );
 
     // Test check - should deny due to WASM module
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let decision = evaluator.check(request).await.unwrap();
@@ -168,22 +170,24 @@ async fn test_wasm_with_union() {
         .unwrap();
 
     // Test check - should allow due to direct relationship (even though WASM denies)
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let decision = evaluator.check(request).await.unwrap();
     assert_eq!(decision, Decision::Allow);
 
     // Test with user not in direct relationships - should deny since WASM denies
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:bob".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let decision = evaluator.check(request).await.unwrap();
@@ -228,22 +232,24 @@ async fn test_wasm_with_intersection() {
         .unwrap();
 
     // Test check - should allow since both conditions met
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let decision = evaluator.check(request).await.unwrap();
     assert_eq!(decision, Decision::Allow);
 
     // Test with user not in direct relationships - should deny even though WASM allows
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:bob".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let decision = evaluator.check(request).await.unwrap();
@@ -261,11 +267,12 @@ async fn test_wasm_missing_host() {
     );
 
     // Test check - should error with WASM host not configured
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let result = evaluator.check(request).await;
@@ -288,11 +295,12 @@ async fn test_wasm_module_not_loaded() {
     );
 
     // Test check - should error with module not found
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let result = evaluator.check(request).await;
@@ -328,11 +336,12 @@ async fn test_wasm_with_trace() {
     );
 
     // Test check with trace
-    let request = CheckRequest {
+    let request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let trace = evaluator.check_with_trace(request).await.unwrap();

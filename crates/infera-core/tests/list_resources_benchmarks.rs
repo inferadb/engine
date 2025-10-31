@@ -10,7 +10,7 @@
 
 use infera_core::Evaluator;
 use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{CheckRequest, Decision, ListResourcesRequest, Relationship};
+use infera_types::{Decision, EvaluateRequest, ListResourcesRequest, Relationship};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -192,11 +192,12 @@ async fn bench_list_resources_deep_hierarchy() {
     let evaluator = Evaluator::new(store, schema, None);
 
     // Check that Alice can access the deepest folder
-    let check_request = CheckRequest {
+    let check_request = EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: format!("folder:level{}", depth - 1),
         permission: "viewer".to_string(),
         context: None,
+        trace: None,
     };
 
     let start = Instant::now();

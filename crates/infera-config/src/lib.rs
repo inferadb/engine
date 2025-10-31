@@ -549,7 +549,7 @@ mod tests {
         config.jwks_base_url = String::new();
 
         // Should warn but not panic
-        config.validate();
+        let _ = config.validate();
     }
 
     #[test]
@@ -564,7 +564,7 @@ mod tests {
         config.internal_jwks_env = None;
 
         // Should log info but not panic
-        config.validate();
+        let _ = config.validate();
     }
 
     #[test]
@@ -579,7 +579,7 @@ mod tests {
         config.redis_url = None;
 
         // Should warn but not panic
-        config.validate();
+        let _ = config.validate();
     }
 
     #[test]
@@ -593,7 +593,7 @@ mod tests {
         config.accepted_algorithms = vec![];
 
         // Should warn but not panic
-        config.validate();
+        let _ = config.validate();
     }
 
     #[test]
@@ -613,6 +613,6 @@ mod tests {
         };
 
         // Should not log any warnings
-        config.validate();
+        let _ = config.validate();
     }
 }

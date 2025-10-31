@@ -3,7 +3,7 @@
 use crate::evaluator::Evaluator;
 use crate::ipl::RelationExpr;
 use crate::{EvalError, Result};
-use infera_types::{EvaluateRequest, Decision};
+use infera_types::{Decision, EvaluateRequest};
 use std::sync::Arc;
 use tokio::task::JoinSet;
 

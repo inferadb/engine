@@ -13,7 +13,7 @@ use infera_cache::{AuthCache, CheckCacheKey};
 use infera_const::{DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT};
 use infera_store::RelationshipStore;
 use infera_types::{
-    EvaluateRequest, Decision, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
+    Decision, EvaluateRequest, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
     ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, ListSubjectsRequest,
     ListSubjectsResponse, Relationship, Revision, UsersetNodeType, UsersetTree,
 };
@@ -1191,7 +1191,10 @@ impl Evaluator {
         };
 
         // Apply default and maximum limits
-        let limit = request.limit.unwrap_or(DEFAULT_LIST_LIMIT).min(MAX_LIST_LIMIT);
+        let limit = request
+            .limit
+            .unwrap_or(DEFAULT_LIST_LIMIT)
+            .min(MAX_LIST_LIMIT);
 
         // Apply pagination
         let relationships: Vec<Relationship> = all_relationships
@@ -1279,13 +1282,8 @@ impl Evaluator {
             })?;
 
         // Collect subjects based on relation definition
-        let mut all_subjects =
-            self.collect_subjects_for_relation(
-                &request.resource,
-                relation_def,
-                resource_type,
-                revision,
-            )
+        let mut all_subjects = self
+            .collect_subjects_for_relation(&request.resource, relation_def, resource_type, revision)
             .await?;
 
         debug!(
@@ -1307,10 +1305,7 @@ impl Evaluator {
             });
         }
 
-        debug!(
-            "Found {} subjects after filtering",
-            all_subjects.len()
-        );
+        debug!("Found {} subjects after filtering", all_subjects.len());
 
         // Decode cursor to get offset if provided
         let offset = if let Some(cursor) = &request.cursor {
@@ -1320,14 +1315,13 @@ impl Evaluator {
         };
 
         // Apply default and maximum limits
-        let limit = request.limit.unwrap_or(DEFAULT_LIST_LIMIT).min(MAX_LIST_LIMIT);
+        let limit = request
+            .limit
+            .unwrap_or(DEFAULT_LIST_LIMIT)
+            .min(MAX_LIST_LIMIT);
 
         // Apply pagination
-        let subjects: Vec<String> = all_subjects
-            .into_iter()
-            .skip(offset)
-            .take(limit)
-            .collect();
+        let subjects: Vec<String> = all_subjects.into_iter().skip(offset).take(limit).collect();
 
         let returned_count = subjects.len();
 
@@ -1362,203 +1356,240 @@ impl Evaluator {
         revision: Revision,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + 'a>> {
         Box::pin(async move {
-        use crate::ipl::RelationExpr;
-        use std::collections::HashSet;
+            use crate::ipl::RelationExpr;
+            use std::collections::HashSet;
 
-        let mut subjects = HashSet::new();
+            let mut subjects = HashSet::new();
 
-        if let Some(ref expr) = relation_def.expr {
-            match expr {
-                // Direct relation: query tuples
-                RelationExpr::This => {
-                    let tuples = self
-                        .store
-                        .list_relationships(
-                            Some(resource),
-                            Some(&relation_def.name),
-                            None,
-                            revision,
-                        )
-                        .await?;
+            if let Some(ref expr) = relation_def.expr {
+                match expr {
+                    // Direct relation: query tuples
+                    RelationExpr::This => {
+                        let tuples = self
+                            .store
+                            .list_relationships(
+                                Some(resource),
+                                Some(&relation_def.name),
+                                None,
+                                revision,
+                            )
+                            .await?;
 
-                    for tuple in tuples {
-                        subjects.insert(tuple.subject);
+                        for tuple in tuples {
+                            subjects.insert(tuple.subject);
+                        }
                     }
-                }
 
-                // Computed userset: follow relationship then get subjects from computed relation
-                RelationExpr::ComputedUserset {
-                    ref relationship,
-                    ref relation,
-                } => {
-                    // First, find related objects via the relationship
-                    let related_tuples = self
-                        .store
-                        .list_relationships(Some(resource), Some(relationship), None, revision)
-                        .await?;
+                    // Computed userset: follow relationship then get subjects from computed relation
+                    RelationExpr::ComputedUserset {
+                        ref relationship,
+                        ref relation,
+                    } => {
+                        // First, find related objects via the relationship
+                        let related_tuples = self
+                            .store
+                            .list_relationships(Some(resource), Some(relationship), None, revision)
+                            .await?;
 
-                    // For each related object, find subjects via the computed relation
-                    for tuple in related_tuples {
-                        let related_resource = &tuple.subject;
-                        let related_parts: Vec<&str> = related_resource.split(':').collect();
+                        // For each related object, find subjects via the computed relation
+                        for tuple in related_tuples {
+                            let related_resource = &tuple.subject;
+                            let related_parts: Vec<&str> = related_resource.split(':').collect();
 
-                        if related_parts.len() == 2 {
-                            let related_type = related_parts[0];
-                            if let Some(related_type_def) = self.schema.find_type(related_type) {
-                                if let Some(computed_rel_def) =
-                                    related_type_def.relations.iter().find(|r| r.name == *relation)
+                            if related_parts.len() == 2 {
+                                let related_type = related_parts[0];
+                                if let Some(related_type_def) = self.schema.find_type(related_type)
                                 {
-                                    let related_subjects = self
-                                        .collect_subjects_for_relation(
-                                            related_resource,
-                                            computed_rel_def,
-                                            related_type,
-                                            revision,
-                                        )
-                                        .await?;
-                                    subjects.extend(related_subjects);
+                                    if let Some(computed_rel_def) = related_type_def
+                                        .relations
+                                        .iter()
+                                        .find(|r| r.name == *relation)
+                                    {
+                                        let related_subjects = self
+                                            .collect_subjects_for_relation(
+                                                related_resource,
+                                                computed_rel_def,
+                                                related_type,
+                                                revision,
+                                            )
+                                            .await?;
+                                        subjects.extend(related_subjects);
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // Union: collect subjects from all branches
-                RelationExpr::Union(ref branches) => {
-                    for branch_expr in branches {
-                        let branch_subjects = self
-                            .collect_subjects_from_expr(resource, branch_expr, resource_type, &relation_def.name, revision)
-                            .await?;
-                        subjects.extend(branch_subjects);
+                    // Union: collect subjects from all branches
+                    RelationExpr::Union(ref branches) => {
+                        for branch_expr in branches {
+                            let branch_subjects = self
+                                .collect_subjects_from_expr(
+                                    resource,
+                                    branch_expr,
+                                    resource_type,
+                                    &relation_def.name,
+                                    revision,
+                                )
+                                .await?;
+                            subjects.extend(branch_subjects);
+                        }
                     }
-                }
 
-                // Intersection: collect subjects that appear in all branches
-                RelationExpr::Intersection(ref branches) => {
-                    if branches.is_empty() {
-                        return Ok(Vec::new());
+                    // Intersection: collect subjects that appear in all branches
+                    RelationExpr::Intersection(ref branches) => {
+                        if branches.is_empty() {
+                            return Ok(Vec::new());
+                        }
+
+                        // Get subjects from first branch
+                        let mut intersection_subjects = self
+                            .collect_subjects_from_expr(
+                                resource,
+                                &branches[0],
+                                resource_type,
+                                &relation_def.name,
+                                revision,
+                            )
+                            .await?
+                            .into_iter()
+                            .collect::<HashSet<_>>();
+
+                        // Intersect with remaining branches
+                        for branch_expr in &branches[1..] {
+                            let branch_subjects: HashSet<String> = self
+                                .collect_subjects_from_expr(
+                                    resource,
+                                    branch_expr,
+                                    resource_type,
+                                    &relation_def.name,
+                                    revision,
+                                )
+                                .await?
+                                .into_iter()
+                                .collect();
+                            intersection_subjects.retain(|s| branch_subjects.contains(s));
+                        }
+
+                        subjects.extend(intersection_subjects);
                     }
 
-                    // Get subjects from first branch
-                    let mut intersection_subjects = self
-                        .collect_subjects_from_expr(resource, &branches[0], resource_type, &relation_def.name, revision)
-                        .await?
-                        .into_iter()
-                        .collect::<HashSet<_>>();
-
-                    // Intersect with remaining branches
-                    for branch_expr in &branches[1..] {
-                        let branch_subjects: HashSet<String> = self
-                            .collect_subjects_from_expr(resource, branch_expr, resource_type, &relation_def.name, revision)
+                    // Exclusion: subjects in base but not in subtract
+                    RelationExpr::Exclusion { base, subtract } => {
+                        let base_subjects: HashSet<String> = self
+                            .collect_subjects_from_expr(
+                                resource,
+                                base,
+                                resource_type,
+                                &relation_def.name,
+                                revision,
+                            )
                             .await?
                             .into_iter()
                             .collect();
-                        intersection_subjects.retain(|s| branch_subjects.contains(s));
+
+                        let subtract_subjects: HashSet<String> = self
+                            .collect_subjects_from_expr(
+                                resource,
+                                subtract,
+                                resource_type,
+                                &relation_def.name,
+                                revision,
+                            )
+                            .await?
+                            .into_iter()
+                            .collect();
+
+                        subjects.extend(base_subjects.difference(&subtract_subjects).cloned());
                     }
 
-                    subjects.extend(intersection_subjects);
-                }
+                    // RelatedObjectUserset: find related objects, then their subjects
+                    RelationExpr::RelatedObjectUserset {
+                        ref relationship,
+                        ref computed,
+                    } => {
+                        // First, find all related objects via the relationship
+                        let related_tuples = self
+                            .store
+                            .list_relationships(Some(resource), Some(relationship), None, revision)
+                            .await?;
 
-                // Exclusion: subjects in base but not in subtract
-                RelationExpr::Exclusion { base, subtract } => {
-                    let base_subjects: HashSet<String> = self
-                        .collect_subjects_from_expr(resource, base, resource_type, &relation_def.name, revision)
-                        .await?
-                        .into_iter()
-                        .collect();
+                        // For each related object, find subjects via the computed relation
+                        for tuple in related_tuples {
+                            let related_resource = &tuple.subject; // The subject is the related object
 
-                    let subtract_subjects: HashSet<String> = self
-                        .collect_subjects_from_expr(resource, subtract, resource_type, &relation_def.name, revision)
-                        .await?
-                        .into_iter()
-                        .collect();
+                            // Extract the type from the related resource
+                            let related_parts: Vec<&str> = related_resource.split(':').collect();
+                            if related_parts.len() == 2 {
+                                let related_type = related_parts[0];
 
-                    subjects.extend(base_subjects.difference(&subtract_subjects).cloned());
-                }
-
-                // RelatedObjectUserset: find related objects, then their subjects
-                RelationExpr::RelatedObjectUserset {
-                    ref relationship,
-                    ref computed,
-                } => {
-                    // First, find all related objects via the relationship
-                    let related_tuples = self
-                        .store
-                        .list_relationships(Some(resource), Some(relationship), None, revision)
-                        .await?;
-
-                    // For each related object, find subjects via the computed relation
-                    for tuple in related_tuples {
-                        let related_resource = &tuple.subject; // The subject is the related object
-
-                        // Extract the type from the related resource
-                        let related_parts: Vec<&str> = related_resource.split(':').collect();
-                        if related_parts.len() == 2 {
-                            let related_type = related_parts[0];
-
-                            if let Some(related_type_def) = self.schema.find_type(related_type) {
-                                if let Some(computed_rel_def) =
-                                    related_type_def.relations.iter().find(|r| r.name == *computed)
+                                if let Some(related_type_def) = self.schema.find_type(related_type)
                                 {
-                                    let related_subjects = self
-                                        .collect_subjects_for_relation(
-                                            related_resource,
-                                            computed_rel_def,
-                                            related_type,
-                                            revision,
-                                        )
-                                        .await?;
-                                    subjects.extend(related_subjects);
+                                    if let Some(computed_rel_def) = related_type_def
+                                        .relations
+                                        .iter()
+                                        .find(|r| r.name == *computed)
+                                    {
+                                        let related_subjects = self
+                                            .collect_subjects_for_relation(
+                                                related_resource,
+                                                computed_rel_def,
+                                                related_type,
+                                                revision,
+                                            )
+                                            .await?;
+                                        subjects.extend(related_subjects);
+                                    }
                                 }
                             }
                         }
                     }
+
+                    // Relation reference: recursively get subjects from referenced relation
+                    RelationExpr::RelationRef { ref relation } => {
+                        let ref_rel_def = self
+                            .schema
+                            .find_type(resource_type)
+                            .and_then(|t| t.relations.iter().find(|r| r.name == *relation))
+                            .ok_or_else(|| {
+                                EvalError::Evaluation(format!(
+                                    "Unknown relation: {}#{}",
+                                    resource_type, relation
+                                ))
+                            })?;
+
+                        let ref_subjects = self
+                            .collect_subjects_for_relation(
+                                resource,
+                                ref_rel_def,
+                                resource_type,
+                                revision,
+                            )
+                            .await?;
+                        subjects.extend(ref_subjects);
+                    }
+
+                    // WASM module: Not supported for list_subjects (requires evaluation per subject)
+                    RelationExpr::WasmModule { .. } => {
+                        return Err(EvalError::Evaluation(
+                            "WASM module-based relations are not supported for list_subjects"
+                                .to_string(),
+                        ));
+                    }
                 }
+            } else {
+                // No expression means it's a direct relation (This)
+                let tuples = self
+                    .store
+                    .list_relationships(Some(resource), Some(&relation_def.name), None, revision)
+                    .await?;
 
-                // Relation reference: recursively get subjects from referenced relation
-                RelationExpr::RelationRef { ref relation } => {
-                    let ref_rel_def = self
-                        .schema
-                        .find_type(resource_type)
-                        .and_then(|t| t.relations.iter().find(|r| r.name == *relation))
-                        .ok_or_else(|| {
-                            EvalError::Evaluation(format!(
-                                "Unknown relation: {}#{}",
-                                resource_type, relation
-                            ))
-                        })?;
-
-                    let ref_subjects = self
-                        .collect_subjects_for_relation(resource, ref_rel_def, resource_type, revision)
-                        .await?;
-                    subjects.extend(ref_subjects);
-                }
-
-                // WASM module: Not supported for list_subjects (requires evaluation per subject)
-                RelationExpr::WasmModule { .. } => {
-                    return Err(EvalError::Evaluation(
-                        "WASM module-based relations are not supported for list_subjects".to_string(),
-                    ));
+                for tuple in tuples {
+                    subjects.insert(tuple.subject);
                 }
             }
-        } else {
-            // No expression means it's a direct relation (This)
-            let tuples = self
-                .store
-                .list_relationships(
-                    Some(resource),
-                    Some(&relation_def.name),
-                    None,
-                    revision,
-                )
-                .await?;
 
-            for tuple in tuples {
-                subjects.insert(tuple.subject);
-            }
-        }
-
-        Ok(subjects.into_iter().collect())
+            Ok(subjects.into_iter().collect())
         })
     }
 
@@ -1572,166 +1603,205 @@ impl Evaluator {
         revision: Revision,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + 'a>> {
         Box::pin(async move {
-        use crate::ipl::RelationExpr;
-        use std::collections::HashSet;
+            use crate::ipl::RelationExpr;
+            use std::collections::HashSet;
 
-        match expr {
-            RelationExpr::This => {
-                // Collect direct relationships for this relation
-                let tuples = self
-                    .store
-                    .list_relationships(Some(resource), Some(relation_name), None, revision)
-                    .await?;
-                Ok(tuples.into_iter().map(|t| t.subject).collect())
-            }
+            match expr {
+                RelationExpr::This => {
+                    // Collect direct relationships for this relation
+                    let tuples = self
+                        .store
+                        .list_relationships(Some(resource), Some(relation_name), None, revision)
+                        .await?;
+                    Ok(tuples.into_iter().map(|t| t.subject).collect())
+                }
 
-            RelationExpr::ComputedUserset {
-                ref relationship,
-                ref relation,
-            } => {
-                let mut all_subjects = HashSet::new();
-                let related_tuples = self
-                    .store
-                    .list_relationships(Some(resource), Some(relationship), None, revision)
-                    .await?;
+                RelationExpr::ComputedUserset {
+                    ref relationship,
+                    ref relation,
+                } => {
+                    let mut all_subjects = HashSet::new();
+                    let related_tuples = self
+                        .store
+                        .list_relationships(Some(resource), Some(relationship), None, revision)
+                        .await?;
 
-                for tuple in related_tuples {
-                    let related_resource = &tuple.subject;
-                    let related_parts: Vec<&str> = related_resource.split(':').collect();
+                    for tuple in related_tuples {
+                        let related_resource = &tuple.subject;
+                        let related_parts: Vec<&str> = related_resource.split(':').collect();
 
-                    if related_parts.len() == 2 {
-                        let related_type = related_parts[0];
-                        if let Some(related_type_def) = self.schema.find_type(related_type) {
-                            if let Some(computed_rel_def) =
-                                related_type_def.relations.iter().find(|r| r.name == *relation)
-                            {
-                                let related_subjects = self
-                                    .collect_subjects_for_relation(
-                                        related_resource,
-                                        computed_rel_def,
-                                        related_type,
-                                        revision,
-                                    )
-                                    .await?;
-                                all_subjects.extend(related_subjects);
+                        if related_parts.len() == 2 {
+                            let related_type = related_parts[0];
+                            if let Some(related_type_def) = self.schema.find_type(related_type) {
+                                if let Some(computed_rel_def) = related_type_def
+                                    .relations
+                                    .iter()
+                                    .find(|r| r.name == *relation)
+                                {
+                                    let related_subjects = self
+                                        .collect_subjects_for_relation(
+                                            related_resource,
+                                            computed_rel_def,
+                                            related_type,
+                                            revision,
+                                        )
+                                        .await?;
+                                    all_subjects.extend(related_subjects);
+                                }
                             }
                         }
                     }
+
+                    Ok(all_subjects.into_iter().collect())
                 }
 
-                Ok(all_subjects.into_iter().collect())
-            }
+                RelationExpr::RelationRef { ref relation } => {
+                    let ref_rel_def = self
+                        .schema
+                        .find_type(resource_type)
+                        .and_then(|t| t.relations.iter().find(|r| r.name == *relation))
+                        .ok_or_else(|| {
+                            EvalError::Evaluation(format!(
+                                "Unknown relation: {}#{}",
+                                resource_type, relation
+                            ))
+                        })?;
 
-            RelationExpr::RelationRef { ref relation } => {
-                let ref_rel_def = self
-                    .schema
-                    .find_type(resource_type)
-                    .and_then(|t| t.relations.iter().find(|r| r.name == *relation))
-                    .ok_or_else(|| {
-                        EvalError::Evaluation(format!(
-                            "Unknown relation: {}#{}",
-                            resource_type, relation
-                        ))
-                    })?;
-
-                self.collect_subjects_for_relation(resource, ref_rel_def, resource_type, revision)
+                    self.collect_subjects_for_relation(
+                        resource,
+                        ref_rel_def,
+                        resource_type,
+                        revision,
+                    )
                     .await
-            }
+                }
 
-            RelationExpr::Union(ref branches) => {
-                let mut all_subjects = HashSet::new();
-                for branch in branches {
-                    let branch_subjects =
-                        self.collect_subjects_from_expr(resource, branch, resource_type, relation_name, revision)
+                RelationExpr::Union(ref branches) => {
+                    let mut all_subjects = HashSet::new();
+                    for branch in branches {
+                        let branch_subjects = self
+                            .collect_subjects_from_expr(
+                                resource,
+                                branch,
+                                resource_type,
+                                relation_name,
+                                revision,
+                            )
                             .await?;
-                    all_subjects.extend(branch_subjects);
-                }
-                Ok(all_subjects.into_iter().collect())
-            }
-
-            RelationExpr::Intersection(ref branches) => {
-                if branches.is_empty() {
-                    return Ok(Vec::new());
+                        all_subjects.extend(branch_subjects);
+                    }
+                    Ok(all_subjects.into_iter().collect())
                 }
 
-                let mut intersection_subjects = self
-                    .collect_subjects_from_expr(resource, &branches[0], resource_type, relation_name, revision)
-                    .await?
-                    .into_iter()
-                    .collect::<HashSet<_>>();
+                RelationExpr::Intersection(ref branches) => {
+                    if branches.is_empty() {
+                        return Ok(Vec::new());
+                    }
 
-                for branch in &branches[1..] {
-                    let branch_subjects: HashSet<String> = self
-                        .collect_subjects_from_expr(resource, branch, resource_type, relation_name, revision)
+                    let mut intersection_subjects = self
+                        .collect_subjects_from_expr(
+                            resource,
+                            &branches[0],
+                            resource_type,
+                            relation_name,
+                            revision,
+                        )
+                        .await?
+                        .into_iter()
+                        .collect::<HashSet<_>>();
+
+                    for branch in &branches[1..] {
+                        let branch_subjects: HashSet<String> = self
+                            .collect_subjects_from_expr(
+                                resource,
+                                branch,
+                                resource_type,
+                                relation_name,
+                                revision,
+                            )
+                            .await?
+                            .into_iter()
+                            .collect();
+                        intersection_subjects.retain(|s| branch_subjects.contains(s));
+                    }
+
+                    Ok(intersection_subjects.into_iter().collect())
+                }
+
+                RelationExpr::Exclusion { base, subtract } => {
+                    let base_subjects: HashSet<String> = self
+                        .collect_subjects_from_expr(
+                            resource,
+                            base,
+                            resource_type,
+                            relation_name,
+                            revision,
+                        )
                         .await?
                         .into_iter()
                         .collect();
-                    intersection_subjects.retain(|s| branch_subjects.contains(s));
+
+                    let subtract_subjects: HashSet<String> = self
+                        .collect_subjects_from_expr(
+                            resource,
+                            subtract,
+                            resource_type,
+                            relation_name,
+                            revision,
+                        )
+                        .await?
+                        .into_iter()
+                        .collect();
+
+                    Ok(base_subjects
+                        .difference(&subtract_subjects)
+                        .cloned()
+                        .collect())
                 }
 
-                Ok(intersection_subjects.into_iter().collect())
-            }
+                RelationExpr::RelatedObjectUserset {
+                    ref relationship,
+                    ref computed,
+                } => {
+                    let mut all_subjects = HashSet::new();
+                    let related_tuples = self
+                        .store
+                        .list_relationships(Some(resource), Some(relationship), None, revision)
+                        .await?;
 
-            RelationExpr::Exclusion { base, subtract } => {
-                let base_subjects: HashSet<String> = self
-                    .collect_subjects_from_expr(resource, base, resource_type, relation_name, revision)
-                    .await?
-                    .into_iter()
-                    .collect();
+                    for tuple in related_tuples {
+                        let related_resource = &tuple.subject;
+                        let related_parts: Vec<&str> = related_resource.split(':').collect();
 
-                let subtract_subjects: HashSet<String> = self
-                    .collect_subjects_from_expr(resource, subtract, resource_type, relation_name, revision)
-                    .await?
-                    .into_iter()
-                    .collect();
-
-                Ok(base_subjects
-                    .difference(&subtract_subjects)
-                    .cloned()
-                    .collect())
-            }
-
-            RelationExpr::RelatedObjectUserset {
-                ref relationship,
-                ref computed,
-            } => {
-                let mut all_subjects = HashSet::new();
-                let related_tuples = self
-                    .store
-                    .list_relationships(Some(resource), Some(relationship), None, revision)
-                    .await?;
-
-                for tuple in related_tuples {
-                    let related_resource = &tuple.subject;
-                    let related_parts: Vec<&str> = related_resource.split(':').collect();
-
-                    if related_parts.len() == 2 {
-                        let related_type = related_parts[0];
-                        if let Some(related_type_def) = self.schema.find_type(related_type) {
-                            if let Some(computed_rel_def) =
-                                related_type_def.relations.iter().find(|r| r.name == *computed)
-                            {
-                                let related_subjects = self
-                                    .collect_subjects_for_relation(
-                                        related_resource,
-                                        computed_rel_def,
-                                        related_type,
-                                        revision,
-                                    )
-                                    .await?;
-                                all_subjects.extend(related_subjects);
+                        if related_parts.len() == 2 {
+                            let related_type = related_parts[0];
+                            if let Some(related_type_def) = self.schema.find_type(related_type) {
+                                if let Some(computed_rel_def) = related_type_def
+                                    .relations
+                                    .iter()
+                                    .find(|r| r.name == *computed)
+                                {
+                                    let related_subjects = self
+                                        .collect_subjects_for_relation(
+                                            related_resource,
+                                            computed_rel_def,
+                                            related_type,
+                                            revision,
+                                        )
+                                        .await?;
+                                    all_subjects.extend(related_subjects);
+                                }
                             }
                         }
                     }
+
+                    Ok(all_subjects.into_iter().collect())
                 }
 
-                Ok(all_subjects.into_iter().collect())
+                RelationExpr::WasmModule { .. } => Err(EvalError::Evaluation(
+                    "WASM module-based relations are not supported for list_subjects".to_string(),
+                )),
             }
-
-            RelationExpr::WasmModule { .. } => Err(EvalError::Evaluation(
-                "WASM module-based relations are not supported for list_subjects".to_string(),
-            )),
-        }
         })
     }
 
