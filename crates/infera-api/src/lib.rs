@@ -26,12 +26,9 @@ use infera_config::Config;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::{
-    CheckRequest, Decision, DeleteFilter, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
+    CheckRequest, Decision, DeleteFilter, ExpandRequest, ListRelationshipsRequest,
     ListResourcesRequest, Relationship, RelationshipKey,
 };
-
-#[cfg(test)]
-use infera_types::UsersetNodeType;
 
 pub mod grpc;
 pub mod grpc_interceptor;
@@ -159,7 +156,6 @@ pub fn create_router(state: AppState) -> Router {
     let protected_routes = Router::new()
         .route("/check", post(check_stream_handler))
         .route("/expand", post(expand_handler))
-        .route("/expand/stream", post(expand_stream_handler))
         .route("/list-resources", post(list_resources_stream_handler))
         .route(
             "/list-relationships",
@@ -386,39 +382,11 @@ async fn check_stream_handler(
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }
 
-/// Expand endpoint
-async fn expand_handler(
-    auth: infera_auth::extractor::OptionalAuth,
-    State(state): State<AppState>,
-    Json(request): Json<ExpandRequest>,
-) -> Result<Json<ExpandResponse>> {
-    // If auth is enabled and present, validate scope
-    if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
-            // Require inferadb.expand scope (or check scope as fallback)
-            infera_auth::middleware::require_any_scope(
-                &auth_ctx,
-                &["inferadb.expand", "inferadb.check"],
-            )
-            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!("Expand request from tenant: {}", auth_ctx.tenant_id);
-        } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
-        }
-    }
-
-    let response = state.evaluator.expand(request).await?;
-    Ok(Json(response))
-}
-
-/// Streaming expand endpoint using Server-Sent Events
+/// Expand endpoint - streaming-only for progressive results
 ///
 /// Returns users as they're discovered, enabling progressive rendering
 /// for large result sets.
-async fn expand_stream_handler(
+async fn expand_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<ExpandRequest>,
@@ -1260,6 +1228,7 @@ mod tests {
     };
     use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::MemoryBackend;
+    use infera_types::{UsersetNodeType, UsersetTree};
     use serde_json::json;
     use tower::ServiceExt; // for `oneshot`
 
@@ -1316,6 +1285,44 @@ mod tests {
         }
 
         results
+    }
+
+    /// Helper to parse SSE expand response and extract users and summary
+    #[derive(serde::Deserialize, Debug)]
+    struct ExpandSseUser {
+        subject: String,
+        index: usize,
+    }
+
+    #[derive(serde::Deserialize, Debug)]
+    struct ExpandSseSummary {
+        tree: UsersetTree,
+        total_count: Option<u64>,
+        complete: bool,
+    }
+
+    async fn parse_sse_expand_response(body: &[u8]) -> (Vec<String>, Option<ExpandSseSummary>) {
+        let body_str = std::str::from_utf8(body).expect("Invalid UTF-8 in SSE response");
+        let mut users = Vec::new();
+        let mut summary = None;
+
+        let mut current_event = "";
+        for line in body_str.lines() {
+            if let Some(event_type) = line.strip_prefix("event: ") {
+                current_event = event_type;
+            } else if let Some(data) = line.strip_prefix("data: ") {
+                if current_event == "summary" {
+                    summary = serde_json::from_str::<ExpandSseSummary>(data).ok();
+                } else {
+                    // Regular user event
+                    if let Ok(user_data) = serde_json::from_str::<ExpandSseUser>(data) {
+                        users.push(user_data.subject);
+                    }
+                }
+            }
+        }
+
+        (users, summary)
     }
 
     #[tokio::test]
@@ -1522,11 +1529,14 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let expand_response: ExpandResponse = serde_json::from_slice(&body).unwrap();
-        assert!(matches!(
-            expand_response.tree.node_type,
-            UsersetNodeType::Union
-        ));
+
+        // Parse SSE response
+        let (_users, summary) = parse_sse_expand_response(&body).await;
+        assert!(summary.is_some());
+
+        let summary = summary.unwrap();
+        assert!(summary.complete);
+        assert!(matches!(summary.tree.node_type, UsersetNodeType::Union));
     }
 
     #[tokio::test]

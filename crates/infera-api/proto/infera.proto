@@ -10,11 +10,8 @@ service InferaService {
   // Check with detailed trace for debugging
   rpc CheckWithTrace(CheckRequest) returns (CheckWithTraceResponse);
 
-  // Expand a relation into its userset tree
-  rpc Expand(ExpandRequest) returns (ExpandResponse);
-
-  // Stream expand results (for large usersets)
-  rpc ExpandStream(ExpandRequest) returns (stream ExpandStreamResponse);
+  // Expand a relation into its userset tree (streaming for progressive results)
+  rpc Expand(ExpandRequest) returns (stream ExpandStreamResponse);
 
   // Write relationships to the store (streaming for single and batch operations)
   rpc WriteRelationships(stream WriteRequest) returns (WriteResponse);
