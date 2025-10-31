@@ -225,8 +225,8 @@ mod tests {
                 include_location: false,
                 include_target: false,
                 include_thread_id: false,
-                log_spans: false,
-                filter: Some("error".to_string()),
+                log_spans: true,
+                filter: Some("debug".to_string()),
             });
         });
     }
