@@ -115,7 +115,7 @@ pub async fn get_users_with_relation(
 
 /// Batch prefetch users with a specific relation for multiple objects
 /// This is useful for graph traversal optimizations where we know we'll need
-/// the same relation for many objects (e.g., ComputedUserset, TupleToUserset)
+/// the same relation for many objects (e.g., ComputedUserset, RelatedObjectUserset)
 pub async fn prefetch_users_batch(
     store: &dyn RelationshipStore,
     objects: &[String],
@@ -220,26 +220,32 @@ async fn evaluate_relation_expr(
             resolve_userset(resource, relation, ctx).await
         }
 
-        RelationExpr::ComputedUserset { relation, tupleset } => {
-            // Get objects from tupleset, then compute relation on each
-            let tupleset_objects =
-                get_users_with_relation(&*ctx.store, resource, tupleset, ctx.revision).await?;
+        RelationExpr::ComputedUserset {
+            relation,
+            relationship,
+        } => {
+            // Get objects from relationship, then compute relation on each
+            let related_objects =
+                get_users_with_relation(&*ctx.store, resource, relationship, ctx.revision).await?;
 
             let mut users = HashSet::new();
-            for obj in tupleset_objects {
+            for obj in related_objects {
                 let obj_users = resolve_userset(&obj, relation, ctx).await?;
                 users.extend(obj_users);
             }
             Ok(users)
         }
 
-        RelationExpr::TupleToUserset { tupleset, computed } => {
-            // Get objects from tupleset, evaluate computed relation on each
-            let tupleset_objects =
-                get_users_with_relation(&*ctx.store, resource, tupleset, ctx.revision).await?;
+        RelationExpr::RelatedObjectUserset {
+            relationship,
+            computed,
+        } => {
+            // Get objects from relationship, evaluate computed relation on each
+            let related_objects =
+                get_users_with_relation(&*ctx.store, resource, relationship, ctx.revision).await?;
 
             let mut users = HashSet::new();
-            for obj in tupleset_objects {
+            for obj in related_objects {
                 let obj_users = resolve_userset(&obj, computed, ctx).await?;
                 users.extend(obj_users);
             }

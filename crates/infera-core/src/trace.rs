@@ -47,10 +47,16 @@ pub enum NodeType {
     },
 
     /// Computed userset evaluation
-    ComputedUserset { relation: String, tupleset: String },
+    ComputedUserset {
+        relation: String,
+        relationship: String,
+    },
 
-    /// Tuple to userset
-    TupleToUserset { tupleset: String, computed: String },
+    /// Related object userset
+    RelatedObjectUserset {
+        relationship: String,
+        computed: String,
+    },
 
     /// Union operation
     Union,
@@ -85,7 +91,7 @@ impl DecisionTrace {
         };
 
         let mut relations = match &node.node_type {
-            NodeType::ComputedUserset { .. } | NodeType::TupleToUserset { .. } => 1,
+            NodeType::ComputedUserset { .. } | NodeType::RelatedObjectUserset { .. } => 1,
             _ => 0,
         };
 
@@ -137,7 +143,7 @@ mod tests {
         let child2 = EvaluationNode {
             node_type: NodeType::ComputedUserset {
                 relation: "reader".to_string(),
-                tupleset: "parent".to_string(),
+                relationship: "parent".to_string(),
             },
             result: false,
             children: Vec::new(),

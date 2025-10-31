@@ -31,11 +31,20 @@ pub enum RelationExpr {
     /// Reference to another relation: `editor`
     RelationRef { relation: String },
 
-    /// Computed userset: `<relation> from <tupleset>`
-    ComputedUserset { relation: String, tupleset: String },
+    /// Computed userset: `<relation> from <relationship>`
+    ComputedUserset {
+        relation: String,
+        relationship: String,
+    },
 
-    /// Tuple to userset: `<tupleset>-><computed>`
-    TupleToUserset { tupleset: String, computed: String },
+    /// Related object userset: `<relationship>-><computed>`
+    /// Computes permissions by following a relationship to related objects
+    /// and evaluating a permission on those objects.
+    /// Example: document viewers include parent folder viewers
+    RelatedObjectUserset {
+        relationship: String,
+        computed: String,
+    },
 
     /// WASM module invocation: `module("name")`
     WasmModule { module_name: String },
@@ -139,7 +148,7 @@ mod tests {
             "viewer".to_string(),
             Some(RelationExpr::ComputedUserset {
                 relation: "viewer".to_string(),
-                tupleset: "parent".to_string(),
+                relationship: "parent".to_string(),
             }),
         );
 

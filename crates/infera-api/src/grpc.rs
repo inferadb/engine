@@ -492,16 +492,24 @@ fn convert_trace_to_proto(trace: DecisionTrace) -> proto::DecisionTrace {
                 relation,
                 subject,
             })),
-            CoreNodeType::ComputedUserset { relation, tupleset } => {
-                Some(proto::node_type::Type::ComputedUserset(
-                    proto::ComputedUserset { relation, tupleset },
-                ))
-            }
-            CoreNodeType::TupleToUserset { tupleset, computed } => {
-                Some(proto::node_type::Type::TupleToUserset(
-                    proto::TupleToUserset { tupleset, computed },
-                ))
-            }
+            CoreNodeType::ComputedUserset {
+                relation,
+                relationship,
+            } => Some(proto::node_type::Type::ComputedUserset(
+                proto::ComputedUserset {
+                    relation,
+                    tupleset: relationship,
+                },
+            )),
+            CoreNodeType::RelatedObjectUserset {
+                relationship,
+                computed,
+            } => Some(proto::node_type::Type::TupleToUserset(
+                proto::TupleToUserset {
+                    tupleset: relationship,
+                    computed,
+                },
+            )),
             CoreNodeType::Union => Some(proto::node_type::Type::Union(proto::Union {})),
             CoreNodeType::Intersection => {
                 Some(proto::node_type::Type::Intersection(proto::Intersection {}))
@@ -546,12 +554,13 @@ fn convert_userset_tree_to_proto(tree: UsersetTree) -> proto::UsersetTree {
                 relation,
             }))
         }
-        CoreUsersetNodeType::TupleToUserset { tupleset, computed } => {
-            Some(Type::TupleToUserset(proto::TupleToUsersetRef {
-                tupleset,
-                computed,
-            }))
-        }
+        CoreUsersetNodeType::RelatedObjectUserset {
+            relationship,
+            computed,
+        } => Some(Type::TupleToUserset(proto::TupleToUsersetRef {
+            tupleset: relationship,
+            computed,
+        })),
         CoreUsersetNodeType::Union => Some(Type::Union(proto::UnionNode {})),
         CoreUsersetNodeType::Intersection => Some(Type::Intersection(proto::IntersectionNode {})),
         CoreUsersetNodeType::Exclusion => Some(Type::Exclusion(proto::ExclusionNode {})),

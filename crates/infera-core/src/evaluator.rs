@@ -276,12 +276,15 @@ impl Evaluator {
                     .await
             }
 
-            RelationExpr::ComputedUserset { relation, tupleset } => {
-                // Get objects from tupleset and check if any have user in relation
-                let tupleset_objects = crate::graph::get_users_with_relation(
+            RelationExpr::ComputedUserset {
+                relation,
+                relationship,
+            } => {
+                // Get objects from relationship and check if any have user in relation
+                let related_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
                     resource,
-                    tupleset,
+                    relationship,
                     ctx.revision,
                 )
                 .await?;
@@ -289,7 +292,7 @@ impl Evaluator {
                 let mut children = vec![];
                 let mut result = false;
 
-                for obj in tupleset_objects {
+                for obj in related_objects {
                     let child = self
                         .build_evaluation_node(&obj, relation, subject, ctx)
                         .await?;
@@ -302,19 +305,22 @@ impl Evaluator {
                 Ok(EvaluationNode {
                     node_type: NodeType::ComputedUserset {
                         relation: relation.clone(),
-                        tupleset: tupleset.clone(),
+                        relationship: relationship.clone(),
                     },
                     result,
                     children,
                 })
             }
 
-            RelationExpr::TupleToUserset { tupleset, computed } => {
-                // Get objects from tupleset and evaluate computed relation on each
-                let tupleset_objects = crate::graph::get_users_with_relation(
+            RelationExpr::RelatedObjectUserset {
+                relationship,
+                computed,
+            } => {
+                // Get objects from relationship and evaluate computed relation on each
+                let related_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
                     resource,
-                    tupleset,
+                    relationship,
                     ctx.revision,
                 )
                 .await?;
@@ -322,7 +328,7 @@ impl Evaluator {
                 let mut children = vec![];
                 let mut result = false;
 
-                for obj in tupleset_objects {
+                for obj in related_objects {
                     let child = self
                         .build_evaluation_node(&obj, computed, subject, ctx)
                         .await?;
@@ -333,8 +339,8 @@ impl Evaluator {
                 }
 
                 Ok(EvaluationNode {
-                    node_type: NodeType::TupleToUserset {
-                        tupleset: tupleset.clone(),
+                    node_type: NodeType::RelatedObjectUserset {
+                        relationship: relationship.clone(),
                         computed: computed.clone(),
                     },
                     result,
@@ -590,31 +596,35 @@ impl Evaluator {
                 })
             }
 
-            RelationExpr::ComputedUserset { relation, tupleset } => {
-                // Get users from computed relation on tupleset
-                let tupleset_objects =
-                    get_users_with_relation(&*ctx.store, resource, tupleset, ctx.revision).await?;
+            RelationExpr::ComputedUserset {
+                relation,
+                relationship,
+            } => {
+                // Get users from computed relation on relationship
+                let related_objects =
+                    get_users_with_relation(&*ctx.store, resource, relationship, ctx.revision)
+                        .await?;
 
                 // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
-                if tupleset_objects.len() > 1 {
+                if related_objects.len() > 1 {
                     // Batch prefetch for multiple objects
                     let prefetched = crate::graph::prefetch_users_batch(
                         &*ctx.store,
-                        &tupleset_objects,
+                        &related_objects,
                         relation,
                         ctx.revision,
                     )
                     .await?;
 
-                    for obj in &tupleset_objects {
+                    for obj in &related_objects {
                         if let Some(users) = prefetched.get(obj) {
                             all_users.extend(users.iter().cloned());
                         }
                     }
                 } else {
                     // Single object - use direct fetch
-                    for obj in tupleset_objects {
+                    for obj in related_objects {
                         let users =
                             get_users_with_relation(&*ctx.store, &obj, relation, ctx.revision)
                                 .await?;
@@ -630,31 +640,35 @@ impl Evaluator {
                 })
             }
 
-            RelationExpr::TupleToUserset { tupleset, computed } => {
-                // Get objects from tupleset
-                let tupleset_objects =
-                    get_users_with_relation(&*ctx.store, resource, tupleset, ctx.revision).await?;
+            RelationExpr::RelatedObjectUserset {
+                relationship,
+                computed,
+            } => {
+                // Get objects from relationship
+                let related_objects =
+                    get_users_with_relation(&*ctx.store, resource, relationship, ctx.revision)
+                        .await?;
 
                 // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
-                if tupleset_objects.len() > 1 {
+                if related_objects.len() > 1 {
                     // Batch prefetch for multiple objects
                     let prefetched = crate::graph::prefetch_users_batch(
                         &*ctx.store,
-                        &tupleset_objects,
+                        &related_objects,
                         computed,
                         ctx.revision,
                     )
                     .await?;
 
-                    for obj in &tupleset_objects {
+                    for obj in &related_objects {
                         if let Some(users) = prefetched.get(obj) {
                             all_users.extend(users.iter().cloned());
                         }
                     }
                 } else {
                     // Single object - use direct fetch
-                    for obj in tupleset_objects {
+                    for obj in related_objects {
                         let users =
                             get_users_with_relation(&*ctx.store, &obj, computed, ctx.revision)
                                 .await?;
@@ -890,7 +904,7 @@ impl Evaluator {
                 users.extend(base_users);
             }
             _ => {
-                // For Union, This, ComputedUserset, TupleToUserset: collect from all children
+                // For Union, This, ComputedUserset, RelatedObjectUserset: collect from all children
                 for child in &tree.children {
                     self.collect_users_recursive(child, users);
                 }
@@ -1273,8 +1287,8 @@ mod tests {
                             RelationExpr::RelationRef {
                                 relation: "editor".to_string(),
                             },
-                            RelationExpr::TupleToUserset {
-                                tupleset: "parent".to_string(),
+                            RelationExpr::RelatedObjectUserset {
+                                relationship: "parent".to_string(),
                                 computed: "viewer".to_string(),
                             },
                         ])),
@@ -1649,8 +1663,8 @@ mod tests {
         let tree = &response.tree;
         assert!(matches!(tree.node_type, UsersetNodeType::Union));
 
-        // The new implementation resolves TupleToUserset to Leaf nodes with actual users
-        // Check that children are Leaf nodes (resolved from TupleToUserset)
+        // The new implementation resolves RelatedObjectUserset to Leaf nodes with actual users
+        // Check that children are Leaf nodes (resolved from RelatedObjectUserset)
         let has_leaf_nodes = tree
             .children
             .iter()

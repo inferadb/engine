@@ -80,8 +80,8 @@ fn create_schema() -> Schema {
                         RelationExpr::RelationRef {
                             relation: "owner".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "parent".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "parent".to_string(),
                             computed: "can_view".to_string(),
                         },
                     ])),

@@ -153,7 +153,7 @@ fn parse_primary_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr>
             relation: inner.as_str().to_string(),
         }),
         Rule::computed_userset => parse_computed_userset(inner),
-        Rule::tuple_to_userset => parse_tuple_to_userset(inner),
+        Rule::tuple_to_userset => parse_related_object_userset(inner),
         Rule::wasm_module => parse_wasm_module(inner),
         Rule::relation_expr => parse_relation_expr(inner),
         _ => Err(EvalError::Parse(format!(
@@ -172,21 +172,24 @@ fn parse_computed_userset(pair: pest::iterators::Pair<Rule>) -> Result<RelationE
         .as_str()
         .to_string();
 
-    let tupleset = inner
+    let relationship = inner
         .next()
-        .ok_or_else(|| EvalError::Parse("Expected tupleset name".to_string()))?
+        .ok_or_else(|| EvalError::Parse("Expected relationship name".to_string()))?
         .as_str()
         .to_string();
 
-    Ok(RelationExpr::ComputedUserset { relation, tupleset })
+    Ok(RelationExpr::ComputedUserset {
+        relation,
+        relationship,
+    })
 }
 
-fn parse_tuple_to_userset(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
+fn parse_related_object_userset(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
     let mut inner = pair.into_inner();
 
-    let tupleset = inner
+    let relationship = inner
         .next()
-        .ok_or_else(|| EvalError::Parse("Expected tupleset name".to_string()))?
+        .ok_or_else(|| EvalError::Parse("Expected relationship name".to_string()))?
         .as_str()
         .to_string();
 
@@ -196,7 +199,10 @@ fn parse_tuple_to_userset(pair: pest::iterators::Pair<Rule>) -> Result<RelationE
         .as_str()
         .to_string();
 
-    Ok(RelationExpr::TupleToUserset { tupleset, computed })
+    Ok(RelationExpr::RelatedObjectUserset {
+        relationship,
+        computed,
+    })
 }
 
 fn parse_wasm_module(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
@@ -268,16 +274,19 @@ mod tests {
         let schema = result.unwrap();
 
         match &schema.types[0].relations[0].expr {
-            Some(RelationExpr::ComputedUserset { relation, tupleset }) => {
+            Some(RelationExpr::ComputedUserset {
+                relation,
+                relationship,
+            }) => {
                 assert_eq!(relation, "viewer");
-                assert_eq!(tupleset, "parent");
+                assert_eq!(relationship, "parent");
             }
             _ => panic!("Expected ComputedUserset"),
         }
     }
 
     #[test]
-    fn test_parse_tuple_to_userset() {
+    fn test_parse_related_object_userset() {
         let source = r#"
             type document {
                 relation viewer: parent->viewer
@@ -289,11 +298,14 @@ mod tests {
         let schema = result.unwrap();
 
         match &schema.types[0].relations[0].expr {
-            Some(RelationExpr::TupleToUserset { tupleset, computed }) => {
-                assert_eq!(tupleset, "parent");
+            Some(RelationExpr::RelatedObjectUserset {
+                relationship,
+                computed,
+            }) => {
+                assert_eq!(relationship, "parent");
                 assert_eq!(computed, "viewer");
             }
-            _ => panic!("Expected TupleToUserset"),
+            _ => panic!("Expected RelatedObjectUserset"),
         }
     }
 

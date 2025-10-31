@@ -32,9 +32,9 @@ pub enum QueryStep {
         base: Box<QueryPlan>,
         subtract: Box<QueryPlan>,
     },
-    /// Tuple-to-userset lookup
-    TupleToUserset {
-        tupleset_relation: String,
+    /// Related object userset lookup
+    RelatedObjectUserset {
+        relationship_relation: String,
         computed_userset: String,
     },
 }
@@ -87,7 +87,7 @@ impl QueryPlanner {
                 relation: computed_userset,
                 ..
             } => {
-                // Computed userset: `<relation> from <tupleset>`
+                // Computed userset: `<relation> from <relationship>`
                 QueryPlan {
                     steps: vec![QueryStep::ComputeUserset {
                         relation: relation_name.to_string(),
@@ -97,14 +97,14 @@ impl QueryPlanner {
                     estimated_cost: 5, // Requires recursion
                 }
             }
-            RelationExpr::TupleToUserset {
-                tupleset: tupleset_relation,
+            RelationExpr::RelatedObjectUserset {
+                relationship: relationship_relation,
                 computed: computed_userset,
             } => {
-                // Tuple-to-userset requires two lookups
+                // Related object userset requires two lookups
                 QueryPlan {
-                    steps: vec![QueryStep::TupleToUserset {
-                        tupleset_relation: tupleset_relation.clone(),
+                    steps: vec![QueryStep::RelatedObjectUserset {
+                        relationship_relation: relationship_relation.clone(),
                         computed_userset: computed_userset.clone(),
                     }],
                     parallelizable: false,
@@ -252,12 +252,13 @@ impl QueryPlanner {
                         priority: PrefetchPriority::High,
                     });
                 }
-                QueryStep::TupleToUserset {
-                    tupleset_relation, ..
+                QueryStep::RelatedObjectUserset {
+                    relationship_relation,
+                    ..
                 } => {
                     candidates.push(PrefetchCandidate {
                         resource: resource.to_string(),
-                        relation: tupleset_relation.clone(),
+                        relation: relationship_relation.clone(),
                         priority: PrefetchPriority::High,
                     });
                 }
@@ -435,11 +436,11 @@ mod tests {
     }
 
     #[test]
-    fn test_plan_tuple_to_userset() {
+    fn test_plan_related_object_userset() {
         let relation = RelationDef {
             name: "viewer".to_string(),
-            expr: Some(RelationExpr::TupleToUserset {
-                tupleset: "parent".to_string(),
+            expr: Some(RelationExpr::RelatedObjectUserset {
+                relationship: "parent".to_string(),
                 computed: "viewer".to_string(),
             }),
         };
@@ -451,14 +452,14 @@ mod tests {
         assert_eq!(plan.estimated_cost, 10); // Most expensive
 
         match &plan.steps[0] {
-            QueryStep::TupleToUserset {
-                tupleset_relation,
+            QueryStep::RelatedObjectUserset {
+                relationship_relation,
                 computed_userset,
             } => {
-                assert_eq!(tupleset_relation, "parent");
+                assert_eq!(relationship_relation, "parent");
                 assert_eq!(computed_userset, "viewer");
             }
-            _ => panic!("Expected TupleToUserset step"),
+            _ => panic!("Expected RelatedObjectUserset step"),
         }
     }
 
@@ -480,29 +481,29 @@ mod tests {
 
     #[test]
     fn test_analyze_expensive_query() {
-        // Create an expensive query (union of tuple-to-usersets)
+        // Create an expensive query (union of related object usersets)
         // With 5 branches @ cost 10 each = 50 / 2 = 25 > 20 threshold
         let relation = RelationDef {
             name: "viewer".to_string(),
             expr: Some(RelationExpr::Union(vec![
-                RelationExpr::TupleToUserset {
-                    tupleset: "parent".to_string(),
+                RelationExpr::RelatedObjectUserset {
+                    relationship: "parent".to_string(),
                     computed: "viewer".to_string(),
                 },
-                RelationExpr::TupleToUserset {
-                    tupleset: "parent".to_string(),
+                RelationExpr::RelatedObjectUserset {
+                    relationship: "parent".to_string(),
                     computed: "editor".to_string(),
                 },
-                RelationExpr::TupleToUserset {
-                    tupleset: "parent".to_string(),
+                RelationExpr::RelatedObjectUserset {
+                    relationship: "parent".to_string(),
                     computed: "owner".to_string(),
                 },
-                RelationExpr::TupleToUserset {
-                    tupleset: "parent".to_string(),
+                RelationExpr::RelatedObjectUserset {
+                    relationship: "parent".to_string(),
                     computed: "admin".to_string(),
                 },
-                RelationExpr::TupleToUserset {
-                    tupleset: "parent".to_string(),
+                RelationExpr::RelatedObjectUserset {
+                    relationship: "parent".to_string(),
                     computed: "manager".to_string(),
                 },
             ])),
@@ -528,8 +529,8 @@ mod tests {
             name: "viewer".to_string(),
             expr: Some(RelationExpr::Union(vec![
                 RelationExpr::This,
-                RelationExpr::TupleToUserset {
-                    tupleset: "parent".to_string(),
+                RelationExpr::RelatedObjectUserset {
+                    relationship: "parent".to_string(),
                     computed: "viewer".to_string(),
                 },
             ])),
@@ -566,17 +567,17 @@ mod tests {
         };
         let computed_plan = QueryPlanner::plan_relation(&computed, "viewer");
 
-        // Tuple-to-userset should be most expensive
-        let ttu = RelationDef {
+        // Related object userset should be most expensive
+        let rou = RelationDef {
             name: "viewer".to_string(),
-            expr: Some(RelationExpr::TupleToUserset {
-                tupleset: "parent".to_string(),
+            expr: Some(RelationExpr::RelatedObjectUserset {
+                relationship: "parent".to_string(),
                 computed: "viewer".to_string(),
             }),
         };
-        let ttu_plan = QueryPlanner::plan_relation(&ttu, "viewer");
+        let rou_plan = QueryPlanner::plan_relation(&rou, "viewer");
 
         assert!(direct_plan.estimated_cost < computed_plan.estimated_cost);
-        assert!(computed_plan.estimated_cost < ttu_plan.estimated_cost);
+        assert!(computed_plan.estimated_cost < rou_plan.estimated_cost);
     }
 }

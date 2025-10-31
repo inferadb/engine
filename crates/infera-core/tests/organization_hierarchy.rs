@@ -47,8 +47,8 @@ fn create_schema() -> Schema {
                         RelationExpr::RelationRef {
                             relation: "lead".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "organization".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "organization".to_string(),
                             computed: "admin".to_string(),
                         },
                     ])),
@@ -60,8 +60,8 @@ fn create_schema() -> Schema {
                         RelationExpr::RelationRef {
                             relation: "lead".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "organization".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "organization".to_string(),
                             computed: "admin".to_string(),
                         },
                     ])),
@@ -82,8 +82,8 @@ fn create_schema() -> Schema {
                         RelationExpr::RelationRef {
                             relation: "contributor".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "team".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "team".to_string(),
                             computed: "can_view".to_string(),
                         },
                     ])),
@@ -92,12 +92,12 @@ fn create_schema() -> Schema {
                 RelationDef::new(
                     "can_edit".to_string(),
                     Some(RelationExpr::Union(vec![
-                        RelationExpr::TupleToUserset {
-                            tupleset: "team".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "team".to_string(),
                             computed: "member".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "team".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "team".to_string(),
                             computed: "lead".to_string(),
                         },
                     ])),

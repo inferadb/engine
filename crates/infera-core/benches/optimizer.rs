@@ -23,8 +23,8 @@ fn bench_plan_union(c: &mut Criterion) {
             RelationExpr::RelationRef {
                 relation: "owner".to_string(),
             },
-            RelationExpr::TupleToUserset {
-                tupleset: "parent".to_string(),
+            RelationExpr::RelatedObjectUserset {
+                relationship: "parent".to_string(),
                 computed: "viewer".to_string(),
             },
         ])),
@@ -49,8 +49,8 @@ fn bench_plan_complex(c: &mut Criterion) {
                 },
             ]),
             RelationExpr::Exclusion {
-                base: Box::new(RelationExpr::TupleToUserset {
-                    tupleset: "parent".to_string(),
+                base: Box::new(RelationExpr::RelatedObjectUserset {
+                    relationship: "parent".to_string(),
                     computed: "viewer".to_string(),
                 }),
                 subtract: Box::new(RelationExpr::RelationRef {
@@ -69,16 +69,16 @@ fn bench_analyze_plan(c: &mut Criterion) {
     let relation = RelationDef {
         name: "viewer".to_string(),
         expr: Some(RelationExpr::Union(vec![
-            RelationExpr::TupleToUserset {
-                tupleset: "parent".to_string(),
+            RelationExpr::RelatedObjectUserset {
+                relationship: "parent".to_string(),
                 computed: "viewer".to_string(),
             },
-            RelationExpr::TupleToUserset {
-                tupleset: "parent".to_string(),
+            RelationExpr::RelatedObjectUserset {
+                relationship: "parent".to_string(),
                 computed: "editor".to_string(),
             },
-            RelationExpr::TupleToUserset {
-                tupleset: "parent".to_string(),
+            RelationExpr::RelatedObjectUserset {
+                relationship: "parent".to_string(),
                 computed: "owner".to_string(),
             },
         ])),
@@ -96,8 +96,8 @@ fn bench_identify_prefetch(c: &mut Criterion) {
         name: "viewer".to_string(),
         expr: Some(RelationExpr::Union(vec![
             RelationExpr::This,
-            RelationExpr::TupleToUserset {
-                tupleset: "parent".to_string(),
+            RelationExpr::RelatedObjectUserset {
+                relationship: "parent".to_string(),
                 computed: "viewer".to_string(),
             },
         ])),

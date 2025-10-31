@@ -134,12 +134,19 @@ pub struct UsersetTree {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UsersetNodeType {
     This,
-    ComputedUserset { relation: String },
-    TupleToUserset { tupleset: String, computed: String },
+    ComputedUserset {
+        relation: String,
+    },
+    RelatedObjectUserset {
+        relationship: String,
+        computed: String,
+    },
     Union,
     Intersection,
     Exclusion,
-    Leaf { users: Vec<String> },
+    Leaf {
+        users: Vec<String>,
+    },
 }
 
 // ============================================================================

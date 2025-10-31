@@ -45,8 +45,8 @@ fn create_complex_schema() -> Schema {
                         RelationExpr::RelationRef {
                             relation: "editor".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "parent".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "parent".to_string(),
                             computed: "viewer".to_string(),
                         },
                     ])),

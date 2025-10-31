@@ -27,8 +27,8 @@ fn create_schema() -> Schema {
                         RelationExpr::RelationRef {
                             relation: "member".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "parent_role".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "parent_role".to_string(),
                             computed: "user".to_string(),
                         },
                     ])),
@@ -46,16 +46,16 @@ fn create_schema() -> Schema {
                 RelationDef::new(
                     "can_read".to_string(),
                     Some(RelationExpr::Union(vec![
-                        RelationExpr::TupleToUserset {
-                            tupleset: "reader_role".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "reader_role".to_string(),
                             computed: "user".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "writer_role".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "writer_role".to_string(),
                             computed: "user".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "admin_role".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "admin_role".to_string(),
                             computed: "user".to_string(),
                         },
                     ])),
@@ -64,12 +64,12 @@ fn create_schema() -> Schema {
                 RelationDef::new(
                     "can_write".to_string(),
                     Some(RelationExpr::Union(vec![
-                        RelationExpr::TupleToUserset {
-                            tupleset: "writer_role".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "writer_role".to_string(),
                             computed: "user".to_string(),
                         },
-                        RelationExpr::TupleToUserset {
-                            tupleset: "admin_role".to_string(),
+                        RelationExpr::RelatedObjectUserset {
+                            relationship: "admin_role".to_string(),
                             computed: "user".to_string(),
                         },
                     ])),
@@ -77,8 +77,8 @@ fn create_schema() -> Schema {
                 // can_delete = admin_role->user
                 RelationDef::new(
                     "can_delete".to_string(),
-                    Some(RelationExpr::TupleToUserset {
-                        tupleset: "admin_role".to_string(),
+                    Some(RelationExpr::RelatedObjectUserset {
+                        relationship: "admin_role".to_string(),
                         computed: "user".to_string(),
                     }),
                 ),
