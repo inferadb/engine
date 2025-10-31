@@ -896,6 +896,123 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /watch:
+    post:
+      tags:
+        - relationships
+      summary: Watch for relationship changes
+      description: |
+        Stream real-time relationship changes as they occur using Server-Sent Events (SSE).
+
+        This endpoint provides a continuous stream of change events for relationship creates and deletes.
+        The connection remains open until the client disconnects or an error occurs.
+
+        **Use Cases**:
+        - **Real-time Authorization Updates**: Update client-side permission caches when relationships change
+        - **Audit Logging**: Stream all authorization changes to audit systems
+        - **Monitoring**: Track relationship changes for compliance and analytics
+        - **Cache Invalidation**: Trigger cache invalidation when permissions change
+
+        **Event Types**:
+        - `create`: A new relationship was created
+        - `delete`: An existing relationship was deleted
+
+        **Resource Type Filtering**: Use `resource_types` to filter events by resource type prefix (e.g., ["document", "folder"])
+
+        **Cursor/Resumption**: Use `cursor` to resume from a specific revision (base64-encoded revision number).
+        If no cursor is provided, starts streaming from the current point in time.
+
+        **Performance**: Events are delivered with low latency (<100ms typical) as changes occur.
+        The stream uses efficient polling with backpressure handling.
+
+        **Connection Management**: The stream will automatically reconnect if the connection is lost.
+        Clients should track the last revision received and use it as the cursor on reconnect.
+      operationId: watch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WatchRequest"
+            examples:
+              watch_all:
+                summary: Watch all relationship changes
+                value:
+                  resource_types: []
+              watch_documents:
+                summary: Watch only document changes
+                value:
+                  resource_types:
+                    - document
+              resume_from_cursor:
+                summary: Resume from a specific revision
+                value:
+                  resource_types: []
+                  cursor: eyJyZXZpc2lvbiI6MTIzfQ==
+      responses:
+        "200":
+          description: Event stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: binary
+                description: |
+                  Server-Sent Events stream. Each event contains:
+
+                  ```
+                  event: change
+                  data: {"operation":"create","relationship":{"resource":"doc:readme","relation":"viewer","subject":"user:alice"},"revision":"123","timestamp":"2024-01-15T10:30:00Z"}
+
+                  event: change
+                  data: {"operation":"delete","relationship":{"resource":"doc:readme","relation":"editor","subject":"user:bob"},"revision":"124","timestamp":"2024-01-15T10:30:01Z"}
+
+                  event: error
+                  data: {"error":"Failed to read changes: database error"}
+                  ```
+              examples:
+                create_event:
+                  summary: Relationship created event
+                  value: |
+                    event: change
+                    data: {"operation":"create","relationship":{"resource":"document:readme","relation":"viewer","subject":"user:alice"},"revision":"123","timestamp":"2024-01-15T10:30:00Z"}
+                delete_event:
+                  summary: Relationship deleted event
+                  value: |
+                    event: change
+                    data: {"operation":"delete","relationship":{"resource":"document:readme","relation":"editor","subject":"user:bob"},"revision":"124","timestamp":"2024-01-15T10:30:01Z"}
+                error_event:
+                  summary: Error event (stream will close)
+                  value: |
+                    event: error
+                    data: {"error":"Failed to read changes: database error"}
+        "400":
+          description: Invalid request (invalid cursor format, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalid_cursor:
+                  value:
+                    error: "Invalid cursor: not valid base64"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Forbidden (missing required scope)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_scope:
+                  value:
+                    error: "Forbidden: Missing required scope 'inferadb.watch'"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1410,6 +1527,31 @@ components:
             Total number of subjects returned in this response.
             This may be less than the actual total if pagination is used.
           example: 100
+          nullable: true
+
+    WatchRequest:
+      type: object
+      properties:
+        resource_types:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-z_][a-z0-9_]*$"
+          description: |
+            Optional filter by resource types (e.g., ["document", "folder"]).
+            If empty or omitted, watches all relationship changes.
+            Only changes to relationships with resources matching these type prefixes will be streamed.
+          example:
+            - document
+            - folder
+          default: []
+        cursor:
+          type: string
+          description: |
+            Optional start cursor/revision to resume from (base64-encoded revision number).
+            If omitted, starts streaming from the current point in time.
+            Use the revision from the last received event to resume after a disconnection.
+          example: eyJyZXZpc2lvbiI6MTIzfQ==
           nullable: true
 
     Relationship:

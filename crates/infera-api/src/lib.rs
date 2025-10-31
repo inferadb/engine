@@ -166,7 +166,8 @@ pub fn create_router(state: AppState) -> Router {
         .route("/write-relationships", post(write_relationships_handler))
         .route("/delete-relationships", post(delete_relationships_handler))
         .route("/simulate", post(simulate_handler))
-        .route("/explain", post(explain_handler));
+        .route("/explain", post(explain_handler))
+        .route("/watch", post(watch_handler));
 
     // Apply authentication middleware if enabled and JWKS cache is available
     let protected_routes = if state.config.auth.enabled {
@@ -1185,6 +1186,132 @@ async fn list_subjects_stream_handler(
 
         Event::default().event("summary").json_data(summary)
     }));
+
+    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
+}
+
+/// REST request for Watch endpoint
+#[derive(Debug, Deserialize, Serialize)]
+pub struct WatchRestRequest {
+    /// Optional filter by resource types (e.g., ["document", "folder"])
+    /// If empty, watches all relationship changes
+    #[serde(default)]
+    pub resource_types: Vec<String>,
+    /// Optional start cursor/revision to resume from
+    /// If None, starts from current point in time
+    pub cursor: Option<String>,
+}
+
+/// Watch endpoint using Server-Sent Events
+///
+/// Returns a continuous stream of relationship changes as they occur.
+/// The stream remains open indefinitely until the client disconnects.
+async fn watch_handler(
+    auth: infera_auth::extractor::OptionalAuth,
+    State(state): State<AppState>,
+    Json(request): Json<WatchRestRequest>,
+) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // If auth is enabled and present, validate scope
+    if state.config.auth.enabled {
+        if let Some(auth_ctx) = auth.0 {
+            // Require inferadb.watch scope
+            infera_auth::middleware::require_any_scope(&auth_ctx, &["inferadb.watch"])
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!("Watch request from tenant: {}", auth_ctx.tenant_id);
+        } else {
+            return Err(ApiError::Unauthorized(
+                "Authentication required".to_string(),
+            ));
+        }
+    }
+
+    // Parse cursor (base64 decode to revision)
+    let start_revision = if let Some(cursor) = &request.cursor {
+        use base64::{engine::general_purpose, Engine as _};
+        let decoded = general_purpose::STANDARD
+            .decode(cursor)
+            .map_err(|e| ApiError::InvalidRequest(format!("Invalid cursor: {}", e)))?;
+        let revision_str = String::from_utf8(decoded)
+            .map_err(|e| ApiError::InvalidRequest(format!("Invalid cursor encoding: {}", e)))?;
+        let revision_u64 = revision_str
+            .parse::<u64>()
+            .map_err(|e| ApiError::InvalidRequest(format!("Invalid cursor format: {}", e)))?;
+        infera_types::Revision(revision_u64)
+    } else {
+        // Start from next revision
+        let current = state.store.get_revision().await.map_err(|e| {
+            ApiError::Internal(format!("Failed to get current revision: {}", e))
+        })?;
+        current.next()
+    };
+
+    let resource_types = request.resource_types;
+    let store = Arc::clone(&state.store);
+
+    // Create a continuous polling stream
+    let stream = async_stream::stream! {
+        let mut last_revision = start_revision;
+
+        loop {
+            // Read changes from the change log
+            match store.read_changes(last_revision, &resource_types, Some(100)).await {
+                Ok(events) => {
+                    for event in &events {
+                        // Format timestamp as ISO 8601
+                        let timestamp = {
+                            let secs = (event.timestamp_nanos / 1_000_000_000) as i64;
+                            let nanos = (event.timestamp_nanos % 1_000_000_000) as u32;
+                            chrono::DateTime::from_timestamp(secs, nanos)
+                                .map(|dt| dt.to_rfc3339())
+                                .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
+                        };
+
+                        let operation = match event.operation {
+                            infera_types::ChangeOperation::Create => "create",
+                            infera_types::ChangeOperation::Delete => "delete",
+                        };
+
+                        let data = serde_json::json!({
+                            "operation": operation,
+                            "relationship": {
+                                "resource": event.relationship.resource,
+                                "relation": event.relationship.relation,
+                                "subject": event.relationship.subject,
+                            },
+                            "revision": event.revision.0.to_string(),
+                            "timestamp": timestamp,
+                        });
+
+                        last_revision = event.revision.next();
+
+                        let result = Event::default()
+                            .event("change")
+                            .json_data(data);
+
+                        yield result;
+                    }
+
+                    // If no events, wait a bit before polling again
+                    if events.is_empty() {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    }
+                }
+                Err(e) => {
+                    let error_data = serde_json::json!({
+                        "error": format!("Failed to read changes: {}", e)
+                    });
+
+                    let result = Event::default()
+                        .event("error")
+                        .json_data(error_data);
+
+                    yield result;
+                    break;
+                }
+            }
+        }
+    };
 
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }

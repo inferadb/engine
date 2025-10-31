@@ -3,9 +3,11 @@
 //! These tests verify streaming functionality:
 //! - ExpandStream: streaming expand results
 //! - WriteStream: streaming write operations
+//! - Watch: streaming change events
 
 use std::sync::Arc;
 
+use base64::Engine;
 use futures::StreamExt;
 use infera_api::grpc::proto::{
     expand_response, infera_service_client::InferaServiceClient, ExpandRequest,
@@ -207,4 +209,185 @@ async fn test_expand_stream_empty() {
 
     assert_eq!(users.len(), 0);
     assert!(got_summary);
+}
+
+#[tokio::test]
+async fn test_watch_captures_write_events() {
+    let (mut client, _addr) = setup_test_server().await;
+
+    // Start watching from beginning
+    let watch_req = Request::new(infera_api::grpc::proto::WatchRequest {
+        resource_types: vec![],
+        cursor: None,
+    });
+
+    let mut watch_stream = client.watch(watch_req).await.unwrap().into_inner();
+
+    // Write some relationships
+    let write_req = WriteRequest {
+        relationships: vec![
+            ProtoRelationship {
+                resource: "doc:test1".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            ProtoRelationship {
+                resource: "doc:test2".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:bob".to_string(),
+            },
+        ],
+    };
+
+    let stream = futures::stream::once(async { write_req });
+    client.write_relationships(stream).await.unwrap();
+
+    // Collect events with timeout
+    let mut events = Vec::new();
+    let timeout = tokio::time::sleep(tokio::time::Duration::from_secs(2));
+    tokio::pin!(timeout);
+
+    loop {
+        tokio::select! {
+            Some(result) = watch_stream.next() => {
+                let event = result.unwrap();
+                events.push(event);
+                if events.len() >= 2 {
+                    break;
+                }
+            }
+            _ = &mut timeout => {
+                break;
+            }
+        }
+    }
+
+    // Should have captured 2 create events
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].operation, infera_api::grpc::proto::ChangeOperation::Create as i32);
+    assert_eq!(events[1].operation, infera_api::grpc::proto::ChangeOperation::Create as i32);
+}
+
+#[tokio::test]
+async fn test_watch_with_resource_type_filter() {
+    let (mut client, _addr) = setup_test_server().await;
+
+    // Start watching only "doc" resource types
+    let watch_req = Request::new(infera_api::grpc::proto::WatchRequest {
+        resource_types: vec!["doc".to_string()],
+        cursor: None,
+    });
+
+    let mut watch_stream = client.watch(watch_req).await.unwrap().into_inner();
+
+    // Write relationships for different resource types
+    let write_req = WriteRequest {
+        relationships: vec![
+            ProtoRelationship {
+                resource: "doc:test1".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            ProtoRelationship {
+                resource: "folder:test1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:bob".to_string(),
+            },
+        ],
+    };
+
+    let stream = futures::stream::once(async { write_req });
+    client.write_relationships(stream).await.unwrap();
+
+    // Collect events with timeout
+    let mut events = Vec::new();
+    let timeout = tokio::time::sleep(tokio::time::Duration::from_secs(2));
+    tokio::pin!(timeout);
+
+    loop {
+        tokio::select! {
+            Some(result) = watch_stream.next() => {
+                let event = result.unwrap();
+                events.push(event);
+                // Should only get 1 event (doc type only)
+                if events.len() >= 1 {
+                    // Wait a bit more to make sure no other events come through
+                    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+                    break;
+                }
+            }
+            _ = &mut timeout => {
+                break;
+            }
+        }
+    }
+
+    // Should only have captured 1 event (doc type, not folder)
+    assert_eq!(events.len(), 1);
+    let rel = events[0].relationship.as_ref().unwrap();
+    assert!(rel.resource.starts_with("doc:"));
+}
+
+#[tokio::test]
+async fn test_watch_captures_delete_events() {
+    let (mut client, _addr) = setup_test_server().await;
+
+    // Write a relationship first
+    let write_req = WriteRequest {
+        relationships: vec![ProtoRelationship {
+            resource: "doc:test".to_string(),
+            relation: "reader".to_string(),
+            subject: "user:alice".to_string(),
+        }],
+    };
+
+    let stream = futures::stream::once(async { write_req });
+    let write_response = client.write_relationships(stream).await.unwrap().into_inner();
+
+    // Start watching from after the write
+    let cursor = format!("{}", write_response.revision.parse::<u64>().unwrap() + 1);
+    let watch_req = Request::new(infera_api::grpc::proto::WatchRequest {
+        resource_types: vec![],
+        cursor: Some(base64::engine::general_purpose::STANDARD.encode(cursor.as_bytes())),
+    });
+
+    let mut watch_stream = client.watch(watch_req).await.unwrap().into_inner();
+
+    // Delete the relationship
+    let delete_req = infera_api::grpc::proto::DeleteRequest {
+        filter: Some(infera_api::grpc::proto::DeleteFilter {
+            resource: Some("doc:test".to_string()),
+            relation: None,
+            subject: None,
+        }),
+        relationships: vec![],
+        limit: None,
+    };
+
+    let stream = futures::stream::once(async { delete_req });
+    client.delete_relationships(stream).await.unwrap();
+
+    // Collect events with timeout
+    let mut events = Vec::new();
+    let timeout = tokio::time::sleep(tokio::time::Duration::from_secs(2));
+    tokio::pin!(timeout);
+
+    loop {
+        tokio::select! {
+            Some(result) = watch_stream.next() => {
+                let event = result.unwrap();
+                events.push(event);
+                if events.len() >= 1 {
+                    break;
+                }
+            }
+            _ = &mut timeout => {
+                break;
+            }
+        }
+    }
+
+    // Should have captured 1 delete event
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].operation, infera_api::grpc::proto::ChangeOperation::Delete as i32);
 }

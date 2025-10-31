@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tracing::{debug, error, warn};
 
 use crate::{Relationship, RelationshipKey, RelationshipStore, Result, Revision, StoreError};
-use infera_types::DeleteFilter;
+use infera_types::{ChangeEvent, DeleteFilter};
 
 /// FoundationDB storage backend
 pub struct FoundationDBBackend {
@@ -24,6 +24,7 @@ pub struct FoundationDBBackend {
     relationships_subspace: Subspace,
     revision_subspace: Subspace,
     index_subspace: Subspace,
+    changelog_subspace: Subspace,
 }
 
 impl FoundationDBBackend {
@@ -52,6 +53,7 @@ impl FoundationDBBackend {
         let relationships_subspace = Subspace::from_bytes(b"relationships");
         let revision_subspace = Subspace::from_bytes(b"revisions");
         let index_subspace = Subspace::from_bytes(b"indexes");
+        let changelog_subspace = Subspace::from_bytes(b"changelog");
 
         debug!("FoundationDB backend initialized");
 
@@ -60,6 +62,7 @@ impl FoundationDBBackend {
             relationships_subspace,
             revision_subspace,
             index_subspace,
+            changelog_subspace,
         })
     }
 
@@ -857,6 +860,134 @@ impl RelationshipStore for FoundationDBBackend {
             relation,
             subject
         );
+        Ok(result)
+    }
+
+    async fn append_change(&self, event: ChangeEvent) -> Result<()> {
+        let db = Arc::clone(&self.db);
+        let changelog_subspace = self.changelog_subspace.clone();
+
+        let result = db
+            .run(move |trx, _maybe_committed| async move {
+                // Create key: (revision, timestamp, resource)
+                // This allows efficient range queries starting from a revision
+                let key = changelog_subspace.pack(&(
+                    event.revision.0,
+                    event.timestamp_nanos,
+                    &event.relationship.resource,
+                ));
+
+                // Serialize the change event
+                let value = serde_json::to_vec(&event)
+                    .map_err(|e| FdbError::from(format!("Failed to serialize change event: {}", e)))?;
+
+                trx.set(&key, &value);
+                Ok(())
+            })
+            .await
+            .map_err(|e| StoreError::Database(format!("Failed to append change: {}", e)))?;
+
+        Ok(result)
+    }
+
+    async fn read_changes(
+        &self,
+        start_revision: Revision,
+        resource_types: &[String],
+        limit: Option<usize>,
+    ) -> Result<Vec<ChangeEvent>> {
+        let db = Arc::clone(&self.db);
+        let changelog_subspace = self.changelog_subspace.clone();
+        let resource_types = resource_types.to_vec();
+        let max_count = limit.unwrap_or(usize::MAX);
+
+        let result = db
+            .run(move |trx, _maybe_committed| async move {
+                // Create range starting from start_revision
+                let start_key = changelog_subspace.pack(&(start_revision.0,));
+                let end_key = changelog_subspace.pack(&(u64::MAX,));
+
+                let range = trx
+                    .get_range(
+                        &foundationdb::RangeOption {
+                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                            limit: Some(max_count as i32),
+                            reverse: false,
+                            mode: foundationdb::StreamingMode::WantAll,
+                        },
+                        false,
+                    )
+                    .await?;
+
+                let mut events = Vec::new();
+
+                for kv in range {
+                    let event: ChangeEvent = serde_json::from_slice(&kv.value()).map_err(|e| {
+                        FdbError::from(format!("Failed to deserialize change event: {}", e))
+                    })?;
+
+                    // Filter by resource type if specified
+                    if !resource_types.is_empty() {
+                        if let Some(event_type) = event.resource_type() {
+                            if !resource_types.iter().any(|t| t == event_type) {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    events.push(event);
+
+                    if events.len() >= max_count {
+                        break;
+                    }
+                }
+
+                Ok(events)
+            })
+            .await
+            .map_err(|e| StoreError::Database(format!("Failed to read changes: {}", e)))?;
+
+        Ok(result)
+    }
+
+    async fn get_change_log_revision(&self) -> Result<Revision> {
+        let db = Arc::clone(&self.db);
+        let changelog_subspace = self.changelog_subspace.clone();
+
+        let result = db
+            .run(move |trx, _maybe_committed| async move {
+                // Get the last key in the changelog
+                let start_key = changelog_subspace.pack(&(u64::MAX,));
+                let end_key = changelog_subspace.pack(&(0u64,));
+
+                let range = trx
+                    .get_range(
+                        &foundationdb::RangeOption {
+                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                            limit: Some(1),
+                            reverse: true, // Get last entry
+                            mode: foundationdb::StreamingMode::WantAll,
+                        },
+                        false,
+                    )
+                    .await?;
+
+                if let Some(kv) = range.first() {
+                    let event: ChangeEvent = serde_json::from_slice(&kv.value()).map_err(|e| {
+                        FdbError::from(format!("Failed to deserialize change event: {}", e))
+                    })?;
+                    Ok(event.revision)
+                } else {
+                    Ok(Revision::zero())
+                }
+            })
+            .await
+            .map_err(|e| StoreError::Database(format!("Failed to get change log revision: {}", e)))?;
+
         Ok(result)
     }
 }

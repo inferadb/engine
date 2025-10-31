@@ -9,7 +9,7 @@ use crate::{
     MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore, Result, Revision,
     StoreMetrics,
 };
-use infera_types::{DeleteFilter, StoreError};
+use infera_types::{ChangeEvent, DeleteFilter, StoreError};
 
 /// A versioned relationship with its creation revision
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,6 +43,9 @@ struct MemoryStore {
 
     /// Revision history for garbage collection
     revision_history: BTreeMap<Revision, Vec<usize>>,
+
+    /// Change log for Watch API (ordered by revision)
+    change_log: BTreeMap<Revision, Vec<ChangeEvent>>,
 }
 
 impl MemoryBackend {
@@ -55,6 +58,7 @@ impl MemoryBackend {
                 resource_index: HashMap::new(),
                 revision: Revision::zero(),
                 revision_history: BTreeMap::new(),
+                change_log: BTreeMap::new(),
             })),
             metrics: Arc::new(StoreMetrics::new()),
         }
@@ -215,6 +219,22 @@ impl RelationshipStore for MemoryBackend {
                 .entry(relationship.resource.clone())
                 .or_insert_with(Vec::new)
                 .push(idx);
+
+            // Append change event to change log
+            let timestamp_nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos() as i64;
+            let change_event = ChangeEvent::create(
+                relationship.clone(),
+                current_revision,
+                timestamp_nanos,
+            );
+            store
+                .change_log
+                .entry(current_revision)
+                .or_insert_with(Vec::new)
+                .push(change_event);
         }
 
         // Track revision history
@@ -270,9 +290,25 @@ impl RelationshipStore for MemoryBackend {
                 .collect::<Vec<_>>()
         };
 
-        // Mark relationships as deleted
+        // Get current timestamp for change events
+        let timestamp_nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as i64;
+
+        // Mark relationships as deleted and append change events
         for idx in indices {
+            let relationship = store.relationships[idx].relationship.clone();
             store.relationships[idx].deleted_at = Some(current_revision);
+
+            // Append change event to change log
+            let change_event =
+                ChangeEvent::delete(relationship, current_revision, timestamp_nanos);
+            store
+                .change_log
+                .entry(current_revision)
+                .or_insert_with(Vec::new)
+                .push(change_event);
         }
 
         self.metrics.record_delete(timer.elapsed(), false);
@@ -351,9 +387,25 @@ impl RelationshipStore for MemoryBackend {
 
         let deleted_count = matching_indices.len();
 
-        // Mark relationships as deleted
+        // Get current timestamp for change events
+        let timestamp_nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as i64;
+
+        // Mark relationships as deleted and append change events
         for idx in matching_indices {
+            let relationship = store.relationships[idx].relationship.clone();
             store.relationships[idx].deleted_at = Some(current_revision);
+
+            // Append change event to change log
+            let change_event =
+                ChangeEvent::delete(relationship, current_revision, timestamp_nanos);
+            store
+                .change_log
+                .entry(current_revision)
+                .or_insert_with(Vec::new)
+                .push(change_event);
         }
 
         self.metrics.record_delete(timer.elapsed(), false);
@@ -515,6 +567,63 @@ impl RelationshipStore for MemoryBackend {
 
     fn metrics(&self) -> Option<MetricsSnapshot> {
         Some(self.metrics.snapshot())
+    }
+
+    async fn append_change(&self, event: ChangeEvent) -> Result<()> {
+        let mut store = self.data.write().await;
+        store
+            .change_log
+            .entry(event.revision)
+            .or_insert_with(Vec::new)
+            .push(event);
+        Ok(())
+    }
+
+    async fn read_changes(
+        &self,
+        start_revision: Revision,
+        resource_types: &[String],
+        limit: Option<usize>,
+    ) -> Result<Vec<ChangeEvent>> {
+        let store = self.data.read().await;
+
+        let mut events = Vec::new();
+        let max_count = limit.unwrap_or(usize::MAX);
+
+        // Iterate through change log starting from start_revision
+        for (_, revision_events) in store.change_log.range(start_revision..) {
+            for event in revision_events {
+                // Filter by resource type if specified
+                if !resource_types.is_empty() {
+                    if let Some(event_type) = event.resource_type() {
+                        if !resource_types.iter().any(|t| t == event_type) {
+                            continue;
+                        }
+                    } else {
+                        // Skip events without a valid resource type if filtering is enabled
+                        continue;
+                    }
+                }
+
+                events.push(event.clone());
+
+                if events.len() >= max_count {
+                    return Ok(events);
+                }
+            }
+        }
+
+        Ok(events)
+    }
+
+    async fn get_change_log_revision(&self) -> Result<Revision> {
+        let store = self.data.read().await;
+        Ok(store
+            .change_log
+            .keys()
+            .next_back()
+            .copied()
+            .unwrap_or(Revision::zero()))
     }
 }
 

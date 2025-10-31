@@ -28,6 +28,9 @@ service InferaService {
 
   // List subjects that have a specific relation to a resource
   rpc ListSubjects(ListSubjectsRequest) returns (stream ListSubjectsResponse);
+
+  // Watch for real-time relationship changes
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
 }
 
 // Evaluate permission request
@@ -376,4 +379,38 @@ message ListSubjectsResponse {
 
   // Total count estimate (only set in final message, may be approximate)
   optional uint64 total_count = 3;
+}
+
+// Watch request
+message WatchRequest {
+  // Optional filter by resource type (e.g., "document", "folder")
+  // If not specified, watches all relationship changes
+  repeated string resource_types = 1;
+
+  // Optional start revision/cursor to resume from
+  // If not specified, starts from current point in time
+  // If specified as "0" or empty, starts from beginning of available change log
+  optional string cursor = 2;
+}
+
+// Watch response - streams relationship changes
+message WatchResponse {
+  // Type of change operation
+  ChangeOperation operation = 1;
+
+  // The relationship that changed
+  Relationship relationship = 2;
+
+  // Revision at which this change occurred
+  string revision = 3;
+
+  // Timestamp when the change occurred (ISO 8601 format)
+  string timestamp = 4;
+}
+
+// Type of relationship change
+enum ChangeOperation {
+  CHANGE_OPERATION_UNSPECIFIED = 0;
+  CHANGE_OPERATION_CREATE = 1;  // Relationship was created
+  CHANGE_OPERATION_DELETE = 2;  // Relationship was deleted
 }

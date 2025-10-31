@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 use infera_types::{
-    DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult,
+    ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult,
 };
 
 pub mod factory;
@@ -72,6 +72,24 @@ pub trait RelationshipStore: Send + Sync {
     fn metrics(&self) -> Option<MetricsSnapshot> {
         None
     }
+
+    /// Append a change event to the change log
+    /// This is called automatically by write/delete operations
+    async fn append_change(&self, event: ChangeEvent) -> Result<()>;
+
+    /// Read change events from the change log starting from a specific revision
+    /// Filters by resource types if provided (empty list means all types)
+    /// Returns events in ascending revision order
+    async fn read_changes(
+        &self,
+        start_revision: Revision,
+        resource_types: &[String],
+        limit: Option<usize>,
+    ) -> Result<Vec<ChangeEvent>>;
+
+    /// Get the latest change log revision
+    /// Returns Revision::zero() if no changes exist
+    async fn get_change_log_revision(&self) -> Result<Revision>;
 }
 
 #[cfg(test)]

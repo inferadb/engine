@@ -391,3 +391,80 @@ pub struct ListSubjectsResponse {
     /// Total count estimate (may be approximate if paginated)
     pub total_count: Option<usize>,
 }
+
+// ============================================================================
+// Request/Response Types - Watch
+// ============================================================================
+
+/// Type of change operation for Watch API
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChangeOperation {
+    /// Relationship was created
+    Create,
+    /// Relationship was deleted
+    Delete,
+}
+
+/// A change event representing a relationship change
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChangeEvent {
+    /// Type of change operation
+    pub operation: ChangeOperation,
+    /// The relationship that changed
+    pub relationship: Relationship,
+    /// Revision at which this change occurred
+    pub revision: Revision,
+    /// Timestamp when the change occurred (Unix timestamp in nanoseconds)
+    pub timestamp_nanos: i64,
+}
+
+impl ChangeEvent {
+    /// Create a new change event for a relationship creation
+    pub fn create(relationship: Relationship, revision: Revision, timestamp_nanos: i64) -> Self {
+        Self {
+            operation: ChangeOperation::Create,
+            relationship,
+            revision,
+            timestamp_nanos,
+        }
+    }
+
+    /// Create a new change event for a relationship deletion
+    pub fn delete(relationship: Relationship, revision: Revision, timestamp_nanos: i64) -> Self {
+        Self {
+            operation: ChangeOperation::Delete,
+            relationship,
+            revision,
+            timestamp_nanos,
+        }
+    }
+
+    /// Get the resource type from this change event
+    pub fn resource_type(&self) -> Option<&str> {
+        self.relationship.resource.split(':').next()
+    }
+}
+
+/// Request to watch for relationship changes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchRequest {
+    /// Optional filter by resource types (e.g., ["document", "folder"])
+    /// If empty, watches all relationship changes
+    pub resource_types: Vec<String>,
+    /// Optional start cursor/revision to resume from
+    /// If None, starts from current point in time
+    pub cursor: Option<String>,
+}
+
+/// Response from a watch operation (single change event)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchResponse {
+    /// Type of change operation
+    pub operation: ChangeOperation,
+    /// The relationship that changed
+    pub relationship: Relationship,
+    /// Revision at which this change occurred
+    pub revision: String,
+    /// Timestamp in ISO 8601 format
+    pub timestamp: String,
+}
