@@ -824,6 +824,34 @@ pub struct ExplainResponse {
 }
 
 /// List resources endpoint - returns all resources accessible by a subject
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListResourcesRestRequest {
+    /// Subject (e.g., "user:alice")
+    pub subject: String,
+    /// Resource type to filter by (e.g., "document")
+    pub resource_type: String,
+    /// Permission to check (e.g., "can_view")
+    pub permission: String,
+    /// Optional limit on number of resources to return
+    pub limit: Option<u32>,
+    /// Optional continuation token from previous request
+    pub cursor: Option<String>,
+    /// Optional resource ID pattern filter (supports wildcards: * and ?)
+    /// Examples: "doc:readme*", "user:alice_?", "folder:*/subfolder"
+    pub resource_id_pattern: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListResourcesRestResponse {
+    /// List of accessible resources
+    pub resources: Vec<String>,
+    /// Continuation token for pagination (if more results available)
+    pub cursor: Option<String>,
+    /// Total count estimate (may be approximate if paginated)
+    pub total_count: Option<u64>,
+}
+
 async fn list_resources_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
@@ -882,33 +910,6 @@ async fn list_resources_handler(
         cursor: response.cursor,
         total_count: response.total_count.map(|c| c as u64),
     }))
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ListResourcesRestRequest {
-    /// Subject (e.g., "user:alice")
-    pub subject: String,
-    /// Resource type to filter by (e.g., "document")
-    pub resource_type: String,
-    /// Permission to check (e.g., "can_view")
-    pub permission: String,
-    /// Optional limit on number of resources to return
-    pub limit: Option<u32>,
-    /// Optional continuation token from previous request
-    pub cursor: Option<String>,
-    /// Optional resource ID pattern filter (supports wildcards: * and ?)
-    /// Examples: "doc:readme*", "user:alice_?", "folder:*/subfolder"
-    pub resource_id_pattern: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ListResourcesRestResponse {
-    /// List of accessible resources
-    pub resources: Vec<String>,
-    /// Continuation token for pagination (if more results available)
-    pub cursor: Option<String>,
-    /// Total count estimate (may be approximate if paginated)
-    pub total_count: Option<u64>,
 }
 
 /// Streaming list resources endpoint using Server-Sent Events
@@ -999,6 +1000,31 @@ async fn list_resources_stream_handler(
 }
 
 /// List relationships endpoint - returns relationships matching optional filters
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListRelationshipsRestRequest {
+    /// Optional filter by resource (e.g., "doc:readme")
+    pub resource: Option<String>,
+    /// Optional filter by relation (e.g., "viewer")
+    pub relation: Option<String>,
+    /// Optional filter by subject (e.g., "user:alice")
+    pub subject: Option<String>,
+    /// Optional limit on number of relationships to return (default: 100, max: 1000)
+    pub limit: Option<u32>,
+    /// Optional continuation token from previous request
+    pub cursor: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListRelationshipsRestResponse {
+    /// List of relationships matching the filter
+    pub relationships: Vec<Relationship>,
+    /// Continuation token for pagination (if more results available)
+    pub cursor: Option<String>,
+    /// Total count of relationships returned
+    pub total_count: Option<u64>,
+}
+
 async fn list_relationships_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
@@ -1043,30 +1069,6 @@ async fn list_relationships_handler(
         cursor: response.cursor,
         total_count: response.total_count.map(|c| c as u64),
     }))
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ListRelationshipsRestRequest {
-    /// Optional filter by resource (e.g., "doc:readme")
-    pub resource: Option<String>,
-    /// Optional filter by relation (e.g., "viewer")
-    pub relation: Option<String>,
-    /// Optional filter by subject (e.g., "user:alice")
-    pub subject: Option<String>,
-    /// Optional limit on number of relationships to return (default: 100, max: 1000)
-    pub limit: Option<u32>,
-    /// Optional continuation token from previous request
-    pub cursor: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ListRelationshipsRestResponse {
-    /// List of relationships matching the filter
-    pub relationships: Vec<Relationship>,
-    /// Continuation token for pagination (if more results available)
-    pub cursor: Option<String>,
-    /// Total count of relationships returned
-    pub total_count: Option<u64>,
 }
 
 /// Streaming list relationships endpoint using Server-Sent Events
