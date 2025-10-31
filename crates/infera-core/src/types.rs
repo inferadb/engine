@@ -109,28 +109,40 @@ pub struct ListResourcesResponse {
     pub total_count: Option<usize>,
 }
 
-/// A request to list relationships (tuples) with optional filtering
+/// A request to list relationships with optional filtering
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListRelationshipsRequest {
-    /// Optional filter by object/resource (e.g., "doc:readme")
-    pub object: Option<String>,
+    /// Optional filter by resource (e.g., "doc:readme")
+    pub resource: Option<String>,
     /// Optional filter by relation (e.g., "viewer")
     pub relation: Option<String>,
-    /// Optional filter by user/subject (e.g., "user:alice")
-    pub user: Option<String>,
-    /// Optional limit on number of tuples to return (default: 100, max: 1000)
+    /// Optional filter by subject (e.g., "user:alice")
+    pub subject: Option<String>,
+    /// Optional limit on number of relationships to return (default: 100, max: 1000)
     pub limit: Option<usize>,
     /// Optional continuation token from previous request
     pub cursor: Option<String>,
 }
 
+/// Relationship represents an authorization relationship with API-friendly naming.
+/// This is the API-level representation, separate from the storage-level Tuple.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Relationship {
+    /// Resource identifier (e.g., "doc:readme")
+    pub resource: String,
+    /// Relation type (e.g., "viewer", "editor")
+    pub relation: String,
+    /// Subject identifier (e.g., "user:alice", "group:engineers")
+    pub subject: String,
+}
+
 /// Response from a list relationships operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListRelationshipsResponse {
-    /// List of tuples matching the filter
-    pub tuples: Vec<Tuple>,
+    /// List of relationships matching the filter
+    pub relationships: Vec<Relationship>,
     /// Continuation token for pagination (if more results available)
     pub cursor: Option<String>,
-    /// Total count of tuples returned
+    /// Total count of relationships returned
     pub total_count: Option<usize>,
 }

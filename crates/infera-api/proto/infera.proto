@@ -303,30 +303,43 @@ message ListResourcesResponse {
 
 // List relationships request
 message ListRelationshipsRequest {
-  // Optional filter by object/resource (e.g., "doc:readme")
-  optional string object = 1;
+  // Optional filter by resource (e.g., "doc:readme")
+  optional string resource = 1;
 
   // Optional filter by relation (e.g., "viewer")
   optional string relation = 2;
 
-  // Optional filter by user/subject (e.g., "user:alice")
-  optional string user = 3;
+  // Optional filter by subject (e.g., "user:alice")
+  optional string subject = 3;
 
-  // Optional limit on number of tuples to return (default: 100, max: 1000)
+  // Optional limit on number of relationships to return (default: 100, max: 1000)
   optional uint32 limit = 4;
 
   // Optional continuation token from previous request
   optional string cursor = 5;
 }
 
+// Relationship represents an authorization tuple with API-friendly naming
+// (resource, relation, subject) instead of the storage-level (object, relation, user)
+message Relationship {
+  // Resource identifier (e.g., "doc:readme")
+  string resource = 1;
+
+  // Relation type (e.g., "viewer", "editor")
+  string relation = 2;
+
+  // Subject identifier (e.g., "user:alice", "group:engineers")
+  string subject = 3;
+}
+
 // List relationships response (streamed)
 message ListRelationshipsResponse {
-  // A single tuple/relationship
-  Tuple tuple = 1;
+  // A single relationship
+  Relationship relationship = 1;
 
   // Continuation token for pagination (only set in final message)
   optional string cursor = 2;
 
-  // Total count of tuples returned (only set in final message)
+  // Total count of relationships returned (only set in final message)
   optional uint64 total_count = 3;
 }

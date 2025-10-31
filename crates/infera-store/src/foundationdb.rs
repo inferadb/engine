@@ -483,15 +483,16 @@ impl TupleStore for FoundationDBBackend {
 
     async fn list_relationships(
         &self,
-        object: Option<&str>,
+        resource: Option<&str>,
         relation: Option<&str>,
-        user: Option<&str>,
+        subject: Option<&str>,
         revision: Revision,
     ) -> Result<Vec<Tuple>> {
         let db = Arc::clone(&self.db);
-        let object_filter = object.map(|s| s.to_string());
+        // Map API parameter names to internal tuple field names
+        let object_filter = resource.map(|s| s.to_string());
         let relation_filter = relation.map(|s| s.to_string());
-        let user_filter = user.map(|s| s.to_string());
+        let user_filter = subject.map(|s| s.to_string());
         let index_subspace = self.index_subspace.clone();
         let tuples_subspace = self.tuples_subspace.clone();
 
@@ -691,11 +692,11 @@ impl TupleStore for FoundationDBBackend {
             .map_err(|e| StoreError::Database(format!("Failed to list relationships: {}", e)))?;
 
         debug!(
-            "Listed {} relationships (filters: object={:?}, relation={:?}, user={:?})",
+            "Listed {} relationships (filters: resource={:?}, relation={:?}, subject={:?})",
             result.len(),
-            object,
+            resource,
             relation,
-            user
+            subject
         );
         Ok(result)
     }

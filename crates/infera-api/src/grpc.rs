@@ -418,9 +418,9 @@ impl InferaService for InferaServiceImpl {
 
         // Build core request (all filters are optional)
         let list_request = CoreListRelationshipsRequest {
-            object: req.object,
+            resource: req.resource,
             relation: req.relation,
-            user: req.user,
+            subject: req.subject,
             limit: req.limit.map(|l| l as usize),
             cursor: req.cursor,
         };
@@ -433,28 +433,28 @@ impl InferaService for InferaServiceImpl {
             .await
             .map_err(|e| Status::internal(format!("List relationships failed: {}", e)))?;
 
-        // Create stream of tuples
-        let tuples = response.tuples;
+        // Create stream of relationships
+        let relationships = response.relationships;
         let cursor = response.cursor;
         let total_count = response.total_count.map(|c| c as u64);
 
-        // Stream each tuple followed by a final message with metadata
+        // Stream each relationship followed by a final message with metadata
         let stream = futures::stream::iter(
-            tuples
+            relationships
                 .into_iter()
-                .map(|tuple| {
+                .map(|rel| {
                     Ok(ListRelationshipsResponse {
-                        tuple: Some(proto::Tuple {
-                            object: tuple.object,
-                            relation: tuple.relation,
-                            user: tuple.user,
+                        relationship: Some(proto::Relationship {
+                            resource: rel.resource,
+                            relation: rel.relation,
+                            subject: rel.subject,
                         }),
                         cursor: None,
                         total_count: None,
                     })
                 })
                 .chain(std::iter::once(Ok(ListRelationshipsResponse {
-                    tuple: None, // No tuple in final message
+                    relationship: None, // No relationship in final message
                     cursor,
                     total_count,
                 }))),

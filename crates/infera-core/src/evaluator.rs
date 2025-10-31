@@ -1128,16 +1128,16 @@ impl Evaluator {
         false
     }
 
-    /// List relationships (tuples) with optional filtering
+    /// List relationships with optional filtering
     #[instrument(skip(self))]
     pub async fn list_relationships(
         &self,
         request: ListRelationshipsRequest,
     ) -> Result<ListRelationshipsResponse> {
         debug!(
-            object = ?request.object,
+            resource = ?request.resource,
             relation = ?request.relation,
-            user = ?request.user,
+            subject = ?request.subject,
             limit = ?request.limit,
             "Listing relationships"
         );
@@ -1147,13 +1147,13 @@ impl Evaluator {
         // Get current revision to ensure consistent read
         let revision = self.store.get_revision().await?;
 
-        // Query storage with filters
+        // Query storage with filters (storage uses resource/subject, returns Tuples)
         let all_tuples = self
             .store
             .list_relationships(
-                request.object.as_deref(),
+                request.resource.as_deref(),
                 request.relation.as_deref(),
-                request.user.as_deref(),
+                request.subject.as_deref(),
                 revision,
             )
             .await?;
@@ -1175,19 +1175,19 @@ impl Evaluator {
             .unwrap_or(DEFAULT_LIMIT)
             .min(MAX_LIMIT);
 
-        // Apply pagination and convert from store Tuple to core Tuple
-        let tuples: Vec<crate::types::Tuple> = all_tuples
+        // Apply pagination and convert from storage Tuple (object/user) to API Relationship (resource/subject)
+        let relationships: Vec<crate::types::Relationship> = all_tuples
             .into_iter()
             .skip(offset)
             .take(limit)
-            .map(|t| crate::types::Tuple {
-                object: t.object,
+            .map(|t| crate::types::Relationship {
+                resource: t.object,
                 relation: t.relation,
-                user: t.user,
+                subject: t.user,
             })
             .collect();
 
-        let returned_count = tuples.len();
+        let returned_count = relationships.len();
 
         // Determine if there are more results
         let has_more = returned_count == limit;
@@ -1205,7 +1205,7 @@ impl Evaluator {
         );
 
         Ok(ListRelationshipsResponse {
-            tuples,
+            relationships,
             cursor,
             total_count: Some(returned_count),
         })
@@ -2901,16 +2901,16 @@ mod tests {
 
         // List all relationships with no filters
         let request = crate::types::ListRelationshipsRequest {
-            object: None,
+            resource: None,
             relation: None,
-            user: None,
+            subject: None,
             limit: None,
             cursor: None,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 3);
+        assert_eq!(response.relationships.len(), 3);
         assert!(response.cursor.is_none());
     }
 
@@ -2940,19 +2940,19 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        // Filter by object
+        // Filter by resource
         let request = crate::types::ListRelationshipsRequest {
-            object: Some("doc:readme".to_string()),
+            resource: Some("doc:readme".to_string()),
             relation: None,
-            user: None,
+            subject: None,
             limit: None,
             cursor: None,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 2);
-        assert!(response.tuples.iter().all(|t| t.object == "doc:readme"));
+        assert_eq!(response.relationships.len(), 2);
+        assert!(response.relationships.iter().all(|r| r.resource == "doc:readme"));
     }
 
     #[tokio::test]
@@ -2983,17 +2983,17 @@ mod tests {
 
         // Filter by relation
         let request = crate::types::ListRelationshipsRequest {
-            object: None,
+            resource: None,
             relation: Some("owner".to_string()),
-            user: None,
+            subject: None,
             limit: None,
             cursor: None,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 2);
-        assert!(response.tuples.iter().all(|t| t.relation == "owner"));
+        assert_eq!(response.relationships.len(), 2);
+        assert!(response.relationships.iter().all(|r| r.relation == "owner"));
     }
 
     #[tokio::test]
@@ -3022,19 +3022,19 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        // Filter by user
+        // Filter by subject
         let request = crate::types::ListRelationshipsRequest {
-            object: None,
+            resource: None,
             relation: None,
-            user: Some("user:alice".to_string()),
+            subject: Some("user:alice".to_string()),
             limit: None,
             cursor: None,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 2);
-        assert!(response.tuples.iter().all(|t| t.user == "user:alice"));
+        assert_eq!(response.relationships.len(), 2);
+        assert!(response.relationships.iter().all(|r| r.subject == "user:alice"));
     }
 
     #[tokio::test]
@@ -3068,21 +3068,21 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        // Filter by object + relation + user
+        // Filter by resource + relation + subject
         let request = crate::types::ListRelationshipsRequest {
-            object: Some("doc:readme".to_string()),
+            resource: Some("doc:readme".to_string()),
             relation: Some("owner".to_string()),
-            user: Some("user:alice".to_string()),
+            subject: Some("user:alice".to_string()),
             limit: None,
             cursor: None,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 1);
-        assert_eq!(response.tuples[0].object, "doc:readme");
-        assert_eq!(response.tuples[0].relation, "owner");
-        assert_eq!(response.tuples[0].user, "user:alice");
+        assert_eq!(response.relationships.len(), 1);
+        assert_eq!(response.relationships[0].resource, "doc:readme");
+        assert_eq!(response.relationships[0].relation, "owner");
+        assert_eq!(response.relationships[0].subject, "user:alice");
     }
 
     #[tokio::test]
@@ -3105,30 +3105,30 @@ mod tests {
 
         // First page with default limit (100)
         let request = crate::types::ListRelationshipsRequest {
-            object: None,
+            resource: None,
             relation: None,
-            user: Some("user:alice".to_string()),
+            subject: Some("user:alice".to_string()),
             limit: None,
             cursor: None,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 100); // Default limit
+        assert_eq!(response.relationships.len(), 100); // Default limit
         assert!(response.cursor.is_some());
 
         // Second page using cursor
         let request = crate::types::ListRelationshipsRequest {
-            object: None,
+            resource: None,
             relation: None,
-            user: Some("user:alice".to_string()),
+            subject: Some("user:alice".to_string()),
             limit: None,
             cursor: response.cursor,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 50); // Remaining tuples
+        assert_eq!(response.relationships.len(), 50); // Remaining relationships
         assert!(response.cursor.is_none());
     }
 
@@ -3152,16 +3152,16 @@ mod tests {
 
         // Custom limit of 10
         let request = crate::types::ListRelationshipsRequest {
-            object: None,
+            resource: None,
             relation: None,
-            user: Some("user:alice".to_string()),
+            subject: Some("user:alice".to_string()),
             limit: Some(10),
             cursor: None,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 10);
+        assert_eq!(response.relationships.len(), 10);
         assert!(response.cursor.is_some());
     }
 
@@ -3174,9 +3174,9 @@ mod tests {
 
         // Request with limit > max (1000)
         let request = crate::types::ListRelationshipsRequest {
-            object: None,
+            resource: None,
             relation: None,
-            user: None,
+            subject: None,
             limit: Some(5000), // Exceeds max
             cursor: None,
         };
@@ -3184,7 +3184,7 @@ mod tests {
         let response = evaluator.list_relationships(request).await.unwrap();
 
         // Should be clamped to max of 1000
-        assert!(response.tuples.len() <= 1000);
+        assert!(response.relationships.len() <= 1000);
     }
 
     #[tokio::test]
@@ -3194,18 +3194,18 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        // Query with no matching tuples
+        // Query with no matching relationships
         let request = crate::types::ListRelationshipsRequest {
-            object: Some("doc:nonexistent".to_string()),
+            resource: Some("doc:nonexistent".to_string()),
             relation: None,
-            user: None,
+            subject: None,
             limit: None,
             cursor: None,
         };
 
         let response = evaluator.list_relationships(request).await.unwrap();
 
-        assert_eq!(response.tuples.len(), 0);
+        assert_eq!(response.relationships.len(), 0);
         assert!(response.cursor.is_none());
     }
 }

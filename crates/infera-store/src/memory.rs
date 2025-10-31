@@ -318,13 +318,17 @@ impl TupleStore for MemoryBackend {
 
     async fn list_relationships(
         &self,
-        object: Option<&str>,
+        resource: Option<&str>,
         relation: Option<&str>,
-        user: Option<&str>,
+        subject: Option<&str>,
         revision: Revision,
     ) -> Result<Vec<Tuple>> {
         let timer = OpTimer::new();
         let store = self.data.read().await;
+
+        // Map API parameter names to internal tuple field names
+        let object = resource;
+        let user = subject;
 
         // Collect candidate indices based on available filters
         let candidate_indices: Vec<usize> = match (object, relation, user) {

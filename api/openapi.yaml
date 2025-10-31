@@ -424,11 +424,11 @@ paths:
         - **Data Export**: Extract relationships for backup or analysis
 
         **Filtering**: All filter parameters are optional and can be combined:
-        - `object`: Filter by exact resource (e.g., "doc:readme")
+        - `resource`: Filter by exact resource (e.g., "doc:readme")
         - `relation`: Filter by relation type (e.g., "viewer")
-        - `user`: Filter by exact subject (e.g., "user:alice")
+        - `subject`: Filter by exact subject (e.g., "user:alice")
 
-        **Pagination**: Default limit is 100 tuples, maximum is 1000 per request.
+        **Pagination**: Default limit is 100 relationships, maximum is 1000 per request.
 
         **Performance**: Queries use storage indexes for optimal performance.
         Typical latency is <10ms for filtered queries, <50ms for full scans.
@@ -446,25 +446,25 @@ paths:
                 summary: List all relationships
                 value:
                   limit: 100
-              filter_by_object:
+              filter_by_resource:
                 summary: Find who has access to a resource
                 value:
-                  object: "doc:readme"
+                  resource: "doc:readme"
                   limit: 100
-              filter_by_user:
-                summary: Find what a user has access to
+              filter_by_subject:
+                summary: Find what a subject has access to
                 value:
-                  user: "user:alice"
+                  subject: "user:alice"
                   limit: 100
               filter_combined:
                 summary: Specific relationship query
                 value:
-                  object: "doc:readme"
+                  resource: "doc:readme"
                   relation: "viewer"
-                  user: "user:alice"
+                  subject: "user:alice"
       responses:
         '200':
-          description: List of matching tuples
+          description: List of matching relationships
           content:
             application/json:
               schema:
@@ -472,13 +472,13 @@ paths:
               examples:
                 success:
                   value:
-                    tuples:
-                      - object: "doc:readme"
+                    relationships:
+                      - resource: "doc:readme"
                         relation: "viewer"
-                        user: "user:alice"
-                      - object: "doc:readme"
+                        subject: "user:alice"
+                      - resource: "doc:readme"
                         relation: "editor"
-                        user: "user:bob"
+                        subject: "user:bob"
                     cursor: null
                     total_count: 2
         '400':
@@ -502,7 +502,7 @@ paths:
         where you want to show results progressively.
 
         **Events**:
-        - `message` events: Individual tuples as they're discovered
+        - `message` events: Individual relationships as they're discovered
         - `summary` event: Final metadata (cursor, total_count, complete flag)
 
         **Example client code**:
@@ -510,7 +510,7 @@ paths:
         const eventSource = new EventSource('/api/v1/list-relationships/stream');
         eventSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          console.log('Found tuple:', data.tuple);
+          console.log('Found relationship:', data.relationship);
         };
         eventSource.addEventListener('summary', (event) => {
           const summary = JSON.parse(event.data);
@@ -529,21 +529,21 @@ paths:
               $ref: '#/components/schemas/ListRelationshipsRequest'
       responses:
         '200':
-          description: SSE stream of tuples
+          description: SSE stream of relationships
           content:
             text/event-stream:
               schema:
                 type: string
                 description: |
                   Server-Sent Events stream with two event types:
-                  1. `message` events containing individual tuples
+                  1. `message` events containing individual relationships
                   2. `summary` event with final metadata
               examples:
                 stream_example:
                   value: |
-                    data: {"tuple":{"object":"doc:readme","relation":"viewer","user":"user:alice"},"index":0}
+                    data: {"relationship":{"resource":"doc:readme","relation":"viewer","subject":"user:alice"},"index":0}
 
-                    data: {"tuple":{"object":"doc:guide","relation":"editor","user":"user:bob"},"index":1}
+                    data: {"relationship":{"resource":"doc:guide","relation":"editor","subject":"user:bob"},"index":1}
 
                     event: summary
                     data: {"cursor":null,"total_count":2,"complete":true}
@@ -928,11 +928,11 @@ components:
     ListRelationshipsRequest:
       type: object
       properties:
-        object:
+        resource:
           type: string
           description: |
-            Optional filter by exact resource/object.
-            If provided, only tuples with this object are returned.
+            Optional filter by exact resource.
+            If provided, only relationships with this resource are returned.
           example: doc:readme
           pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
           nullable: true
@@ -940,15 +940,15 @@ components:
           type: string
           description: |
             Optional filter by relation type.
-            If provided, only tuples with this relation are returned.
+            If provided, only relationships with this relation are returned.
           example: viewer
           pattern: '^[a-z_][a-z0-9_]*$'
           nullable: true
-        user:
+        subject:
           type: string
           description: |
-            Optional filter by exact user/subject.
-            If provided, only tuples with this user are returned.
+            Optional filter by exact subject.
+            If provided, only relationships with this subject are returned.
           example: user:alice
           pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
           nullable: true
@@ -956,7 +956,7 @@ components:
           type: integer
           format: int32
           description: |
-            Maximum number of tuples to return.
+            Maximum number of relationships to return.
             Default: 100, Maximum: 1000
           example: 100
           minimum: 1
@@ -973,23 +973,23 @@ components:
     ListRelationshipsResponse:
       type: object
       required:
-        - tuples
+        - relationships
       properties:
-        tuples:
+        relationships:
           type: array
           items:
-            $ref: '#/components/schemas/Tuple'
+            $ref: '#/components/schemas/Relationship'
           description: |
-            List of tuples (relationships) matching the filter criteria.
-            Each tuple represents an authorization relationship between
-            a user and a resource.
+            List of relationships matching the filter criteria.
+            Each relationship represents an authorization tuple between
+            a subject and a resource.
           example:
-            - object: doc:readme
+            - resource: doc:readme
               relation: viewer
-              user: user:alice
-            - object: doc:readme
+              subject: user:alice
+            - resource: doc:readme
               relation: editor
-              user: user:bob
+              subject: user:bob
         cursor:
           type: string
           description: |
@@ -1002,10 +1002,33 @@ components:
           type: integer
           format: int64
           description: |
-            Total number of tuples returned in this response.
+            Total number of relationships returned in this response.
             This may be less than the actual total if pagination is used.
           example: 2
           nullable: true
+
+    Relationship:
+      type: object
+      required:
+        - resource
+        - relation
+        - subject
+      properties:
+        resource:
+          type: string
+          description: The resource being accessed
+          example: document:readme
+          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
+        relation:
+          type: string
+          description: The relation type
+          example: viewer
+          pattern: '^[a-z_][a-z0-9_]*$'
+        subject:
+          type: string
+          description: The subject (user or entity)
+          example: user:alice
+          pattern: '^[a-z_][a-z0-9_]*:[a-z0-9_-]+$'
 
     Tuple:
       type: object

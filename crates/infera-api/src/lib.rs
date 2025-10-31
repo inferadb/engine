@@ -968,9 +968,9 @@ async fn list_relationships_handler(
 
     // Convert to core request (all filters are optional)
     let list_request = ListRelationshipsRequest {
-        object: request.object,
+        resource: request.resource,
         relation: request.relation,
-        user: request.user,
+        subject: request.subject,
         limit: request.limit.map(|l| l as usize),
         cursor: request.cursor,
     };
@@ -978,19 +978,9 @@ async fn list_relationships_handler(
     // Execute list
     let response = state.evaluator.list_relationships(list_request).await?;
 
-    // Convert tuples from core::Tuple to store::Tuple for API response
-    let tuples = response
-        .tuples
-        .into_iter()
-        .map(|t| infera_store::Tuple {
-            object: t.object,
-            relation: t.relation,
-            user: t.user,
-        })
-        .collect();
-
+    // Response already uses Relationship type with resource/subject
     Ok(Json(ListRelationshipsRestResponse {
-        tuples,
+        relationships: response.relationships,
         cursor: response.cursor,
         total_count: response.total_count.map(|c| c as u64),
     }))
@@ -998,13 +988,13 @@ async fn list_relationships_handler(
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ListRelationshipsRestRequest {
-    /// Optional filter by object/resource (e.g., "doc:readme")
-    pub object: Option<String>,
+    /// Optional filter by resource (e.g., "doc:readme")
+    pub resource: Option<String>,
     /// Optional filter by relation (e.g., "viewer")
     pub relation: Option<String>,
-    /// Optional filter by user/subject (e.g., "user:alice")
-    pub user: Option<String>,
-    /// Optional limit on number of tuples to return (default: 100, max: 1000)
+    /// Optional filter by subject (e.g., "user:alice")
+    pub subject: Option<String>,
+    /// Optional limit on number of relationships to return (default: 100, max: 1000)
     pub limit: Option<u32>,
     /// Optional continuation token from previous request
     pub cursor: Option<String>,
@@ -1012,11 +1002,11 @@ pub struct ListRelationshipsRestRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ListRelationshipsRestResponse {
-    /// List of tuples matching the filter
-    pub tuples: Vec<Tuple>,
+    /// List of relationships matching the filter
+    pub relationships: Vec<infera_core::Relationship>,
     /// Continuation token for pagination (if more results available)
     pub cursor: Option<String>,
-    /// Total count of tuples returned
+    /// Total count of relationships returned
     pub total_count: Option<u64>,
 }
 
@@ -1052,9 +1042,9 @@ async fn list_relationships_stream_handler(
 
     // Convert to core request (all filters are optional)
     let list_request = ListRelationshipsRequest {
-        object: request.object,
+        resource: request.resource,
         relation: request.relation,
-        user: request.user,
+        subject: request.subject,
         limit: request.limit.map(|l| l as usize),
         cursor: request.cursor,
     };
@@ -1062,23 +1052,14 @@ async fn list_relationships_stream_handler(
     // Execute the list operation
     let response = state.evaluator.list_relationships(list_request).await?;
 
-    // Convert tuples from core::Tuple to store::Tuple for API response
-    let tuples: Vec<infera_store::Tuple> = response
-        .tuples
-        .into_iter()
-        .map(|t| infera_store::Tuple {
-            object: t.object,
-            relation: t.relation,
-            user: t.user,
-        })
-        .collect();
-
+    // Response already uses Relationship type with resource/subject
+    let relationships = response.relationships;
     let cursor = response.cursor;
     let total_count = response.total_count;
 
-    let stream = stream::iter(tuples.into_iter().enumerate().map(|(idx, tuple)| {
+    let stream = stream::iter(relationships.into_iter().enumerate().map(|(idx, relationship)| {
         let data = serde_json::json!({
-            "tuple": tuple,
+            "relationship": relationship,
             "index": idx,
         });
 

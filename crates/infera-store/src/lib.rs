@@ -94,15 +94,16 @@ pub trait TupleStore: Send + Sync {
 
     /// List relationships (tuples) with optional filtering
     /// All filter fields are optional and can be combined:
-    /// - object: Filter by exact object match (e.g., "doc:readme")
+    /// - resource: Filter by exact resource match (e.g., "doc:readme")
     /// - relation: Filter by relation (e.g., "viewer")
-    /// - user: Filter by exact user match (e.g., "user:alice")
+    /// - subject: Filter by exact subject match (e.g., "user:alice")
     /// Returns all tuples matching the filter criteria at the specified revision
+    /// Note: Internally tuples use (object, relation, user) but the API uses (resource, relation, subject)
     async fn list_relationships(
         &self,
-        object: Option<&str>,
+        resource: Option<&str>,
         relation: Option<&str>,
-        user: Option<&str>,
+        subject: Option<&str>,
         revision: Revision,
     ) -> Result<Vec<Tuple>>;
 
