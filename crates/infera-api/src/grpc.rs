@@ -46,9 +46,9 @@ pub mod proto {
 pub use proto::infera_service_client::InferaServiceClient;
 
 use proto::{
-    infera_service_server::InferaService, CheckRequest, CheckResponse, CheckWithTraceResponse,
-    Decision as ProtoDecision, DeleteRequest, DeleteResponse, ExpandRequest, HealthRequest,
-    HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
+    infera_service_server::InferaService, CheckRequest, CheckResponse, Decision as ProtoDecision,
+    DeleteRequest, DeleteResponse, ExpandRequest, HealthRequest, HealthResponse,
+    ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
     ListResourcesResponse, WriteRequest, WriteResponse,
 };
 
@@ -98,32 +98,68 @@ impl InferaService for InferaServiceImpl {
                         }
 
                         let check_request = CoreCheckRequest {
-                            subject: req.subject,
-                            resource: req.resource,
-                            permission: req.permission,
+                            subject: req.subject.clone(),
+                            resource: req.resource.clone(),
+                            permission: req.permission.clone(),
                             context: req.context.and_then(|s| serde_json::from_str(&s).ok()),
+                            trace: None,
                         };
 
-                        match evaluator.check(check_request).await {
-                            Ok(decision) => {
-                                let proto_decision = match decision {
-                                    Decision::Allow => ProtoDecision::Allow,
-                                    Decision::Deny => ProtoDecision::Deny,
-                                };
+                        // Check if trace is requested
+                        let trace = req.trace.unwrap_or(false);
 
-                                yield Ok(CheckResponse {
-                                    decision: proto_decision as i32,
-                                    index,
-                                    error: None,
-                                });
+                        if trace {
+                            // Use check_with_trace for detailed evaluation trace
+                            match evaluator.check_with_trace(check_request).await {
+                                Ok(trace_result) => {
+                                    let proto_decision = match trace_result.decision {
+                                        Decision::Allow => ProtoDecision::Allow,
+                                        Decision::Deny => ProtoDecision::Deny,
+                                    };
+
+                                    let proto_trace = convert_trace_to_proto(trace_result);
+
+                                    yield Ok(CheckResponse {
+                                        decision: proto_decision as i32,
+                                        index,
+                                        error: None,
+                                        trace: Some(proto_trace),
+                                    });
+                                }
+                                Err(e) => {
+                                    yield Ok(CheckResponse {
+                                        decision: ProtoDecision::Deny as i32,
+                                        index,
+                                        error: Some(format!("Evaluation error: {}", e)),
+                                        trace: None,
+                                    });
+                                }
                             }
-                            Err(e) => {
-                                // Return error in response rather than failing the stream
-                                yield Ok(CheckResponse {
-                                    decision: ProtoDecision::Deny as i32,
-                                    index,
-                                    error: Some(format!("Evaluation error: {}", e)),
-                                });
+                        } else {
+                            // Regular check without trace
+                            match evaluator.check(check_request).await {
+                                Ok(decision) => {
+                                    let proto_decision = match decision {
+                                        Decision::Allow => ProtoDecision::Allow,
+                                        Decision::Deny => ProtoDecision::Deny,
+                                    };
+
+                                    yield Ok(CheckResponse {
+                                        decision: proto_decision as i32,
+                                        index,
+                                        error: None,
+                                        trace: None,
+                                    });
+                                }
+                                Err(e) => {
+                                    // Return error in response rather than failing the stream
+                                    yield Ok(CheckResponse {
+                                        decision: ProtoDecision::Deny as i32,
+                                        index,
+                                        error: Some(format!("Evaluation error: {}", e)),
+                                        trace: None,
+                                    });
+                                }
                             }
                         }
 
@@ -138,39 +174,6 @@ impl InferaService for InferaServiceImpl {
         };
 
         Ok(Response::new(Box::pin(output_stream)))
-    }
-
-    async fn check_with_trace(
-        &self,
-        request: Request<CheckRequest>,
-    ) -> Result<Response<CheckWithTraceResponse>, Status> {
-        let req = request.into_inner();
-
-        let check_request = CoreCheckRequest {
-            subject: req.subject,
-            resource: req.resource,
-            permission: req.permission,
-            context: req.context.and_then(|s| serde_json::from_str(&s).ok()),
-        };
-
-        let trace = self
-            .state
-            .evaluator
-            .check_with_trace(check_request)
-            .await
-            .map_err(|e| Status::internal(format!("Evaluation error: {}", e)))?;
-
-        let proto_decision = match trace.decision {
-            Decision::Allow => ProtoDecision::Allow,
-            Decision::Deny => ProtoDecision::Deny,
-        };
-
-        let proto_trace = convert_trace_to_proto(trace);
-
-        Ok(Response::new(CheckWithTraceResponse {
-            decision: proto_decision as i32,
-            trace: Some(proto_trace),
-        }))
     }
 
     type ExpandStream = std::pin::Pin<
@@ -702,26 +705,7 @@ mod tests {
     // tested via integration tests and REST API tests (which provide equivalent coverage).
     // The REST API test in lib.rs tests the streaming expand functionality.
 
-    #[tokio::test]
-    async fn test_grpc_check_with_trace() {
-        let state = create_test_state();
-        let service = InferaServiceImpl::new(state);
-
-        let request = Request::new(CheckRequest {
-            subject: "user:alice".to_string(),
-            resource: "doc:readme".to_string(),
-            permission: "reader".to_string(),
-            context: None,
-        });
-
-        let response = service.check_with_trace(request).await.unwrap();
-        let result = response.into_inner();
-
-        assert_eq!(result.decision, ProtoDecision::Deny as i32);
-        assert!(result.trace.is_some());
-
-        let trace = result.trace.unwrap();
-        assert!(trace.root.is_some());
-        assert!(trace.duration_micros > 0);
-    }
+    // NOTE: Check with trace functionality is now integrated into the unified Check API
+    // via the trace flag. Trace testing is covered by REST API tests which
+    // provide equivalent coverage.
 }

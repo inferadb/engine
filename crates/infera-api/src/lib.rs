@@ -23,6 +23,7 @@ use tracing::info;
 
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
+use infera_core::DecisionTrace;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::{
@@ -275,6 +276,9 @@ struct CheckRestResponse {
     /// Error message if check failed
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+    /// Optional detailed evaluation trace (included when trace was set in request)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    trace: Option<DecisionTrace>,
 }
 
 /// Summary event sent at the end of the stream
@@ -336,6 +340,7 @@ async fn check_stream_handler(
                         decision: "deny".to_string(),
                         index: index as u32,
                         error: Some("Subject cannot be empty".to_string()),
+                        trace: None,
                     });
                 }
                 if check_request.resource.is_empty() {
@@ -343,6 +348,7 @@ async fn check_stream_handler(
                         decision: "deny".to_string(),
                         index: index as u32,
                         error: Some("Resource cannot be empty".to_string()),
+                        trace: None,
                     });
                 }
                 if check_request.permission.is_empty() {
@@ -350,24 +356,51 @@ async fn check_stream_handler(
                         decision: "deny".to_string(),
                         index: index as u32,
                         error: Some("Permission cannot be empty".to_string()),
+                        trace: None,
                     });
                 }
 
-                // Perform the check
-                match evaluator.check(check_request).await {
-                    Ok(decision) => Event::default().json_data(CheckRestResponse {
-                        decision: match decision {
-                            Decision::Allow => "allow".to_string(),
-                            Decision::Deny => "deny".to_string(),
-                        },
-                        index: index as u32,
-                        error: None,
-                    }),
-                    Err(e) => Event::default().json_data(CheckRestResponse {
-                        decision: "deny".to_string(),
-                        index: index as u32,
-                        error: Some(format!("Evaluation error: {}", e)),
-                    }),
+                // Check if trace is requested
+                let trace = check_request.trace.unwrap_or(false);
+
+                if trace {
+                    // Perform check with trace
+                    match evaluator.check_with_trace(check_request).await {
+                        Ok(trace_result) => Event::default().json_data(CheckRestResponse {
+                            decision: match trace_result.decision {
+                                Decision::Allow => "allow".to_string(),
+                                Decision::Deny => "deny".to_string(),
+                            },
+                            index: index as u32,
+                            error: None,
+                            trace: Some(trace_result),
+                        }),
+                        Err(e) => Event::default().json_data(CheckRestResponse {
+                            decision: "deny".to_string(),
+                            index: index as u32,
+                            error: Some(format!("Evaluation error: {}", e)),
+                            trace: None,
+                        }),
+                    }
+                } else {
+                    // Perform regular check without trace
+                    match evaluator.check(check_request).await {
+                        Ok(decision) => Event::default().json_data(CheckRestResponse {
+                            decision: match decision {
+                                Decision::Allow => "allow".to_string(),
+                                Decision::Deny => "deny".to_string(),
+                            },
+                            index: index as u32,
+                            error: None,
+                            trace: None,
+                        }),
+                        Err(e) => Event::default().json_data(CheckRestResponse {
+                            decision: "deny".to_string(),
+                            index: index as u32,
+                            error: Some(format!("Evaluation error: {}", e)),
+                            trace: None,
+                        }),
+                    }
                 }
             }
         })
@@ -786,6 +819,7 @@ async fn simulate_handler(
         resource: request.check.resource,
         permission: request.check.permission,
         context: request.check.context,
+        trace: None,
     };
 
     let decision = temp_evaluator.check(check_request).await?;
@@ -846,6 +880,7 @@ async fn explain_handler(
         resource: request.resource,
         permission: request.permission,
         context: request.context,
+        trace: None,
     };
 
     let start = std::time::Instant::now();
@@ -2414,6 +2449,75 @@ mod tests {
         assert_eq!(results[3].index, 3);
         assert_eq!(results[3].decision, "deny"); // bob can't edit doc:1
         assert!(results[3].error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_check_with_trace() {
+        // Test unified Check API with trace flag
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // Write a relationship
+        let write_request = json!({
+            "relationships": [{
+                "resource": "doc:traced",
+                "relation": "reader",
+                "subject": "user:alice"
+            }]
+        });
+
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write-relationships")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Check with trace enabled
+        let check_request = json!({
+            "checks": [{
+                "subject": "user:alice",
+                "resource": "doc:traced",
+                "permission": "reader",
+                "trace": true
+            }]
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "allow");
+        assert_eq!(results[0].index, 0);
+        assert!(results[0].error.is_none());
+
+        // Verify trace is included
+        assert!(results[0].trace.is_some());
+        let trace = results[0].trace.as_ref().unwrap();
+        assert!(trace.duration.as_micros() > 0);
+        // root is an EvaluationNode, not an Option
     }
 
     #[tokio::test]

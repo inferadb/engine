@@ -5,10 +5,8 @@ package infera.v1;
 // The main Infera authorization service
 service InferaService {
   // Check if a subject has permission on a resource (streaming for single and batch operations)
+  // Supports optional detailed tracing for debugging
   rpc Check(stream CheckRequest) returns (stream CheckResponse);
-
-  // Check with detailed trace for debugging
-  rpc CheckWithTrace(CheckRequest) returns (CheckWithTraceResponse);
 
   // Expand a relation into its userset tree (streaming for progressive results)
   rpc Expand(ExpandRequest) returns (stream ExpandStreamResponse);
@@ -42,6 +40,9 @@ message CheckRequest {
 
   // Optional context data
   optional string context = 4;
+
+  // Optional flag to include detailed evaluation trace for debugging
+  optional bool trace = 5;
 }
 
 // Check response
@@ -54,15 +55,9 @@ message CheckResponse {
 
   // Error message if check failed
   optional string error = 3;
-}
 
-// Check with trace response
-message CheckWithTraceResponse {
-  // Decision (allow or deny)
-  Decision decision = 1;
-
-  // Evaluation trace
-  DecisionTrace trace = 2;
+  // Optional detailed evaluation trace (included when trace was set in request)
+  optional DecisionTrace trace = 4;
 }
 
 // Decision enum

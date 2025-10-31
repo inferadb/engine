@@ -88,6 +88,8 @@ pub struct CheckRequest {
     pub resource: String,
     pub permission: String,
     pub context: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trace: Option<bool>,
 }
 
 /// Response from a check operation

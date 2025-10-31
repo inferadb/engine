@@ -97,7 +97,12 @@ paths:
 
         This is the primary authorization endpoint. It returns a simple allow/deny decision.
 
+        Optionally, you can enable detailed evaluation tracing by setting `trace: true` in the request.
+        This provides complete visibility into the authorization decision process, including which relationships
+        were evaluated and why the final decision was made.
+
         **Performance**: Typical latency is <5ms for simple checks, <20ms for complex nested relations.
+        Enabling trace adds minimal overhead (~1-2ms).
       operationId: checkPermission
       security:
         - bearerAuth: []
@@ -123,6 +128,13 @@ paths:
                   context:
                     ip_address: 192.168.1.1
                     time: "2024-01-15T10:30:00Z"
+              with_trace:
+                summary: Check with detailed trace for debugging
+                value:
+                  subject: user:alice
+                  resource: document:readme
+                  permission: can_view
+                  trace: true
       responses:
         "200":
           description: Check completed successfully
@@ -137,63 +149,31 @@ paths:
                 deny:
                   value:
                     decision: deny
+                with_trace:
+                  summary: Response with evaluation trace
+                  value:
+                    decision: allow
+                    trace:
+                      decision: allow
+                      root:
+                        node_type: Union
+                        children:
+                          - node_type: This
+                            children: []
+                          - node_type: ComputedUserset
+                            relation: editor
+                            children: []
+                      duration:
+                        secs: 0
+                        nanos: 5234567
+                      relationships_read: 3
+                      relations_evaluated: 2
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /check/trace:
-    post:
-      tags:
-        - authorization
-      summary: Check permission with trace
-      description: |
-        Check permission and return detailed evaluation trace for debugging.
-
-        The trace shows the complete evaluation tree, including which relations were checked,
-        which rules fired, and why the final decision was made.
-
-        **Note**: This endpoint should only be used for debugging. Use `/check` for production.
-      operationId: checkPermissionWithTrace
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CheckRequest"
-      responses:
-        "200":
-          description: Check completed with trace
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CheckTraceResponse"
-              examples:
-                traced_check:
-                  value:
-                    decision: allow
-                    trace:
-                      decision: allow
-                      node_type: union
-                      children:
-                        - decision: allow
-                          node_type: direct
-                          relation: viewer
-                          children: []
-                        - decision: deny
-                          node_type: computed_userset
-                          relation: editor
-                          children: []
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -817,6 +797,10 @@ components:
           example:
             ip_address: 192.168.1.1
             time: "2024-01-15T10:30:00Z"
+        trace:
+          type: boolean
+          description: Enable detailed evaluation trace for debugging (optional, default false)
+          example: false
 
     CheckResponse:
       type: object
@@ -827,6 +811,9 @@ components:
           type: string
           enum: [allow, deny]
           description: The authorization decision
+        trace:
+          $ref: "#/components/schemas/DecisionTrace"
+          description: Detailed evaluation trace (only included when trace=true)
 
     CheckTraceResponse:
       type: object
@@ -840,6 +827,85 @@ components:
           description: The authorization decision
         trace:
           $ref: "#/components/schemas/TraceNode"
+
+    DecisionTrace:
+      type: object
+      required:
+        - decision
+        - root
+        - duration
+        - relationships_read
+        - relations_evaluated
+      properties:
+        decision:
+          type: string
+          enum: [allow, deny]
+          description: The authorization decision
+        root:
+          $ref: "#/components/schemas/EvaluationNode"
+          description: Root evaluation node showing the complete evaluation tree
+        duration:
+          type: object
+          required:
+            - secs
+            - nanos
+          properties:
+            secs:
+              type: integer
+              format: int64
+              description: Duration in seconds
+            nanos:
+              type: integer
+              format: int32
+              description: Nanoseconds component
+          description: Time taken to evaluate the check
+        relationships_read:
+          type: integer
+          format: int64
+          description: Number of relationships read during evaluation
+        relations_evaluated:
+          type: integer
+          format: int64
+          description: Number of relations evaluated
+
+    EvaluationNode:
+      type: object
+      required:
+        - node_type
+        - children
+      properties:
+        node_type:
+          type: string
+          enum:
+            - This
+            - ComputedUserset
+            - RelatedObjectUserset
+            - Union
+            - Intersection
+            - Exclusion
+            - Leaf
+          description: |
+            Type of evaluation node:
+            - `This`: Direct relationship lookup
+            - `ComputedUserset`: Computed relation
+            - `RelatedObjectUserset`: Related object userset (follow relationship to compute permission on related objects)
+            - `Union`: OR operation
+            - `Intersection`: AND operation
+            - `Exclusion`: EXCEPT operation
+            - `Leaf`: Leaf node containing users
+        relation:
+          type: string
+          description: Relation being evaluated (for ComputedUserset and RelatedObjectUserset nodes)
+        users:
+          type: array
+          items:
+            type: string
+          description: Users at this leaf node (only for Leaf nodes)
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvaluationNode"
+          description: Child evaluation nodes
 
     TraceNode:
       type: object

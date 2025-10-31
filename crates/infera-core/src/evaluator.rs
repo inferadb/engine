@@ -1035,6 +1035,7 @@ impl Evaluator {
                 resource: resource.clone(),
                 permission: request.permission.clone(),
                 context: None,
+                trace: None,
             };
 
             // Use the existing check method
