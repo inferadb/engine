@@ -32,6 +32,7 @@ mod common {
     use tokio::sync::RwLock;
     use warp::Filter;
 
+    #[allow(dead_code)]
     pub struct MockJwksServer {
         pub keypair: SigningKey,
         pub kid: String,
@@ -39,6 +40,7 @@ mod common {
         pub url: String,
     }
 
+    #[allow(dead_code)]
     impl MockJwksServer {
         pub async fn start() -> Self {
             let keypair = SigningKey::generate(&mut OsRng);

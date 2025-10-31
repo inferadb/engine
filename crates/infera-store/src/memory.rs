@@ -1,11 +1,13 @@
 //! In-memory storage backend for testing and development
 
-use std::collections::{HashMap, BTreeMap};
+use async_trait::async_trait;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use async_trait::async_trait;
 
-use crate::{TupleStore, TupleKey, Tuple, Revision, Result, StoreMetrics, MetricsSnapshot, OpTimer};
+use crate::{
+    MetricsSnapshot, OpTimer, Result, Revision, StoreMetrics, Tuple, TupleKey, TupleStore,
+};
 
 /// A versioned tuple with its creation revision
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,7 +64,8 @@ impl MemoryBackend {
         let mut removed = 0;
 
         // Remove old revisions from history
-        let old_revisions: Vec<_> = store.revision_history
+        let old_revisions: Vec<_> = store
+            .revision_history
             .range(..before)
             .map(|(rev, _)| *rev)
             .collect();
@@ -92,7 +95,8 @@ impl TupleStore for MemoryBackend {
         // Find matching tuple indices
         let indices = if let Some(user) = &key.user {
             // Specific user query
-            store.object_relation_index
+            store
+                .object_relation_index
                 .get(&(key.object.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
@@ -105,7 +109,8 @@ impl TupleStore for MemoryBackend {
                 .collect::<Vec<_>>()
         } else {
             // All users for this object+relation
-            store.object_relation_index
+            store
+                .object_relation_index
                 .get(&(key.object.clone(), key.relation.clone()))
                 .cloned()
                 .unwrap_or_default()
@@ -117,8 +122,9 @@ impl TupleStore for MemoryBackend {
             .filter_map(|&idx| {
                 let vt = &store.tuples[idx];
                 // Include if created before or at revision and not deleted before or at revision
-                if vt.created_at <= revision &&
-                   (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision) {
+                if vt.created_at <= revision
+                    && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
+                {
                     Some(vt.tuple.clone())
                 } else {
                     None
@@ -145,7 +151,11 @@ impl TupleStore for MemoryBackend {
 
         for tuple in tuples {
             // Create a unique key for this tuple
-            let tuple_key = (tuple.object.clone(), tuple.relation.clone(), tuple.user.clone());
+            let tuple_key = (
+                tuple.object.clone(),
+                tuple.relation.clone(),
+                tuple.user.clone(),
+            );
 
             // Check for duplicates within this batch
             if batch_tuples.contains(&tuple_key) {
@@ -155,15 +165,15 @@ impl TupleStore for MemoryBackend {
 
             // Check for duplicates at current revision
             let key = (tuple.object.clone(), tuple.relation.clone());
-            let existing_indices = store.object_relation_index
+            let existing_indices = store
+                .object_relation_index
                 .get(&key)
                 .cloned()
                 .unwrap_or_default();
 
             let is_duplicate = existing_indices.iter().any(|&idx| {
                 let vt = &store.tuples[idx];
-                vt.tuple.user == tuple.user &&
-                vt.deleted_at.is_none()
+                vt.tuple.user == tuple.user && vt.deleted_at.is_none()
             });
 
             if is_duplicate {
@@ -186,17 +196,20 @@ impl TupleStore for MemoryBackend {
             new_indices.push(idx);
 
             // Update indices
-            store.object_relation_index
+            store
+                .object_relation_index
                 .entry(key.clone())
                 .or_insert_with(Vec::new)
                 .push(idx);
 
-            store.user_relation_index
+            store
+                .user_relation_index
                 .entry((tuple.user.clone(), tuple.relation.clone()))
                 .or_insert_with(Vec::new)
                 .push(idx);
 
-            store.object_index
+            store
+                .object_index
                 .entry(tuple.object.clone())
                 .or_insert_with(Vec::new)
                 .push(idx);
@@ -208,7 +221,8 @@ impl TupleStore for MemoryBackend {
         // Update metrics
         let tuple_bytes: usize = batch_tuples.len() * 64; // Approximate bytes per tuple
         self.metrics.record_write(timer.elapsed(), false);
-        self.metrics.update_key_space(store.tuples.len() as u64, tuple_bytes as u64);
+        self.metrics
+            .update_key_space(store.tuples.len() as u64, tuple_bytes as u64);
 
         Ok(current_revision)
     }
@@ -229,7 +243,8 @@ impl TupleStore for MemoryBackend {
         // Find tuples to delete
         let indices = if let Some(user) = &key.user {
             // Delete specific user
-            store.object_relation_index
+            store
+                .object_relation_index
                 .get(&(key.object.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
@@ -242,7 +257,8 @@ impl TupleStore for MemoryBackend {
                 .collect::<Vec<_>>()
         } else {
             // Delete all users for this object+relation
-            store.object_relation_index
+            store
+                .object_relation_index
                 .get(&(key.object.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
@@ -262,7 +278,11 @@ impl TupleStore for MemoryBackend {
         Ok(current_revision)
     }
 
-    async fn list_objects_by_type(&self, object_type: &str, revision: Revision) -> Result<Vec<String>> {
+    async fn list_objects_by_type(
+        &self,
+        object_type: &str,
+        revision: Revision,
+    ) -> Result<Vec<String>> {
         let timer = OpTimer::new();
         let store = self.data.read().await;
 
@@ -278,8 +298,8 @@ impl TupleStore for MemoryBackend {
                 // Check if this object has any active tuples at the given revision
                 let has_active = indices.iter().any(|&idx| {
                     let vt = &store.tuples[idx];
-                    vt.created_at <= revision &&
-                    (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
+                    vt.created_at <= revision
+                        && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
                 });
 
                 if has_active {
@@ -304,10 +324,16 @@ impl TupleStore for MemoryBackend {
 /// Query patterns for advanced lookups
 impl MemoryBackend {
     /// Query by user and relation (reverse lookup)
-    pub async fn query_by_user(&self, user: &str, relation: &str, revision: Revision) -> Result<Vec<Tuple>> {
+    pub async fn query_by_user(
+        &self,
+        user: &str,
+        relation: &str,
+        revision: Revision,
+    ) -> Result<Vec<Tuple>> {
         let store = self.data.read().await;
 
-        let indices = store.user_relation_index
+        let indices = store
+            .user_relation_index
             .get(&(user.to_string(), relation.to_string()))
             .cloned()
             .unwrap_or_default();
@@ -316,8 +342,9 @@ impl MemoryBackend {
             .iter()
             .filter_map(|&idx| {
                 let vt = &store.tuples[idx];
-                if vt.created_at <= revision &&
-                   (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision) {
+                if vt.created_at <= revision
+                    && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
+                {
                     Some(vt.tuple.clone())
                 } else {
                     None
@@ -332,17 +359,15 @@ impl MemoryBackend {
     pub async fn query_by_object(&self, object: &str, revision: Revision) -> Result<Vec<Tuple>> {
         let store = self.data.read().await;
 
-        let indices = store.object_index
-            .get(object)
-            .cloned()
-            .unwrap_or_default();
+        let indices = store.object_index.get(object).cloned().unwrap_or_default();
 
         let tuples = indices
             .iter()
             .filter_map(|&idx| {
                 let vt = &store.tuples[idx];
-                if vt.created_at <= revision &&
-                   (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision) {
+                if vt.created_at <= revision
+                    && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
+                {
                     Some(vt.tuple.clone())
                 } else {
                     None
@@ -363,7 +388,8 @@ impl MemoryBackend {
     pub async fn stats(&self) -> MemoryStats {
         let store = self.data.read().await;
 
-        let active_tuples = store.tuples
+        let active_tuples = store
+            .tuples
             .iter()
             .filter(|vt| vt.deleted_at.is_none())
             .count();
@@ -374,9 +400,9 @@ impl MemoryBackend {
             deleted_tuples: store.tuples.len() - active_tuples,
             current_revision: store.revision,
             unique_objects: store.object_index.len(),
-            index_memory: store.object_relation_index.len() +
-                         store.user_relation_index.len() +
-                         store.object_index.len(),
+            index_memory: store.object_relation_index.len()
+                + store.user_relation_index.len()
+                + store.object_index.len(),
         }
     }
 }
@@ -602,7 +628,10 @@ mod tests {
         let rev = store.write(tuples).await.unwrap();
 
         // Find all documents alice can read
-        let results = store.query_by_user("user:alice", "reader", rev).await.unwrap();
+        let results = store
+            .query_by_user("user:alice", "reader", rev)
+            .await
+            .unwrap();
         assert_eq!(results.len(), 2);
 
         let objects: HashSet<_> = results.iter().map(|t| &t.object).collect();
@@ -744,9 +773,9 @@ mod tests {
         // Strategy to generate valid tuples
         fn tuple_strategy() -> impl Strategy<Value = Tuple> {
             (
-                "[a-z]+:[a-z0-9]+",  // object
-                "[a-z_]+",           // relation
-                "user:[a-z]+",       // user
+                "[a-z]+:[a-z0-9]+", // object
+                "[a-z_]+",          // relation
+                "user:[a-z]+",      // user
             )
                 .prop_map(|(object, relation, user)| Tuple {
                     object,

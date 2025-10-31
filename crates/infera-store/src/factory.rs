@@ -3,10 +3,10 @@
 //! Provides a flexible way to instantiate different storage backends
 //! without exposing implementation details to consumers.
 
-use std::sync::Arc;
-use std::str::FromStr;
-use crate::{Result, StoreError, TupleStore};
 use crate::memory::MemoryBackend;
+use crate::{Result, StoreError, TupleStore};
+use std::str::FromStr;
+use std::sync::Arc;
 
 #[cfg(feature = "fdb")]
 use crate::foundationdb::FoundationDBBackend;
@@ -89,9 +89,7 @@ impl StorageFactory {
     /// Create a storage backend from configuration
     pub async fn create(config: StorageConfig) -> Result<Arc<dyn TupleStore>> {
         match config.backend {
-            BackendType::Memory => {
-                Ok(Arc::new(MemoryBackend::new()) as Arc<dyn TupleStore>)
-            }
+            BackendType::Memory => Ok(Arc::new(MemoryBackend::new()) as Arc<dyn TupleStore>),
             #[cfg(feature = "fdb")]
             BackendType::FoundationDB => {
                 let backend = if let Some(cluster_file) = config.connection_string.as_deref() {
@@ -105,7 +103,10 @@ impl StorageFactory {
     }
 
     /// Create a storage backend from string configuration
-    pub async fn from_str(backend_str: &str, connection_string: Option<String>) -> Result<Arc<dyn TupleStore>> {
+    pub async fn from_str(
+        backend_str: &str,
+        connection_string: Option<String>,
+    ) -> Result<Arc<dyn TupleStore>> {
         let backend_type = BackendType::from_str(backend_str)?;
         let config = StorageConfig {
             backend: backend_type,
@@ -126,15 +127,33 @@ mod tests {
 
     #[test]
     fn test_backend_type_from_str() {
-        assert_eq!(BackendType::from_str("memory").unwrap(), BackendType::Memory);
-        assert_eq!(BackendType::from_str("Memory").unwrap(), BackendType::Memory);
-        assert_eq!(BackendType::from_str("MEMORY").unwrap(), BackendType::Memory);
+        assert_eq!(
+            BackendType::from_str("memory").unwrap(),
+            BackendType::Memory
+        );
+        assert_eq!(
+            BackendType::from_str("Memory").unwrap(),
+            BackendType::Memory
+        );
+        assert_eq!(
+            BackendType::from_str("MEMORY").unwrap(),
+            BackendType::Memory
+        );
 
         #[cfg(feature = "fdb")]
         {
-            assert_eq!(BackendType::from_str("foundationdb").unwrap(), BackendType::FoundationDB);
-            assert_eq!(BackendType::from_str("fdb").unwrap(), BackendType::FoundationDB);
-            assert_eq!(BackendType::from_str("FoundationDB").unwrap(), BackendType::FoundationDB);
+            assert_eq!(
+                BackendType::from_str("foundationdb").unwrap(),
+                BackendType::FoundationDB
+            );
+            assert_eq!(
+                BackendType::from_str("fdb").unwrap(),
+                BackendType::FoundationDB
+            );
+            assert_eq!(
+                BackendType::from_str("FoundationDB").unwrap(),
+                BackendType::FoundationDB
+            );
         }
 
         assert!(BackendType::from_str("invalid").is_err());
@@ -178,7 +197,7 @@ mod tests {
 
     #[tokio::test]
     #[cfg(feature = "fdb")]
-    #[ignore]  // Requires FDB running
+    #[ignore] // Requires FDB running
     async fn test_factory_create_fdb() {
         let config = StorageConfig::foundationdb(None);
         let store = StorageFactory::create(config).await;

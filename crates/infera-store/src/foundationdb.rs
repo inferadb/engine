@@ -8,13 +8,13 @@
 //! - High availability
 
 use async_trait::async_trait;
-use foundationdb::{Database, FdbError, TransactOption};
 use foundationdb::tuple::{pack, unpack, Subspace};
+use foundationdb::{Database, FdbError, TransactOption};
 use serde_json;
 use std::sync::Arc;
 use tracing::{debug, error, warn};
 
-use crate::{Revision, Result, StoreError, Tuple, TupleKey, TupleStore};
+use crate::{Result, Revision, StoreError, Tuple, TupleKey, TupleStore};
 
 /// FoundationDB storage backend
 pub struct FoundationDBBackend {
@@ -42,8 +42,9 @@ impl FoundationDBBackend {
             Database::from_path(path)
                 .map_err(|e| StoreError::Database(format!("Failed to open cluster file: {}", e)))?
         } else {
-            Database::default()
-                .map_err(|e| StoreError::Database(format!("Failed to open default cluster: {}", e)))?
+            Database::default().map_err(|e| {
+                StoreError::Database(format!("Failed to open default cluster: {}", e))
+            })?
         };
 
         // Create subspaces for different data types
@@ -70,8 +71,9 @@ impl FoundationDBBackend {
             .run(move |trx, _maybe_committed| async move {
                 match trx.get(&revision_key, false).await? {
                     Some(bytes) => {
-                        let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbError::from(format!("Failed to deserialize revision: {}", e)))?;
+                        let rev: u64 = serde_json::from_slice(&bytes).map_err(|e| {
+                            FdbError::from(format!("Failed to deserialize revision: {}", e))
+                        })?;
                         Ok(Revision(rev))
                     }
                     None => Ok(Revision::zero()),
@@ -114,43 +116,43 @@ impl FoundationDBBackend {
 
     /// Create a key for a tuple with revision
     fn tuple_key(&self, tuple: &Tuple, revision: Revision) -> Vec<u8> {
-        self.tuples_subspace.pack(&(
-            &tuple.object,
-            &tuple.relation,
-            &tuple.user,
-            revision.0,
-        ))
+        self.tuples_subspace
+            .pack(&(&tuple.object, &tuple.relation, &tuple.user, revision.0))
     }
 
     /// Create an index key for object/relation lookups
-    fn index_key_object(&self, object: &str, relation: &str, user: &str, revision: Revision) -> Vec<u8> {
-        self.index_subspace.pack(&(
-            "obj",
-            object,
-            relation,
-            user,
-            revision.0,
-        ))
+    fn index_key_object(
+        &self,
+        object: &str,
+        relation: &str,
+        user: &str,
+        revision: Revision,
+    ) -> Vec<u8> {
+        self.index_subspace
+            .pack(&("obj", object, relation, user, revision.0))
     }
 
     /// Create an index key for reverse lookups (user/relation)
-    fn index_key_user(&self, user: &str, relation: &str, object: &str, revision: Revision) -> Vec<u8> {
-        self.index_subspace.pack(&(
-            "user",
-            user,
-            relation,
-            object,
-            revision.0,
-        ))
+    fn index_key_user(
+        &self,
+        user: &str,
+        relation: &str,
+        object: &str,
+        revision: Revision,
+    ) -> Vec<u8> {
+        self.index_subspace
+            .pack(&("user", user, relation, object, revision.0))
     }
 
     /// Parse a tuple from a key
     fn parse_tuple_from_key(&self, key: &[u8]) -> Result<Tuple> {
-        let unpacked: (String, String, String, u64) = unpack(
-            &key[self.tuples_subspace.bytes().len()..]
-        ).map_err(|e| StoreError::Serialization(
-            serde_json::Error::custom(format!("Failed to unpack tuple key: {}", e))
-        ))?;
+        let unpacked: (String, String, String, u64) =
+            unpack(&key[self.tuples_subspace.bytes().len()..]).map_err(|e| {
+                StoreError::Serialization(serde_json::Error::custom(format!(
+                    "Failed to unpack tuple key: {}",
+                    e
+                )))
+            })?;
 
         Ok(Tuple {
             object: unpacked.0,
@@ -169,37 +171,40 @@ impl TupleStore for FoundationDBBackend {
         let user_filter = key.user.clone();
 
         // Create range for this object+relation at or before the revision
-        let start_key = self.index_subspace.pack(&(
-            "obj",
-            &object,
-            &relation,
-        ));
+        let start_key = self.index_subspace.pack(&("obj", &object, &relation));
         let end_key = self.index_subspace.pack(&(
             "obj",
             &object,
             &relation,
-            "\xFF",  // Max string value
+            "\u{10FFFF}", // Max valid Unicode scalar value for range upper bound
         ));
 
         let tuples_subspace = self.tuples_subspace.clone();
 
         let result = db
             .run(move |trx, _maybe_committed| async move {
-                let range = trx.get_range(&foundationdb::RangeOption {
-                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                    limit: None,
-                    reverse: false,
-                    mode: foundationdb::StreamingMode::WantAll,
-                }, 1, false).await?;
+                let range = trx
+                    .get_range(
+                        &foundationdb::RangeOption {
+                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                            limit: None,
+                            reverse: false,
+                            mode: foundationdb::StreamingMode::WantAll,
+                        },
+                        1,
+                        false,
+                    )
+                    .await?;
 
                 let mut tuples = Vec::new();
                 let mut seen = std::collections::HashSet::new();
 
                 for kv in range.iter() {
-                    let unpacked: (String, String, String, String, u64) = unpack(
-                        &kv.key()[tuples_subspace.bytes().len()..]
-                    ).map_err(|e| FdbError::from(format!("Failed to unpack index: {}", e)))?;
+                    let unpacked: (String, String, String, String, u64) =
+                        unpack(&kv.key()[tuples_subspace.bytes().len()..]).map_err(|e| {
+                            FdbError::from(format!("Failed to unpack index: {}", e))
+                        })?;
 
                     let (_prefix, _obj, _rel, user, rev) = unpacked;
 
@@ -239,7 +244,12 @@ impl TupleStore for FoundationDBBackend {
             .await
             .map_err(|e| StoreError::Database(format!("Failed to read: {}", e)))?;
 
-        debug!("Read {} tuples for {}:{}", result.len(), key.object, key.relation);
+        debug!(
+            "Read {} tuples for {}:{}",
+            result.len(),
+            key.object,
+            key.relation
+        );
         Ok(result)
     }
 
@@ -353,26 +363,35 @@ impl TupleStore for FoundationDBBackend {
                     // Delete all tuples matching object+relation
                     // We write a deletion marker for each unique user we find
                     let start_key = tuples_subspace.pack(&(&object, &relation));
-                    let end_key = tuples_subspace.pack(&(&object, &relation, "\xFF"));
+                    let end_key = tuples_subspace.pack(&(&object, &relation, "\u{10FFFF}"));
 
-                    let range = trx.get_range(&foundationdb::RangeOption {
-                        begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                        end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                        limit: None,
-                        reverse: false,
-                        mode: foundationdb::StreamingMode::WantAll,
-                    }, 1, false).await?;
+                    let range = trx
+                        .get_range(
+                            &foundationdb::RangeOption {
+                                begin: foundationdb::KeySelector::first_greater_or_equal(
+                                    &start_key,
+                                ),
+                                end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                                limit: None,
+                                reverse: false,
+                                mode: foundationdb::StreamingMode::WantAll,
+                            },
+                            1,
+                            false,
+                        )
+                        .await?;
 
                     let mut deleted_users = std::collections::HashSet::new();
                     for kv in range.iter() {
-                        let unpacked: (String, String, String, u64) = unpack(
-                            &kv.key()[tuples_subspace.bytes().len()..]
-                        ).map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+                        let unpacked: (String, String, String, u64) =
+                            unpack(&kv.key()[tuples_subspace.bytes().len()..])
+                                .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
 
                         let (_obj, _rel, user, _rev) = unpacked;
                         if !deleted_users.contains(&user) {
                             deleted_users.insert(user.clone());
-                            let del_key = tuples_subspace.pack(&(&object, &relation, &user, revision.0));
+                            let del_key =
+                                tuples_subspace.pack(&(&object, &relation, &user, revision.0));
                             trx.set(&del_key, b"deleted");
                         }
                     }
@@ -383,11 +402,18 @@ impl TupleStore for FoundationDBBackend {
             .await
             .map_err(|e| StoreError::Database(format!("Failed to delete: {}", e)))?;
 
-        debug!("Deleted tuples matching {}:{} at revision {:?}", key.object, key.relation, result);
+        debug!(
+            "Deleted tuples matching {}:{} at revision {:?}",
+            key.object, key.relation, result
+        );
         Ok(result)
     }
 
-    async fn list_objects_by_type(&self, object_type: &str, revision: Revision) -> Result<Vec<String>> {
+    async fn list_objects_by_type(
+        &self,
+        object_type: &str,
+        revision: Revision,
+    ) -> Result<Vec<String>> {
         let db = Arc::clone(&self.db);
         let object_type = object_type.to_string();
         let index_subspace = self.index_subspace.clone();
@@ -403,21 +429,28 @@ impl TupleStore for FoundationDBBackend {
                 let start_key = index_subspace.pack(&("obj", type_prefix.as_str()));
                 let end_key = index_subspace.pack(&("obj", type_end.as_str()));
 
-                let range = trx.get_range(&foundationdb::RangeOption {
-                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                    limit: None,
-                    reverse: false,
-                    mode: foundationdb::StreamingMode::WantAll,
-                }, 1, false).await?;
+                let range = trx
+                    .get_range(
+                        &foundationdb::RangeOption {
+                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                            limit: None,
+                            reverse: false,
+                            mode: foundationdb::StreamingMode::WantAll,
+                        },
+                        1,
+                        false,
+                    )
+                    .await?;
 
                 let mut objects = std::collections::HashSet::new();
 
                 for kv in range.iter() {
                     // Unpack: ("obj", object, relation, user, rev)
-                    let unpacked: (String, String, String, String, u64) = unpack(
-                        &kv.key()[index_subspace.bytes().len()..]
-                    ).map_err(|e| FdbError::from(format!("Failed to unpack index: {}", e)))?;
+                    let unpacked: (String, String, String, String, u64) =
+                        unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
+                            FdbError::from(format!("Failed to unpack index: {}", e))
+                        })?;
 
                     let (_prefix, object, relation, user, rev) = unpacked;
 

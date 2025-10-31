@@ -6,15 +6,15 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub mod memory;
+pub mod factory;
 #[cfg(feature = "fdb")]
 pub mod foundationdb;
-pub mod factory;
+pub mod memory;
 pub mod metrics;
 
+pub use factory::{BackendType, StorageConfig, StorageFactory};
 pub use memory::MemoryBackend;
-pub use factory::{StorageFactory, StorageConfig, BackendType};
-pub use metrics::{StoreMetrics, MetricsSnapshot, OpTimer};
+pub use metrics::{MetricsSnapshot, OpTimer, StoreMetrics};
 
 #[cfg(feature = "fdb")]
 pub use foundationdb::FoundationDBBackend;
@@ -86,7 +86,11 @@ pub trait TupleStore: Send + Sync {
 
     /// List all distinct objects of a given type prefix (e.g., "document", "folder")
     /// Returns unique object identifiers like ["document:1", "document:2"]
-    async fn list_objects_by_type(&self, object_type: &str, revision: Revision) -> Result<Vec<String>>;
+    async fn list_objects_by_type(
+        &self,
+        object_type: &str,
+        revision: Revision,
+    ) -> Result<Vec<String>>;
 
     /// Get metrics snapshot (optional, returns None if not supported)
     fn metrics(&self) -> Option<MetricsSnapshot> {

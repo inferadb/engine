@@ -50,7 +50,8 @@ impl StoreMetrics {
     /// Record a read operation
     pub fn record_read(&self, duration: Duration, error: bool) {
         self.read_count.fetch_add(1, Ordering::Relaxed);
-        self.read_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.read_latency_us
+            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
         if error {
             self.read_errors.fetch_add(1, Ordering::Relaxed);
         }
@@ -59,7 +60,8 @@ impl StoreMetrics {
     /// Record a write operation
     pub fn record_write(&self, duration: Duration, error: bool) {
         self.write_count.fetch_add(1, Ordering::Relaxed);
-        self.write_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.write_latency_us
+            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
         if error {
             self.write_errors.fetch_add(1, Ordering::Relaxed);
         }
@@ -68,7 +70,8 @@ impl StoreMetrics {
     /// Record a delete operation
     pub fn record_delete(&self, duration: Duration, error: bool) {
         self.delete_count.fetch_add(1, Ordering::Relaxed);
-        self.delete_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.delete_latency_us
+            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
         if error {
             self.delete_errors.fetch_add(1, Ordering::Relaxed);
         }
@@ -97,13 +100,25 @@ impl StoreMetrics {
 
         MetricsSnapshot {
             read_count,
-            read_avg_latency_us: if read_count > 0 { read_latency_us / read_count } else { 0 },
+            read_avg_latency_us: if read_count > 0 {
+                read_latency_us / read_count
+            } else {
+                0
+            },
             read_errors: self.read_errors.load(Ordering::Relaxed),
             write_count,
-            write_avg_latency_us: if write_count > 0 { write_latency_us / write_count } else { 0 },
+            write_avg_latency_us: if write_count > 0 {
+                write_latency_us / write_count
+            } else {
+                0
+            },
             write_errors: self.write_errors.load(Ordering::Relaxed),
             delete_count,
-            delete_avg_latency_us: if delete_count > 0 { delete_latency_us / delete_count } else { 0 },
+            delete_avg_latency_us: if delete_count > 0 {
+                delete_latency_us / delete_count
+            } else {
+                0
+            },
             delete_errors: self.delete_errors.load(Ordering::Relaxed),
             retry_count: self.retry_count.load(Ordering::Relaxed),
             total_keys: self.total_keys.load(Ordering::Relaxed),
