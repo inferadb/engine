@@ -225,11 +225,8 @@ impl RelationshipStore for MemoryBackend {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_nanos() as i64;
-            let change_event = ChangeEvent::create(
-                relationship.clone(),
-                current_revision,
-                timestamp_nanos,
-            );
+            let change_event =
+                ChangeEvent::create(relationship.clone(), current_revision, timestamp_nanos);
             store
                 .change_log
                 .entry(current_revision)
@@ -302,8 +299,7 @@ impl RelationshipStore for MemoryBackend {
             store.relationships[idx].deleted_at = Some(current_revision);
 
             // Append change event to change log
-            let change_event =
-                ChangeEvent::delete(relationship, current_revision, timestamp_nanos);
+            let change_event = ChangeEvent::delete(relationship, current_revision, timestamp_nanos);
             store
                 .change_log
                 .entry(current_revision)
@@ -399,8 +395,7 @@ impl RelationshipStore for MemoryBackend {
             store.relationships[idx].deleted_at = Some(current_revision);
 
             // Append change event to change log
-            let change_event =
-                ChangeEvent::delete(relationship, current_revision, timestamp_nanos);
+            let change_event = ChangeEvent::delete(relationship, current_revision, timestamp_nanos);
             store
                 .change_log
                 .entry(current_revision)

@@ -12,12 +12,17 @@ schema = { SOI ~ type_def* ~ EOI }
 
 // Type definition: type <name> { ... }
 type_def = {
-    "type" ~ ident ~ "{" ~ relation_def* ~ "}"
+    "type" ~ ident ~ "{" ~ (relation_def | forbid_def)* ~ "}"
 }
 
 // Relation definition: relation <name>: <expr>
 relation_def = {
     "relation" ~ ident ~ (":" ~ relation_expr)?
+}
+
+// Forbid definition: forbid <name>: <expr>
+forbid_def = {
+    "forbid" ~ ident ~ (":" ~ relation_expr)?
 }
 
 // Relation expressions

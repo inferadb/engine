@@ -878,8 +878,9 @@ impl RelationshipStore for FoundationDBBackend {
                 ));
 
                 // Serialize the change event
-                let value = serde_json::to_vec(&event)
-                    .map_err(|e| FdbError::from(format!("Failed to serialize change event: {}", e)))?;
+                let value = serde_json::to_vec(&event).map_err(|e| {
+                    FdbError::from(format!("Failed to serialize change event: {}", e))
+                })?;
 
                 trx.set(&key, &value);
                 Ok(())
@@ -986,7 +987,9 @@ impl RelationshipStore for FoundationDBBackend {
                 }
             })
             .await
-            .map_err(|e| StoreError::Database(format!("Failed to get change log revision: {}", e)))?;
+            .map_err(|e| {
+                StoreError::Database(format!("Failed to get change log revision: {}", e))
+            })?;
 
         Ok(result)
     }

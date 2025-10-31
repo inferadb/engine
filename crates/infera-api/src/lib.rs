@@ -1244,9 +1244,10 @@ async fn watch_handler(
         infera_types::Revision(revision_u64)
     } else {
         // Start from next revision
-        let current = state.store.get_revision().await.map_err(|e| {
-            ApiError::Internal(format!("Failed to get current revision: {}", e))
-        })?;
+        let current =
+            state.store.get_revision().await.map_err(|e| {
+                ApiError::Internal(format!("Failed to get current revision: {}", e))
+            })?;
         current.next()
     };
 

@@ -8,16 +8,24 @@ pub struct Schema {
     pub types: Vec<TypeDef>,
 }
 
-/// A type definition with relations
+/// A type definition with relations and forbid rules
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TypeDef {
     pub name: String,
     pub relations: Vec<RelationDef>,
+    pub forbids: Vec<ForbidDef>,
 }
 
 /// A relation definition
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelationDef {
+    pub name: String,
+    pub expr: Option<RelationExpr>,
+}
+
+/// A forbid definition - explicit deny rules that override permit rules
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ForbidDef {
     pub name: String,
     pub expr: Option<RelationExpr>,
 }
@@ -75,12 +83,33 @@ impl Schema {
 
 impl TypeDef {
     pub fn new(name: String, relations: Vec<RelationDef>) -> Self {
-        Self { name, relations }
+        Self {
+            name,
+            relations,
+            forbids: Vec::new(),
+        }
+    }
+
+    pub fn new_with_forbids(
+        name: String,
+        relations: Vec<RelationDef>,
+        forbids: Vec<ForbidDef>,
+    ) -> Self {
+        Self {
+            name,
+            relations,
+            forbids,
+        }
     }
 
     /// Find a relation by name
     pub fn find_relation(&self, name: &str) -> Option<&RelationDef> {
         self.relations.iter().find(|r| r.name == name)
+    }
+
+    /// Find a forbid by name
+    pub fn find_forbid(&self, name: &str) -> Option<&ForbidDef> {
+        self.forbids.iter().find(|f| f.name == name)
     }
 }
 
@@ -90,6 +119,17 @@ impl RelationDef {
     }
 
     /// Check if this is a direct relation (no expression or `this`)
+    pub fn is_direct(&self) -> bool {
+        matches!(&self.expr, None | Some(RelationExpr::This))
+    }
+}
+
+impl ForbidDef {
+    pub fn new(name: String, expr: Option<RelationExpr>) -> Self {
+        Self { name, expr }
+    }
+
+    /// Check if this is a direct forbid (no expression or `this`)
     pub fn is_direct(&self) -> bool {
         matches!(&self.expr, None | Some(RelationExpr::This))
     }

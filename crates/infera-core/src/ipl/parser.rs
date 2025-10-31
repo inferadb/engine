@@ -47,13 +47,21 @@ fn parse_type_def(pair: pest::iterators::Pair<Rule>) -> Result<TypeDef> {
         .to_string();
 
     let mut relations = Vec::new();
-    for relation_pair in inner {
-        if relation_pair.as_rule() == Rule::relation_def {
-            relations.push(parse_relation_def(relation_pair)?);
+    let mut forbids = Vec::new();
+
+    for def_pair in inner {
+        match def_pair.as_rule() {
+            Rule::relation_def => {
+                relations.push(parse_relation_def(def_pair)?);
+            }
+            Rule::forbid_def => {
+                forbids.push(parse_forbid_def(def_pair)?);
+            }
+            _ => {}
         }
     }
 
-    Ok(TypeDef::new(name, relations))
+    Ok(TypeDef::new_with_forbids(name, relations, forbids))
 }
 
 fn parse_relation_def(pair: pest::iterators::Pair<Rule>) -> Result<RelationDef> {
@@ -72,6 +80,24 @@ fn parse_relation_def(pair: pest::iterators::Pair<Rule>) -> Result<RelationDef> 
     };
 
     Ok(RelationDef::new(name, expr))
+}
+
+fn parse_forbid_def(pair: pest::iterators::Pair<Rule>) -> Result<ForbidDef> {
+    let mut inner = pair.into_inner();
+
+    let name = inner
+        .next()
+        .ok_or_else(|| EvalError::Parse("Expected forbid name".to_string()))?
+        .as_str()
+        .to_string();
+
+    let expr = if let Some(expr_pair) = inner.next() {
+        Some(parse_relation_expr(expr_pair)?)
+    } else {
+        None
+    };
+
+    Ok(ForbidDef::new(name, expr))
 }
 
 fn parse_relation_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
@@ -446,5 +472,92 @@ mod tests {
         let source = "type document { relation }";
         let result = parse_schema(source);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_simple_forbid() {
+        let source = r#"
+            type document {
+                relation viewer
+                forbid blocked
+            }
+        "#;
+
+        let result = parse_schema(source);
+        assert!(result.is_ok());
+        let schema = result.unwrap();
+        assert_eq!(schema.types.len(), 1);
+        assert_eq!(schema.types[0].name, "document");
+        assert_eq!(schema.types[0].relations.len(), 1);
+        assert_eq!(schema.types[0].forbids.len(), 1);
+        assert_eq!(schema.types[0].forbids[0].name, "blocked");
+    }
+
+    #[test]
+    fn test_parse_forbid_with_expression() {
+        let source = r#"
+            type document {
+                relation viewer
+                relation editor
+                relation blocked_user
+                forbid denied: blocked_user | editor
+            }
+        "#;
+
+        let result = parse_schema(source);
+        assert!(result.is_ok());
+        let schema = result.unwrap();
+        assert_eq!(schema.types[0].forbids.len(), 1);
+        assert_eq!(schema.types[0].forbids[0].name, "denied");
+
+        // Check that the expression is a union
+        match &schema.types[0].forbids[0].expr {
+            Some(RelationExpr::Union(_)) => {
+                // Success
+            }
+            _ => panic!("Expected Union expression in forbid"),
+        }
+    }
+
+    #[test]
+    fn test_parse_multiple_forbids() {
+        let source = r#"
+            type document {
+                relation viewer
+                forbid blocked
+                forbid suspended
+                forbid banned: this | viewer
+            }
+        "#;
+
+        let result = parse_schema(source);
+        assert!(result.is_ok());
+        let schema = result.unwrap();
+        assert_eq!(schema.types[0].forbids.len(), 3);
+        assert_eq!(schema.types[0].forbids[0].name, "blocked");
+        assert_eq!(schema.types[0].forbids[1].name, "suspended");
+        assert_eq!(schema.types[0].forbids[2].name, "banned");
+    }
+
+    #[test]
+    fn test_parse_forbid_with_wasm() {
+        let source = r#"
+            type document {
+                relation viewer
+                forbid time_restricted: module("business_hours")
+            }
+        "#;
+
+        let result = parse_schema(source);
+        assert!(result.is_ok());
+        let schema = result.unwrap();
+        assert_eq!(schema.types[0].forbids.len(), 1);
+
+        match &schema.types[0].forbids[0].expr {
+            Some(RelationExpr::WasmModule { module_name }) => {
+                assert_eq!(module_name, "business_hours");
+            }
+            _ => panic!("Expected WasmModule in forbid"),
+        }
     }
 }

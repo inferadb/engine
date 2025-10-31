@@ -96,6 +96,61 @@ impl Evaluator {
         let mut ctx =
             GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision);
 
+        // FIRST: Check all forbid rules - if any match, return DENY immediately
+        // Forbid rules override all permit rules (explicit deny)
+        let type_name = request
+            .resource
+            .split(':')
+            .next()
+            .ok_or_else(|| EvalError::Evaluation("Invalid resource format".to_string()))?;
+
+        // Clone forbids to avoid borrow checker issues
+        let forbids_to_check = if let Some(type_def) = ctx.schema.find_type(type_name) {
+            type_def.forbids.clone()
+        } else {
+            Vec::new()
+        };
+
+        // Check all forbids for this permission
+        for forbid_def in &forbids_to_check {
+            let forbid_check = self
+                .check_forbid_rule(
+                    &request.resource,
+                    &forbid_def.name,
+                    &request.permission,
+                    &request.subject,
+                    &forbid_def.expr,
+                    &mut ctx,
+                )
+                .await?;
+
+            if forbid_check {
+                // Forbid matched - return DENY immediately
+                debug!(
+                    forbid = %forbid_def.name,
+                    "Forbid rule matched - denying access"
+                );
+
+                let decision = Decision::Deny;
+
+                // Cache the deny decision
+                if let Some(cache) = &self.cache {
+                    let cache_key = CheckCacheKey::new(
+                        request.subject.clone(),
+                        request.resource.clone(),
+                        request.permission.clone(),
+                        revision,
+                    );
+                    cache
+                        .put_check(cache_key, infera_cache::Decision::Deny)
+                        .await;
+                }
+
+                return Ok(decision);
+            }
+        }
+
+        // No forbids matched - proceed with normal permit evaluation
         // Build evaluation tree for this specific check
         let root = self
             .build_evaluation_node(
@@ -154,6 +209,58 @@ impl Evaluator {
         let mut ctx =
             GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision);
 
+        // FIRST: Check all forbid rules - if any match, return DENY immediately
+        let type_name = request
+            .resource
+            .split(':')
+            .next()
+            .ok_or_else(|| EvalError::Evaluation("Invalid resource format".to_string()))?;
+
+        // Clone forbids to avoid borrow checker issues
+        let forbids_to_check = if let Some(type_def) = ctx.schema.find_type(type_name) {
+            type_def.forbids.clone()
+        } else {
+            Vec::new()
+        };
+
+        for forbid_def in &forbids_to_check {
+            let forbid_check = self
+                .check_forbid_rule(
+                    &request.resource,
+                    &forbid_def.name,
+                    &request.permission,
+                    &request.subject,
+                    &forbid_def.expr,
+                    &mut ctx,
+                )
+                .await?;
+
+            if forbid_check {
+                // Forbid matched - return DENY with trace showing the forbid
+                let forbid_node = EvaluationNode {
+                    node_type: NodeType::DirectCheck {
+                        resource: request.resource.clone(),
+                        relation: format!("forbid:{}", forbid_def.name),
+                        subject: request.subject.clone(),
+                    },
+                    result: true, // Forbid matched
+                    children: vec![],
+                };
+
+                let relationships_read = ctx.visited.len();
+                let relations_evaluated = ctx.visited.len();
+
+                return Ok(DecisionTrace {
+                    decision: Decision::Deny,
+                    root: forbid_node,
+                    duration: start.elapsed(),
+                    relationships_read,
+                    relations_evaluated,
+                });
+            }
+        }
+
+        // No forbids matched - proceed with normal evaluation
         // Build evaluation tree
         let root = self
             .build_evaluation_node(
@@ -454,6 +561,36 @@ impl Evaluator {
                 })
             }
         }
+    }
+
+    /// Check if a forbid rule matches (returns true if subject should be denied)
+    /// This is similar to checking a permit rule, but the semantics are inverted:
+    /// - If forbid expression evaluates to true, access is DENIED
+    /// - Forbids are checked before permits and override them
+    #[async_recursion::async_recursion]
+    async fn check_forbid_rule(
+        &self,
+        resource: &str,
+        forbid_name: &str,
+        _permission: &str, // permission context for potential future use
+        subject: &str,
+        expr: &Option<crate::ipl::RelationExpr>,
+        ctx: &mut GraphContext,
+    ) -> Result<bool> {
+        // Check for direct relationship first (forbid with no expression or `this`)
+        if expr.is_none() {
+            let has_direct =
+                has_direct_relationship(&*ctx.store, resource, forbid_name, subject, ctx.revision)
+                    .await?;
+            return Ok(has_direct);
+        }
+
+        // If there's an expression, evaluate it
+        let node = self
+            .build_expr_node(resource, expr.as_ref().unwrap(), subject, ctx)
+            .await?;
+
+        Ok(node.result)
     }
 
     /// Expand a relation into its userset tree with actual user resolution

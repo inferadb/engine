@@ -61,10 +61,10 @@ pub use proto::infera_service_client::InferaServiceClient;
 
 use proto::{
     infera_service_server::InferaService, ChangeOperation, Decision as ProtoDecision,
-    DeleteRequest, DeleteResponse, EvaluateRequest, EvaluateResponse, ExpandRequest,
-    HealthRequest, HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse,
-    ListResourcesRequest, ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse,
-    WatchRequest, WatchResponse, WriteRequest, WriteResponse,
+    DeleteRequest, DeleteResponse, EvaluateRequest, EvaluateResponse, ExpandRequest, HealthRequest,
+    HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
+    ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse, WatchRequest, WatchResponse,
+    WriteRequest, WriteResponse,
 };
 
 pub struct InferaServiceImpl {

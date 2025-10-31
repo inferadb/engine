@@ -124,6 +124,161 @@ Queries:
 - `Check(user:alice, document:readme, can_view)` → **Allow**
 - `Check(user:bob, document:readme, can_view)` → **Deny** (blocked)
 
+## Forbid Policies (Explicit Deny)
+
+Forbid policies provide explicit deny rules that override all permit rules. When any forbid rule matches, access is DENIED immediately, regardless of any permit relations.
+
+### Basic Forbid Syntax
+
+```ipl
+type document {
+    relation viewer
+    forbid blocked
+}
+```
+
+**Semantics**: If a user has the `blocked` forbid, they are DENIED access to the `viewer` permission, even if they would otherwise have `viewer` permission through a permit relation.
+
+**Example tuples**:
+
+```
+document:readme#viewer@user:alice
+document:readme#blocked@user:alice
+```
+
+Query: `Check(user:alice, document:readme, viewer)` → **Deny** (forbid overrides permit)
+
+### Forbid vs Exclusion
+
+**Important**: Forbid (`forbid blocked`) and Exclusion (`viewer - blocked`) are different concepts:
+
+| Feature | Forbid | Exclusion |
+|---------|--------|-----------|
+| **Scope** | Global deny for all permissions | Local to specific relation |
+| **Precedence** | Checked first, overrides everything | Part of permit evaluation |
+| **Use Case** | User/resource-level blocks | Permission-specific filtering |
+
+**Example showing the difference**:
+
+```ipl
+type document {
+    relation editor
+    relation blocked_user
+
+    // Exclusion: editors who are not blocked can view
+    relation viewer: editor - blocked_user
+
+    // Forbid: blocked users cannot access ANY permission
+    forbid blocked: blocked_user
+}
+```
+
+With tuples:
+```
+document:readme#editor@user:alice
+document:readme#blocked_user@user:alice
+```
+
+Queries:
+- `Check(user:alice, document:readme, viewer)` → **Deny** (exclusion removes from viewer)
+- `Check(user:alice, document:readme, editor)` → **Deny** (forbid blocks all access)
+
+**Forbid is checked first** and denies access to ALL permissions on the resource, while exclusion only affects the specific relation it's part of.
+
+### Forbid with Expressions
+
+Forbid rules support the same expressions as relations:
+
+```ipl
+type document {
+    relation viewer
+    relation suspended_user
+    relation banned_user
+
+    // Multiple deny conditions with union
+    forbid access_denied: suspended_user | banned_user
+}
+```
+
+**Semantics**: Users who are EITHER `suspended_user` OR `banned_user` are denied all access.
+
+### Forbid with WASM Modules
+
+Forbid rules can use WASM modules for conditional denies:
+
+```ipl
+type document {
+    relation viewer
+
+    // Deny access outside business hours
+    forbid time_restricted: module("outside_business_hours")
+}
+```
+
+The WASM module can implement time-based, attribute-based, or context-based deny logic.
+
+### Multiple Forbid Rules
+
+You can define multiple forbid rules. If ANY forbid matches, access is denied:
+
+```ipl
+type document {
+    relation viewer
+
+    forbid blocked
+    forbid suspended
+    forbid terminated
+}
+```
+
+**Semantics**: Access is denied if the user matches ANY of: `blocked`, `suspended`, or `terminated`.
+
+**Order Independence**: The order of forbid rules doesn't matter. All are evaluated, and any match results in denial.
+
+### Evaluation Order
+
+InferaDB evaluates authorization in this order:
+
+1. **Forbid rules** - Check all forbid rules first
+2. **If any forbid matches** → Return **DENY** immediately
+3. **If no forbids match** → Evaluate permit rules normally
+4. **Return** permit evaluation result
+
+This ensures explicit denies always take precedence over permits.
+
+### Security Best Practices
+
+1. **Use forbid for user-level blocks**: When a user should be completely blocked from a resource (banned, suspended, terminated).
+
+2. **Use exclusion for permission-specific filtering**: When you want to remove specific users from a permission but allow them other permissions.
+
+3. **Combine with monitoring**: Forbid rules are logged separately in traces, making it easy to audit denied access.
+
+4. **Test thoroughly**: Since forbids override permits, ensure they're not too broad.
+
+**Example - User Suspension**:
+
+```ipl
+type document {
+    relation owner
+    relation editor
+    relation viewer
+
+    // Suspended users cannot access anything
+    forbid suspended
+
+    // But editors who are not suspended can also view
+    relation can_edit: editor - suspended
+    relation can_view: viewer | editor
+}
+```
+
+With this schema:
+- Suspended users are completely blocked (forbid)
+- The `- suspended` in `can_edit` is redundant but harmless (forbid already blocks)
+- Non-suspended editors can edit and view
+- Non-suspended viewers can only view
+
 ## Relation References
 
 ### Computed Userset
@@ -264,13 +419,14 @@ fn check() -> i32 {
 
 ```ebnf
 schema       = type_def+
-type_def     = "type" IDENT "{" relation_def+ "}"
+type_def     = "type" IDENT "{" (relation_def | forbid_def)+ "}"
 ```
 
-### Relations
+### Relations and Forbids
 
 ```ebnf
 relation_def = "relation" IDENT (":" type_ref)? ("=" expr)?
+forbid_def   = "forbid" IDENT (":" expr)?
 type_ref     = IDENT
 ```
 

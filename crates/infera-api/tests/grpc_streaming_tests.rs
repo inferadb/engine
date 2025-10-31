@@ -264,8 +264,14 @@ async fn test_watch_captures_write_events() {
 
     // Should have captured 2 create events
     assert_eq!(events.len(), 2);
-    assert_eq!(events[0].operation, infera_api::grpc::proto::ChangeOperation::Create as i32);
-    assert_eq!(events[1].operation, infera_api::grpc::proto::ChangeOperation::Create as i32);
+    assert_eq!(
+        events[0].operation,
+        infera_api::grpc::proto::ChangeOperation::Create as i32
+    );
+    assert_eq!(
+        events[1].operation,
+        infera_api::grpc::proto::ChangeOperation::Create as i32
+    );
 }
 
 #[tokio::test]
@@ -342,7 +348,11 @@ async fn test_watch_captures_delete_events() {
     };
 
     let stream = futures::stream::once(async { write_req });
-    let write_response = client.write_relationships(stream).await.unwrap().into_inner();
+    let write_response = client
+        .write_relationships(stream)
+        .await
+        .unwrap()
+        .into_inner();
 
     // Start watching from after the write
     let cursor = format!("{}", write_response.revision.parse::<u64>().unwrap() + 1);
@@ -389,5 +399,8 @@ async fn test_watch_captures_delete_events() {
 
     // Should have captured 1 delete event
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0].operation, infera_api::grpc::proto::ChangeOperation::Delete as i32);
+    assert_eq!(
+        events[0].operation,
+        infera_api::grpc::proto::ChangeOperation::Delete as i32
+    );
 }
