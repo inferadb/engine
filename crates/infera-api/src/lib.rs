@@ -1265,7 +1265,7 @@ async fn watch_handler(
                     for event in &events {
                         // Format timestamp as ISO 8601
                         let timestamp = {
-                            let secs = (event.timestamp_nanos / 1_000_000_000) as i64;
+                            let secs = event.timestamp_nanos / 1_000_000_000;
                             let nanos = (event.timestamp_nanos % 1_000_000_000) as u32;
                             chrono::DateTime::from_timestamp(secs, nanos)
                                 .map(|dt| dt.to_rfc3339())
@@ -1397,6 +1397,14 @@ pub async fn serve_grpc(
     let grpc_port = config.server.port + 1;
     let addr = format!("{}:{}", config.server.host, grpc_port).parse()?;
 
+    // Set up reflection service
+    let file_descriptor_set = tonic::include_file_descriptor_set!("infera_descriptor");
+    let reflection_service = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(file_descriptor_set)
+        .build_v1()?;
+
+    info!("gRPC reflection enabled");
+
     // Set up authentication if enabled
     if config.auth.enabled {
         if let Some(cache) = jwks_cache {
@@ -1424,9 +1432,10 @@ pub async fn serve_grpc(
                 Arc::new(config.auth.clone()),
             );
 
-            // Add service with interceptor
+            // Add service with interceptor and reflection
             Server::builder()
                 .add_service(InferaServiceServer::with_interceptor(service, interceptor))
+                .add_service(reflection_service)
                 .serve(addr)
                 .await?;
         } else {
@@ -1440,6 +1449,7 @@ pub async fn serve_grpc(
 
         Server::builder()
             .add_service(InferaServiceServer::new(service))
+            .add_service(reflection_service)
             .serve(addr)
             .await?;
     }

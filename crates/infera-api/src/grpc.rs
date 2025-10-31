@@ -655,7 +655,7 @@ impl InferaService for InferaServiceImpl {
 
                             // Format timestamp as ISO 8601
                             let timestamp = {
-                                let secs = (event.timestamp_nanos / 1_000_000_000) as i64;
+                                let secs = event.timestamp_nanos / 1_000_000_000;
                                 let nanos = (event.timestamp_nanos % 1_000_000_000) as u32;
                                 chrono::DateTime::from_timestamp(secs, nanos)
                                     .map(|dt| dt.to_rfc3339())

@@ -21,6 +21,7 @@ base64 = "0.22"
 
 # gRPC dependencies
 tonic = "0.12"
+tonic-reflection = "0.12"
 prost = "0.13"
 pin-project = "1.1"
 futures = { workspace = true }

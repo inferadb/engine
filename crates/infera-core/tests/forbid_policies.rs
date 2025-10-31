@@ -75,7 +75,11 @@ async fn test_permit_without_forbid() {
 
     // Charlie is a viewer and NOT blocked
     fixture
-        .write_relationships(vec![relationship("document:readme", "viewer", "user:charlie")])
+        .write_relationships(vec![relationship(
+            "document:readme",
+            "viewer",
+            "user:charlie",
+        )])
         .await
         .unwrap();
 
