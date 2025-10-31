@@ -23,6 +23,7 @@ tonic = "0.12"
 prost = "0.13"
 pin-project = "1.1"
 futures = { workspace = true }
+async-stream = "0.3"
 
 # Internal dependencies
 infera-types = { path = "../infera-types" }

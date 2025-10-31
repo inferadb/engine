@@ -157,7 +157,7 @@ pub fn create_router(state: AppState) -> Router {
 
     // Protected routes that require authentication
     let protected_routes = Router::new()
-        .route("/check", post(check_handler))
+        .route("/check", post(check_stream_handler))
         .route("/expand", post(expand_handler))
         .route("/expand/stream", post(expand_stream_handler))
         .route("/list-resources", post(list_resources_stream_handler))
@@ -262,12 +262,44 @@ async fn shutdown_signal() {
     info!("Shutdown signal received, draining connections...");
 }
 
-/// Authorization check endpoint
-async fn check_handler(
+/// Request for batch authorization check (streaming endpoint)
+#[derive(Serialize, Deserialize)]
+struct CheckRestRequest {
+    /// Array of check requests to evaluate
+    checks: Vec<CheckRequest>,
+}
+
+/// Response for a single check in the batch
+#[derive(Serialize, Deserialize)]
+struct CheckRestResponse {
+    /// Decision (allow or deny)
+    decision: String,
+    /// Index of the request this response corresponds to
+    index: u32,
+    /// Error message if check failed
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Summary event sent at the end of the stream
+#[derive(Serialize, Deserialize)]
+struct CheckSummary {
+    /// Total number of checks processed
+    total: u32,
+    /// Whether the stream completed successfully
+    complete: bool,
+}
+
+/// Streaming authorization check endpoint using Server-Sent Events
+///
+/// Supports both single checks (array of 1) and batch checks (array of N).
+/// Returns decisions as they're evaluated, enabling progressive rendering
+/// and efficient batch processing.
+async fn check_stream_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
-    Json(request): Json<CheckRequest>,
-) -> Result<Json<CheckResponse>> {
+    Json(request): Json<CheckRestRequest>,
+) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
         if let Some(auth_ctx) = auth.0 {
@@ -275,9 +307,10 @@ async fn check_handler(
             infera_auth::middleware::require_scope(&auth_ctx, "inferadb.check")
                 .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            // TODO: Add tenant isolation check when we have multi-tenant support
-            // For now, we just log the authenticated tenant
-            tracing::debug!("Check request from tenant: {}", auth_ctx.tenant_id);
+            tracing::debug!(
+                "Streaming check request from tenant: {}",
+                auth_ctx.tenant_id
+            );
         } else {
             return Err(ApiError::Unauthorized(
                 "Authentication required".to_string(),
@@ -285,19 +318,72 @@ async fn check_handler(
         }
     }
 
-    let decision = state.evaluator.check(request).await?;
+    // Validate request
+    if request.checks.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "At least one check must be provided".to_string(),
+        ));
+    }
 
-    Ok(Json(CheckResponse {
-        decision: match decision {
-            Decision::Allow => "allow".to_string(),
-            Decision::Deny => "deny".to_string(),
-        },
-    }))
-}
+    let checks = request.checks;
+    let total_checks = checks.len() as u32;
+    let evaluator = state.evaluator.clone();
 
-#[derive(Serialize, Deserialize)]
-struct CheckResponse {
-    decision: String,
+    // Create a stream that processes each check and emits results
+    let stream = futures::stream::iter(checks.into_iter().enumerate())
+        .then(move |(index, check_request)| {
+            let evaluator = evaluator.clone();
+            async move {
+                // Validate individual check
+                if check_request.subject.is_empty() {
+                    return Event::default().json_data(CheckRestResponse {
+                        decision: "deny".to_string(),
+                        index: index as u32,
+                        error: Some("Subject cannot be empty".to_string()),
+                    });
+                }
+                if check_request.resource.is_empty() {
+                    return Event::default().json_data(CheckRestResponse {
+                        decision: "deny".to_string(),
+                        index: index as u32,
+                        error: Some("Resource cannot be empty".to_string()),
+                    });
+                }
+                if check_request.permission.is_empty() {
+                    return Event::default().json_data(CheckRestResponse {
+                        decision: "deny".to_string(),
+                        index: index as u32,
+                        error: Some("Permission cannot be empty".to_string()),
+                    });
+                }
+
+                // Perform the check
+                match evaluator.check(check_request).await {
+                    Ok(decision) => Event::default().json_data(CheckRestResponse {
+                        decision: match decision {
+                            Decision::Allow => "allow".to_string(),
+                            Decision::Deny => "deny".to_string(),
+                        },
+                        index: index as u32,
+                        error: None,
+                    }),
+                    Err(e) => Event::default().json_data(CheckRestResponse {
+                        decision: "deny".to_string(),
+                        index: index as u32,
+                        error: Some(format!("Evaluation error: {}", e)),
+                    }),
+                }
+            }
+        })
+        .chain(futures::stream::once(async move {
+            // Send summary event at the end
+            Event::default().event("summary").json_data(CheckSummary {
+                total: total_checks,
+                complete: true,
+            })
+        }));
+
+    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }
 
 /// Expand endpoint
@@ -1214,6 +1300,24 @@ mod tests {
         }
     }
 
+    /// Helper function to parse SSE response and extract check results
+    async fn parse_sse_check_response(body: &[u8]) -> Vec<CheckRestResponse> {
+        let body_str = std::str::from_utf8(body).expect("Invalid UTF-8 in SSE response");
+        let mut results = Vec::new();
+
+        // Parse SSE format: "data: {...}\n\n"
+        for line in body_str.lines() {
+            if let Some(data) = line.strip_prefix("data: ") {
+                // Try to parse as CheckRestResponse (skip summary events)
+                if let Ok(response) = serde_json::from_str::<CheckRestResponse>(data) {
+                    results.push(response);
+                }
+            }
+        }
+
+        results
+    }
+
     #[tokio::test]
     async fn test_health_check() {
         let app = create_router(create_test_state());
@@ -1235,11 +1339,14 @@ mod tests {
     async fn test_check_deny() {
         let app = create_router(create_test_state());
 
+        // New batch format with array of checks
         let request_body = json!({
-            "subject": "user:alice",
-            "resource": "doc:readme",
-            "permission": "reader",
-            "context": null
+            "checks": [{
+                "subject": "user:alice",
+                "resource": "doc:readme",
+                "permission": "reader",
+                "context": null
+            }]
         });
 
         let response = app
@@ -1259,8 +1366,13 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(response_json["decision"], "deny");
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "deny");
+        assert_eq!(results[0].index, 0);
+        assert!(results[0].error.is_none());
     }
 
     #[tokio::test]
@@ -1300,10 +1412,12 @@ mod tests {
 
         // Now check the permission
         let check_request = json!({
-            "subject": "user:alice",
-            "resource": "doc:readme",
-            "permission": "reader",
-            "context": null
+            "checks": [{
+                "subject": "user:alice",
+                "resource": "doc:readme",
+                "permission": "reader",
+                "context": null
+            }]
         });
 
         let response = app
@@ -1323,8 +1437,13 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(check_response["decision"], "allow");
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "allow");
+        assert_eq!(results[0].index, 0);
+        assert!(results[0].error.is_none());
     }
 
     #[tokio::test]
@@ -1441,10 +1560,12 @@ mod tests {
 
         // Verify the relationship exists
         let check_request = json!({
-            "subject": "user:bob",
-            "resource": "doc:test",
-            "permission": "reader",
-            "context": null
+            "checks": [{
+                "subject": "user:bob",
+                "resource": "doc:test",
+                "permission": "reader",
+                "context": null
+            }]
         });
 
         let response = app
@@ -1464,8 +1585,11 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(check_response["decision"], "allow");
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "allow");
 
         // Now delete the relationship
         let delete_request = json!({
@@ -1499,10 +1623,12 @@ mod tests {
 
         // Verify the relationship is deleted
         let check_request = json!({
-            "subject": "user:bob",
-            "resource": "doc:test",
-            "permission": "reader",
-            "context": null
+            "checks": [{
+                "subject": "user:bob",
+                "resource": "doc:test",
+                "permission": "reader",
+                "context": null
+            }]
         });
 
         let response = app
@@ -1521,8 +1647,11 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(check_response["decision"], "deny");
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "deny");
     }
 
     #[tokio::test]
@@ -1656,10 +1785,12 @@ mod tests {
         let app = create_router(state);
 
         let request_body = json!({
-            "subject": "user:alice",
-            "resource": "doc:readme",
-            "permission": "reader",
-            "context": null
+            "checks": [{
+                "subject": "user:alice",
+                "resource": "doc:readme",
+                "permission": "reader",
+                "context": null
+            }]
         });
 
         let response = app
@@ -1823,9 +1954,11 @@ mod tests {
 
         // Verify alice has no access anymore
         let check_request = json!({
-            "subject": "user:alice",
-            "resource": "doc:1",
-            "permission": "reader"
+            "checks": [{
+                "subject": "user:alice",
+                "resource": "doc:1",
+                "permission": "reader"
+            }]
         });
 
         let response = app
@@ -1844,14 +1977,19 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(check_response["decision"], "deny");
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "deny");
 
         // Verify bob still has access
         let check_request = json!({
-            "subject": "user:bob",
-            "resource": "doc:3",
-            "permission": "reader"
+            "checks": [{
+                "subject": "user:bob",
+                "resource": "doc:3",
+                "permission": "reader"
+            }]
         });
 
         let response = app
@@ -1869,8 +2007,11 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(check_response["decision"], "allow");
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "allow");
     }
 
     #[tokio::test]
@@ -1942,9 +2083,11 @@ mod tests {
 
         // Verify doc:cleanup relationships are deleted
         let check_request = json!({
-            "subject": "user:alice",
-            "resource": "doc:cleanup",
-            "permission": "reader"
+            "checks": [{
+                "subject": "user:alice",
+                "resource": "doc:cleanup",
+                "permission": "reader"
+            }]
         });
 
         let response = app
@@ -1963,14 +2106,19 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(check_response["decision"], "deny");
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "deny");
 
         // Verify doc:keep relationships still exist
         let check_request = json!({
-            "subject": "user:alice",
-            "resource": "doc:keep",
-            "permission": "reader"
+            "checks": [{
+                "subject": "user:alice",
+                "resource": "doc:keep",
+                "permission": "reader"
+            }]
         });
 
         let response = app
@@ -1988,8 +2136,11 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(check_response["decision"], "allow");
+
+        // Parse SSE response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decision, "allow");
     }
 
     #[tokio::test]
@@ -2153,6 +2304,106 @@ mod tests {
 
         // Should fail with bad request
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_batch_check() {
+        // Test new batch check functionality - multiple checks in single request
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // Write some relationships
+        let write_request = json!({
+            "relationships": [
+                {
+                    "resource": "doc:1",
+                    "relation": "reader",
+                    "subject": "user:alice"
+                },
+                {
+                    "resource": "doc:2",
+                    "relation": "editor",
+                    "subject": "user:bob"
+                }
+            ]
+        });
+
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write-relationships")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Batch check: test multiple permissions in single request
+        let batch_request = json!({
+            "checks": [
+                {
+                    "subject": "user:alice",
+                    "resource": "doc:1",
+                    "permission": "reader"
+                },
+                {
+                    "subject": "user:alice",
+                    "resource": "doc:2",
+                    "permission": "reader"
+                },
+                {
+                    "subject": "user:bob",
+                    "resource": "doc:2",
+                    "permission": "editor"
+                },
+                {
+                    "subject": "user:bob",
+                    "resource": "doc:1",
+                    "permission": "editor"
+                }
+            ]
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&batch_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+
+        // Parse SSE batch response
+        let results = parse_sse_check_response(&body).await;
+        assert_eq!(results.len(), 4); // Should get 4 results back
+
+        // Verify results by index
+        assert_eq!(results[0].index, 0);
+        assert_eq!(results[0].decision, "allow"); // alice can read doc:1
+        assert!(results[0].error.is_none());
+
+        assert_eq!(results[1].index, 1);
+        assert_eq!(results[1].decision, "deny"); // alice can't read doc:2
+        assert!(results[1].error.is_none());
+
+        assert_eq!(results[2].index, 2);
+        assert_eq!(results[2].decision, "allow"); // bob can edit doc:2
+        assert!(results[2].error.is_none());
+
+        assert_eq!(results[3].index, 3);
+        assert_eq!(results[3].decision, "deny"); // bob can't edit doc:1
+        assert!(results[3].error.is_none());
     }
 
     #[tokio::test]

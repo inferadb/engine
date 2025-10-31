@@ -4,8 +4,8 @@ package infera.v1;
 
 // The main Infera authorization service
 service InferaService {
-  // Check if a subject has permission on a resource
-  rpc Check(CheckRequest) returns (CheckResponse);
+  // Check if a subject has permission on a resource (streaming for single and batch operations)
+  rpc Check(stream CheckRequest) returns (stream CheckResponse);
 
   // Check with detailed trace for debugging
   rpc CheckWithTrace(CheckRequest) returns (CheckWithTraceResponse);
@@ -51,6 +51,12 @@ message CheckRequest {
 message CheckResponse {
   // Decision (allow or deny)
   Decision decision = 1;
+
+  // Index of the request this response corresponds to (for batch operations)
+  uint32 index = 2;
+
+  // Error message if check failed
+  optional string error = 3;
 }
 
 // Check with trace response
