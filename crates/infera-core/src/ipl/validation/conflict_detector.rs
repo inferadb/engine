@@ -275,13 +275,15 @@ mod tests {
         // anywhere may be dead code (unless used as a top-level permission in checks)
         let unreachable_errors: Vec<_> = errors
             .iter()
-            .filter(|e| matches!(
-                &e.kind,
-                ValidationErrorKind::Conflict(ConflictError::UnreachableRelation {
-                    relation,
-                    ..
-                }) if relation == "viewer"
-            ))
+            .filter(|e| {
+                matches!(
+                    &e.kind,
+                    ValidationErrorKind::Conflict(ConflictError::UnreachableRelation {
+                        relation,
+                        ..
+                    }) if relation == "viewer"
+                )
+            })
             .collect();
 
         // viewer is flagged as unreachable (correct behavior - it's not referenced)

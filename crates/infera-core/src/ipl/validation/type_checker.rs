@@ -185,8 +185,18 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             RelationExpr::Exclusion { base, subtract } => {
-                errors.extend(Self::check_expression(type_def, relation_name, base, _visited));
-                errors.extend(Self::check_expression(type_def, relation_name, subtract, _visited));
+                errors.extend(Self::check_expression(
+                    type_def,
+                    relation_name,
+                    base,
+                    _visited,
+                ));
+                errors.extend(Self::check_expression(
+                    type_def,
+                    relation_name,
+                    subtract,
+                    _visited,
+                ));
             }
         }
 
