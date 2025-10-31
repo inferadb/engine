@@ -406,6 +406,10 @@ impl InferaService for InferaServiceImpl {
                     relationship.subject
                 )));
             }
+            // Validate wildcard placement (wildcards only allowed in subject position as "type:*")
+            if let Err(err) = relationship.validate_wildcard_placement() {
+                return Err(Status::invalid_argument(err));
+            }
         }
 
         // Write all relationships in a batch

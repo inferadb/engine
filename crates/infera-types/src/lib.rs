@@ -20,6 +20,60 @@ pub struct Relationship {
     pub subject: String,
 }
 
+impl Relationship {
+    /// Check if the subject is a wildcard (e.g., "user:*")
+    pub fn is_wildcard_subject(&self) -> bool {
+        self.subject.ends_with(":*")
+    }
+
+    /// Get the subject type from a subject string (e.g., "user" from "user:alice" or "user:*")
+    pub fn subject_type(&self) -> Option<&str> {
+        self.subject.split(':').next()
+    }
+
+    /// Get the subject ID from a subject string (e.g., "alice" from "user:alice", or "*" from "user:*")
+    pub fn subject_id(&self) -> Option<&str> {
+        self.subject.split(':').nth(1)
+    }
+
+    /// Check if this relationship would match a specific subject
+    /// Returns true if:
+    /// 1. The subject exactly matches, OR
+    /// 2. This is a wildcard relationship and the subject type matches
+    pub fn matches_subject(&self, subject: &str) -> bool {
+        if self.subject == subject {
+            return true;
+        }
+
+        if self.is_wildcard_subject() {
+            // Extract type from both wildcard and subject
+            if let (Some(wildcard_type), Some(subject_type)) = (
+                self.subject.split(':').next(),
+                subject.split(':').next(),
+            ) {
+                return wildcard_type == subject_type;
+            }
+        }
+
+        false
+    }
+
+    /// Validate that wildcards are only used in the subject position
+    /// Returns an error if wildcards are found in resource or relation
+    pub fn validate_wildcard_placement(&self) -> std::result::Result<(), String> {
+        if self.resource.contains('*') {
+            return Err("Wildcards are not allowed in resource field".to_string());
+        }
+        if self.relation.contains('*') {
+            return Err("Wildcards are not allowed in relation field".to_string());
+        }
+        if self.subject.contains('*') && !self.subject.ends_with(":*") {
+            return Err("Wildcards in subject must be in the format 'type:*'".to_string());
+        }
+        Ok(())
+    }
+}
+
 /// A relationship key for lookups (subject is optional for partial matching)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RelationshipKey {
@@ -467,4 +521,161 @@ pub struct WatchResponse {
     pub revision: String,
     /// Timestamp in ISO 8601 format
     pub timestamp: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_wildcard_subject() {
+        let wildcard = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:*".to_string(),
+        };
+        assert!(wildcard.is_wildcard_subject());
+
+        let normal = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        assert!(!normal.is_wildcard_subject());
+    }
+
+    #[test]
+    fn test_subject_type() {
+        let rel = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        assert_eq!(rel.subject_type(), Some("user"));
+
+        let wildcard = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "group:*".to_string(),
+        };
+        assert_eq!(wildcard.subject_type(), Some("group"));
+    }
+
+    #[test]
+    fn test_subject_id() {
+        let rel = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        assert_eq!(rel.subject_id(), Some("alice"));
+
+        let wildcard = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:*".to_string(),
+        };
+        assert_eq!(wildcard.subject_id(), Some("*"));
+    }
+
+    #[test]
+    fn test_matches_subject() {
+        let wildcard = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:*".to_string(),
+        };
+
+        // Wildcard should match any user
+        assert!(wildcard.matches_subject("user:alice"));
+        assert!(wildcard.matches_subject("user:bob"));
+        assert!(wildcard.matches_subject("user:charlie"));
+
+        // Wildcard should NOT match different type
+        assert!(!wildcard.matches_subject("group:admins"));
+
+        // Exact match should work
+        let exact = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        assert!(exact.matches_subject("user:alice"));
+        assert!(!exact.matches_subject("user:bob"));
+    }
+
+    #[test]
+    fn test_validate_wildcard_placement() {
+        // Valid: wildcard in subject
+        let valid = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:*".to_string(),
+        };
+        assert!(valid.validate_wildcard_placement().is_ok());
+
+        // Valid: no wildcard
+        let valid_no_wildcard = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        assert!(valid_no_wildcard.validate_wildcard_placement().is_ok());
+
+        // Invalid: wildcard in resource
+        let invalid_resource = Relationship {
+            resource: "doc:*".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        assert!(invalid_resource.validate_wildcard_placement().is_err());
+
+        // Invalid: wildcard in relation
+        let invalid_relation = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "view*".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        assert!(invalid_relation.validate_wildcard_placement().is_err());
+
+        // Invalid: wildcard not at end of subject
+        let invalid_subject_position = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:*:subgroup".to_string(),
+        };
+        assert!(invalid_subject_position.validate_wildcard_placement().is_err());
+    }
+
+    #[test]
+    fn test_wildcard_with_different_types() {
+        let group_wildcard = Relationship {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "group:*".to_string(),
+        };
+
+        assert!(group_wildcard.matches_subject("group:admins"));
+        assert!(group_wildcard.matches_subject("group:engineers"));
+        assert!(!group_wildcard.matches_subject("user:alice"));
+    }
+
+    #[test]
+    fn test_delete_filter_helpers() {
+        let exact = DeleteFilter::exact(
+            "doc:readme".to_string(),
+            "viewer".to_string(),
+            "user:alice".to_string(),
+        );
+        assert!(!exact.is_empty());
+        assert_eq!(exact.resource, Some("doc:readme".to_string()));
+        assert_eq!(exact.relation, Some("viewer".to_string()));
+        assert_eq!(exact.subject, Some("user:alice".to_string()));
+
+        let by_resource = DeleteFilter::by_resource("doc:readme".to_string());
+        assert!(!by_resource.is_empty());
+        assert_eq!(by_resource.resource, Some("doc:readme".to_string()));
+        assert_eq!(by_resource.relation, None);
+        assert_eq!(by_resource.subject, None);
+    }
 }

@@ -4289,4 +4289,219 @@ mod tests {
         assert_eq!(response.relationships.len(), 0);
         assert!(response.cursor.is_none());
     }
+
+    // ============================================================================
+    // Wildcard Tests (Phase 3.1)
+    // ============================================================================
+
+    #[tokio::test]
+    async fn test_wildcard_check_allow() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Add a wildcard relationship: all users can read
+        let wildcard_relationship = Relationship {
+            resource: "doc:public".to_string(),
+            relation: "reader".to_string(),
+            subject: "user:*".to_string(),
+        };
+        store.write(vec![wildcard_relationship]).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Test that alice (a user) can read
+        let request_alice = EvaluateRequest {
+            subject: "user:alice".to_string(),
+            resource: "doc:public".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+            trace: None,
+        };
+
+        let result = evaluator.check(request_alice).await.unwrap();
+        assert_eq!(result, Decision::Allow);
+
+        // Test that bob (another user) can also read
+        let request_bob = EvaluateRequest {
+            subject: "user:bob".to_string(),
+            resource: "doc:public".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+            trace: None,
+        };
+
+        let result = evaluator.check(request_bob).await.unwrap();
+        assert_eq!(result, Decision::Allow);
+    }
+
+    #[tokio::test]
+    async fn test_wildcard_type_mismatch_deny() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Add a wildcard relationship: all users can read (not groups)
+        let wildcard_relationship = Relationship {
+            resource: "doc:public".to_string(),
+            relation: "reader".to_string(),
+            subject: "user:*".to_string(),
+        };
+        store.write(vec![wildcard_relationship]).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Test that a group cannot read (type mismatch)
+        let request_group = EvaluateRequest {
+            subject: "group:admins".to_string(),
+            resource: "doc:public".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+            trace: None,
+        };
+
+        let result = evaluator.check(request_group).await.unwrap();
+        assert_eq!(result, Decision::Deny);
+    }
+
+    #[tokio::test]
+    async fn test_wildcard_with_specific_override() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Add both wildcard and specific relationship
+        let relationships = vec![
+            Relationship {
+                resource: "doc:public".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:*".to_string(),
+            },
+            Relationship {
+                resource: "doc:public".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:alice".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Both specific and wildcard should allow access
+        let request = EvaluateRequest {
+            subject: "user:alice".to_string(),
+            resource: "doc:public".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+            trace: None,
+        };
+
+        let result = evaluator.check(request).await.unwrap();
+        assert_eq!(result, Decision::Allow);
+    }
+
+    #[tokio::test]
+    async fn test_wildcard_public_resource_scenario() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Model a public document that anyone can read
+        let public_doc = Relationship {
+            resource: "doc:announcement".to_string(),
+            relation: "reader".to_string(),
+            subject: "user:*".to_string(),
+        };
+        store.write(vec![public_doc]).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Multiple different users should all have access
+        let users = vec!["user:alice", "user:bob", "user:charlie", "user:david"];
+        for user in users {
+            let request = EvaluateRequest {
+                subject: user.to_string(),
+                resource: "doc:announcement".to_string(),
+                permission: "reader".to_string(),
+                context: None,
+                trace: None,
+            };
+
+            let result = evaluator.check(request).await.unwrap();
+            assert_eq!(
+                result,
+                Decision::Allow,
+                "User {} should have access to public document",
+                user
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_wildcard_mixed_with_regular_relationships() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![RelationDef::new("reader".to_string(), None)],
+        )]));
+
+        // Mix of wildcard and specific relationships
+        let relationships = vec![
+            // Public document - anyone can read
+            Relationship {
+                resource: "doc:public_readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:*".to_string(),
+            },
+            // Private document - only Alice can read
+            Relationship {
+                resource: "doc:private_notes".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:alice".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Alice can read both
+        let alice_public = EvaluateRequest {
+            subject: "user:alice".to_string(),
+            resource: "doc:public_readme".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+            trace: None,
+        };
+        assert_eq!(
+            evaluator.check(alice_public).await.unwrap(),
+            Decision::Allow
+        );
+
+        let alice_private = EvaluateRequest {
+            subject: "user:alice".to_string(),
+            resource: "doc:private_notes".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+            trace: None,
+        };
+        assert_eq!(
+            evaluator.check(alice_private).await.unwrap(),
+            Decision::Allow
+        );
+
+        // Bob can only read public
+        let bob_public = EvaluateRequest {
+            subject: "user:bob".to_string(),
+            resource: "doc:public_readme".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+            trace: None,
+        };
+        assert_eq!(evaluator.check(bob_public).await.unwrap(), Decision::Allow);
+
+        let bob_private = EvaluateRequest {
+            subject: "user:bob".to_string(),
+            resource: "doc:private_notes".to_string(),
+            permission: "reader".to_string(),
+            context: None,
+            trace: None,
+        };
+        assert_eq!(evaluator.check(bob_private).await.unwrap(), Decision::Deny);
+    }
 }

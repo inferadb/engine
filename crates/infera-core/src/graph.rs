@@ -66,6 +66,7 @@ impl GraphContext {
 }
 
 /// Check if a direct relationship exists
+/// This checks both for exact subject matches and wildcard matches
 pub async fn has_direct_relationship(
     store: &dyn RelationshipStore,
     resource: &str,
@@ -73,7 +74,7 @@ pub async fn has_direct_relationship(
     subject: &str,
     revision: Revision,
 ) -> Result<bool> {
-    // Check for specific user
+    // Check for exact subject match
     let key = RelationshipKey {
         resource: resource.to_string(),
         relation: relation.to_string(),
@@ -85,15 +86,23 @@ pub async fn has_direct_relationship(
         return Ok(true);
     }
 
-    // Also check for wildcard user (subject:*)
-    let wildcard_key = RelationshipKey {
-        resource: resource.to_string(),
-        relation: relation.to_string(),
-        subject: Some("user:*".to_string()),
-    };
+    // Also check for wildcard subject match (type:*)
+    // Extract the subject type (e.g., "user" from "user:alice")
+    if let Some(subject_type) = subject.split(':').next() {
+        let wildcard_subject = format!("{}:*", subject_type);
+        let wildcard_key = RelationshipKey {
+            resource: resource.to_string(),
+            relation: relation.to_string(),
+            subject: Some(wildcard_subject),
+        };
 
-    let wildcard_relationships = store.read(&wildcard_key, revision).await?;
-    Ok(!wildcard_relationships.is_empty())
+        let wildcard_relationships = store.read(&wildcard_key, revision).await?;
+        if !wildcard_relationships.is_empty() {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 /// Get all users with a specific relation on an object

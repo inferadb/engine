@@ -539,6 +539,10 @@ async fn write_relationships_handler(
                 relationship.subject
             )));
         }
+        // Validate wildcard placement (wildcards only allowed in subject position as "type:*")
+        if let Err(err) = relationship.validate_wildcard_placement() {
+            return Err(ApiError::InvalidRequest(err));
+        }
     }
 
     // Optimistic locking: Check expected revision if provided
