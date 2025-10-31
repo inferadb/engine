@@ -1,8 +1,9 @@
 //! Integration tests for WASM policy modules
 
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_core::{CheckRequest, Decision, Evaluator};
-use infera_store::{MemoryBackend, Tuple, RelationshipStore};
+use infera_core::Evaluator;
+use infera_store::{MemoryBackend, RelationshipStore};
+use infera_types::{CheckRequest, Decision, Relationship};
 use infera_wasm::WasmHost;
 use std::sync::Arc;
 
@@ -158,7 +159,7 @@ async fn test_wasm_with_union() {
 
     // Add direct relationship
     store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -218,7 +219,7 @@ async fn test_wasm_with_intersection() {
 
     // Add direct relationship
     store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

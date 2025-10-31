@@ -4,7 +4,8 @@
 //! ensuring robustness against malformed requests, edge cases, and potential security issues.
 
 use infera_api::grpc::proto::{
-    CheckRequest as ProtoCheckRequest, DeleteRequest, Tuple as ProtoTuple, WriteRequest,
+    CheckRequest as ProtoCheckRequest, DeleteRequest, Relationship as ProtoRelationship,
+    WriteRequest,
 };
 use proptest::prelude::*;
 
@@ -35,12 +36,14 @@ fn arb_string() -> impl Strategy<Value = String> {
     ]
 }
 
-/// Generate arbitrary tuples for fuzzing
-fn arb_tuple() -> impl Strategy<Value = ProtoTuple> {
-    (arb_string(), arb_string(), arb_string()).prop_map(|(object, relation, user)| ProtoTuple {
-        object,
-        relation,
-        user,
+/// Generate arbitrary relationships for fuzzing
+fn arb_relationship() -> impl Strategy<Value = ProtoRelationship> {
+    (arb_string(), arb_string(), arb_string()).prop_map(|(resource, relation, subject)| {
+        ProtoRelationship {
+            resource,
+            relation,
+            subject,
+        }
     })
 }
 
@@ -69,41 +72,41 @@ proptest! {
         assert!(request.permission.len() <= 10000);
     }
 
-    /// Fuzz WriteRequest with arbitrary tuples
+    /// Fuzz WriteRequest with arbitrary relationships
     #[test]
-    fn fuzz_write_request(tuples in prop::collection::vec(arb_tuple(), 0..100)) {
-        // Create a write request with fuzzed tuples
+    fn fuzz_write_request(relationships in prop::collection::vec(arb_relationship(), 0..100)) {
+        // Create a write request with fuzzed relationships
         let request = WriteRequest {
-            tuples: tuples.clone(),
+            relationships: relationships.clone(),
         };
 
         // Should construct without panicking
-        assert!(request.tuples.len() <= 100);
+        assert!(request.relationships.len() <= 100);
 
         // Each tuple should have reasonable field sizes
-        for tuple in &request.tuples {
-            assert!(tuple.object.len() <= 10000);
+        for tuple in &request.relationships {
+            assert!(tuple.resource.len() <= 10000);
             assert!(tuple.relation.len() <= 10000);
-            assert!(tuple.user.len() <= 10000);
+            assert!(tuple.subject.len() <= 10000);
         }
     }
 
-    /// Fuzz DeleteRequest with arbitrary tuples
+    /// Fuzz DeleteRequest with arbitrary relationships
     #[test]
-    fn fuzz_delete_request(tuples in prop::collection::vec(arb_tuple(), 0..100)) {
-        // Create a delete request with fuzzed tuples
+    fn fuzz_delete_request(relationships in prop::collection::vec(arb_relationship(), 0..100)) {
+        // Create a delete request with fuzzed relationships
         let request = DeleteRequest {
-            tuples: tuples.clone(),
+            relationships: relationships.clone(),
         };
 
         // Should construct without panicking
-        assert!(request.tuples.len() <= 100);
+        assert!(request.relationships.len() <= 100);
 
         // Each tuple should have reasonable field sizes
-        for tuple in &request.tuples {
-            assert!(tuple.object.len() <= 10000);
+        for tuple in &request.relationships {
+            assert!(tuple.resource.len() <= 10000);
             assert!(tuple.relation.len() <= 10000);
-            assert!(tuple.user.len() <= 10000);
+            assert!(tuple.subject.len() <= 10000);
         }
     }
 
@@ -159,20 +162,20 @@ proptest! {
     /// Fuzz batch operations with varying sizes
     #[test]
     fn fuzz_batch_size(count in 0usize..1000) {
-        let tuples: Vec<ProtoTuple> = (0..count)
-            .map(|i| ProtoTuple {
-                object: format!("obj{}", i),
+        let relationships: Vec<ProtoRelationship> = (0..count)
+            .map(|i| ProtoRelationship {
+                resource: format!("obj{}", i),
                 relation: "rel".to_string(),
-                user: format!("user{}", i),
+                subject: format!("user{}", i),
             })
             .collect();
 
         let request = WriteRequest {
-            tuples: tuples.clone(),
+            relationships: relationships.clone(),
         };
 
         // Should construct without panicking
-        assert_eq!(request.tuples.len(), count);
+        assert_eq!(request.relationships.len(), count);
     }
 
     /// Fuzz with Unicode characters
@@ -239,32 +242,32 @@ proptest! {
         valid_count in 0usize..50,
         invalid_count in 0usize..50,
     ) {
-        let mut tuples = Vec::new();
+        let mut relationships = Vec::new();
 
-        // Add valid tuples
+        // Add valid relationships
         for i in 0..valid_count {
-            tuples.push(ProtoTuple {
-                object: format!("doc:{}", i),
+            relationships.push(ProtoRelationship {
+                resource: format!("doc:{}", i),
                 relation: "viewer".to_string(),
-                user: format!("user:{}", i),
+                subject: format!("user:{}", i),
             });
         }
 
-        // Add potentially invalid tuples
+        // Add potentially invalid relationships
         for i in 0..invalid_count {
-            tuples.push(ProtoTuple {
-                object: format!("!@#{}", i),
+            relationships.push(ProtoRelationship {
+                resource: format!("!@#{}", i),
                 relation: "".to_string(),
-                user: ";;;".to_string(),
+                subject: ";;;".to_string(),
             });
         }
 
         let request = WriteRequest {
-            tuples,
+            relationships,
         };
 
         // Should construct without panicking
-        assert_eq!(request.tuples.len(), valid_count + invalid_count);
+        assert_eq!(request.relationships.len(), valid_count + invalid_count);
     }
 
     /// Fuzz with extremely nested field separators
@@ -322,42 +325,42 @@ mod integration_tests {
 
     #[test]
     fn test_tuple_validation_resilience() {
-        // Create tuples with problematic data
-        let problematic_tuples = vec![
-            ProtoTuple {
-                object: "\0\0\0".to_string(),
+        // Create relationships with problematic data
+        let problematic_relationships = vec![
+            ProtoRelationship {
+                resource: "\0\0\0".to_string(),
                 relation: "rel".to_string(),
-                user: "user".to_string(),
+                subject: "user".to_string(),
             },
-            ProtoTuple {
-                object: "<script>".to_string(),
+            ProtoRelationship {
+                resource: "<script>".to_string(),
                 relation: "../../".to_string(),
-                user: "'; DROP--".to_string(),
+                subject: "'; DROP--".to_string(),
             },
         ];
 
         // Should construct without crashing
-        for tuple in problematic_tuples {
-            assert!(!tuple.object.is_empty());
+        for rel in problematic_relationships {
+            assert!(!rel.resource.is_empty());
         }
     }
 
     #[test]
     fn test_batch_operation_limits() {
         // Test with maximum reasonable batch size
-        let large_batch: Vec<ProtoTuple> = (0..10000)
-            .map(|i| ProtoTuple {
-                object: format!("obj{}", i),
+        let large_batch: Vec<ProtoRelationship> = (0..10000)
+            .map(|i| ProtoRelationship {
+                resource: format!("obj{}", i),
                 relation: "rel".to_string(),
-                user: format!("user{}", i),
+                subject: format!("user{}", i),
             })
             .collect();
 
         let request = WriteRequest {
-            tuples: large_batch,
+            relationships: large_batch,
         };
 
         // Should construct without panicking
-        assert_eq!(request.tuples.len(), 10000);
+        assert_eq!(request.relationships.len(), 10000);
     }
 }

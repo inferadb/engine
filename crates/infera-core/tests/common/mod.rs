@@ -3,8 +3,9 @@
 #![allow(dead_code)] // Some test files use subsets of these utilities
 
 use infera_core::ipl::Schema;
-use infera_core::{CheckRequest, Evaluator};
-use infera_store::{MemoryBackend, Tuple, RelationshipStore};
+use infera_core::Evaluator;
+use infera_store::{MemoryBackend, RelationshipStore};
+use infera_types::{CheckRequest, Decision, Relationship};
 use infera_wasm::WasmHost;
 use std::sync::Arc;
 
@@ -18,8 +19,11 @@ impl TestFixture {
     /// Create a new test fixture with the given schema
     pub fn new(schema: Schema) -> Self {
         let store = Arc::new(MemoryBackend::new());
-        let evaluator =
-            Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, Arc::new(schema), None);
+        let evaluator = Evaluator::new(
+            store.clone() as Arc<dyn RelationshipStore>,
+            Arc::new(schema),
+            None,
+        );
 
         Self { store, evaluator }
     }
@@ -37,7 +41,10 @@ impl TestFixture {
     }
 
     /// Write relationships to the store
-    pub async fn write_relationships(&self, relationships: Vec<infera_core::Relationship>) -> anyhow::Result<()> {
+    pub async fn write_relationships(
+        &self,
+        relationships: Vec<Relationship>,
+    ) -> anyhow::Result<()> {
         self.store.write(relationships).await?;
         Ok(())
     }
@@ -48,7 +55,7 @@ impl TestFixture {
         subject: &str,
         resource: &str,
         permission: &str,
-    ) -> anyhow::Result<infera_core::Decision> {
+    ) -> anyhow::Result<Decision> {
         let request = CheckRequest {
             subject: subject.to_string(),
             resource: resource.to_string(),
@@ -64,7 +71,7 @@ impl TestFixture {
         let result = self.check(subject, resource, permission).await.unwrap();
         assert_eq!(
             result,
-            infera_core::Decision::Allow,
+            Decision::Allow,
             "{} should be allowed {} on {}",
             subject,
             permission,
@@ -77,7 +84,7 @@ impl TestFixture {
         let result = self.check(subject, resource, permission).await.unwrap();
         assert_eq!(
             result,
-            infera_core::Decision::Deny,
+            Decision::Deny,
             "{} should be denied {} on {}",
             subject,
             permission,
@@ -87,10 +94,10 @@ impl TestFixture {
 }
 
 /// Helper to create a relationship
-pub fn relationship(resource: &str, relation: &str, subject: &str) -> infera_core::Relationship {
-    infera_core::Relationship {
-        resource: object.to_string(),
+pub fn relationship(resource: &str, relation: &str, subject: &str) -> Relationship {
+    Relationship {
+        resource: resource.to_string(),
         relation: relation.to_string(),
-        subject: user.to_string(),
+        subject: subject.to_string(),
     }
 }

@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use futures::StreamExt;
 use infera_api::grpc::proto::{
-    expand_stream_response, infera_service_client::InferaServiceClient, ExpandRequest, Tuple,
-    WriteRequest,
+    expand_stream_response, infera_service_client::InferaServiceClient, ExpandRequest,
+    Relationship as ProtoRelationship, WriteRequest,
 };
 use infera_api::{grpc::InferaServiceImpl, AppState};
 use infera_config::Config;
@@ -17,12 +17,12 @@ use infera_core::{
     ipl::{RelationDef, Schema, TypeDef},
     Evaluator,
 };
-use infera_store::{MemoryBackend, TupleStore};
+use infera_store::{MemoryBackend, RelationshipStore};
 use tonic::transport::{Channel, Server};
 use tonic::Request;
 
 async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
-    let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],
@@ -77,21 +77,21 @@ async fn test_expand_stream() {
 
     // First write some tuples
     let write_req = Request::new(WriteRequest {
-        tuples: vec![
-            Tuple {
-                object: "doc:test".to_string(),
+        relationships: vec![
+            ProtoRelationship {
+                resource: "doc:test".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:test".to_string(),
+            ProtoRelationship {
+                resource: "doc:test".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
-            Tuple {
-                object: "doc:test".to_string(),
+            ProtoRelationship {
+                resource: "doc:test".to_string(),
                 relation: "reader".to_string(),
-                user: "user:charlie".to_string(),
+                subject: "user:charlie".to_string(),
             },
         ],
     });
@@ -138,30 +138,30 @@ async fn test_write_stream() {
     // Create a stream of write requests
     let requests = vec![
         WriteRequest {
-            tuples: vec![Tuple {
-                object: "doc:stream1".to_string(),
+            relationships: vec![ProtoRelationship {
+                resource: "doc:stream1".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             }],
         },
         WriteRequest {
-            tuples: vec![Tuple {
-                object: "doc:stream2".to_string(),
+            relationships: vec![ProtoRelationship {
+                resource: "doc:stream2".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             }],
         },
         WriteRequest {
-            tuples: vec![
-                Tuple {
-                    object: "doc:stream3".to_string(),
+            relationships: vec![
+                ProtoRelationship {
+                    resource: "doc:stream3".to_string(),
                     relation: "reader".to_string(),
-                    user: "user:charlie".to_string(),
+                    subject: "user:charlie".to_string(),
                 },
-                Tuple {
-                    object: "doc:stream3".to_string(),
+                ProtoRelationship {
+                    resource: "doc:stream3".to_string(),
                     relation: "reader".to_string(),
-                    user: "user:david".to_string(),
+                    subject: "user:david".to_string(),
                 },
             ],
         },
@@ -171,7 +171,7 @@ async fn test_write_stream() {
     let response = client.write_stream(stream).await.unwrap();
 
     let inner = response.into_inner();
-    assert_eq!(inner.tuples_written, 4);
+    assert_eq!(inner.relationships_written, 4);
     assert!(!inner.revision.is_empty());
 }
 

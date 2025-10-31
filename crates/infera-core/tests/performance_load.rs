@@ -4,8 +4,9 @@
 //! under various load patterns without requiring external deployment.
 
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_core::{CheckRequest, Decision, Evaluator, ExpandRequest};
-use infera_store::{MemoryBackend, Tuple, RelationshipStore};
+use infera_core::Evaluator;
+use infera_store::{MemoryBackend, RelationshipStore};
+use infera_types::{CheckRequest, Decision, ExpandRequest, Relationship};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -136,13 +137,16 @@ async fn test_sustained_throughput_100k_rps() {
     // Pre-populate with test data
     let mut relationships = Vec::new();
     for i in 0..1000 {
-        relationships.push(infera_store::Relationship {
+        relationships.push(Relationship {
             resource: format!("resource:doc{}", i),
             relation: "viewer".to_string(),
-            subject: format!("user:user{}", i % 100), // 100 unique users
+            subject: format!("subject:user{}", i % 100), // 100 unique users
         });
     }
-    store.write(relationships).await.expect("Failed to write relationships");
+    store
+        .write(relationships)
+        .await
+        .expect("Failed to write relationships");
 
     let evaluator = Arc::new(Evaluator::new(
         store as Arc<dyn RelationshipStore>,
@@ -175,7 +179,7 @@ async fn test_sustained_throughput_100k_rps() {
                 let req_start = Instant::now();
 
                 let request = CheckRequest {
-                    subject: format!("user:user{}", (worker_id * 1000 + i) % 100),
+                    subject: format!("subject:user{}", (worker_id * 1000 + i) % 100),
                     resource: format!("resource:doc{}", i % 1000),
                     permission: "viewer".to_string(),
                     context: None,
@@ -225,10 +229,10 @@ async fn test_latency_p99_under_10ms() {
     // Small dataset for optimal performance
     for i in 0..100 {
         store
-            .write(vec![infera_store::Relationship {
+            .write(vec![Relationship {
                 resource: format!("resource:doc{}", i),
                 relation: "viewer".to_string(),
-                subject: format!("user:user{}", i % 10),
+                subject: format!("subject:user{}", i % 10),
             }])
             .await
             .expect("Failed to write");
@@ -260,7 +264,7 @@ async fn test_latency_p99_under_10ms() {
                 let req_start = Instant::now();
 
                 let request = CheckRequest {
-                    subject: format!("user:user{}", (worker_id + i) % 10),
+                    subject: format!("subject:user{}", (worker_id + i) % 10),
                     resource: format!("resource:doc{}", i % 100),
                     permission: "viewer".to_string(),
                     context: None,
@@ -309,10 +313,10 @@ async fn test_spike_load() {
     // Populate data
     for i in 0..500 {
         store
-            .write(vec![infera_store::Relationship {
+            .write(vec![Relationship {
                 resource: format!("resource:doc{}", i),
                 relation: "viewer".to_string(),
-                subject: format!("user:user{}", i % 50),
+                subject: format!("subject:user{}", i % 50),
             }])
             .await
             .expect("Failed to write");
@@ -343,7 +347,7 @@ async fn test_spike_load() {
             for i in 0..normal_requests_per_worker {
                 let start = Instant::now();
                 let request = CheckRequest {
-                    subject: format!("user:user{}", i % 50),
+                    subject: format!("subject:user{}", i % 50),
                     resource: format!("resource:doc{}", i % 500),
                     permission: "viewer".to_string(),
                     context: None,
@@ -373,7 +377,7 @@ async fn test_spike_load() {
             for i in 0..spike_requests_per_worker {
                 let start = Instant::now();
                 let request = CheckRequest {
-                    subject: format!("user:user{}", i % 50),
+                    subject: format!("subject:user{}", i % 50),
                     resource: format!("resource:doc{}", i % 500),
                     permission: "viewer".to_string(),
                     context: None,
@@ -414,10 +418,10 @@ async fn test_stress_beyond_capacity() {
     // Large dataset
     for i in 0..5000 {
         store
-            .write(vec![infera_store::Relationship {
+            .write(vec![Relationship {
                 resource: format!("resource:doc{}", i),
                 relation: "viewer".to_string(),
-                subject: format!("user:user{}", i % 200),
+                subject: format!("subject:user{}", i % 200),
             }])
             .await
             .expect("Failed to write");
@@ -450,7 +454,7 @@ async fn test_stress_beyond_capacity() {
                 for i in 0..requests_per_worker {
                     let req_start = Instant::now();
                     let request = CheckRequest {
-                        subject: format!("user:user{}", (worker_id * 100 + i) % 200),
+                        subject: format!("subject:user{}", (worker_id * 100 + i) % 200),
                         resource: format!("resource:doc{}", i % 5000),
                         permission: "viewer".to_string(),
                         context: None,
@@ -498,10 +502,10 @@ async fn test_soak_24h_simulation() {
     // Pre-populate
     for i in 0..1000 {
         store
-            .write(vec![infera_store::Relationship {
+            .write(vec![Relationship {
                 resource: format!("resource:doc{}", i),
                 relation: "viewer".to_string(),
-                subject: format!("user:user{}", i % 100),
+                subject: format!("subject:user{}", i % 100),
             }])
             .await
             .expect("Failed to write");
@@ -537,7 +541,7 @@ async fn test_soak_24h_simulation() {
                 }
 
                 let request = CheckRequest {
-                    subject: format!("user:user{}", (worker_id * 100 + i) % 100),
+                    subject: format!("subject:user{}", (worker_id * 100 + i) % 100),
                     resource: format!("resource:doc{}", i % 1000),
                     permission: "viewer".to_string(),
                     context: None,
@@ -616,16 +620,22 @@ async fn test_large_graph_1m_relationships() {
         let mut relationships = Vec::with_capacity(batch_size);
         for i in 0..batch_size {
             let relationship_id = batch * batch_size + i;
-            relationships.push(infera_store::Relationship {
+            relationships.push(Relationship {
                 resource: format!("resource:doc{}", relationship_id),
                 relation: "viewer".to_string(),
-                subject: format!("user:user{}", relationship_id % 10000),
+                subject: format!("subject:user{}", relationship_id % 10000),
             });
         }
-        store.write(relationships).await.expect("Failed to write batch");
+        store
+            .write(relationships)
+            .await
+            .expect("Failed to write batch");
 
         if batch % 10 == 0 {
-            println!("Progress: {}%", (batch * 100) / (total_relationships / batch_size));
+            println!(
+                "Progress: {}%",
+                (batch * 100) / (total_relationships / batch_size)
+            );
         }
     }
 
@@ -642,7 +652,10 @@ async fn test_large_graph_1m_relationships() {
     let num_requests = 1000;
     let concurrency = 10;
 
-    println!("Running {} checks on 1M relationship graph...", num_requests);
+    println!(
+        "Running {} checks on 1M relationship graph...",
+        num_requests
+    );
 
     let start = Instant::now();
     let latencies = Arc::new(tokio::sync::Mutex::new(Vec::new()));
@@ -660,7 +673,7 @@ async fn test_large_graph_1m_relationships() {
                 let req_start = Instant::now();
 
                 let request = CheckRequest {
-                    subject: format!("user:user{}", (worker_id * 1000 + i) % 10000),
+                    subject: format!("subject:user{}", (worker_id * 1000 + i) % 10000),
                     resource: format!("resource:doc{}", i * 1000),
                     permission: "viewer".to_string(),
                     context: None,
@@ -720,7 +733,7 @@ async fn test_deep_nesting_10_levels() {
 
     // Create deep hierarchy
     store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "resource:root".to_string(),
             relation: "level0".to_string(),
             subject: "user:alice".to_string(),
@@ -784,10 +797,10 @@ async fn test_wide_expansion_10k_users() {
     for batch in 0..10 {
         let mut relationships = Vec::new();
         for i in 0..batch_size {
-            relationships.push(infera_store::Relationship {
+            relationships.push(Relationship {
                 resource: "resource:shared".to_string(),
                 relation: "viewer".to_string(),
-                subject: format!("user:user{}", batch * batch_size + i),
+                subject: format!("subject:user{}", batch * batch_size + i),
             });
         }
         store.write(relationships).await.expect("Failed to write");

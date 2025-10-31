@@ -4,7 +4,7 @@
 //! Supports multiple subscribers, filtering, and reconnection handling.
 
 use crate::{ReplError, Result};
-use infera_store::Revision;
+use infera_types::{Relationship, Revision};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -21,7 +21,7 @@ pub struct Change {
     /// The type of operation (insert or delete)
     pub operation: Operation,
     /// The relationship affected by this operation
-    pub relationship: infera_store::Relationship,
+    pub relationship: Relationship,
     /// Timestamp when the change occurred (Unix timestamp in milliseconds)
     pub timestamp: u64,
     /// Optional metadata for the change
@@ -30,7 +30,7 @@ pub struct Change {
 
 impl Change {
     /// Create a new insert operation change event
-    pub fn insert(revision: Revision, relationship: infera_store::Relationship) -> Self {
+    pub fn insert(revision: Revision, relationship: Relationship) -> Self {
         Self {
             revision,
             operation: Operation::Insert,
@@ -41,7 +41,7 @@ impl Change {
     }
 
     /// Create a new delete operation change event
-    pub fn delete(revision: Revision, relationship: infera_store::Relationship) -> Self {
+    pub fn delete(revision: Revision, relationship: Relationship) -> Self {
         Self {
             revision,
             operation: Operation::Delete,
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_change_creation() {
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -314,7 +314,7 @@ mod tests {
 
     #[test]
     fn test_change_with_metadata() {
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -332,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_resource_type_extraction() {
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -344,12 +344,12 @@ mod tests {
 
     #[test]
     fn test_filter_resource_type() {
-        let relationship1 = infera_store::Relationship {
+        let relationship1 = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let relationship2 = infera_store::Relationship {
+        let relationship2 = Relationship {
             resource: "folder:shared".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -365,12 +365,12 @@ mod tests {
 
     #[test]
     fn test_filter_relation() {
-        let relationship1 = infera_store::Relationship {
+        let relationship1 = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let relationship2 = infera_store::Relationship {
+        let relationship2 = Relationship {
             resource: "doc:readme".to_string(),
             relation: "editor".to_string(),
             subject: "user:alice".to_string(),
@@ -386,7 +386,7 @@ mod tests {
 
     #[test]
     fn test_filter_operation() {
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -405,7 +405,7 @@ mod tests {
         let feed = ChangeFeed::new();
         let mut stream = feed.subscribe().await.unwrap();
 
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -425,7 +425,7 @@ mod tests {
         let mut stream1 = feed.subscribe().await.unwrap();
         let mut stream2 = feed.subscribe().await.unwrap();
 
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -446,12 +446,12 @@ mod tests {
         let feed = ChangeFeed::new();
         let mut stream = feed.subscribe_filtered("doc".to_string()).await.unwrap();
 
-        let relationship1 = infera_store::Relationship {
+        let relationship1 = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let relationship2 = infera_store::Relationship {
+        let relationship2 = Relationship {
             resource: "folder:shared".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
@@ -487,7 +487,7 @@ mod tests {
         let result = stream.try_recv().unwrap();
         assert!(result.is_none());
 
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -512,7 +512,7 @@ mod tests {
         let _stream1 = feed.subscribe().await.unwrap();
         let _stream2 = feed.subscribe().await.unwrap();
 
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

@@ -1,9 +1,11 @@
+use infera_store::RelationshipStore;
+use infera_types::Relationship;
 use std::sync::Arc;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::{CheckRequest, Evaluator, ExpandRequest};
-use infera_store::{MemoryBackend, Tuple, TupleStore};
+use infera_store::MemoryBackend;
 
 fn create_complex_schema() -> Schema {
     Schema::new(vec![
@@ -54,20 +56,20 @@ fn create_complex_schema() -> Schema {
     ])
 }
 
-async fn setup_evaluator_with_data(num_tuples: usize) -> Evaluator {
+async fn setup_evaluator_with_data(num_relationships: usize) -> Evaluator {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_complex_schema());
 
     // Create test data
-    let mut tuples = Vec::new();
-    for i in 0..num_tuples {
-        tuples.push(Tuple {
-            object: format!("doc:{}", i),
+    let mut relationships = Vec::new();
+    for i in 0..num_relationships {
+        relationships.push(Relationship {
+            resource: format!("doc:{}", i),
             relation: "owner".to_string(),
-            user: format!("user:{}", i),
+            subject: format!("subject:{}", i),
         });
     }
-    store.write(tuples).await.unwrap();
+    store.write(relationships).await.unwrap();
 
     Evaluator::new(store, schema, None)
 }
@@ -80,7 +82,7 @@ fn bench_direct_check(c: &mut Criterion) {
 
         b.to_async(&rt).iter(|| async {
             let request = CheckRequest {
-                subject: "user:0".to_string(),
+                subject: "subject:0".to_string(),
                 resource: "doc:0".to_string(),
                 permission: "owner".to_string(),
                 context: None,
@@ -95,7 +97,7 @@ fn bench_direct_check(c: &mut Criterion) {
 
         b.to_async(&rt).iter(|| async {
             let request = CheckRequest {
-                subject: "user:99".to_string(),
+                subject: "subject:99".to_string(),
                 resource: "doc:0".to_string(),
                 permission: "owner".to_string(),
                 context: None,
@@ -114,7 +116,7 @@ fn bench_union_check(c: &mut Criterion) {
 
         b.to_async(&rt).iter(|| async {
             let request = CheckRequest {
-                subject: "user:0".to_string(),
+                subject: "subject:0".to_string(),
                 resource: "doc:0".to_string(),
                 permission: "editor".to_string(), // editor = this | owner
                 context: None,
@@ -136,24 +138,24 @@ fn bench_complex_check(c: &mut Criterion) {
             // Create nested hierarchy
             let tuples = vec![
                 Tuple {
-                    object: "folder:root".to_string(),
+                    resource: "folder:root".to_string(),
                     relation: "owner".to_string(),
-                    user: "user:admin".to_string(),
+                    subject: "subject:admin".to_string(),
                 },
                 Tuple {
-                    object: "doc:readme".to_string(),
+                    resource: "doc:readme".to_string(),
                     relation: "parent".to_string(),
-                    user: "folder:root".to_string(),
+                    subject: "folder:root".to_string(),
                 },
             ];
-            store.write(tuples).await.unwrap();
+            store.write(relationships).await.unwrap();
 
             Evaluator::new(store, schema, None)
         });
 
         b.to_async(&rt).iter(|| async {
             let request = CheckRequest {
-                subject: "user:admin".to_string(),
+                subject: "subject:admin".to_string(),
                 resource: "doc:readme".to_string(),
                 permission: "viewer".to_string(), // Should traverse parent->viewer
                 context: None,
@@ -235,7 +237,7 @@ fn bench_parallel_expand(c: &mut Criterion) {
             )]));
 
             // Create 100 users distributed across the 4 branches
-            let mut tuples = Vec::new();
+            let mut relationships = Vec::new();
             for i in 0..100 {
                 let relation = match i % 4 {
                     0 => "admin",
@@ -243,13 +245,13 @@ fn bench_parallel_expand(c: &mut Criterion) {
                     2 => "viewer",
                     _ => "contributor",
                 };
-                tuples.push(Tuple {
-                    object: "doc:readme".to_string(),
+                relationships.push(Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: relation.to_string(),
-                    user: format!("user:{}", i),
+                    subject: format!("subject:{}", i),
                 });
             }
-            store.write(tuples).await.unwrap();
+            store.write(relationships).await.unwrap();
 
             Evaluator::new(store, schema, None)
         });
@@ -295,29 +297,29 @@ fn bench_parallel_expand(c: &mut Criterion) {
             )]));
 
             // Create overlapping user sets
-            let mut tuples = Vec::new();
+            let mut relationships = Vec::new();
             for i in 0..50 {
-                tuples.push(Tuple {
-                    object: "doc:readme".to_string(),
+                relationships.push(Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "group_a".to_string(),
-                    user: format!("user:{}", i),
+                    subject: format!("subject:{}", i),
                 });
                 if i < 30 {
-                    tuples.push(Tuple {
-                        object: "doc:readme".to_string(),
+                    relationships.push(Relationship {
+                        resource: "doc:readme".to_string(),
                         relation: "group_b".to_string(),
-                        user: format!("user:{}", i),
+                        subject: format!("subject:{}", i),
                     });
                 }
                 if i < 20 {
-                    tuples.push(Tuple {
-                        object: "doc:readme".to_string(),
+                    relationships.push(Relationship {
+                        resource: "doc:readme".to_string(),
                         relation: "group_c".to_string(),
-                        user: format!("user:{}", i),
+                        subject: format!("subject:{}", i),
                     });
                 }
             }
-            store.write(tuples).await.unwrap();
+            store.write(relationships).await.unwrap();
 
             Evaluator::new(store, schema, None)
         });
@@ -343,7 +345,7 @@ fn bench_large_scale(c: &mut Criterion) {
 
         b.to_async(&rt).iter(|| async {
             let request = CheckRequest {
-                subject: "user:500".to_string(),
+                subject: "subject:500".to_string(),
                 resource: "doc:500".to_string(),
                 permission: "owner".to_string(),
                 context: None,
@@ -384,15 +386,15 @@ fn bench_expand_cache(c: &mut Criterion) {
             )]));
 
             // Write 50 users
-            let mut tuples = Vec::new();
+            let mut relationships = Vec::new();
             for i in 0..50 {
-                tuples.push(Tuple {
-                    object: "doc:readme".to_string(),
+                relationships.push(Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "reader".to_string(),
-                    user: format!("user:{}", i),
+                    subject: format!("subject:{}", i),
                 });
             }
-            store.write(tuples).await.unwrap();
+            store.write(relationships).await.unwrap();
 
             let cache = Arc::new(AuthCache::new(10_000, Duration::from_secs(300)));
             Evaluator::new_with_cache(store, schema, None, Some(cache))

@@ -4,7 +4,7 @@
 //! without exposing implementation details to consumers.
 
 use crate::memory::MemoryBackend;
-use crate::{Result, StoreError, RelationshipStore};
+use crate::{RelationshipStore, Result, StoreError};
 use std::str::FromStr;
 use std::sync::Arc;
 

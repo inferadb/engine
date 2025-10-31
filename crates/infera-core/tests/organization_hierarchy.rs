@@ -113,7 +113,11 @@ async fn test_organization_admin_permissions() {
 
     // Alice is admin of org1
     fixture
-        .write_relationships(vec![relationship("organization:org1", "admin", "user:alice")])
+        .write_relationships(vec![relationship(
+            "organization:org1",
+            "admin",
+            "user:alice",
+        )])
         .await
         .unwrap();
 
@@ -300,7 +304,11 @@ async fn test_project_contributor_permissions() {
 
     // Dave is a contributor to project1 (not a team member)
     fixture
-        .write_relationships(vec![relationship("project:project1", "contributor", "user:dave")])
+        .write_relationships(vec![relationship(
+            "project:project1",
+            "contributor",
+            "user:dave",
+        )])
         .await
         .unwrap();
 

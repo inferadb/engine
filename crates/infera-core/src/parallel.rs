@@ -2,8 +2,8 @@
 
 use crate::evaluator::Evaluator;
 use crate::ipl::RelationExpr;
-use crate::types::{CheckRequest, Decision};
 use crate::{EvalError, Result};
+use infera_types::{CheckRequest, Decision};
 use std::sync::Arc;
 use tokio::task::JoinSet;
 

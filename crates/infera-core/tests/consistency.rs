@@ -4,8 +4,9 @@
 //! concurrent access patterns.
 
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_core::{CheckRequest, Decision, Evaluator};
-use infera_store::{MemoryBackend, Tuple, RelationshipKey, RelationshipStore};
+use infera_core::Evaluator;
+use infera_store::{MemoryBackend, RelationshipStore};
+use infera_types::{CheckRequest, Decision, Relationship, RelationshipKey};
 use std::sync::Arc;
 use tokio::task::JoinSet;
 
@@ -55,11 +56,15 @@ async fn test_write_then_read_different_evaluators() {
         None,
     );
 
-    let evaluator2 = Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, Arc::new(schema), None);
+    let evaluator2 = Evaluator::new(
+        store.clone() as Arc<dyn RelationshipStore>,
+        Arc::new(schema),
+        None,
+    );
 
     // Write through the store
     store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:doc1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -119,7 +124,7 @@ async fn test_revision_monotonicity() {
 
     // Write and get revision
     let rev1 = store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:doc1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -129,7 +134,7 @@ async fn test_revision_monotonicity() {
 
     // Write again
     let rev2 = store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:doc2".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
@@ -147,7 +152,7 @@ async fn test_write_returns_new_revision() {
 
     // Each write should return a new revision
     let rev1 = store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:doc1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -156,7 +161,7 @@ async fn test_write_returns_new_revision() {
         .expect("Failed to write");
 
     let rev2 = store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:doc2".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
@@ -165,7 +170,7 @@ async fn test_write_returns_new_revision() {
         .expect("Failed to write");
 
     let rev3 = store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:doc3".to_string(),
             relation: "viewer".to_string(),
             subject: "user:charlie".to_string(),
@@ -190,12 +195,12 @@ async fn test_concurrent_reads() {
     // Write initial data
     store
         .write(vec![
-            infera_store::Relationship {
+            Relationship {
                 resource: "document:doc1".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
             },
-            infera_store::Relationship {
+            Relationship {
                 resource: "document:doc2".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:bob".to_string(),
@@ -210,7 +215,11 @@ async fn test_concurrent_reads() {
         let store_clone = store.clone();
         let schema_clone = Arc::new(schema.clone());
         set.spawn(async move {
-            let evaluator = Evaluator::new(store_clone as Arc<dyn RelationshipStore>, schema_clone, None);
+            let evaluator = Evaluator::new(
+                store_clone as Arc<dyn RelationshipStore>,
+                schema_clone,
+                None,
+            );
 
             let request = CheckRequest {
                 subject: if i % 2 == 0 {
@@ -248,10 +257,10 @@ async fn test_concurrent_writes() {
         let store_clone = store.clone();
         set.spawn(async move {
             store_clone
-                .write(vec![infera_store::Relationship {
+                .write(vec![Relationship {
                     resource: format!("document:doc{}", i),
                     relation: "viewer".to_string(),
-                    subject: format!("user:user{}", i),
+                    subject: format!("subject:user{}", i),
                 }])
                 .await
         });
@@ -285,10 +294,10 @@ async fn test_concurrent_write_and_read() {
         let store_clone = store.clone();
         write_set.spawn(async move {
             store_clone
-                .write(vec![infera_store::Relationship {
+                .write(vec![Relationship {
                     resource: format!("document:doc{}", i),
                     relation: "viewer".to_string(),
-                    subject: format!("user:writer{}", i),
+                    subject: format!("subject:writer{}", i),
                 }])
                 .await
         });
@@ -300,10 +309,14 @@ async fn test_concurrent_write_and_read() {
         let store_clone = store.clone();
         let schema_clone = Arc::new(schema.clone());
         read_set.spawn(async move {
-            let evaluator = Evaluator::new(store_clone as Arc<dyn RelationshipStore>, schema_clone, None);
+            let evaluator = Evaluator::new(
+                store_clone as Arc<dyn RelationshipStore>,
+                schema_clone,
+                None,
+            );
 
             let request = CheckRequest {
-                subject: format!("user:writer{}", i),
+                subject: format!("subject:writer{}", i),
                 resource: format!("document:doc{}", i),
                 permission: "viewer".to_string(),
                 context: None,
@@ -333,7 +346,7 @@ async fn test_concurrent_write_delete() {
     // Write initial data
     for i in 0..5 {
         store
-            .write(vec![infera_store::Relationship {
+            .write(vec![Relationship {
                 resource: format!("document:doc{}", i),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
@@ -350,7 +363,7 @@ async fn test_concurrent_write_delete() {
         let store_clone = store.clone();
         set.spawn(async move {
             store_clone
-                .write(vec![infera_store::Relationship {
+                .write(vec![Relationship {
                     resource: format!("document:doc{}", i),
                     relation: "viewer".to_string(),
                     subject: "user:alice".to_string(),
@@ -393,19 +406,23 @@ async fn test_read_your_own_writes() {
         set.spawn(async move {
             // Write
             store_clone
-                .write(vec![infera_store::Relationship {
+                .write(vec![Relationship {
                     resource: format!("document:doc{}", i),
                     relation: "viewer".to_string(),
-                    subject: format!("user:user{}", i),
+                    subject: format!("subject:user{}", i),
                 }])
                 .await
                 .expect("Write failed");
 
             // Immediately read what we just wrote
-            let evaluator = Evaluator::new(store_clone as Arc<dyn RelationshipStore>, schema_clone, None);
+            let evaluator = Evaluator::new(
+                store_clone as Arc<dyn RelationshipStore>,
+                schema_clone,
+                None,
+            );
 
             let request = CheckRequest {
-                subject: format!("user:user{}", i),
+                subject: format!("subject:user{}", i),
                 resource: format!("document:doc{}", i),
                 permission: "viewer".to_string(),
                 context: None,
@@ -436,12 +453,12 @@ async fn test_eventual_consistency_simulation() {
 
     // Write to store1
     let relationships = vec![
-        infera_store::Relationship {
+        Relationship {
             resource: "document:doc1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         },
-        infera_store::Relationship {
+        Relationship {
             resource: "document:doc2".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
@@ -479,7 +496,7 @@ async fn test_conflicting_writes_both_preserved() {
 
     // Two separate writes for the same document but different users
     store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:doc1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -488,7 +505,7 @@ async fn test_conflicting_writes_both_preserved() {
         .expect("Failed to write");
 
     store
-        .write(vec![infera_store::Relationship {
+        .write(vec![Relationship {
             resource: "document:doc1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
@@ -531,7 +548,7 @@ async fn test_cross_region_consistency() {
     let region_b = Arc::new(MemoryBackend::new());
 
     // Write in region A
-    let relationship = infera_store::Relationship {
+    let relationship = Relationship {
         resource: "document:global1".to_string(),
         relation: "viewer".to_string(),
         subject: "user:alice".to_string(),

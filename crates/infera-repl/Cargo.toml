@@ -15,6 +15,7 @@ tracing = { workspace = true }
 base64 = "0.21"
 
 # Internal dependencies
+infera-types = { path = "../infera-types" }
 infera-store = { path = "../infera-store" }
 infera-observe = { path = "../infera-observe" }
 infera-api = { path = "../infera-api" }

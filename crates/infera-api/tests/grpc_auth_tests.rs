@@ -10,7 +10,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use infera_api::grpc::proto::{CheckRequest, HealthRequest};
+use infera_api::grpc::proto::{CheckRequest as ProtoCheckRequest, HealthRequest};
 use infera_api::{grpc::proto::infera_service_client::InferaServiceClient, AppState};
 use infera_auth::internal::InternalJwksLoader;
 use infera_auth::jwks_cache::JwksCache;
@@ -19,7 +19,7 @@ use infera_core::{
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
     Evaluator,
 };
-use infera_store::{MemoryBackend, TupleStore};
+use infera_store::{MemoryBackend, RelationshipStore};
 use tonic::metadata::MetadataValue;
 use tonic::transport::{Channel, Server};
 use tonic::{Code, Request};
@@ -182,7 +182,7 @@ fn create_test_schema() -> Arc<Schema> {
 }
 
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
-    let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
     let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
 
@@ -299,7 +299,7 @@ async fn test_grpc_check_without_token() {
 
     let mut client = InferaServiceClient::new(channel);
 
-    let request = Request::new(CheckRequest {
+    let request = Request::new(ProtoCheckRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
@@ -342,7 +342,7 @@ async fn test_grpc_check_with_invalid_token() {
 
     let mut client = InferaServiceClient::new(channel);
 
-    let mut request = Request::new(CheckRequest {
+    let mut request = Request::new(ProtoCheckRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
@@ -398,7 +398,7 @@ async fn test_grpc_check_with_tenant_jwt() {
     let tenant_id = "test-tenant-123";
     let token = mock_jwks.generate_tenant_jwt(tenant_id, &["inferadb.check"], 3600);
 
-    let mut request = Request::new(CheckRequest {
+    let mut request = Request::new(ProtoCheckRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
@@ -472,7 +472,7 @@ async fn test_grpc_check_with_internal_jwt() {
     let claims = InternalClaims::default();
     let token = generate_internal_jwt(&keypair, claims);
 
-    let mut request = Request::new(CheckRequest {
+    let mut request = Request::new(ProtoCheckRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
@@ -553,7 +553,7 @@ async fn test_grpc_check_with_expired_internal_jwt() {
     let claims = InternalClaims::expired();
     let token = generate_internal_jwt(&keypair, claims);
 
-    let mut request = Request::new(CheckRequest {
+    let mut request = Request::new(ProtoCheckRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
@@ -605,7 +605,7 @@ async fn test_grpc_lowercase_authorization_metadata() {
 
     let mut client = InferaServiceClient::new(channel);
 
-    let mut request = Request::new(CheckRequest {
+    let mut request = Request::new(ProtoCheckRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),

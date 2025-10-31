@@ -5,7 +5,7 @@
 //! and environment context.
 
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_core::Decision;
+use infera_types::Decision;
 use infera_wasm::WasmHost;
 use std::sync::Arc;
 

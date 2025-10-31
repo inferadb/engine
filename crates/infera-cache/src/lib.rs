@@ -11,7 +11,7 @@ use moka::future::Cache;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
-use infera_store::Revision;
+use infera_types::{Relationship, Revision};
 
 /// Authorization decision
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -205,7 +205,7 @@ impl AuthCache {
 
     /// Extract affected resources from relationships for selective invalidation
     /// Returns a list of unique object IDs that were modified
-    pub fn extract_affected_resources(relationships: &[infera_store::Relationship]) -> Vec<String> {
+    pub fn extract_affected_resources(relationships: &[Relationship]) -> Vec<String> {
         let mut resources = HashSet::new();
         for relationship in relationships {
             resources.insert(relationship.resource.clone());
@@ -279,7 +279,7 @@ pub struct CacheStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use infera_store::Revision;
+    use infera_types::Revision;
 
     #[tokio::test]
     async fn test_cache_operations() {
@@ -820,17 +820,17 @@ mod tests {
     #[tokio::test]
     async fn test_extract_affected_resources() {
         let relationships = vec![
-            infera_store::Relationship {
+            Relationship {
                 resource: "doc:1".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
             },
-            infera_store::Relationship {
+            Relationship {
                 resource: "doc:1".to_string(),
                 relation: "editor".to_string(),
                 subject: "user:bob".to_string(),
             },
-            infera_store::Relationship {
+            Relationship {
                 resource: "doc:2".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:charlie".to_string(),

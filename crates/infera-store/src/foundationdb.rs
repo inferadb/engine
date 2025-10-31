@@ -116,8 +116,12 @@ impl FoundationDBBackend {
 
     /// Create a key for a relationship with revision
     fn relationship_key(&self, relationship: &Tuple, revision: Revision) -> Vec<u8> {
-        self.relationships_subspace
-            .pack(&(&relationship.resource, &relationship.relation, &relationship.subject, revision.0))
+        self.relationships_subspace.pack(&(
+            &relationship.resource,
+            &relationship.relation,
+            &relationship.subject,
+            revision.0,
+        ))
     }
 
     /// Create an index key for object/relation lookups
@@ -226,7 +230,8 @@ impl RelationshipStore for FoundationDBBackend {
                         seen.insert(relationship_id);
 
                         // Check if this relationship is still active (not deleted)
-                        let relationship_key = relationships_subspace.pack(&(&object, &relation, &user, rev));
+                        let relationship_key =
+                            relationships_subspace.pack(&(&object, &relation, &user, rev));
                         if let Some(value) = trx.get(&relationship_key, false).await? {
                             if &value == b"active" {
                                 relationships.push(Relationship {
@@ -319,7 +324,11 @@ impl RelationshipStore for FoundationDBBackend {
             .await
             .map_err(|e| StoreError::Database(format!("Failed to write: {}", e)))?;
 
-        debug!("Wrote {} relationships at revision {:?}", relationships.len(), result);
+        debug!(
+            "Wrote {} relationships at revision {:?}",
+            relationships.len(),
+            result
+        );
         Ok(result)
     }
 
@@ -357,7 +366,8 @@ impl RelationshipStore for FoundationDBBackend {
                 // Mark matching relationships as deleted
                 if let Some(user) = user_filter {
                     // Delete specific relationship
-                    let relationship_key = relationships_subspace.pack(&(&object, &relation, &user, revision.0));
+                    let relationship_key =
+                        relationships_subspace.pack(&(&object, &relation, &user, revision.0));
                     trx.set(&relationship_key, b"deleted");
                 } else {
                     // Delete all relationships matching object+relation
@@ -390,8 +400,8 @@ impl RelationshipStore for FoundationDBBackend {
                         let (_obj, _rel, user, _rev) = unpacked;
                         if !deleted_users.contains(&user) {
                             deleted_users.insert(user.clone());
-                            let del_key =
-                                relationships_subspace.pack(&(&object, &relation, &user, revision.0));
+                            let del_key = relationships_subspace
+                                .pack(&(&object, &relation, &user, revision.0));
                             trx.set(&del_key, b"deleted");
                         }
                     }
@@ -460,7 +470,8 @@ impl RelationshipStore for FoundationDBBackend {
                     }
 
                     // Check if this relationship is still active at the requested revision
-                    let relationship_key = relationships_subspace.pack(&(&object, &relation, &user, rev));
+                    let relationship_key =
+                        relationships_subspace.pack(&(&object, &relation, &user, rev));
                     if let Some(value) = trx.get(&relationship_key, false).await? {
                         if &value == b"active" {
                             objects.insert(object);
@@ -519,8 +530,12 @@ impl RelationshipStore for FoundationDBBackend {
                         let range = trx
                             .get_range(
                                 &foundationdb::RangeOption {
-                                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                                    begin: foundationdb::KeySelector::first_greater_or_equal(
+                                        &start_key,
+                                    ),
+                                    end: foundationdb::KeySelector::first_greater_or_equal(
+                                        &end_key,
+                                    ),
                                     limit: None,
                                     reverse: false,
                                     mode: foundationdb::StreamingMode::WantAll,
@@ -532,8 +547,9 @@ impl RelationshipStore for FoundationDBBackend {
 
                         for kv in range.iter() {
                             let unpacked: (String, String, String, String, u64) =
-                                unpack(&kv.key()[index_subspace.bytes().len()..])
-                                    .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+                                unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
+                                    FdbError::from(format!("Failed to unpack: {}", e))
+                                })?;
 
                             let (_prefix, object, relation, user, rev) = unpacked;
 
@@ -557,7 +573,8 @@ impl RelationshipStore for FoundationDBBackend {
                             seen.insert(relationship_id);
 
                             // Check if active
-                            let relationship_key = relationships_subspace.pack(&(&object, &relation, &user, rev));
+                            let relationship_key =
+                                relationships_subspace.pack(&(&object, &relation, &user, rev));
                             if let Some(value) = trx.get(&relationship_key, false).await? {
                                 if &value == b"active" {
                                     relationships.push(Relationship {
@@ -585,8 +602,12 @@ impl RelationshipStore for FoundationDBBackend {
                         let range = trx
                             .get_range(
                                 &foundationdb::RangeOption {
-                                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                                    begin: foundationdb::KeySelector::first_greater_or_equal(
+                                        &start_key,
+                                    ),
+                                    end: foundationdb::KeySelector::first_greater_or_equal(
+                                        &end_key,
+                                    ),
                                     limit: None,
                                     reverse: false,
                                     mode: foundationdb::StreamingMode::WantAll,
@@ -598,8 +619,9 @@ impl RelationshipStore for FoundationDBBackend {
 
                         for kv in range.iter() {
                             let unpacked: (String, String, String, String, u64) =
-                                unpack(&kv.key()[index_subspace.bytes().len()..])
-                                    .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+                                unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
+                                    FdbError::from(format!("Failed to unpack: {}", e))
+                                })?;
 
                             let (_prefix, user, relation, object, rev) = unpacked;
 
@@ -616,7 +638,8 @@ impl RelationshipStore for FoundationDBBackend {
                             seen.insert(relationship_id);
 
                             // Check if active
-                            let relationship_key = relationships_subspace.pack(&(&object, &relation, &user, rev));
+                            let relationship_key =
+                                relationships_subspace.pack(&(&object, &relation, &user, rev));
                             if let Some(value) = trx.get(&relationship_key, false).await? {
                                 if &value == b"active" {
                                     relationships.push(Relationship {
@@ -637,8 +660,12 @@ impl RelationshipStore for FoundationDBBackend {
                         let range = trx
                             .get_range(
                                 &foundationdb::RangeOption {
-                                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                                    begin: foundationdb::KeySelector::first_greater_or_equal(
+                                        &start_key,
+                                    ),
+                                    end: foundationdb::KeySelector::first_greater_or_equal(
+                                        &end_key,
+                                    ),
                                     limit: None,
                                     reverse: false,
                                     mode: foundationdb::StreamingMode::WantAll,
@@ -649,9 +676,10 @@ impl RelationshipStore for FoundationDBBackend {
                             .await?;
 
                         for kv in range.iter() {
-                            let unpacked: (String, String, String, u64) =
-                                unpack(&kv.key()[relationships_subspace.bytes().len()..])
-                                    .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+                            let unpacked: (String, String, String, u64) = unpack(
+                                &kv.key()[relationships_subspace.bytes().len()..],
+                            )
+                            .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
 
                             let (object, relation, user, rev) = unpacked;
 

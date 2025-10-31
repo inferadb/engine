@@ -8,8 +8,9 @@
 // - Load test: concurrent requests (100 QPS)
 // - Load test: heavy load (1000 QPS)
 
-use infera_core::{Evaluator, ListResourcesRequest};
-use infera_store::{MemoryBackend, Tuple, RelationshipStore};
+use infera_core::Evaluator;
+use infera_store::{MemoryBackend, RelationshipStore};
+use infera_types::{CheckRequest, Decision, ListResourcesRequest, Relationship};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -27,7 +28,7 @@ fn create_simple_schema() -> infera_core::ipl::Schema {
 async fn create_test_data(store: &Arc<MemoryBackend>, num_resources: usize) {
     let mut relationships = Vec::new();
     for i in 0..num_resources {
-        relationships.push(infera_store::Relationship {
+        relationships.push(Relationship {
             resource: format!("doc:{}", i),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
@@ -172,7 +173,7 @@ async fn bench_list_resources_deep_hierarchy() {
 
     // Create parent relationships
     for i in 1..depth {
-        relationships.push(infera_store::Relationship {
+        relationships.push(Relationship {
             resource: format!("folder:level{}", i),
             relation: "parent".to_string(),
             subject: format!("folder:level{}", i - 1),
@@ -180,7 +181,7 @@ async fn bench_list_resources_deep_hierarchy() {
     }
 
     // Alice is viewer of root folder
-    relationships.push(infera_store::Relationship {
+    relationships.push(Relationship {
         resource: "folder:level0".to_string(),
         relation: "viewer".to_string(),
         subject: "user:alice".to_string(),
@@ -191,7 +192,7 @@ async fn bench_list_resources_deep_hierarchy() {
     let evaluator = Evaluator::new(store, schema, None);
 
     // Check that Alice can access the deepest folder
-    let check_request = infera_core::CheckRequest {
+    let check_request = CheckRequest {
         subject: "user:alice".to_string(),
         resource: format!("folder:level{}", depth - 1),
         permission: "viewer".to_string(),
@@ -202,7 +203,7 @@ async fn bench_list_resources_deep_hierarchy() {
     let decision = evaluator.check(check_request).await.unwrap();
     let duration = start.elapsed();
 
-    assert_eq!(decision, infera_core::Decision::Allow);
+    assert_eq!(decision, Decision::Allow);
     println!("✅ Deep hierarchy ({} levels): {:?}", depth, duration);
 
     // Should complete in reasonable time even with deep hierarchy
@@ -221,7 +222,7 @@ async fn bench_list_resources_with_pattern() {
     // Create 10K resources with predictable names
     let mut relationships = Vec::new();
     for i in 0..10_000 {
-        relationships.push(infera_store::Relationship {
+        relationships.push(Relationship {
             resource: if i % 3 == 0 {
                 format!("doc:project_a_{}", i)
             } else if i % 3 == 1 {

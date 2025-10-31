@@ -6,7 +6,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::{
-    MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore, Result, Revision, StoreMetrics,
+    MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore, Result, Revision,
+    StoreMetrics,
 };
 
 /// A versioned relationship with its creation revision
@@ -333,17 +334,15 @@ impl RelationshipStore for MemoryBackend {
         // Collect candidate indices based on available filters
         let candidate_indices: Vec<usize> = match (object, relation, user) {
             // All three filters provided - most specific query
-            (Some(obj), Some(rel), Some(usr)) => {
-                store
-                    .resource_relation_index
-                    .get(&(obj.to_string(), rel.to_string()))
-                    .map(|v| v.as_slice())
-                    .unwrap_or(&[])
-                    .iter()
-                    .filter(|&&idx| store.relationships[idx].relationship.subject == usr)
-                    .copied()
-                    .collect()
-            }
+            (Some(obj), Some(rel), Some(usr)) => store
+                .resource_relation_index
+                .get(&(obj.to_string(), rel.to_string()))
+                .map(|v| v.as_slice())
+                .unwrap_or(&[])
+                .iter()
+                .filter(|&&idx| store.relationships[idx].relationship.subject == usr)
+                .copied()
+                .collect(),
             // Object and relation filters
             (Some(obj), Some(rel), None) => store
                 .resource_relation_index
@@ -401,7 +400,9 @@ impl RelationshipStore for MemoryBackend {
                 let vt = &store.relationships[idx];
 
                 // Check revision
-                if vt.created_at > revision || (vt.deleted_at.is_some() && vt.deleted_at.unwrap() <= revision) {
+                if vt.created_at > revision
+                    || (vt.deleted_at.is_some() && vt.deleted_at.unwrap() <= revision)
+                {
                     return None;
                 }
 
@@ -470,10 +471,18 @@ impl MemoryBackend {
     }
 
     /// Query all relations for an object
-    pub async fn query_by_object(&self, resource: &str, revision: Revision) -> Result<Vec<Relationship>> {
+    pub async fn query_by_object(
+        &self,
+        resource: &str,
+        revision: Revision,
+    ) -> Result<Vec<Relationship>> {
         let store = self.data.read().await;
 
-        let indices = store.resource_index.get(resource).cloned().unwrap_or_default();
+        let indices = store
+            .resource_index
+            .get(resource)
+            .cloned()
+            .unwrap_or_default();
 
         let relationships = indices
             .iter()

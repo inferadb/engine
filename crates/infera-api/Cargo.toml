@@ -25,6 +25,7 @@ pin-project = "1.1"
 futures = { workspace = true }
 
 # Internal dependencies
+infera-types = { path = "../infera-types" }
 infera-auth = { path = "../infera-auth" }
 infera-core = { path = "../infera-core" }
 infera-store = { path = "../infera-store" }

@@ -10,7 +10,8 @@ use crate::{
     Change, ChangeFeed, Operation, ReplError, Result,
 };
 use infera_api::grpc::proto::{
-    infera_service_client::InferaServiceClient, DeleteRequest, Relationship as ProtoRelationship, WriteRequest,
+    infera_service_client::InferaServiceClient, DeleteRequest, Relationship as ProtoRelationship,
+    WriteRequest,
 };
 use infera_observe::metrics::{
     record_replication_batch, record_replication_changes, record_replication_failure,

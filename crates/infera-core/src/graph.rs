@@ -7,9 +7,8 @@ use async_recursion::async_recursion;
 
 use crate::ipl::{RelationExpr, Schema};
 use crate::{EvalError, Result};
-#[cfg(test)]
-use infera_store::Relationship;
-use infera_store::{Revision, RelationshipKey, RelationshipStore};
+use infera_store::RelationshipStore;
+use infera_types::{RelationshipKey, Revision};
 
 /// Graph traversal context
 pub struct GraphContext {
@@ -295,7 +294,8 @@ async fn evaluate_relation_expr(
 mod tests {
     use super::*;
     use crate::ipl::{RelationDef, Schema, TypeDef};
-    use infera_store::{MemoryBackend, Relationship};
+    use infera_store::MemoryBackend;
+    use infera_types::Relationship;
 
     #[tokio::test]
     async fn test_has_direct_relationship() {
@@ -309,15 +309,17 @@ mod tests {
 
         let rev = store.write(vec![relationship]).await.unwrap();
 
-        let has_relationship = has_direct_relationship(&store, "doc:readme", "reader", "user:alice", rev)
-            .await
-            .unwrap();
+        let has_relationship =
+            has_direct_relationship(&store, "doc:readme", "reader", "user:alice", rev)
+                .await
+                .unwrap();
 
         assert!(has_relationship);
 
-        let no_relationship = has_direct_relationship(&store, "doc:readme", "reader", "user:bob", rev)
-            .await
-            .unwrap();
+        let no_relationship =
+            has_direct_relationship(&store, "doc:readme", "reader", "user:bob", rev)
+                .await
+                .unwrap();
 
         assert!(!no_relationship);
     }

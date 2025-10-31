@@ -13,6 +13,7 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 
 # Internal dependencies
+infera-types = { path = "../infera-types" }
 infera-store = { path = "../infera-store" }
 infera-observe = { path = "../infera-observe" }
 

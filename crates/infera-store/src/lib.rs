@@ -3,8 +3,7 @@
 //! Provides abstract database operations and revision consistency management.
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use infera_types::{Relationship, RelationshipKey, Revision, StoreError, StoreResult};
 
 pub mod factory;
 #[cfg(feature = "fdb")]
@@ -19,55 +18,7 @@ pub use metrics::{MetricsSnapshot, OpTimer, StoreMetrics};
 #[cfg(feature = "fdb")]
 pub use foundationdb::FoundationDBBackend;
 
-#[derive(Debug, Error)]
-pub enum StoreError {
-    #[error("Not found")]
-    NotFound,
-
-    #[error("Conflict")]
-    Conflict,
-
-    #[error("Database error: {0}")]
-    Database(String),
-
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-
-    #[error("Internal error: {0}")]
-    Internal(String),
-}
-
-pub type Result<T> = std::result::Result<T, StoreError>;
-
-/// A revision/version token for consistent reads
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct Revision(pub u64);
-
-impl Revision {
-    pub fn zero() -> Self {
-        Self(0)
-    }
-
-    pub fn next(&self) -> Self {
-        Self(self.0 + 1)
-    }
-}
-
-/// A relationship key for lookups
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct RelationshipKey {
-    pub resource: String,
-    pub relation: String,
-    pub subject: Option<String>,
-}
-
-/// A relationship representing an authorization relationship between a subject and resource
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Relationship {
-    pub resource: String,
-    pub relation: String,
-    pub subject: String,
-}
+type Result<T> = StoreResult<T>;
 
 /// The abstract relationship store interface
 #[async_trait]

@@ -11,16 +11,14 @@ pub mod ipl;
 pub mod optimizer;
 pub mod parallel;
 pub mod trace;
-pub mod types;
 
 pub use evaluator::Evaluator;
 pub use trace::{DecisionTrace, EvaluationNode, NodeType};
-pub use types::*;
 
 #[derive(Debug, Error)]
 pub enum EvalError {
     #[error("Store error: {0}")]
-    Store(#[from] infera_store::StoreError),
+    Store(#[from] infera_types::StoreError),
 
     #[error("WASM error: {0}")]
     Wasm(#[from] infera_wasm::WasmError),

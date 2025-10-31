@@ -19,7 +19,7 @@ use infera_core::{
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
     Evaluator,
 };
-use infera_store::{MemoryBackend, TupleStore};
+use infera_store::{MemoryBackend, RelationshipStore};
 use serde_json::json;
 use tower::ServiceExt;
 
@@ -149,7 +149,7 @@ mod common {
 }
 
 fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
-    let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
         vec![

@@ -3,12 +3,13 @@
 //! These tests use property-based testing to fuzz storage operations,
 //! ensuring data integrity, crash resistance, and proper error handling.
 
-use infera_store::{MemoryBackend, Tuple, RelationshipStore};
+use infera_store::{MemoryBackend, RelationshipStore};
+use infera_types::{Relationship, RelationshipKey, Revision};
 use proptest::prelude::*;
 use std::sync::Arc;
 
 /// Generate arbitrary relationship data
-fn arb_relationship() -> impl Strategy<Value = Tuple> {
+fn arb_relationship() -> impl Strategy<Value = Relationship> {
     (
         prop_oneof![
             // Normal identifiers
@@ -28,15 +29,15 @@ fn arb_relationship() -> impl Strategy<Value = Tuple> {
         prop_oneof!["[a-z]{1,50}", Just(String::new()), "\\PC{1,30}",],
         prop_oneof![
             "[a-zA-Z0-9_:-]{1,100}",
-            Just("user:*".to_string()),
+            Just("subject:*".to_string()),
             Just(String::new()),
             "\\PC{1,50}",
         ],
     )
-        .prop_map(|(object, relation, user)| infera_store::Relationship {
-            object,
+        .prop_map(|(resource, relation, subject)| Relationship {
+            resource,
             relation,
-            user,
+            subject,
         })
 }
 
@@ -71,7 +72,7 @@ proptest! {
     /// Fuzz read operations with arbitrary patterns
     #[test]
     fn fuzz_read_operations(
-        object in prop_oneof![
+        resource in prop_oneof![
             "[a-zA-Z0-9_:-]{1,100}",
             Just(String::new()),
             "\\PC{1,50}",
@@ -87,11 +88,11 @@ proptest! {
             let store = Arc::new(MemoryBackend::new());
 
             // Get current revision
-            let revision = store.get_revision().await.unwrap_or(infera_store::Revision(0));
+            let revision = store.get_revision().await.unwrap_or(Revision(0));
 
             // Create relationship key
-            let key = infera_store::RelationshipKey {
-                object,
+            let key = RelationshipKey {
+                resource,
                 relation,
                 subject: user_filter,
             };
@@ -117,7 +118,7 @@ proptest! {
     /// Fuzz delete operations
     #[test]
     fn fuzz_delete_operations(
-        object in prop_oneof![
+        resource in prop_oneof![
             "[a-zA-Z0-9_:-]{1,100}",
             Just(String::new()),
         ],
@@ -132,8 +133,8 @@ proptest! {
             let store = Arc::new(MemoryBackend::new());
 
             // Create relationship key
-            let key = infera_store::RelationshipKey {
-                object,
+            let key = RelationshipKey {
+                resource,
                 relation,
                 subject: user_filter,
             };
@@ -187,7 +188,7 @@ proptest! {
     /// Fuzz revision-based reads
     #[test]
     fn fuzz_revision_reads(
-        object in "[a-zA-Z0-9_:-]{1,100}",
+        resource in "[a-zA-Z0-9_:-]{1,100}",
         relation in "[a-z]{1,50}",
         revision_offset in 0u64..1000,
     ) {
@@ -196,8 +197,8 @@ proptest! {
             let store = Arc::new(MemoryBackend::new());
 
             // Write some data first
-            let relationship = infera_store::Relationship {
-                resource: object.clone(),
+            let relationship = Relationship {
+                resource: resource.clone(),
                 relation: relation.clone(),
                 subject: "user:test".to_string(),
             };
@@ -207,13 +208,13 @@ proptest! {
                 let read_rev = write_rev.0.saturating_sub(revision_offset);
 
                 // Create relationship key for reading
-                let key = infera_store::RelationshipKey {
-                    object,
+                let key = RelationshipKey {
+                    resource,
                     relation,
                     subject: None,
                 };
 
-                let result = store.read(&key, infera_store::Revision(read_rev)).await;
+                let result = store.read(&key, Revision(read_rev)).await;
 
                 // Should not panic
                 match result {
@@ -235,8 +236,8 @@ proptest! {
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            let relationships: Vec<infera_store::Relationship> = (0..size)
-                .map(|i| infera_store::Relationship {
+            let relationships: Vec<Relationship> = (0..size)
+                .map(|i| Relationship {
                     resource: format!("obj{}", i),
                     relation: "rel".to_string(),
                     subject: format!("user{}", i),
@@ -291,16 +292,16 @@ proptest! {
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            let mut object = String::from("obj");
+            let mut resource = String::from("obj");
             for _ in 0..null_count {
-                object.push('\0');
+                resource.push('\0');
             }
             for i in 0..control_count {
-                object.push(char::from_u32(i as u32 + 1).unwrap_or('x'));
+                resource.push(char::from_u32(i as u32 + 1).unwrap_or('x'));
             }
 
-            let relationship = infera_store::Relationship {
-                object,
+            let relationship = Relationship {
+                resource,
                 relation: "rel".to_string(),
                 subject: "user:test".to_string(),
             };
@@ -320,18 +321,18 @@ proptest! {
     /// Fuzz wildcard user patterns
     #[test]
     fn fuzz_wildcard_patterns(pattern in prop_oneof![
-        Just("user:*"),
+        Just("subject:*"),
         Just("*"),
-        Just("user:*:*"),
+        Just("subject:*:*"),
         Just("**"),
-        Just("user:a*"),
-        Just("user:*b"),
+        Just("subject:a*"),
+        Just("subject:*b"),
     ]) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            let relationship = infera_store::Relationship {
+            let relationship = Relationship {
                 resource: "obj:test".to_string(),
                 relation: "viewer".to_string(),
                 subject: pattern.to_string(),
@@ -355,7 +356,7 @@ proptest! {
     #[test]
     fn fuzz_mixed_operations(
         valid_relationships in prop::collection::vec(
-            (1usize..100, 1usize..50, 1usize..100).prop_map(|(o, r, u)| infera_store::Relationship {
+            (1usize..100, 1usize..50, 1usize..100).prop_map(|(o, r, u)| Relationship {
                 resource: format!("obj{}", o),
                 relation: format!("rel{}", r),
                 subject: format!("user{}", u),
@@ -396,7 +397,7 @@ mod integration_tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Empty fields
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "".to_string(),
             relation: "".to_string(),
             subject: "".to_string(),
@@ -411,7 +412,7 @@ mod integration_tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Very long fields
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "a".repeat(100000),
             relation: "b".repeat(100000),
             subject: "c".repeat(100000),
@@ -431,7 +432,7 @@ mod integration_tests {
         for i in 0..100 {
             let store_clone = store.clone();
             handles.push(tokio::spawn(async move {
-                let relationship = infera_store::Relationship {
+                let relationship = Relationship {
                     resource: format!("obj{}", i),
                     relation: "rel".to_string(),
                     subject: format!("user{}", i),
@@ -456,7 +457,7 @@ mod integration_tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Try to cause errors with invalid data
-        let invalid_relationship = infera_store::Relationship {
+        let invalid_relationship = Relationship {
             resource: "'; DROP TABLE relationships; --".to_string(),
             relation: "../../etc/passwd".to_string(),
             subject: "<script>alert('xss')</script>".to_string(),
@@ -466,7 +467,7 @@ mod integration_tests {
         let _ = store.write(vec![invalid_relationship]).await;
 
         // Storage should still be functional
-        let valid_relationship = infera_store::Relationship {
+        let valid_relationship = Relationship {
             resource: "obj:test".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

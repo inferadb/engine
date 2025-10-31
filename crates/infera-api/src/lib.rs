@@ -23,11 +23,15 @@ use tracing::info;
 
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
-use infera_core::{
-    CheckRequest, Decision, Evaluator, ExpandRequest, ListRelationshipsRequest,
-    ListResourcesRequest,
-};
+use infera_core::Evaluator;
 use infera_store::RelationshipStore;
+use infera_types::{
+    CheckRequest, Decision, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
+    ListResourcesRequest, Relationship, RelationshipKey,
+};
+
+#[cfg(test)]
+use infera_types::UsersetNodeType;
 
 pub mod grpc;
 pub mod grpc_interceptor;
@@ -306,7 +310,7 @@ async fn expand_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<ExpandRequest>,
-) -> Result<Json<infera_core::ExpandResponse>> {
+) -> Result<Json<ExpandResponse>> {
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
         if let Some(auth_ctx) = auth.0 {
@@ -414,7 +418,9 @@ async fn write_handler(
 
     // Validate request
     if request.relationships.is_empty() {
-        return Err(ApiError::InvalidRequest("No relationships provided".to_string()));
+        return Err(ApiError::InvalidRequest(
+            "No relationships provided".to_string(),
+        ));
     }
 
     // Validate relationship format
@@ -481,7 +487,7 @@ async fn write_handler(
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WriteRequest {
-    pub relationships: Vec<infera_core::Relationship>,
+    pub relationships: Vec<Relationship>,
     /// Optional expected revision for optimistic locking
     /// If provided, the write will only succeed if the current store revision matches
     pub expected_revision: Option<String>,
@@ -516,7 +522,9 @@ async fn delete_handler(
 
     // Validate request
     if request.relationships.is_empty() {
-        return Err(ApiError::InvalidRequest("No relationships provided".to_string()));
+        return Err(ApiError::InvalidRequest(
+            "No relationships provided".to_string(),
+        ));
     }
 
     // Validate and convert relationships to RelationshipKeys
@@ -552,7 +560,7 @@ async fn delete_handler(
         }
 
         // Create RelationshipKey for deletion
-        use infera_store::RelationshipKey;
+        // RelationshipKey is already imported from infera_types
         keys.push(RelationshipKey {
             resource: relationship.resource.clone(),
             relation: relationship.relation.clone(),
@@ -595,8 +603,8 @@ async fn delete_handler(
     }
 
     // Return the last revision from successful deletes
-    let revision =
-        last_revision.ok_or_else(|| ApiError::Internal("No relationships were deleted".to_string()))?;
+    let revision = last_revision
+        .ok_or_else(|| ApiError::Internal("No relationships were deleted".to_string()))?;
 
     Ok(Json(DeleteResponse {
         revision: revision.0.to_string(),
@@ -606,7 +614,7 @@ async fn delete_handler(
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DeleteRequest {
-    pub relationships: Vec<infera_core::Relationship>,
+    pub relationships: Vec<Relationship>,
     /// Optional expected revision for optimistic locking
     /// If provided, the delete will only succeed if the current store revision matches
     pub expected_revision: Option<String>,
@@ -650,8 +658,13 @@ async fn simulate_handler(
     }
 
     for relationship in &request.context_relationships {
-        if relationship.resource.is_empty() || relationship.relation.is_empty() || relationship.subject.is_empty() {
-            return Err(ApiError::InvalidRequest("Invalid relationship format".to_string()));
+        if relationship.resource.is_empty()
+            || relationship.relation.is_empty()
+            || relationship.subject.is_empty()
+        {
+            return Err(ApiError::InvalidRequest(
+                "Invalid relationship format".to_string(),
+            ));
         }
     }
 
@@ -690,7 +703,7 @@ async fn simulate_handler(
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SimulateRequest {
-    pub context_relationships: Vec<infera_core::Relationship>,
+    pub context_relationships: Vec<Relationship>,
     pub check: SimulateCheck,
 }
 
@@ -1003,7 +1016,7 @@ pub struct ListRelationshipsRestRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ListRelationshipsRestResponse {
     /// List of relationships matching the filter
-    pub relationships: Vec<infera_core::Relationship>,
+    pub relationships: Vec<Relationship>,
     /// Continuation token for pagination (if more results available)
     pub cursor: Option<String>,
     /// Total count of relationships returned
@@ -1057,14 +1070,19 @@ async fn list_relationships_stream_handler(
     let cursor = response.cursor;
     let total_count = response.total_count;
 
-    let stream = stream::iter(relationships.into_iter().enumerate().map(|(idx, relationship)| {
-        let data = serde_json::json!({
-            "relationship": relationship,
-            "index": idx,
-        });
+    let stream = stream::iter(
+        relationships
+            .into_iter()
+            .enumerate()
+            .map(|(idx, relationship)| {
+                let data = serde_json::json!({
+                    "relationship": relationship,
+                    "index": idx,
+                });
 
-        Event::default().json_data(data)
-    }))
+                Event::default().json_data(data)
+            }),
+    )
     .chain(stream::once(async move {
         // Send final summary event
         let summary = serde_json::json!({
@@ -1468,10 +1486,10 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let expand_response: infera_core::ExpandResponse = serde_json::from_slice(&body).unwrap();
+        let expand_response: ExpandResponse = serde_json::from_slice(&body).unwrap();
         assert!(matches!(
             expand_response.tree.node_type,
-            infera_core::UsersetNodeType::Union
+            UsersetNodeType::Union
         ));
     }
 

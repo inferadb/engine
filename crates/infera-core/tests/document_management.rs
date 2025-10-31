@@ -171,7 +171,11 @@ async fn test_viewer_permissions() {
 
     // Charlie is a viewer of doc1
     fixture
-        .write_relationships(vec![relationship("document:doc1", "viewer", "user:charlie")])
+        .write_relationships(vec![relationship(
+            "document:doc1",
+            "viewer",
+            "user:charlie",
+        )])
         .await
         .unwrap();
 

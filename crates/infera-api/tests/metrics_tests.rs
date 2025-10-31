@@ -6,7 +6,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use infera_api::grpc::proto::CheckRequest;
+use infera_api::grpc::proto::CheckRequest as ProtoCheckRequest;
 use infera_api::{grpc::proto::infera_service_client::InferaServiceClient, AppState};
 use infera_auth::internal::InternalJwksLoader;
 use infera_auth::jwks_cache::JwksCache;
@@ -15,7 +15,7 @@ use infera_core::{
     ipl::{RelationDef, Schema, TypeDef},
     Evaluator,
 };
-use infera_store::{MemoryBackend, TupleStore};
+use infera_store::{MemoryBackend, RelationshipStore};
 use tonic::metadata::MetadataValue;
 use tonic::transport::{Channel, Server};
 use tonic::Request;
@@ -32,7 +32,7 @@ fn create_test_schema() -> Arc<Schema> {
 }
 
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
-    let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
     let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
 
@@ -153,7 +153,7 @@ async fn test_metrics_after_successful_auth() {
     let claims = InternalClaims::default();
     let token = generate_internal_jwt(&keypair, claims);
 
-    let mut request = Request::new(CheckRequest {
+    let mut request = Request::new(ProtoCheckRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
@@ -209,7 +209,7 @@ async fn test_metrics_after_failed_auth() {
 
     let mut client = InferaServiceClient::new(channel);
 
-    let mut request = Request::new(CheckRequest {
+    let mut request = Request::new(ProtoCheckRequest {
         subject: "user:alice".to_string(),
         resource: "doc:readme".to_string(),
         permission: "reader".to_string(),
@@ -285,7 +285,7 @@ async fn test_metrics_cardinality() {
         let claims = InternalClaims::default();
         let token = generate_internal_jwt(&keypair, claims);
 
-        let mut request = Request::new(CheckRequest {
+        let mut request = Request::new(ProtoCheckRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),

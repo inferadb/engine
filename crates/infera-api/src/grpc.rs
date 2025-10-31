@@ -29,10 +29,11 @@
 use tonic::{Request, Response, Status};
 
 use crate::AppState;
-use infera_core::{
-    CheckRequest as CoreCheckRequest, Decision, DecisionTrace, EvaluationNode,
-    ExpandRequest as CoreExpandRequest, ListRelationshipsRequest as CoreListRelationshipsRequest,
-    ListResourcesRequest as CoreListResourcesRequest, NodeType as CoreNodeType,
+use infera_core::{DecisionTrace, EvaluationNode, NodeType as CoreNodeType};
+use infera_types::{
+    CheckRequest as CoreCheckRequest, Decision, ExpandRequest as CoreExpandRequest,
+    ListRelationshipsRequest as CoreListRelationshipsRequest,
+    ListResourcesRequest as CoreListResourcesRequest, Relationship, RelationshipKey, Revision,
     UsersetNodeType as CoreUsersetNodeType, UsersetTree,
 };
 
@@ -163,10 +164,10 @@ impl InferaService for InferaServiceImpl {
             return Err(Status::invalid_argument("No relationships provided"));
         }
 
-        let relationships: Vec<infera_store::Relationship> = req
+        let relationships: Vec<Relationship> = req
             .relationships
             .into_iter()
-            .map(|t| infera_store::Relationship {
+            .map(|t| Relationship {
                 resource: t.resource,
                 relation: t.relation,
                 subject: t.subject,
@@ -176,13 +177,19 @@ impl InferaService for InferaServiceImpl {
         // Validate relationship format
         for relationship in &relationships {
             if relationship.resource.is_empty() {
-                return Err(Status::invalid_argument("Relationship resource cannot be empty"));
+                return Err(Status::invalid_argument(
+                    "Relationship resource cannot be empty",
+                ));
             }
             if relationship.relation.is_empty() {
-                return Err(Status::invalid_argument("Relationship relation cannot be empty"));
+                return Err(Status::invalid_argument(
+                    "Relationship relation cannot be empty",
+                ));
             }
             if relationship.subject.is_empty() {
-                return Err(Status::invalid_argument("Relationship subject cannot be empty"));
+                return Err(Status::invalid_argument(
+                    "Relationship subject cannot be empty",
+                ));
             }
             if !relationship.resource.contains(':') {
                 return Err(Status::invalid_argument(format!(
@@ -226,19 +233,17 @@ impl InferaService for InferaServiceImpl {
         let relationships_count = req.relationships.len();
 
         // Delete each relationship individually
-        let mut last_revision = infera_store::Revision::zero();
+        let mut last_revision = Revision::zero();
         for relationship in req.relationships {
-            let key = infera_store::RelationshipKey {
+            let key = RelationshipKey {
                 resource: relationship.resource,
                 relation: relationship.relation,
                 subject: Some(relationship.subject),
             };
-            last_revision = self
-                .state
-                .store
-                .delete(&key)
-                .await
-                .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
+            last_revision =
+                self.state.store.delete(&key).await.map_err(|e| {
+                    Status::internal(format!("Failed to delete relationship: {}", e))
+                })?;
         }
 
         Ok(Response::new(DeleteResponse {
@@ -316,7 +321,7 @@ impl InferaService for InferaServiceImpl {
         while let Some(write_req) = stream.next().await {
             let write_req = write_req?;
             for relationship in write_req.relationships {
-                all_relationships.push(infera_store::Relationship {
+                all_relationships.push(Relationship {
                     resource: relationship.resource,
                     relation: relationship.relation,
                     subject: relationship.subject,
@@ -683,7 +688,9 @@ mod tests {
     #[tokio::test]
     async fn test_grpc_write_validation_empty_relationships() {
         let service = InferaServiceImpl::new(create_test_state());
-        let request = Request::new(WriteRequest { relationships: vec![] });
+        let request = Request::new(WriteRequest {
+            relationships: vec![],
+        });
 
         let result = service.write(request).await;
         assert!(result.is_err());

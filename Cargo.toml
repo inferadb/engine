@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/infera-types",
     "crates/infera-core",
     "crates/infera-store",
     "crates/infera-wasm",

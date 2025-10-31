@@ -5,6 +5,7 @@
 //! detected and resolved deterministically across all replicas.
 
 use crate::{Change, Operation, ReplError};
+use infera_types::Relationship;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -16,7 +17,7 @@ pub struct Conflict {
     /// The remote change that conflicts
     pub remote: Change,
     /// The relationship affected
-    pub relationship: infera_store::Relationship,
+    pub relationship: Relationship,
 }
 
 impl Conflict {
@@ -250,10 +251,9 @@ impl ConflictStats {
 mod tests {
     use super::*;
     use crate::ChangeMetadata;
-    use infera_store::Revision;
-
-    fn create_test_relationship() -> infera_store::Relationship {
-        infera_store::Relationship {
+    use infera_types::Revision;
+    fn create_test_relationship() -> Relationship {
+        Relationship {
             resource: "doc:test".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

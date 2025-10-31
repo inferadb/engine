@@ -3,7 +3,8 @@
 //! Provides snapshot isolation for reads at specific revision tokens
 
 use crate::{ReplError, Result, RevisionToken};
-use infera_store::{Revision, RelationshipKey, RelationshipStore};
+use infera_store::RelationshipStore;
+use infera_types::{Relationship, RelationshipKey, Revision};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -33,7 +34,11 @@ impl SnapshotReader {
 
     /// Read relationships at a specific revision token
     /// Blocks until the revision is available or times out
-    pub async fn read_at_token(&self, key: &RelationshipKey, token: &RevisionToken) -> Result<Vec<infera_store::Relationship>> {
+    pub async fn read_at_token(
+        &self,
+        key: &RelationshipKey,
+        token: &RevisionToken,
+    ) -> Result<Vec<Relationship>> {
         // Validate the token
         token.validate()?;
 
@@ -63,7 +68,7 @@ impl SnapshotReader {
         &self,
         key: &RelationshipKey,
         target_revision: Revision,
-    ) -> Result<Vec<infera_store::Relationship>> {
+    ) -> Result<Vec<Relationship>> {
         // Poll until the store has reached the target revision
         loop {
             let current_revision = self.store.get_revision().await?;
@@ -80,7 +85,7 @@ impl SnapshotReader {
     }
 
     /// Read relationships at the current revision
-    pub async fn read_current(&self, key: &RelationshipKey) -> Result<Vec<infera_store::Relationship>> {
+    pub async fn read_current(&self, key: &RelationshipKey) -> Result<Vec<Relationship>> {
         let current_revision = self.store.get_revision().await?;
         let relationships = self.store.read(key, current_revision).await?;
         Ok(relationships)
@@ -96,7 +101,8 @@ impl SnapshotReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use infera_store::{MemoryBackend, Relationship};
+    use infera_store::MemoryBackend;
+    use infera_types::Relationship;
 
     #[tokio::test]
     async fn test_read_current() {
@@ -104,7 +110,7 @@ mod tests {
         let reader = SnapshotReader::new(store.clone());
 
         // Write a relationship
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -129,7 +135,7 @@ mod tests {
         let reader = SnapshotReader::new(store.clone());
 
         // Write first relationship
-        let relationship1 = infera_store::Relationship {
+        let relationship1 = Relationship {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -140,7 +146,7 @@ mod tests {
         let token1 = RevisionToken::new("node1".to_string(), rev1.0);
 
         // Write second relationship
-        let relationship2 = infera_store::Relationship {
+        let relationship2 = Relationship {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
@@ -165,7 +171,7 @@ mod tests {
         let reader = SnapshotReader::new(store.clone());
 
         // Write a relationship
-        let relationship = infera_store::Relationship {
+        let relationship = Relationship {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

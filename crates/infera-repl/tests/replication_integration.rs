@@ -11,7 +11,8 @@ use infera_repl::{
     RegionId, ReplicationAgent, ReplicationConfig, ReplicationStrategy, Topology, TopologyBuilder,
     ZoneId,
 };
-use infera_store::{MemoryBackend, Relationship, RelationshipStore, Revision};
+use infera_store::{MemoryBackend, RelationshipStore};
+use infera_types::{Relationship, RelationshipKey, Revision};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;

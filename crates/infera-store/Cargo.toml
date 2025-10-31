@@ -19,6 +19,7 @@ futures = { workspace = true }
 foundationdb = { workspace = true, optional = true }
 
 # Internal dependencies
+infera-types = { path = "../infera-types" }
 infera-observe = { path = "../infera-observe" }
 
 [dev-dependencies]

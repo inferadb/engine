@@ -38,7 +38,7 @@ pub enum ReplError {
     Replication(String),
 
     #[error("Store error: {0}")]
-    Store(#[from] infera_store::StoreError),
+    Store(#[from] infera_types::StoreError),
 }
 
 pub type Result<T> = std::result::Result<T, ReplError>;

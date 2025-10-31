@@ -8,13 +8,14 @@ use tracing::{debug, instrument};
 use crate::graph::{has_direct_relationship, GraphContext};
 use crate::ipl::Schema;
 use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
-use crate::{
-    CheckRequest, Decision, EvalError, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
-    ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, Result,
-    UsersetNodeType, UsersetTree,
-};
+use crate::{EvalError, Result};
 use infera_cache::{AuthCache, CheckCacheKey};
 use infera_store::RelationshipStore;
+use infera_types::{
+    CheckRequest, Decision, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
+    ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, Relationship,
+    UsersetNodeType, UsersetTree,
+};
 use infera_wasm::WasmHost;
 
 /// The main policy evaluator
@@ -257,7 +258,8 @@ impl Evaluator {
         match expr {
             RelationExpr::This => {
                 let has_direct =
-                    has_direct_relationship(&*ctx.store, resource, "this", subject, ctx.revision).await?;
+                    has_direct_relationship(&*ctx.store, resource, "this", subject, ctx.revision)
+                        .await?;
                 Ok(EvaluationNode {
                     node_type: NodeType::DirectCheck {
                         resource: resource.to_string(),
@@ -385,7 +387,9 @@ impl Evaluator {
 
             RelationExpr::Exclusion { base, subtract } => {
                 let base_child = self.build_expr_node(resource, base, subject, ctx).await?;
-                let subtract_child = self.build_expr_node(resource, subtract, subject, ctx).await?;
+                let subtract_child = self
+                    .build_expr_node(resource, subtract, subject, ctx)
+                    .await?;
 
                 let result = base_child.result && !subtract_child.result;
 
@@ -1158,7 +1162,10 @@ impl Evaluator {
             )
             .await?;
 
-        debug!("Found {} total relationships matching filters", all_relationships.len());
+        debug!(
+            "Found {} total relationships matching filters",
+            all_relationships.len()
+        );
 
         // Decode cursor to get offset if provided
         let offset = if let Some(cursor) = &request.cursor {
@@ -1170,17 +1177,14 @@ impl Evaluator {
         // Apply default and maximum limits
         const DEFAULT_LIMIT: usize = 100;
         const MAX_LIMIT: usize = 1000;
-        let limit = request
-            .limit
-            .unwrap_or(DEFAULT_LIMIT)
-            .min(MAX_LIMIT);
+        let limit = request.limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT);
 
-        // Apply pagination and convert from storage Tuple (object/user) to API Relationship (resource/subject)
-        let relationships: Vec<crate::types::Relationship> = all_relationships
+        // Apply pagination
+        let relationships: Vec<Relationship> = all_relationships
             .into_iter()
             .skip(offset)
             .take(limit)
-            .map(|t| crate::types::Relationship {
+            .map(|t| Relationship {
                 resource: t.resource,
                 relation: t.relation,
                 subject: t.subject,
@@ -1221,7 +1225,8 @@ impl Evaluator {
 mod tests {
     use super::*;
     use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-    use infera_store::{MemoryBackend, Relationship};
+    use infera_store::MemoryBackend;
+    use infera_types::Relationship;
 
     fn create_simple_schema() -> Schema {
         Schema::new(vec![TypeDef::new(
@@ -2900,7 +2905,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // List all relationships with no filters
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: None,
             relation: None,
             subject: None,
@@ -2941,7 +2946,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Filter by resource
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: Some("doc:readme".to_string()),
             relation: None,
             subject: None,
@@ -2952,7 +2957,10 @@ mod tests {
         let response = evaluator.list_relationships(request).await.unwrap();
 
         assert_eq!(response.relationships.len(), 2);
-        assert!(response.relationships.iter().all(|r| r.resource == "doc:readme"));
+        assert!(response
+            .relationships
+            .iter()
+            .all(|r| r.resource == "doc:readme"));
     }
 
     #[tokio::test]
@@ -2982,7 +2990,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Filter by relation
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: None,
             relation: Some("owner".to_string()),
             subject: None,
@@ -3023,7 +3031,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Filter by subject
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: None,
             relation: None,
             subject: Some("user:alice".to_string()),
@@ -3034,7 +3042,10 @@ mod tests {
         let response = evaluator.list_relationships(request).await.unwrap();
 
         assert_eq!(response.relationships.len(), 2);
-        assert!(response.relationships.iter().all(|r| r.subject == "user:alice"));
+        assert!(response
+            .relationships
+            .iter()
+            .all(|r| r.subject == "user:alice"));
     }
 
     #[tokio::test]
@@ -3069,7 +3080,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Filter by resource + relation + subject
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: Some("doc:readme".to_string()),
             relation: Some("owner".to_string()),
             subject: Some("user:alice".to_string()),
@@ -3104,7 +3115,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // First page with default limit (100)
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: None,
             relation: None,
             subject: Some("user:alice".to_string()),
@@ -3118,7 +3129,7 @@ mod tests {
         assert!(response.cursor.is_some());
 
         // Second page using cursor
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: None,
             relation: None,
             subject: Some("user:alice".to_string()),
@@ -3151,7 +3162,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Custom limit of 10
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: None,
             relation: None,
             subject: Some("user:alice".to_string()),
@@ -3173,7 +3184,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Request with limit > max (1000)
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: None,
             relation: None,
             subject: None,
@@ -3195,7 +3206,7 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Query with no matching relationships
-        let request = crate::types::ListRelationshipsRequest {
+        let request = ListRelationshipsRequest {
             resource: Some("doc:nonexistent".to_string()),
             relation: None,
             subject: None,
