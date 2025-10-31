@@ -77,13 +77,26 @@ grpcurl -plaintext -d '{
 
 ### Core Operations
 
-Both APIs support these core operations:
+Both APIs support these operations:
 
-- **Check** - Check if a subject has permission on a resource
+**Authorization Checks**:
+- **Check** - Check if a subject has permission on a resource (streaming for batch)
 - **CheckWithTrace** - Check with detailed evaluation trace for debugging
-- **Expand** - Expand a relation to see all users who have access
-- **Write** - Write authorization relationships
-- **Delete** - Delete authorization relationships
+
+**Query Operations**:
+- **Expand** - Expand a relation to see all users who have access (streaming)
+- **ListResources** - List all resources a subject can access (streaming)
+- **ListSubjects** - List all subjects that have access to a resource (streaming)
+- **ListRelationships** - List relationships with optional filtering (streaming)
+
+**Data Operations**:
+- **Write** - Write authorization relationships (streaming for batch)
+- **Delete** - Delete authorization relationships (streaming for batch)
+
+**Real-time**:
+- **Watch** - Stream real-time relationship change events (SSE/gRPC streaming)
+
+**System**:
 - **Health** - Check service health
 
 ### Performance

@@ -30,21 +30,23 @@ The complete Protocol Buffer definition is available at [`crates/infera-api/prot
 
 ```protobuf
 service InferaService {
-  // Authorization checks
-  rpc Check(CheckRequest) returns (CheckResponse);
-  rpc CheckWithTrace(CheckRequest) returns (CheckWithTraceResponse);
+  // Authorization checks (streaming for batch operations)
+  rpc Evaluate(stream EvaluateRequest) returns (stream EvaluateResponse);
 
-  // Relation expansion
-  rpc Expand(ExpandRequest) returns (ExpandResponse);
-  rpc ExpandStream(ExpandRequest) returns (stream ExpandResponse);
+  // Relation expansion (streaming for progressive results)
+  rpc Expand(ExpandRequest) returns (stream ExpandResponse);
 
-  // Data operations (streaming APIs)
+  // Data operations (client streaming for batch writes/deletes)
   rpc WriteRelationships(stream WriteRequest) returns (WriteResponse);
   rpc DeleteRelationships(stream DeleteRequest) returns (DeleteResponse);
 
-  // Queries (server streaming)
+  // Query operations (server streaming for large result sets)
   rpc ListResources(ListResourcesRequest) returns (stream ListResourcesResponse);
+  rpc ListSubjects(ListSubjectsRequest) returns (stream ListSubjectsResponse);
   rpc ListRelationships(ListRelationshipsRequest) returns (stream ListRelationshipsResponse);
+
+  // Real-time change streaming (server streaming)
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
 
   // Health check
   rpc Health(HealthRequest) returns (HealthResponse);

@@ -7,6 +7,9 @@ InferaDB delivers millisecond-scale authorization decisions at global scale thro
 ## What Makes InferaDB Special?
 
 - **Blazing Fast**: Sub-10ms authorization checks with intelligent caching
+- **Complete API Surface**: Check, Expand, ListResources, ListSubjects, ListRelationships, Watch
+- **Wildcard Support**: Model public resources with `user:*` pattern (Phase 3.1)
+- **Real-time Updates**: Watch API streams relationship changes via gRPC/SSE (Phase 2.2)
 - **Global Scale**: Multi-region replication with active-active deployment
 - **Production Ready**: JWT/OAuth authentication, graceful shutdown, health checks
 - **Observable**: Prometheus metrics, OpenTelemetry tracing, structured logging
@@ -48,6 +51,33 @@ curl -X POST http://localhost:8080/v1/check \
     "permission": "viewer"
   }'
 
+# Response: {"decision": "allow"}
+```
+
+### Model Public Resources with Wildcards
+
+InferaDB supports wildcard subjects to model public access:
+
+```bash
+# Write a wildcard relationship - all users can view
+curl -X POST http://localhost:8080/v1/write-relationships \
+  -H "Content-Type: application/json" \
+  -d '{
+    "relationships": [{
+      "resource": "doc:announcement",
+      "relation": "viewer",
+      "subject": "user:*"
+    }]
+  }'
+
+# Any user will be allowed
+curl -X POST http://localhost:8080/v1/check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": "user:alice",
+    "resource": "doc:announcement",
+    "permission": "viewer"
+  }'
 # Response: {"decision": "allow"}
 ```
 

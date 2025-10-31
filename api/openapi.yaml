@@ -707,6 +707,9 @@ paths:
         Relationships define access control relationships between subjects and resources. For example:
         - `user:alice` is a `viewer` of `document:readme`
         - `group:engineers` is a `member` of `org:acme`
+        - `user:*` is a `viewer` of `document:public` (wildcard for public access)
+
+        **Wildcard Support**: Use `type:*` in the subject field to represent "all entities of that type". This enables modeling public resources or universal permissions.
 
         **Best Practice**: Batch multiple relationships in a single request for better performance.
       operationId: writeRelationships
@@ -739,6 +742,13 @@ paths:
                     - resource: document:secret
                       relation: viewer
                       subject: group:engineers
+              wildcard_public_access:
+                summary: Public resource with wildcard
+                value:
+                  relationships:
+                    - resource: document:announcement
+                      relation: viewer
+                      subject: user:*
       responses:
         "200":
           description: Relationships written successfully
@@ -1573,9 +1583,17 @@ components:
           pattern: "^[a-z_][a-z0-9_]*$"
         subject:
           type: string
-          description: The subject (user or entity)
+          description: |
+            The subject (user or entity). Supports wildcards in the format "type:*" to represent all entities of that type.
+
+            Examples:
+            - `user:alice` - specific user
+            - `user:*` - all users (wildcard)
+            - `group:*` - all groups (wildcard)
+
+            Wildcards enable modeling public access: when a relationship has `user:*` as the subject, all users will have that relation to the resource.
           example: user:alice
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+          pattern: "^[a-z_][a-z0-9_]*:([a-z0-9_-]+|\\*)$"
 
     WriteRequest:
       type: object

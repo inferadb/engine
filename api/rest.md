@@ -14,7 +14,26 @@ http://localhost:8080/api/v1
 
 ## Authentication
 
-> **Note**: Authentication is not yet implemented. All endpoints are currently public.
+InferaDB supports JWT (JSON Web Token) authentication with multiple signing algorithms:
+
+- **EdDSA** (Ed25519) - Recommended for new applications
+- **RS256** (RSA with SHA-256) - Industry standard
+- **ES256** (ECDSA with P-256) - High performance
+
+**Authentication Header**:
+```http
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+**Required Scopes**:
+- `inferadb.read` - Permission checks, expand, list operations
+- `inferadb.write` - Write relationships
+- `inferadb.delete` - Delete relationships
+- `inferadb.watch` - Watch for change events
+
+See the [Authentication Guide](../docs/security/authentication.md) for detailed setup instructions.
+
+**Note**: Authentication can be disabled for development by setting `auth.enabled: false` in configuration.
 
 ## Endpoints
 
