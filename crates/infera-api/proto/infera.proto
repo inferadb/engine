@@ -19,8 +19,8 @@ service InferaService {
   // Write relationships to the store (streaming for single and batch operations)
   rpc WriteRelationships(stream WriteRequest) returns (WriteResponse);
 
-  // Delete relationships from the store
-  rpc DeleteRelationships(DeleteRequest) returns (DeleteResponse);
+  // Delete relationships from the store (streaming for single and batch operations)
+  rpc DeleteRelationships(stream DeleteRequest) returns (DeleteResponse);
 
   // Health check
   rpc Health(HealthRequest) returns (HealthResponse);

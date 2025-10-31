@@ -156,12 +156,37 @@ impl InferaService for InferaServiceImpl {
 
     async fn delete_relationships(
         &self,
-        request: Request<DeleteRequest>,
+        request: Request<tonic::Streaming<DeleteRequest>>,
     ) -> Result<Response<DeleteResponse>, Status> {
-        let req = request.into_inner();
+        use futures::StreamExt;
+
+        let mut stream = request.into_inner();
+        let mut all_filters = Vec::new();
+        let mut all_relationships = Vec::new();
+        let mut limit_override: Option<Option<u32>> = None;
+
+        // Collect all deletion requests from the stream
+        while let Some(delete_req) = stream.next().await {
+            let delete_req = delete_req?;
+
+            // Collect filter if provided
+            if let Some(filter) = delete_req.filter {
+                all_filters.push(filter);
+            }
+
+            // Collect relationships if provided
+            for relationship in delete_req.relationships {
+                all_relationships.push(relationship);
+            }
+
+            // Take the last limit value if specified
+            if delete_req.limit.is_some() {
+                limit_override = Some(delete_req.limit);
+            }
+        }
 
         // Validate that at least one deletion method is specified
-        if req.filter.is_none() && req.relationships.is_empty() {
+        if all_filters.is_empty() && all_relationships.is_empty() {
             return Err(Status::invalid_argument(
                 "Must provide either filter or relationships to delete",
             ));
@@ -170,8 +195,8 @@ impl InferaService for InferaServiceImpl {
         let mut total_deleted = 0;
         let mut last_revision = Revision::zero();
 
-        // Handle filter-based deletion if filter is provided
-        if let Some(proto_filter) = req.filter {
+        // Handle filter-based deletion for each filter
+        for proto_filter in all_filters {
             // Convert proto filter to core filter
             let filter = CoreDeleteFilter {
                 resource: proto_filter.resource,
@@ -187,7 +212,7 @@ impl InferaService for InferaServiceImpl {
             }
 
             // Apply default limit of 1000 if not specified, 0 means unlimited
-            let limit = match req.limit {
+            let limit = match limit_override.flatten() {
                 Some(0) => None,         // 0 means unlimited
                 Some(n) => Some(n as usize), // Explicit limit
                 None => Some(1000),      // Default limit
@@ -205,35 +230,33 @@ impl InferaService for InferaServiceImpl {
             total_deleted += count;
         }
 
-        // Handle exact relationship deletion if relationships are provided
-        if !req.relationships.is_empty() {
-            for relationship in req.relationships {
-                // Validate relationship format
-                if relationship.resource.is_empty() {
-                    return Err(Status::invalid_argument("Resource cannot be empty"));
-                }
-                if relationship.relation.is_empty() {
-                    return Err(Status::invalid_argument("Relation cannot be empty"));
-                }
-                if relationship.subject.is_empty() {
-                    return Err(Status::invalid_argument("Subject cannot be empty"));
-                }
-
-                let key = RelationshipKey {
-                    resource: relationship.resource,
-                    relation: relationship.relation,
-                    subject: Some(relationship.subject),
-                };
-
-                last_revision = self
-                    .state
-                    .store
-                    .delete(&key)
-                    .await
-                    .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
-
-                total_deleted += 1;
+        // Handle exact relationship deletion
+        for relationship in all_relationships {
+            // Validate relationship format
+            if relationship.resource.is_empty() {
+                return Err(Status::invalid_argument("Resource cannot be empty"));
             }
+            if relationship.relation.is_empty() {
+                return Err(Status::invalid_argument("Relation cannot be empty"));
+            }
+            if relationship.subject.is_empty() {
+                return Err(Status::invalid_argument("Subject cannot be empty"));
+            }
+
+            let key = RelationshipKey {
+                resource: relationship.resource,
+                relation: relationship.relation,
+                subject: Some(relationship.subject),
+            };
+
+            last_revision = self
+                .state
+                .store
+                .delete(&key)
+                .await
+                .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
+
+            total_deleted += 1;
         }
 
         Ok(Response::new(DeleteResponse {
