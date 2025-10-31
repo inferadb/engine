@@ -108,3 +108,29 @@ pub struct ListResourcesResponse {
     /// Total count estimate (may be approximate if paginated)
     pub total_count: Option<usize>,
 }
+
+/// A request to list relationships (tuples) with optional filtering
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListRelationshipsRequest {
+    /// Optional filter by object/resource (e.g., "doc:readme")
+    pub object: Option<String>,
+    /// Optional filter by relation (e.g., "viewer")
+    pub relation: Option<String>,
+    /// Optional filter by user/subject (e.g., "user:alice")
+    pub user: Option<String>,
+    /// Optional limit on number of tuples to return (default: 100, max: 1000)
+    pub limit: Option<usize>,
+    /// Optional continuation token from previous request
+    pub cursor: Option<String>,
+}
+
+/// Response from a list relationships operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListRelationshipsResponse {
+    /// List of tuples matching the filter
+    pub tuples: Vec<Tuple>,
+    /// Continuation token for pagination (if more results available)
+    pub cursor: Option<String>,
+    /// Total count of tuples returned
+    pub total_count: Option<usize>,
+}

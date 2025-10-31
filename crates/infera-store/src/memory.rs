@@ -316,6 +316,116 @@ impl TupleStore for MemoryBackend {
         Ok(result)
     }
 
+    async fn list_relationships(
+        &self,
+        object: Option<&str>,
+        relation: Option<&str>,
+        user: Option<&str>,
+        revision: Revision,
+    ) -> Result<Vec<Tuple>> {
+        let timer = OpTimer::new();
+        let store = self.data.read().await;
+
+        // Collect candidate indices based on available filters
+        let candidate_indices: Vec<usize> = match (object, relation, user) {
+            // All three filters provided - most specific query
+            (Some(obj), Some(rel), Some(usr)) => {
+                store
+                    .object_relation_index
+                    .get(&(obj.to_string(), rel.to_string()))
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&[])
+                    .iter()
+                    .filter(|&&idx| store.tuples[idx].tuple.user == usr)
+                    .copied()
+                    .collect()
+            }
+            // Object and relation filters
+            (Some(obj), Some(rel), None) => store
+                .object_relation_index
+                .get(&(obj.to_string(), rel.to_string()))
+                .cloned()
+                .unwrap_or_default(),
+            // Object filter only
+            (Some(obj), None, None) => store.object_index.get(obj).cloned().unwrap_or_default(),
+            // User and relation filters
+            (None, Some(rel), Some(usr)) => store
+                .user_relation_index
+                .get(&(usr.to_string(), rel.to_string()))
+                .cloned()
+                .unwrap_or_default(),
+            // User filter only
+            (None, None, Some(usr)) => {
+                // Need to scan all tuples with this user
+                store
+                    .tuples
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, vt)| vt.tuple.user == usr)
+                    .map(|(idx, _)| idx)
+                    .collect()
+            }
+            // Relation filter only
+            (None, Some(rel), None) => {
+                // Need to scan all tuples with this relation
+                store
+                    .tuples
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, vt)| vt.tuple.relation == rel)
+                    .map(|(idx, _)| idx)
+                    .collect()
+            }
+            // Object and user filters (no relation)
+            (Some(obj), None, Some(usr)) => store
+                .object_index
+                .get(obj)
+                .map(|v| v.as_slice())
+                .unwrap_or(&[])
+                .iter()
+                .filter(|&&idx| store.tuples[idx].tuple.user == usr)
+                .copied()
+                .collect(),
+            // No filters - return all tuples
+            (None, None, None) => (0..store.tuples.len()).collect(),
+        };
+
+        // Filter by revision and apply any remaining filters
+        let tuples = candidate_indices
+            .iter()
+            .filter_map(|&idx| {
+                let vt = &store.tuples[idx];
+
+                // Check revision
+                if vt.created_at > revision || (vt.deleted_at.is_some() && vt.deleted_at.unwrap() <= revision) {
+                    return None;
+                }
+
+                // Apply any missing filters (for cases where we couldn't use indexes)
+                if let Some(rel) = relation {
+                    if vt.tuple.relation != rel {
+                        return None;
+                    }
+                }
+                if let Some(obj) = object {
+                    if vt.tuple.object != obj {
+                        return None;
+                    }
+                }
+                if let Some(usr) = user {
+                    if vt.tuple.user != usr {
+                        return None;
+                    }
+                }
+
+                Some(vt.tuple.clone())
+            })
+            .collect();
+
+        self.metrics.record_read(timer.elapsed(), false);
+        Ok(tuples)
+    }
+
     fn metrics(&self) -> Option<MetricsSnapshot> {
         Some(self.metrics.snapshot())
     }

@@ -31,8 +31,9 @@ use tonic::{Request, Response, Status};
 use crate::AppState;
 use infera_core::{
     CheckRequest as CoreCheckRequest, Decision, DecisionTrace, EvaluationNode,
-    ExpandRequest as CoreExpandRequest, ListResourcesRequest as CoreListResourcesRequest,
-    NodeType as CoreNodeType, UsersetNodeType as CoreUsersetNodeType, UsersetTree,
+    ExpandRequest as CoreExpandRequest, ListRelationshipsRequest as CoreListRelationshipsRequest,
+    ListResourcesRequest as CoreListResourcesRequest, NodeType as CoreNodeType,
+    UsersetNodeType as CoreUsersetNodeType, UsersetTree,
 };
 
 // Include generated proto code
@@ -46,8 +47,8 @@ pub use proto::infera_service_client::InferaServiceClient;
 use proto::{
     infera_service_server::InferaService, CheckRequest, CheckResponse, CheckWithTraceResponse,
     Decision as ProtoDecision, DeleteRequest, DeleteResponse, ExpandRequest, ExpandResponse,
-    HealthRequest, HealthResponse, ListResourcesRequest, ListResourcesResponse, WriteRequest,
-    WriteResponse,
+    HealthRequest, HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse,
+    ListResourcesRequest, ListResourcesResponse, WriteRequest, WriteResponse,
 };
 
 pub struct InferaServiceImpl {
@@ -397,6 +398,63 @@ impl InferaService for InferaServiceImpl {
                 })
                 .chain(std::iter::once(Ok(ListResourcesResponse {
                     resource: String::new(), // Empty resource in final message
+                    cursor,
+                    total_count,
+                }))),
+        );
+
+        Ok(Response::new(Box::pin(stream)))
+    }
+
+    type ListRelationshipsStream = std::pin::Pin<
+        Box<dyn futures::Stream<Item = Result<ListRelationshipsResponse, Status>> + Send + 'static>,
+    >;
+
+    async fn list_relationships(
+        &self,
+        request: Request<ListRelationshipsRequest>,
+    ) -> Result<Response<Self::ListRelationshipsStream>, Status> {
+        let req = request.into_inner();
+
+        // Build core request (all filters are optional)
+        let list_request = CoreListRelationshipsRequest {
+            object: req.object,
+            relation: req.relation,
+            user: req.user,
+            limit: req.limit.map(|l| l as usize),
+            cursor: req.cursor,
+        };
+
+        // Execute list
+        let response = self
+            .state
+            .evaluator
+            .list_relationships(list_request)
+            .await
+            .map_err(|e| Status::internal(format!("List relationships failed: {}", e)))?;
+
+        // Create stream of tuples
+        let tuples = response.tuples;
+        let cursor = response.cursor;
+        let total_count = response.total_count.map(|c| c as u64);
+
+        // Stream each tuple followed by a final message with metadata
+        let stream = futures::stream::iter(
+            tuples
+                .into_iter()
+                .map(|tuple| {
+                    Ok(ListRelationshipsResponse {
+                        tuple: Some(proto::Tuple {
+                            object: tuple.object,
+                            relation: tuple.relation,
+                            user: tuple.user,
+                        }),
+                        cursor: None,
+                        total_count: None,
+                    })
+                })
+                .chain(std::iter::once(Ok(ListRelationshipsResponse {
+                    tuple: None, // No tuple in final message
                     cursor,
                     total_count,
                 }))),

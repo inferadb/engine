@@ -30,6 +30,9 @@ service InferaService {
 
   // List resources accessible by a subject
   rpc ListResources(ListResourcesRequest) returns (stream ListResourcesResponse);
+
+  // List relationships (tuples) with optional filtering
+  rpc ListRelationships(ListRelationshipsRequest) returns (stream ListRelationshipsResponse);
 }
 
 // Check permission request
@@ -295,5 +298,35 @@ message ListResourcesResponse {
   optional string cursor = 2;
 
   // Total count estimate (only set in final message, may be approximate)
+  optional uint64 total_count = 3;
+}
+
+// List relationships request
+message ListRelationshipsRequest {
+  // Optional filter by object/resource (e.g., "doc:readme")
+  optional string object = 1;
+
+  // Optional filter by relation (e.g., "viewer")
+  optional string relation = 2;
+
+  // Optional filter by user/subject (e.g., "user:alice")
+  optional string user = 3;
+
+  // Optional limit on number of tuples to return (default: 100, max: 1000)
+  optional uint32 limit = 4;
+
+  // Optional continuation token from previous request
+  optional string cursor = 5;
+}
+
+// List relationships response (streamed)
+message ListRelationshipsResponse {
+  // A single tuple/relationship
+  Tuple tuple = 1;
+
+  // Continuation token for pagination (only set in final message)
+  optional string cursor = 2;
+
+  // Total count of tuples returned (only set in final message)
   optional uint64 total_count = 3;
 }

@@ -943,7 +943,7 @@ async fn list_resources_stream_handler(
 async fn list_relationships_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
-    Json(request): Json<ListRelationshipsRestRequest>,
+    Json(request): Json(ListRelationshipsRestRequest>,
 ) -> Result<Json<ListRelationshipsRestResponse>> {
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
@@ -978,19 +978,8 @@ async fn list_relationships_handler(
     // Execute list
     let response = state.evaluator.list_relationships(list_request).await?;
 
-    // Convert tuples from core::Tuple to store::Tuple for API response
-    let tuples = response
-        .tuples
-        .into_iter()
-        .map(|t| infera_store::Tuple {
-            object: t.object,
-            relation: t.relation,
-            user: t.user,
-        })
-        .collect();
-
     Ok(Json(ListRelationshipsRestResponse {
-        tuples,
+        tuples: response.tuples,
         cursor: response.cursor,
         total_count: response.total_count.map(|c| c as u64),
     }))
@@ -1062,17 +1051,8 @@ async fn list_relationships_stream_handler(
     // Execute the list operation
     let response = state.evaluator.list_relationships(list_request).await?;
 
-    // Convert tuples from core::Tuple to store::Tuple for API response
-    let tuples: Vec<infera_store::Tuple> = response
-        .tuples
-        .into_iter()
-        .map(|t| infera_store::Tuple {
-            object: t.object,
-            relation: t.relation,
-            user: t.user,
-        })
-        .collect();
-
+    // Create a stream that sends each tuple as a separate SSE event
+    let tuples = response.tuples;
     let cursor = response.cursor;
     let total_count = response.total_count;
 

@@ -92,6 +92,20 @@ pub trait TupleStore: Send + Sync {
         revision: Revision,
     ) -> Result<Vec<String>>;
 
+    /// List relationships (tuples) with optional filtering
+    /// All filter fields are optional and can be combined:
+    /// - object: Filter by exact object match (e.g., "doc:readme")
+    /// - relation: Filter by relation (e.g., "viewer")
+    /// - user: Filter by exact user match (e.g., "user:alice")
+    /// Returns all tuples matching the filter criteria at the specified revision
+    async fn list_relationships(
+        &self,
+        object: Option<&str>,
+        relation: Option<&str>,
+        user: Option<&str>,
+        revision: Revision,
+    ) -> Result<Vec<Tuple>>;
+
     /// Get metrics snapshot (optional, returns None if not supported)
     fn metrics(&self) -> Option<MetricsSnapshot> {
         None

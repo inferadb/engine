@@ -9,8 +9,9 @@ use crate::graph::{has_direct_tuple, GraphContext};
 use crate::ipl::Schema;
 use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
 use crate::{
-    CheckRequest, Decision, EvalError, ExpandRequest, ExpandResponse, ListResourcesRequest,
-    ListResourcesResponse, Result, UsersetNodeType, UsersetTree,
+    CheckRequest, Decision, EvalError, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
+    ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, Result,
+    UsersetNodeType, UsersetTree,
 };
 use infera_cache::{AuthCache, CheckCacheKey};
 use infera_store::TupleStore;
@@ -1125,6 +1126,89 @@ impl Evaluator {
         }
 
         false
+    }
+
+    /// List relationships (tuples) with optional filtering
+    #[instrument(skip(self))]
+    pub async fn list_relationships(
+        &self,
+        request: ListRelationshipsRequest,
+    ) -> Result<ListRelationshipsResponse> {
+        debug!(
+            object = ?request.object,
+            relation = ?request.relation,
+            user = ?request.user,
+            limit = ?request.limit,
+            "Listing relationships"
+        );
+
+        let start = Instant::now();
+
+        // Get current revision to ensure consistent read
+        let revision = self.store.get_revision().await?;
+
+        // Query storage with filters
+        let all_tuples = self
+            .store
+            .list_relationships(
+                request.object.as_deref(),
+                request.relation.as_deref(),
+                request.user.as_deref(),
+                revision,
+            )
+            .await?;
+
+        debug!("Found {} total tuples matching filters", all_tuples.len());
+
+        // Decode cursor to get offset if provided
+        let offset = if let Some(cursor) = &request.cursor {
+            self.decode_continuation_token(cursor)?
+        } else {
+            0
+        };
+
+        // Apply default and maximum limits
+        const DEFAULT_LIMIT: usize = 100;
+        const MAX_LIMIT: usize = 1000;
+        let limit = request
+            .limit
+            .unwrap_or(DEFAULT_LIMIT)
+            .min(MAX_LIMIT);
+
+        // Apply pagination and convert from store Tuple to core Tuple
+        let tuples: Vec<crate::types::Tuple> = all_tuples
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .map(|t| crate::types::Tuple {
+                object: t.object,
+                relation: t.relation,
+                user: t.user,
+            })
+            .collect();
+
+        let returned_count = tuples.len();
+
+        // Determine if there are more results
+        let has_more = returned_count == limit;
+        let cursor = if has_more {
+            Some(self.encode_continuation_token(offset + returned_count))
+        } else {
+            None
+        };
+
+        debug!(
+            returned_count = returned_count,
+            has_more = has_more,
+            duration = ?start.elapsed(),
+            "List relationships complete"
+        );
+
+        Ok(ListRelationshipsResponse {
+            tuples,
+            cursor,
+            total_count: Some(returned_count),
+        })
     }
 
     /// Get the WASM host (if configured)
@@ -2786,5 +2870,342 @@ mod tests {
         assert!(Evaluator::matches_glob_pattern("abc", "a*c"));
         assert!(Evaluator::matches_glob_pattern("abc", "a?c"));
         assert!(!Evaluator::matches_glob_pattern("abbc", "a?c"));
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_no_filters() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Add multiple tuples
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "reader".to_string(),
+                user: "user:bob".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:charlie".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // List all relationships with no filters
+        let request = crate::types::ListRelationshipsRequest {
+            object: None,
+            relation: None,
+            user: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 3);
+        assert!(response.cursor.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_filter_by_object() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:bob".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Filter by object
+        let request = crate::types::ListRelationshipsRequest {
+            object: Some("doc:readme".to_string()),
+            relation: None,
+            user: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 2);
+        assert!(response.tuples.iter().all(|t| t.object == "doc:readme"));
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_filter_by_relation() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "owner".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                user: "user:bob".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "owner".to_string(),
+                user: "user:charlie".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Filter by relation
+        let request = crate::types::ListRelationshipsRequest {
+            object: None,
+            relation: Some("owner".to_string()),
+            user: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 2);
+        assert!(response.tuples.iter().all(|t| t.relation == "owner"));
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_filter_by_user() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                user: "user:bob".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Filter by user
+        let request = crate::types::ListRelationshipsRequest {
+            object: None,
+            relation: None,
+            user: Some("user:alice".to_string()),
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 2);
+        assert!(response.tuples.iter().all(|t| t.user == "user:alice"));
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_multiple_filters() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        let tuples = vec![
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "owner".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                user: "user:alice".to_string(),
+            },
+            Tuple {
+                object: "doc:readme".to_string(),
+                relation: "owner".to_string(),
+                user: "user:bob".to_string(),
+            },
+            Tuple {
+                object: "doc:guide".to_string(),
+                relation: "owner".to_string(),
+                user: "user:alice".to_string(),
+            },
+        ];
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Filter by object + relation + user
+        let request = crate::types::ListRelationshipsRequest {
+            object: Some("doc:readme".to_string()),
+            relation: Some("owner".to_string()),
+            user: Some("user:alice".to_string()),
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 1);
+        assert_eq!(response.tuples[0].object, "doc:readme");
+        assert_eq!(response.tuples[0].relation, "owner");
+        assert_eq!(response.tuples[0].user, "user:alice");
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_pagination() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Add many tuples
+        let mut tuples = Vec::new();
+        for i in 0..150 {
+            tuples.push(Tuple {
+                object: format!("doc:{}", i),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            });
+        }
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // First page with default limit (100)
+        let request = crate::types::ListRelationshipsRequest {
+            object: None,
+            relation: None,
+            user: Some("user:alice".to_string()),
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 100); // Default limit
+        assert!(response.cursor.is_some());
+
+        // Second page using cursor
+        let request = crate::types::ListRelationshipsRequest {
+            object: None,
+            relation: None,
+            user: Some("user:alice".to_string()),
+            limit: None,
+            cursor: response.cursor,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 50); // Remaining tuples
+        assert!(response.cursor.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_custom_limit() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Add 50 tuples
+        let mut tuples = Vec::new();
+        for i in 0..50 {
+            tuples.push(Tuple {
+                object: format!("doc:{}", i),
+                relation: "reader".to_string(),
+                user: "user:alice".to_string(),
+            });
+        }
+        store.write(tuples).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Custom limit of 10
+        let request = crate::types::ListRelationshipsRequest {
+            object: None,
+            relation: None,
+            user: Some("user:alice".to_string()),
+            limit: Some(10),
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 10);
+        assert!(response.cursor.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_max_limit() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Request with limit > max (1000)
+        let request = crate::types::ListRelationshipsRequest {
+            object: None,
+            relation: None,
+            user: None,
+            limit: Some(5000), // Exceeds max
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        // Should be clamped to max of 1000
+        assert!(response.tuples.len() <= 1000);
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships_empty_result() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Query with no matching tuples
+        let request = crate::types::ListRelationshipsRequest {
+            object: Some("doc:nonexistent".to_string()),
+            relation: None,
+            user: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_relationships(request).await.unwrap();
+
+        assert_eq!(response.tuples.len(), 0);
+        assert!(response.cursor.is_none());
     }
 }

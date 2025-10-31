@@ -480,6 +480,225 @@ impl TupleStore for FoundationDBBackend {
         debug!("Listed {} objects of type '{}'", result.len(), object_type);
         Ok(result)
     }
+
+    async fn list_relationships(
+        &self,
+        object: Option<&str>,
+        relation: Option<&str>,
+        user: Option<&str>,
+        revision: Revision,
+    ) -> Result<Vec<Tuple>> {
+        let db = Arc::clone(&self.db);
+        let object_filter = object.map(|s| s.to_string());
+        let relation_filter = relation.map(|s| s.to_string());
+        let user_filter = user.map(|s| s.to_string());
+        let index_subspace = self.index_subspace.clone();
+        let tuples_subspace = self.tuples_subspace.clone();
+
+        let result = db
+            .run(move |trx, _maybe_committed| async move {
+                let mut tuples = Vec::new();
+                let mut seen = std::collections::HashSet::new();
+
+                // Determine the best index to use based on provided filters
+                match (&object_filter, &relation_filter, &user_filter) {
+                    // Use object index when we have object filter
+                    (Some(obj), Some(rel), _) | (Some(obj), None, _) => {
+                        let start_key = if let Some(rel) = &relation_filter {
+                            index_subspace.pack(&("obj", obj.as_str(), rel.as_str()))
+                        } else {
+                            index_subspace.pack(&("obj", obj.as_str()))
+                        };
+                        let end_key = if let Some(rel) = &relation_filter {
+                            index_subspace.pack(&("obj", obj.as_str(), rel.as_str(), "\u{10FFFF}"))
+                        } else {
+                            index_subspace.pack(&("obj", obj.as_str(), "\u{10FFFF}"))
+                        };
+
+                        let range = trx
+                            .get_range(
+                                &foundationdb::RangeOption {
+                                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                                    limit: None,
+                                    reverse: false,
+                                    mode: foundationdb::StreamingMode::WantAll,
+                                },
+                                1,
+                                false,
+                            )
+                            .await?;
+
+                        for kv in range.iter() {
+                            let unpacked: (String, String, String, String, u64) =
+                                unpack(&kv.key()[index_subspace.bytes().len()..])
+                                    .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+
+                            let (_prefix, object, relation, user, rev) = unpacked;
+
+                            // Filter by revision
+                            if rev > revision.0 {
+                                continue;
+                            }
+
+                            // Apply user filter if needed
+                            if let Some(ref filter_user) = user_filter {
+                                if &user != filter_user {
+                                    continue;
+                                }
+                            }
+
+                            // Deduplicate
+                            let tuple_id = format!("{}:{}:{}", object, relation, user);
+                            if seen.contains(&tuple_id) {
+                                continue;
+                            }
+                            seen.insert(tuple_id);
+
+                            // Check if active
+                            let tuple_key = tuples_subspace.pack(&(&object, &relation, &user, rev));
+                            if let Some(value) = trx.get(&tuple_key, false).await? {
+                                if &value == b"active" {
+                                    tuples.push(Tuple {
+                                        object,
+                                        relation,
+                                        user,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    // Use user index when we have user filter (but no object filter)
+                    (None, Some(rel), Some(usr)) | (None, None, Some(usr)) => {
+                        let start_key = if let Some(rel) = &relation_filter {
+                            index_subspace.pack(&("user", usr.as_str(), rel.as_str()))
+                        } else {
+                            index_subspace.pack(&("user", usr.as_str()))
+                        };
+                        let end_key = if let Some(rel) = &relation_filter {
+                            index_subspace.pack(&("user", usr.as_str(), rel.as_str(), "\u{10FFFF}"))
+                        } else {
+                            index_subspace.pack(&("user", usr.as_str(), "\u{10FFFF}"))
+                        };
+
+                        let range = trx
+                            .get_range(
+                                &foundationdb::RangeOption {
+                                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                                    limit: None,
+                                    reverse: false,
+                                    mode: foundationdb::StreamingMode::WantAll,
+                                },
+                                1,
+                                false,
+                            )
+                            .await?;
+
+                        for kv in range.iter() {
+                            let unpacked: (String, String, String, String, u64) =
+                                unpack(&kv.key()[index_subspace.bytes().len()..])
+                                    .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+
+                            let (_prefix, user, relation, object, rev) = unpacked;
+
+                            // Filter by revision
+                            if rev > revision.0 {
+                                continue;
+                            }
+
+                            // Deduplicate
+                            let tuple_id = format!("{}:{}:{}", object, relation, user);
+                            if seen.contains(&tuple_id) {
+                                continue;
+                            }
+                            seen.insert(tuple_id);
+
+                            // Check if active
+                            let tuple_key = tuples_subspace.pack(&(&object, &relation, &user, rev));
+                            if let Some(value) = trx.get(&tuple_key, false).await? {
+                                if &value == b"active" {
+                                    tuples.push(Tuple {
+                                        object,
+                                        relation,
+                                        user,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    // Only relation filter or no filters - scan all tuples
+                    (None, Some(_), None) | (None, None, None) => {
+                        // Full scan of tuples
+                        let start_key = tuples_subspace.pack(&());
+                        let end_key = tuples_subspace.pack(&("\u{10FFFF}",));
+
+                        let range = trx
+                            .get_range(
+                                &foundationdb::RangeOption {
+                                    begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                                    end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                                    limit: None,
+                                    reverse: false,
+                                    mode: foundationdb::StreamingMode::WantAll,
+                                },
+                                1,
+                                false,
+                            )
+                            .await?;
+
+                        for kv in range.iter() {
+                            let unpacked: (String, String, String, u64) =
+                                unpack(&kv.key()[tuples_subspace.bytes().len()..])
+                                    .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+
+                            let (object, relation, user, rev) = unpacked;
+
+                            // Filter by revision
+                            if rev > revision.0 {
+                                continue;
+                            }
+
+                            // Apply relation filter if needed
+                            if let Some(ref filter_rel) = relation_filter {
+                                if &relation != filter_rel {
+                                    continue;
+                                }
+                            }
+
+                            // Deduplicate
+                            let tuple_id = format!("{}:{}:{}", object, relation, user);
+                            if seen.contains(&tuple_id) {
+                                continue;
+                            }
+                            seen.insert(tuple_id);
+
+                            // Check if active
+                            if &kv.value() == b"active" {
+                                tuples.push(Tuple {
+                                    object,
+                                    relation,
+                                    user,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                Ok(tuples)
+            })
+            .await
+            .map_err(|e| StoreError::Database(format!("Failed to list relationships: {}", e)))?;
+
+        debug!(
+            "Listed {} relationships (filters: object={:?}, relation={:?}, user={:?})",
+            result.len(),
+            object,
+            relation,
+            user
+        );
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
