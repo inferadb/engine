@@ -12,7 +12,7 @@ use crate::{EvalError, Result};
 use infera_cache::{AuthCache, CheckCacheKey};
 use infera_store::RelationshipStore;
 use infera_types::{
-    CheckRequest, Decision, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
+    EvaluateRequest, Decision, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
     ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, Relationship,
     UsersetNodeType, UsersetTree,
 };
@@ -56,7 +56,7 @@ impl Evaluator {
 
     /// Check if a subject has permission on a resource
     #[instrument(skip(self))]
-    pub async fn check(&self, request: CheckRequest) -> Result<Decision> {
+    pub async fn check(&self, request: EvaluateRequest) -> Result<Decision> {
         debug!(
             subject = %request.subject,
             resource = %request.resource,
@@ -143,7 +143,7 @@ impl Evaluator {
 
     /// Check with tracing for explainability
     #[instrument(skip(self))]
-    pub async fn check_with_trace(&self, request: CheckRequest) -> Result<DecisionTrace> {
+    pub async fn check_with_trace(&self, request: EvaluateRequest) -> Result<DecisionTrace> {
         let start = Instant::now();
 
         // Get current revision
@@ -1030,7 +1030,7 @@ impl Evaluator {
             checked += 1;
 
             // Create a check request for this resource
-            let check_request = CheckRequest {
+            let check_request = EvaluateRequest {
                 subject: request.subject.clone(),
                 resource: resource.clone(),
                 permission: request.permission.clone(),
@@ -1314,11 +1314,12 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
@@ -1332,11 +1333,12 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
@@ -1359,33 +1361,36 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Check that subject:alice has access
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
         assert_eq!(result, Decision::Allow);
 
         // Check that subject:bob also has access
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:bob".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
         assert_eq!(result, Decision::Allow);
 
         // Check that any user has access
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:anyone".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
@@ -1407,11 +1412,12 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "folder:docs".to_string(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
@@ -1441,11 +1447,12 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Alice should be able to view doc:readme through parent->viewer
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
@@ -1468,11 +1475,12 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Alice should be viewer through owner->editor->viewer chain
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
@@ -1493,11 +1501,12 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         let trace = evaluator.check_with_trace(request).await.unwrap();
@@ -2226,11 +2235,12 @@ mod tests {
 
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         // Alice should be denied (editor - blocked = denied)
@@ -2278,11 +2288,12 @@ mod tests {
 
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         // Alice should be allowed (reader & employee)
@@ -2323,11 +2334,12 @@ mod tests {
 
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         // Alice should be denied (not an employee)
@@ -2349,11 +2361,12 @@ mod tests {
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         // First check - cache miss
@@ -2389,11 +2402,12 @@ mod tests {
         // Create evaluator without cache
         let evaluator = Evaluator::new_with_cache(store, schema, None, None);
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = evaluator.check(request).await.unwrap();
@@ -2425,19 +2439,21 @@ mod tests {
         let evaluator = Evaluator::new(store, schema, None);
 
         // Different subject
-        let request1 = CheckRequest {
+        let request1 = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         // Different resource
-        let request2 = CheckRequest {
+        let request2 = EvaluateRequest {
             subject: "user:bob".to_string(),
             resource: "doc:guide".to_string(),
             permission: "reader".to_string(),
             context: None,
+            trace: None,
         };
 
         evaluator.check(request1.clone()).await.unwrap();

@@ -78,12 +78,12 @@ pub enum Decision {
 }
 
 // ============================================================================
-// Request/Response Types - Check
+// Request/Response Types - Evaluate
 // ============================================================================
 
-/// A permission check request
+/// A permission evaluation request
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CheckRequest {
+pub struct EvaluateRequest {
     pub subject: String,
     pub resource: String,
     pub permission: String,
@@ -92,9 +92,9 @@ pub struct CheckRequest {
     pub trace: Option<bool>,
 }
 
-/// Response from a check operation
+/// Response from an evaluation operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CheckResponse {
+pub struct EvaluateResponse {
     pub decision: Decision,
 }
 
@@ -289,7 +289,7 @@ pub struct DeleteResponse {
 /// A request to simulate changes to the authorization graph (batch mode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchSimulateRequest {
-    pub checks: Vec<CheckRequest>,
+    pub checks: Vec<EvaluateRequest>,
     pub context_relationships: Vec<Relationship>,
 }
 

@@ -7,20 +7,21 @@
 //! ```no_run
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! use infera_api::grpc::InferaServiceClient;
-//! use infera_api::grpc::proto::{CheckRequest};
+//! use infera_api::grpc::proto::{EvaluateRequest};
 //!
 //! // Connect to server
 //! let mut client = InferaServiceClient::connect("http://localhost:8080").await?;
 //!
-//! // Make a check request
-//! let request = tonic::Request::new(CheckRequest {
+//! // Make an evaluate request
+//! let request = tonic::Request::new(EvaluateRequest {
 //!     subject: "user:alice".to_string(),
 //!     resource: "doc:readme".to_string(),
 //!     permission: "reader".to_string(),
 //!     context: None,
+//!     trace: None,
 //! });
 //!
-//! let response = client.check(request).await?;
+//! let response = client.evaluate(request).await?;
 //! println!("Decision: {:?}", response.into_inner().decision);
 //! # Ok(())
 //! # }
@@ -31,7 +32,7 @@ use tonic::{Request, Response, Status};
 use crate::AppState;
 use infera_core::{DecisionTrace, EvaluationNode, NodeType as CoreNodeType};
 use infera_types::{
-    CheckRequest as CoreCheckRequest, Decision, DeleteFilter as CoreDeleteFilter,
+    EvaluateRequest as CoreEvaluateRequest, Decision, DeleteFilter as CoreDeleteFilter,
     ExpandRequest as CoreExpandRequest, ListRelationshipsRequest as CoreListRelationshipsRequest,
     ListResourcesRequest as CoreListResourcesRequest, Relationship, RelationshipKey, Revision,
     UsersetNodeType as CoreUsersetNodeType, UsersetTree,
@@ -46,9 +47,9 @@ pub mod proto {
 pub use proto::infera_service_client::InferaServiceClient;
 
 use proto::{
-    infera_service_server::InferaService, CheckRequest, CheckResponse, Decision as ProtoDecision,
-    DeleteRequest, DeleteResponse, ExpandRequest, HealthRequest, HealthResponse,
-    ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
+    infera_service_server::InferaService, EvaluateRequest, EvaluateResponse,
+    Decision as ProtoDecision, DeleteRequest, DeleteResponse, ExpandRequest, HealthRequest,
+    HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
     ListResourcesResponse, WriteRequest, WriteResponse,
 };
 
@@ -64,14 +65,14 @@ impl InferaServiceImpl {
 
 #[tonic::async_trait]
 impl InferaService for InferaServiceImpl {
-    type CheckStream = std::pin::Pin<
-        Box<dyn futures::Stream<Item = Result<CheckResponse, Status>> + Send + 'static>,
+    type EvaluateStream = std::pin::Pin<
+        Box<dyn futures::Stream<Item = Result<EvaluateResponse, Status>> + Send + 'static>,
     >;
 
-    async fn check(
+    async fn evaluate(
         &self,
-        request: Request<tonic::Streaming<CheckRequest>>,
-    ) -> Result<Response<Self::CheckStream>, Status> {
+        request: Request<tonic::Streaming<EvaluateRequest>>,
+    ) -> Result<Response<Self::EvaluateStream>, Status> {
         use futures::StreamExt;
 
         let mut stream = request.into_inner();
@@ -97,7 +98,7 @@ impl InferaService for InferaServiceImpl {
                             continue;
                         }
 
-                        let check_request = CoreCheckRequest {
+                        let evaluate_request = CoreEvaluateRequest {
                             subject: req.subject.clone(),
                             resource: req.resource.clone(),
                             permission: req.permission.clone(),
@@ -110,7 +111,7 @@ impl InferaService for InferaServiceImpl {
 
                         if trace {
                             // Use check_with_trace for detailed evaluation trace
-                            match evaluator.check_with_trace(check_request).await {
+                            match evaluator.check_with_trace(evaluate_request).await {
                                 Ok(trace_result) => {
                                     let proto_decision = match trace_result.decision {
                                         Decision::Allow => ProtoDecision::Allow,
@@ -119,7 +120,7 @@ impl InferaService for InferaServiceImpl {
 
                                     let proto_trace = convert_trace_to_proto(trace_result);
 
-                                    yield Ok(CheckResponse {
+                                    yield Ok(EvaluateResponse {
                                         decision: proto_decision as i32,
                                         index,
                                         error: None,
@@ -127,7 +128,7 @@ impl InferaService for InferaServiceImpl {
                                     });
                                 }
                                 Err(e) => {
-                                    yield Ok(CheckResponse {
+                                    yield Ok(EvaluateResponse {
                                         decision: ProtoDecision::Deny as i32,
                                         index,
                                         error: Some(format!("Evaluation error: {}", e)),
@@ -136,15 +137,15 @@ impl InferaService for InferaServiceImpl {
                                 }
                             }
                         } else {
-                            // Regular check without trace
-                            match evaluator.check(check_request).await {
+                            // Regular evaluation without trace
+                            match evaluator.check(evaluate_request).await {
                                 Ok(decision) => {
                                     let proto_decision = match decision {
                                         Decision::Allow => ProtoDecision::Allow,
                                         Decision::Deny => ProtoDecision::Deny,
                                     };
 
-                                    yield Ok(CheckResponse {
+                                    yield Ok(EvaluateResponse {
                                         decision: proto_decision as i32,
                                         index,
                                         error: None,
@@ -153,7 +154,7 @@ impl InferaService for InferaServiceImpl {
                                 }
                                 Err(e) => {
                                     // Return error in response rather than failing the stream
-                                    yield Ok(CheckResponse {
+                                    yield Ok(EvaluateResponse {
                                         decision: ProtoDecision::Deny as i32,
                                         index,
                                         error: Some(format!("Evaluation error: {}", e)),
@@ -178,7 +179,7 @@ impl InferaService for InferaServiceImpl {
 
     type ExpandStream = std::pin::Pin<
         Box<
-            dyn futures::Stream<Item = Result<proto::ExpandStreamResponse, Status>>
+            dyn futures::Stream<Item = Result<proto::ExpandResponse, Status>>
                 + Send
                 + 'static,
         >,
@@ -215,12 +216,12 @@ impl InferaService for InferaServiceImpl {
             users
                 .into_iter()
                 .map(|user| {
-                    Ok(proto::ExpandStreamResponse {
-                        payload: Some(proto::expand_stream_response::Payload::User(user)),
+                    Ok(proto::ExpandResponse {
+                        payload: Some(proto::expand_response::Payload::User(user)),
                     })
                 })
-                .chain(std::iter::once(Ok(proto::ExpandStreamResponse {
-                    payload: Some(proto::expand_stream_response::Payload::Summary(
+                .chain(std::iter::once(Ok(proto::ExpandResponse {
+                    payload: Some(proto::expand_response::Payload::Summary(
                         proto::ExpandStreamSummary {
                             tree: Some(tree),
                             total_users,
@@ -697,15 +698,15 @@ mod tests {
         assert_eq!(health.service, "inferadb");
     }
 
-    // NOTE: gRPC streaming Check tests are complex to mock and are instead
+    // NOTE: gRPC streaming Evaluate tests are complex to mock and are instead
     // tested via integration tests and REST API tests (which provide equivalent coverage).
-    // The REST API tests in lib.rs thoroughly test both single and batch check functionality.
+    // The REST API tests in lib.rs thoroughly test both single and batch evaluate functionality.
 
     // NOTE: gRPC streaming Expand tests are complex to mock and are instead
     // tested via integration tests and REST API tests (which provide equivalent coverage).
     // The REST API test in lib.rs tests the streaming expand functionality.
 
-    // NOTE: Check with trace functionality is now integrated into the unified Check API
+    // NOTE: Evaluate with trace functionality is now integrated into the unified Evaluate API
     // via the trace flag. Trace testing is covered by REST API tests which
     // provide equivalent coverage.
 }

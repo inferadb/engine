@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use futures::StreamExt;
 use infera_api::grpc::proto::{
-    expand_stream_response, infera_service_client::InferaServiceClient, ExpandRequest,
+    expand_response, infera_service_client::InferaServiceClient, ExpandRequest,
     Relationship as ProtoRelationship, WriteRequest,
 };
 use infera_api::{grpc::InferaServiceImpl, AppState};
@@ -113,10 +113,10 @@ async fn test_expand_stream() {
     while let Some(response) = stream.next().await {
         let response = response.unwrap();
         match response.payload {
-            Some(expand_stream_response::Payload::User(user)) => {
+            Some(expand_response::Payload::User(user)) => {
                 users.push(user);
             }
-            Some(expand_stream_response::Payload::Summary(summary)) => {
+            Some(expand_response::Payload::Summary(summary)) => {
                 got_summary = true;
                 assert_eq!(summary.total_users, 3);
                 assert!(summary.tree.is_some());
@@ -194,10 +194,10 @@ async fn test_expand_stream_empty() {
     while let Some(response) = stream.next().await {
         let response = response.unwrap();
         match response.payload {
-            Some(expand_stream_response::Payload::User(user)) => {
+            Some(expand_response::Payload::User(user)) => {
                 users.push(user);
             }
-            Some(expand_stream_response::Payload::Summary(summary)) => {
+            Some(expand_response::Payload::Summary(summary)) => {
                 got_summary = true;
                 assert_eq!(summary.total_users, 0);
             }

@@ -27,7 +27,7 @@ use infera_core::DecisionTrace;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::{
-    CheckRequest, Decision, DeleteFilter, ExpandRequest, ListRelationshipsRequest,
+    EvaluateRequest, Decision, DeleteFilter, ExpandRequest, ListRelationshipsRequest,
     ListResourcesRequest, Relationship, RelationshipKey,
 };
 
@@ -155,7 +155,7 @@ pub fn create_router(state: AppState) -> Router {
 
     // Protected routes that require authentication
     let protected_routes = Router::new()
-        .route("/check", post(check_stream_handler))
+        .route("/evaluate", post(evaluate_stream_handler))
         .route("/expand", post(expand_handler))
         .route("/list-resources", post(list_resources_stream_handler))
         .route(
@@ -259,21 +259,21 @@ async fn shutdown_signal() {
     info!("Shutdown signal received, draining connections...");
 }
 
-/// Request for batch authorization check (streaming endpoint)
+/// Request for batch authorization evaluation (streaming endpoint)
 #[derive(Serialize, Deserialize)]
-struct CheckRestRequest {
-    /// Array of check requests to evaluate
-    checks: Vec<CheckRequest>,
+struct EvaluateRestRequest {
+    /// Array of evaluate requests to process
+    evaluations: Vec<EvaluateRequest>,
 }
 
-/// Response for a single check in the batch
+/// Response for a single evaluation in the batch
 #[derive(Serialize, Deserialize)]
-struct CheckRestResponse {
+struct EvaluateRestResponse {
     /// Decision (allow or deny)
     decision: String,
     /// Index of the request this response corresponds to
     index: u32,
-    /// Error message if check failed
+    /// Error message if evaluation failed
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
     /// Optional detailed evaluation trace (included when trace was set in request)
@@ -283,22 +283,22 @@ struct CheckRestResponse {
 
 /// Summary event sent at the end of the stream
 #[derive(Serialize, Deserialize)]
-struct CheckSummary {
-    /// Total number of checks processed
+struct EvaluateSummary {
+    /// Total number of evaluations processed
     total: u32,
     /// Whether the stream completed successfully
     complete: bool,
 }
 
-/// Streaming authorization check endpoint using Server-Sent Events
+/// Streaming authorization evaluation endpoint using Server-Sent Events
 ///
-/// Supports both single checks (array of 1) and batch checks (array of N).
+/// Supports both single evaluations (array of 1) and batch evaluations (array of N).
 /// Returns decisions as they're evaluated, enabling progressive rendering
 /// and efficient batch processing.
-async fn check_stream_handler(
+async fn evaluate_stream_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
-    Json(request): Json<CheckRestRequest>,
+    Json(request): Json<EvaluateRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
@@ -319,40 +319,40 @@ async fn check_stream_handler(
     }
 
     // Validate request
-    if request.checks.is_empty() {
+    if request.evaluations.is_empty() {
         return Err(ApiError::InvalidRequest(
-            "At least one check must be provided".to_string(),
+            "At least one evaluation must be provided".to_string(),
         ));
     }
 
-    let checks = request.checks;
-    let total_checks = checks.len() as u32;
+    let evaluations = request.evaluations;
+    let total_evaluations = evaluations.len() as u32;
     let evaluator = state.evaluator.clone();
 
-    // Create a stream that processes each check and emits results
-    let stream = futures::stream::iter(checks.into_iter().enumerate())
-        .then(move |(index, check_request)| {
+    // Create a stream that processes each evaluation and emits results
+    let stream = futures::stream::iter(evaluations.into_iter().enumerate())
+        .then(move |(index, evaluate_request)| {
             let evaluator = evaluator.clone();
             async move {
-                // Validate individual check
-                if check_request.subject.is_empty() {
-                    return Event::default().json_data(CheckRestResponse {
+                // Validate individual evaluation
+                if evaluate_request.subject.is_empty() {
+                    return Event::default().json_data(EvaluateRestResponse {
                         decision: "deny".to_string(),
                         index: index as u32,
                         error: Some("Subject cannot be empty".to_string()),
                         trace: None,
                     });
                 }
-                if check_request.resource.is_empty() {
-                    return Event::default().json_data(CheckRestResponse {
+                if evaluate_request.resource.is_empty() {
+                    return Event::default().json_data(EvaluateRestResponse {
                         decision: "deny".to_string(),
                         index: index as u32,
                         error: Some("Resource cannot be empty".to_string()),
                         trace: None,
                     });
                 }
-                if check_request.permission.is_empty() {
-                    return Event::default().json_data(CheckRestResponse {
+                if evaluate_request.permission.is_empty() {
+                    return Event::default().json_data(EvaluateRestResponse {
                         decision: "deny".to_string(),
                         index: index as u32,
                         error: Some("Permission cannot be empty".to_string()),
@@ -361,12 +361,12 @@ async fn check_stream_handler(
                 }
 
                 // Check if trace is requested
-                let trace = check_request.trace.unwrap_or(false);
+                let trace = evaluate_request.trace.unwrap_or(false);
 
                 if trace {
-                    // Perform check with trace
-                    match evaluator.check_with_trace(check_request).await {
-                        Ok(trace_result) => Event::default().json_data(CheckRestResponse {
+                    // Perform evaluation with trace
+                    match evaluator.check_with_trace(evaluate_request).await {
+                        Ok(trace_result) => Event::default().json_data(EvaluateRestResponse {
                             decision: match trace_result.decision {
                                 Decision::Allow => "allow".to_string(),
                                 Decision::Deny => "deny".to_string(),
@@ -375,7 +375,7 @@ async fn check_stream_handler(
                             error: None,
                             trace: Some(trace_result),
                         }),
-                        Err(e) => Event::default().json_data(CheckRestResponse {
+                        Err(e) => Event::default().json_data(EvaluateRestResponse {
                             decision: "deny".to_string(),
                             index: index as u32,
                             error: Some(format!("Evaluation error: {}", e)),
@@ -383,9 +383,9 @@ async fn check_stream_handler(
                         }),
                     }
                 } else {
-                    // Perform regular check without trace
-                    match evaluator.check(check_request).await {
-                        Ok(decision) => Event::default().json_data(CheckRestResponse {
+                    // Perform regular evaluation without trace
+                    match evaluator.check(evaluate_request).await {
+                        Ok(decision) => Event::default().json_data(EvaluateRestResponse {
                             decision: match decision {
                                 Decision::Allow => "allow".to_string(),
                                 Decision::Deny => "deny".to_string(),
@@ -394,7 +394,7 @@ async fn check_stream_handler(
                             error: None,
                             trace: None,
                         }),
-                        Err(e) => Event::default().json_data(CheckRestResponse {
+                        Err(e) => Event::default().json_data(EvaluateRestResponse {
                             decision: "deny".to_string(),
                             index: index as u32,
                             error: Some(format!("Evaluation error: {}", e)),
@@ -406,8 +406,8 @@ async fn check_stream_handler(
         })
         .chain(futures::stream::once(async move {
             // Send summary event at the end
-            Event::default().event("summary").json_data(CheckSummary {
-                total: total_checks,
+            Event::default().event("summary").json_data(EvaluateSummary {
+                total: total_evaluations,
                 complete: true,
             })
         }));
@@ -813,8 +813,8 @@ async fn simulate_handler(
     let temp_schema = Arc::new(Schema { types: Vec::new() });
     let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None);
 
-    // Run the check with the ephemeral data
-    let check_request = CheckRequest {
+    // Run the evaluation with the ephemeral data
+    let evaluate_request = EvaluateRequest {
         subject: request.check.subject,
         resource: request.check.resource,
         permission: request.check.permission,
@@ -822,7 +822,7 @@ async fn simulate_handler(
         trace: None,
     };
 
-    let decision = temp_evaluator.check(check_request).await?;
+    let decision = temp_evaluator.check(evaluate_request).await?;
 
     Ok(Json(SimulateResponse {
         decision,
@@ -874,8 +874,8 @@ async fn explain_handler(
         }
     }
 
-    // Run check with trace enabled
-    let check_request = CheckRequest {
+    // Run evaluation with trace enabled
+    let evaluate_request = EvaluateRequest {
         subject: request.subject,
         resource: request.resource,
         permission: request.permission,
@@ -884,7 +884,7 @@ async fn explain_handler(
     };
 
     let start = std::time::Instant::now();
-    let trace = state.evaluator.check_with_trace(check_request).await?;
+    let trace = state.evaluator.check_with_trace(evaluate_request).await?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
     Ok(Json(ExplainResponse {
@@ -1304,16 +1304,16 @@ mod tests {
         }
     }
 
-    /// Helper function to parse SSE response and extract check results
-    async fn parse_sse_check_response(body: &[u8]) -> Vec<CheckRestResponse> {
+    /// Helper function to parse SSE response and extract evaluation results
+    async fn parse_sse_evaluate_response(body: &[u8]) -> Vec<EvaluateRestResponse> {
         let body_str = std::str::from_utf8(body).expect("Invalid UTF-8 in SSE response");
         let mut results = Vec::new();
 
         // Parse SSE format: "data: {...}\n\n"
         for line in body_str.lines() {
             if let Some(data) = line.strip_prefix("data: ") {
-                // Try to parse as CheckRestResponse (skip summary events)
-                if let Ok(response) = serde_json::from_str::<CheckRestResponse>(data) {
+                // Try to parse as EvaluateRestResponse (skip summary events)
+                if let Ok(response) = serde_json::from_str::<EvaluateRestResponse>(data) {
                     results.push(response);
                 }
             }
@@ -1383,7 +1383,7 @@ mod tests {
 
         // New batch format with array of checks
         let request_body = json!({
-            "checks": [{
+            "evaluations": [{
                 "subject": "user:alice",
                 "resource": "doc:readme",
                 "permission": "reader",
@@ -1395,7 +1395,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                     .unwrap(),
@@ -1410,7 +1410,7 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "deny");
         assert_eq!(results[0].index, 0);
@@ -1453,8 +1453,8 @@ mod tests {
         assert_eq!(write_response.relationships_written, 1);
 
         // Now check the permission
-        let check_request = json!({
-            "checks": [{
+        let evaluate_request = json!({
+            "evaluations": [{
                 "subject": "user:alice",
                 "resource": "doc:readme",
                 "permission": "reader",
@@ -1466,9 +1466,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -1481,7 +1481,7 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "allow");
         assert_eq!(results[0].index, 0);
@@ -1604,8 +1604,8 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         // Verify the relationship exists
-        let check_request = json!({
-            "checks": [{
+        let evaluate_request = json!({
+            "evaluations": [{
                 "subject": "user:bob",
                 "resource": "doc:test",
                 "permission": "reader",
@@ -1618,9 +1618,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -1632,7 +1632,7 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "allow");
 
@@ -1667,8 +1667,8 @@ mod tests {
         assert_eq!(delete_response.relationships_deleted, 1);
 
         // Verify the relationship is deleted
-        let check_request = json!({
-            "checks": [{
+        let evaluate_request = json!({
+            "evaluations": [{
                 "subject": "user:bob",
                 "resource": "doc:test",
                 "permission": "reader",
@@ -1680,9 +1680,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -1694,7 +1694,7 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "deny");
     }
@@ -1830,7 +1830,7 @@ mod tests {
         let app = create_router(state);
 
         let request_body = json!({
-            "checks": [{
+            "evaluations": [{
                 "subject": "user:alice",
                 "resource": "doc:readme",
                 "permission": "reader",
@@ -1842,7 +1842,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                     .unwrap(),
@@ -1998,8 +1998,8 @@ mod tests {
         assert_eq!(delete_response.relationships_deleted, 2);
 
         // Verify alice has no access anymore
-        let check_request = json!({
-            "checks": [{
+        let evaluate_request = json!({
+            "evaluations": [{
                 "subject": "user:alice",
                 "resource": "doc:1",
                 "permission": "reader"
@@ -2011,9 +2011,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -2024,13 +2024,13 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "deny");
 
         // Verify bob still has access
-        let check_request = json!({
-            "checks": [{
+        let evaluate_request = json!({
+            "evaluations": [{
                 "subject": "user:bob",
                 "resource": "doc:3",
                 "permission": "reader"
@@ -2041,9 +2041,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -2054,7 +2054,7 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "allow");
     }
@@ -2127,8 +2127,8 @@ mod tests {
         assert_eq!(delete_response.relationships_deleted, 2);
 
         // Verify doc:cleanup relationships are deleted
-        let check_request = json!({
-            "checks": [{
+        let evaluate_request = json!({
+            "evaluations": [{
                 "subject": "user:alice",
                 "resource": "doc:cleanup",
                 "permission": "reader"
@@ -2140,9 +2140,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -2153,13 +2153,13 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "deny");
 
         // Verify doc:keep relationships still exist
-        let check_request = json!({
-            "checks": [{
+        let evaluate_request = json!({
+            "evaluations": [{
                 "subject": "user:alice",
                 "resource": "doc:keep",
                 "permission": "reader"
@@ -2170,9 +2170,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -2183,7 +2183,7 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "allow");
     }
@@ -2387,7 +2387,7 @@ mod tests {
 
         // Batch check: test multiple permissions in single request
         let batch_request = json!({
-            "checks": [
+            "evaluations": [
                 {
                     "subject": "user:alice",
                     "resource": "doc:1",
@@ -2415,7 +2415,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&batch_request).unwrap()))
                     .unwrap(),
@@ -2430,7 +2430,7 @@ mod tests {
             .unwrap();
 
         // Parse SSE batch response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 4); // Should get 4 results back
 
         // Verify results by index
@@ -2479,8 +2479,8 @@ mod tests {
             .unwrap();
 
         // Check with trace enabled
-        let check_request = json!({
-            "checks": [{
+        let evaluate_request = json!({
+            "evaluations": [{
                 "subject": "user:alice",
                 "resource": "doc:traced",
                 "permission": "reader",
@@ -2492,9 +2492,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/check")
+                    .uri("/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -2507,7 +2507,7 @@ mod tests {
             .unwrap();
 
         // Parse SSE response
-        let results = parse_sse_check_response(&body).await;
+        let results = parse_sse_evaluate_response(&body).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decision, "allow");
         assert_eq!(results[0].index, 0);

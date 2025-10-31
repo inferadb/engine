@@ -4,12 +4,12 @@ package infera.v1;
 
 // The main Infera authorization service
 service InferaService {
-  // Check if a subject has permission on a resource (streaming for single and batch operations)
+  // Evaluate if a subject has permission on a resource (streaming for single and batch operations)
   // Supports optional detailed tracing for debugging
-  rpc Check(stream CheckRequest) returns (stream CheckResponse);
+  rpc Evaluate(stream EvaluateRequest) returns (stream EvaluateResponse);
 
   // Expand a relation into its userset tree (streaming for progressive results)
-  rpc Expand(ExpandRequest) returns (stream ExpandStreamResponse);
+  rpc Expand(ExpandRequest) returns (stream ExpandResponse);
 
   // Write relationships to the store (streaming for single and batch operations)
   rpc WriteRelationships(stream WriteRequest) returns (WriteResponse);
@@ -27,15 +27,15 @@ service InferaService {
   rpc ListRelationships(ListRelationshipsRequest) returns (stream ListRelationshipsResponse);
 }
 
-// Check permission request
-message CheckRequest {
+// Evaluate permission request
+message EvaluateRequest {
   // Subject (e.g., "user:alice")
   string subject = 1;
 
   // Resource (e.g., "doc:readme")
   string resource = 2;
 
-  // Permission to check (e.g., "reader")
+  // Permission to evaluate (e.g., "reader")
   string permission = 3;
 
   // Optional context data
@@ -45,15 +45,15 @@ message CheckRequest {
   optional bool trace = 5;
 }
 
-// Check response
-message CheckResponse {
+// Evaluate response
+message EvaluateResponse {
   // Decision (allow or deny)
   Decision decision = 1;
 
   // Index of the request this response corresponds to (for batch operations)
   uint32 index = 2;
 
-  // Error message if check failed
+  // Error message if evaluation failed
   optional string error = 3;
 
   // Optional detailed evaluation trace (included when trace was set in request)
@@ -143,14 +143,8 @@ message ExpandRequest {
   string relation = 2;
 }
 
-// Expand response
+// Expand response (one user at a time)
 message ExpandResponse {
-  // Userset tree
-  UsersetTree tree = 1;
-}
-
-// Expand stream response (one user at a time)
-message ExpandStreamResponse {
   oneof payload {
     // A single user in the expanded set
     string user = 1;

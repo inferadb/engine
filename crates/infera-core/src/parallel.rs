@@ -3,7 +3,7 @@
 use crate::evaluator::Evaluator;
 use crate::ipl::RelationExpr;
 use crate::{EvalError, Result};
-use infera_types::{CheckRequest, Decision};
+use infera_types::{EvaluateRequest, Decision};
 use std::sync::Arc;
 use tokio::task::JoinSet;
 
@@ -31,7 +31,7 @@ impl ParallelEvaluator {
     pub async fn evaluate_union(
         &self,
         evaluator: Arc<Evaluator>,
-        request: CheckRequest,
+        request: EvaluateRequest,
         expressions: &[RelationExpr],
         resource_type: String,
     ) -> Result<Decision> {
@@ -90,7 +90,7 @@ impl ParallelEvaluator {
     pub async fn evaluate_intersection(
         &self,
         evaluator: Arc<Evaluator>,
-        request: CheckRequest,
+        request: EvaluateRequest,
         expressions: &[RelationExpr],
         resource_type: String,
     ) -> Result<Decision> {
@@ -146,7 +146,7 @@ impl ParallelEvaluator {
     pub async fn evaluate_exclusion(
         &self,
         evaluator: Arc<Evaluator>,
-        request: CheckRequest,
+        request: EvaluateRequest,
         base: &RelationExpr,
         subtract: &RelationExpr,
         resource_type: String,
@@ -185,7 +185,7 @@ impl ParallelEvaluator {
     /// Helper to evaluate a single expression branch
     async fn evaluate_expression_branch(
         _evaluator: Arc<Evaluator>,
-        _request: CheckRequest,
+        _request: EvaluateRequest,
         _expression: &RelationExpr,
         _resource_type: String,
     ) -> Result<Decision> {
@@ -234,11 +234,12 @@ mod tests {
         let parallel_eval = ParallelEvaluator::default();
         let evaluator = create_test_evaluator().await;
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "document:readme".to_string(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = parallel_eval
@@ -254,11 +255,12 @@ mod tests {
         let parallel_eval = ParallelEvaluator::default();
         let evaluator = create_test_evaluator().await;
 
-        let request = CheckRequest {
+        let request = EvaluateRequest {
             subject: "user:alice".to_string(),
             resource: "document:readme".to_string(),
             permission: "viewer".to_string(),
             context: None,
+            trace: None,
         };
 
         let result = parallel_eval

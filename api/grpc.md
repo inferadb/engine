@@ -36,7 +36,7 @@ service InferaService {
 
   // Relation expansion
   rpc Expand(ExpandRequest) returns (ExpandResponse);
-  rpc ExpandStream(ExpandRequest) returns (stream ExpandStreamResponse);
+  rpc ExpandStream(ExpandRequest) returns (stream ExpandResponse);
 
   // Data operations (streaming APIs)
   rpc WriteRelationships(stream WriteRequest) returns (WriteResponse);

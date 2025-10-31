@@ -87,11 +87,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /check:
+  /evaluate:
     post:
       tags:
         - authorization
-      summary: Check permission
+      summary: Evaluate permission
       description: |
         Check if a subject has a specific permission on a resource.
 
@@ -103,7 +103,7 @@ paths:
 
         **Performance**: Typical latency is <5ms for simple checks, <20ms for complex nested relations.
         Enabling trace adds minimal overhead (~1-2ms).
-      operationId: checkPermission
+      operationId: evaluatePermission
       security:
         - bearerAuth: []
       requestBody:
@@ -111,7 +111,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CheckRequest"
+              $ref: "#/components/schemas/EvaluateRequest"
             examples:
               simple_check:
                 summary: Simple permission check
@@ -141,7 +141,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CheckResponse"
+                $ref: "#/components/schemas/EvaluateResponse"
               examples:
                 allow:
                   value:
@@ -768,7 +768,7 @@ components:
           description: Version of the InferaDB server
           example: 0.1.0
 
-    CheckRequest:
+    EvaluateRequest:
       type: object
       required:
         - subject
@@ -802,7 +802,7 @@ components:
           description: Enable detailed evaluation trace for debugging (optional, default false)
           example: false
 
-    CheckResponse:
+    EvaluateResponse:
       type: object
       required:
         - decision
