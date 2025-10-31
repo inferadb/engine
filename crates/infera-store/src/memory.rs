@@ -9,6 +9,7 @@ use crate::{
     MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore, Result, Revision,
     StoreMetrics,
 };
+use infera_types::{DeleteFilter, StoreError};
 
 /// A versioned relationship with its creation revision
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -277,6 +278,87 @@ impl RelationshipStore for MemoryBackend {
         self.metrics.record_delete(timer.elapsed(), false);
 
         Ok(current_revision)
+    }
+
+    async fn delete_by_filter(
+        &self,
+        filter: &DeleteFilter,
+        limit: Option<usize>,
+    ) -> Result<(Revision, usize)> {
+        let timer = OpTimer::new();
+
+        // Validate filter is not empty
+        if filter.is_empty() {
+            return Err(StoreError::Internal(
+                "Filter must have at least one field set".to_string(),
+            ));
+        }
+
+        let mut store = self.data.write().await;
+
+        // Increment revision
+        store.revision = store.revision.next();
+        let current_revision = store.revision;
+
+        // Find all relationships matching the filter
+        let mut matching_indices = Vec::new();
+
+        for (idx, versioned) in store.relationships.iter().enumerate() {
+            // Skip already deleted
+            if versioned.deleted_at.is_some() {
+                continue;
+            }
+
+            let rel = &versioned.relationship;
+
+            // Check filter conditions
+            let matches = match (&filter.resource, &filter.relation, &filter.subject) {
+                // All three specified (exact match)
+                (Some(res), Some(rel_name), Some(sub)) => {
+                    rel.resource == *res && rel.relation == *rel_name && rel.subject == *sub
+                }
+                // Resource + Relation
+                (Some(res), Some(rel_name), None) => {
+                    rel.resource == *res && rel.relation == *rel_name
+                }
+                // Resource + Subject
+                (Some(res), None, Some(sub)) => rel.resource == *res && rel.subject == *sub,
+                // Relation + Subject
+                (None, Some(rel_name), Some(sub)) => {
+                    rel.relation == *rel_name && rel.subject == *sub
+                }
+                // Resource only
+                (Some(res), None, None) => rel.resource == *res,
+                // Relation only
+                (None, Some(rel_name), None) => rel.relation == *rel_name,
+                // Subject only (user offboarding)
+                (None, None, Some(sub)) => rel.subject == *sub,
+                // None (should be caught by filter.is_empty())
+                (None, None, None) => false,
+            };
+
+            if matches {
+                matching_indices.push(idx);
+
+                // Check limit
+                if let Some(lim) = limit {
+                    if lim > 0 && matching_indices.len() >= lim {
+                        break;
+                    }
+                }
+            }
+        }
+
+        let deleted_count = matching_indices.len();
+
+        // Mark relationships as deleted
+        for idx in matching_indices {
+            store.relationships[idx].deleted_at = Some(current_revision);
+        }
+
+        self.metrics.record_delete(timer.elapsed(), false);
+
+        Ok((current_revision, deleted_count))
     }
 
     async fn list_resources_by_type(

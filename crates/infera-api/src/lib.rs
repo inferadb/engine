@@ -26,8 +26,8 @@ use infera_config::Config;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::{
-    CheckRequest, Decision, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
-    ListResourcesRequest, Relationship, RelationshipKey,
+    CheckRequest, Decision, DeleteFilter, ExpandRequest, ExpandResponse,
+    ListRelationshipsRequest, ListResourcesRequest, Relationship, RelationshipKey,
 };
 
 #[cfg(test)]
@@ -171,7 +171,7 @@ pub fn create_router(state: AppState) -> Router {
             post(list_relationships_stream_handler),
         )
         .route("/write", post(write_handler))
-        .route("/delete", post(delete_handler))
+        .route("/delete-relationships", post(delete_relationships_handler))
         .route("/simulate", post(simulate_handler))
         .route("/explain", post(explain_handler));
 
@@ -500,7 +500,7 @@ pub struct WriteResponse {
 }
 
 /// Delete relationships endpoint
-async fn delete_handler(
+async fn delete_relationships_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<DeleteRequest>,
@@ -520,52 +520,14 @@ async fn delete_handler(
         }
     }
 
-    // Validate request
-    if request.relationships.is_empty() {
+    // Validate that at least one deletion method is specified
+    let has_filter = request.filter.is_some();
+    let has_relationships = request.relationships.as_ref().map_or(false, |r| !r.is_empty());
+
+    if !has_filter && !has_relationships {
         return Err(ApiError::InvalidRequest(
-            "No relationships provided".to_string(),
+            "Must provide either filter or relationships to delete".to_string(),
         ));
-    }
-
-    // Validate and convert relationships to RelationshipKeys
-    let mut keys = Vec::new();
-    for relationship in &request.relationships {
-        if relationship.resource.is_empty() {
-            return Err(ApiError::InvalidRequest(
-                "Relationship resource cannot be empty".to_string(),
-            ));
-        }
-        if relationship.relation.is_empty() {
-            return Err(ApiError::InvalidRequest(
-                "Relationship relation cannot be empty".to_string(),
-            ));
-        }
-        if relationship.subject.is_empty() {
-            return Err(ApiError::InvalidRequest(
-                "Relationship subject cannot be empty".to_string(),
-            ));
-        }
-        // Validate format (should contain colon)
-        if !relationship.resource.contains(':') {
-            return Err(ApiError::InvalidRequest(format!(
-                "Invalid object format '{}': must be 'type:id'",
-                relationship.resource
-            )));
-        }
-        if !relationship.subject.contains(':') {
-            return Err(ApiError::InvalidRequest(format!(
-                "Invalid user format '{}': must be 'type:id'",
-                relationship.subject
-            )));
-        }
-
-        // Create RelationshipKey for deletion
-        // RelationshipKey is already imported from infera_types
-        keys.push(RelationshipKey {
-            resource: relationship.resource.clone(),
-            relation: relationship.relation.clone(),
-            subject: Some(relationship.subject.clone()),
-        });
     }
 
     // Optimistic locking: Check expected revision if provided
@@ -585,19 +547,91 @@ async fn delete_handler(
         }
     }
 
-    // Delete relationships from store
+    let mut total_deleted = 0;
     let mut last_revision = None;
-    let mut deleted_count = 0;
 
-    for key in keys {
-        match state.store.delete(&key).await {
-            Ok(revision) => {
-                last_revision = Some(revision);
-                deleted_count += 1;
+    // Handle filter-based deletion if filter is provided
+    if let Some(filter) = request.filter {
+        // Validate filter is not empty
+        if filter.is_empty() {
+            return Err(ApiError::InvalidRequest(
+                "Filter must have at least one field set to avoid deleting all relationships"
+                    .to_string(),
+            ));
+        }
+
+        // Apply default limit of 1000 if not specified, 0 means unlimited
+        let limit = match request.limit {
+            Some(0) => None,              // 0 means unlimited
+            Some(n) => Some(n),           // Explicit limit
+            None => Some(1000),           // Default limit
+        };
+
+        // Perform batch deletion
+        let (revision, count) = state
+            .store
+            .delete_by_filter(&filter, limit)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to delete by filter: {}", e)))?;
+
+        last_revision = Some(revision);
+        total_deleted += count;
+    }
+
+    // Handle exact relationship deletion if relationships are provided
+    if let Some(relationships) = request.relationships {
+        if !relationships.is_empty() {
+            // Validate and convert relationships to RelationshipKeys
+            let mut keys = Vec::new();
+            for relationship in &relationships {
+                if relationship.resource.is_empty() {
+                    return Err(ApiError::InvalidRequest(
+                        "Relationship resource cannot be empty".to_string(),
+                    ));
+                }
+                if relationship.relation.is_empty() {
+                    return Err(ApiError::InvalidRequest(
+                        "Relationship relation cannot be empty".to_string(),
+                    ));
+                }
+                if relationship.subject.is_empty() {
+                    return Err(ApiError::InvalidRequest(
+                        "Relationship subject cannot be empty".to_string(),
+                    ));
+                }
+                // Validate format (should contain colon)
+                if !relationship.resource.contains(':') {
+                    return Err(ApiError::InvalidRequest(format!(
+                        "Invalid object format '{}': must be 'type:id'",
+                        relationship.resource
+                    )));
+                }
+                if !relationship.subject.contains(':') {
+                    return Err(ApiError::InvalidRequest(format!(
+                        "Invalid user format '{}': must be 'type:id'",
+                        relationship.subject
+                    )));
+                }
+
+                keys.push(RelationshipKey {
+                    resource: relationship.resource.clone(),
+                    relation: relationship.relation.clone(),
+                    subject: Some(relationship.subject.clone()),
+                });
             }
-            Err(e) => {
-                tracing::warn!("Failed to delete relationship {:?}: {}", key, e);
-                // Continue deleting other relationships even if one fails
+
+            // Delete relationships from store
+            for key in keys {
+                match state.store.delete(&key).await {
+                    Ok(revision) => {
+                        last_revision = Some(revision);
+                        total_deleted += 1;
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to delete relationship {:?}: {}", key, e);
+                        // Continue deleting other relationships even if one fails
+                    }
+                }
             }
         }
     }
@@ -608,13 +642,22 @@ async fn delete_handler(
 
     Ok(Json(DeleteResponse {
         revision: revision.0.to_string(),
-        relationships_deleted: deleted_count,
+        relationships_deleted: total_deleted,
     }))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DeleteRequest {
-    pub relationships: Vec<Relationship>,
+    /// Optional filter for bulk deletion
+    /// If provided, all relationships matching the filter will be deleted
+    pub filter: Option<DeleteFilter>,
+    /// Optional exact relationships to delete
+    /// Can be combined with filter
+    pub relationships: Option<Vec<Relationship>>,
+    /// Maximum number of relationships to delete (safety limit)
+    /// If not specified, uses default limit (1000) for filter-based deletes
+    /// Set to 0 for unlimited (use with extreme caution!)
+    pub limit: Option<usize>,
     /// Optional expected revision for optimistic locking
     /// If provided, the delete will only succeed if the current store revision matches
     pub expected_revision: Option<String>,
@@ -1564,7 +1607,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete")
+                    .uri("/delete-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -1612,15 +1655,14 @@ mod tests {
     async fn test_delete_validation_empty_relationships() {
         let app = create_router(create_test_state());
 
-        let delete_request = json!({
-            "relationships": []
-        });
+        // Empty request with no filter and no relationships should fail
+        let delete_request = json!({});
 
         let response = app
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete")
+                    .uri("/delete-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -1647,7 +1689,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete")
+                    .uri("/delete-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -1714,7 +1756,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete")
+                    .uri("/delete-relationships")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -2051,5 +2093,479 @@ mod tests {
 
         // Alice should have access to no resources
         assert_eq!(list_response.resources.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_delete_by_filter_subject() {
+        // Test user offboarding scenario: delete all relationships for a subject
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // Write relationships for alice across multiple resources
+        let write_request = json!({
+            "relationships": [
+                {
+                    "resource": "doc:1",
+                    "relation": "reader",
+                    "subject": "user:alice"
+                },
+                {
+                    "resource": "doc:2",
+                    "relation": "editor",
+                    "subject": "user:alice"
+                },
+                {
+                    "resource": "doc:3",
+                    "relation": "reader",
+                    "subject": "user:bob"
+                }
+            ]
+        });
+
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Delete all relationships for alice
+        let delete_request = json!({
+            "filter": {
+                "subject": "user:alice"
+            }
+        });
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete-relationships")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(delete_response.relationships_deleted, 2);
+
+        // Verify alice has no access anymore
+        let check_request = json!({
+            "subject": "user:alice",
+            "resource": "doc:1",
+            "permission": "reader"
+        });
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(check_response["decision"], "deny");
+
+        // Verify bob still has access
+        let check_request = json!({
+            "subject": "user:bob",
+            "resource": "doc:3",
+            "permission": "reader"
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(check_response["decision"], "allow");
+    }
+
+    #[tokio::test]
+    async fn test_delete_by_filter_resource() {
+        // Test resource cleanup scenario: delete all relationships for a resource
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // Write relationships with multiple subjects for the same resource
+        let write_request = json!({
+            "relationships": [
+                {
+                    "resource": "doc:cleanup",
+                    "relation": "reader",
+                    "subject": "user:alice"
+                },
+                {
+                    "resource": "doc:cleanup",
+                    "relation": "editor",
+                    "subject": "user:bob"
+                },
+                {
+                    "resource": "doc:keep",
+                    "relation": "reader",
+                    "subject": "user:alice"
+                }
+            ]
+        });
+
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Delete all relationships for doc:cleanup
+        let delete_request = json!({
+            "filter": {
+                "resource": "doc:cleanup"
+            }
+        });
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete-relationships")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(delete_response.relationships_deleted, 2);
+
+        // Verify doc:cleanup relationships are deleted
+        let check_request = json!({
+            "subject": "user:alice",
+            "resource": "doc:cleanup",
+            "permission": "reader"
+        });
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(check_response["decision"], "deny");
+
+        // Verify doc:keep relationships still exist
+        let check_request = json!({
+            "subject": "user:alice",
+            "resource": "doc:keep",
+            "permission": "reader"
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/check")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&check_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(check_response["decision"], "allow");
+    }
+
+    #[tokio::test]
+    async fn test_delete_by_filter_with_limit() {
+        // Test deletion with explicit limit
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // Write multiple relationships for the same subject
+        let write_request = json!({
+            "relationships": [
+                {
+                    "resource": "doc:1",
+                    "relation": "reader",
+                    "subject": "user:charlie"
+                },
+                {
+                    "resource": "doc:2",
+                    "relation": "reader",
+                    "subject": "user:charlie"
+                },
+                {
+                    "resource": "doc:3",
+                    "relation": "reader",
+                    "subject": "user:charlie"
+                }
+            ]
+        });
+
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Delete with limit of 2
+        let delete_request = json!({
+            "filter": {
+                "subject": "user:charlie"
+            },
+            "limit": 2
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete-relationships")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
+        // Should only delete 2 relationships due to limit
+        assert_eq!(delete_response.relationships_deleted, 2);
+    }
+
+    #[tokio::test]
+    async fn test_delete_by_filter_combined_fields() {
+        // Test deletion with multiple filter fields
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // Write relationships with various combinations
+        let write_request = json!({
+            "relationships": [
+                {
+                    "resource": "doc:1",
+                    "relation": "reader",
+                    "subject": "user:dave"
+                },
+                {
+                    "resource": "doc:1",
+                    "relation": "editor",
+                    "subject": "user:dave"
+                },
+                {
+                    "resource": "doc:2",
+                    "relation": "reader",
+                    "subject": "user:dave"
+                }
+            ]
+        });
+
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Delete only reader relationships for doc:1
+        let delete_request = json!({
+            "filter": {
+                "resource": "doc:1",
+                "relation": "reader"
+            }
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete-relationships")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
+        // Should only delete the one matching relationship
+        assert_eq!(delete_response.relationships_deleted, 1);
+    }
+
+    #[tokio::test]
+    async fn test_delete_filter_empty_validation() {
+        // Test that empty filter is rejected
+        let app = create_router(create_test_state());
+
+        let delete_request = json!({
+            "filter": {}
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete-relationships")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Should fail with bad request
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_delete_combined_filter_and_exact() {
+        // Test deletion with both filter and exact relationships
+        let state = create_test_state();
+        let app = create_router(state.clone());
+
+        // Write multiple relationships
+        let write_request = json!({
+            "relationships": [
+                {
+                    "resource": "doc:1",
+                    "relation": "reader",
+                    "subject": "user:eve"
+                },
+                {
+                    "resource": "doc:2",
+                    "relation": "reader",
+                    "subject": "user:eve"
+                },
+                {
+                    "resource": "doc:3",
+                    "relation": "reader",
+                    "subject": "user:frank"
+                }
+            ]
+        });
+
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&write_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Delete using both filter (for eve) and exact relationship (for frank)
+        let delete_request = json!({
+            "filter": {
+                "subject": "user:eve"
+            },
+            "relationships": [{
+                "resource": "doc:3",
+                "relation": "reader",
+                "subject": "user:frank"
+            }]
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/delete-relationships")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
+        // Should delete 2 for eve + 1 for frank = 3 total
+        assert_eq!(delete_response.relationships_deleted, 3);
     }
 }

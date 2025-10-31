@@ -15,6 +15,7 @@ use std::sync::Arc;
 use tracing::{debug, error, warn};
 
 use crate::{Relationship, RelationshipKey, RelationshipStore, Result, Revision, StoreError};
+use infera_types::DeleteFilter;
 
 /// FoundationDB storage backend
 pub struct FoundationDBBackend {
@@ -415,6 +416,136 @@ impl RelationshipStore for FoundationDBBackend {
         debug!(
             "Deleted relationships matching {}:{} at revision {:?}",
             key.resource, key.relation, result
+        );
+        Ok(result)
+    }
+
+    async fn delete_by_filter(
+        &self,
+        filter: &DeleteFilter,
+        limit: Option<usize>,
+    ) -> Result<(Revision, usize)> {
+        // Validate filter is not empty
+        if filter.is_empty() {
+            return Err(StoreError::Internal(
+                "Filter must have at least one field set".to_string(),
+            ));
+        }
+
+        let db = Arc::clone(&self.db);
+        let filter = filter.clone();
+        let relationships_subspace = self.relationships_subspace.clone();
+        let revision_key = self.revision_subspace.pack(&("current",));
+
+        let result = db
+            .run(move |trx, _maybe_committed| async move {
+                // Get and increment revision
+                let current = match trx.get(&revision_key, false).await? {
+                    Some(bytes) => {
+                        let rev: u64 = serde_json::from_slice(&bytes)
+                            .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
+                        rev
+                    }
+                    None => 0,
+                };
+
+                let next_rev = current + 1;
+                let rev_bytes = serde_json::to_vec(&next_rev)
+                    .map_err(|e| FdbError::from(format!("Failed to serialize: {}", e)))?;
+                trx.set(&revision_key, &rev_bytes);
+
+                let revision = Revision(next_rev);
+
+                // Scan all relationships and match against filter
+                // This is a full scan - could be optimized with better indexing
+                let start_key = relationships_subspace.pack(&());
+                let end_key = relationships_subspace.pack(&("\u{10FFFF}",));
+
+                let range = trx
+                    .get_range(
+                        &foundationdb::RangeOption {
+                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
+                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
+                            limit: None,
+                            reverse: false,
+                            mode: foundationdb::StreamingMode::WantAll,
+                        },
+                        1,
+                        false,
+                    )
+                    .await?;
+
+                let mut deleted_count = 0;
+                let mut deleted_keys = std::collections::HashSet::new();
+
+                for kv in range.iter() {
+                    // Skip if already at limit
+                    if let Some(lim) = limit {
+                        if lim > 0 && deleted_count >= lim {
+                            break;
+                        }
+                    }
+
+                    let unpacked: (String, String, String, u64) =
+                        unpack(&kv.key()[relationships_subspace.bytes().len()..])
+                            .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+
+                    let (resource, relation, subject, _rev) = unpacked;
+
+                    // Skip if already marked as deleted
+                    if kv.value() == b"deleted" {
+                        continue;
+                    }
+
+                    // Check filter conditions
+                    let matches = match (&filter.resource, &filter.relation, &filter.subject) {
+                        // All three specified (exact match)
+                        (Some(res), Some(rel_name), Some(sub)) => {
+                            resource == *res && relation == *rel_name && subject == *sub
+                        }
+                        // Resource + Relation
+                        (Some(res), Some(rel_name), None) => {
+                            resource == *res && relation == *rel_name
+                        }
+                        // Resource + Subject
+                        (Some(res), None, Some(sub)) => resource == *res && subject == *sub,
+                        // Relation + Subject
+                        (None, Some(rel_name), Some(sub)) => {
+                            relation == *rel_name && subject == *sub
+                        }
+                        // Resource only
+                        (Some(res), None, None) => resource == *res,
+                        // Relation only
+                        (None, Some(rel_name), None) => relation == *rel_name,
+                        // Subject only (user offboarding)
+                        (None, None, Some(sub)) => subject == *sub,
+                        // None (should be caught by filter.is_empty())
+                        (None, None, None) => false,
+                    };
+
+                    if matches {
+                        // Create unique key for this relationship (without revision)
+                        let unique_key = (&resource, &relation, &subject);
+                        if !deleted_keys.contains(&unique_key) {
+                            deleted_keys.insert(unique_key);
+
+                            // Write deletion marker at new revision
+                            let del_key =
+                                relationships_subspace.pack(&(&resource, &relation, &subject, revision.0));
+                            trx.set(&del_key, b"deleted");
+                            deleted_count += 1;
+                        }
+                    }
+                }
+
+                Ok((revision, deleted_count))
+            })
+            .await
+            .map_err(|e| StoreError::Database(format!("Failed to delete by filter: {}", e)))?;
+
+        debug!(
+            "Deleted {} relationships matching filter at revision {:?}",
+            result.1, result.0
         );
         Ok(result)
     }

@@ -170,10 +170,107 @@ pub struct WriteResponse {
 // Request/Response Types - Delete
 // ============================================================================
 
+/// Filter for deleting relationships
+/// All fields are optional and can be combined.
+/// If all fields are None, this is an error (would delete everything).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeleteFilter {
+    /// Filter by resource (e.g., "doc:readme")
+    /// Exact match only
+    pub resource: Option<String>,
+    /// Filter by relation (e.g., "viewer")
+    /// Exact match only
+    pub relation: Option<String>,
+    /// Filter by subject (e.g., "user:alice")
+    /// Exact match only
+    pub subject: Option<String>,
+}
+
+impl DeleteFilter {
+    /// Returns true if all fields are None (invalid filter)
+    pub fn is_empty(&self) -> bool {
+        self.resource.is_none() && self.relation.is_none() && self.subject.is_none()
+    }
+
+    /// Create a filter for an exact relationship
+    pub fn exact(resource: String, relation: String, subject: String) -> Self {
+        Self {
+            resource: Some(resource),
+            relation: Some(relation),
+            subject: Some(subject),
+        }
+    }
+
+    /// Create a filter for all relationships of a resource
+    pub fn by_resource(resource: String) -> Self {
+        Self {
+            resource: Some(resource),
+            relation: None,
+            subject: None,
+        }
+    }
+
+    /// Create a filter for all relationships of a subject (user offboarding)
+    pub fn by_subject(subject: String) -> Self {
+        Self {
+            resource: None,
+            relation: None,
+            subject: Some(subject),
+        }
+    }
+
+    /// Create a filter by resource and relation
+    pub fn by_resource_relation(resource: String, relation: String) -> Self {
+        Self {
+            resource: Some(resource),
+            relation: Some(relation),
+            subject: None,
+        }
+    }
+}
+
 /// Request to delete relationships
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeleteRequest {
-    pub relationships: Vec<Relationship>,
+    /// Optional filter for bulk deletion
+    /// If provided, all relationships matching the filter will be deleted
+    pub filter: Option<DeleteFilter>,
+    /// Optional exact relationships to delete
+    /// If provided along with filter, both will be processed
+    pub relationships: Option<Vec<Relationship>>,
+    /// Maximum number of relationships to delete (safety limit)
+    /// If not specified, uses a default limit
+    /// Set to 0 for unlimited (use with caution!)
+    pub limit: Option<usize>,
+}
+
+impl DeleteRequest {
+    /// Create request to delete exact relationships
+    pub fn exact(relationships: Vec<Relationship>) -> Self {
+        Self {
+            filter: None,
+            relationships: Some(relationships),
+            limit: None,
+        }
+    }
+
+    /// Create request to delete by filter
+    pub fn by_filter(filter: DeleteFilter) -> Self {
+        Self {
+            filter: Some(filter),
+            relationships: None,
+            limit: None,
+        }
+    }
+
+    /// Create request to delete by filter with limit
+    pub fn by_filter_limited(filter: DeleteFilter, limit: usize) -> Self {
+        Self {
+            filter: Some(filter),
+            relationships: None,
+            limit: Some(limit),
+        }
+    }
 }
 
 /// Response from a delete operation

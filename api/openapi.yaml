@@ -617,15 +617,69 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /delete:
+  /delete-relationships:
     post:
       tags:
         - relationships
       summary: Delete relationships
       description: |
-        Delete one or more authorization relationships.
+        Delete authorization relationships using exact matches or filter criteria.
 
-        **Note**: This endpoint is not yet implemented. Use the write endpoint to manage relationships.
+        **Deletion Methods:**
+        - **Exact deletion**: Specify relationships array with specific tuples to delete
+        - **Filter-based deletion**: Use filter to delete all matching relationships
+        - **Combined**: Both filter and exact relationships can be used together
+
+        **Common Use Cases:**
+        - **User offboarding**: Delete all relationships for a subject (user leaving organization)
+        - **Resource cleanup**: Delete all relationships for a deleted resource
+        - **Bulk updates**: Delete relationships matching a pattern (e.g., all "viewer" relations)
+        - **Relation cleanup**: Delete all relationships of a specific relation type
+
+        **Safety Features:**
+        - Default limit of 1000 relationships when using filters (prevents accidental mass deletion)
+        - Empty filter validation (at least one filter field required)
+        - Set limit=0 for unlimited deletion (use with caution!)
+
+        **Examples:**
+
+        User offboarding (delete all relationships for a subject):
+        ```json
+        {
+          "filter": {
+            "subject": "user:alice"
+          }
+        }
+        ```
+
+        Resource cleanup (delete all relationships for a resource):
+        ```json
+        {
+          "filter": {
+            "resource": "doc:deleted_document"
+          }
+        }
+        ```
+
+        Combined filter fields (delete specific resource+relation):
+        ```json
+        {
+          "filter": {
+            "resource": "doc:readme",
+            "relation": "viewer"
+          }
+        }
+        ```
+
+        With explicit limit:
+        ```json
+        {
+          "filter": {
+            "subject": "user:alice"
+          },
+          "limit": 100
+        }
+        ```
       operationId: deleteRelationships
       security:
         - bearerAuth: []
@@ -635,6 +689,45 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/DeleteRequest"
+            examples:
+              exact_deletion:
+                summary: Delete exact relationships
+                value:
+                  relationships:
+                    - resource: "doc:readme"
+                      relation: "viewer"
+                      subject: "user:alice"
+              user_offboarding:
+                summary: User offboarding (delete all relationships for subject)
+                value:
+                  filter:
+                    subject: "user:alice"
+              resource_cleanup:
+                summary: Resource cleanup (delete all relationships for resource)
+                value:
+                  filter:
+                    resource: "doc:deleted_document"
+              combined_filter:
+                summary: Combined filter fields
+                value:
+                  filter:
+                    resource: "doc:readme"
+                    relation: "viewer"
+              with_limit:
+                summary: Filter with explicit limit
+                value:
+                  filter:
+                    subject: "user:bob"
+                  limit: 100
+              combined_methods:
+                summary: Both filter and exact relationships
+                value:
+                  filter:
+                    subject: "user:alice"
+                  relationships:
+                    - resource: "doc:special"
+                      relation: "owner"
+                      subject: "user:bob"
       responses:
         "200":
           description: Relationships deleted successfully
@@ -642,16 +735,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeleteResponse"
+              examples:
+                success:
+                  value:
+                    revision: "42"
+                    relationships_deleted: 15
         "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "501":
-          description: Not implemented
+          description: Invalid request (empty filter, no deletion method specified, etc.)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                empty_filter:
+                  value:
+                    error: "Filter must have at least one field set to avoid deleting all relationships"
+                no_method:
+                  value:
+                    error: "Must provide either filter or relationships to delete"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 components:
   securitySchemes:
@@ -1054,28 +1157,84 @@ components:
           description: New revision number after write
           example: 42
 
+    DeleteFilter:
+      type: object
+      description: |
+        Filter for bulk deletion of relationships.
+        All fields are optional and can be combined.
+        At least one field must be set to prevent accidental mass deletion.
+      properties:
+        resource:
+          type: string
+          description: Filter by exact resource match (e.g., "doc:readme")
+          example: "doc:readme"
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+        relation:
+          type: string
+          description: Filter by relation (e.g., "viewer")
+          example: "viewer"
+          pattern: "^[a-z_][a-z0-9_]*$"
+        subject:
+          type: string
+          description: Filter by exact subject match (e.g., "user:alice")
+          example: "user:alice"
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+      minProperties: 1
+
     DeleteRequest:
       type: object
-      required:
-        - relationships
+      description: |
+        Request to delete relationships using exact matches or filter criteria.
+        At least one of 'filter' or 'relationships' must be provided.
       properties:
+        filter:
+          $ref: "#/components/schemas/DeleteFilter"
+          description: |
+            Optional filter for bulk deletion.
+            All relationships matching the filter will be deleted.
         relationships:
           type: array
           items:
             $ref: "#/components/schemas/Relationship"
-          description: Array of relationships to delete
-          minItems: 1
+          description: |
+            Optional exact relationships to delete.
+            Can be combined with filter.
           maxItems: 1000
+        limit:
+          type: integer
+          format: int32
+          description: |
+            Maximum number of relationships to delete (safety limit).
+            - If not specified, uses default limit (1000) for filter-based deletes
+            - Set to 0 for unlimited (use with extreme caution!)
+            - Applies only to filter-based deletion
+          example: 100
+          minimum: 0
+        expected_revision:
+          type: string
+          description: |
+            Optional expected revision for optimistic locking.
+            If provided, the delete will only succeed if the current store revision matches.
+          example: "41"
+      anyOf:
+        - required: [filter]
+        - required: [relationships]
 
     DeleteResponse:
       type: object
       required:
         - revision
+        - relationships_deleted
       properties:
         revision:
-          type: integer
-          format: int64
+          type: string
           description: New revision number after delete
+          example: "42"
+        relationships_deleted:
+          type: integer
+          format: int32
+          description: Number of relationships deleted
+          example: 15
 
     ErrorResponse:
       type: object

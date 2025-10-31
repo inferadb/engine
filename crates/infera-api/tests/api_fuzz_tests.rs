@@ -96,7 +96,9 @@ proptest! {
     fn fuzz_delete_request(relationships in prop::collection::vec(arb_relationship(), 0..100)) {
         // Create a delete request with fuzzed relationships
         let request = DeleteRequest {
+            filter: None,
             relationships: relationships.clone(),
+            limit: None,
         };
 
         // Should construct without panicking

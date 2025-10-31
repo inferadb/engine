@@ -23,7 +23,7 @@ service InferaService {
   rpc WriteStream(stream WriteRequest) returns (WriteResponse);
 
   // Delete relationships from the store
-  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc DeleteRelationships(DeleteRequest) returns (DeleteResponse);
 
   // Health check
   rpc Health(HealthRequest) returns (HealthResponse);
@@ -228,10 +228,34 @@ message WriteResponse {
   uint64 relationships_written = 2;
 }
 
+// Filter for deleting relationships
+// All fields are optional and can be combined
+// At least one field must be set to avoid deleting all relationships
+message DeleteFilter {
+  // Filter by resource (e.g., "doc:readme")
+  optional string resource = 1;
+
+  // Filter by relation (e.g., "viewer")
+  optional string relation = 2;
+
+  // Filter by subject (e.g., "user:alice")
+  optional string subject = 3;
+}
+
 // Delete request
 message DeleteRequest {
-  // Relationships to delete
-  repeated Relationship relationships = 1;
+  // Optional filter for bulk deletion
+  // If provided, all relationships matching the filter will be deleted
+  optional DeleteFilter filter = 1;
+
+  // Optional exact relationships to delete
+  // Can be combined with filter
+  repeated Relationship relationships = 2;
+
+  // Maximum number of relationships to delete (safety limit)
+  // If not specified, uses default limit (1000)
+  // Set to 0 for unlimited (use with extreme caution!)
+  optional uint32 limit = 3;
 }
 
 // Delete response

@@ -3,7 +3,7 @@
 //! Provides abstract database operations and revision consistency management.
 
 use async_trait::async_trait;
-use infera_types::{Relationship, RelationshipKey, Revision, StoreError, StoreResult};
+use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult};
 
 pub mod factory;
 #[cfg(feature = "fdb")]
@@ -34,6 +34,15 @@ pub trait RelationshipStore: Send + Sync {
 
     /// Delete relationships matching the key
     async fn delete(&self, key: &RelationshipKey) -> Result<Revision>;
+
+    /// Delete relationships matching a filter
+    /// Returns (revision, count_deleted)
+    /// The filter must have at least one field set to avoid deleting all relationships
+    async fn delete_by_filter(
+        &self,
+        filter: &DeleteFilter,
+        limit: Option<usize>,
+    ) -> Result<(Revision, usize)>;
 
     /// List all distinct resources of a given type prefix (e.g., "document", "folder")
     /// Returns unique resource identifiers like ["document:1", "document:2"]

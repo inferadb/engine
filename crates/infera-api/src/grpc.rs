@@ -31,8 +31,8 @@ use tonic::{Request, Response, Status};
 use crate::AppState;
 use infera_core::{DecisionTrace, EvaluationNode, NodeType as CoreNodeType};
 use infera_types::{
-    CheckRequest as CoreCheckRequest, Decision, ExpandRequest as CoreExpandRequest,
-    ListRelationshipsRequest as CoreListRelationshipsRequest,
+    CheckRequest as CoreCheckRequest, Decision, DeleteFilter as CoreDeleteFilter,
+    ExpandRequest as CoreExpandRequest, ListRelationshipsRequest as CoreListRelationshipsRequest,
     ListResourcesRequest as CoreListResourcesRequest, Relationship, RelationshipKey, Revision,
     UsersetNodeType as CoreUsersetNodeType, UsersetTree,
 };
@@ -220,35 +220,91 @@ impl InferaService for InferaServiceImpl {
         }))
     }
 
-    async fn delete(
+    async fn delete_relationships(
         &self,
         request: Request<DeleteRequest>,
     ) -> Result<Response<DeleteResponse>, Status> {
         let req = request.into_inner();
 
-        if req.relationships.is_empty() {
-            return Err(Status::invalid_argument("No relationships provided"));
+        // Validate that at least one deletion method is specified
+        if req.filter.is_none() && req.relationships.is_empty() {
+            return Err(Status::invalid_argument(
+                "Must provide either filter or relationships to delete",
+            ));
         }
 
-        let relationships_count = req.relationships.len();
-
-        // Delete each relationship individually
+        let mut total_deleted = 0;
         let mut last_revision = Revision::zero();
-        for relationship in req.relationships {
-            let key = RelationshipKey {
-                resource: relationship.resource,
-                relation: relationship.relation,
-                subject: Some(relationship.subject),
+
+        // Handle filter-based deletion if filter is provided
+        if let Some(proto_filter) = req.filter {
+            // Convert proto filter to core filter
+            let filter = CoreDeleteFilter {
+                resource: proto_filter.resource,
+                relation: proto_filter.relation,
+                subject: proto_filter.subject,
             };
-            last_revision =
-                self.state.store.delete(&key).await.map_err(|e| {
-                    Status::internal(format!("Failed to delete relationship: {}", e))
-                })?;
+
+            // Validate filter is not empty
+            if filter.is_empty() {
+                return Err(Status::invalid_argument(
+                    "Filter must have at least one field set to avoid deleting all relationships",
+                ));
+            }
+
+            // Apply default limit of 1000 if not specified, 0 means unlimited
+            let limit = match req.limit {
+                Some(0) => None,         // 0 means unlimited
+                Some(n) => Some(n as usize), // Explicit limit
+                None => Some(1000),      // Default limit
+            };
+
+            // Perform batch deletion
+            let (revision, count) = self
+                .state
+                .store
+                .delete_by_filter(&filter, limit)
+                .await
+                .map_err(|e| Status::internal(format!("Failed to delete by filter: {}", e)))?;
+
+            last_revision = revision;
+            total_deleted += count;
+        }
+
+        // Handle exact relationship deletion if relationships are provided
+        if !req.relationships.is_empty() {
+            for relationship in req.relationships {
+                // Validate relationship format
+                if relationship.resource.is_empty() {
+                    return Err(Status::invalid_argument("Resource cannot be empty"));
+                }
+                if relationship.relation.is_empty() {
+                    return Err(Status::invalid_argument("Relation cannot be empty"));
+                }
+                if relationship.subject.is_empty() {
+                    return Err(Status::invalid_argument("Subject cannot be empty"));
+                }
+
+                let key = RelationshipKey {
+                    resource: relationship.resource,
+                    relation: relationship.relation,
+                    subject: Some(relationship.subject),
+                };
+
+                last_revision = self
+                    .state
+                    .store
+                    .delete(&key)
+                    .await
+                    .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
+
+                total_deleted += 1;
+            }
         }
 
         Ok(Response::new(DeleteResponse {
             revision: last_revision.0.to_string(),
-            relationships_deleted: relationships_count as u64,
+            relationships_deleted: total_deleted as u64,
         }))
     }
 
