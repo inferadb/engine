@@ -31,6 +31,9 @@ service InferaService {
 
   // Watch for real-time relationship changes
   rpc Watch(WatchRequest) returns (stream WatchResponse);
+
+  // Simulate authorization with ephemeral relationships (what-if testing)
+  rpc Simulate(SimulateRequest) returns (SimulateResponse);
 }
 
 // Evaluate permission request
@@ -413,4 +416,38 @@ enum ChangeOperation {
   CHANGE_OPERATION_UNSPECIFIED = 0;
   CHANGE_OPERATION_CREATE = 1;  // Relationship was created
   CHANGE_OPERATION_DELETE = 2;  // Relationship was deleted
+}
+
+// Simulate request - test authorization with ephemeral relationships
+message SimulateRequest {
+  // Ephemeral relationships to use for this check (temporary context)
+  // These relationships exist ONLY for this simulation and are not persisted
+  repeated Relationship context_relationships = 1;
+
+  // The check to evaluate against the ephemeral context
+  SimulateCheck check = 2;
+}
+
+// The authorization check to perform in the simulation
+message SimulateCheck {
+  // Subject (e.g., "user:alice")
+  string subject = 1;
+
+  // Resource (e.g., "doc:readme")
+  string resource = 2;
+
+  // Permission to evaluate (e.g., "viewer")
+  string permission = 3;
+
+  // Optional context data for WASM modules
+  optional string context = 4;
+}
+
+// Simulate response
+message SimulateResponse {
+  // Authorization decision based on ephemeral context
+  Decision decision = 1;
+
+  // Number of context relationships used in simulation
+  uint64 context_relationships_count = 2;
 }

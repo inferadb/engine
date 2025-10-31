@@ -166,7 +166,6 @@ pub fn create_router(state: AppState) -> Router {
         .route("/write-relationships", post(write_relationships_handler))
         .route("/delete-relationships", post(delete_relationships_handler))
         .route("/simulate", post(simulate_handler))
-        .route("/explain", post(explain_handler))
         .route("/watch", post(watch_handler));
 
     // Apply authentication middleware if enabled and JWKS cache is available
@@ -858,65 +857,7 @@ pub struct SimulateResponse {
     pub context_relationships_count: usize,
 }
 
-/// Explain endpoint - return full decision trace
-async fn explain_handler(
-    auth: infera_auth::extractor::OptionalAuth,
-    State(state): State<AppState>,
-    Json(request): Json<ExplainRequest>,
-) -> Result<Json<ExplainResponse>> {
-    // If auth is enabled and present, validate scope
-    if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
-            // Require inferadb.check scope
-            infera_auth::middleware::require_any_scope(
-                &auth_ctx,
-                &["inferadb.check", "inferadb.explain"],
-            )
-            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!("Explain request from tenant: {}", auth_ctx.tenant_id);
-        } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
-        }
-    }
-
-    // Run evaluation with trace enabled
-    let evaluate_request = EvaluateRequest {
-        subject: request.subject,
-        resource: request.resource,
-        permission: request.permission,
-        context: request.context,
-        trace: None,
-    };
-
-    let start = std::time::Instant::now();
-    let trace = state.evaluator.check_with_trace(evaluate_request).await?;
-    let duration_ms = start.elapsed().as_millis() as u64;
-
-    Ok(Json(ExplainResponse {
-        trace,
-        execution_time_ms: duration_ms,
-    }))
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ExplainRequest {
-    pub subject: String,
-    pub resource: String,
-    pub permission: String,
-    pub context: Option<serde_json::Value>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ExplainResponse {
-    pub trace: infera_core::DecisionTrace,
-    pub execution_time_ms: u64,
-}
-
 /// List resources endpoint - returns all resources accessible by a subject
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ListResourcesRestRequest {
     /// Subject (e.g., "user:alice")
