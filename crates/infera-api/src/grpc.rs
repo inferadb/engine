@@ -34,8 +34,8 @@ use infera_core::{DecisionTrace, EvaluationNode, NodeType as CoreNodeType};
 use infera_types::{
     EvaluateRequest as CoreEvaluateRequest, Decision, DeleteFilter as CoreDeleteFilter,
     ExpandRequest as CoreExpandRequest, ListRelationshipsRequest as CoreListRelationshipsRequest,
-    ListResourcesRequest as CoreListResourcesRequest, Relationship, RelationshipKey, Revision,
-    UsersetNodeType as CoreUsersetNodeType, UsersetTree,
+    ListResourcesRequest as CoreListResourcesRequest, ListSubjectsRequest as CoreListSubjectsRequest,
+    Relationship, RelationshipKey, Revision, UsersetNodeType as CoreUsersetNodeType, UsersetTree,
 };
 
 // Include generated proto code
@@ -50,7 +50,7 @@ use proto::{
     infera_service_server::InferaService, EvaluateRequest, EvaluateResponse,
     Decision as ProtoDecision, DeleteRequest, DeleteResponse, ExpandRequest, HealthRequest,
     HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
-    ListResourcesResponse, WriteRequest, WriteResponse,
+    ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse, WriteRequest, WriteResponse,
 };
 
 pub struct InferaServiceImpl {
@@ -525,6 +525,59 @@ impl InferaService for InferaServiceImpl {
                 })
                 .chain(std::iter::once(Ok(ListRelationshipsResponse {
                     relationship: None, // No relationship in final message
+                    cursor,
+                    total_count,
+                }))),
+        );
+
+        Ok(Response::new(Box::pin(stream)))
+    }
+
+    type ListSubjectsStream = std::pin::Pin<
+        Box<dyn futures::Stream<Item = Result<ListSubjectsResponse, Status>> + Send + 'static>,
+    >;
+
+    async fn list_subjects(
+        &self,
+        request: Request<ListSubjectsRequest>,
+    ) -> Result<Response<Self::ListSubjectsStream>, Status> {
+        let req = request.into_inner();
+
+        // Build core request
+        let list_request = CoreListSubjectsRequest {
+            resource: req.resource,
+            relation: req.relation,
+            subject_type: req.subject_type,
+            limit: req.limit.map(|l| l as usize),
+            cursor: req.cursor,
+        };
+
+        // Execute list
+        let response = self
+            .state
+            .evaluator
+            .list_subjects(list_request)
+            .await
+            .map_err(|e| Status::internal(format!("List subjects failed: {}", e)))?;
+
+        // Create stream of subjects
+        let subjects = response.subjects;
+        let cursor = response.cursor;
+        let total_count = response.total_count.map(|c| c as u64);
+
+        // Stream each subject followed by a final message with metadata
+        let stream = futures::stream::iter(
+            subjects
+                .into_iter()
+                .map(|subject| {
+                    Ok(ListSubjectsResponse {
+                        subject,
+                        cursor: None,
+                        total_count: None,
+                    })
+                })
+                .chain(std::iter::once(Ok(ListSubjectsResponse {
+                    subject: String::new(), // Empty subject in final message
                     cursor,
                     total_count,
                 }))),

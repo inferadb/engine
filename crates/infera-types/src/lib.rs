@@ -361,3 +361,33 @@ pub struct ListRelationshipsResponse {
     /// Total count of relationships returned
     pub total_count: Option<usize>,
 }
+
+// ============================================================================
+// Request/Response Types - List Subjects
+// ============================================================================
+
+/// A request to list subjects that have a relation to a resource
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListSubjectsRequest {
+    /// Resource (e.g., "document:readme")
+    pub resource: String,
+    /// Relation to check (e.g., "viewer")
+    pub relation: String,
+    /// Optional filter by subject type (e.g., "user", "group")
+    pub subject_type: Option<String>,
+    /// Optional limit on number of subjects to return
+    pub limit: Option<usize>,
+    /// Optional continuation token from previous request
+    pub cursor: Option<String>,
+}
+
+/// Response from a list subjects operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListSubjectsResponse {
+    /// List of subjects with the relation to the resource
+    pub subjects: Vec<String>,
+    /// Continuation token for pagination (if more results available)
+    pub cursor: Option<String>,
+    /// Total count estimate (may be approximate if paginated)
+    pub total_count: Option<usize>,
+}

@@ -4,14 +4,12 @@
 //! Supports multiple subscribers, filtering, and reconnection handling.
 
 use crate::{ReplError, Result};
+use infera_const::DEFAULT_CHANNEL_CAPACITY;
 use infera_types::{Relationship, Revision};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, RwLock};
-
-/// Maximum number of buffered change events per subscriber
-const DEFAULT_CHANNEL_CAPACITY: usize = 1000;
 
 /// A change event representing a relationship operation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

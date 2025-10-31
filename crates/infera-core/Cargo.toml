@@ -24,6 +24,7 @@ pest_derive = "2.7"
 
 # Internal dependencies
 infera-types = { path = "../infera-types" }
+infera-const = { path = "../infera-const" }
 infera-store = { path = "../infera-store" }
 infera-wasm = { path = "../infera-wasm" }
 infera-observe = { path = "../infera-observe" }

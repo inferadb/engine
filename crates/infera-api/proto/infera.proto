@@ -4,17 +4,17 @@ package infera.v1;
 
 // The main Infera authorization service
 service InferaService {
-  // Evaluate if a subject has permission on a resource (streaming for single and batch operations)
+  // Evaluate if a subject has permission on a resource
   // Supports optional detailed tracing for debugging
   rpc Evaluate(stream EvaluateRequest) returns (stream EvaluateResponse);
 
-  // Expand a relation into its userset tree (streaming for progressive results)
+  // Expand a relation into its userset tree
   rpc Expand(ExpandRequest) returns (stream ExpandResponse);
 
-  // Write relationships to the store (streaming for single and batch operations)
+  // Write relationships to the store
   rpc WriteRelationships(stream WriteRequest) returns (WriteResponse);
 
-  // Delete relationships from the store (streaming for single and batch operations)
+  // Delete relationships from the store
   rpc DeleteRelationships(stream DeleteRequest) returns (DeleteResponse);
 
   // Health check
@@ -25,6 +25,9 @@ service InferaService {
 
   // List relationships (relationships) with optional filtering
   rpc ListRelationships(ListRelationshipsRequest) returns (stream ListRelationshipsResponse);
+
+  // List subjects that have a specific relation to a resource
+  rpc ListSubjects(ListSubjectsRequest) returns (stream ListSubjectsResponse);
 }
 
 // Evaluate permission request
@@ -290,7 +293,7 @@ message ListResourcesRequest {
   optional string resource_id_pattern = 6;
 }
 
-// List resources response (streamed)
+// List resources response
 message ListResourcesResponse {
   // Resource ID (e.g., "document:readme")
   string resource = 1;
@@ -333,7 +336,7 @@ message Relationship {
   string subject = 3;
 }
 
-// List relationships response (streamed)
+// List relationships response
 message ListRelationshipsResponse {
   // A single relationship
   Relationship relationship = 1;
@@ -342,5 +345,35 @@ message ListRelationshipsResponse {
   optional string cursor = 2;
 
   // Total count of relationships returned (only set in final message)
+  optional uint64 total_count = 3;
+}
+
+// List subjects request
+message ListSubjectsRequest {
+  // Resource (e.g., "document:readme")
+  string resource = 1;
+
+  // Relation to check (e.g., "viewer")
+  string relation = 2;
+
+  // Optional filter by subject type (e.g., "user", "group")
+  optional string subject_type = 3;
+
+  // Optional limit on number of subjects to return
+  optional uint32 limit = 4;
+
+  // Optional continuation token from previous request
+  optional string cursor = 5;
+}
+
+// List subjects response
+message ListSubjectsResponse {
+  // Subject ID (e.g., "user:alice", "group:admins")
+  string subject = 1;
+
+  // Continuation token for pagination (only set in final message)
+  optional string cursor = 2;
+
+  // Total count estimate (only set in final message, may be approximate)
   optional uint64 total_count = 3;
 }

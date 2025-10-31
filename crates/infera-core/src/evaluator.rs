@@ -6,15 +6,16 @@ use std::time::Instant;
 use tracing::{debug, instrument};
 
 use crate::graph::{has_direct_relationship, GraphContext};
-use crate::ipl::Schema;
+use crate::ipl::{RelationDef, Schema};
 use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
 use crate::{EvalError, Result};
 use infera_cache::{AuthCache, CheckCacheKey};
+use infera_const::{DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT};
 use infera_store::RelationshipStore;
 use infera_types::{
     EvaluateRequest, Decision, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
-    ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, Relationship,
-    UsersetNodeType, UsersetTree,
+    ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, ListSubjectsRequest,
+    ListSubjectsResponse, Relationship, Revision, UsersetNodeType, UsersetTree,
 };
 use infera_wasm::WasmHost;
 
@@ -1190,9 +1191,7 @@ impl Evaluator {
         };
 
         // Apply default and maximum limits
-        const DEFAULT_LIMIT: usize = 100;
-        const MAX_LIMIT: usize = 1000;
-        let limit = request.limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT);
+        let limit = request.limit.unwrap_or(DEFAULT_LIST_LIMIT).min(MAX_LIST_LIMIT);
 
         // Apply pagination
         let relationships: Vec<Relationship> = all_relationships
@@ -1227,6 +1226,512 @@ impl Evaluator {
             relationships,
             cursor,
             total_count: Some(returned_count),
+        })
+    }
+
+    /// List all subjects that have a specific relation to a resource
+    ///
+    /// This performs a reverse traversal to find all subjects with access to the given
+    /// resource through the specified relation.
+    #[instrument(skip(self))]
+    pub async fn list_subjects(
+        &self,
+        request: ListSubjectsRequest,
+    ) -> Result<ListSubjectsResponse> {
+        debug!(
+            resource = %request.resource,
+            relation = %request.relation,
+            subject_type = ?request.subject_type,
+            limit = ?request.limit,
+            "Listing subjects with access"
+        );
+
+        let start = Instant::now();
+
+        // Get current revision to ensure consistent read
+        let revision = self.store.get_revision().await?;
+
+        // Parse resource to extract type
+        let resource_parts: Vec<&str> = request.resource.split(':').collect();
+        if resource_parts.len() != 2 {
+            return Err(EvalError::Evaluation(format!(
+                "Invalid resource format: {}. Expected 'type:id'",
+                request.resource
+            )));
+        }
+        let resource_type = resource_parts[0];
+
+        // Verify the relation exists in the schema
+        let type_def = self
+            .schema
+            .find_type(resource_type)
+            .ok_or_else(|| EvalError::Evaluation(format!("Unknown type: {}", resource_type)))?;
+
+        let relation_def = type_def
+            .relations
+            .iter()
+            .find(|r| r.name == request.relation)
+            .ok_or_else(|| {
+                EvalError::Evaluation(format!(
+                    "Unknown relation: {}#{}",
+                    resource_type, request.relation
+                ))
+            })?;
+
+        // Collect subjects based on relation definition
+        let mut all_subjects =
+            self.collect_subjects_for_relation(
+                &request.resource,
+                relation_def,
+                resource_type,
+                revision,
+            )
+            .await?;
+
+        debug!(
+            "Found {} total subjects before filtering",
+            all_subjects.len()
+        );
+
+        // Sort for stable pagination
+        all_subjects.sort();
+
+        // Apply subject_type filter if provided
+        if let Some(subject_type_filter) = &request.subject_type {
+            all_subjects.retain(|subject| {
+                subject
+                    .split(':')
+                    .next()
+                    .map(|t| t == subject_type_filter)
+                    .unwrap_or(false)
+            });
+        }
+
+        debug!(
+            "Found {} subjects after filtering",
+            all_subjects.len()
+        );
+
+        // Decode cursor to get offset if provided
+        let offset = if let Some(cursor) = &request.cursor {
+            self.decode_continuation_token(cursor)?
+        } else {
+            0
+        };
+
+        // Apply default and maximum limits
+        let limit = request.limit.unwrap_or(DEFAULT_LIST_LIMIT).min(MAX_LIST_LIMIT);
+
+        // Apply pagination
+        let subjects: Vec<String> = all_subjects
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .collect();
+
+        let returned_count = subjects.len();
+
+        // Determine if there are more results
+        let has_more = returned_count == limit;
+        let cursor = if has_more {
+            Some(self.encode_continuation_token(offset + returned_count))
+        } else {
+            None
+        };
+
+        debug!(
+            returned_count = returned_count,
+            has_more = has_more,
+            duration = ?start.elapsed(),
+            "List subjects complete"
+        );
+
+        Ok(ListSubjectsResponse {
+            subjects,
+            cursor,
+            total_count: Some(returned_count),
+        })
+    }
+
+    /// Collect subjects for a given relation (recursive helper)
+    fn collect_subjects_for_relation<'a>(
+        &'a self,
+        resource: &'a str,
+        relation_def: &'a RelationDef,
+        resource_type: &'a str,
+        revision: Revision,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + 'a>> {
+        Box::pin(async move {
+        use crate::ipl::RelationExpr;
+        use std::collections::HashSet;
+
+        let mut subjects = HashSet::new();
+
+        if let Some(ref expr) = relation_def.expr {
+            match expr {
+                // Direct relation: query tuples
+                RelationExpr::This => {
+                    let tuples = self
+                        .store
+                        .list_relationships(
+                            Some(resource),
+                            Some(&relation_def.name),
+                            None,
+                            revision,
+                        )
+                        .await?;
+
+                    for tuple in tuples {
+                        subjects.insert(tuple.subject);
+                    }
+                }
+
+                // Computed userset: follow relationship then get subjects from computed relation
+                RelationExpr::ComputedUserset {
+                    ref relationship,
+                    ref relation,
+                } => {
+                    // First, find related objects via the relationship
+                    let related_tuples = self
+                        .store
+                        .list_relationships(Some(resource), Some(relationship), None, revision)
+                        .await?;
+
+                    // For each related object, find subjects via the computed relation
+                    for tuple in related_tuples {
+                        let related_resource = &tuple.subject;
+                        let related_parts: Vec<&str> = related_resource.split(':').collect();
+
+                        if related_parts.len() == 2 {
+                            let related_type = related_parts[0];
+                            if let Some(related_type_def) = self.schema.find_type(related_type) {
+                                if let Some(computed_rel_def) =
+                                    related_type_def.relations.iter().find(|r| r.name == *relation)
+                                {
+                                    let related_subjects = self
+                                        .collect_subjects_for_relation(
+                                            related_resource,
+                                            computed_rel_def,
+                                            related_type,
+                                            revision,
+                                        )
+                                        .await?;
+                                    subjects.extend(related_subjects);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Union: collect subjects from all branches
+                RelationExpr::Union(ref branches) => {
+                    for branch_expr in branches {
+                        let branch_subjects = self
+                            .collect_subjects_from_expr(resource, branch_expr, resource_type, &relation_def.name, revision)
+                            .await?;
+                        subjects.extend(branch_subjects);
+                    }
+                }
+
+                // Intersection: collect subjects that appear in all branches
+                RelationExpr::Intersection(ref branches) => {
+                    if branches.is_empty() {
+                        return Ok(Vec::new());
+                    }
+
+                    // Get subjects from first branch
+                    let mut intersection_subjects = self
+                        .collect_subjects_from_expr(resource, &branches[0], resource_type, &relation_def.name, revision)
+                        .await?
+                        .into_iter()
+                        .collect::<HashSet<_>>();
+
+                    // Intersect with remaining branches
+                    for branch_expr in &branches[1..] {
+                        let branch_subjects: HashSet<String> = self
+                            .collect_subjects_from_expr(resource, branch_expr, resource_type, &relation_def.name, revision)
+                            .await?
+                            .into_iter()
+                            .collect();
+                        intersection_subjects.retain(|s| branch_subjects.contains(s));
+                    }
+
+                    subjects.extend(intersection_subjects);
+                }
+
+                // Exclusion: subjects in base but not in subtract
+                RelationExpr::Exclusion { base, subtract } => {
+                    let base_subjects: HashSet<String> = self
+                        .collect_subjects_from_expr(resource, base, resource_type, &relation_def.name, revision)
+                        .await?
+                        .into_iter()
+                        .collect();
+
+                    let subtract_subjects: HashSet<String> = self
+                        .collect_subjects_from_expr(resource, subtract, resource_type, &relation_def.name, revision)
+                        .await?
+                        .into_iter()
+                        .collect();
+
+                    subjects.extend(base_subjects.difference(&subtract_subjects).cloned());
+                }
+
+                // RelatedObjectUserset: find related objects, then their subjects
+                RelationExpr::RelatedObjectUserset {
+                    ref relationship,
+                    ref computed,
+                } => {
+                    // First, find all related objects via the relationship
+                    let related_tuples = self
+                        .store
+                        .list_relationships(Some(resource), Some(relationship), None, revision)
+                        .await?;
+
+                    // For each related object, find subjects via the computed relation
+                    for tuple in related_tuples {
+                        let related_resource = &tuple.subject; // The subject is the related object
+
+                        // Extract the type from the related resource
+                        let related_parts: Vec<&str> = related_resource.split(':').collect();
+                        if related_parts.len() == 2 {
+                            let related_type = related_parts[0];
+
+                            if let Some(related_type_def) = self.schema.find_type(related_type) {
+                                if let Some(computed_rel_def) =
+                                    related_type_def.relations.iter().find(|r| r.name == *computed)
+                                {
+                                    let related_subjects = self
+                                        .collect_subjects_for_relation(
+                                            related_resource,
+                                            computed_rel_def,
+                                            related_type,
+                                            revision,
+                                        )
+                                        .await?;
+                                    subjects.extend(related_subjects);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Relation reference: recursively get subjects from referenced relation
+                RelationExpr::RelationRef { ref relation } => {
+                    let ref_rel_def = self
+                        .schema
+                        .find_type(resource_type)
+                        .and_then(|t| t.relations.iter().find(|r| r.name == *relation))
+                        .ok_or_else(|| {
+                            EvalError::Evaluation(format!(
+                                "Unknown relation: {}#{}",
+                                resource_type, relation
+                            ))
+                        })?;
+
+                    let ref_subjects = self
+                        .collect_subjects_for_relation(resource, ref_rel_def, resource_type, revision)
+                        .await?;
+                    subjects.extend(ref_subjects);
+                }
+
+                // WASM module: Not supported for list_subjects (requires evaluation per subject)
+                RelationExpr::WasmModule { .. } => {
+                    return Err(EvalError::Evaluation(
+                        "WASM module-based relations are not supported for list_subjects".to_string(),
+                    ));
+                }
+            }
+        } else {
+            // No expression means it's a direct relation (This)
+            let tuples = self
+                .store
+                .list_relationships(
+                    Some(resource),
+                    Some(&relation_def.name),
+                    None,
+                    revision,
+                )
+                .await?;
+
+            for tuple in tuples {
+                subjects.insert(tuple.subject);
+            }
+        }
+
+        Ok(subjects.into_iter().collect())
+        })
+    }
+
+    /// Helper to collect subjects from a relation expression
+    fn collect_subjects_from_expr<'a>(
+        &'a self,
+        resource: &'a str,
+        expr: &'a crate::ipl::RelationExpr,
+        resource_type: &'a str,
+        relation_name: &'a str,
+        revision: Revision,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + 'a>> {
+        Box::pin(async move {
+        use crate::ipl::RelationExpr;
+        use std::collections::HashSet;
+
+        match expr {
+            RelationExpr::This => {
+                // Collect direct relationships for this relation
+                let tuples = self
+                    .store
+                    .list_relationships(Some(resource), Some(relation_name), None, revision)
+                    .await?;
+                Ok(tuples.into_iter().map(|t| t.subject).collect())
+            }
+
+            RelationExpr::ComputedUserset {
+                ref relationship,
+                ref relation,
+            } => {
+                let mut all_subjects = HashSet::new();
+                let related_tuples = self
+                    .store
+                    .list_relationships(Some(resource), Some(relationship), None, revision)
+                    .await?;
+
+                for tuple in related_tuples {
+                    let related_resource = &tuple.subject;
+                    let related_parts: Vec<&str> = related_resource.split(':').collect();
+
+                    if related_parts.len() == 2 {
+                        let related_type = related_parts[0];
+                        if let Some(related_type_def) = self.schema.find_type(related_type) {
+                            if let Some(computed_rel_def) =
+                                related_type_def.relations.iter().find(|r| r.name == *relation)
+                            {
+                                let related_subjects = self
+                                    .collect_subjects_for_relation(
+                                        related_resource,
+                                        computed_rel_def,
+                                        related_type,
+                                        revision,
+                                    )
+                                    .await?;
+                                all_subjects.extend(related_subjects);
+                            }
+                        }
+                    }
+                }
+
+                Ok(all_subjects.into_iter().collect())
+            }
+
+            RelationExpr::RelationRef { ref relation } => {
+                let ref_rel_def = self
+                    .schema
+                    .find_type(resource_type)
+                    .and_then(|t| t.relations.iter().find(|r| r.name == *relation))
+                    .ok_or_else(|| {
+                        EvalError::Evaluation(format!(
+                            "Unknown relation: {}#{}",
+                            resource_type, relation
+                        ))
+                    })?;
+
+                self.collect_subjects_for_relation(resource, ref_rel_def, resource_type, revision)
+                    .await
+            }
+
+            RelationExpr::Union(ref branches) => {
+                let mut all_subjects = HashSet::new();
+                for branch in branches {
+                    let branch_subjects =
+                        self.collect_subjects_from_expr(resource, branch, resource_type, relation_name, revision)
+                            .await?;
+                    all_subjects.extend(branch_subjects);
+                }
+                Ok(all_subjects.into_iter().collect())
+            }
+
+            RelationExpr::Intersection(ref branches) => {
+                if branches.is_empty() {
+                    return Ok(Vec::new());
+                }
+
+                let mut intersection_subjects = self
+                    .collect_subjects_from_expr(resource, &branches[0], resource_type, relation_name, revision)
+                    .await?
+                    .into_iter()
+                    .collect::<HashSet<_>>();
+
+                for branch in &branches[1..] {
+                    let branch_subjects: HashSet<String> = self
+                        .collect_subjects_from_expr(resource, branch, resource_type, relation_name, revision)
+                        .await?
+                        .into_iter()
+                        .collect();
+                    intersection_subjects.retain(|s| branch_subjects.contains(s));
+                }
+
+                Ok(intersection_subjects.into_iter().collect())
+            }
+
+            RelationExpr::Exclusion { base, subtract } => {
+                let base_subjects: HashSet<String> = self
+                    .collect_subjects_from_expr(resource, base, resource_type, relation_name, revision)
+                    .await?
+                    .into_iter()
+                    .collect();
+
+                let subtract_subjects: HashSet<String> = self
+                    .collect_subjects_from_expr(resource, subtract, resource_type, relation_name, revision)
+                    .await?
+                    .into_iter()
+                    .collect();
+
+                Ok(base_subjects
+                    .difference(&subtract_subjects)
+                    .cloned()
+                    .collect())
+            }
+
+            RelationExpr::RelatedObjectUserset {
+                ref relationship,
+                ref computed,
+            } => {
+                let mut all_subjects = HashSet::new();
+                let related_tuples = self
+                    .store
+                    .list_relationships(Some(resource), Some(relationship), None, revision)
+                    .await?;
+
+                for tuple in related_tuples {
+                    let related_resource = &tuple.subject;
+                    let related_parts: Vec<&str> = related_resource.split(':').collect();
+
+                    if related_parts.len() == 2 {
+                        let related_type = related_parts[0];
+                        if let Some(related_type_def) = self.schema.find_type(related_type) {
+                            if let Some(computed_rel_def) =
+                                related_type_def.relations.iter().find(|r| r.name == *computed)
+                            {
+                                let related_subjects = self
+                                    .collect_subjects_for_relation(
+                                        related_resource,
+                                        computed_rel_def,
+                                        related_type,
+                                        revision,
+                                    )
+                                    .await?;
+                                all_subjects.extend(related_subjects);
+                            }
+                        }
+                    }
+                }
+
+                Ok(all_subjects.into_iter().collect())
+            }
+
+            RelationExpr::WasmModule { .. } => Err(EvalError::Evaluation(
+                "WASM module-based relations are not supported for list_subjects".to_string(),
+            )),
+        }
         })
     }
 
@@ -2866,6 +3371,470 @@ mod tests {
         assert!(response
             .resources
             .contains(&"doc:project_xyz_report".to_string()));
+    }
+
+    // ============================================================================
+    // ListSubjects Tests
+    // ============================================================================
+
+    #[tokio::test]
+    async fn test_list_subjects_basic() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create some relationships where alice and bob are readers
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:bob".to_string(),
+            },
+            Relationship {
+                resource: "doc:guide".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:charlie".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        // Should return alice and bob as readers of doc:readme
+        assert_eq!(response.subjects.len(), 2);
+        assert!(response.subjects.contains(&"user:alice".to_string()));
+        assert!(response.subjects.contains(&"user:bob".to_string()));
+        assert!(!response.subjects.contains(&"user:charlie".to_string()));
+        assert!(response.cursor.is_none()); // No more results
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_no_subjects() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create relationships for different document
+        let relationships = vec![Relationship {
+            resource: "doc:guide".to_string(),
+            relation: "reader".to_string(),
+            subject: "user:alice".to_string(),
+        }];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        // Should return empty list
+        assert_eq!(response.subjects.len(), 0);
+        assert!(response.cursor.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_with_subject_type_filter() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Mix of users and groups
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:bob".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "group:admins".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "group:engineers".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store.clone(), schema.clone(), None);
+
+        // Filter by user type
+        let request = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            subject_type: Some("user".to_string()),
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        assert_eq!(response.subjects.len(), 2);
+        assert!(response.subjects.contains(&"user:alice".to_string()));
+        assert!(response.subjects.contains(&"user:bob".to_string()));
+        assert!(!response.subjects.contains(&"group:admins".to_string()));
+
+        // Filter by group type
+        let request = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            subject_type: Some("group".to_string()),
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        assert_eq!(response.subjects.len(), 2);
+        assert!(response.subjects.contains(&"group:admins".to_string()));
+        assert!(response.subjects.contains(&"group:engineers".to_string()));
+        assert!(!response.subjects.contains(&"user:alice".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_with_limit() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create multiple subjects with access
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:bob".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:charlie".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:dave".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: "user:eve".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // Request with limit of 2
+        let request = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            subject_type: None,
+            limit: Some(2),
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        // Should only return 2 subjects
+        assert_eq!(response.subjects.len(), 2);
+        assert!(response.cursor.is_some()); // Should have a cursor for pagination
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_pagination() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        // Create 10 subjects with access
+        let mut relationships = vec![];
+        for i in 1..=10 {
+            relationships.push(Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "reader".to_string(),
+                subject: format!("user:{}", i),
+            });
+        }
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        // First page: get 3 subjects
+        let request1 = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            subject_type: None,
+            limit: Some(3),
+            cursor: None,
+        };
+
+        let response1 = evaluator.list_subjects(request1).await.unwrap();
+        assert_eq!(response1.subjects.len(), 3);
+        assert!(response1.cursor.is_some());
+
+        // Second page: use cursor
+        let request2 = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "reader".to_string(),
+            subject_type: None,
+            limit: Some(3),
+            cursor: response1.cursor.clone(),
+        };
+
+        let response2 = evaluator.list_subjects(request2).await.unwrap();
+        assert_eq!(response2.subjects.len(), 3);
+
+        // Verify no overlap between pages
+        let first_page: std::collections::HashSet<_> = response1.subjects.iter().collect();
+        let second_page: std::collections::HashSet<_> = response2.subjects.iter().collect();
+        assert!(first_page.is_disjoint(&second_page));
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_with_union_relation() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        // Alice is owner of doc:1, bob is direct viewer
+        // viewer = this | editor | parent->viewer
+        // editor = this | owner
+        let relationships = vec![
+            Relationship {
+                resource: "doc:1".to_string(),
+                relation: "owner".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                resource: "doc:1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:bob".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "doc:1".to_string(),
+            relation: "viewer".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        // Should include alice (via owner->editor->viewer) and bob (direct viewer)
+        assert_eq!(response.subjects.len(), 2);
+        assert!(response.subjects.contains(&"user:alice".to_string()));
+        assert!(response.subjects.contains(&"user:bob".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_with_computed_userset() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        // Alice is owner, bob is editor
+        // editor = this | owner
+        let relationships = vec![
+            Relationship {
+                resource: "doc:1".to_string(),
+                relation: "owner".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                resource: "doc:1".to_string(),
+                relation: "editor".to_string(),
+                subject: "user:bob".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "doc:1".to_string(),
+            relation: "editor".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        // Should include alice (via owner) and bob (direct)
+        assert_eq!(response.subjects.len(), 2);
+        assert!(response.subjects.contains(&"user:alice".to_string()));
+        assert!(response.subjects.contains(&"user:bob".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_with_related_object_userset() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        // Alice is viewer of parent folder, doc has parent->viewer relation
+        let relationships = vec![
+            Relationship {
+                resource: "folder:docs".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "parent".to_string(),
+                subject: "folder:docs".to_string(),
+            },
+            Relationship {
+                resource: "doc:readme".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:bob".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        // Should include alice (via parent->viewer) and bob (direct)
+        assert_eq!(response.subjects.len(), 2);
+        assert!(response.subjects.contains(&"user:alice".to_string()));
+        assert!(response.subjects.contains(&"user:bob".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_deduplication() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_complex_schema());
+
+        // Alice has access through multiple paths:
+        // - Direct viewer
+        // - Owner (which implies editor, which implies viewer)
+        let relationships = vec![
+            Relationship {
+                resource: "doc:1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                resource: "doc:1".to_string(),
+                relation: "owner".to_string(),
+                subject: "user:alice".to_string(),
+            },
+        ];
+        store.write(relationships).await.unwrap();
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "doc:1".to_string(),
+            relation: "viewer".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = evaluator.list_subjects(request).await.unwrap();
+
+        // Alice should only appear once despite multiple paths
+        assert_eq!(response.subjects.len(), 1);
+        assert!(response.subjects.contains(&"user:alice".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_invalid_resource_format() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "invalid-format".to_string(), // Missing colon
+            relation: "reader".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let result = evaluator.list_subjects(request).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_unknown_type() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "unknown:123".to_string(),
+            relation: "reader".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let result = evaluator.list_subjects(request).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_list_subjects_unknown_relation() {
+        let store = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(create_simple_schema());
+
+        let evaluator = Evaluator::new(store, schema, None);
+
+        let request = ListSubjectsRequest {
+            resource: "doc:readme".to_string(),
+            relation: "unknown_relation".to_string(),
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let result = evaluator.list_subjects(request).await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]

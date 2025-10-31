@@ -536,6 +536,166 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /list-subjects:
+    post:
+      tags:
+        - authorization
+      summary: List subjects with access
+      description: |
+        List all subjects (users, groups, etc.) that have a specific relation to a resource.
+
+        This is the reverse of `/list-resources` - instead of finding what resources a subject can access,
+        this finds what subjects have access to a specific resource.
+
+        **Use Cases**:
+        - **Access Review**: "Who can view this document?"
+        - **Permission Audit**: "Who has editor access to this folder?"
+        - **Compliance**: "Show all users with access to sensitive data"
+        - **Team Management**: "List all members of this organization"
+
+        **Performance**: Typical latency varies with relationship count:
+        - Simple relations (100s of subjects): <10ms
+        - Complex relations (1000s of subjects): <50ms
+        - Very large (10K+ subjects): <500ms (use pagination)
+
+        **Pagination**: Use `limit` and `cursor` to paginate through large result sets.
+
+        **Subject Type Filtering**: Use `subject_type` to filter by subject type (e.g., "user", "group").
+      operationId: listSubjects
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListSubjectsRequest"
+            examples:
+              list_viewers:
+                summary: Find who can view a document
+                value:
+                  resource: document:readme
+                  relation: viewer
+              filter_by_type:
+                summary: Find only user viewers (not groups)
+                value:
+                  resource: document:readme
+                  relation: viewer
+                  subject_type: user
+              with_pagination:
+                summary: Paginated lookup with limit
+                value:
+                  resource: organization:acme
+                  relation: member
+                  limit: 100
+              continue_pagination:
+                summary: Continue paginated lookup with cursor
+                value:
+                  resource: organization:acme
+                  relation: member
+                  limit: 100
+                  cursor: eyJvZmZzZXQiOjEwMH0=
+      responses:
+        "200":
+          description: Lookup completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSubjectsResponse"
+              examples:
+                found_subjects:
+                  value:
+                    subjects:
+                      - user:alice
+                      - user:bob
+                      - group:engineers
+                    total_count: 3
+                with_pagination:
+                  value:
+                    subjects:
+                      - user:alice
+                      - user:bob
+                    cursor: eyJvZmZzZXQiOjJ9
+                    total_count: 2
+                no_subjects:
+                  value:
+                    subjects: []
+                    total_count: 0
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /list-subjects/stream:
+    post:
+      tags:
+        - authorization
+      summary: List subjects with Server-Sent Events streaming
+      description: |
+        List subjects and stream them as they're discovered using Server-Sent Events (SSE).
+
+        This is useful for large result sets where you want to show results progressively
+        instead of waiting for the entire response.
+
+        **Events**:
+        - `message` events: Individual subjects as they're discovered
+        - `summary` event: Final metadata (cursor, total_count, complete flag)
+
+        **Example client code**:
+        ```javascript
+        const eventSource = new EventSource('/api/v1/list-subjects/stream');
+        eventSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log('Found subject:', data.subject);
+        };
+        eventSource.addEventListener('summary', (event) => {
+          const summary = JSON.parse(event.data);
+          console.log('Complete:', summary.complete);
+          eventSource.close();
+        });
+        ```
+      operationId: listSubjectsStream
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListSubjectsRequest"
+      responses:
+        "200":
+          description: SSE stream of subjects
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream with two event types:
+                  1. `message` events containing individual subjects
+                  2. `summary` event with final metadata
+              examples:
+                stream_example:
+                  value: |
+                    data: {"subject":"user:alice","index":0}
+
+                    data: {"subject":"user:bob","index":1}
+
+                    event: summary
+                    data: {"cursor":null,"total_count":2,"complete":true}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /write-relationships:
     post:
       tags:
@@ -1174,6 +1334,82 @@ components:
             Total number of relationships returned in this response.
             This may be less than the actual total if pagination is used.
           example: 2
+          nullable: true
+
+    ListSubjectsRequest:
+      type: object
+      required:
+        - resource
+        - relation
+      properties:
+        resource:
+          type: string
+          description: The resource to check access for
+          example: document:readme
+          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+        relation:
+          type: string
+          description: The relation to check (e.g., "viewer", "editor", "member")
+          example: viewer
+          pattern: "^[a-z_][a-z0-9_]*$"
+        subject_type:
+          type: string
+          description: |
+            Optional filter by subject type.
+            Only subjects matching this type prefix will be returned.
+            Examples: "user", "group", "service"
+          example: user
+          pattern: "^[a-z_][a-z0-9_]*$"
+          nullable: true
+        limit:
+          type: integer
+          format: int32
+          description: |
+            Maximum number of subjects to return. Use for pagination.
+            If omitted, all matching subjects are returned (not recommended for large datasets).
+          example: 100
+          minimum: 1
+          maximum: 10000
+        cursor:
+          type: string
+          description: |
+            Continuation token from a previous response.
+            Use to fetch the next page of results.
+          example: eyJvZmZzZXQiOjEwMH0=
+          nullable: true
+
+    ListSubjectsResponse:
+      type: object
+      required:
+        - subjects
+      properties:
+        subjects:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+          description: |
+            List of subject identifiers that have the specified relation to the resource.
+            Each subject is in the format "type:id" (e.g., "user:alice", "group:engineers").
+          example:
+            - user:alice
+            - user:bob
+            - group:engineers
+        cursor:
+          type: string
+          description: |
+            Continuation token for fetching the next page.
+            Present only if there are more results available.
+            Pass this value in the next request's `cursor` field.
+          example: eyJvZmZzZXQiOjEwMH0=
+          nullable: true
+        total_count:
+          type: integer
+          format: int64
+          description: |
+            Total number of subjects returned in this response.
+            This may be less than the actual total if pagination is used.
+          example: 100
           nullable: true
 
     Relationship:
