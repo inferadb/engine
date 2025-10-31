@@ -4,7 +4,7 @@
 //! without exposing implementation details to consumers.
 
 use crate::memory::MemoryBackend;
-use crate::{Result, StoreError, TupleStore};
+use crate::{Result, StoreError, RelationshipStore};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -87,9 +87,9 @@ pub struct StorageFactory;
 
 impl StorageFactory {
     /// Create a storage backend from configuration
-    pub async fn create(config: StorageConfig) -> Result<Arc<dyn TupleStore>> {
+    pub async fn create(config: StorageConfig) -> Result<Arc<dyn RelationshipStore>> {
         match config.backend {
-            BackendType::Memory => Ok(Arc::new(MemoryBackend::new()) as Arc<dyn TupleStore>),
+            BackendType::Memory => Ok(Arc::new(MemoryBackend::new()) as Arc<dyn RelationshipStore>),
             #[cfg(feature = "fdb")]
             BackendType::FoundationDB => {
                 let backend = if let Some(cluster_file) = config.connection_string.as_deref() {
@@ -97,7 +97,7 @@ impl StorageFactory {
                 } else {
                     FoundationDBBackend::new().await?
                 };
-                Ok(Arc::new(backend) as Arc<dyn TupleStore>)
+                Ok(Arc::new(backend) as Arc<dyn RelationshipStore>)
             }
         }
     }
@@ -106,7 +106,7 @@ impl StorageFactory {
     pub async fn from_str(
         backend_str: &str,
         connection_string: Option<String>,
-    ) -> Result<Arc<dyn TupleStore>> {
+    ) -> Result<Arc<dyn RelationshipStore>> {
         let backend_type = BackendType::from_str(backend_str)?;
         let config = StorageConfig {
             backend: backend_type,
@@ -116,8 +116,8 @@ impl StorageFactory {
     }
 
     /// Create default memory backend
-    pub fn memory() -> Arc<dyn TupleStore> {
-        Arc::new(MemoryBackend::new()) as Arc<dyn TupleStore>
+    pub fn memory() -> Arc<dyn RelationshipStore> {
+        Arc::new(MemoryBackend::new()) as Arc<dyn RelationshipStore>
     }
 }
 

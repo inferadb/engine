@@ -53,59 +53,58 @@ impl Revision {
     }
 }
 
-/// A tuple key for lookups
+/// A relationship key for lookups
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct TupleKey {
-    pub object: String,
+pub struct RelationshipKey {
+    pub resource: String,
     pub relation: String,
-    pub user: Option<String>,
+    pub subject: Option<String>,
 }
 
-/// A relationship tuple
+/// A relationship representing an authorization relationship between a subject and resource
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Tuple {
-    pub object: String,
+pub struct Relationship {
+    pub resource: String,
     pub relation: String,
-    pub user: String,
+    pub subject: String,
 }
 
-/// Abstract tuple store interface
+/// The abstract relationship store interface
 #[async_trait]
-pub trait TupleStore: Send + Sync {
-    /// Read tuples matching the key at a specific revision
-    async fn read(&self, key: &TupleKey, revision: Revision) -> Result<Vec<Tuple>>;
+pub trait RelationshipStore: Send + Sync {
+    /// Read relationships matching the key at a specific revision
+    async fn read(&self, key: &RelationshipKey, revision: Revision) -> Result<Vec<Relationship>>;
 
-    /// Write tuples and return the new revision
-    async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision>;
+    /// Write relationships and return the new revision
+    async fn write(&self, relationships: Vec<Relationship>) -> Result<Revision>;
 
     /// Get the current revision
     async fn get_revision(&self) -> Result<Revision>;
 
-    /// Delete tuples matching the key
-    async fn delete(&self, key: &TupleKey) -> Result<Revision>;
+    /// Delete relationships matching the key
+    async fn delete(&self, key: &RelationshipKey) -> Result<Revision>;
 
-    /// List all distinct objects of a given type prefix (e.g., "document", "folder")
-    /// Returns unique object identifiers like ["document:1", "document:2"]
-    async fn list_objects_by_type(
+    /// List all distinct resources of a given type prefix (e.g., "document", "folder")
+    /// Returns unique resource identifiers like ["document:1", "document:2"]
+    async fn list_resources_by_type(
         &self,
-        object_type: &str,
+        resource_type: &str,
         revision: Revision,
     ) -> Result<Vec<String>>;
 
-    /// List relationships (tuples) with optional filtering
+    /// List relationships with optional filtering
     /// All filter fields are optional and can be combined:
     /// - resource: Filter by exact resource match (e.g., "doc:readme")
     /// - relation: Filter by relation (e.g., "viewer")
     /// - subject: Filter by exact subject match (e.g., "user:alice")
-    /// Returns all tuples matching the filter criteria at the specified revision
-    /// Note: Internally tuples use (object, relation, user) but the API uses (resource, relation, subject)
+    /// Returns all relationships matching the filter criteria at the specified revision
     async fn list_relationships(
         &self,
         resource: Option<&str>,
         relation: Option<&str>,
         subject: Option<&str>,
         revision: Revision,
-    ) -> Result<Vec<Tuple>>;
+    ) -> Result<Vec<Relationship>>;
 
     /// Get metrics snapshot (optional, returns None if not supported)
     fn metrics(&self) -> Option<MetricsSnapshot> {

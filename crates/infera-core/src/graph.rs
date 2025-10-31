@@ -8,8 +8,8 @@ use async_recursion::async_recursion;
 use crate::ipl::{RelationExpr, Schema};
 use crate::{EvalError, Result};
 #[cfg(test)]
-use infera_store::Tuple;
-use infera_store::{Revision, TupleKey, TupleStore};
+use infera_store::Relationship;
+use infera_store::{Revision, RelationshipKey, RelationshipStore};
 
 /// Graph traversal context
 pub struct GraphContext {
@@ -17,7 +17,7 @@ pub struct GraphContext {
     pub schema: Arc<Schema>,
 
     /// Storage backend
-    pub store: Arc<dyn TupleStore>,
+    pub store: Arc<dyn RelationshipStore>,
 
     /// Current revision to read at
     pub revision: Revision,
@@ -30,7 +30,7 @@ pub struct GraphContext {
 }
 
 impl GraphContext {
-    pub fn new(schema: Arc<Schema>, store: Arc<dyn TupleStore>, revision: Revision) -> Self {
+    pub fn new(schema: Arc<Schema>, store: Arc<dyn RelationshipStore>, revision: Revision) -> Self {
         Self {
             schema,
             store,
@@ -66,59 +66,59 @@ impl GraphContext {
     }
 }
 
-/// Check if a direct tuple exists
-pub async fn has_direct_tuple(
-    store: &dyn TupleStore,
-    object: &str,
+/// Check if a direct relationship exists
+pub async fn has_direct_relationship(
+    store: &dyn RelationshipStore,
+    resource: &str,
     relation: &str,
-    user: &str,
+    subject: &str,
     revision: Revision,
 ) -> Result<bool> {
     // Check for specific user
-    let key = TupleKey {
-        object: object.to_string(),
+    let key = RelationshipKey {
+        resource: resource.to_string(),
         relation: relation.to_string(),
-        user: Some(user.to_string()),
+        subject: Some(subject.to_string()),
     };
 
-    let tuples = store.read(&key, revision).await?;
-    if !tuples.is_empty() {
+    let relationships = store.read(&key, revision).await?;
+    if !relationships.is_empty() {
         return Ok(true);
     }
 
-    // Also check for wildcard user (user:*)
-    let wildcard_key = TupleKey {
-        object: object.to_string(),
+    // Also check for wildcard user (subject:*)
+    let wildcard_key = RelationshipKey {
+        resource: resource.to_string(),
         relation: relation.to_string(),
-        user: Some("user:*".to_string()),
+        subject: Some("user:*".to_string()),
     };
 
-    let wildcard_tuples = store.read(&wildcard_key, revision).await?;
-    Ok(!wildcard_tuples.is_empty())
+    let wildcard_relationships = store.read(&wildcard_key, revision).await?;
+    Ok(!wildcard_relationships.is_empty())
 }
 
 /// Get all users with a specific relation on an object
 pub async fn get_users_with_relation(
-    store: &dyn TupleStore,
-    object: &str,
+    store: &dyn RelationshipStore,
+    resource: &str,
     relation: &str,
     revision: Revision,
 ) -> Result<Vec<String>> {
-    let key = TupleKey {
-        object: object.to_string(),
+    let key = RelationshipKey {
+        resource: resource.to_string(),
         relation: relation.to_string(),
-        user: None,
+        subject: None,
     };
 
-    let tuples = store.read(&key, revision).await?;
-    Ok(tuples.into_iter().map(|t| t.user).collect())
+    let relationships = store.read(&key, revision).await?;
+    Ok(relationships.into_iter().map(|t| t.subject).collect())
 }
 
 /// Batch prefetch users with a specific relation for multiple objects
 /// This is useful for graph traversal optimizations where we know we'll need
 /// the same relation for many objects (e.g., ComputedUserset, TupleToUserset)
 pub async fn prefetch_users_batch(
-    store: &dyn TupleStore,
+    store: &dyn RelationshipStore,
     objects: &[String],
     relation: &str,
     revision: Revision,
@@ -144,8 +144,8 @@ pub async fn prefetch_users_batch(
     // Collect into HashMap
     let mut map = std::collections::HashMap::new();
     for result in results {
-        let (object, users) = result?;
-        map.insert(object, users);
+        let (resource, users) = result?;
+        map.insert(resource, users);
     }
 
     Ok(map)
@@ -154,14 +154,14 @@ pub async fn prefetch_users_batch(
 /// Resolve a userset (get all users in a userset)
 #[async_recursion]
 pub async fn resolve_userset(
-    object: &str,
+    resource: &str,
     relation: &str,
     ctx: &mut GraphContext,
 ) -> Result<HashSet<String>> {
     ctx.check_depth()?;
 
     // Check for cycles
-    let key = format!("{}#{}", object, relation);
+    let key = format!("{}#{}", resource, relation);
     if ctx.is_visited(&key) {
         // Cycle detected, return empty set
         return Ok(HashSet::new());
@@ -170,7 +170,7 @@ pub async fn resolve_userset(
     ctx.visit(key.clone());
 
     // Get the type and relation definition
-    let type_name = object
+    let type_name = resource
         .split(':')
         .next()
         .ok_or_else(|| EvalError::Evaluation("Invalid object format".to_string()))?;
@@ -186,13 +186,13 @@ pub async fn resolve_userset(
 
     let mut users = HashSet::new();
 
-    // If no expression or just "this", return direct tuples
+    // If no expression or just "this", return direct relationships
     if let Some(expr) = &relation_def.expr {
         let expr_clone = expr.clone();
-        users = evaluate_relation_expr(object, relation, &expr_clone, ctx).await?;
+        users = evaluate_relation_expr(resource, relation, &expr_clone, ctx).await?;
     } else {
         let direct_users =
-            get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
+            get_users_with_relation(&*ctx.store, resource, relation, ctx.revision).await?;
         users.extend(direct_users);
     }
 
@@ -203,28 +203,28 @@ pub async fn resolve_userset(
 /// Evaluate a relation expression to get a userset
 #[async_recursion]
 async fn evaluate_relation_expr(
-    object: &str,
+    resource: &str,
     relation: &str,
     expr: &RelationExpr,
     ctx: &mut GraphContext,
 ) -> Result<HashSet<String>> {
     match expr {
         RelationExpr::This => {
-            // Direct tuples for the current relation
+            // Direct relationships for the current relation
             let direct_users =
-                get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
+                get_users_with_relation(&*ctx.store, resource, relation, ctx.revision).await?;
             Ok(direct_users.into_iter().collect())
         }
 
         RelationExpr::RelationRef { relation } => {
             // Reference to another relation on the same object
-            resolve_userset(object, relation, ctx).await
+            resolve_userset(resource, relation, ctx).await
         }
 
         RelationExpr::ComputedUserset { relation, tupleset } => {
             // Get objects from tupleset, then compute relation on each
             let tupleset_objects =
-                get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+                get_users_with_relation(&*ctx.store, resource, tupleset, ctx.revision).await?;
 
             let mut users = HashSet::new();
             for obj in tupleset_objects {
@@ -237,7 +237,7 @@ async fn evaluate_relation_expr(
         RelationExpr::TupleToUserset { tupleset, computed } => {
             // Get objects from tupleset, evaluate computed relation on each
             let tupleset_objects =
-                get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+                get_users_with_relation(&*ctx.store, resource, tupleset, ctx.revision).await?;
 
             let mut users = HashSet::new();
             for obj in tupleset_objects {
@@ -250,7 +250,7 @@ async fn evaluate_relation_expr(
         RelationExpr::Union(exprs) => {
             let mut users = HashSet::new();
             for expr in exprs {
-                let expr_users = evaluate_relation_expr(object, relation, expr, ctx).await?;
+                let expr_users = evaluate_relation_expr(resource, relation, expr, ctx).await?;
                 users.extend(expr_users);
             }
             Ok(users)
@@ -262,19 +262,19 @@ async fn evaluate_relation_expr(
             }
 
             // Start with first set
-            let mut users = evaluate_relation_expr(object, relation, &exprs[0], ctx).await?;
+            let mut users = evaluate_relation_expr(resource, relation, &exprs[0], ctx).await?;
 
             // Intersect with remaining sets
             for expr in &exprs[1..] {
-                let expr_users = evaluate_relation_expr(object, relation, expr, ctx).await?;
+                let expr_users = evaluate_relation_expr(resource, relation, expr, ctx).await?;
                 users.retain(|u| expr_users.contains(u));
             }
             Ok(users)
         }
 
         RelationExpr::Exclusion { base, subtract } => {
-            let mut base_users = evaluate_relation_expr(object, relation, base, ctx).await?;
-            let subtract_users = evaluate_relation_expr(object, relation, subtract, ctx).await?;
+            let mut base_users = evaluate_relation_expr(resource, relation, base, ctx).await?;
+            let subtract_users = evaluate_relation_expr(resource, relation, subtract, ctx).await?;
 
             base_users.retain(|u| !subtract_users.contains(u));
             Ok(base_users)
@@ -295,51 +295,51 @@ async fn evaluate_relation_expr(
 mod tests {
     use super::*;
     use crate::ipl::{RelationDef, Schema, TypeDef};
-    use infera_store::MemoryBackend;
+    use infera_store::{MemoryBackend, Relationship};
 
     #[tokio::test]
-    async fn test_has_direct_tuple() {
+    async fn test_has_direct_relationship() {
         let store = MemoryBackend::new();
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let rev = store.write(vec![tuple]).await.unwrap();
+        let rev = store.write(vec![relationship]).await.unwrap();
 
-        let has_tuple = has_direct_tuple(&store, "doc:readme", "reader", "user:alice", rev)
+        let has_relationship = has_direct_relationship(&store, "doc:readme", "reader", "user:alice", rev)
             .await
             .unwrap();
 
-        assert!(has_tuple);
+        assert!(has_relationship);
 
-        let no_tuple = has_direct_tuple(&store, "doc:readme", "reader", "user:bob", rev)
+        let no_relationship = has_direct_relationship(&store, "doc:readme", "reader", "user:bob", rev)
             .await
             .unwrap();
 
-        assert!(!no_tuple);
+        assert!(!no_relationship);
     }
 
     #[tokio::test]
     async fn test_get_users_with_relation() {
         let store = MemoryBackend::new();
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
 
-        let rev = store.write(tuples).await.unwrap();
+        let rev = store.write(relationships).await.unwrap();
 
         let users = get_users_with_relation(&store, "doc:readme", "reader", rev)
             .await

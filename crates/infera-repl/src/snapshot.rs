@@ -3,20 +3,20 @@
 //! Provides snapshot isolation for reads at specific revision tokens
 
 use crate::{ReplError, Result, RevisionToken};
-use infera_store::{Revision, Tuple, TupleKey, TupleStore};
+use infera_store::{Revision, RelationshipKey, RelationshipStore};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
 
 /// Snapshot reader for consistent reads at a specific revision
 pub struct SnapshotReader {
-    store: Arc<dyn TupleStore>,
+    store: Arc<dyn RelationshipStore>,
     timeout_duration: Duration,
 }
 
 impl SnapshotReader {
     /// Create a new snapshot reader
-    pub fn new(store: Arc<dyn TupleStore>) -> Self {
+    pub fn new(store: Arc<dyn RelationshipStore>) -> Self {
         Self {
             store,
             timeout_duration: Duration::from_secs(30),
@@ -24,16 +24,16 @@ impl SnapshotReader {
     }
 
     /// Create a snapshot reader with a custom timeout
-    pub fn with_timeout(store: Arc<dyn TupleStore>, timeout_duration: Duration) -> Self {
+    pub fn with_timeout(store: Arc<dyn RelationshipStore>, timeout_duration: Duration) -> Self {
         Self {
             store,
             timeout_duration,
         }
     }
 
-    /// Read tuples at a specific revision token
+    /// Read relationships at a specific revision token
     /// Blocks until the revision is available or times out
-    pub async fn read_at_token(&self, key: &TupleKey, token: &RevisionToken) -> Result<Vec<Tuple>> {
+    pub async fn read_at_token(&self, key: &RelationshipKey, token: &RevisionToken) -> Result<Vec<infera_store::Relationship>> {
         // Validate the token
         token.validate()?;
 
@@ -50,7 +50,7 @@ impl SnapshotReader {
         .await;
 
         match result {
-            Ok(Ok(tuples)) => Ok(tuples),
+            Ok(Ok(relationships)) => Ok(relationships),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(ReplError::Replication(
                 "Timeout waiting for revision to become available".to_string(),
@@ -61,17 +61,17 @@ impl SnapshotReader {
     /// Wait for a revision to be available, then read
     async fn wait_for_revision_and_read(
         &self,
-        key: &TupleKey,
+        key: &RelationshipKey,
         target_revision: Revision,
-    ) -> Result<Vec<Tuple>> {
+    ) -> Result<Vec<infera_store::Relationship>> {
         // Poll until the store has reached the target revision
         loop {
             let current_revision = self.store.get_revision().await?;
 
             if current_revision >= target_revision {
                 // Revision is available, perform the read
-                let tuples = self.store.read(key, target_revision).await?;
-                return Ok(tuples);
+                let relationships = self.store.read(key, target_revision).await?;
+                return Ok(relationships);
             }
 
             // Wait a bit before checking again
@@ -79,11 +79,11 @@ impl SnapshotReader {
         }
     }
 
-    /// Read tuples at the current revision
-    pub async fn read_current(&self, key: &TupleKey) -> Result<Vec<Tuple>> {
+    /// Read relationships at the current revision
+    pub async fn read_current(&self, key: &RelationshipKey) -> Result<Vec<infera_store::Relationship>> {
         let current_revision = self.store.get_revision().await?;
-        let tuples = self.store.read(key, current_revision).await?;
-        Ok(tuples)
+        let relationships = self.store.read(key, current_revision).await?;
+        Ok(relationships)
     }
 
     /// Get the current revision as a token
@@ -96,31 +96,31 @@ impl SnapshotReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use infera_store::{MemoryBackend, Tuple};
+    use infera_store::{MemoryBackend, Relationship};
 
     #[tokio::test]
     async fn test_read_current() {
         let store = Arc::new(MemoryBackend::new());
         let reader = SnapshotReader::new(store.clone());
 
-        // Write a tuple
-        let tuple = Tuple {
-            object: "document:readme".to_string(),
+        // Write a relationship
+        let relationship = infera_store::Relationship {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        store.write(vec![tuple.clone()]).await.unwrap();
+        store.write(vec![relationship.clone()]).await.unwrap();
 
         // Read at current revision
-        let key = TupleKey {
-            object: "document:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: None,
+            subject: None,
         };
-        let tuples = reader.read_current(&key).await.unwrap();
+        let relationships = reader.read_current(&key).await.unwrap();
 
-        assert_eq!(tuples.len(), 1);
-        assert_eq!(tuples[0], tuple);
+        assert_eq!(relationships.len(), 1);
+        assert_eq!(relationships[0], relationship);
     }
 
     #[tokio::test]
@@ -128,35 +128,35 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let reader = SnapshotReader::new(store.clone());
 
-        // Write first tuple
-        let tuple1 = Tuple {
-            object: "document:readme".to_string(),
+        // Write first relationship
+        let relationship1 = infera_store::Relationship {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        let rev1 = store.write(vec![tuple1.clone()]).await.unwrap();
+        let rev1 = store.write(vec![relationship1.clone()]).await.unwrap();
 
         // Create token at revision 1
         let token1 = RevisionToken::new("node1".to_string(), rev1.0);
 
-        // Write second tuple
-        let tuple2 = Tuple {
-            object: "document:readme".to_string(),
+        // Write second relationship
+        let relationship2 = infera_store::Relationship {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:bob".to_string(),
+            subject: "user:bob".to_string(),
         };
-        store.write(vec![tuple2.clone()]).await.unwrap();
+        store.write(vec![relationship2.clone()]).await.unwrap();
 
-        // Read at revision 1 (should only see first tuple)
-        let key = TupleKey {
-            object: "document:readme".to_string(),
+        // Read at revision 1 (should only see first relationship)
+        let key = RelationshipKey {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: None,
+            subject: None,
         };
-        let tuples = reader.read_at_token(&key, &token1).await.unwrap();
+        let relationships = reader.read_at_token(&key, &token1).await.unwrap();
 
-        assert_eq!(tuples.len(), 1);
-        assert_eq!(tuples[0], tuple1);
+        assert_eq!(relationships.len(), 1);
+        assert_eq!(relationships[0], relationship1);
     }
 
     #[tokio::test]
@@ -164,13 +164,13 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let reader = SnapshotReader::new(store.clone());
 
-        // Write a tuple
-        let tuple = Tuple {
-            object: "document:readme".to_string(),
+        // Write a relationship
+        let relationship = infera_store::Relationship {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        let revision = store.write(vec![tuple]).await.unwrap();
+        let revision = store.write(vec![relationship]).await.unwrap();
 
         // Get current token
         let token = reader.current_token("node1".to_string()).await.unwrap();
@@ -187,10 +187,10 @@ mod tests {
         // Create a token with a future revision that will never be reached
         let token = RevisionToken::new("node1".to_string(), 999);
 
-        let key = TupleKey {
-            object: "document:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: None,
+            subject: None,
         };
 
         // This should timeout

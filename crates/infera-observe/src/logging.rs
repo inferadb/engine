@@ -133,7 +133,7 @@ pub fn storage_span(operation: &str, count: usize) -> Span {
     tracing::debug_span!(
         "storage",
         operation = operation,
-        tuple_count = count,
+        relationship_count = count,
         duration_ms = tracing::field::Empty,
     )
 }
@@ -346,8 +346,8 @@ mod tests {
         let error = std::io::Error::new(std::io::ErrorKind::NotFound, "test error");
         log_error_with_context(
             &error,
-            "read_tuple",
-            &[("resource", &"doc:readme"), ("user", &"alice")],
+            "read_relationship",
+            &[("resource", &"doc:readme"), ("subject", &"alice")],
         );
         // Just verify it doesn't panic
     }

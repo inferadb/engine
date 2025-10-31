@@ -8,7 +8,7 @@
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;
-use common::{tuple, TestFixture};
+use common::{relationship, TestFixture};
 
 /// Create a role-based access control schema
 fn create_schema() -> Schema {
@@ -94,9 +94,9 @@ async fn test_basic_role_assignment() {
     // Alice is a member of the "readers" role
     // resource1 grants read access to the "readers" role
     fixture
-        .write_tuples(vec![
-            tuple("role:readers", "member", "user:alice"),
-            tuple("resource:resource1", "reader_role", "role:readers"),
+        .write_relationships(vec![
+            relationship("role:readers", "member", "user:alice"),
+            relationship("resource:resource1", "reader_role", "role:readers"),
         ])
         .await
         .unwrap();
@@ -124,9 +124,9 @@ async fn test_writer_role() {
     // Bob is a member of the "writers" role
     // resource1 grants write access to the "writers" role
     fixture
-        .write_tuples(vec![
-            tuple("role:writers", "member", "user:bob"),
-            tuple("resource:resource1", "writer_role", "role:writers"),
+        .write_relationships(vec![
+            relationship("role:writers", "member", "user:bob"),
+            relationship("resource:resource1", "writer_role", "role:writers"),
         ])
         .await
         .unwrap();
@@ -154,9 +154,9 @@ async fn test_admin_role() {
     // Charlie is a member of the "admins" role
     // resource1 grants admin access to the "admins" role
     fixture
-        .write_tuples(vec![
-            tuple("role:admins", "member", "user:charlie"),
-            tuple("resource:resource1", "admin_role", "role:admins"),
+        .write_relationships(vec![
+            relationship("role:admins", "member", "user:charlie"),
+            relationship("resource:resource1", "admin_role", "role:admins"),
         ])
         .await
         .unwrap();
@@ -186,10 +186,10 @@ async fn test_role_hierarchy() {
     // - Alice is member of "users" role
     // - resource1 grants read to "power_users"
     fixture
-        .write_tuples(vec![
-            tuple("role:power_users", "parent_role", "role:users"),
-            tuple("role:users", "member", "user:alice"),
-            tuple("resource:resource1", "reader_role", "role:power_users"),
+        .write_relationships(vec![
+            relationship("role:power_users", "parent_role", "role:users"),
+            relationship("role:users", "member", "user:alice"),
+            relationship("resource:resource1", "reader_role", "role:power_users"),
         ])
         .await
         .unwrap();
@@ -209,11 +209,11 @@ async fn test_multiple_roles_per_user() {
     // resource1 grants read to "readers"
     // resource2 grants write to "writers"
     fixture
-        .write_tuples(vec![
-            tuple("role:readers", "member", "user:bob"),
-            tuple("role:writers", "member", "user:bob"),
-            tuple("resource:resource1", "reader_role", "role:readers"),
-            tuple("resource:resource2", "writer_role", "role:writers"),
+        .write_relationships(vec![
+            relationship("role:readers", "member", "user:bob"),
+            relationship("role:writers", "member", "user:bob"),
+            relationship("resource:resource1", "reader_role", "role:readers"),
+            relationship("resource:resource2", "writer_role", "role:writers"),
         ])
         .await
         .unwrap();
@@ -240,13 +240,13 @@ async fn test_multiple_roles_per_resource() {
 
     // resource1 grants access to multiple roles
     fixture
-        .write_tuples(vec![
-            tuple("role:readers", "member", "user:alice"),
-            tuple("role:writers", "member", "user:bob"),
-            tuple("role:admins", "member", "user:charlie"),
-            tuple("resource:resource1", "reader_role", "role:readers"),
-            tuple("resource:resource1", "writer_role", "role:writers"),
-            tuple("resource:resource1", "admin_role", "role:admins"),
+        .write_relationships(vec![
+            relationship("role:readers", "member", "user:alice"),
+            relationship("role:writers", "member", "user:bob"),
+            relationship("role:admins", "member", "user:charlie"),
+            relationship("resource:resource1", "reader_role", "role:readers"),
+            relationship("resource:resource1", "writer_role", "role:writers"),
+            relationship("resource:resource1", "admin_role", "role:admins"),
         ])
         .await
         .unwrap();
@@ -282,7 +282,7 @@ async fn test_no_role_no_access() {
 
     // resource1 exists but has no role assignments
     // Dave has no role assignments
-    fixture.write_tuples(vec![]).await.unwrap();
+    fixture.write_relationships(vec![]).await.unwrap();
 
     // Dave cannot access resource1 at all
     fixture
@@ -307,12 +307,12 @@ async fn test_complex_role_hierarchy() {
     // - Alice is member of "users"
     // - resource1 grants read to "super_admins"
     fixture
-        .write_tuples(vec![
-            tuple("role:super_admins", "parent_role", "role:admins"),
-            tuple("role:admins", "parent_role", "role:power_users"),
-            tuple("role:power_users", "parent_role", "role:users"),
-            tuple("role:users", "member", "user:alice"),
-            tuple("resource:resource1", "reader_role", "role:super_admins"),
+        .write_relationships(vec![
+            relationship("role:super_admins", "parent_role", "role:admins"),
+            relationship("role:admins", "parent_role", "role:power_users"),
+            relationship("role:power_users", "parent_role", "role:users"),
+            relationship("role:users", "member", "user:alice"),
+            relationship("resource:resource1", "reader_role", "role:super_admins"),
         ])
         .await
         .unwrap();
@@ -333,17 +333,17 @@ async fn test_rbac_with_multiple_users_and_resources() {
     // - 3 resources: public, internal, confidential
     // - 4 users with different role assignments
     fixture
-        .write_tuples(vec![
+        .write_relationships(vec![
             // Role assignments
-            tuple("role:readers", "member", "user:alice"),
-            tuple("role:writers", "member", "user:bob"),
-            tuple("role:writers", "member", "user:charlie"),
-            tuple("role:admins", "member", "user:charlie"),
-            tuple("role:admins", "member", "user:dave"),
+            relationship("role:readers", "member", "user:alice"),
+            relationship("role:writers", "member", "user:bob"),
+            relationship("role:writers", "member", "user:charlie"),
+            relationship("role:admins", "member", "user:charlie"),
+            relationship("role:admins", "member", "user:dave"),
             // Resource permissions
-            tuple("resource:public", "reader_role", "role:readers"),
-            tuple("resource:internal", "writer_role", "role:writers"),
-            tuple("resource:confidential", "admin_role", "role:admins"),
+            relationship("resource:public", "reader_role", "role:readers"),
+            relationship("resource:internal", "writer_role", "role:writers"),
+            relationship("resource:confidential", "admin_role", "role:admins"),
         ])
         .await
         .unwrap();

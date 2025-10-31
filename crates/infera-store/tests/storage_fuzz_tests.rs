@@ -3,12 +3,12 @@
 //! These tests use property-based testing to fuzz storage operations,
 //! ensuring data integrity, crash resistance, and proper error handling.
 
-use infera_store::{MemoryBackend, Tuple, TupleStore};
+use infera_store::{MemoryBackend, Tuple, RelationshipStore};
 use proptest::prelude::*;
 use std::sync::Arc;
 
-/// Generate arbitrary tuple data
-fn arb_tuple() -> impl Strategy<Value = Tuple> {
+/// Generate arbitrary relationship data
+fn arb_relationship() -> impl Strategy<Value = Tuple> {
     (
         prop_oneof![
             // Normal identifiers
@@ -22,7 +22,7 @@ fn arb_tuple() -> impl Strategy<Value = Tuple> {
             // Unicode
             "\\PC{1,50}",
             // Potential injection
-            Just("'; DROP TABLE tuples; --".to_string()),
+            Just("'; DROP TABLE relationships; --".to_string()),
             Just("../../etc/passwd".to_string()),
         ],
         prop_oneof!["[a-z]{1,50}", Just(String::new()), "\\PC{1,30}",],
@@ -33,7 +33,7 @@ fn arb_tuple() -> impl Strategy<Value = Tuple> {
             "\\PC{1,50}",
         ],
     )
-        .prop_map(|(object, relation, user)| Tuple {
+        .prop_map(|(object, relation, user)| infera_store::Relationship {
             object,
             relation,
             user,
@@ -43,15 +43,15 @@ fn arb_tuple() -> impl Strategy<Value = Tuple> {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(100))]
 
-    /// Fuzz write operations with arbitrary tuples
+    /// Fuzz write operations with arbitrary relationships
     #[test]
-    fn fuzz_write_operations(tuples in prop::collection::vec(arb_tuple(), 1..100)) {
+    fn fuzz_write_operations(relationships in prop::collection::vec(arb_relationship(), 1..100)) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
             // Write should not panic, even with invalid data
-            let result = store.write(tuples.clone()).await;
+            let result = store.write(relationships.clone()).await;
 
             // We expect either success or a clean error
             // Panics are not acceptable
@@ -89,11 +89,11 @@ proptest! {
             // Get current revision
             let revision = store.get_revision().await.unwrap_or(infera_store::Revision(0));
 
-            // Create tuple key
-            let key = infera_store::TupleKey {
+            // Create relationship key
+            let key = infera_store::RelationshipKey {
                 object,
                 relation,
-                user: user_filter,
+                subject: user_filter,
             };
 
             // Read should not panic
@@ -101,10 +101,10 @@ proptest! {
 
             // Should return Ok (possibly empty results) or a clean error
             match result {
-                Ok(tuples) => {
+                Ok(relationships) => {
                     // Results should be valid
-                    for tuple in tuples {
-                        assert!(!tuple.object.is_empty() || !tuple.relation.is_empty() || !tuple.user.is_empty());
+                    for relationship in relationships {
+                        assert!(!relationship.resource.is_empty() || !relationship.relation.is_empty() || !relationship.subject.is_empty());
                     }
                 }
                 Err(_) => {
@@ -131,11 +131,11 @@ proptest! {
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            // Create tuple key
-            let key = infera_store::TupleKey {
+            // Create relationship key
+            let key = infera_store::RelationshipKey {
                 object,
                 relation,
-                user: user_filter,
+                subject: user_filter,
             };
 
             // Delete should not panic
@@ -155,8 +155,8 @@ proptest! {
     /// Fuzz with concurrent writes
     #[test]
     fn fuzz_concurrent_writes(
-        batch1 in prop::collection::vec(arb_tuple(), 1..50),
-        batch2 in prop::collection::vec(arb_tuple(), 1..50),
+        batch1 in prop::collection::vec(arb_relationship(), 1..50),
+        batch2 in prop::collection::vec(arb_relationship(), 1..50),
     ) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
@@ -196,28 +196,28 @@ proptest! {
             let store = Arc::new(MemoryBackend::new());
 
             // Write some data first
-            let tuple = Tuple {
-                object: object.clone(),
+            let relationship = infera_store::Relationship {
+                resource: object.clone(),
                 relation: relation.clone(),
-                user: "user:test".to_string(),
+                subject: "user:test".to_string(),
             };
 
-            if let Ok(write_rev) = store.write(vec![tuple]).await {
+            if let Ok(write_rev) = store.write(vec![relationship]).await {
                 // Try reading at various revisions
                 let read_rev = write_rev.0.saturating_sub(revision_offset);
 
-                // Create tuple key for reading
-                let key = infera_store::TupleKey {
+                // Create relationship key for reading
+                let key = infera_store::RelationshipKey {
                     object,
                     relation,
-                    user: None,
+                    subject: None,
                 };
 
                 let result = store.read(&key, infera_store::Revision(read_rev)).await;
 
                 // Should not panic
                 match result {
-                    Ok(_tuples) => {
+                    Ok(_relationships) => {
                         // Valid read
                     }
                     Err(_) => {
@@ -235,16 +235,16 @@ proptest! {
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            let tuples: Vec<Tuple> = (0..size)
-                .map(|i| Tuple {
-                    object: format!("obj{}", i),
+            let relationships: Vec<infera_store::Relationship> = (0..size)
+                .map(|i| infera_store::Relationship {
+                    resource: format!("obj{}", i),
                     relation: "rel".to_string(),
-                    user: format!("user{}", i),
+                    subject: format!("user{}", i),
                 })
                 .collect();
 
             // Large batch should not crash (though it might error on limits)
-            let result = store.write(tuples).await;
+            let result = store.write(relationships).await;
 
             match result {
                 Ok(rev) => {
@@ -257,18 +257,18 @@ proptest! {
         });
     }
 
-    /// Fuzz with duplicate tuples
+    /// Fuzz with duplicate relationships
     #[test]
-    fn fuzz_duplicate_tuples(tuple in arb_tuple(), count in 1usize..100) {
+    fn fuzz_duplicate_relationships(relationship in arb_relationship(), count in 1usize..100) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
             // Create duplicates
-            let tuples = vec![tuple; count];
+            let relationships = vec![relationship; count];
 
             // Should handle duplicates gracefully
-            let result = store.write(tuples).await;
+            let result = store.write(relationships).await;
 
             match result {
                 Ok(_) => {
@@ -299,14 +299,14 @@ proptest! {
                 object.push(char::from_u32(i as u32 + 1).unwrap_or('x'));
             }
 
-            let tuple = Tuple {
+            let relationship = infera_store::Relationship {
                 object,
                 relation: "rel".to_string(),
-                user: "user:test".to_string(),
+                subject: "user:test".to_string(),
             };
 
             // Should not crash
-            let result = store.write(vec![tuple]).await;
+            let result = store.write(vec![relationship]).await;
 
             match result {
                 Ok(_) => {}
@@ -331,14 +331,14 @@ proptest! {
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            let tuple = Tuple {
-                object: "obj:test".to_string(),
+            let relationship = infera_store::Relationship {
+                resource: "obj:test".to_string(),
                 relation: "viewer".to_string(),
-                user: pattern.to_string(),
+                subject: pattern.to_string(),
             };
 
             // Wildcards should be handled correctly
-            let result = store.write(vec![tuple]).await;
+            let result = store.write(vec![relationship]).await;
 
             match result {
                 Ok(_) => {
@@ -354,25 +354,25 @@ proptest! {
     /// Fuzz mixed valid and invalid operations
     #[test]
     fn fuzz_mixed_operations(
-        valid_tuples in prop::collection::vec(
-            (1usize..100, 1usize..50, 1usize..100).prop_map(|(o, r, u)| Tuple {
-                object: format!("obj{}", o),
+        valid_relationships in prop::collection::vec(
+            (1usize..100, 1usize..50, 1usize..100).prop_map(|(o, r, u)| infera_store::Relationship {
+                resource: format!("obj{}", o),
                 relation: format!("rel{}", r),
-                user: format!("user{}", u),
+                subject: format!("user{}", u),
             }),
             1..50,
         ),
-        invalid_tuples in prop::collection::vec(arb_tuple(), 1..50),
+        invalid_relationships in prop::collection::vec(arb_relationship(), 1..50),
     ) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
 
-            let mut all_tuples = valid_tuples;
-            all_tuples.extend(invalid_tuples);
+            let mut all_relationships = valid_relationships;
+            all_relationships.extend(invalid_relationships);
 
             // Mixed batch should not panic
-            let result = store.write(all_tuples).await;
+            let result = store.write(all_relationships).await;
 
             match result {
                 Ok(_) => {
@@ -396,14 +396,14 @@ mod integration_tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Empty fields
-        let tuple = Tuple {
-            object: "".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "".to_string(),
             relation: "".to_string(),
-            user: "".to_string(),
+            subject: "".to_string(),
         };
 
         // Should not crash (may error)
-        let _ = store.write(vec![tuple]).await;
+        let _ = store.write(vec![relationship]).await;
     }
 
     #[tokio::test]
@@ -411,32 +411,32 @@ mod integration_tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Very long fields
-        let tuple = Tuple {
-            object: "a".repeat(100000),
+        let relationship = infera_store::Relationship {
+            resource: "a".repeat(100000),
             relation: "b".repeat(100000),
-            user: "c".repeat(100000),
+            subject: "c".repeat(100000),
         };
 
         // Should not crash (may error on size limits)
-        let _ = store.write(vec![tuple]).await;
+        let _ = store.write(vec![relationship]).await;
     }
 
     #[tokio::test]
     async fn test_storage_maintains_consistency_under_load() {
         let store = Arc::new(MemoryBackend::new());
 
-        // Write many tuples concurrently
+        // Write many relationships concurrently
         let mut handles = vec![];
 
         for i in 0..100 {
             let store_clone = store.clone();
             handles.push(tokio::spawn(async move {
-                let tuple = Tuple {
-                    object: format!("obj{}", i),
+                let relationship = infera_store::Relationship {
+                    resource: format!("obj{}", i),
                     relation: "rel".to_string(),
-                    user: format!("user{}", i),
+                    subject: format!("user{}", i),
                 };
-                store_clone.write(vec![tuple]).await
+                store_clone.write(vec![relationship]).await
             }));
         }
 
@@ -456,23 +456,23 @@ mod integration_tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Try to cause errors with invalid data
-        let invalid_tuple = Tuple {
-            object: "'; DROP TABLE tuples; --".to_string(),
+        let invalid_relationship = infera_store::Relationship {
+            resource: "'; DROP TABLE relationships; --".to_string(),
             relation: "../../etc/passwd".to_string(),
-            user: "<script>alert('xss')</script>".to_string(),
+            subject: "<script>alert('xss')</script>".to_string(),
         };
 
         // Should handle gracefully
-        let _ = store.write(vec![invalid_tuple]).await;
+        let _ = store.write(vec![invalid_relationship]).await;
 
         // Storage should still be functional
-        let valid_tuple = Tuple {
-            object: "obj:test".to_string(),
+        let valid_relationship = infera_store::Relationship {
+            resource: "obj:test".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let result = store.write(vec![valid_tuple]).await;
+        let result = store.write(vec![valid_relationship]).await;
         assert!(result.is_ok(), "Storage should recover from errors");
     }
 }

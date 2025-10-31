@@ -1,11 +1,10 @@
 //! # Conflict Resolution
 //!
 //! Implements conflict detection and resolution strategies for multi-region replication.
-//! When the same tuple is modified concurrently in different regions, conflicts must be
+//! When the same relationship is modified concurrently in different regions, conflicts must be
 //! detected and resolved deterministically across all replicas.
 
 use crate::{Change, Operation, ReplError};
-use infera_store::Tuple;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -16,14 +15,14 @@ pub struct Conflict {
     pub local: Change,
     /// The remote change that conflicts
     pub remote: Change,
-    /// The tuple affected
-    pub tuple: Tuple,
+    /// The relationship affected
+    pub relationship: infera_store::Relationship,
 }
 
 impl Conflict {
     pub fn new(local: Change, remote: Change) -> Self {
         Self {
-            tuple: local.tuple.clone(),
+            relationship: local.relationship.clone(),
             local,
             remote,
         }
@@ -89,8 +88,8 @@ impl ConflictResolver {
 
     /// Detect if two changes conflict
     pub fn detect_conflict(&self, local: &Change, remote: &Change) -> bool {
-        // Changes conflict if they affect the same tuple
-        if local.tuple != remote.tuple {
+        // Changes conflict if they affect the same relationship
+        if local.relationship != remote.relationship {
             return false;
         }
 
@@ -99,7 +98,7 @@ impl ConflictResolver {
             return false;
         }
 
-        // Different operations or timestamps on same tuple = conflict
+        // Different operations or timestamps on same relationship = conflict
         true
     }
 
@@ -253,11 +252,11 @@ mod tests {
     use crate::ChangeMetadata;
     use infera_store::Revision;
 
-    fn create_test_tuple() -> Tuple {
-        Tuple {
-            object: "doc:test".to_string(),
+    fn create_test_relationship() -> infera_store::Relationship {
+        infera_store::Relationship {
+            resource: "doc:test".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         }
     }
 
@@ -275,7 +274,7 @@ mod tests {
         Change {
             revision: Revision(1),
             operation,
-            tuple: create_test_tuple(),
+            relationship: create_test_relationship(),
             timestamp,
             metadata: Some(metadata),
         }
@@ -288,17 +287,17 @@ mod tests {
         let change1 = create_change_with_metadata(1000, Operation::Insert, "node1");
         let change2 = create_change_with_metadata(2000, Operation::Delete, "node2");
 
-        // Same tuple, different operations = conflict
+        // Same relationship, different operations = conflict
         assert!(resolver.detect_conflict(&change1, &change2));
 
-        // Same tuple, same operation, different timestamp = conflict
+        // Same relationship, same operation, different timestamp = conflict
         let change3 = create_change_with_metadata(1000, Operation::Insert, "node1");
         let change4 = create_change_with_metadata(2000, Operation::Insert, "node2");
         assert!(resolver.detect_conflict(&change3, &change4));
 
-        // Different tuples = no conflict
+        // Different relationships = no conflict
         let mut change5 = change1.clone();
-        change5.tuple.user = "user:bob".to_string();
+        change5.relationship.subject = "user:bob".to_string();
         assert!(!resolver.detect_conflict(&change1, &change5));
     }
 

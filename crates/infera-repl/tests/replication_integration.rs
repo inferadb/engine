@@ -11,27 +11,27 @@ use infera_repl::{
     RegionId, ReplicationAgent, ReplicationConfig, ReplicationStrategy, Topology, TopologyBuilder,
     ZoneId,
 };
-use infera_store::{MemoryBackend, Revision, Tuple, TupleStore};
+use infera_store::{MemoryBackend, Relationship, RelationshipStore, Revision};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 
-/// Helper to create a test tuple
-fn test_tuple(object: &str, relation: &str, user: &str) -> Tuple {
-    Tuple {
-        object: object.to_string(),
+/// Helper to create a test relationship
+fn test_relationship(resource: &str, relation: &str, subject: &str) -> Relationship {
+    Relationship {
+        resource: resource.to_string(),
         relation: relation.to_string(),
-        user: user.to_string(),
+        subject: subject.to_string(),
     }
 }
 
 /// Helper to create a test change
-fn test_change(tuple: Tuple, operation: Operation, timestamp: u64) -> Change {
+fn test_change(relationship: Relationship, operation: Operation, timestamp: u64) -> Change {
     Change {
         revision: Revision(1),
         operation,
-        tuple,
+        relationship,
         timestamp,
         metadata: None,
     }
@@ -42,10 +42,10 @@ async fn test_conflict_resolution_last_write_wins() {
     let resolver = ConflictResolver::new(ConflictResolutionStrategy::LastWriteWins);
 
     // Simulate concurrent writes from two regions
-    let tuple = test_tuple("doc:readme", "viewer", "user:alice");
+    let relationship = test_relationship("doc:readme", "viewer", "user:alice");
 
-    let local = test_change(tuple.clone(), Operation::Insert, 1000);
-    let remote = test_change(tuple, Operation::Delete, 2000);
+    let local = test_change(relationship.clone(), Operation::Insert, 1000);
+    let remote = test_change(relationship, Operation::Delete, 2000);
 
     let conflict = Conflict::new(local, remote);
     let resolution = resolver.resolve(&conflict).unwrap();
@@ -63,17 +63,17 @@ async fn test_conflict_resolution_source_priority() {
             "ap-southeast".to_string(),
         ]);
 
-    let tuple = test_tuple("doc:readme", "viewer", "user:alice");
+    let relationship = test_relationship("doc:readme", "viewer", "user:alice");
 
     // Both changes at same time, different sources
-    let mut local = test_change(tuple.clone(), Operation::Insert, 1000);
+    let mut local = test_change(relationship.clone(), Operation::Insert, 1000);
     local.metadata = Some(infera_repl::ChangeMetadata {
         source_node: Some("us-west".to_string()),
         causality_token: None,
         tags: std::collections::HashMap::new(),
     });
 
-    let mut remote = test_change(tuple, Operation::Delete, 1000);
+    let mut remote = test_change(relationship, Operation::Delete, 1000);
     remote.metadata = Some(infera_repl::ChangeMetadata {
         source_node: Some("ap-southeast".to_string()),
         causality_token: None,
@@ -91,11 +91,11 @@ async fn test_conflict_resolution_source_priority() {
 async fn test_conflict_resolution_insert_wins() {
     let resolver = ConflictResolver::new(ConflictResolutionStrategy::InsertWins);
 
-    let tuple = test_tuple("doc:readme", "viewer", "user:alice");
+    let relationship = test_relationship("doc:readme", "viewer", "user:alice");
 
     // Insert vs Delete
-    let local = test_change(tuple.clone(), Operation::Insert, 1000);
-    let remote = test_change(tuple, Operation::Delete, 2000);
+    let local = test_change(relationship.clone(), Operation::Insert, 1000);
+    let remote = test_change(relationship, Operation::Delete, 2000);
 
     let conflict = Conflict::new(local, remote);
     let resolution = resolver.resolve(&conflict).unwrap();
@@ -109,13 +109,13 @@ async fn test_multiple_conflicts_in_sequence() {
     let resolver = ConflictResolver::new(ConflictResolutionStrategy::LastWriteWins);
 
     // Simulate a sequence of conflicting writes
-    let tuple = test_tuple("doc:readme", "viewer", "user:alice");
+    let relationship = test_relationship("doc:readme", "viewer", "user:alice");
 
     let changes = vec![
-        test_change(tuple.clone(), Operation::Insert, 1000),
-        test_change(tuple.clone(), Operation::Delete, 2000),
-        test_change(tuple.clone(), Operation::Insert, 3000),
-        test_change(tuple.clone(), Operation::Delete, 4000),
+        test_change(relationship.clone(), Operation::Insert, 1000),
+        test_change(relationship.clone(), Operation::Delete, 2000),
+        test_change(relationship.clone(), Operation::Insert, 3000),
+        test_change(relationship.clone(), Operation::Delete, 4000),
     ];
 
     // Process conflicts sequentially
@@ -290,8 +290,8 @@ async fn test_change_feed_integration() {
     let mut stream2 = change_feed.subscribe().await.unwrap();
 
     // Publish a change
-    let tuple = test_tuple("doc:readme", "viewer", "user:alice");
-    let change = test_change(tuple, Operation::Insert, 1000);
+    let relationship = test_relationship("doc:readme", "viewer", "user:alice");
+    let change = test_change(relationship, Operation::Insert, 1000);
 
     change_feed.publish(change.clone()).await.unwrap();
 
@@ -302,8 +302,8 @@ async fn test_change_feed_integration() {
     assert!(received1.is_some());
     assert!(received2.is_some());
 
-    assert_eq!(received1.unwrap().tuple.object, "doc:readme");
-    assert_eq!(received2.unwrap().tuple.object, "doc:readme");
+    assert_eq!(received1.unwrap().relationship.resource, "doc:readme");
+    assert_eq!(received2.unwrap().relationship.resource, "doc:readme");
 }
 
 #[tokio::test]
@@ -317,22 +317,22 @@ async fn test_change_feed_with_filtering() {
         .unwrap();
 
     // Publish changes with different resource types
-    let doc_tuple = test_tuple("document:readme", "viewer", "user:alice");
-    let folder_tuple = test_tuple("folder:root", "viewer", "user:alice");
+    let doc_relationship = test_relationship("document:readme", "viewer", "user:alice");
+    let folder_relationship = test_relationship("folder:root", "viewer", "user:alice");
 
     change_feed
-        .publish(test_change(doc_tuple, Operation::Insert, 1000))
+        .publish(test_change(doc_relationship, Operation::Insert, 1000))
         .await
         .unwrap();
     change_feed
-        .publish(test_change(folder_tuple, Operation::Insert, 2000))
+        .publish(test_change(folder_relationship, Operation::Insert, 2000))
         .await
         .unwrap();
 
     // Should only receive the document change
     let received = stream.recv().await;
     assert!(received.is_some());
-    assert_eq!(received.unwrap().tuple.object, "document:readme");
+    assert_eq!(received.unwrap().relationship.resource, "document:readme");
 
     // Next receive should be None or folder (filtered out)
     // Due to filtering, the folder change should not appear
@@ -355,7 +355,7 @@ async fn test_replication_agent_creation_and_shutdown() {
         .unwrap(),
     ));
 
-    let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
     let change_feed = Arc::new(ChangeFeed::new());
     let conflict_resolver = Arc::new(ConflictResolver::new(
         ConflictResolutionStrategy::LastWriteWins,
@@ -450,9 +450,9 @@ async fn test_concurrent_conflict_resolution() {
     for i in 0..100 {
         let resolver = Arc::clone(&resolver);
         let handle = tokio::spawn(async move {
-            let tuple = test_tuple("doc:readme", "viewer", &format!("user:{}", i));
-            let local = test_change(tuple.clone(), Operation::Insert, 1000 + i);
-            let remote = test_change(tuple, Operation::Delete, 2000 + i);
+            let relationship = test_relationship("doc:readme", "viewer", &format!("user:{}", i));
+            let local = test_change(relationship.clone(), Operation::Insert, 1000 + i);
+            let remote = test_change(relationship, Operation::Delete, 2000 + i);
 
             let conflict = Conflict::new(local, remote);
             resolver.resolve(&conflict).unwrap()
@@ -542,8 +542,8 @@ async fn test_multi_region_write_propagation() {
     let mut eu_stream = change_feed.subscribe().await.unwrap();
 
     // Write from us-west region
-    let tuple = test_tuple("doc:readme", "viewer", "user:alice");
-    let mut change = test_change(tuple, Operation::Insert, 1000);
+    let relationship = test_relationship("doc:readme", "viewer", "user:alice");
+    let mut change = test_change(relationship, Operation::Insert, 1000);
     change.metadata = Some(infera_repl::ChangeMetadata {
         source_node: Some("us-west-node1".to_string()),
         causality_token: None,
@@ -556,8 +556,8 @@ async fn test_multi_region_write_propagation() {
     let us_received = us_stream.recv().await.unwrap();
     let eu_received = eu_stream.recv().await.unwrap();
 
-    assert_eq!(us_received.tuple.object, "doc:readme");
-    assert_eq!(eu_received.tuple.object, "doc:readme");
+    assert_eq!(us_received.relationship.resource, "doc:readme");
+    assert_eq!(eu_received.relationship.resource, "doc:readme");
 
     assert_eq!(
         us_received.metadata.as_ref().unwrap().source_node,
@@ -572,16 +572,16 @@ async fn test_cross_region_conflict_with_metadata() {
     let resolver = ConflictResolver::new(ConflictResolutionStrategy::SourcePriority)
         .with_region_priorities(vec!["us-west".to_string(), "eu-central".to_string()]);
 
-    let tuple = test_tuple("doc:readme", "viewer", "user:alice");
+    let relationship = test_relationship("doc:readme", "viewer", "user:alice");
 
-    let mut us_change = test_change(tuple.clone(), Operation::Insert, 1000);
+    let mut us_change = test_change(relationship.clone(), Operation::Insert, 1000);
     us_change.metadata = Some(infera_repl::ChangeMetadata {
         source_node: Some("us-west".to_string()),
         causality_token: None,
         tags: std::collections::HashMap::new(),
     });
 
-    let mut eu_change = test_change(tuple, Operation::Delete, 1000);
+    let mut eu_change = test_change(relationship, Operation::Delete, 1000);
     eu_change.metadata = Some(infera_repl::ChangeMetadata {
         source_node: Some("eu-central".to_string()),
         causality_token: None,

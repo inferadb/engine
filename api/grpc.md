@@ -1,6 +1,6 @@
 # gRPC API Reference
 
-InferaDB provides a high-performance gRPC API for authorization checks, relation expansion, and tuple management. The gRPC API is ideal for production deployments requiring low latency and high throughput.
+InferaDB provides a high-performance gRPC API for authorization checks, relation expansion, and relationship management. The gRPC API is ideal for production deployments requiring low latency and high throughput.
 
 **🚀 Interactive API Explorer**: Try the gRPC API with [grpcui](./grpc-explorer.html)
 
@@ -210,7 +210,7 @@ message DecisionTrace {
   Decision decision = 1;
   EvaluationNode root = 2;
   uint64 duration_micros = 3;
-  uint64 tuples_read = 4;
+  uint64 relationships_read = 4;
   uint64 relations_evaluated = 5;
 }
 
@@ -247,9 +247,9 @@ grpcurl -plaintext -d '{
         {
           "nodeType": {
             "directCheck": {
-              "object": "doc:readme",
+              "resource": "doc:readme",
               "relation": "editor",
-              "user": "user:alice"
+              "subject": "user:alice"
             }
           },
           "result": true,
@@ -258,7 +258,7 @@ grpcurl -plaintext -d '{
       ]
     },
     "durationMicros": "1234",
-    "tuplesRead": "5",
+    "relationshipsRead": "5",
     "relationsEvaluated": "2"
   }
 }
@@ -352,19 +352,19 @@ grpcurl -plaintext -d '{
 
 ### Write
 
-Write one or more authorization tuples to the store.
+Write one or more authorization relationships to the store.
 
 **Request**: `WriteRequest`
 
 ```protobuf
 message WriteRequest {
-  repeated Tuple tuples = 1;
+  repeated Relationship relationships = 1;
 }
 
-message Tuple {
-  string object = 1;     // e.g., "doc:readme"
+message Relationship {
+  string resource = 1;   // e.g., "doc:readme"
   string relation = 2;   // e.g., "reader"
-  string user = 3;       // e.g., "user:alice"
+  string subject = 3;    // e.g., "user:alice"
 }
 ```
 
@@ -372,8 +372,8 @@ message Tuple {
 
 ```protobuf
 message WriteResponse {
-  string revision = 1;          // Revision token
-  uint64 tuples_written = 2;    // Number of tuples written
+  string revision = 1;                 // Revision token
+  uint64 relationships_written = 2;    // Number of relationships written
 }
 ```
 
@@ -381,16 +381,16 @@ message WriteResponse {
 
 ```bash
 grpcurl -plaintext -d '{
-  "tuples": [
+  "relationships": [
     {
-      "object": "doc:readme",
+      "resource": "doc:readme",
       "relation": "reader",
-      "user": "user:alice"
+      "subject": "user:alice"
     },
     {
-      "object": "doc:readme",
+      "resource": "doc:readme",
       "relation": "editor",
-      "user": "user:bob"
+      "subject": "user:bob"
     }
   ]
 }' localhost:8081 infera.v1.InferaService/Write
@@ -401,7 +401,7 @@ grpcurl -plaintext -d '{
 ```json
 {
   "revision": "5",
-  "tuplesWritten": "2"
+  "relationshipsWritten": "2"
 }
 ```
 
@@ -409,16 +409,16 @@ grpcurl -plaintext -d '{
 
 ```go
 req := &pb.WriteRequest{
-    Tuples: []*pb.Tuple{
+    Relationships: []*pb.Relationship{
         {
-            Object:   "doc:readme",
+            Resource: "doc:readme",
             Relation: "reader",
-            User:     "user:alice",
+            Subject:  "user:alice",
         },
         {
-            Object:   "doc:readme",
+            Resource: "doc:readme",
             Relation: "editor",
-            User:     "user:bob",
+            Subject:  "user:bob",
         },
     },
 }
@@ -428,20 +428,20 @@ if err != nil {
     log.Fatalf("Write failed: %v", err)
 }
 
-log.Printf("Written %d tuples at revision %s", resp.TuplesWritten, resp.Revision)
+log.Printf("Written %d relationships at revision %s", resp.RelationshipsWritten, resp.Revision)
 ```
 
 ---
 
 ### Delete
 
-Delete one or more authorization tuples from the store.
+Delete one or more authorization relationships from the store.
 
 **Request**: `DeleteRequest`
 
 ```protobuf
 message DeleteRequest {
-  repeated Tuple tuples = 1;
+  repeated Relationship relationships = 1;
 }
 ```
 
@@ -449,8 +449,8 @@ message DeleteRequest {
 
 ```protobuf
 message DeleteResponse {
-  string revision = 1;          // Revision token
-  uint64 tuples_deleted = 2;    // Number of tuples deleted
+  string revision = 1;                 // Revision token
+  uint64 relationships_deleted = 2;    // Number of relationships deleted
 }
 ```
 
@@ -458,11 +458,11 @@ message DeleteResponse {
 
 ```bash
 grpcurl -plaintext -d '{
-  "tuples": [
+  "relationships": [
     {
-      "object": "doc:readme",
+      "resource": "doc:readme",
       "relation": "reader",
-      "user": "user:alice"
+      "subject": "user:alice"
     }
   ]
 }' localhost:8081 infera.v1.InferaService/Delete
@@ -473,7 +473,7 @@ grpcurl -plaintext -d '{
 ```json
 {
   "revision": "6",
-  "tuplesDeleted": "1"
+  "relationshipsDeleted": "1"
 }
 ```
 

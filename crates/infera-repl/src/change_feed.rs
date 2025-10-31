@@ -4,7 +4,7 @@
 //! Supports multiple subscribers, filtering, and reconnection handling.
 
 use crate::{ReplError, Result};
-use infera_store::{Revision, Tuple};
+use infera_store::Revision;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -13,15 +13,15 @@ use tokio::sync::{broadcast, RwLock};
 /// Maximum number of buffered change events per subscriber
 const DEFAULT_CHANNEL_CAPACITY: usize = 1000;
 
-/// A change event representing a tuple operation
+/// A change event representing a relationship operation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Change {
     /// The revision at which this change occurred
     pub revision: Revision,
     /// The type of operation (insert or delete)
     pub operation: Operation,
-    /// The tuple affected by this operation
-    pub tuple: Tuple,
+    /// The relationship affected by this operation
+    pub relationship: infera_store::Relationship,
     /// Timestamp when the change occurred (Unix timestamp in milliseconds)
     pub timestamp: u64,
     /// Optional metadata for the change
@@ -30,22 +30,22 @@ pub struct Change {
 
 impl Change {
     /// Create a new insert operation change event
-    pub fn insert(revision: Revision, tuple: Tuple) -> Self {
+    pub fn insert(revision: Revision, relationship: infera_store::Relationship) -> Self {
         Self {
             revision,
             operation: Operation::Insert,
-            tuple,
+            relationship,
             timestamp: Self::current_timestamp(),
             metadata: None,
         }
     }
 
     /// Create a new delete operation change event
-    pub fn delete(revision: Revision, tuple: Tuple) -> Self {
+    pub fn delete(revision: Revision, relationship: infera_store::Relationship) -> Self {
         Self {
             revision,
             operation: Operation::Delete,
-            tuple,
+            relationship,
             timestamp: Self::current_timestamp(),
             metadata: None,
         }
@@ -57,9 +57,9 @@ impl Change {
         self
     }
 
-    /// Get the resource type from the tuple object
+    /// Get the resource type from the relationship object
     pub fn resource_type(&self) -> Option<&str> {
-        self.tuple.object.split(':').next()
+        self.relationship.resource.split(':').next()
     }
 
     fn current_timestamp() -> u64 {
@@ -70,12 +70,12 @@ impl Change {
     }
 }
 
-/// Type of operation performed on a tuple
+/// Type of operation performed on a relationship
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Operation {
-    /// Tuple was inserted
+    /// Relationship was inserted
     Insert,
-    /// Tuple was deleted
+    /// Relationship was deleted
     Delete,
 }
 
@@ -222,7 +222,7 @@ impl ChangeFilter {
             ChangeFilter::ResourceType(type_name) => {
                 change.resource_type() == Some(type_name.as_str())
             }
-            ChangeFilter::Relation(relation) => &change.tuple.relation == relation,
+            ChangeFilter::Relation(relation) => &change.relationship.relation == relation,
             ChangeFilter::Operation(op) => change.operation == *op,
         }
     }
@@ -298,26 +298,26 @@ mod tests {
 
     #[test]
     fn test_change_creation() {
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let change = Change::insert(Revision(1), tuple.clone());
+        let change = Change::insert(Revision(1), relationship.clone());
         assert_eq!(change.revision, Revision(1));
         assert_eq!(change.operation, Operation::Insert);
-        assert_eq!(change.tuple, tuple);
+        assert_eq!(change.relationship, relationship);
         assert!(change.timestamp > 0);
         assert!(change.metadata.is_none());
     }
 
     #[test]
     fn test_change_with_metadata() {
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
         let metadata = ChangeMetadata {
@@ -326,37 +326,37 @@ mod tests {
             tags: std::collections::HashMap::new(),
         };
 
-        let change = Change::insert(Revision(1), tuple).with_metadata(metadata.clone());
+        let change = Change::insert(Revision(1), relationship).with_metadata(metadata.clone());
         assert_eq!(change.metadata, Some(metadata));
     }
 
     #[test]
     fn test_resource_type_extraction() {
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let change = Change::insert(Revision(1), tuple);
+        let change = Change::insert(Revision(1), relationship);
         assert_eq!(change.resource_type(), Some("doc"));
     }
 
     #[test]
     fn test_filter_resource_type() {
-        let tuple1 = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship1 = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        let tuple2 = Tuple {
-            object: "folder:shared".to_string(),
+        let relationship2 = infera_store::Relationship {
+            resource: "folder:shared".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let change1 = Change::insert(Revision(1), tuple1);
-        let change2 = Change::insert(Revision(2), tuple2);
+        let change1 = Change::insert(Revision(1), relationship1);
+        let change2 = Change::insert(Revision(2), relationship2);
 
         let filter = ChangeFilter::ResourceType("doc".to_string());
         assert!(filter.matches(&change1));
@@ -365,19 +365,19 @@ mod tests {
 
     #[test]
     fn test_filter_relation() {
-        let tuple1 = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship1 = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        let tuple2 = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship2 = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "editor".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let change1 = Change::insert(Revision(1), tuple1);
-        let change2 = Change::insert(Revision(2), tuple2);
+        let change1 = Change::insert(Revision(1), relationship1);
+        let change2 = Change::insert(Revision(2), relationship2);
 
         let filter = ChangeFilter::Relation("viewer".to_string());
         assert!(filter.matches(&change1));
@@ -386,14 +386,14 @@ mod tests {
 
     #[test]
     fn test_filter_operation() {
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let insert_change = Change::insert(Revision(1), tuple.clone());
-        let delete_change = Change::delete(Revision(2), tuple);
+        let insert_change = Change::insert(Revision(1), relationship.clone());
+        let delete_change = Change::delete(Revision(2), relationship);
 
         let filter = ChangeFilter::Operation(Operation::Insert);
         assert!(filter.matches(&insert_change));
@@ -405,18 +405,18 @@ mod tests {
         let feed = ChangeFeed::new();
         let mut stream = feed.subscribe().await.unwrap();
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let change = Change::insert(Revision(1), tuple.clone());
+        let change = Change::insert(Revision(1), relationship.clone());
         feed.publish(change.clone()).await.unwrap();
 
         let received = stream.recv().await.unwrap();
         assert_eq!(received.revision, change.revision);
-        assert_eq!(received.tuple, change.tuple);
+        assert_eq!(received.relationship, change.relationship);
     }
 
     #[tokio::test]
@@ -425,13 +425,13 @@ mod tests {
         let mut stream1 = feed.subscribe().await.unwrap();
         let mut stream2 = feed.subscribe().await.unwrap();
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let change = Change::insert(Revision(1), tuple);
+        let change = Change::insert(Revision(1), relationship);
         feed.publish(change.clone()).await.unwrap();
 
         let received1 = stream1.recv().await.unwrap();
@@ -446,35 +446,35 @@ mod tests {
         let feed = ChangeFeed::new();
         let mut stream = feed.subscribe_filtered("doc".to_string()).await.unwrap();
 
-        let tuple1 = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship1 = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        let tuple2 = Tuple {
-            object: "folder:shared".to_string(),
+        let relationship2 = infera_store::Relationship {
+            resource: "folder:shared".to_string(),
             relation: "viewer".to_string(),
-            user: "user:bob".to_string(),
+            subject: "user:bob".to_string(),
         };
 
         // Publish both changes
-        feed.publish(Change::insert(Revision(1), tuple1.clone()))
+        feed.publish(Change::insert(Revision(1), relationship1.clone()))
             .await
             .unwrap();
-        feed.publish(Change::insert(Revision(2), tuple2))
+        feed.publish(Change::insert(Revision(2), relationship2))
             .await
             .unwrap();
-        feed.publish(Change::insert(Revision(3), tuple1.clone()))
+        feed.publish(Change::insert(Revision(3), relationship1.clone()))
             .await
             .unwrap();
 
         // Should only receive doc changes
         let received1 = stream.recv().await.unwrap();
-        assert_eq!(received1.tuple.object, "doc:readme");
+        assert_eq!(received1.relationship.resource, "doc:readme");
         assert_eq!(received1.revision, Revision(1));
 
         let received2 = stream.recv().await.unwrap();
-        assert_eq!(received2.tuple.object, "doc:readme");
+        assert_eq!(received2.relationship.resource, "doc:readme");
         assert_eq!(received2.revision, Revision(3));
     }
 
@@ -487,13 +487,13 @@ mod tests {
         let result = stream.try_recv().unwrap();
         assert!(result.is_none());
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        feed.publish(Change::insert(Revision(1), tuple))
+        feed.publish(Change::insert(Revision(1), relationship))
             .await
             .unwrap();
 
@@ -512,16 +512,16 @@ mod tests {
         let _stream1 = feed.subscribe().await.unwrap();
         let _stream2 = feed.subscribe().await.unwrap();
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = infera_store::Relationship {
+            resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        feed.publish(Change::insert(Revision(1), tuple.clone()))
+        feed.publish(Change::insert(Revision(1), relationship.clone()))
             .await
             .unwrap();
-        feed.publish(Change::insert(Revision(2), tuple))
+        feed.publish(Change::insert(Revision(2), relationship))
             .await
             .unwrap();
 

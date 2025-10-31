@@ -43,14 +43,12 @@ mise run dev
 curl -X POST http://localhost:8080/v1/check \
   -H "Content-Type: application/json" \
   -d '{
-    "tuple": {
-      "object": "doc:readme",
-      "relation": "viewer",
-      "subject": "user:alice"
-    }
+    "subject": "user:alice",
+    "resource": "doc:readme",
+    "permission": "viewer"
   }'
 
-# Response: {"allowed": true}
+# Response: {"decision": "allow"}
 ```
 
 **→ Continue with the [Quick Start Guide](docs/quickstart.md) for a complete walkthrough**

@@ -135,7 +135,7 @@ impl HealthTracker {
     }
 
     /// Perform a comprehensive health check
-    pub async fn check_health(&self, store: &Arc<dyn crate::TupleStore>) -> HealthResponse {
+    pub async fn check_health(&self, store: &Arc<dyn crate::RelationshipStore>) -> HealthResponse {
         let uptime = self.uptime_seconds();
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)

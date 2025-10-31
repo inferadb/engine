@@ -185,7 +185,7 @@ fn bench_large_dataset_query(c: &mut Criterion) {
         store.write(tuples).await.unwrap()
     });
 
-    c.bench_function("query on 10k tuples", |b| {
+    c.bench_function("query on 10k relationships", |b| {
         b.iter(|| {
             rt.block_on(async {
                 let key = TupleKey {

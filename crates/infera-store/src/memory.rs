@@ -6,35 +6,35 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::{
-    MetricsSnapshot, OpTimer, Result, Revision, StoreMetrics, Tuple, TupleKey, TupleStore,
+    MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore, Result, Revision, StoreMetrics,
 };
 
-/// A versioned tuple with its creation revision
+/// A versioned relationship with its creation revision
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct VersionedTuple {
-    tuple: Tuple,
+struct VersionedRelationship {
+    relationship: Relationship,
     created_at: Revision,
     deleted_at: Option<Revision>,
 }
 
-/// In-memory tuple store implementation with full indexing and revision support
+/// In-memory relationship store implementation with full indexing and revision support
 pub struct MemoryBackend {
     data: Arc<RwLock<MemoryStore>>,
     metrics: Arc<StoreMetrics>,
 }
 
 struct MemoryStore {
-    /// Primary storage: all tuples with their version history
-    tuples: Vec<VersionedTuple>,
+    /// Primary storage: all relationships with their version history
+    relationships: Vec<VersionedRelationship>,
 
     /// Index by (object, relation) for fast lookups
-    object_relation_index: HashMap<(String, String), Vec<usize>>,
+    resource_relation_index: HashMap<(String, String), Vec<usize>>,
 
     /// Index by (user, relation) for reverse lookups
-    user_relation_index: HashMap<(String, String), Vec<usize>>,
+    subject_relation_index: HashMap<(String, String), Vec<usize>>,
 
     /// Index by object for wildcard queries
-    object_index: HashMap<String, Vec<usize>>,
+    resource_index: HashMap<String, Vec<usize>>,
 
     /// Current revision number
     revision: Revision,
@@ -47,10 +47,10 @@ impl MemoryBackend {
     pub fn new() -> Self {
         Self {
             data: Arc::new(RwLock::new(MemoryStore {
-                tuples: Vec::new(),
-                object_relation_index: HashMap::new(),
-                user_relation_index: HashMap::new(),
-                object_index: HashMap::new(),
+                relationships: Vec::new(),
+                resource_relation_index: HashMap::new(),
+                subject_relation_index: HashMap::new(),
+                resource_index: HashMap::new(),
                 revision: Revision::zero(),
                 revision_history: BTreeMap::new(),
             })),
@@ -87,45 +87,45 @@ impl Default for MemoryBackend {
 }
 
 #[async_trait]
-impl TupleStore for MemoryBackend {
-    async fn read(&self, key: &TupleKey, revision: Revision) -> Result<Vec<Tuple>> {
+impl RelationshipStore for MemoryBackend {
+    async fn read(&self, key: &RelationshipKey, revision: Revision) -> Result<Vec<Relationship>> {
         let timer = OpTimer::new();
         let store = self.data.read().await;
 
-        // Find matching tuple indices
-        let indices = if let Some(user) = &key.user {
+        // Find matching relationship indices
+        let indices = if let Some(user) = &key.subject {
             // Specific user query
             store
-                .object_relation_index
-                .get(&(key.object.clone(), key.relation.clone()))
+                .resource_relation_index
+                .get(&(key.resource.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
                 .iter()
                 .filter(|&&idx| {
-                    let vt = &store.tuples[idx];
-                    vt.tuple.user == *user
+                    let vt = &store.relationships[idx];
+                    vt.relationship.subject == *user
                 })
                 .copied()
                 .collect::<Vec<_>>()
         } else {
             // All users for this object+relation
             store
-                .object_relation_index
-                .get(&(key.object.clone(), key.relation.clone()))
+                .resource_relation_index
+                .get(&(key.resource.clone(), key.relation.clone()))
                 .cloned()
                 .unwrap_or_default()
         };
 
-        // Filter by revision and return tuples
-        let tuples = indices
+        // Filter by revision and return relationships
+        let relationships = indices
             .iter()
             .filter_map(|&idx| {
-                let vt = &store.tuples[idx];
+                let vt = &store.relationships[idx];
                 // Include if created before or at revision and not deleted before or at revision
                 if vt.created_at <= revision
                     && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
                 {
-                    Some(vt.tuple.clone())
+                    Some(vt.relationship.clone())
                 } else {
                     None
                 }
@@ -133,10 +133,10 @@ impl TupleStore for MemoryBackend {
             .collect();
 
         self.metrics.record_read(timer.elapsed(), false);
-        Ok(tuples)
+        Ok(relationships)
     }
 
-    async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision> {
+    async fn write(&self, relationships: Vec<Relationship>) -> Result<Revision> {
         let timer = OpTimer::new();
         let mut store = self.data.write().await;
 
@@ -146,71 +146,71 @@ impl TupleStore for MemoryBackend {
 
         let mut new_indices = Vec::new();
 
-        // Track tuples we're adding in this batch to avoid intra-batch duplicates
-        let mut batch_tuples = std::collections::HashSet::new();
+        // Track relationships we're adding in this batch to avoid intra-batch duplicates
+        let mut batch_relationships = std::collections::HashSet::new();
 
-        for tuple in tuples {
-            // Create a unique key for this tuple
-            let tuple_key = (
-                tuple.object.clone(),
-                tuple.relation.clone(),
-                tuple.user.clone(),
+        for relationship in relationships {
+            // Create a unique key for this relationship
+            let relationship_key = (
+                relationship.resource.clone(),
+                relationship.relation.clone(),
+                relationship.subject.clone(),
             );
 
             // Check for duplicates within this batch
-            if batch_tuples.contains(&tuple_key) {
+            if batch_relationships.contains(&relationship_key) {
                 // Skip duplicate within this batch
                 continue;
             }
 
             // Check for duplicates at current revision
-            let key = (tuple.object.clone(), tuple.relation.clone());
+            let key = (relationship.resource.clone(), relationship.relation.clone());
             let existing_indices = store
-                .object_relation_index
+                .resource_relation_index
                 .get(&key)
                 .cloned()
                 .unwrap_or_default();
 
             let is_duplicate = existing_indices.iter().any(|&idx| {
-                let vt = &store.tuples[idx];
-                vt.tuple.user == tuple.user && vt.deleted_at.is_none()
+                let vt = &store.relationships[idx];
+                vt.relationship.subject == relationship.subject && vt.deleted_at.is_none()
             });
 
             if is_duplicate {
-                // Skip duplicate tuple already in store
+                // Skip duplicate relationship already in store
                 continue;
             }
 
-            // Mark this tuple as seen in this batch
-            batch_tuples.insert(tuple_key);
+            // Mark this relationship as seen in this batch
+            batch_relationships.insert(relationship_key);
 
-            // Add new versioned tuple
-            let idx = store.tuples.len();
-            let versioned = VersionedTuple {
-                tuple: tuple.clone(),
+            // Add new versioned relationship
+            let idx = store.relationships.len();
+            let versioned = VersionedRelationship {
+                relationship: relationship.clone(),
                 created_at: current_revision,
                 deleted_at: None,
             };
 
-            store.tuples.push(versioned);
+            store.relationships.push(versioned);
             new_indices.push(idx);
 
             // Update indices
             store
-                .object_relation_index
+                .resource_relation_index
                 .entry(key.clone())
                 .or_insert_with(Vec::new)
                 .push(idx);
 
             store
-                .user_relation_index
-                .entry((tuple.user.clone(), tuple.relation.clone()))
+                .subject_relation_index
+                .entry((relationship.subject.clone(), relationship.relation.clone()))
                 .or_insert_with(Vec::new)
                 .push(idx);
 
             store
-                .object_index
-                .entry(tuple.object.clone())
+                .resource_index
+                .entry(relationship.resource.clone())
                 .or_insert_with(Vec::new)
                 .push(idx);
         }
@@ -219,10 +219,10 @@ impl TupleStore for MemoryBackend {
         store.revision_history.insert(current_revision, new_indices);
 
         // Update metrics
-        let tuple_bytes: usize = batch_tuples.len() * 64; // Approximate bytes per tuple
+        let relationship_bytes: usize = batch_relationships.len() * 64; // Approximate bytes per relationship
         self.metrics.record_write(timer.elapsed(), false);
         self.metrics
-            .update_key_space(store.tuples.len() as u64, tuple_bytes as u64);
+            .update_key_space(store.relationships.len() as u64, relationship_bytes as u64);
 
         Ok(current_revision)
     }
@@ -232,7 +232,7 @@ impl TupleStore for MemoryBackend {
         Ok(store.revision)
     }
 
-    async fn delete(&self, key: &TupleKey) -> Result<Revision> {
+    async fn delete(&self, key: &RelationshipKey) -> Result<Revision> {
         let timer = OpTimer::new();
         let mut store = self.data.write().await;
 
@@ -240,37 +240,37 @@ impl TupleStore for MemoryBackend {
         store.revision = store.revision.next();
         let current_revision = store.revision;
 
-        // Find tuples to delete
-        let indices = if let Some(user) = &key.user {
+        // Find relationships to delete
+        let indices = if let Some(user) = &key.subject {
             // Delete specific user
             store
-                .object_relation_index
-                .get(&(key.object.clone(), key.relation.clone()))
+                .resource_relation_index
+                .get(&(key.resource.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
                 .iter()
                 .filter(|&&idx| {
-                    let vt = &store.tuples[idx];
-                    vt.tuple.user == *user && vt.deleted_at.is_none()
+                    let vt = &store.relationships[idx];
+                    vt.relationship.subject == *user && vt.deleted_at.is_none()
                 })
                 .copied()
                 .collect::<Vec<_>>()
         } else {
             // Delete all users for this object+relation
             store
-                .object_relation_index
-                .get(&(key.object.clone(), key.relation.clone()))
+                .resource_relation_index
+                .get(&(key.resource.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
                 .iter()
-                .filter(|&&idx| store.tuples[idx].deleted_at.is_none())
+                .filter(|&&idx| store.relationships[idx].deleted_at.is_none())
                 .copied()
                 .collect::<Vec<_>>()
         };
 
-        // Mark tuples as deleted
+        // Mark relationships as deleted
         for idx in indices {
-            store.tuples[idx].deleted_at = Some(current_revision);
+            store.relationships[idx].deleted_at = Some(current_revision);
         }
 
         self.metrics.record_delete(timer.elapsed(), false);
@@ -278,7 +278,7 @@ impl TupleStore for MemoryBackend {
         Ok(current_revision)
     }
 
-    async fn list_objects_by_type(
+    async fn list_resources_by_type(
         &self,
         object_type: &str,
         revision: Revision,
@@ -289,15 +289,15 @@ impl TupleStore for MemoryBackend {
         // Build the type prefix (e.g., "document:")
         let type_prefix = format!("{}:", object_type);
 
-        // Collect unique objects that match the type prefix and have active tuples at this revision
+        // Collect unique objects that match the type prefix and have active relationships at this revision
         let mut objects = std::collections::HashSet::new();
 
-        for (object, indices) in &store.object_index {
+        for (object, indices) in &store.resource_index {
             // Check if object matches the type prefix
             if object.starts_with(&type_prefix) {
-                // Check if this object has any active tuples at the given revision
+                // Check if this object has any active relationships at the given revision
                 let has_active = indices.iter().any(|&idx| {
-                    let vt = &store.tuples[idx];
+                    let vt = &store.relationships[idx];
                     vt.created_at <= revision
                         && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
                 });
@@ -322,11 +322,11 @@ impl TupleStore for MemoryBackend {
         relation: Option<&str>,
         subject: Option<&str>,
         revision: Revision,
-    ) -> Result<Vec<Tuple>> {
+    ) -> Result<Vec<Relationship>> {
         let timer = OpTimer::new();
         let store = self.data.read().await;
 
-        // Map API parameter names to internal tuple field names
+        // Map API parameter names to internal relationship field names
         let object = resource;
         let user = subject;
 
@@ -335,70 +335,70 @@ impl TupleStore for MemoryBackend {
             // All three filters provided - most specific query
             (Some(obj), Some(rel), Some(usr)) => {
                 store
-                    .object_relation_index
+                    .resource_relation_index
                     .get(&(obj.to_string(), rel.to_string()))
                     .map(|v| v.as_slice())
                     .unwrap_or(&[])
                     .iter()
-                    .filter(|&&idx| store.tuples[idx].tuple.user == usr)
+                    .filter(|&&idx| store.relationships[idx].relationship.subject == usr)
                     .copied()
                     .collect()
             }
             // Object and relation filters
             (Some(obj), Some(rel), None) => store
-                .object_relation_index
+                .resource_relation_index
                 .get(&(obj.to_string(), rel.to_string()))
                 .cloned()
                 .unwrap_or_default(),
             // Object filter only
-            (Some(obj), None, None) => store.object_index.get(obj).cloned().unwrap_or_default(),
+            (Some(obj), None, None) => store.resource_index.get(obj).cloned().unwrap_or_default(),
             // User and relation filters
             (None, Some(rel), Some(usr)) => store
-                .user_relation_index
+                .subject_relation_index
                 .get(&(usr.to_string(), rel.to_string()))
                 .cloned()
                 .unwrap_or_default(),
             // User filter only
             (None, None, Some(usr)) => {
-                // Need to scan all tuples with this user
+                // Need to scan all relationships with this user
                 store
-                    .tuples
+                    .relationships
                     .iter()
                     .enumerate()
-                    .filter(|(_, vt)| vt.tuple.user == usr)
+                    .filter(|(_, vt)| vt.relationship.subject == usr)
                     .map(|(idx, _)| idx)
                     .collect()
             }
             // Relation filter only
             (None, Some(rel), None) => {
-                // Need to scan all tuples with this relation
+                // Need to scan all relationships with this relation
                 store
-                    .tuples
+                    .relationships
                     .iter()
                     .enumerate()
-                    .filter(|(_, vt)| vt.tuple.relation == rel)
+                    .filter(|(_, vt)| vt.relationship.relation == rel)
                     .map(|(idx, _)| idx)
                     .collect()
             }
             // Object and user filters (no relation)
             (Some(obj), None, Some(usr)) => store
-                .object_index
+                .resource_index
                 .get(obj)
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
                 .iter()
-                .filter(|&&idx| store.tuples[idx].tuple.user == usr)
+                .filter(|&&idx| store.relationships[idx].relationship.subject == usr)
                 .copied()
                 .collect(),
-            // No filters - return all tuples
-            (None, None, None) => (0..store.tuples.len()).collect(),
+            // No filters - return all relationships
+            (None, None, None) => (0..store.relationships.len()).collect(),
         };
 
         // Filter by revision and apply any remaining filters
-        let tuples = candidate_indices
+        let relationships = candidate_indices
             .iter()
             .filter_map(|&idx| {
-                let vt = &store.tuples[idx];
+                let vt = &store.relationships[idx];
 
                 // Check revision
                 if vt.created_at > revision || (vt.deleted_at.is_some() && vt.deleted_at.unwrap() <= revision) {
@@ -407,27 +407,27 @@ impl TupleStore for MemoryBackend {
 
                 // Apply any missing filters (for cases where we couldn't use indexes)
                 if let Some(rel) = relation {
-                    if vt.tuple.relation != rel {
+                    if vt.relationship.relation != rel {
                         return None;
                     }
                 }
                 if let Some(obj) = object {
-                    if vt.tuple.object != obj {
+                    if vt.relationship.resource != obj {
                         return None;
                     }
                 }
                 if let Some(usr) = user {
-                    if vt.tuple.user != usr {
+                    if vt.relationship.subject != usr {
                         return None;
                     }
                 }
 
-                Some(vt.tuple.clone())
+                Some(vt.relationship.clone())
             })
             .collect();
 
         self.metrics.record_read(timer.elapsed(), false);
-        Ok(tuples)
+        Ok(relationships)
     }
 
     fn metrics(&self) -> Option<MetricsSnapshot> {
@@ -440,92 +440,92 @@ impl MemoryBackend {
     /// Query by user and relation (reverse lookup)
     pub async fn query_by_user(
         &self,
-        user: &str,
+        subject: &str,
         relation: &str,
         revision: Revision,
-    ) -> Result<Vec<Tuple>> {
+    ) -> Result<Vec<Relationship>> {
         let store = self.data.read().await;
 
         let indices = store
-            .user_relation_index
-            .get(&(user.to_string(), relation.to_string()))
+            .subject_relation_index
+            .get(&(subject.to_string(), relation.to_string()))
             .cloned()
             .unwrap_or_default();
 
-        let tuples = indices
+        let relationships = indices
             .iter()
             .filter_map(|&idx| {
-                let vt = &store.tuples[idx];
+                let vt = &store.relationships[idx];
                 if vt.created_at <= revision
                     && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
                 {
-                    Some(vt.tuple.clone())
+                    Some(vt.relationship.clone())
                 } else {
                     None
                 }
             })
             .collect();
 
-        Ok(tuples)
+        Ok(relationships)
     }
 
     /// Query all relations for an object
-    pub async fn query_by_object(&self, object: &str, revision: Revision) -> Result<Vec<Tuple>> {
+    pub async fn query_by_object(&self, resource: &str, revision: Revision) -> Result<Vec<Relationship>> {
         let store = self.data.read().await;
 
-        let indices = store.object_index.get(object).cloned().unwrap_or_default();
+        let indices = store.resource_index.get(resource).cloned().unwrap_or_default();
 
-        let tuples = indices
+        let relationships = indices
             .iter()
             .filter_map(|&idx| {
-                let vt = &store.tuples[idx];
+                let vt = &store.relationships[idx];
                 if vt.created_at <= revision
                     && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
                 {
-                    Some(vt.tuple.clone())
+                    Some(vt.relationship.clone())
                 } else {
                     None
                 }
             })
             .collect();
 
-        Ok(tuples)
+        Ok(relationships)
     }
 
     /// Get all unique objects
     pub async fn get_objects(&self) -> Result<Vec<String>> {
         let store = self.data.read().await;
-        Ok(store.object_index.keys().cloned().collect())
+        Ok(store.resource_index.keys().cloned().collect())
     }
 
     /// Get statistics about the store
     pub async fn stats(&self) -> MemoryStats {
         let store = self.data.read().await;
 
-        let active_tuples = store
-            .tuples
+        let active_relationships = store
+            .relationships
             .iter()
             .filter(|vt| vt.deleted_at.is_none())
             .count();
 
         MemoryStats {
-            total_tuples: store.tuples.len(),
-            active_tuples,
-            deleted_tuples: store.tuples.len() - active_tuples,
+            total_relationships: store.relationships.len(),
+            active_relationships,
+            deleted_relationships: store.relationships.len() - active_relationships,
             current_revision: store.revision,
-            unique_objects: store.object_index.len(),
-            index_memory: store.object_relation_index.len()
-                + store.user_relation_index.len()
-                + store.object_index.len(),
+            unique_objects: store.resource_index.len(),
+            index_memory: store.resource_relation_index.len()
+                + store.subject_relation_index.len()
+                + store.resource_index.len(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct MemoryStats {
-    pub total_tuples: usize,
-    pub active_tuples: usize,
-    pub deleted_tuples: usize,
+    pub total_relationships: usize,
+    pub active_relationships: usize,
+    pub deleted_relationships: usize,
     pub current_revision: Revision,
     pub unique_objects: usize,
     pub index_memory: usize,
@@ -540,95 +540,95 @@ mod tests {
     async fn test_basic_operations() {
         let store = MemoryBackend::new();
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let rev = store.write(vec![tuple.clone()]).await.unwrap();
+        let rev = store.write(vec![relationship.clone()]).await.unwrap();
         assert_eq!(rev, Revision(1));
 
-        let key = TupleKey {
-            object: "doc:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: None,
+            subject: None,
         };
 
         let results = store.read(&key, rev).await.unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0], tuple);
+        assert_eq!(results[0], relationship);
     }
 
     #[tokio::test]
     async fn test_user_filtering() {
         let store = MemoryBackend::new();
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
 
-        let rev = store.write(tuples).await.unwrap();
+        let rev = store.write(relationships).await.unwrap();
 
         // Query for all users
-        let key = TupleKey {
-            object: "doc:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: None,
+            subject: None,
         };
         let results = store.read(&key, rev).await.unwrap();
         assert_eq!(results.len(), 2);
 
         // Query for specific user
-        let key = TupleKey {
-            object: "doc:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: Some("user:alice".to_string()),
+            subject: Some("user:alice".to_string()),
         };
         let results = store.read(&key, rev).await.unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].user, "user:alice");
+        assert_eq!(results[0].subject, "user:alice");
     }
 
     #[tokio::test]
     async fn test_revision_isolation() {
         let store = MemoryBackend::new();
 
-        let tuple1 = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship1 = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let rev1 = store.write(vec![tuple1.clone()]).await.unwrap();
+        let rev1 = store.write(vec![relationship1.clone()]).await.unwrap();
 
-        let tuple2 = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship2 = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:bob".to_string(),
+            subject: "user:bob".to_string(),
         };
 
-        let rev2 = store.write(vec![tuple2.clone()]).await.unwrap();
+        let rev2 = store.write(vec![relationship2.clone()]).await.unwrap();
 
-        let key = TupleKey {
-            object: "doc:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: None,
+            subject: None,
         };
 
         // Read at rev1 should only see alice
         let results = store.read(&key, rev1).await.unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].user, "user:alice");
+        assert_eq!(results[0].subject, "user:alice");
 
         // Read at rev2 should see both
         let results = store.read(&key, rev2).await.unwrap();
@@ -639,27 +639,27 @@ mod tests {
     async fn test_delete() {
         let store = MemoryBackend::new();
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let rev1 = store.write(vec![tuple.clone()]).await.unwrap();
+        let rev1 = store.write(vec![relationship.clone()]).await.unwrap();
 
-        let key = TupleKey {
-            object: "doc:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: Some("user:alice".to_string()),
+            subject: Some("user:alice".to_string()),
         };
 
         let rev2 = store.delete(&key).await.unwrap();
 
-        // Read at rev1 should see the tuple
+        // Read at rev1 should see the relationship
         let results = store.read(&key, rev1).await.unwrap();
         assert_eq!(results.len(), 1);
 
-        // Read at rev2 should not see the tuple
+        // Read at rev2 should not see the relationship
         let results = store.read(&key, rev2).await.unwrap();
         assert_eq!(results.len(), 0);
     }
@@ -668,52 +668,52 @@ mod tests {
     async fn test_duplicate_prevention() {
         let store = MemoryBackend::new();
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        store.write(vec![tuple.clone()]).await.unwrap();
-        let rev = store.write(vec![tuple.clone()]).await.unwrap();
+        store.write(vec![relationship.clone()]).await.unwrap();
+        let rev = store.write(vec![relationship.clone()]).await.unwrap();
 
-        let key = TupleKey {
-            object: "doc:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: None,
+            subject: None,
         };
 
         let results = store.read(&key, rev).await.unwrap();
-        assert_eq!(results.len(), 1); // Should only have one tuple
+        assert_eq!(results.len(), 1); // Should only have one relationship
     }
 
     #[tokio::test]
     async fn test_batch_operations() {
         let store = MemoryBackend::new();
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:1".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:1".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:2".to_string(),
+            Relationship {
+                resource: "doc:2".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:3".to_string(),
+            Relationship {
+                resource: "doc:3".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
 
-        let rev = store.write(tuples).await.unwrap();
+        let rev = store.write(relationships).await.unwrap();
 
         // Verify all were written
         let stats = store.stats().await;
-        assert_eq!(stats.active_tuples, 3);
+        assert_eq!(stats.active_relationships, 3);
         assert_eq!(stats.current_revision, rev);
     }
 
@@ -721,25 +721,25 @@ mod tests {
     async fn test_reverse_lookup() {
         let store = MemoryBackend::new();
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:1".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:1".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:2".to_string(),
+            Relationship {
+                resource: "doc:2".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:3".to_string(),
+            Relationship {
+                resource: "doc:3".to_string(),
                 relation: "editor".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
 
-        let rev = store.write(tuples).await.unwrap();
+        let rev = store.write(relationships).await.unwrap();
 
         // Find all documents alice can read
         let results = store
@@ -748,7 +748,7 @@ mod tests {
             .unwrap();
         assert_eq!(results.len(), 2);
 
-        let objects: HashSet<_> = results.iter().map(|t| &t.object).collect();
+        let objects: HashSet<_> = results.iter().map(|t| &t.resource).collect();
         assert!(objects.contains(&"doc:1".to_string()));
         assert!(objects.contains(&"doc:2".to_string()));
     }
@@ -757,20 +757,20 @@ mod tests {
     async fn test_object_query() {
         let store = MemoryBackend::new();
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "editor".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
 
-        let rev = store.write(tuples).await.unwrap();
+        let rev = store.write(relationships).await.unwrap();
 
         let results = store.query_by_object("doc:readme", rev).await.unwrap();
         assert_eq!(results.len(), 2);
@@ -788,12 +788,12 @@ mod tests {
         for i in 0..10 {
             let store_clone = Arc::clone(&store);
             let handle = tokio::spawn(async move {
-                let tuple = Tuple {
-                    object: format!("doc:{}", i),
+                let relationship = Relationship {
+                    resource: format!("doc:{}", i),
                     relation: "reader".to_string(),
-                    user: "user:alice".to_string(),
+                    subject: "user:alice".to_string(),
                 };
-                store_clone.write(vec![tuple]).await
+                store_clone.write(vec![relationship]).await
             });
             handles.push(handle);
         }
@@ -805,22 +805,22 @@ mod tests {
 
         // Verify all writes succeeded
         let stats = store.stats().await;
-        assert_eq!(stats.active_tuples, 10);
+        assert_eq!(stats.active_relationships, 10);
     }
 
     #[tokio::test]
     async fn test_gc() {
         let store = MemoryBackend::new();
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
 
-        let _rev1 = store.write(vec![tuple.clone()]).await.unwrap();
-        let rev2 = store.write(vec![tuple.clone()]).await.unwrap();
-        let _rev3 = store.write(vec![tuple.clone()]).await.unwrap();
+        let _rev1 = store.write(vec![relationship.clone()]).await.unwrap();
+        let rev2 = store.write(vec![relationship.clone()]).await.unwrap();
+        let _rev3 = store.write(vec![relationship.clone()]).await.unwrap();
 
         // GC revisions before rev2
         let removed = store.gc_before(rev2).await.unwrap();
@@ -838,12 +838,12 @@ mod tests {
         assert_eq!(metrics.delete_count, 0);
 
         // Write some data
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        let rev = store.write(vec![tuple.clone()]).await.unwrap();
+        let rev = store.write(vec![relationship.clone()]).await.unwrap();
 
         // Metrics should show 1 write
         let metrics = store.metrics().unwrap();
@@ -851,10 +851,10 @@ mod tests {
         assert!(metrics.total_keys > 0);
 
         // Read the data
-        let key = TupleKey {
-            object: "doc:readme".to_string(),
+        let key = RelationshipKey {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: None,
+            subject: None,
         };
         let _ = store.read(&key, rev).await.unwrap();
 
@@ -884,46 +884,46 @@ mod tests {
         use proptest::prelude::*;
         use std::collections::HashSet;
 
-        // Strategy to generate valid tuples
-        fn tuple_strategy() -> impl Strategy<Value = Tuple> {
+        // Strategy to generate valid relationships
+        fn relationship_strategy() -> impl Strategy<Value = Relationship> {
             (
-                "[a-z]+:[a-z0-9]+", // object
+                "[a-z]+:[a-z0-9]+", // resource
                 "[a-z_]+",          // relation
-                "user:[a-z]+",      // user
+                "user:[a-z]+",      // subject
             )
-                .prop_map(|(object, relation, user)| Tuple {
-                    object,
+                .prop_map(|(resource, relation, subject)| Relationship {
+                    resource,
                     relation,
-                    user,
+                    subject,
                 })
         }
 
         proptest! {
             #[test]
-            fn prop_write_then_read_succeeds(tuples in prop::collection::vec(tuple_strategy(), 1..50)) {
+            fn prop_write_then_read_succeeds(relationships in prop::collection::vec(relationship_strategy(), 1..50)) {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
                     let store = MemoryBackend::new();
 
-                    // Write tuples
-                    let rev = store.write(tuples.clone()).await.unwrap();
+                    // Write relationships
+                    let rev = store.write(relationships.clone()).await.unwrap();
 
-                    // Read each tuple back
-                    for tuple in &tuples {
-                        let key = TupleKey {
-                            object: tuple.object.clone(),
-                            relation: tuple.relation.clone(),
-                            user: None,
+                    // Read each relationship back
+                    for relationship in &relationships {
+                        let key = RelationshipKey {
+                            resource: relationship.resource.clone(),
+                            relation: relationship.relation.clone(),
+                            subject: None,
                         };
                         let results = store.read(&key, rev).await.unwrap();
 
-                        // Should find at least this tuple
+                        // Should find at least this relationship
                         let found = results.iter().any(|t| {
-                            t.object == tuple.object &&
-                            t.relation == tuple.relation &&
-                            t.user == tuple.user
+                            t.resource == relationship.resource &&
+                            t.relation == relationship.relation &&
+                            t.subject == relationship.subject
                         });
-                        prop_assert!(found, "Tuple {:?} not found in results", tuple);
+                        prop_assert!(found, "Relationship {:?} not found in results", relationship);
                     }
 
                     Ok(())
@@ -932,8 +932,8 @@ mod tests {
 
             #[test]
             fn prop_revision_increases_monotonically(
-                batch1 in prop::collection::vec(tuple_strategy(), 1..10),
-                batch2 in prop::collection::vec(tuple_strategy(), 1..10)
+                batch1 in prop::collection::vec(relationship_strategy(), 1..10),
+                batch2 in prop::collection::vec(relationship_strategy(), 1..10)
             ) {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
@@ -950,20 +950,20 @@ mod tests {
             }
 
             #[test]
-            fn prop_duplicate_writes_idempotent(tuple in tuple_strategy()) {
+            fn prop_duplicate_writes_idempotent(relationship in relationship_strategy()) {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
                     let store = MemoryBackend::new();
 
-                    // Write same tuple twice
-                    let _rev1 = store.write(vec![tuple.clone()]).await.unwrap();
-                    let rev2 = store.write(vec![tuple.clone()]).await.unwrap();
+                    // Write same relationship twice
+                    let _rev1 = store.write(vec![relationship.clone()]).await.unwrap();
+                    let rev2 = store.write(vec![relationship.clone()]).await.unwrap();
 
-                    // Should still only have 1 tuple (duplicates prevented)
-                    let key = TupleKey {
-                        object: tuple.object.clone(),
-                        relation: tuple.relation.clone(),
-                        user: None,
+                    // Should still only have 1 relationship (duplicates prevented)
+                    let key = RelationshipKey {
+                        resource: relationship.resource.clone(),
+                        relation: relationship.relation.clone(),
+                        subject: None,
                     };
                     let results = store.read(&key, rev2).await.unwrap();
                     prop_assert_eq!(results.len(), 1);
@@ -973,19 +973,19 @@ mod tests {
             }
 
             #[test]
-            fn prop_delete_removes_tuple(tuple in tuple_strategy()) {
+            fn prop_delete_removes_relationship(relationship in relationship_strategy()) {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
                     let store = MemoryBackend::new();
 
-                    // Write tuple
-                    let rev1 = store.write(vec![tuple.clone()]).await.unwrap();
+                    // Write relationship
+                    let rev1 = store.write(vec![relationship.clone()]).await.unwrap();
 
                     // Verify it exists
-                    let key = TupleKey {
-                        object: tuple.object.clone(),
-                        relation: tuple.relation.clone(),
-                        user: None,
+                    let key = RelationshipKey {
+                        resource: relationship.resource.clone(),
+                        relation: relationship.relation.clone(),
+                        subject: None,
                     };
                     let results = store.read(&key, rev1).await.unwrap();
                     prop_assert_eq!(results.len(), 1);
@@ -1003,39 +1003,39 @@ mod tests {
 
             #[test]
             fn prop_revision_isolation(
-                tuple1 in tuple_strategy(),
-                tuple2 in tuple_strategy()
+                relationship1 in relationship_strategy(),
+                relationship2 in relationship_strategy()
             ) {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
                     let store = MemoryBackend::new();
 
-                    // Write first tuple
-                    let rev1 = store.write(vec![tuple1.clone()]).await.unwrap();
+                    // Write first relationship
+                    let rev1 = store.write(vec![relationship1.clone()]).await.unwrap();
 
-                    // Write second tuple
-                    let rev2 = store.write(vec![tuple2.clone()]).await.unwrap();
+                    // Write second relationship
+                    let rev2 = store.write(vec![relationship2.clone()]).await.unwrap();
 
-                    // Reading at rev1 should not see tuple2
-                    let key2 = TupleKey {
-                        object: tuple2.object.clone(),
-                        relation: tuple2.relation.clone(),
-                        user: None,
+                    // Reading at rev1 should not see relationship2
+                    let key2 = RelationshipKey {
+                        resource: relationship2.resource.clone(),
+                        relation: relationship2.relation.clone(),
+                        subject: None,
                     };
                     let results_at_rev1 = store.read(&key2, rev1).await.unwrap();
 
-                    // If tuple1 and tuple2 are different, rev1 should not see tuple2
-                    if tuple1.object != tuple2.object ||
-                       tuple1.relation != tuple2.relation ||
-                       tuple1.user != tuple2.user {
+                    // If relationship1 and relationship2 are different, rev1 should not see relationship2
+                    if relationship1.resource != relationship2.resource ||
+                       relationship1.relation != relationship2.relation ||
+                       relationship1.subject != relationship2.subject {
                         prop_assert_eq!(results_at_rev1.len(), 0,
-                            "Should not see tuple2 at rev1");
+                            "Should not see relationship2 at rev1");
                     }
 
-                    // Reading at rev2 should see tuple2
+                    // Reading at rev2 should see relationship2
                     let results_at_rev2 = store.read(&key2, rev2).await.unwrap();
                     prop_assert!(results_at_rev2.len() > 0,
-                        "Should see tuple2 at rev2");
+                        "Should see relationship2 at rev2");
 
                     Ok(())
                 })?;
@@ -1051,37 +1051,37 @@ mod tests {
                 rt.block_on(async {
                     let store = MemoryBackend::new();
 
-                    // Write tuples with different users but same object/relation
-                    let tuples: Vec<Tuple> = users.iter().map(|user| Tuple {
-                        object: object.clone(),
+                    // Write relationships with different users but same object/relation
+                    let relationships: Vec<Relationship> = users.iter().map(|user| Relationship {
+                        resource: object.clone(),
                         relation: relation.clone(),
-                        user: user.clone(),
+                        subject: user.clone(),
                     }).collect();
 
-                    let rev = store.write(tuples.clone()).await.unwrap();
+                    let rev = store.write(relationships.clone()).await.unwrap();
 
                     // Count unique users (since duplicates are automatically filtered)
                     let unique_users: HashSet<_> = users.iter().cloned().collect();
 
                     // Read without user filter - should get all unique users
-                    let key_all = TupleKey {
-                        object: object.clone(),
+                    let key_all = RelationshipKey {
+                        resource: object.clone(),
                         relation: relation.clone(),
-                        user: None,
+                        subject: None,
                     };
                     let all_results = store.read(&key_all, rev).await.unwrap();
                     prop_assert_eq!(all_results.len(), unique_users.len());
 
                     // Read with specific user filter - should get only one
                     if let Some(specific_user) = users.first() {
-                        let key_specific = TupleKey {
-                            object: object.clone(),
+                        let key_specific = RelationshipKey {
+                            resource: object.clone(),
                             relation: relation.clone(),
-                            user: Some(specific_user.clone()),
+                            subject: Some(specific_user.clone()),
                         };
                         let specific_results = store.read(&key_specific, rev).await.unwrap();
                         prop_assert_eq!(specific_results.len(), 1);
-                        prop_assert_eq!(&specific_results[0].user, specific_user);
+                        prop_assert_eq!(&specific_results[0].subject, specific_user);
                     }
 
                     Ok(())
@@ -1089,23 +1089,23 @@ mod tests {
             }
 
             #[test]
-            fn prop_batch_write_atomicity(tuples in prop::collection::vec(tuple_strategy(), 1..20)) {
+            fn prop_batch_write_atomicity(relationships in prop::collection::vec(relationship_strategy(), 1..20)) {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
                     let store = MemoryBackend::new();
 
                     // Write batch
-                    let rev = store.write(tuples.clone()).await.unwrap();
+                    let rev = store.write(relationships.clone()).await.unwrap();
 
-                    // All tuples should be at the same revision
-                    for tuple in &tuples {
-                        let key = TupleKey {
-                            object: tuple.object.clone(),
-                            relation: tuple.relation.clone(),
-                            user: Some(tuple.user.clone()),
+                    // All relationships should be at the same revision
+                    for relationship in &relationships {
+                        let key = RelationshipKey {
+                            resource: relationship.resource.clone(),
+                            relation: relationship.relation.clone(),
+                            subject: Some(relationship.subject.clone()),
                         };
                         let results = store.read(&key, rev).await.unwrap();
-                        prop_assert!(results.len() > 0, "Tuple not found after batch write");
+                        prop_assert!(results.len() > 0, "Relationship not found after batch write");
                     }
 
                     Ok(())
@@ -1113,15 +1113,15 @@ mod tests {
             }
 
             #[test]
-            fn prop_gc_preserves_current_revision(tuples in prop::collection::vec(tuple_strategy(), 1..10)) {
+            fn prop_gc_preserves_current_revision(relationships in prop::collection::vec(relationship_strategy(), 1..10)) {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
                     let store = MemoryBackend::new();
 
-                    // Write tuples multiple times to create history
+                    // Write relationships multiple times to create history
                     let mut revisions = Vec::new();
                     for _ in 0..3 {
-                        let rev = store.write(tuples.clone()).await.unwrap();
+                        let rev = store.write(relationships.clone()).await.unwrap();
                         revisions.push(rev);
                     }
 
@@ -1134,11 +1134,11 @@ mod tests {
                     }
 
                     // Latest revision should still be readable
-                    for tuple in &tuples {
-                        let key = TupleKey {
-                            object: tuple.object.clone(),
-                            relation: tuple.relation.clone(),
-                            user: None,
+                    for relationship in &relationships {
+                        let key = RelationshipKey {
+                            resource: relationship.resource.clone(),
+                            relation: relationship.relation.clone(),
+                            subject: None,
                         };
                         let results = store.read(&key, latest_rev).await;
                         prop_assert!(results.is_ok(), "Should be able to read at latest revision after GC");

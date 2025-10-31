@@ -2,7 +2,7 @@
 
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::{CheckRequest, Decision, Evaluator};
-use infera_store::{MemoryBackend, Tuple, TupleStore};
+use infera_store::{MemoryBackend, Tuple, RelationshipStore};
 use infera_wasm::WasmHost;
 use std::sync::Arc;
 
@@ -73,7 +73,7 @@ async fn test_wasm_allow_policy() {
     let schema = create_wasm_schema("allow_all");
     let store = Arc::new(MemoryBackend::new());
     let evaluator = Evaluator::new(
-        store.clone() as Arc<dyn TupleStore>,
+        store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
     );
@@ -112,7 +112,7 @@ async fn test_wasm_deny_policy() {
     let schema = create_wasm_schema("deny_all");
     let store = Arc::new(MemoryBackend::new());
     let evaluator = Evaluator::new(
-        store.clone() as Arc<dyn TupleStore>,
+        store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
     );
@@ -151,22 +151,22 @@ async fn test_wasm_with_union() {
     let schema = create_union_schema("business_hours");
     let store = Arc::new(MemoryBackend::new());
     let evaluator = Evaluator::new(
-        store.clone() as Arc<dyn TupleStore>,
+        store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
     );
 
-    // Add direct tuple
+    // Add direct relationship
     store
-        .write(vec![Tuple {
-            object: "document:readme".to_string(),
+        .write(vec![infera_store::Relationship {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         }])
         .await
         .unwrap();
 
-    // Test check - should allow due to direct tuple (even though WASM denies)
+    // Test check - should allow due to direct relationship (even though WASM denies)
     let request = CheckRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
@@ -177,7 +177,7 @@ async fn test_wasm_with_union() {
     let decision = evaluator.check(request).await.unwrap();
     assert_eq!(decision, Decision::Allow);
 
-    // Test with user not in direct tuples - should deny since WASM denies
+    // Test with user not in direct relationships - should deny since WASM denies
     let request = CheckRequest {
         subject: "user:bob".to_string(),
         resource: "document:readme".to_string(),
@@ -211,17 +211,17 @@ async fn test_wasm_with_intersection() {
     let schema = create_intersection_schema("is_verified");
     let store = Arc::new(MemoryBackend::new());
     let evaluator = Evaluator::new(
-        store.clone() as Arc<dyn TupleStore>,
+        store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
     );
 
-    // Add direct tuple
+    // Add direct relationship
     store
-        .write(vec![Tuple {
-            object: "document:readme".to_string(),
+        .write(vec![infera_store::Relationship {
+            resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         }])
         .await
         .unwrap();
@@ -237,7 +237,7 @@ async fn test_wasm_with_intersection() {
     let decision = evaluator.check(request).await.unwrap();
     assert_eq!(decision, Decision::Allow);
 
-    // Test with user not in direct tuples - should deny even though WASM allows
+    // Test with user not in direct relationships - should deny even though WASM allows
     let request = CheckRequest {
         subject: "user:bob".to_string(),
         resource: "document:readme".to_string(),
@@ -254,7 +254,7 @@ async fn test_wasm_missing_host() {
     let schema = create_wasm_schema("some_module");
     let store = Arc::new(MemoryBackend::new());
     let evaluator = Evaluator::new(
-        store.clone() as Arc<dyn TupleStore>,
+        store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None, // No WASM host
     );
@@ -281,7 +281,7 @@ async fn test_wasm_module_not_loaded() {
     let schema = create_wasm_schema("nonexistent");
     let store = Arc::new(MemoryBackend::new());
     let evaluator = Evaluator::new(
-        store.clone() as Arc<dyn TupleStore>,
+        store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
     );
@@ -321,7 +321,7 @@ async fn test_wasm_with_trace() {
     let schema = create_wasm_schema("test_module");
     let store = Arc::new(MemoryBackend::new());
     let evaluator = Evaluator::new(
-        store.clone() as Arc<dyn TupleStore>,
+        store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
     );

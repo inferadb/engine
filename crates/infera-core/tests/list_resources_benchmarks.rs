@@ -9,7 +9,7 @@
 // - Load test: heavy load (1000 QPS)
 
 use infera_core::{Evaluator, ListResourcesRequest};
-use infera_store::{MemoryBackend, Tuple, TupleStore};
+use infera_store::{MemoryBackend, Tuple, RelationshipStore};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -25,22 +25,22 @@ fn create_simple_schema() -> infera_core::ipl::Schema {
 
 // Create test data with N resources
 async fn create_test_data(store: &Arc<MemoryBackend>, num_resources: usize) {
-    let mut tuples = Vec::new();
+    let mut relationships = Vec::new();
     for i in 0..num_resources {
-        tuples.push(Tuple {
-            object: format!("doc:{}", i),
+        relationships.push(infera_store::Relationship {
+            resource: format!("doc:{}", i),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         });
 
-        // Batch writes every 1000 tuples to avoid memory issues
-        if tuples.len() >= 1000 {
-            store.write(tuples.clone()).await.unwrap();
-            tuples.clear();
+        // Batch writes every 1000 relationships to avoid memory issues
+        if relationships.len() >= 1000 {
+            store.write(relationships.clone()).await.unwrap();
+            relationships.clear();
         }
     }
-    if !tuples.is_empty() {
-        store.write(tuples).await.unwrap();
+    if !relationships.is_empty() {
+        store.write(relationships).await.unwrap();
     }
 }
 
@@ -168,25 +168,25 @@ async fn bench_list_resources_deep_hierarchy() {
 
     // Create a hierarchy 15 levels deep
     let depth = 15;
-    let mut tuples = Vec::new();
+    let mut relationships = Vec::new();
 
     // Create parent relationships
     for i in 1..depth {
-        tuples.push(Tuple {
-            object: format!("folder:level{}", i),
+        relationships.push(infera_store::Relationship {
+            resource: format!("folder:level{}", i),
             relation: "parent".to_string(),
-            user: format!("folder:level{}", i - 1),
+            subject: format!("folder:level{}", i - 1),
         });
     }
 
     // Alice is viewer of root folder
-    tuples.push(Tuple {
-        object: "folder:level0".to_string(),
+    relationships.push(infera_store::Relationship {
+        resource: "folder:level0".to_string(),
         relation: "viewer".to_string(),
-        user: "user:alice".to_string(),
+        subject: "user:alice".to_string(),
     });
 
-    store.write(tuples).await.unwrap();
+    store.write(relationships).await.unwrap();
 
     let evaluator = Evaluator::new(store, schema, None);
 
@@ -219,10 +219,10 @@ async fn bench_list_resources_with_pattern() {
     let schema = Arc::new(create_simple_schema());
 
     // Create 10K resources with predictable names
-    let mut tuples = Vec::new();
+    let mut relationships = Vec::new();
     for i in 0..10_000 {
-        tuples.push(Tuple {
-            object: if i % 3 == 0 {
+        relationships.push(infera_store::Relationship {
+            resource: if i % 3 == 0 {
                 format!("doc:project_a_{}", i)
             } else if i % 3 == 1 {
                 format!("doc:project_b_{}", i)
@@ -230,10 +230,10 @@ async fn bench_list_resources_with_pattern() {
                 format!("doc:other_{}", i)
             },
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         });
     }
-    store.write(tuples).await.unwrap();
+    store.write(relationships).await.unwrap();
 
     let evaluator = Evaluator::new(store, schema, None);
 

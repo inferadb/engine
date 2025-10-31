@@ -9,7 +9,7 @@
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;
-use common::{tuple, TestFixture};
+use common::{relationship, TestFixture};
 
 /// Create an organization hierarchy schema
 fn create_schema() -> Schema {
@@ -113,7 +113,7 @@ async fn test_organization_admin_permissions() {
 
     // Alice is admin of org1
     fixture
-        .write_tuples(vec![tuple("organization:org1", "admin", "user:alice")])
+        .write_relationships(vec![relationship("organization:org1", "admin", "user:alice")])
         .await
         .unwrap();
 
@@ -134,7 +134,7 @@ async fn test_team_member_permissions() {
 
     // Bob is a member of team1
     fixture
-        .write_tuples(vec![tuple("team:team1", "member", "user:bob")])
+        .write_relationships(vec![relationship("team:team1", "member", "user:bob")])
         .await
         .unwrap();
 
@@ -155,7 +155,7 @@ async fn test_team_lead_permissions() {
 
     // Charlie is the lead of team1
     fixture
-        .write_tuples(vec![tuple("team:team1", "lead", "user:charlie")])
+        .write_relationships(vec![relationship("team:team1", "lead", "user:charlie")])
         .await
         .unwrap();
 
@@ -176,9 +176,9 @@ async fn test_hierarchical_org_to_team_permissions() {
     // - Alice is admin of org1
     // - team1 belongs to org1
     fixture
-        .write_tuples(vec![
-            tuple("organization:org1", "admin", "user:alice"),
-            tuple("team:team1", "organization", "organization:org1"),
+        .write_relationships(vec![
+            relationship("organization:org1", "admin", "user:alice"),
+            relationship("team:team1", "organization", "organization:org1"),
         ])
         .await
         .unwrap();
@@ -202,9 +202,9 @@ async fn test_project_team_permissions() {
     // - Bob is a member of team1
     // - project1 is owned by team1
     fixture
-        .write_tuples(vec![
-            tuple("team:team1", "member", "user:bob"),
-            tuple("project:project1", "team", "team:team1"),
+        .write_relationships(vec![
+            relationship("team:team1", "member", "user:bob"),
+            relationship("project:project1", "team", "team:team1"),
         ])
         .await
         .unwrap();
@@ -229,10 +229,10 @@ async fn test_full_hierarchy_org_to_project() {
     // - team1 belongs to org1
     // - project1 is owned by team1
     fixture
-        .write_tuples(vec![
-            tuple("organization:org1", "admin", "user:alice"),
-            tuple("team:team1", "organization", "organization:org1"),
-            tuple("project:project1", "team", "team:team1"),
+        .write_relationships(vec![
+            relationship("organization:org1", "admin", "user:alice"),
+            relationship("team:team1", "organization", "organization:org1"),
+            relationship("project:project1", "team", "team:team1"),
         ])
         .await
         .unwrap();
@@ -259,12 +259,12 @@ async fn test_multiple_teams_in_organization() {
     // - bob is member of team1
     // - charlie is member of team2
     fixture
-        .write_tuples(vec![
-            tuple("organization:org1", "admin", "user:alice"),
-            tuple("team:team1", "organization", "organization:org1"),
-            tuple("team:team2", "organization", "organization:org1"),
-            tuple("team:team1", "member", "user:bob"),
-            tuple("team:team2", "member", "user:charlie"),
+        .write_relationships(vec![
+            relationship("organization:org1", "admin", "user:alice"),
+            relationship("team:team1", "organization", "organization:org1"),
+            relationship("team:team2", "organization", "organization:org1"),
+            relationship("team:team1", "member", "user:bob"),
+            relationship("team:team2", "member", "user:charlie"),
         ])
         .await
         .unwrap();
@@ -300,7 +300,7 @@ async fn test_project_contributor_permissions() {
 
     // Dave is a contributor to project1 (not a team member)
     fixture
-        .write_tuples(vec![tuple("project:project1", "contributor", "user:dave")])
+        .write_relationships(vec![relationship("project:project1", "contributor", "user:dave")])
         .await
         .unwrap();
 
@@ -327,15 +327,15 @@ async fn test_complex_multi_level_hierarchy() {
     // - project2 owned by team2
     // - dave is contributor to project2
     fixture
-        .write_tuples(vec![
-            tuple("organization:org1", "admin", "user:alice"),
-            tuple("team:team1", "organization", "organization:org1"),
-            tuple("team:team1", "lead", "user:bob"),
-            tuple("team:team2", "organization", "organization:org1"),
-            tuple("team:team2", "member", "user:charlie"),
-            tuple("project:project1", "team", "team:team1"),
-            tuple("project:project2", "team", "team:team2"),
-            tuple("project:project2", "contributor", "user:dave"),
+        .write_relationships(vec![
+            relationship("organization:org1", "admin", "user:alice"),
+            relationship("team:team1", "organization", "organization:org1"),
+            relationship("team:team1", "lead", "user:bob"),
+            relationship("team:team2", "organization", "organization:org1"),
+            relationship("team:team2", "member", "user:charlie"),
+            relationship("project:project1", "team", "team:team1"),
+            relationship("project:project2", "team", "team:team2"),
+            relationship("project:project2", "contributor", "user:dave"),
         ])
         .await
         .unwrap();

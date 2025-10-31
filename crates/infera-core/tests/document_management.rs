@@ -9,7 +9,7 @@
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;
-use common::{tuple, TestFixture};
+use common::{relationship, TestFixture};
 
 /// Create a document management schema
 fn create_schema() -> Schema {
@@ -116,7 +116,7 @@ async fn test_direct_document_permissions() {
 
     // Alice is the owner of doc1
     fixture
-        .write_tuples(vec![tuple("document:doc1", "owner", "user:alice")])
+        .write_relationships(vec![relationship("document:doc1", "owner", "user:alice")])
         .await
         .unwrap();
 
@@ -149,7 +149,7 @@ async fn test_editor_permissions() {
 
     // Bob is an editor of doc1
     fixture
-        .write_tuples(vec![tuple("document:doc1", "editor", "user:bob")])
+        .write_relationships(vec![relationship("document:doc1", "editor", "user:bob")])
         .await
         .unwrap();
 
@@ -171,7 +171,7 @@ async fn test_viewer_permissions() {
 
     // Charlie is a viewer of doc1
     fixture
-        .write_tuples(vec![tuple("document:doc1", "viewer", "user:charlie")])
+        .write_relationships(vec![relationship("document:doc1", "viewer", "user:charlie")])
         .await
         .unwrap();
 
@@ -195,9 +195,9 @@ async fn test_hierarchical_folder_permissions() {
     // - folder1 has alice as viewer
     // - doc1 has folder1 as parent
     fixture
-        .write_tuples(vec![
-            tuple("folder:folder1", "viewer", "user:alice"),
-            tuple("document:doc1", "parent", "folder:folder1"),
+        .write_relationships(vec![
+            relationship("folder:folder1", "viewer", "user:alice"),
+            relationship("document:doc1", "parent", "folder:folder1"),
         ])
         .await
         .unwrap();
@@ -224,10 +224,10 @@ async fn test_multiple_permission_sources() {
     // Bob is editor of doc1
     // Charlie is viewer of doc1
     fixture
-        .write_tuples(vec![
-            tuple("document:doc1", "owner", "user:alice"),
-            tuple("document:doc1", "editor", "user:bob"),
-            tuple("document:doc1", "viewer", "user:charlie"),
+        .write_relationships(vec![
+            relationship("document:doc1", "owner", "user:alice"),
+            relationship("document:doc1", "editor", "user:bob"),
+            relationship("document:doc1", "viewer", "user:charlie"),
         ])
         .await
         .unwrap();
@@ -275,12 +275,12 @@ async fn test_complex_folder_hierarchy() {
     // - doc1, doc2, doc3 all have folder1 as parent
     // - Bob is also a direct viewer of doc2
     fixture
-        .write_tuples(vec![
-            tuple("folder:folder1", "editor", "user:alice"),
-            tuple("document:doc1", "parent", "folder:folder1"),
-            tuple("document:doc2", "parent", "folder:folder1"),
-            tuple("document:doc3", "parent", "folder:folder1"),
-            tuple("document:doc2", "viewer", "user:bob"),
+        .write_relationships(vec![
+            relationship("folder:folder1", "editor", "user:alice"),
+            relationship("document:doc1", "parent", "folder:folder1"),
+            relationship("document:doc2", "parent", "folder:folder1"),
+            relationship("document:doc3", "parent", "folder:folder1"),
+            relationship("document:doc2", "viewer", "user:bob"),
         ])
         .await
         .unwrap();
@@ -314,7 +314,7 @@ async fn test_permission_revocation() {
 
     // Initially, alice is owner of doc1
     fixture
-        .write_tuples(vec![tuple("document:doc1", "owner", "user:alice")])
+        .write_relationships(vec![relationship("document:doc1", "owner", "user:alice")])
         .await
         .unwrap();
 
@@ -325,6 +325,6 @@ async fn test_permission_revocation() {
 
     // Now remove alice as owner (in a real system, you'd have a delete operation)
     // For this test, we'll just verify the permission check works as expected
-    // The tuple store doesn't support deletion in this basic implementation,
-    // but the test demonstrates that permissions are tuple-based
+    // The relationship store doesn't support deletion in this basic implementation,
+    // but the test demonstrates that permissions are relationship-based
 }

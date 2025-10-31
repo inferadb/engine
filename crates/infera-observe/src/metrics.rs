@@ -57,8 +57,8 @@ pub fn init_metrics_descriptions() {
         "Duration of storage write operations in seconds"
     );
     describe_gauge!(
-        "inferadb_storage_tuples_total",
-        "Total number of tuples in storage"
+        "inferadb_storage_relationships_total",
+        "Total number of relationships in storage"
     );
     describe_gauge!(
         "inferadb_storage_revision",
@@ -286,24 +286,24 @@ pub fn update_cache_stats(entries: usize, hit_rate: f64) {
 }
 
 /// Record a storage read operation
-pub fn record_storage_read(duration_seconds: f64, tuples_read: usize) {
+pub fn record_storage_read(duration_seconds: f64, relationships_read: usize) {
     counter!("inferadb_storage_reads_total").increment(1);
     histogram!("inferadb_storage_read_duration_seconds").record(duration_seconds);
 
-    // Optionally record tuples read as a histogram
-    histogram!("inferadb_storage_tuples_read").record(tuples_read as f64);
+    // Optionally record relationships read as a histogram
+    histogram!("inferadb_storage_relationships_read").record(relationships_read as f64);
 }
 
 /// Record a storage write operation
-pub fn record_storage_write(duration_seconds: f64, tuples_written: usize) {
+pub fn record_storage_write(duration_seconds: f64, relationships_written: usize) {
     counter!("inferadb_storage_writes_total").increment(1);
     histogram!("inferadb_storage_write_duration_seconds").record(duration_seconds);
-    histogram!("inferadb_storage_tuples_written").record(tuples_written as f64);
+    histogram!("inferadb_storage_relationships_written").record(relationships_written as f64);
 }
 
 /// Update storage statistics
-pub fn update_storage_stats(total_tuples: usize, revision: u64) {
-    gauge!("inferadb_storage_tuples_total").set(total_tuples as f64);
+pub fn update_storage_stats(total_relationships: usize, revision: u64) {
+    gauge!("inferadb_storage_relationships_total").set(total_relationships as f64);
     gauge!("inferadb_storage_revision").set(revision as f64);
 }
 

@@ -16,13 +16,13 @@ service InferaService {
   // Stream expand results (for large usersets)
   rpc ExpandStream(ExpandRequest) returns (stream ExpandStreamResponse);
 
-  // Write tuples to the store
+  // Write relationships to the store
   rpc Write(WriteRequest) returns (WriteResponse);
 
   // Stream write operations (for batch imports)
   rpc WriteStream(stream WriteRequest) returns (WriteResponse);
 
-  // Delete tuples from the store
+  // Delete relationships from the store
   rpc Delete(DeleteRequest) returns (DeleteResponse);
 
   // Health check
@@ -31,7 +31,7 @@ service InferaService {
   // List resources accessible by a subject
   rpc ListResources(ListResourcesRequest) returns (stream ListResourcesResponse);
 
-  // List relationships (tuples) with optional filtering
+  // List relationships (relationships) with optional filtering
   rpc ListRelationships(ListRelationshipsRequest) returns (stream ListRelationshipsResponse);
 }
 
@@ -83,8 +83,8 @@ message DecisionTrace {
   // Duration in microseconds
   uint64 duration_micros = 3;
 
-  // Number of tuples read
-  uint64 tuples_read = 4;
+  // Number of relationships read
+  uint64 relationships_read = 4;
 
   // Number of relations evaluated
   uint64 relations_evaluated = 5;
@@ -116,9 +116,9 @@ message NodeType {
 }
 
 message DirectCheck {
-  string object = 1;
+  string resource = 1;
   string relation = 2;
-  string user = 3;
+  string subject = 3;
 }
 
 message ComputedUserset {
@@ -215,8 +215,8 @@ message Leaf {
 
 // Write request
 message WriteRequest {
-  // Tuples to write
-  repeated Tuple tuples = 1;
+  // Relationships to write
+  repeated Relationship relationships = 1;
 }
 
 // Write response
@@ -224,14 +224,14 @@ message WriteResponse {
   // Revision token
   string revision = 1;
 
-  // Number of tuples written
-  uint64 tuples_written = 2;
+  // Number of relationships written
+  uint64 relationships_written = 2;
 }
 
 // Delete request
 message DeleteRequest {
-  // Tuples to delete
-  repeated Tuple tuples = 1;
+  // Relationships to delete
+  repeated Relationship relationships = 1;
 }
 
 // Delete response
@@ -239,20 +239,8 @@ message DeleteResponse {
   // Revision token
   string revision = 1;
 
-  // Number of tuples deleted
-  uint64 tuples_deleted = 2;
-}
-
-// Tuple representing a relationship
-message Tuple {
-  // Object (e.g., "doc:readme")
-  string object = 1;
-
-  // Relation (e.g., "reader")
-  string relation = 2;
-
-  // User (e.g., "user:alice")
-  string user = 3;
+  // Number of relationships deleted
+  uint64 relationships_deleted = 2;
 }
 
 // Health check request
@@ -319,7 +307,7 @@ message ListRelationshipsRequest {
   optional string cursor = 5;
 }
 
-// Relationship represents an authorization tuple with API-friendly naming
+// Relationship represents an authorization relationship with API-friendly naming
 // (resource, relation, subject) instead of the storage-level (object, relation, user)
 message Relationship {
   // Resource identifier (e.g., "doc:readme")

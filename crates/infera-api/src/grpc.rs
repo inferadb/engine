@@ -159,57 +159,57 @@ impl InferaService for InferaServiceImpl {
     ) -> Result<Response<WriteResponse>, Status> {
         let req = request.into_inner();
 
-        if req.tuples.is_empty() {
-            return Err(Status::invalid_argument("No tuples provided"));
+        if req.relationships.is_empty() {
+            return Err(Status::invalid_argument("No relationships provided"));
         }
 
-        let tuples: Vec<infera_store::Tuple> = req
-            .tuples
+        let relationships: Vec<infera_store::Relationship> = req
+            .relationships
             .into_iter()
-            .map(|t| infera_store::Tuple {
-                object: t.object,
+            .map(|t| infera_store::Relationship {
+                resource: t.resource,
                 relation: t.relation,
-                user: t.user,
+                subject: t.subject,
             })
             .collect();
 
-        // Validate tuple format
-        for tuple in &tuples {
-            if tuple.object.is_empty() {
-                return Err(Status::invalid_argument("Tuple object cannot be empty"));
+        // Validate relationship format
+        for relationship in &relationships {
+            if relationship.resource.is_empty() {
+                return Err(Status::invalid_argument("Relationship resource cannot be empty"));
             }
-            if tuple.relation.is_empty() {
-                return Err(Status::invalid_argument("Tuple relation cannot be empty"));
+            if relationship.relation.is_empty() {
+                return Err(Status::invalid_argument("Relationship relation cannot be empty"));
             }
-            if tuple.user.is_empty() {
-                return Err(Status::invalid_argument("Tuple user cannot be empty"));
+            if relationship.subject.is_empty() {
+                return Err(Status::invalid_argument("Relationship subject cannot be empty"));
             }
-            if !tuple.object.contains(':') {
+            if !relationship.resource.contains(':') {
                 return Err(Status::invalid_argument(format!(
                     "Invalid object format '{}': must be 'type:id'",
-                    tuple.object
+                    relationship.resource
                 )));
             }
-            if !tuple.user.contains(':') {
+            if !relationship.subject.contains(':') {
                 return Err(Status::invalid_argument(format!(
                     "Invalid user format '{}': must be 'type:id'",
-                    tuple.user
+                    relationship.subject
                 )));
             }
         }
 
-        let tuples_count = tuples.len();
+        let relationships_count = relationships.len();
 
         let revision = self
             .state
             .store
-            .write(tuples)
+            .write(relationships)
             .await
-            .map_err(|e| Status::internal(format!("Failed to write tuples: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to write relationships: {}", e)))?;
 
         Ok(Response::new(WriteResponse {
             revision: revision.0.to_string(),
-            tuples_written: tuples_count as u64,
+            relationships_written: relationships_count as u64,
         }))
     }
 
@@ -219,31 +219,31 @@ impl InferaService for InferaServiceImpl {
     ) -> Result<Response<DeleteResponse>, Status> {
         let req = request.into_inner();
 
-        if req.tuples.is_empty() {
-            return Err(Status::invalid_argument("No tuples provided"));
+        if req.relationships.is_empty() {
+            return Err(Status::invalid_argument("No relationships provided"));
         }
 
-        let tuples_count = req.tuples.len();
+        let relationships_count = req.relationships.len();
 
-        // Delete each tuple individually
+        // Delete each relationship individually
         let mut last_revision = infera_store::Revision::zero();
-        for tuple in req.tuples {
-            let key = infera_store::TupleKey {
-                object: tuple.object,
-                relation: tuple.relation,
-                user: Some(tuple.user),
+        for relationship in req.relationships {
+            let key = infera_store::RelationshipKey {
+                resource: relationship.resource,
+                relation: relationship.relation,
+                subject: Some(relationship.subject),
             };
             last_revision = self
                 .state
                 .store
                 .delete(&key)
                 .await
-                .map_err(|e| Status::internal(format!("Failed to delete tuple: {}", e)))?;
+                .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
         }
 
         Ok(Response::new(DeleteResponse {
             revision: last_revision.0.to_string(),
-            tuples_deleted: tuples_count as u64,
+            relationships_deleted: relationships_count as u64,
         }))
     }
 
@@ -310,35 +310,35 @@ impl InferaService for InferaServiceImpl {
         use futures::StreamExt;
 
         let mut stream = request.into_inner();
-        let mut all_tuples = Vec::new();
+        let mut all_relationships = Vec::new();
 
-        // Collect all tuples from the stream
+        // Collect all relationships from the stream
         while let Some(write_req) = stream.next().await {
             let write_req = write_req?;
-            for tuple in write_req.tuples {
-                all_tuples.push(infera_store::Tuple {
-                    object: tuple.object,
-                    relation: tuple.relation,
-                    user: tuple.user,
+            for relationship in write_req.relationships {
+                all_relationships.push(infera_store::Relationship {
+                    resource: relationship.resource,
+                    relation: relationship.relation,
+                    subject: relationship.subject,
                 });
             }
         }
 
-        if all_tuples.is_empty() {
-            return Err(Status::invalid_argument("No tuples provided"));
+        if all_relationships.is_empty() {
+            return Err(Status::invalid_argument("No relationships provided"));
         }
 
-        // Write all tuples in a batch
+        // Write all relationships in a batch
         let revision = self
             .state
             .store
-            .write(all_tuples.clone())
+            .write(all_relationships.clone())
             .await
             .map_err(|e| Status::internal(format!("Write failed: {}", e)))?;
 
         Ok(Response::new(WriteResponse {
             revision: revision.0.to_string(),
-            tuples_written: all_tuples.len() as u64,
+            relationships_written: all_relationships.len() as u64,
         }))
     }
 
@@ -479,13 +479,13 @@ fn convert_trace_to_proto(trace: DecisionTrace) -> proto::DecisionTrace {
     fn convert_node(node: EvaluationNode) -> proto::EvaluationNode {
         let node_type = match node.node_type {
             CoreNodeType::DirectCheck {
-                object,
+                resource,
                 relation,
-                user,
+                subject,
             } => Some(proto::node_type::Type::DirectCheck(proto::DirectCheck {
-                object,
+                resource,
                 relation,
-                user,
+                subject,
             })),
             CoreNodeType::ComputedUserset { relation, tupleset } => {
                 Some(proto::node_type::Type::ComputedUserset(
@@ -525,7 +525,7 @@ fn convert_trace_to_proto(trace: DecisionTrace) -> proto::DecisionTrace {
         decision: proto_decision as i32,
         root: Some(convert_node(trace.root)),
         duration_micros: trace.duration.as_micros() as u64,
-        tuples_read: trace.tuples_read as u64,
+        relationships_read: trace.relationships_read as u64,
         relations_evaluated: trace.relations_evaluated as u64,
     }
 }
@@ -571,11 +571,11 @@ mod tests {
         ipl::{RelationDef, RelationExpr, Schema, TypeDef},
         Evaluator,
     };
-    use infera_store::{MemoryBackend, TupleStore};
+    use infera_store::{MemoryBackend, RelationshipStore};
     use std::sync::Arc;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![
@@ -640,18 +640,18 @@ mod tests {
         let state = create_test_state();
         let service = InferaServiceImpl::new(state);
 
-        // Write a tuple
+        // Write a relationship
         let write_request = Request::new(WriteRequest {
-            tuples: vec![proto::Tuple {
-                object: "doc:readme".to_string(),
+            relationships: vec![proto::Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             }],
         });
 
         let write_response = service.write(write_request).await.unwrap();
         let write_result = write_response.into_inner();
-        assert_eq!(write_result.tuples_written, 1);
+        assert_eq!(write_result.relationships_written, 1);
 
         // Check permission
         let check_request = Request::new(CheckRequest {
@@ -681,9 +681,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_grpc_write_validation_empty_tuples() {
+    async fn test_grpc_write_validation_empty_relationships() {
         let service = InferaServiceImpl::new(create_test_state());
-        let request = Request::new(WriteRequest { tuples: vec![] });
+        let request = Request::new(WriteRequest { relationships: vec![] });
 
         let result = service.write(request).await;
         assert!(result.is_err());
@@ -694,10 +694,10 @@ mod tests {
     async fn test_grpc_write_validation_invalid_object_format() {
         let service = InferaServiceImpl::new(create_test_state());
         let request = Request::new(WriteRequest {
-            tuples: vec![proto::Tuple {
-                object: "invalid".to_string(), // Missing colon
+            relationships: vec![proto::Relationship {
+                resource: "invalid".to_string(), // Missing colon
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             }],
         });
 

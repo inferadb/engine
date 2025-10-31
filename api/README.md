@@ -1,6 +1,6 @@
 # InferaDB API Documentation
 
-Welcome to the InferaDB API documentation. InferaDB provides both REST and gRPC APIs for authorization checks and tuple management.
+Welcome to the InferaDB API documentation. InferaDB provides both REST and gRPC APIs for authorization checks and relationship management.
 
 ## Quick Navigation
 
@@ -82,8 +82,8 @@ Both APIs support these core operations:
 - **Check** - Check if a subject has permission on a resource
 - **CheckWithTrace** - Check with detailed evaluation trace for debugging
 - **Expand** - Expand a relation to see all users who have access
-- **Write** - Write authorization tuples
-- **Delete** - Delete authorization tuples
+- **Write** - Write authorization relationships
+- **Delete** - Delete authorization relationships
 - **Health** - Check service health
 
 ### Performance
@@ -94,7 +94,7 @@ Typical latencies (REST API):
 - Permission check (simple): <5ms
 - Permission check (complex): <20ms
 - Expand relation: <50ms
-- Write tuples: <5ms
+- Write relationships: <5ms
 
 The gRPC API is typically 20-30% faster due to binary protocol overhead.
 
@@ -192,16 +192,16 @@ cargo run --release
 curl -X POST http://localhost:8080/api/v1/write \
   -H "Content-Type: application/json" \
   -d '{
-    "tuples": [
-      {"object": "doc:1", "relation": "viewer", "user": "user:alice"},
-      {"object": "doc:1", "relation": "editor", "user": "user:bob"}
+    "relationships": [
+      {"resource": "doc:1", "relation": "viewer", "subject": "user:alice"},
+      {"resource": "doc:1", "relation": "editor", "subject": "user:bob"}
     ]
   }'
 
 # gRPC API
 grpcurl -plaintext -d '{
-  "tuples": [
-    {"object": "doc:1", "relation": "viewer", "user": "user:alice"}
+  "relationships": [
+    {"resource": "doc:1", "relation": "viewer", "subject": "user:alice"}
   ]
 }' localhost:8081 infera.v1.InferaService/Write
 ```
@@ -288,15 +288,15 @@ const resource = "readme";
 ```javascript
 // Good - single request
 await write({
-  tuples: [
-    { object: "doc:1", relation: "viewer", user: "user:alice" },
-    { object: "doc:1", relation: "editor", user: "user:bob" },
+  relationships: [
+    { resource: "doc:1", relation: "viewer", subject: "user:alice" },
+    { resource: "doc:1", relation: "editor", subject: "user:bob" },
   ],
 });
 
 // Avoid - multiple requests
-await write({ tuples: [{ object: "doc:1", relation: "viewer", user: "user:alice" }] });
-await write({ tuples: [{ object: "doc:1", relation: "editor", user: "user:bob" }] });
+await write({ relationships: [{ resource: "doc:1", relation: "viewer", subject: "user:alice" }] });
+await write({ relationships: [{ resource: "doc:1", relation: "editor", subject: "user:bob" }] });
 ```
 
 ### 3. Leverage Caching

@@ -338,7 +338,7 @@ fn bench_parallel_expand(c: &mut Criterion) {
 fn bench_large_scale(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
-    c.bench_function("check_with_1000_tuples", |b| {
+    c.bench_function("check_with_1000_relationships", |b| {
         let evaluator = rt.block_on(setup_evaluator_with_data(1000));
 
         b.to_async(&rt).iter(|| async {

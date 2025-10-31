@@ -4,7 +4,7 @@
 
 use infera_core::ipl::Schema;
 use infera_core::{CheckRequest, Evaluator};
-use infera_store::{MemoryBackend, Tuple, TupleStore};
+use infera_store::{MemoryBackend, Tuple, RelationshipStore};
 use infera_wasm::WasmHost;
 use std::sync::Arc;
 
@@ -19,7 +19,7 @@ impl TestFixture {
     pub fn new(schema: Schema) -> Self {
         let store = Arc::new(MemoryBackend::new());
         let evaluator =
-            Evaluator::new(store.clone() as Arc<dyn TupleStore>, Arc::new(schema), None);
+            Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, Arc::new(schema), None);
 
         Self { store, evaluator }
     }
@@ -28,7 +28,7 @@ impl TestFixture {
     pub fn new_with_wasm(schema: Schema, wasm_host: Arc<WasmHost>) -> Self {
         let store = Arc::new(MemoryBackend::new());
         let evaluator = Evaluator::new(
-            store.clone() as Arc<dyn TupleStore>,
+            store.clone() as Arc<dyn RelationshipStore>,
             Arc::new(schema),
             Some(wasm_host),
         );
@@ -36,9 +36,9 @@ impl TestFixture {
         Self { store, evaluator }
     }
 
-    /// Write tuples to the store
-    pub async fn write_tuples(&self, tuples: Vec<Tuple>) -> anyhow::Result<()> {
-        self.store.write(tuples).await?;
+    /// Write relationships to the store
+    pub async fn write_relationships(&self, relationships: Vec<infera_core::Relationship>) -> anyhow::Result<()> {
+        self.store.write(relationships).await?;
         Ok(())
     }
 
@@ -86,11 +86,11 @@ impl TestFixture {
     }
 }
 
-/// Helper to create a tuple
-pub fn tuple(object: &str, relation: &str, user: &str) -> Tuple {
-    Tuple {
-        object: object.to_string(),
+/// Helper to create a relationship
+pub fn relationship(resource: &str, relation: &str, subject: &str) -> infera_core::Relationship {
+    infera_core::Relationship {
+        resource: object.to_string(),
         relation: relation.to_string(),
-        user: user.to_string(),
+        subject: user.to_string(),
     }
 }

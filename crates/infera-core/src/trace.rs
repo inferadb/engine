@@ -17,8 +17,8 @@ pub struct DecisionTrace {
     /// Total evaluation time
     pub duration: Duration,
 
-    /// Number of tuples read
-    pub tuples_read: usize,
+    /// Number of relationships read
+    pub relationships_read: usize,
 
     /// Number of relation evaluations
     pub relations_evaluated: usize,
@@ -39,11 +39,11 @@ pub struct EvaluationNode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NodeType {
-    /// Direct tuple check
+    /// Direct relationship check
     DirectCheck {
-        object: String,
+        resource: String,
         relation: String,
-        user: String,
+        subject: String,
     },
 
     /// Computed userset evaluation
@@ -67,19 +67,19 @@ pub enum NodeType {
 
 impl DecisionTrace {
     pub fn new(decision: Decision, root: EvaluationNode, duration: Duration) -> Self {
-        let (tuples_read, relations_evaluated) = Self::count_operations(&root);
+        let (relationships_read, relations_evaluated) = Self::count_operations(&root);
 
         Self {
             decision,
             root,
             duration,
-            tuples_read,
+            relationships_read,
             relations_evaluated,
         }
     }
 
     fn count_operations(node: &EvaluationNode) -> (usize, usize) {
-        let mut tuples = match &node.node_type {
+        let mut relationships = match &node.node_type {
             NodeType::DirectCheck { .. } => 1,
             _ => 0,
         };
@@ -91,11 +91,11 @@ impl DecisionTrace {
 
         for child in &node.children {
             let (t, r) = Self::count_operations(child);
-            tuples += t;
+            relationships += t;
             relations += r;
         }
 
-        (tuples, relations)
+        (relationships, relations)
     }
 }
 
@@ -107,9 +107,9 @@ mod tests {
     fn test_trace_creation() {
         let node = EvaluationNode {
             node_type: NodeType::DirectCheck {
-                object: "doc:readme".to_string(),
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
             result: true,
             children: Vec::new(),
@@ -118,7 +118,7 @@ mod tests {
         let trace = DecisionTrace::new(Decision::Allow, node, Duration::from_micros(100));
 
         assert_eq!(trace.decision, Decision::Allow);
-        assert_eq!(trace.tuples_read, 1);
+        assert_eq!(trace.relationships_read, 1);
         assert_eq!(trace.relations_evaluated, 0);
     }
 
@@ -126,9 +126,9 @@ mod tests {
     fn test_trace_counting() {
         let child1 = EvaluationNode {
             node_type: NodeType::DirectCheck {
-                object: "doc:readme".to_string(),
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
             result: true,
             children: Vec::new(),
@@ -151,7 +151,7 @@ mod tests {
 
         let trace = DecisionTrace::new(Decision::Allow, root, Duration::from_micros(100));
 
-        assert_eq!(trace.tuples_read, 1);
+        assert_eq!(trace.relationships_read, 1);
         assert_eq!(trace.relations_evaluated, 1);
     }
 }

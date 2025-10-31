@@ -357,7 +357,7 @@ Check that tuples have all required fields:
 {
   "object": "resource:id", // Required
   "relation": "relation_name", // Required
-  "user": "subject:id" // Required
+  "user": "user:id" // Required
 }
 ```
 

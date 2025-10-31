@@ -5,7 +5,7 @@
 
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::{CheckRequest, Decision, Evaluator, ExpandRequest};
-use infera_store::{MemoryBackend, Tuple, TupleStore};
+use infera_store::{MemoryBackend, Tuple, RelationshipStore};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -134,18 +134,18 @@ async fn test_sustained_throughput_100k_rps() {
     let store = Arc::new(MemoryBackend::new());
 
     // Pre-populate with test data
-    let mut tuples = Vec::new();
+    let mut relationships = Vec::new();
     for i in 0..1000 {
-        tuples.push(Tuple {
-            object: format!("resource:doc{}", i),
+        relationships.push(infera_store::Relationship {
+            resource: format!("resource:doc{}", i),
             relation: "viewer".to_string(),
-            user: format!("user:user{}", i % 100), // 100 unique users
+            subject: format!("user:user{}", i % 100), // 100 unique users
         });
     }
-    store.write(tuples).await.expect("Failed to write tuples");
+    store.write(relationships).await.expect("Failed to write relationships");
 
     let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn TupleStore>,
+        store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
     ));
@@ -225,17 +225,17 @@ async fn test_latency_p99_under_10ms() {
     // Small dataset for optimal performance
     for i in 0..100 {
         store
-            .write(vec![Tuple {
-                object: format!("resource:doc{}", i),
+            .write(vec![infera_store::Relationship {
+                resource: format!("resource:doc{}", i),
                 relation: "viewer".to_string(),
-                user: format!("user:user{}", i % 10),
+                subject: format!("user:user{}", i % 10),
             }])
             .await
             .expect("Failed to write");
     }
 
     let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn TupleStore>,
+        store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
     ));
@@ -309,17 +309,17 @@ async fn test_spike_load() {
     // Populate data
     for i in 0..500 {
         store
-            .write(vec![Tuple {
-                object: format!("resource:doc{}", i),
+            .write(vec![infera_store::Relationship {
+                resource: format!("resource:doc{}", i),
                 relation: "viewer".to_string(),
-                user: format!("user:user{}", i % 50),
+                subject: format!("user:user{}", i % 50),
             }])
             .await
             .expect("Failed to write");
     }
 
     let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn TupleStore>,
+        store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
     ));
@@ -414,17 +414,17 @@ async fn test_stress_beyond_capacity() {
     // Large dataset
     for i in 0..5000 {
         store
-            .write(vec![Tuple {
-                object: format!("resource:doc{}", i),
+            .write(vec![infera_store::Relationship {
+                resource: format!("resource:doc{}", i),
                 relation: "viewer".to_string(),
-                user: format!("user:user{}", i % 200),
+                subject: format!("user:user{}", i % 200),
             }])
             .await
             .expect("Failed to write");
     }
 
     let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn TupleStore>,
+        store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
     ));
@@ -498,17 +498,17 @@ async fn test_soak_24h_simulation() {
     // Pre-populate
     for i in 0..1000 {
         store
-            .write(vec![Tuple {
-                object: format!("resource:doc{}", i),
+            .write(vec![infera_store::Relationship {
+                resource: format!("resource:doc{}", i),
                 relation: "viewer".to_string(),
-                user: format!("user:user{}", i % 100),
+                subject: format!("user:user{}", i % 100),
             }])
             .await
             .expect("Failed to write");
     }
 
     let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn TupleStore>,
+        store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
     ));
@@ -597,35 +597,35 @@ async fn test_soak_24h_simulation() {
 // Scale Tests
 //
 
-/// Test: Large Graph (1M+ tuples)
+/// Test: Large Graph (1M+ relationships)
 /// Tests performance with a very large permission graph
 #[tokio::test]
 #[ignore] // Run with: cargo test --package infera-core --test performance_load test_large_graph -- --ignored --nocapture
-async fn test_large_graph_1m_tuples() {
+async fn test_large_graph_1m_relationships() {
     let schema = create_test_schema();
     let store = Arc::new(MemoryBackend::new());
 
-    println!("Populating 1M tuples...");
+    println!("Populating 1M relationships...");
 
     let batch_size = 10_000;
-    let total_tuples = 1_000_000;
+    let total_relationships = 1_000_000;
 
     let population_start = Instant::now();
 
-    for batch in 0..(total_tuples / batch_size) {
-        let mut tuples = Vec::with_capacity(batch_size);
+    for batch in 0..(total_relationships / batch_size) {
+        let mut relationships = Vec::with_capacity(batch_size);
         for i in 0..batch_size {
-            let tuple_id = batch * batch_size + i;
-            tuples.push(Tuple {
-                object: format!("resource:doc{}", tuple_id),
+            let relationship_id = batch * batch_size + i;
+            relationships.push(infera_store::Relationship {
+                resource: format!("resource:doc{}", relationship_id),
                 relation: "viewer".to_string(),
-                user: format!("user:user{}", tuple_id % 10000),
+                subject: format!("user:user{}", relationship_id % 10000),
             });
         }
-        store.write(tuples).await.expect("Failed to write batch");
+        store.write(relationships).await.expect("Failed to write batch");
 
         if batch % 10 == 0 {
-            println!("Progress: {}%", (batch * 100) / (total_tuples / batch_size));
+            println!("Progress: {}%", (batch * 100) / (total_relationships / batch_size));
         }
     }
 
@@ -633,7 +633,7 @@ async fn test_large_graph_1m_tuples() {
     println!("Population completed in {:?}", population_duration);
 
     let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn TupleStore>,
+        store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
     ));
@@ -642,7 +642,7 @@ async fn test_large_graph_1m_tuples() {
     let num_requests = 1000;
     let concurrency = 10;
 
-    println!("Running {} checks on 1M tuple graph...", num_requests);
+    println!("Running {} checks on 1M relationship graph...", num_requests);
 
     let start = Instant::now();
     let latencies = Arc::new(tokio::sync::Mutex::new(Vec::new()));
@@ -684,7 +684,7 @@ async fn test_large_graph_1m_tuples() {
     let all_latencies = latencies.lock().await;
 
     let metrics = PerformanceMetrics::from_latencies(&all_latencies, total_duration);
-    metrics.print_summary("Large Graph (1M tuples)");
+    metrics.print_summary("Large Graph (1M relationships)");
 
     // Performance should still be acceptable with large dataset
     assert!(
@@ -720,16 +720,16 @@ async fn test_deep_nesting_10_levels() {
 
     // Create deep hierarchy
     store
-        .write(vec![Tuple {
-            object: "resource:root".to_string(),
+        .write(vec![infera_store::Relationship {
+            resource: "resource:root".to_string(),
             relation: "level0".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         }])
         .await
         .expect("Failed to write");
 
     let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn TupleStore>,
+        store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
     ));
@@ -782,19 +782,19 @@ async fn test_wide_expansion_10k_users() {
     // Create 10k users with viewer permission on one resource
     let batch_size = 1000;
     for batch in 0..10 {
-        let mut tuples = Vec::new();
+        let mut relationships = Vec::new();
         for i in 0..batch_size {
-            tuples.push(Tuple {
-                object: "resource:shared".to_string(),
+            relationships.push(infera_store::Relationship {
+                resource: "resource:shared".to_string(),
                 relation: "viewer".to_string(),
-                user: format!("user:user{}", batch * batch_size + i),
+                subject: format!("user:user{}", batch * batch_size + i),
             });
         }
-        store.write(tuples).await.expect("Failed to write");
+        store.write(relationships).await.expect("Failed to write");
     }
 
     let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn TupleStore>,
+        store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
     ));

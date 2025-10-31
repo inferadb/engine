@@ -1,6 +1,6 @@
 # REST API Reference
 
-InferaDB provides a RESTful HTTP/JSON API for authorization checks and tuple management.
+InferaDB provides a RESTful HTTP/JSON API for authorization checks and relationship management.
 
 **🚀 Interactive API Explorer**: Try the API interactively with [Swagger UI](./swagger-ui.html)
 
@@ -260,9 +260,9 @@ Content-Type: application/json
 
 ---
 
-### Write Tuples
+### Write Relationships
 
-Write one or more authorization tuples.
+Write one or more authorization relationships.
 
 #### Request
 
@@ -271,16 +271,16 @@ POST /write
 Content-Type: application/json
 
 {
-  "tuples": [
+  "relationships": [
     {
-      "object": "document:readme",
+      "resource": "document:readme",
       "relation": "viewer",
-      "user": "user:alice"
+      "subject": "user:alice"
     },
     {
-      "object": "document:readme",
+      "resource": "document:readme",
       "relation": "editor",
-      "user": "user:bob"
+      "subject": "user:bob"
     }
   ]
 }
@@ -288,10 +288,10 @@ Content-Type: application/json
 
 **Parameters**:
 
-- `tuples` (array, required): Array of tuples to write
-  - `object` (string): The resource
+- `relationships` (array, required): Array of relationships to write
+  - `resource` (string): The resource
   - `relation` (string): The relation
-  - `user` (string): The subject
+  - `subject` (string): The subject
 
 #### Response
 
@@ -307,8 +307,8 @@ Content-Type: application/json
 
 **Status Codes**:
 
-- `200 OK` - Tuples written successfully
-- `400 Bad Request` - Invalid tuple format
+- `200 OK` - Relationships written successfully
+- `400 Bad Request` - Invalid relationship format
 - `500 Internal Server Error` - Write error
 
 #### Example
@@ -317,11 +317,11 @@ Content-Type: application/json
 curl -X POST http://localhost:8080/api/v1/write \
   -H "Content-Type: application/json" \
   -d '{
-    "tuples": [
+    "relationships": [
       {
-        "object": "document:readme",
+        "resource": "document:readme",
         "relation": "viewer",
-        "user": "user:alice"
+        "subject": "user:alice"
       }
     ]
   }'
@@ -337,11 +337,11 @@ Response:
 
 ---
 
-### Delete Tuples
+### Delete Relationships
 
-Delete one or more authorization tuples.
+Delete one or more authorization relationships.
 
-> **Note**: Not yet implemented. Use write endpoint to manage tuples.
+> **Note**: Not yet implemented. Use write endpoint to manage relationships.
 
 ---
 
@@ -374,7 +374,7 @@ All endpoints may return error responses in this format:
 After a write, subsequent reads from the same client will see that write:
 
 ```bash
-# Write tuple
+# Write relationship
 curl -X POST http://localhost:8080/api/v1/write -d '...'
 # Returns: {"revision": 5}
 
@@ -432,27 +432,27 @@ await check({ subject: "user:alice", resource: "doc:1", permission: "view" });
 
 ### 3. Batch Writes
 
-Batch multiple tuple writes in a single request:
+Batch multiple relationship writes in a single request:
 
 ```javascript
 // Good - single request
 await write({
-  tuples: [
-    { object: "doc:1", relation: "viewer", user: "user:alice" },
-    { object: "doc:1", relation: "editor", user: "user:bob" },
-    { object: "doc:2", relation: "viewer", user: "user:alice" },
+  relationships: [
+    { resource: "doc:1", relation: "viewer", subject: "user:alice" },
+    { resource: "doc:1", relation: "editor", subject: "user:bob" },
+    { resource: "doc:2", relation: "viewer", subject: "user:alice" },
   ],
 });
 
 // Avoid - multiple requests
 await write({
-  tuples: [{ object: "doc:1", relation: "viewer", user: "user:alice" }],
+  relationships: [{ resource: "doc:1", relation: "viewer", subject: "user:alice" }],
 });
 await write({
-  tuples: [{ object: "doc:1", relation: "editor", user: "user:bob" }],
+  relationships: [{ resource: "doc:1", relation: "editor", subject: "user:bob" }],
 });
 await write({
-  tuples: [{ object: "doc:2", relation: "viewer", user: "user:alice" }],
+  relationships: [{ resource: "doc:2", relation: "viewer", subject: "user:alice" }],
 });
 ```
 
@@ -520,12 +520,12 @@ class InferaClient {
   }
 
   async write(
-    tuples: Array<{ object: string; relation: string; user: string }>
+    relationships: Array<{ resource: string; relation: string; subject: string }>
   ): Promise<number> {
     const response = await fetch(`${this.baseUrl}/write`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tuples }),
+      body: JSON.stringify({ relationships }),
     });
 
     const result = await response.json();
@@ -556,10 +556,10 @@ class InferaClient:
         response.raise_for_status()
         return response.json()["decision"] == "allow"
 
-    def write(self, tuples: List[Dict[str, str]]) -> int:
+    def write(self, relationships: List[Dict[str, str]]) -> int:
         response = requests.post(
             f"{self.base_url}/write",
-            json={"tuples": tuples}
+            json={"relationships": relationships}
         )
         response.raise_for_status()
         return response.json()["revision"]
@@ -622,10 +622,10 @@ allowed, _ := client.Check("user:alice", "document:readme", "can_view")
 # Health check
 curl http://localhost:8080/api/v1/health
 
-# Write tuples
+# Write relationships
 curl -X POST http://localhost:8080/api/v1/write \
   -H "Content-Type: application/json" \
-  -d '{"tuples": [{"object": "doc:1", "relation": "viewer", "user": "user:alice"}]}'
+  -d '{"relationships": [{"resource": "doc:1", "relation": "viewer", "subject": "user:alice"}]}'
 
 # Check permission
 curl -X POST http://localhost:8080/api/v1/check \
@@ -639,9 +639,9 @@ curl -X POST http://localhost:8080/api/v1/check \
 # Health check
 http GET :8080/api/v1/health
 
-# Write tuples
+# Write relationships
 http POST :8080/api/v1/write \
-  tuples:='[{"object": "doc:1", "relation": "viewer", "user": "user:alice"}]'
+  relationships:='[{"resource": "doc:1", "relation": "viewer", "subject": "user:alice"}]'
 
 # Check permission
 http POST :8080/api/v1/check \

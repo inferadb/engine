@@ -10,13 +10,13 @@ use crate::{
     Change, ChangeFeed, Operation, ReplError, Result,
 };
 use infera_api::grpc::proto::{
-    infera_service_client::InferaServiceClient, DeleteRequest, Tuple as ProtoTuple, WriteRequest,
+    infera_service_client::InferaServiceClient, DeleteRequest, Relationship as ProtoRelationship, WriteRequest,
 };
 use infera_observe::metrics::{
     record_replication_batch, record_replication_changes, record_replication_failure,
     update_replication_targets,
 };
-use infera_store::TupleStore;
+use infera_store::RelationshipStore;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -136,9 +136,9 @@ pub struct ReplicationAgent {
     topology: Arc<RwLock<Topology>>,
     /// Local change feed to subscribe to
     change_feed: Arc<ChangeFeed>,
-    /// Tuple store for conflict resolution
+    /// Relationship store for conflict resolution
     #[allow(dead_code)] // Used in future conflict resolution logic
-    store: Arc<dyn TupleStore>,
+    store: Arc<dyn RelationshipStore>,
     /// Conflict resolver
     #[allow(dead_code)] // Used in future conflict resolution logic
     conflict_resolver: Arc<ConflictResolver>,
@@ -157,7 +157,7 @@ impl ReplicationAgent {
     pub fn new(
         topology: Arc<RwLock<Topology>>,
         change_feed: Arc<ChangeFeed>,
-        store: Arc<dyn TupleStore>,
+        store: Arc<dyn RelationshipStore>,
         conflict_resolver: Arc<ConflictResolver>,
         config: ReplicationConfig,
     ) -> Self {
@@ -395,16 +395,16 @@ impl ReplicationAgent {
 
         // Send inserts
         if !inserts.is_empty() {
-            let tuples: Vec<ProtoTuple> = inserts
+            let relationships: Vec<ProtoRelationship> = inserts
                 .iter()
-                .map(|c| ProtoTuple {
-                    object: c.tuple.object.clone(),
-                    relation: c.tuple.relation.clone(),
-                    user: c.tuple.user.clone(),
+                .map(|c| ProtoRelationship {
+                    resource: c.relationship.resource.clone(),
+                    relation: c.relationship.relation.clone(),
+                    subject: c.relationship.subject.clone(),
                 })
                 .collect();
 
-            let mut request = tonic::Request::new(WriteRequest { tuples });
+            let mut request = tonic::Request::new(WriteRequest { relationships });
             request.set_timeout(config.request_timeout);
 
             client
@@ -415,16 +415,16 @@ impl ReplicationAgent {
 
         // Send deletes
         if !deletes.is_empty() {
-            let tuples: Vec<ProtoTuple> = deletes
+            let relationships: Vec<ProtoRelationship> = deletes
                 .iter()
-                .map(|c| ProtoTuple {
-                    object: c.tuple.object.clone(),
-                    relation: c.tuple.relation.clone(),
-                    user: c.tuple.user.clone(),
+                .map(|c| ProtoRelationship {
+                    resource: c.relationship.resource.clone(),
+                    relation: c.relationship.relation.clone(),
+                    subject: c.relationship.subject.clone(),
                 })
                 .collect();
 
-            let mut request = tonic::Request::new(DeleteRequest { tuples });
+            let mut request = tonic::Request::new(DeleteRequest { relationships });
             request.set_timeout(config.request_timeout);
 
             client
@@ -502,7 +502,7 @@ mod tests {
             .unwrap(),
         ));
 
-        let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
         let change_feed = Arc::new(ChangeFeed::new());
         let conflict_resolver = Arc::new(ConflictResolver::new(
             ConflictResolutionStrategy::LastWriteWins,

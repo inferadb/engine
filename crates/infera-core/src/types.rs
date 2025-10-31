@@ -2,6 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
+// Re-export Relationship from infera_store
+pub use infera_store::Relationship;
+
 /// A permission check request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckRequest {
@@ -60,24 +63,17 @@ pub enum UsersetNodeType {
     Leaf { users: Vec<String> },
 }
 
+
 /// A request to simulate changes to the authorization graph
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulateRequest {
     pub checks: Vec<CheckRequest>,
-    pub context_tuples: Vec<Tuple>,
+    pub context_relationships: Vec<Relationship>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulateResponse {
     pub results: Vec<Decision>,
-}
-
-/// A tuple representing a relationship
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct Tuple {
-    pub object: String,
-    pub relation: String,
-    pub user: String,
 }
 
 /// A request to list resources accessible by a subject
@@ -122,18 +118,6 @@ pub struct ListRelationshipsRequest {
     pub limit: Option<usize>,
     /// Optional continuation token from previous request
     pub cursor: Option<String>,
-}
-
-/// Relationship represents an authorization relationship with API-friendly naming.
-/// This is the API-level representation, separate from the storage-level Tuple.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Relationship {
-    /// Resource identifier (e.g., "doc:readme")
-    pub resource: String,
-    /// Relation type (e.g., "viewer", "editor")
-    pub relation: String,
-    /// Subject identifier (e.g., "user:alice", "group:engineers")
-    pub subject: String,
 }
 
 /// Response from a list relationships operation

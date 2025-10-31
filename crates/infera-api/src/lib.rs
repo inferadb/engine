@@ -27,7 +27,7 @@ use infera_core::{
     CheckRequest, Decision, Evaluator, ExpandRequest, ListRelationshipsRequest,
     ListResourcesRequest,
 };
-use infera_store::{Tuple, TupleStore};
+use infera_store::RelationshipStore;
 
 pub mod grpc;
 pub mod grpc_interceptor;
@@ -128,7 +128,7 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 #[derive(Clone)]
 pub struct AppState {
     pub evaluator: Arc<Evaluator>,
-    pub store: Arc<dyn TupleStore>,
+    pub store: Arc<dyn RelationshipStore>,
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
@@ -370,7 +370,7 @@ async fn expand_stream_handler(
 
     let stream = stream::iter(users.into_iter().enumerate().map(|(idx, user)| {
         let data = serde_json::json!({
-            "user": user,
+            "subject": user,
             "index": idx,
         });
 
@@ -391,7 +391,7 @@ async fn expand_stream_handler(
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }
 
-/// Write tuples endpoint
+/// Write relationships endpoint
 async fn write_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
@@ -413,38 +413,38 @@ async fn write_handler(
     }
 
     // Validate request
-    if request.tuples.is_empty() {
-        return Err(ApiError::InvalidRequest("No tuples provided".to_string()));
+    if request.relationships.is_empty() {
+        return Err(ApiError::InvalidRequest("No relationships provided".to_string()));
     }
 
-    // Validate tuple format
-    for tuple in &request.tuples {
-        if tuple.object.is_empty() {
+    // Validate relationship format
+    for relationship in &request.relationships {
+        if relationship.resource.is_empty() {
             return Err(ApiError::InvalidRequest(
-                "Tuple object cannot be empty".to_string(),
+                "Relationship resource cannot be empty".to_string(),
             ));
         }
-        if tuple.relation.is_empty() {
+        if relationship.relation.is_empty() {
             return Err(ApiError::InvalidRequest(
-                "Tuple relation cannot be empty".to_string(),
+                "Relationship relation cannot be empty".to_string(),
             ));
         }
-        if tuple.user.is_empty() {
+        if relationship.subject.is_empty() {
             return Err(ApiError::InvalidRequest(
-                "Tuple user cannot be empty".to_string(),
+                "Relationship subject cannot be empty".to_string(),
             ));
         }
         // Validate format (should contain colon)
-        if !tuple.object.contains(':') {
+        if !relationship.resource.contains(':') {
             return Err(ApiError::InvalidRequest(format!(
                 "Invalid object format '{}': must be 'type:id'",
-                tuple.object
+                relationship.resource
             )));
         }
-        if !tuple.user.contains(':') {
+        if !relationship.subject.contains(':') {
             return Err(ApiError::InvalidRequest(format!(
                 "Invalid user format '{}': must be 'type:id'",
-                tuple.user
+                relationship.subject
             )));
         }
     }
@@ -466,22 +466,22 @@ async fn write_handler(
         }
     }
 
-    // Write tuples to store
+    // Write relationships to store
     let revision = state
         .store
-        .write(request.tuples.clone())
+        .write(request.relationships.clone())
         .await
-        .map_err(|e| ApiError::Internal(format!("Failed to write tuples: {}", e)))?;
+        .map_err(|e| ApiError::Internal(format!("Failed to write relationships: {}", e)))?;
 
     Ok(Json(WriteResponse {
         revision: revision.0.to_string(), // Extract the u64 value
-        tuples_written: request.tuples.len(),
+        relationships_written: request.relationships.len(),
     }))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WriteRequest {
-    pub tuples: Vec<Tuple>,
+    pub relationships: Vec<infera_core::Relationship>,
     /// Optional expected revision for optimistic locking
     /// If provided, the write will only succeed if the current store revision matches
     pub expected_revision: Option<String>,
@@ -490,10 +490,10 @@ pub struct WriteRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WriteResponse {
     pub revision: String,
-    pub tuples_written: usize,
+    pub relationships_written: usize,
 }
 
-/// Delete tuples endpoint
+/// Delete relationships endpoint
 async fn delete_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
@@ -515,48 +515,48 @@ async fn delete_handler(
     }
 
     // Validate request
-    if request.tuples.is_empty() {
-        return Err(ApiError::InvalidRequest("No tuples provided".to_string()));
+    if request.relationships.is_empty() {
+        return Err(ApiError::InvalidRequest("No relationships provided".to_string()));
     }
 
-    // Validate and convert tuples to TupleKeys
+    // Validate and convert relationships to RelationshipKeys
     let mut keys = Vec::new();
-    for tuple in &request.tuples {
-        if tuple.object.is_empty() {
+    for relationship in &request.relationships {
+        if relationship.resource.is_empty() {
             return Err(ApiError::InvalidRequest(
-                "Tuple object cannot be empty".to_string(),
+                "Relationship resource cannot be empty".to_string(),
             ));
         }
-        if tuple.relation.is_empty() {
+        if relationship.relation.is_empty() {
             return Err(ApiError::InvalidRequest(
-                "Tuple relation cannot be empty".to_string(),
+                "Relationship relation cannot be empty".to_string(),
             ));
         }
-        if tuple.user.is_empty() {
+        if relationship.subject.is_empty() {
             return Err(ApiError::InvalidRequest(
-                "Tuple user cannot be empty".to_string(),
+                "Relationship subject cannot be empty".to_string(),
             ));
         }
         // Validate format (should contain colon)
-        if !tuple.object.contains(':') {
+        if !relationship.resource.contains(':') {
             return Err(ApiError::InvalidRequest(format!(
                 "Invalid object format '{}': must be 'type:id'",
-                tuple.object
+                relationship.resource
             )));
         }
-        if !tuple.user.contains(':') {
+        if !relationship.subject.contains(':') {
             return Err(ApiError::InvalidRequest(format!(
                 "Invalid user format '{}': must be 'type:id'",
-                tuple.user
+                relationship.subject
             )));
         }
 
-        // Create TupleKey for deletion
-        use infera_store::TupleKey;
-        keys.push(TupleKey {
-            object: tuple.object.clone(),
-            relation: tuple.relation.clone(),
-            user: Some(tuple.user.clone()),
+        // Create RelationshipKey for deletion
+        use infera_store::RelationshipKey;
+        keys.push(RelationshipKey {
+            resource: relationship.resource.clone(),
+            relation: relationship.relation.clone(),
+            subject: Some(relationship.subject.clone()),
         });
     }
 
@@ -577,7 +577,7 @@ async fn delete_handler(
         }
     }
 
-    // Delete tuples from store
+    // Delete relationships from store
     let mut last_revision = None;
     let mut deleted_count = 0;
 
@@ -588,25 +588,25 @@ async fn delete_handler(
                 deleted_count += 1;
             }
             Err(e) => {
-                tracing::warn!("Failed to delete tuple {:?}: {}", key, e);
-                // Continue deleting other tuples even if one fails
+                tracing::warn!("Failed to delete relationship {:?}: {}", key, e);
+                // Continue deleting other relationships even if one fails
             }
         }
     }
 
     // Return the last revision from successful deletes
     let revision =
-        last_revision.ok_or_else(|| ApiError::Internal("No tuples were deleted".to_string()))?;
+        last_revision.ok_or_else(|| ApiError::Internal("No relationships were deleted".to_string()))?;
 
     Ok(Json(DeleteResponse {
         revision: revision.0.to_string(),
-        tuples_deleted: deleted_count,
+        relationships_deleted: deleted_count,
     }))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DeleteRequest {
-    pub tuples: Vec<Tuple>,
+    pub relationships: Vec<infera_core::Relationship>,
     /// Optional expected revision for optimistic locking
     /// If provided, the delete will only succeed if the current store revision matches
     pub expected_revision: Option<String>,
@@ -615,10 +615,10 @@ pub struct DeleteRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DeleteResponse {
     pub revision: String,
-    pub tuples_deleted: usize,
+    pub relationships_deleted: usize,
 }
 
-/// Simulate endpoint - run checks with ephemeral context tuples
+/// Simulate endpoint - run checks with ephemeral context relationships
 async fn simulate_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
@@ -642,29 +642,29 @@ async fn simulate_handler(
         }
     }
 
-    // Validate context tuples
-    if request.context_tuples.is_empty() {
+    // Validate context relationships
+    if request.context_relationships.is_empty() {
         return Err(ApiError::InvalidRequest(
-            "At least one context tuple required".to_string(),
+            "At least one context relationship required".to_string(),
         ));
     }
 
-    for tuple in &request.context_tuples {
-        if tuple.object.is_empty() || tuple.relation.is_empty() || tuple.user.is_empty() {
-            return Err(ApiError::InvalidRequest("Invalid tuple format".to_string()));
+    for relationship in &request.context_relationships {
+        if relationship.resource.is_empty() || relationship.relation.is_empty() || relationship.subject.is_empty() {
+            return Err(ApiError::InvalidRequest("Invalid relationship format".to_string()));
         }
     }
 
-    // Create an ephemeral in-memory store with ONLY the context tuples
+    // Create an ephemeral in-memory store with ONLY the context relationships
     // This simulates authorization decisions with temporary/what-if data
     use infera_store::MemoryBackend;
     let ephemeral_store = Arc::new(MemoryBackend::new());
 
-    // Write context tuples to ephemeral store
+    // Write context relationships to ephemeral store
     ephemeral_store
-        .write(request.context_tuples.clone())
+        .write(request.context_relationships.clone())
         .await
-        .map_err(|e| ApiError::Internal(format!("Failed to write context tuples: {}", e)))?;
+        .map_err(|e| ApiError::Internal(format!("Failed to write context relationships: {}", e)))?;
 
     // Create a temporary evaluator with the ephemeral store
     // Create a minimal schema for simulation (empty schema allows all relations)
@@ -684,13 +684,13 @@ async fn simulate_handler(
 
     Ok(Json(SimulateResponse {
         decision,
-        context_tuples_count: request.context_tuples.len(),
+        context_relationships_count: request.context_relationships.len(),
     }))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SimulateRequest {
-    pub context_tuples: Vec<Tuple>,
+    pub context_relationships: Vec<infera_core::Relationship>,
     pub check: SimulateCheck,
 }
 
@@ -705,7 +705,7 @@ pub struct SimulateCheck {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SimulateResponse {
     pub decision: Decision,
-    pub context_tuples_count: usize,
+    pub context_relationships_count: usize,
 }
 
 /// Explain endpoint - return full decision trace
@@ -939,7 +939,7 @@ async fn list_resources_stream_handler(
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }
 
-/// List relationships endpoint - returns tuples matching optional filters
+/// List relationships endpoint - returns relationships matching optional filters
 async fn list_relationships_handler(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
@@ -1012,7 +1012,7 @@ pub struct ListRelationshipsRestResponse {
 
 /// Streaming list relationships endpoint using Server-Sent Events
 ///
-/// Returns tuples as they're discovered, enabling progressive rendering
+/// Returns relationships as they're discovered, enabling progressive rendering
 /// for large result sets.
 async fn list_relationships_stream_handler(
     auth: infera_auth::extractor::OptionalAuth,
@@ -1082,7 +1082,7 @@ async fn list_relationships_stream_handler(
 /// Start the REST API server
 pub async fn serve(
     evaluator: Arc<Evaluator>,
-    store: Arc<dyn TupleStore>,
+    store: Arc<dyn RelationshipStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
@@ -1129,7 +1129,7 @@ pub async fn serve(
 /// Start the gRPC server
 pub async fn serve_grpc(
     evaluator: Arc<Evaluator>,
-    store: Arc<dyn TupleStore>,
+    store: Arc<dyn RelationshipStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
@@ -1208,7 +1208,7 @@ pub async fn serve_grpc(
 /// Start both REST and gRPC servers concurrently
 pub async fn serve_both(
     evaluator: Arc<Evaluator>,
-    store: Arc<dyn TupleStore>,
+    store: Arc<dyn RelationshipStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
@@ -1243,7 +1243,7 @@ mod tests {
     use tower::ServiceExt; // for `oneshot`
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn TupleStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![
@@ -1333,12 +1333,12 @@ mod tests {
         let state = create_test_state();
         let app = create_router(state.clone());
 
-        // First, write a tuple
+        // First, write a relationship
         let write_request = json!({
-            "tuples": [{
-                "object": "doc:readme",
+            "relationships": [{
+                "resource": "doc:readme",
                 "relation": "reader",
-                "user": "user:alice"
+                "subject": "user:alice"
             }]
         });
 
@@ -1361,7 +1361,7 @@ mod tests {
             .await
             .unwrap();
         let write_response: WriteResponse = serde_json::from_slice(&body).unwrap();
-        assert_eq!(write_response.tuples_written, 1);
+        assert_eq!(write_response.relationships_written, 1);
 
         // Now check the permission
         let check_request = json!({
@@ -1393,11 +1393,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_write_validation_empty_tuples() {
+    async fn test_write_validation_empty_relationships() {
         let app = create_router(create_test_state());
 
         let write_request = json!({
-            "tuples": []
+            "relationships": []
         });
 
         let response = app
@@ -1420,10 +1420,10 @@ mod tests {
         let app = create_router(create_test_state());
 
         let write_request = json!({
-            "tuples": [{
-                "object": "invalid",  // Missing colon
+            "relationships": [{
+                "resource": "invalid",  // Missing colon
                 "relation": "reader",
-                "user": "user:alice"
+                "subject": "user:alice"
             }]
         });
 
@@ -1480,12 +1480,12 @@ mod tests {
         let state = create_test_state();
         let app = create_router(state.clone());
 
-        // First, write a tuple
+        // First, write a relationship
         let write_request = json!({
-            "tuples": [{
-                "object": "doc:test",
+            "relationships": [{
+                "resource": "doc:test",
                 "relation": "reader",
-                "user": "user:bob"
+                "subject": "user:bob"
             }]
         });
 
@@ -1504,7 +1504,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        // Verify the tuple exists
+        // Verify the relationship exists
         let check_request = json!({
             "subject": "user:bob",
             "resource": "doc:test",
@@ -1532,12 +1532,12 @@ mod tests {
         let check_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(check_response["decision"], "allow");
 
-        // Now delete the tuple
+        // Now delete the relationship
         let delete_request = json!({
-            "tuples": [{
-                "object": "doc:test",
+            "relationships": [{
+                "resource": "doc:test",
                 "relation": "reader",
-                "user": "user:bob"
+                "subject": "user:bob"
             }]
         });
 
@@ -1560,9 +1560,9 @@ mod tests {
             .await
             .unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
-        assert_eq!(delete_response.tuples_deleted, 1);
+        assert_eq!(delete_response.relationships_deleted, 1);
 
-        // Verify the tuple is deleted
+        // Verify the relationship is deleted
         let check_request = json!({
             "subject": "user:bob",
             "resource": "doc:test",
@@ -1591,11 +1591,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delete_validation_empty_tuples() {
+    async fn test_delete_validation_empty_relationships() {
         let app = create_router(create_test_state());
 
         let delete_request = json!({
-            "tuples": []
+            "relationships": []
         });
 
         let response = app
@@ -1618,10 +1618,10 @@ mod tests {
         let app = create_router(create_test_state());
 
         let delete_request = json!({
-            "tuples": [{
-                "object": "invalid_no_colon",
+            "relationships": [{
+                "resource": "invalid_no_colon",
                 "relation": "reader",
-                "user": "user:alice"
+                "subject": "user:alice"
             }]
         });
 
@@ -1645,18 +1645,18 @@ mod tests {
         let state = create_test_state();
         let app = create_router(state.clone());
 
-        // Write multiple tuples
+        // Write multiple relationships
         let write_request = json!({
-            "tuples": [
+            "relationships": [
                 {
-                    "object": "doc:batch1",
+                    "resource": "doc:batch1",
                     "relation": "reader",
-                    "user": "user:charlie"
+                    "subject": "user:charlie"
                 },
                 {
-                    "object": "doc:batch2",
+                    "resource": "doc:batch2",
                     "relation": "reader",
-                    "user": "user:charlie"
+                    "subject": "user:charlie"
                 }
             ]
         });
@@ -1676,18 +1676,18 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        // Delete both tuples in batch
+        // Delete both relationships in batch
         let delete_request = json!({
-            "tuples": [
+            "relationships": [
                 {
-                    "object": "doc:batch1",
+                    "resource": "doc:batch1",
                     "relation": "reader",
-                    "user": "user:charlie"
+                    "subject": "user:charlie"
                 },
                 {
-                    "object": "doc:batch2",
+                    "resource": "doc:batch2",
                     "relation": "reader",
-                    "user": "user:charlie"
+                    "subject": "user:charlie"
                 }
             ]
         });
@@ -1710,7 +1710,7 @@ mod tests {
             .await
             .unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
-        assert_eq!(delete_response.tuples_deleted, 2);
+        assert_eq!(delete_response.relationships_deleted, 2);
     }
 
     #[tokio::test]
@@ -1755,23 +1755,23 @@ mod tests {
         let state = create_test_state();
         let app = create_router(state.clone());
 
-        // Write some tuples first
+        // Write some relationships first
         let write_request = json!({
-            "tuples": [
+            "relationships": [
                 {
-                    "object": "doc:readme",
+                    "resource": "doc:readme",
                     "relation": "reader",
-                    "user": "user:alice"
+                    "subject": "user:alice"
                 },
                 {
-                    "object": "doc:guide",
+                    "resource": "doc:guide",
                     "relation": "reader",
-                    "user": "user:alice"
+                    "subject": "user:alice"
                 },
                 {
-                    "object": "doc:secret",
+                    "resource": "doc:secret",
                     "relation": "reader",
-                    "user": "user:bob"
+                    "subject": "user:bob"
                 }
             ]
         });
@@ -1900,28 +1900,28 @@ mod tests {
         let state = create_test_state();
         let app = create_router(state.clone());
 
-        // Write multiple tuples
+        // Write multiple relationships
         let write_request = json!({
-            "tuples": [
+            "relationships": [
                 {
-                    "object": "doc:1",
+                    "resource": "doc:1",
                     "relation": "reader",
-                    "user": "user:alice"
+                    "subject": "user:alice"
                 },
                 {
-                    "object": "doc:2",
+                    "resource": "doc:2",
                     "relation": "reader",
-                    "user": "user:alice"
+                    "subject": "user:alice"
                 },
                 {
-                    "object": "doc:3",
+                    "resource": "doc:3",
                     "relation": "reader",
-                    "user": "user:alice"
+                    "subject": "user:alice"
                 },
                 {
-                    "object": "doc:4",
+                    "resource": "doc:4",
                     "relation": "reader",
-                    "user": "user:alice"
+                    "subject": "user:alice"
                 }
             ]
         });
@@ -1979,13 +1979,13 @@ mod tests {
         let state = create_test_state();
         let app = create_router(state.clone());
 
-        // Write tuples for bob only
+        // Write relationships for bob only
         let write_request = json!({
-            "tuples": [
+            "relationships": [
                 {
-                    "object": "doc:secret",
+                    "resource": "doc:secret",
                     "relation": "reader",
-                    "user": "user:bob"
+                    "subject": "user:bob"
                 }
             ]
         });

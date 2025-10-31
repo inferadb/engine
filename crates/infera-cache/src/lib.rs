@@ -46,15 +46,15 @@ pub type CheckCacheValue = Decision;
 /// Cache key for expand operations (intermediate results)
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpandCacheKey {
-    pub object: String,
+    pub resource: String,
     pub relation: String,
     pub revision: Revision,
 }
 
 impl ExpandCacheKey {
-    pub fn new(object: String, relation: String, revision: Revision) -> Self {
+    pub fn new(resource: String, relation: String, revision: Revision) -> Self {
         Self {
-            object,
+            resource,
             relation,
             revision,
         }
@@ -144,7 +144,7 @@ impl AuthCache {
         // Update the secondary index
         let mut index = self.expand_object_index.write().await;
         index
-            .entry(key.object.clone())
+            .entry(key.resource.clone())
             .or_insert_with(HashSet::new)
             .insert(key.clone());
         drop(index);
@@ -203,12 +203,12 @@ impl AuthCache {
         self.invalidations.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Extract affected resources from tuples for selective invalidation
+    /// Extract affected resources from relationships for selective invalidation
     /// Returns a list of unique object IDs that were modified
-    pub fn extract_affected_resources(tuples: &[infera_store::Tuple]) -> Vec<String> {
+    pub fn extract_affected_resources(relationships: &[infera_store::Relationship]) -> Vec<String> {
         let mut resources = HashSet::new();
-        for tuple in tuples {
-            resources.insert(tuple.object.clone());
+        for relationship in relationships {
+            resources.insert(relationship.resource.clone());
         }
         resources.into_iter().collect()
     }
@@ -534,7 +534,7 @@ mod tests {
         let cache = AuthCache::default();
 
         let key = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
@@ -561,13 +561,13 @@ mod tests {
         let cache = AuthCache::default();
 
         let key1 = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
 
         let key2 = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "editor".to_string(),
             revision: Revision(1),
         };
@@ -597,7 +597,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
@@ -621,13 +621,13 @@ mod tests {
         let cache = AuthCache::default();
 
         let key_rev1 = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
 
         let key_rev2 = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(2),
         };
@@ -659,7 +659,7 @@ mod tests {
 
         // Expand cache
         let expand_key = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
@@ -736,19 +736,19 @@ mod tests {
 
         // Cache entries for different objects
         let key1 = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
 
         let key2 = ExpandCacheKey {
-            object: "doc:readme".to_string(),
+            resource: "doc:readme".to_string(),
             relation: "editor".to_string(),
             revision: Revision(1),
         };
 
         let key3 = ExpandCacheKey {
-            object: "doc:other".to_string(),
+            resource: "doc:other".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
@@ -819,25 +819,25 @@ mod tests {
 
     #[tokio::test]
     async fn test_extract_affected_resources() {
-        let tuples = vec![
-            infera_store::Tuple {
-                object: "doc:1".to_string(),
+        let relationships = vec![
+            infera_store::Relationship {
+                resource: "doc:1".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            infera_store::Tuple {
-                object: "doc:1".to_string(),
+            infera_store::Relationship {
+                resource: "doc:1".to_string(),
                 relation: "editor".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
-            infera_store::Tuple {
-                object: "doc:2".to_string(),
+            infera_store::Relationship {
+                resource: "doc:2".to_string(),
                 relation: "reader".to_string(),
-                user: "user:charlie".to_string(),
+                subject: "user:charlie".to_string(),
             },
         ];
 
-        let resources = AuthCache::extract_affected_resources(&tuples);
+        let resources = AuthCache::extract_affected_resources(&relationships);
 
         // Should extract unique objects
         assert_eq!(resources.len(), 2);
@@ -1118,7 +1118,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 for j in 0..5 {
                     let key = ExpandCacheKey {
-                        object: format!("doc:{}", i),
+                        resource: format!("doc:{}", i),
                         relation: format!("rel:{}", j),
                         revision: Revision(1),
                     };
@@ -1135,7 +1135,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 for j in 0..5 {
                     let key = ExpandCacheKey {
-                        object: format!("doc:{}", i),
+                        resource: format!("doc:{}", i),
                         relation: format!("rel:{}", j),
                         revision: Revision(1),
                     };

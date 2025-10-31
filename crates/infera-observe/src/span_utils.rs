@@ -44,21 +44,21 @@ pub fn evaluation_span(relation: &str, resource_type: &str) -> Span {
     )
 }
 
-/// Create a span for tuple store operations
+/// Create a span for relationship store operations
 ///
 /// # Arguments
 /// * `operation` - The operation being performed (e.g., "read", "write")
-/// * `object` - The object being operated on
+/// * `resource` - The resource being operated on
 ///
 /// # Returns
 /// A tracing span for store operations
-pub fn store_span(operation: &str, object: &str) -> Span {
+pub fn store_span(operation: &str, resource: &str) -> Span {
     span!(
         Level::DEBUG,
-        "tuple_store_operation",
+        "relationship_store_operation",
         operation = operation,
-        object = object,
-        tuple_count = tracing::field::Empty,
+        resource = resource,
+        relationship_count = tracing::field::Empty,
     )
 }
 
@@ -154,13 +154,13 @@ pub fn record_cache_hit(span: &Span, hit: bool) {
     span.record("hit", hit);
 }
 
-/// Record tuple count for store operations
+/// Record relationship count for store operations
 ///
 /// # Arguments
 /// * `span` - The span to record in
-/// * `count` - Number of tuples
-pub fn record_tuple_count(span: &Span, count: usize) {
-    span.record("tuple_count", count);
+/// * `count` - Number of relationships
+pub fn record_relationship_count(span: &Span, count: usize) {
+    span.record("relationship_count", count);
 }
 
 /// Record WASM execution results
@@ -363,7 +363,7 @@ mod tests {
 
         let span = store_span("read", "document:readme");
         if let Some(metadata) = span.metadata() {
-            assert_eq!(metadata.name(), "tuple_store_operation");
+            assert_eq!(metadata.name(), "relationship_store_operation");
         }
     }
 
@@ -428,12 +428,12 @@ mod tests {
     }
 
     #[test]
-    fn test_record_tuple_count() {
+    fn test_record_relationship_count() {
         init_test_tracing();
 
         let span = store_span("read", "document:readme");
         let _entered = span.enter();
-        record_tuple_count(&span, 5);
+        record_relationship_count(&span, 5);
         // Just verify it doesn't panic
     }
 

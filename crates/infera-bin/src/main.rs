@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
 
     // Initialize storage backend
     // TODO: Support multiple backends based on config
-    let store: Arc<dyn infera_store::TupleStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn infera_store::RelationshipStore> = Arc::new(MemoryBackend::new());
     tracing::info!("Using in-memory storage backend");
 
     // Initialize WASM host

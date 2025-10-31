@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use tracing::{debug, instrument};
 
-use crate::graph::{has_direct_tuple, GraphContext};
+use crate::graph::{has_direct_relationship, GraphContext};
 use crate::ipl::Schema;
 use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
 use crate::{
@@ -14,12 +14,12 @@ use crate::{
     UsersetNodeType, UsersetTree,
 };
 use infera_cache::{AuthCache, CheckCacheKey};
-use infera_store::TupleStore;
+use infera_store::RelationshipStore;
 use infera_wasm::WasmHost;
 
 /// The main policy evaluator
 pub struct Evaluator {
-    store: Arc<dyn TupleStore>,
+    store: Arc<dyn RelationshipStore>,
     wasm_host: Option<Arc<WasmHost>>,
     schema: Arc<Schema>,
     cache: Option<Arc<AuthCache>>,
@@ -27,7 +27,7 @@ pub struct Evaluator {
 
 impl Evaluator {
     pub fn new(
-        store: Arc<dyn TupleStore>,
+        store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
     ) -> Self {
@@ -40,7 +40,7 @@ impl Evaluator {
     }
 
     pub fn new_with_cache(
-        store: Arc<dyn TupleStore>,
+        store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
         cache: Option<Arc<AuthCache>>,
@@ -163,7 +163,7 @@ impl Evaluator {
             .await?;
 
         // Get statistics from context
-        let tuples_read = ctx.visited.len(); // Approximate
+        let relationships_read = ctx.visited.len(); // Approximate
         let relations_evaluated = ctx.visited.len();
 
         // Determine decision from root node
@@ -177,7 +177,7 @@ impl Evaluator {
             decision,
             root,
             duration: start.elapsed(),
-            tuples_read,
+            relationships_read,
             relations_evaluated,
         })
     }
@@ -186,21 +186,21 @@ impl Evaluator {
     #[async_recursion::async_recursion]
     async fn build_evaluation_node(
         &self,
-        object: &str,
+        resource: &str,
         relation: &str,
-        user: &str,
+        subject: &str,
         ctx: &mut GraphContext,
     ) -> Result<EvaluationNode> {
-        // Check for direct tuple first
+        // Check for direct relationship first
         let has_direct =
-            has_direct_tuple(&*ctx.store, object, relation, user, ctx.revision).await?;
+            has_direct_relationship(&*ctx.store, resource, relation, subject, ctx.revision).await?;
 
         if has_direct {
             return Ok(EvaluationNode {
                 node_type: NodeType::DirectCheck {
-                    object: object.to_string(),
+                    resource: resource.to_string(),
                     relation: relation.to_string(),
-                    user: user.to_string(),
+                    subject: subject.to_string(),
                 },
                 result: true,
                 children: vec![],
@@ -208,10 +208,10 @@ impl Evaluator {
         }
 
         // Get the relation definition
-        let type_name = object
+        let type_name = resource
             .split(':')
             .next()
-            .ok_or_else(|| EvalError::Evaluation("Invalid object format".to_string()))?;
+            .ok_or_else(|| EvalError::Evaluation("Invalid resource format".to_string()))?;
 
         let type_def = ctx
             .schema
@@ -229,9 +229,9 @@ impl Evaluator {
         if expr_opt.is_none() {
             return Ok(EvaluationNode {
                 node_type: NodeType::DirectCheck {
-                    object: object.to_string(),
+                    resource: resource.to_string(),
                     relation: relation.to_string(),
-                    user: user.to_string(),
+                    subject: subject.to_string(),
                 },
                 result: false,
                 children: vec![],
@@ -239,7 +239,7 @@ impl Evaluator {
         }
 
         // Evaluate the relation expression
-        self.build_expr_node(object, &expr_opt.unwrap(), user, ctx)
+        self.build_expr_node(resource, &expr_opt.unwrap(), subject, ctx)
             .await
     }
 
@@ -247,9 +247,9 @@ impl Evaluator {
     #[async_recursion::async_recursion]
     async fn build_expr_node(
         &self,
-        object: &str,
+        resource: &str,
         expr: &crate::ipl::RelationExpr,
-        user: &str,
+        subject: &str,
         ctx: &mut GraphContext,
     ) -> Result<EvaluationNode> {
         use crate::ipl::RelationExpr;
@@ -257,12 +257,12 @@ impl Evaluator {
         match expr {
             RelationExpr::This => {
                 let has_direct =
-                    has_direct_tuple(&*ctx.store, object, "this", user, ctx.revision).await?;
+                    has_direct_relationship(&*ctx.store, resource, "this", subject, ctx.revision).await?;
                 Ok(EvaluationNode {
                     node_type: NodeType::DirectCheck {
-                        object: object.to_string(),
+                        resource: resource.to_string(),
                         relation: "this".to_string(),
-                        user: user.to_string(),
+                        subject: subject.to_string(),
                     },
                     result: has_direct,
                     children: vec![],
@@ -270,7 +270,7 @@ impl Evaluator {
             }
 
             RelationExpr::RelationRef { relation } => {
-                self.build_evaluation_node(object, relation, user, ctx)
+                self.build_evaluation_node(resource, relation, subject, ctx)
                     .await
             }
 
@@ -278,7 +278,7 @@ impl Evaluator {
                 // Get objects from tupleset and check if any have user in relation
                 let tupleset_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
-                    object,
+                    resource,
                     tupleset,
                     ctx.revision,
                 )
@@ -289,7 +289,7 @@ impl Evaluator {
 
                 for obj in tupleset_objects {
                     let child = self
-                        .build_evaluation_node(&obj, relation, user, ctx)
+                        .build_evaluation_node(&obj, relation, subject, ctx)
                         .await?;
                     if child.result {
                         result = true;
@@ -311,7 +311,7 @@ impl Evaluator {
                 // Get objects from tupleset and evaluate computed relation on each
                 let tupleset_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
-                    object,
+                    resource,
                     tupleset,
                     ctx.revision,
                 )
@@ -322,7 +322,7 @@ impl Evaluator {
 
                 for obj in tupleset_objects {
                     let child = self
-                        .build_evaluation_node(&obj, computed, user, ctx)
+                        .build_evaluation_node(&obj, computed, subject, ctx)
                         .await?;
                     if child.result {
                         result = true;
@@ -345,7 +345,7 @@ impl Evaluator {
                 let mut result = false;
 
                 for expr in exprs {
-                    let child = self.build_expr_node(object, expr, user, ctx).await?;
+                    let child = self.build_expr_node(resource, expr, subject, ctx).await?;
                     if child.result {
                         result = true;
                     }
@@ -364,7 +364,7 @@ impl Evaluator {
                 let mut result = true;
 
                 for expr in exprs {
-                    let child = self.build_expr_node(object, expr, user, ctx).await?;
+                    let child = self.build_expr_node(resource, expr, subject, ctx).await?;
                     if !child.result {
                         result = false;
                     }
@@ -384,8 +384,8 @@ impl Evaluator {
             }
 
             RelationExpr::Exclusion { base, subtract } => {
-                let base_child = self.build_expr_node(object, base, user, ctx).await?;
-                let subtract_child = self.build_expr_node(object, subtract, user, ctx).await?;
+                let base_child = self.build_expr_node(resource, base, subject, ctx).await?;
+                let subtract_child = self.build_expr_node(resource, subtract, subject, ctx).await?;
 
                 let result = base_child.result && !subtract_child.result;
 
@@ -407,16 +407,16 @@ impl Evaluator {
                     .ok_or_else(|| EvalError::Evaluation("WASM host not configured".to_string()))?;
 
                 let exec_context = infera_wasm::ExecutionContext {
-                    subject: user.to_string(),
-                    resource: object.to_string(),
+                    subject: subject.to_string(),
+                    resource: resource.to_string(),
                     permission: "check".to_string(), // Default permission name
                     context: None,
                 };
 
                 debug!(
                     module = %module_name,
-                    subject = %user,
-                    resource = %object,
+                    subject = %subject,
+                    resource = %resource,
                     "Executing WASM module"
                 );
 
@@ -513,13 +513,13 @@ impl Evaluator {
     /// Build a userset tree for a direct relation with actual users
     async fn build_direct_userset_tree(
         &self,
-        object: &str,
+        resource: &str,
         relation: &str,
         ctx: &mut GraphContext,
     ) -> Result<UsersetTree> {
         use crate::graph::get_users_with_relation;
 
-        let users = get_users_with_relation(&*ctx.store, object, relation, ctx.revision).await?;
+        let users = get_users_with_relation(&*ctx.store, resource, relation, ctx.revision).await?;
 
         Ok(UsersetTree {
             node_type: UsersetNodeType::Leaf {
@@ -533,7 +533,7 @@ impl Evaluator {
     #[async_recursion::async_recursion]
     async fn build_userset_tree_with_users(
         &self,
-        object: &str,
+        resource: &str,
         expr: &crate::ipl::RelationExpr,
         ctx: &mut GraphContext,
     ) -> Result<UsersetTree> {
@@ -546,7 +546,7 @@ impl Evaluator {
                 // Try cache first
                 let cache_key = if let Some(_cache) = &self.cache {
                     Some(infera_cache::ExpandCacheKey::new(
-                        object.to_string(),
+                        resource.to_string(),
                         "".to_string(), // "this" uses empty relation
                         ctx.revision,
                     ))
@@ -560,7 +560,7 @@ impl Evaluator {
                             cached_users
                         } else {
                             let users: Vec<String> =
-                                get_users_with_relation(&*ctx.store, object, "", ctx.revision)
+                                get_users_with_relation(&*ctx.store, resource, "", ctx.revision)
                                     .await?
                                     .into_iter()
                                     .collect();
@@ -568,13 +568,13 @@ impl Evaluator {
                             users
                         }
                     } else {
-                        get_users_with_relation(&*ctx.store, object, "", ctx.revision)
+                        get_users_with_relation(&*ctx.store, resource, "", ctx.revision)
                             .await?
                             .into_iter()
                             .collect()
                     }
                 } else {
-                    get_users_with_relation(&*ctx.store, object, "", ctx.revision)
+                    get_users_with_relation(&*ctx.store, resource, "", ctx.revision)
                         .await?
                         .into_iter()
                         .collect()
@@ -589,7 +589,7 @@ impl Evaluator {
             RelationExpr::ComputedUserset { relation, tupleset } => {
                 // Get users from computed relation on tupleset
                 let tupleset_objects =
-                    get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+                    get_users_with_relation(&*ctx.store, resource, tupleset, ctx.revision).await?;
 
                 // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
@@ -629,7 +629,7 @@ impl Evaluator {
             RelationExpr::TupleToUserset { tupleset, computed } => {
                 // Get objects from tupleset
                 let tupleset_objects =
-                    get_users_with_relation(&*ctx.store, object, tupleset, ctx.revision).await?;
+                    get_users_with_relation(&*ctx.store, resource, tupleset, ctx.revision).await?;
 
                 // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
@@ -668,7 +668,7 @@ impl Evaluator {
 
             RelationExpr::Union(exprs) => {
                 // Parallelize union branch expansion
-                let children = self.expand_branches_parallel(object, exprs, ctx).await?;
+                let children = self.expand_branches_parallel(resource, exprs, ctx).await?;
                 Ok(UsersetTree {
                     node_type: UsersetNodeType::Union,
                     children,
@@ -677,7 +677,7 @@ impl Evaluator {
 
             RelationExpr::Intersection(exprs) => {
                 // Parallelize intersection branch expansion
-                let children = self.expand_branches_parallel(object, exprs, ctx).await?;
+                let children = self.expand_branches_parallel(resource, exprs, ctx).await?;
                 Ok(UsersetTree {
                     node_type: UsersetNodeType::Intersection,
                     children,
@@ -688,7 +688,7 @@ impl Evaluator {
                 // Parallelize exclusion: evaluate base and subtract concurrently
                 let children = self
                     .expand_branches_parallel(
-                        object,
+                        resource,
                         &[base.as_ref().clone(), subtract.as_ref().clone()],
                         ctx,
                     )
@@ -705,7 +705,7 @@ impl Evaluator {
                 // For now, return an empty userset since we can't enumerate all possible users
                 // A proper implementation would require domain-specific logic
                 Err(EvalError::Evaluation(format!(
-                    "WASM module '{}' cannot be used in expand - WASM modules require specific user context",
+                    "WASM module '{}' cannot be used in expand - WASM modules require specific subject context",
                     module_name
                 )))
             }
@@ -715,7 +715,7 @@ impl Evaluator {
                 // Try cache first
                 let cache_key = if let Some(_cache) = &self.cache {
                     Some(infera_cache::ExpandCacheKey::new(
-                        object.to_string(),
+                        resource.to_string(),
                         relation.clone(),
                         ctx.revision,
                     ))
@@ -738,10 +738,10 @@ impl Evaluator {
                 }
 
                 // Get the type definition for the current object
-                let type_name = object
+                let type_name = resource
                     .split(':')
                     .next()
-                    .ok_or_else(|| EvalError::Evaluation("Invalid object format".to_string()))?;
+                    .ok_or_else(|| EvalError::Evaluation("Invalid resource format".to_string()))?;
 
                 let type_def = ctx.schema.find_type(type_name).ok_or_else(|| {
                     EvalError::Evaluation(format!("Type not found: {}", type_name))
@@ -757,7 +757,7 @@ impl Evaluator {
                 // If the referenced relation has no expression, it's a direct relation
                 let tree = if expr_opt.is_none() {
                     let users: Vec<String> =
-                        get_users_with_relation(&*ctx.store, object, relation, ctx.revision)
+                        get_users_with_relation(&*ctx.store, resource, relation, ctx.revision)
                             .await?
                             .into_iter()
                             .collect();
@@ -769,7 +769,7 @@ impl Evaluator {
                     }
                 } else {
                     // Recursively expand the referenced relation's expression
-                    self.build_userset_tree_with_users(object, expr_opt.as_ref().unwrap(), ctx)
+                    self.build_userset_tree_with_users(resource, expr_opt.as_ref().unwrap(), ctx)
                         .await?
                 };
 
@@ -795,7 +795,7 @@ impl Evaluator {
     /// Creates a separate GraphContext for each branch to enable concurrent evaluation
     async fn expand_branches_parallel(
         &self,
-        object: &str,
+        resource: &str,
         exprs: &[crate::ipl::RelationExpr],
         ctx: &GraphContext,
     ) -> Result<Vec<UsersetTree>> {
@@ -814,11 +814,11 @@ impl Evaluator {
                 // Copy the visited set for cycle detection
                 branch_ctx.visited = ctx.visited.clone();
 
-                let object = object.to_string();
+                let resource = resource.to_string();
                 let expr = expr.clone();
 
                 async move {
-                    self.build_userset_tree_with_users(&object, &expr, &mut branch_ctx)
+                    self.build_userset_tree_with_users(&resource, &expr, &mut branch_ctx)
                         .await
                 }
             })
@@ -973,7 +973,7 @@ impl Evaluator {
         // List all resources of the given type
         let all_resources = self
             .store
-            .list_objects_by_type(&request.resource_type, revision)
+            .list_resources_by_type(&request.resource_type, revision)
             .await?;
 
         debug!(
@@ -1148,7 +1148,7 @@ impl Evaluator {
         let revision = self.store.get_revision().await?;
 
         // Query storage with filters (storage uses resource/subject, returns Tuples)
-        let all_tuples = self
+        let all_relationships = self
             .store
             .list_relationships(
                 request.resource.as_deref(),
@@ -1158,7 +1158,7 @@ impl Evaluator {
             )
             .await?;
 
-        debug!("Found {} total tuples matching filters", all_tuples.len());
+        debug!("Found {} total relationships matching filters", all_relationships.len());
 
         // Decode cursor to get offset if provided
         let offset = if let Some(cursor) = &request.cursor {
@@ -1176,14 +1176,14 @@ impl Evaluator {
             .min(MAX_LIMIT);
 
         // Apply pagination and convert from storage Tuple (object/user) to API Relationship (resource/subject)
-        let relationships: Vec<crate::types::Relationship> = all_tuples
+        let relationships: Vec<crate::types::Relationship> = all_relationships
             .into_iter()
             .skip(offset)
             .take(limit)
             .map(|t| crate::types::Relationship {
-                resource: t.object,
+                resource: t.resource,
                 relation: t.relation,
-                subject: t.user,
+                subject: t.subject,
             })
             .collect();
 
@@ -1221,7 +1221,7 @@ impl Evaluator {
 mod tests {
     use super::*;
     use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-    use infera_store::{MemoryBackend, Tuple};
+    use infera_store::{MemoryBackend, Relationship};
 
     fn create_simple_schema() -> Schema {
         Schema::new(vec![TypeDef::new(
@@ -1284,13 +1284,13 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        // Add a direct tuple
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        // Add a direct relationship
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        store.write(vec![tuple]).await.unwrap();
+        store.write(vec![relationship]).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1328,17 +1328,17 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        // Add a wildcard user tuple that grants access to all users
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        // Add a wildcard user relationship that grants access to all users
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:*".to_string(),
+            subject: "user:*".to_string(),
         };
-        store.write(vec![tuple]).await.unwrap();
+        store.write(vec![relationship]).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        // Check that user:alice has access
+        // Check that subject:alice has access
         let request = CheckRequest {
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
@@ -1349,7 +1349,7 @@ mod tests {
         let result = evaluator.check(request).await.unwrap();
         assert_eq!(result, Decision::Allow);
 
-        // Check that user:bob also has access
+        // Check that subject:bob also has access
         let request = CheckRequest {
             subject: "user:bob".to_string(),
             resource: "doc:readme".to_string(),
@@ -1378,12 +1378,12 @@ mod tests {
         let schema = Arc::new(create_complex_schema());
 
         // Alice is owner, viewer is owner | this
-        let tuple = Tuple {
-            object: "folder:docs".to_string(),
+        let relationship = Relationship {
+            resource: "folder:docs".to_string(),
             relation: "owner".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        store.write(vec![tuple]).await.unwrap();
+        store.write(vec![relationship]).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1399,24 +1399,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_tuple_to_userset() {
+    async fn test_relationship_to_userset() {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_complex_schema());
 
         // Set up: folder:docs has alice as viewer, doc:readme has parent->folder:docs
-        let tuples = vec![
-            Tuple {
-                object: "folder:docs".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "folder:docs".to_string(),
                 relation: "viewer".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "parent".to_string(),
-                user: "folder:docs".to_string(),
+                subject: "folder:docs".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1438,12 +1438,12 @@ mod tests {
         let schema = Arc::new(create_complex_schema());
 
         // Alice is owner, editor = this | owner, viewer = this | editor | parent->viewer
-        let tuples = vec![Tuple {
-            object: "doc:readme".to_string(),
+        let relationships = vec![Relationship {
+            resource: "doc:readme".to_string(),
             relation: "owner".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         }];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1464,12 +1464,12 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let tuple = Tuple {
-            object: "doc:readme".to_string(),
+        let relationship = Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         };
-        store.write(vec![tuple]).await.unwrap();
+        store.write(vec![relationship]).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1506,7 +1506,7 @@ mod tests {
             UsersetNodeType::Leaf { .. }
         ));
         assert_eq!(response.tree.children.len(), 0);
-        assert_eq!(response.users.len(), 0); // No tuples written yet
+        assert_eq!(response.users.len(), 0); // No relationships written yet
         assert!(response.continuation_token.is_none());
     }
 
@@ -1626,13 +1626,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_expand_tuple_to_userset() {
+    async fn test_expand_relationship_to_userset() {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_complex_schema());
 
         let evaluator = Evaluator::new(store, schema, None);
 
-        // Get the viewer relation which has a tuple-to-userset component
+        // Get the viewer relation which has a relationship-to-userset component
         let request = ExpandRequest {
             limit: None,
             continuation_token: None,
@@ -1716,15 +1716,15 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // Write 50 users to the store
-        let mut tuples = vec![];
+        let mut relationships = vec![];
         for i in 0..50 {
-            tuples.push(Tuple {
-                object: "doc:readme".to_string(),
+            relationships.push(Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: format!("user:{}", i),
+                subject: format!("user:{}", i),
             });
         }
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1789,15 +1789,15 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // Write 1000 users to the store
-        let mut tuples = vec![];
+        let mut relationships = vec![];
         for i in 0..1000 {
-            tuples.push(Tuple {
-                object: "doc:large".to_string(),
+            relationships.push(Relationship {
+                resource: "doc:large".to_string(),
                 relation: "reader".to_string(),
-                user: format!("user:{}", i),
+                subject: format!("user:{}", i),
             });
         }
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -1858,27 +1858,27 @@ mod tests {
         store
             .write(vec![
                 // alice is both reader and editor
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "reader".to_string(),
-                    user: "user:alice".to_string(),
+                    subject: "user:alice".to_string(),
                 },
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
-                    user: "user:alice".to_string(),
+                    subject: "user:alice".to_string(),
                 },
                 // bob is only reader
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "reader".to_string(),
-                    user: "user:bob".to_string(),
+                    subject: "user:bob".to_string(),
                 },
                 // charlie is only editor
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
-                    user: "user:charlie".to_string(),
+                    subject: "user:charlie".to_string(),
                 },
             ])
             .await
@@ -1934,27 +1934,27 @@ mod tests {
         store
             .write(vec![
                 // alice is both approver and editor (should be in intersection)
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "approver".to_string(),
-                    user: "user:alice".to_string(),
+                    subject: "user:alice".to_string(),
                 },
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
-                    user: "user:alice".to_string(),
+                    subject: "user:alice".to_string(),
                 },
                 // bob is only approver (should NOT be in intersection)
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "approver".to_string(),
-                    user: "user:bob".to_string(),
+                    subject: "user:bob".to_string(),
                 },
                 // charlie is only editor (should NOT be in intersection)
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
-                    user: "user:charlie".to_string(),
+                    subject: "user:charlie".to_string(),
                 },
             ])
             .await
@@ -2011,27 +2011,27 @@ mod tests {
         store
             .write(vec![
                 // alice is viewer but not blocked (should be in result)
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
-                    user: "user:alice".to_string(),
+                    subject: "user:alice".to_string(),
                 },
                 // bob is viewer AND blocked (should NOT be in result)
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
-                    user: "user:bob".to_string(),
+                    subject: "user:bob".to_string(),
                 },
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "blocked".to_string(),
-                    user: "user:bob".to_string(),
+                    subject: "user:bob".to_string(),
                 },
                 // charlie is viewer but not blocked (should be in result)
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
-                    user: "user:charlie".to_string(),
+                    subject: "user:charlie".to_string(),
                 },
             ])
             .await
@@ -2099,39 +2099,39 @@ mod tests {
         store
             .write(vec![
                 // alice is admin
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "admin".to_string(),
-                    user: "user:alice".to_string(),
+                    subject: "user:alice".to_string(),
                 },
                 // bob is editor
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
-                    user: "user:bob".to_string(),
+                    subject: "user:bob".to_string(),
                 },
                 // charlie is viewer
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
-                    user: "user:charlie".to_string(),
+                    subject: "user:charlie".to_string(),
                 },
                 // dave is contributor
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "contributor".to_string(),
-                    user: "user:dave".to_string(),
+                    subject: "user:dave".to_string(),
                 },
                 // eve is both editor and viewer (test deduplication)
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
-                    user: "user:eve".to_string(),
+                    subject: "user:eve".to_string(),
                 },
-                Tuple {
-                    object: "doc:readme".to_string(),
+                Relationship {
+                    resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
-                    user: "user:eve".to_string(),
+                    subject: "user:eve".to_string(),
                 },
             ])
             .await
@@ -2190,19 +2190,19 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Alice is editor but also blocked
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "editor".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "blocked".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
 
@@ -2242,19 +2242,19 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Alice is reader and employee
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "employee".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
 
@@ -2294,12 +2294,12 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
 
         // Alice is only reader, not employee
-        let tuples = vec![Tuple {
-            object: "doc:readme".to_string(),
+        let relationships = vec![Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         }];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, Arc::new(schema), None);
 
@@ -2320,12 +2320,12 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let tuples = vec![Tuple {
-            object: "doc:readme".to_string(),
+        let relationships = vec![Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         }];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2359,12 +2359,12 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let tuples = vec![Tuple {
-            object: "doc:readme".to_string(),
+        let relationships = vec![Relationship {
+            resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
-            user: "user:alice".to_string(),
+            subject: "user:alice".to_string(),
         }];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         // Create evaluator without cache
         let evaluator = Evaluator::new_with_cache(store, schema, None, None);
@@ -2388,19 +2388,19 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2437,24 +2437,24 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // Create some documents and give alice access to some of them
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:secret".to_string(),
+            Relationship {
+                resource: "doc:secret".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2483,19 +2483,19 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // Create documents but don't give charlie any access
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2520,34 +2520,34 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // Create multiple documents alice can access
-        let tuples = vec![
-            Tuple {
-                object: "doc:1".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:1".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:2".to_string(),
+            Relationship {
+                resource: "doc:2".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:3".to_string(),
+            Relationship {
+                resource: "doc:3".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:4".to_string(),
+            Relationship {
+                resource: "doc:4".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:5".to_string(),
+            Relationship {
+                resource: "doc:5".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2574,15 +2574,15 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // Create 10 documents alice can access
-        let mut tuples = vec![];
+        let mut relationships = vec![];
         for i in 1..=10 {
-            tuples.push(Tuple {
-                object: format!("doc:{}", i),
+            relationships.push(Relationship {
+                resource: format!("doc:{}", i),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             });
         }
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2650,24 +2650,24 @@ mod tests {
 
         // Alice is owner of doc1, direct viewer of doc2
         // viewer = this | editor | parent->viewer
-        let tuples = vec![
-            Tuple {
-                object: "doc:1".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:1".to_string(),
                 relation: "owner".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:2".to_string(),
+            Relationship {
+                resource: "doc:2".to_string(),
                 relation: "viewer".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:3".to_string(),
+            Relationship {
+                resource: "doc:3".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2695,29 +2695,29 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // Create documents with various names
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme_v2".to_string(),
+            Relationship {
+                resource: "doc:readme_v2".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:tutorial".to_string(),
+            Relationship {
+                resource: "doc:tutorial".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2745,24 +2745,24 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // Create documents with single character variations
-        let tuples = vec![
-            Tuple {
-                object: "doc:file1".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:file1".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:file2".to_string(),
+            Relationship {
+                resource: "doc:file2".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:file10".to_string(),
+            Relationship {
+                resource: "doc:file10".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2789,24 +2789,24 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:project_abc_report".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:project_abc_report".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:project_xyz_report".to_string(),
+            Relationship {
+                resource: "doc:project_xyz_report".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:project_abc_summary".to_string(),
+            Relationship {
+                resource: "doc:project_abc_summary".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2877,25 +2877,25 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        // Add multiple tuples
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        // Add multiple relationships
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:charlie".to_string(),
+                subject: "user:charlie".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2919,24 +2919,24 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -2960,24 +2960,24 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_complex_schema());
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "owner".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "viewer".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "owner".to_string(),
-                user: "user:charlie".to_string(),
+                subject: "user:charlie".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -3001,24 +3001,24 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -3042,29 +3042,29 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_complex_schema());
 
-        let tuples = vec![
-            Tuple {
-                object: "doc:readme".to_string(),
+        let relationships = vec![
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "owner".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "viewer".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
-            Tuple {
-                object: "doc:readme".to_string(),
+            Relationship {
+                resource: "doc:readme".to_string(),
                 relation: "owner".to_string(),
-                user: "user:bob".to_string(),
+                subject: "user:bob".to_string(),
             },
-            Tuple {
-                object: "doc:guide".to_string(),
+            Relationship {
+                resource: "doc:guide".to_string(),
                 relation: "owner".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             },
         ];
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -3090,16 +3090,16 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        // Add many tuples
-        let mut tuples = Vec::new();
+        // Add many relationships
+        let mut relationships = Vec::new();
         for i in 0..150 {
-            tuples.push(Tuple {
-                object: format!("doc:{}", i),
+            relationships.push(Relationship {
+                resource: format!("doc:{}", i),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             });
         }
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
@@ -3137,16 +3137,16 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        // Add 50 tuples
-        let mut tuples = Vec::new();
+        // Add 50 relationships
+        let mut relationships = Vec::new();
         for i in 0..50 {
-            tuples.push(Tuple {
-                object: format!("doc:{}", i),
+            relationships.push(Relationship {
+                resource: format!("doc:{}", i),
                 relation: "reader".to_string(),
-                user: "user:alice".to_string(),
+                subject: "user:alice".to_string(),
             });
         }
-        store.write(tuples).await.unwrap();
+        store.write(relationships).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None);
 
