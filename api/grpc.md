@@ -30,14 +30,34 @@ The complete Protocol Buffer definition is available at [`crates/infera-api/prot
 
 ```protobuf
 service InferaService {
+  // Authorization checks
   rpc Check(CheckRequest) returns (CheckResponse);
   rpc CheckWithTrace(CheckRequest) returns (CheckWithTraceResponse);
+
+  // Relation expansion
   rpc Expand(ExpandRequest) returns (ExpandResponse);
-  rpc Write(WriteRequest) returns (WriteResponse);
-  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc ExpandStream(ExpandRequest) returns (stream ExpandStreamResponse);
+
+  // Data operations (streaming APIs)
+  rpc WriteRelationships(stream WriteRequest) returns (WriteResponse);
+  rpc DeleteRelationships(stream DeleteRequest) returns (DeleteResponse);
+
+  // Queries (server streaming)
+  rpc ListResources(ListResourcesRequest) returns (stream ListResourcesResponse);
+  rpc ListRelationships(ListRelationshipsRequest) returns (stream ListRelationshipsResponse);
+
+  // Health check
   rpc Health(HealthRequest) returns (HealthResponse);
 }
 ```
+
+## Streaming Design
+
+InferaDB uses **streaming APIs** for data operations and queries:
+
+- **Client Streaming** (Write/Delete): Send multiple operations in one RPC call for efficient batch processing
+- **Server Streaming** (List): Receive results progressively for large datasets
+- **Consistent API**: All modification and query operations use streaming for performance and flexibility
 
 ---
 
@@ -350,11 +370,13 @@ grpcurl -plaintext -d '{
 
 ---
 
-### Write
+### WriteRelationships (Client Streaming)
 
-Write one or more authorization relationships to the store.
+Write one or more authorization relationships to the store using client streaming. This allows efficient batch operations by sending multiple write requests in a single RPC call.
 
-**Request**: `WriteRequest`
+**API**: `rpc WriteRelationships(stream WriteRequest) returns (WriteResponse)`
+
+**Request** (stream): `WriteRequest`
 
 ```protobuf
 message WriteRequest {
@@ -377,37 +399,16 @@ message WriteResponse {
 }
 ```
 
-**Example (grpcurl)**:
-
-```bash
-grpcurl -plaintext -d '{
-  "relationships": [
-    {
-      "resource": "doc:readme",
-      "relation": "reader",
-      "subject": "user:alice"
-    },
-    {
-      "resource": "doc:readme",
-      "relation": "editor",
-      "subject": "user:bob"
-    }
-  ]
-}' localhost:8081 infera.v1.InferaService/Write
-```
-
-**Response**:
-
-```json
-{
-  "revision": "5",
-  "relationshipsWritten": "2"
-}
-```
-
-**Example (Go)**:
+**Example (Go with Streaming)**:
 
 ```go
+// Open a client stream
+stream, err := client.WriteRelationships(context.Background())
+if err != nil {
+    log.Fatalf("Failed to create stream: %v", err)
+}
+
+// Send one or more write requests
 req := &pb.WriteRequest{
     Relationships: []*pb.Relationship{
         {
@@ -423,7 +424,12 @@ req := &pb.WriteRequest{
     },
 }
 
-resp, err := client.Write(context.Background(), req)
+if err := stream.Send(req); err != nil {
+    log.Fatalf("Failed to send: %v", err)
+}
+
+// Close the stream and receive response
+resp, err := stream.CloseAndRecv()
 if err != nil {
     log.Fatalf("Write failed: %v", err)
 }
@@ -431,17 +437,29 @@ if err != nil {
 log.Printf("Written %d relationships at revision %s", resp.RelationshipsWritten, resp.Revision)
 ```
 
+**Note**: For single operations, send one WriteRequest with your relationships, then close the stream.
+
 ---
 
-### Delete
+### DeleteRelationships (Client Streaming)
 
-Delete one or more authorization relationships from the store.
+Delete authorization relationships using filter-based or exact matching via client streaming.
 
-**Request**: `DeleteRequest`
+**API**: `rpc DeleteRelationships(stream DeleteRequest) returns (DeleteResponse)`
+
+**Request** (stream): `DeleteRequest`
 
 ```protobuf
 message DeleteRequest {
-  repeated Relationship relationships = 1;
+  optional DeleteFilter filter = 1;          // Filter for bulk deletion
+  repeated Relationship relationships = 2;   // Exact relationships to delete
+  optional uint32 limit = 3;                 // Safety limit (default: 1000)
+}
+
+message DeleteFilter {
+  optional string resource = 1;  // Filter by resource
+  optional string relation = 2;  // Filter by relation
+  optional string subject = 3;   // Filter by subject
 }
 ```
 
@@ -454,27 +472,59 @@ message DeleteResponse {
 }
 ```
 
-**Example (grpcurl)**:
+**Example - Exact Deletion (Go)**:
 
-```bash
-grpcurl -plaintext -d '{
-  "relationships": [
-    {
-      "resource": "doc:readme",
-      "relation": "reader",
-      "subject": "user:alice"
-    }
-  ]
-}' localhost:8081 infera.v1.InferaService/Delete
+```go
+stream, err := client.DeleteRelationships(context.Background())
+if err != nil {
+    log.Fatalf("Failed to create stream: %v", err)
+}
+
+req := &pb.DeleteRequest{
+    Relationships: []*pb.Relationship{
+        {
+            Resource: "doc:readme",
+            Relation: "reader",
+            Subject:  "user:alice",
+        },
+    },
+}
+
+if err := stream.Send(req); err != nil {
+    log.Fatalf("Failed to send: %v", err)
+}
+
+resp, err := stream.CloseAndRecv()
+if err != nil {
+    log.Fatalf("Delete failed: %v", err)
+}
+
+log.Printf("Deleted %d relationships at revision %s", resp.RelationshipsDeleted, resp.Revision)
 ```
 
-**Response**:
+**Example - Filter-Based Deletion (Go)**:
 
-```json
-{
-  "revision": "6",
-  "relationshipsDeleted": "1"
+```go
+// Delete all relationships for a user (user offboarding)
+stream, err := client.DeleteRelationships(context.Background())
+req := &pb.DeleteRequest{
+    Filter: &pb.DeleteFilter{
+        Subject: proto.String("user:alice"),
+    },
 }
+stream.Send(req)
+resp, _ := stream.CloseAndRecv()
+
+// Delete all readers of a document
+stream, err = client.DeleteRelationships(context.Background())
+req = &pb.DeleteRequest{
+    Filter: &pb.DeleteFilter{
+        Resource: proto.String("doc:readme"),
+        Relation: proto.String("reader"),
+    },
+}
+stream.Send(req)
+resp, _ = stream.CloseAndRecv()
 ```
 
 ---
@@ -618,9 +668,18 @@ func (c *InferaClient) Check(ctx context.Context, subject, resource, permission 
     return resp.Decision == pb.Decision_DECISION_ALLOW, nil
 }
 
-func (c *InferaClient) WriteTuples(ctx context.Context, tuples []*pb.Tuple) (string, error) {
-    req := &pb.WriteRequest{Tuples: tuples}
-    resp, err := c.client.Write(ctx, req)
+func (c *InferaClient) WriteRelationships(ctx context.Context, relationships []*pb.Relationship) (string, error) {
+    stream, err := c.client.WriteRelationships(ctx)
+    if err != nil {
+        return "", err
+    }
+
+    req := &pb.WriteRequest{Relationships: relationships}
+    if err := stream.Send(req); err != nil {
+        return "", err
+    }
+
+    resp, err := stream.CloseAndRecv()
     if err != nil {
         return "", err
     }
@@ -635,17 +694,17 @@ func main() {
 
     ctx := context.Background()
 
-    // Write tuples
-    tuples := []*pb.Tuple{
-        {Object: "doc:readme", Relation: "reader", User: "user:alice"},
-        {Object: "doc:readme", Relation: "editor", User: "user:bob"},
+    // Write relationships
+    relationships := []*pb.Relationship{
+        {Resource: "doc:readme", Relation: "reader", Subject: "user:alice"},
+        {Resource: "doc:readme", Relation: "editor", Subject: "user:bob"},
     }
 
-    revision, err := client.WriteTuples(ctx, tuples)
+    revision, err := client.WriteRelationships(ctx, relationships)
     if err != nil {
         log.Fatalf("Write failed: %v", err)
     }
-    log.Printf("Written tuples at revision %s", revision)
+    log.Printf("Written relationships at revision %s", revision)
 
     // Check permission
     allowed, err := client.Check(ctx, "user:alice", "doc:readme", "reader")
@@ -681,9 +740,11 @@ class InferaClient:
         response = self.stub.Check(request)
         return response.decision == infera_pb2.DECISION_ALLOW
 
-    def write_tuples(self, tuples: list) -> str:
-        request = infera_pb2.WriteRequest(tuples=tuples)
-        response = self.stub.Write(request)
+    def write_relationships(self, relationships: list) -> str:
+        def request_generator():
+            yield infera_pb2.WriteRequest(relationships=relationships)
+
+        response = self.stub.WriteRelationships(request_generator())
         return response.revision
 
     def close(self):
@@ -692,13 +753,13 @@ class InferaClient:
 # Usage
 client = InferaClient('localhost:8081')
 
-# Write tuples
-tuples = [
-    infera_pb2.Tuple(object='doc:readme', relation='reader', user='user:alice'),
-    infera_pb2.Tuple(object='doc:readme', relation='editor', user='user:bob'),
+# Write relationships
+relationships = [
+    infera_pb2.Relationship(resource='doc:readme', relation='reader', subject='user:alice'),
+    infera_pb2.Relationship(resource='doc:readme', relation='editor', subject='user:bob'),
 ]
-revision = client.write_tuples(tuples)
-print(f"Written tuples at revision {revision}")
+revision = client.write_relationships(relationships)
+print(f"Written relationships at revision {revision}")
 
 # Check permission
 allowed = client.check('user:alice', 'doc:readme', 'reader')
@@ -777,17 +838,21 @@ if err != nil {
 
 ### 3. Batch Writes
 
-Write multiple tuples in a single request:
+Write multiple relationships using the streaming API efficiently:
 
 ```go
-// Good - batch write
-tuples := make([]*pb.Tuple, 100)
-// ... populate tuples
-client.Write(ctx, &pb.WriteRequest{Tuples: tuples})
+// Good - batch write using streaming
+stream, _ := client.WriteRelationships(ctx)
+relationships := make([]*pb.Relationship, 100)
+// ... populate relationships
+stream.Send(&pb.WriteRequest{Relationships: relationships})
+resp, _ := stream.CloseAndRecv()
 
-// Avoid - individual writes
-for _, tuple := range tuples {
-    client.Write(ctx, &pb.WriteRequest{Tuples: []*pb.Tuple{tuple}})
+// Avoid - individual stream calls
+for _, rel := range relationships {
+    stream, _ := client.WriteRelationships(ctx)
+    stream.Send(&pb.WriteRequest{Relationships: []*pb.Relationship{rel}})
+    stream.CloseAndRecv()
 }
 ```
 
