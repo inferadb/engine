@@ -55,6 +55,14 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 
 - [WASM Integration](advanced/wasm.md) - Custom policy modules with WebAssembly
 
+## Migration & Comparison
+
+- [Comparison Matrix](comparison-matrix.md) - Feature comparison vs. SpiceDB, OpenFGA, Oso, WorkOS, Amazon
+- [Migration Hub](migration/README.md) - Migration guides overview
+- [From SpiceDB](migration/from-spicedb.md) - Migrate from SpiceDB to InferaDB
+- [From OpenFGA](migration/from-openfga.md) - Migrate from OpenFGA to InferaDB
+- [From Oso](migration/from-oso.md) - Migrate from Oso to InferaDB
+
 ## Developer Documentation
 
 - [Developer Guide](developers/README.md) - Complete developer documentation
