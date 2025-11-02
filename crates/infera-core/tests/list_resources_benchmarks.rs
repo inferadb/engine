@@ -1,14 +1,7 @@
+// Performance benchmarks for ListResources API
+
 use std::{sync::Arc, time::Instant};
 
-// Performance benchmarks for ListResources API
-//
-// Tests from ROADMAP.md Phase 1.1:
-// - Benchmark with 1K resources (target: <10ms)
-// - Benchmark with 10K resources (target: <100ms)
-// - Benchmark with 100K resources (target: <1s)
-// - Benchmark with deep hierarchies (10+ levels)
-// - Load test: concurrent requests (100 QPS)
-// - Load test: heavy load (1000 QPS)
 use infera_core::Evaluator;
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, ListResourcesRequest, Relationship};
