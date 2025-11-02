@@ -305,7 +305,7 @@ fn default_internal_audience() -> String {
     "https://api.inferadb.com/internal".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MultiTenancyConfig {
     /// Default vault UUID (for auth-disabled mode)
     /// Will be auto-generated on first startup if not set
@@ -316,12 +316,6 @@ pub struct MultiTenancyConfig {
     /// Will be auto-generated on first startup if not set
     #[serde(default)]
     pub default_account: Option<String>,
-}
-
-impl Default for MultiTenancyConfig {
-    fn default() -> Self {
-        Self { default_vault: None, default_account: None }
-    }
 }
 
 impl Default for AuthConfig {

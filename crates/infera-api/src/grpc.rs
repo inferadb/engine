@@ -887,15 +887,23 @@ mod tests {
                 ),
             ],
         )]));
-        let evaluator =
-            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
+        // Use a test vault ID
+        let test_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
         let config = Arc::new(Config::default());
 
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
         health_tracker.set_ready(true);
         health_tracker.set_startup_complete(true);
 
-        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
+        AppState {
+            evaluator,
+            store,
+            config,
+            jwks_cache: None,
+            health_tracker,
+            default_vault: test_vault,
+        }
     }
 
     #[tokio::test]

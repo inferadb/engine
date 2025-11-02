@@ -9,16 +9,9 @@ use axum::{
     response::IntoResponse,
 };
 use infera_types::DeleteFilter;
-use uuid::Uuid;
 
 use super::get::RelationshipPath;
 use crate::{ApiError, AppState};
-
-/// Get the vault ID for the current request
-/// TODO(Phase 2): Extract this from authentication context
-fn get_vault() -> Uuid {
-    Uuid::nil()
-}
 
 /// Handler for `DELETE /v1/relationships/{resource}/{relation}/{subject}`
 ///
@@ -57,12 +50,22 @@ fn get_vault() -> Uuid {
 /// 204 No Content
 /// X-Revision: "rev_abc123"
 /// ```
-#[tracing::instrument(skip(state), fields(exact_delete = true))]
+#[tracing::instrument(skip(state, auth), fields(exact_delete = true))]
 pub async fn delete_relationship(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Path(params): Path<RelationshipPath>,
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
+
+    // Extract vault from auth context or use default
+    let vault = crate::get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access (basic nil check)
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
 
     // URL-decode path parameters (they come URL-encoded from the router)
     let resource = urlencoding::decode(&params.resource)
@@ -81,6 +84,7 @@ pub async fn delete_relationship(
         resource = %resource,
         relation = %relation,
         subject = %subject,
+        vault = %vault,
         "Deleting exact relationship match"
     );
 
@@ -104,7 +108,7 @@ pub async fn delete_relationship(
 
     let (revision, deleted_count) = state
         .store
-        .delete_by_filter(get_vault(), &delete_filter, Some(1))
+        .delete_by_filter(vault, &delete_filter, Some(1))
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to delete relationship: {}", e)))?;
 
@@ -175,24 +179,25 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let evaluator =
-            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
+        // Use a test vault ID
+        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add test relationships
         store
             .write(
-                Uuid::nil(),
+                test_vault,
                 vec![
                     Relationship {
-                        vault: Uuid::nil(),
+                        vault: test_vault,
                         resource: "document:readme".to_string(),
                         relation: "view".to_string(),
                         subject: "user:alice".to_string(),
                     },
                     Relationship {
-                        vault: Uuid::nil(),
+                        vault: test_vault,
                         resource: "document:guide".to_string(),
                         relation: "view".to_string(),
                         subject: "user:bob".to_string(),
@@ -202,7 +207,14 @@ mod tests {
             .await
             .unwrap();
 
-        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
+        AppState {
+            evaluator,
+            store,
+            config,
+            jwks_cache: None,
+            health_tracker,
+            default_vault: test_vault,
+        }
     }
 
     #[tokio::test]
@@ -306,9 +318,9 @@ mod tests {
         state
             .store
             .write(
-                Uuid::nil(),
+                state.default_vault,
                 vec![Relationship {
-                    vault: Uuid::nil(),
+                    vault: state.default_vault,
                     resource: "document:file name".to_string(),
                     relation: "view".to_string(),
                     subject: "user:alice@example.com".to_string(),
@@ -344,9 +356,9 @@ mod tests {
         state
             .store
             .write(
-                Uuid::nil(),
+                state.default_vault,
                 vec![Relationship {
-                    vault: Uuid::nil(),
+                    vault: state.default_vault,
                     resource: "document:file-name_with.dots".to_string(),
                     relation: "view".to_string(),
                     subject: "user:alice@example.com".to_string(),

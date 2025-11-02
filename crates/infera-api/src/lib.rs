@@ -39,11 +39,20 @@ pub mod health;
 pub mod routes;
 pub mod validation;
 
-/// Get the vault ID for the current request
-/// TODO(Phase 2): Extract this from authentication context (JWT token)
-/// For Phase 1, we use a nil UUID as a placeholder for the default vault
-fn get_vault() -> Uuid {
-    Uuid::nil()
+/// Extract vault from AuthContext or use default vault when auth is disabled
+///
+/// This function implements multi-tenant isolation by extracting the vault UUID
+/// from the authenticated JWT token. When authentication is disabled, it falls
+/// back to the configured default vault.
+///
+/// # Arguments
+/// * `auth` - Optional authentication context from JWT token
+/// * `default_vault` - Default vault UUID to use when auth is disabled
+///
+/// # Returns
+/// The vault UUID to use for the current request
+fn get_vault(auth: &Option<infera_auth::AuthContext>, default_vault: Uuid) -> Uuid {
+    auth.as_ref().map(|ctx| ctx.vault).unwrap_or(default_vault)
 }
 
 #[derive(Debug, Error)]
@@ -140,6 +149,8 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
+    /// Default vault ID used when authentication is disabled
+    pub default_vault: Uuid,
 }
 
 /// Create the API router
@@ -368,14 +379,27 @@ async fn evaluate_stream_handler(
     State(state): State<AppState>,
     Json(request): Json<EvaluateRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access (basic nil check)
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
+        if let Some(ref auth_ctx) = auth.0 {
             // Require inferadb.check scope
-            infera_auth::middleware::require_scope(&auth_ctx, "inferadb.check")
+            infera_auth::middleware::require_scope(auth_ctx, "inferadb.check")
                 .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!("Streaming check request from tenant: {}", auth_ctx.tenant_id);
+            tracing::debug!(
+                "Streaming check request from tenant: {} (vault: {})",
+                auth_ctx.tenant_id,
+                vault
+            );
         } else {
             return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
@@ -390,7 +414,14 @@ async fn evaluate_stream_handler(
 
     let evaluations = request.evaluations;
     let total_evaluations = evaluations.len() as u32;
-    let evaluator = state.evaluator.clone();
+
+    // Create evaluator with correct vault for this request
+    let evaluator = Arc::new(Evaluator::new(
+        Arc::clone(&state.store),
+        Arc::clone(state.evaluator.schema()),
+        state.evaluator.wasm_host().cloned(),
+        vault,
+    ));
 
     // Create a stream that processes each evaluation and emits results
     let stream = futures::stream::iter(evaluations.into_iter().enumerate())
@@ -486,24 +517,45 @@ async fn expand_handler(
     State(state): State<AppState>,
     Json(request): Json<ExpandRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access (basic nil check)
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
+        if let Some(ref auth_ctx) = auth.0 {
             // Require inferadb.expand scope (or check scope as fallback)
             infera_auth::middleware::require_any_scope(
-                &auth_ctx,
+                auth_ctx,
                 &["inferadb.expand", "inferadb.check"],
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!("Streaming expand request from tenant: {}", auth_ctx.tenant_id);
+            tracing::debug!(
+                "Streaming expand request from tenant: {} (vault: {})",
+                auth_ctx.tenant_id,
+                vault
+            );
         } else {
             return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
+    // Create evaluator with correct vault for this request
+    let evaluator = Evaluator::new(
+        Arc::clone(&state.store),
+        Arc::clone(state.evaluator.schema()),
+        state.evaluator.wasm_host().cloned(),
+        vault,
+    );
+
     // Execute the expand operation
-    let response = state.evaluator.expand(request).await?;
+    let response = evaluator.expand(request).await?;
 
     // Create a stream that sends each user as a separate SSE event
     let users = response.users;
@@ -540,14 +592,27 @@ async fn write_relationships_handler(
     State(state): State<AppState>,
     Json(request): Json<WriteRequest>,
 ) -> Result<Json<WriteResponse>> {
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access (basic nil check)
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
+        if let Some(ref auth_ctx) = auth.0 {
             // Require inferadb.write scope
-            infera_auth::middleware::require_scope(&auth_ctx, "inferadb.write")
+            infera_auth::middleware::require_scope(auth_ctx, "inferadb.write")
                 .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!("Write request from tenant: {}", auth_ctx.tenant_id);
+            tracing::debug!(
+                vault = %vault,
+                tenant_id = %auth_ctx.tenant_id,
+                "Write request from tenant"
+            );
         } else {
             return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
@@ -558,8 +623,12 @@ async fn write_relationships_handler(
         return Err(ApiError::InvalidRequest("No relationships provided".to_string()));
     }
 
-    // Validate relationship format
-    for relationship in &request.relationships {
+    // Set vault on all relationships and validate format
+    let mut relationships = request.relationships;
+    for relationship in &mut relationships {
+        // Set vault to ensure consistency
+        relationship.vault = vault;
+
         if relationship.resource.is_empty() {
             return Err(ApiError::InvalidRequest(
                 "Relationship resource cannot be empty".to_string(),
@@ -598,7 +667,7 @@ async fn write_relationships_handler(
     if let Some(expected_rev) = &request.expected_revision {
         let current_rev = state
             .store
-            .get_revision(get_vault())
+            .get_revision(vault)
             .await
             .map_err(|e| ApiError::Internal(format!("Failed to get revision: {}", e)))?;
 
@@ -614,13 +683,13 @@ async fn write_relationships_handler(
     // Write relationships to store
     let revision = state
         .store
-        .write(get_vault(), request.relationships.clone())
+        .write(vault, relationships.clone())
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to write relationships: {}", e)))?;
 
     Ok(Json(WriteResponse {
         revision: revision.0.to_string(), // Extract the u64 value
-        relationships_written: request.relationships.len(),
+        relationships_written: relationships.len(),
     }))
 }
 
@@ -644,14 +713,27 @@ async fn delete_relationships_handler(
     State(state): State<AppState>,
     Json(request): Json<DeleteRequest>,
 ) -> Result<Json<DeleteResponse>> {
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access (basic nil check)
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
+        if let Some(ref auth_ctx) = auth.0 {
             // Require inferadb.write scope (delete is a write operation)
-            infera_auth::middleware::require_scope(&auth_ctx, "inferadb.write")
+            infera_auth::middleware::require_scope(auth_ctx, "inferadb.write")
                 .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!("Delete request from tenant: {}", auth_ctx.tenant_id);
+            tracing::debug!(
+                vault = %vault,
+                tenant_id = %auth_ctx.tenant_id,
+                "Delete request from tenant"
+            );
         } else {
             return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
@@ -671,7 +753,7 @@ async fn delete_relationships_handler(
     if let Some(expected_rev) = &request.expected_revision {
         let current_rev = state
             .store
-            .get_revision(get_vault())
+            .get_revision(vault)
             .await
             .map_err(|e| ApiError::Internal(format!("Failed to get revision: {}", e)))?;
 
@@ -707,7 +789,7 @@ async fn delete_relationships_handler(
         // Perform batch deletion
         let (revision, count) = state
             .store
-            .delete_by_filter(get_vault(), &filter, limit)
+            .delete_by_filter(vault, &filter, limit)
             .await
             .map_err(|e| ApiError::Internal(format!("Failed to delete by filter: {}", e)))?;
 
@@ -759,7 +841,7 @@ async fn delete_relationships_handler(
 
             // Delete relationships from store
             for key in keys {
-                match state.store.delete(get_vault(), &key).await {
+                match state.store.delete(vault, &key).await {
                     Ok(revision) => {
                         last_revision = Some(revision);
                         total_deleted += 1;
@@ -812,17 +894,30 @@ async fn simulate_handler(
     State(state): State<AppState>,
     Json(request): Json<SimulateRequest>,
 ) -> Result<Json<SimulateResponse>> {
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access (basic nil check)
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
+        if let Some(ref auth_ctx) = auth.0 {
             // Require inferadb.check scope for simulation
             infera_auth::middleware::require_any_scope(
-                &auth_ctx,
+                auth_ctx,
                 &["inferadb.check", "inferadb.simulate"],
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!("Simulate request from tenant: {}", auth_ctx.tenant_id);
+            tracing::debug!(
+                "Simulate request from tenant: {} (vault: {})",
+                auth_ctx.tenant_id,
+                vault
+            );
         } else {
             return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
@@ -851,7 +946,7 @@ async fn simulate_handler(
 
     // Write context relationships to ephemeral store
     ephemeral_store
-        .write(get_vault(), request.context_relationships.clone())
+        .write(vault, request.context_relationships.clone())
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to write context relationships: {}", e)))?;
 
@@ -859,7 +954,7 @@ async fn simulate_handler(
     // Create a minimal schema for simulation (empty schema allows all relations)
     use infera_core::ipl::Schema;
     let temp_schema = Arc::new(Schema { types: Vec::new() });
-    let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault());
+    let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, vault);
 
     // Run the evaluation with the ephemeral data
     let evaluate_request = EvaluateRequest {
@@ -1174,14 +1269,23 @@ async fn watch_handler(
     State(state): State<AppState>,
     Json(request): Json<WatchRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access (basic nil check)
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
     // If auth is enabled and present, validate scope
     if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
+        if let Some(ref auth_ctx) = auth.0 {
             // Require inferadb.watch scope
-            infera_auth::middleware::require_any_scope(&auth_ctx, &["inferadb.watch"])
+            infera_auth::middleware::require_any_scope(auth_ctx, &["inferadb.watch"])
                 .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!("Watch request from tenant: {}", auth_ctx.tenant_id);
+            tracing::debug!("Watch request from tenant: {} (vault: {})", auth_ctx.tenant_id, vault);
         } else {
             return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
@@ -1202,7 +1306,7 @@ async fn watch_handler(
     } else {
         // Start from next revision
         let current =
-            state.store.get_revision(get_vault()).await.map_err(|e| {
+            state.store.get_revision(vault).await.map_err(|e| {
                 ApiError::Internal(format!("Failed to get current revision: {}", e))
             })?;
         current.next()
@@ -1217,7 +1321,7 @@ async fn watch_handler(
 
         loop {
             // Read changes from the change log
-            match store.read_changes(get_vault(), last_revision, &resource_types, Some(100)).await {
+            match store.read_changes(vault, last_revision, &resource_types, Some(100)).await {
                 Ok(events) => {
                     for event in &events {
                         // Format timestamp as ISO 8601
@@ -1292,7 +1396,25 @@ pub async fn serve(
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    let state = AppState { evaluator, store, config: config.clone(), jwks_cache, health_tracker };
+    // Extract default vault from config for auth-disabled mode
+    let default_vault = config
+        .multi_tenancy
+        .default_vault
+        .as_ref()
+        .and_then(|s| uuid::Uuid::parse_str(s).ok())
+        .unwrap_or_else(|| {
+            tracing::warn!("No default vault configured, using nil UUID");
+            uuid::Uuid::nil()
+        });
+
+    let state = AppState {
+        evaluator,
+        store,
+        config: config.clone(),
+        jwks_cache,
+        health_tracker,
+        default_vault,
+    };
     let app = create_router(state);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
@@ -1334,12 +1456,24 @@ pub async fn serve_grpc(
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
+    // Extract default vault from config for auth-disabled mode
+    let default_vault = config
+        .multi_tenancy
+        .default_vault
+        .as_ref()
+        .and_then(|s| uuid::Uuid::parse_str(s).ok())
+        .unwrap_or_else(|| {
+            tracing::warn!("No default vault configured, using nil UUID");
+            uuid::Uuid::nil()
+        });
+
     let state = AppState {
         evaluator,
         store,
         config: config.clone(),
         jwks_cache: jwks_cache.clone(),
         health_tracker,
+        default_vault,
     };
 
     let service = grpc::InferaServiceImpl::new(state);
@@ -1457,7 +1591,9 @@ mod tests {
                 ),
             ],
         )]));
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, get_vault()));
+        // Use a test vault ID
+        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
         let mut config = infera_config::Config::default();
         // Disable auth and rate limiting for tests
         config.auth.enabled = false;
@@ -1468,7 +1604,14 @@ mod tests {
         health_tracker.set_ready(true);
         health_tracker.set_startup_complete(true);
 
-        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
+        AppState {
+            evaluator,
+            store,
+            config,
+            jwks_cache: None,
+            health_tracker,
+            default_vault: test_vault,
+        }
     }
 
     /// Helper function to parse SSE response and extract evaluation results

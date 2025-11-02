@@ -86,12 +86,22 @@ pub struct RelationshipDetails {
 ///   }
 /// }
 /// ```
-#[tracing::instrument(skip(state), fields(exact_match = true))]
+#[tracing::instrument(skip(state, auth), fields(exact_match = true))]
 pub async fn get_relationship(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Path(params): Path<RelationshipPath>,
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
+
+    // Extract vault from auth context or use default
+    let vault = crate::get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access (basic nil check)
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
 
     // URL-decode path parameters (they come URL-encoded from the router)
     let resource = urlencoding::decode(&params.resource)
@@ -110,6 +120,7 @@ pub async fn get_relationship(
         resource = %resource,
         relation = %relation,
         subject = %subject,
+        vault = %vault,
         "Checking exact relationship match"
     );
 
@@ -124,6 +135,14 @@ pub async fn get_relationship(
         return Err(ApiError::InvalidRequest("Subject cannot be empty".to_string()));
     }
 
+    // Create evaluator with correct vault for this request
+    let evaluator = infera_core::Evaluator::new(
+        std::sync::Arc::clone(&state.store),
+        std::sync::Arc::clone(state.evaluator.schema()),
+        state.evaluator.wasm_host().cloned(),
+        vault,
+    );
+
     // Query the store using exact match filters
     let list_request = ListRelationshipsRequest {
         resource: Some(resource.clone()),
@@ -133,7 +152,7 @@ pub async fn get_relationship(
         cursor: None,
     };
 
-    let response = state.evaluator.list_relationships(list_request).await?;
+    let response = evaluator.list_relationships(list_request).await?;
 
     // Record metrics
     let duration = start.elapsed();
@@ -243,24 +262,25 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let evaluator =
-            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
+        // Use a test vault ID
+        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add test relationships
         store
             .write(
-                Uuid::nil(),
+                test_vault,
                 vec![
                     Relationship {
-                        vault: Uuid::nil(),
+                        vault: test_vault,
                         resource: "document:readme".to_string(),
                         relation: "view".to_string(),
                         subject: "user:alice".to_string(),
                     },
                     Relationship {
-                        vault: Uuid::nil(),
+                        vault: test_vault,
                         resource: "document:guide".to_string(),
                         relation: "view".to_string(),
                         subject: "user:bob".to_string(),
@@ -270,7 +290,14 @@ mod tests {
             .await
             .unwrap();
 
-        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
+        AppState {
+            evaluator,
+            store,
+            config,
+            jwks_cache: None,
+            health_tracker,
+            default_vault: test_vault,
+        }
     }
 
     #[tokio::test]
@@ -363,9 +390,9 @@ mod tests {
         state
             .store
             .write(
-                Uuid::nil(),
+                state.default_vault,
                 vec![Relationship {
-                    vault: Uuid::nil(),
+                    vault: state.default_vault,
                     resource: "document:file-name_with.dots".to_string(),
                     relation: "view".to_string(),
                     subject: "user:alice@example.com".to_string(),

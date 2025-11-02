@@ -1919,6 +1919,11 @@ impl Evaluator {
     pub fn wasm_host(&self) -> Option<&Arc<WasmHost>> {
         self.wasm_host.as_ref()
     }
+
+    /// Get the schema
+    pub fn schema(&self) -> &Arc<Schema> {
+        &self.schema
+    }
 }
 
 #[cfg(test)]
