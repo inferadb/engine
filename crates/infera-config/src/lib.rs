@@ -305,15 +305,45 @@ fn default_internal_audience() -> String {
     "https://api.inferadb.com/internal".to_string()
 }
 
+/// Multi-tenancy configuration
+///
+/// Controls default account and vault used when authentication is disabled.
+/// These values are auto-generated on first startup if not specified.
+///
+/// # Configuration
+///
+/// YAML:
+/// ```yaml
+/// multi_tenancy:
+///   default_vault: "550e8400-e29b-41d4-a716-446655440000"
+///   default_account: "550e8400-e29b-41d4-a716-446655440001"
+/// ```
+///
+/// Environment:
+/// ```bash
+/// INFERA__MULTI_TENANCY__DEFAULT_VAULT=550e8400-e29b-41d4-a716-446655440000
+/// INFERA__MULTI_TENANCY__DEFAULT_ACCOUNT=550e8400-e29b-41d4-a716-446655440001
+/// ```
+///
+/// # Auto-Initialization
+///
+/// On first startup, if these values are not set:
+/// 1. A new Account is created with name "Default Account"
+/// 2. A new Vault is created with name "Default Vault"
+/// 3. The SystemConfig is stored in the database
+/// 4. All subsequent startups use these defaults
+///
+/// If values are specified in configuration:
+/// - The system will use those UUIDs
+/// - Accounts and Vaults will be created if they don't exist
+/// - Existing accounts/vaults with those IDs will be reused
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MultiTenancyConfig {
-    /// Default vault UUID (for auth-disabled mode)
-    /// Will be auto-generated on first startup if not set
+    /// Default vault UUID (auto-generated on first startup if not set)
     #[serde(default)]
     pub default_vault: Option<String>,
 
-    /// Default account UUID (for auth-disabled mode)
-    /// Will be auto-generated on first startup if not set
+    /// Default account UUID (auto-generated on first startup if not set)
     #[serde(default)]
     pub default_account: Option<String>,
 }

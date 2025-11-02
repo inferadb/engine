@@ -141,6 +141,8 @@ pub struct AppState {
     pub health_tracker: Arc<health::HealthTracker>,
     /// Default vault ID used when authentication is disabled
     pub default_vault: Uuid,
+    /// Default account ID used when authentication is disabled
+    pub default_account: Uuid,
 }
 
 /// Create the API router
@@ -360,6 +362,8 @@ pub async fn serve(
     store: Arc<dyn infera_store::InferaStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
+    default_vault: Uuid,
+    default_account: Uuid,
 ) -> anyhow::Result<()> {
     // Create health tracker
     let health_tracker = Arc::new(health::HealthTracker::new());
@@ -368,17 +372,6 @@ pub async fn serve(
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    // Extract default vault from config for auth-disabled mode
-    let default_vault = config
-        .multi_tenancy
-        .default_vault
-        .as_ref()
-        .and_then(|s| uuid::Uuid::parse_str(s).ok())
-        .unwrap_or_else(|| {
-            tracing::warn!("No default vault configured, using nil UUID");
-            uuid::Uuid::nil()
-        });
-
     let state = AppState {
         evaluator,
         store,
@@ -386,6 +379,7 @@ pub async fn serve(
         jwks_cache,
         health_tracker,
         default_vault,
+        default_account,
     };
     let app = create_router(state);
 
@@ -419,6 +413,8 @@ pub async fn serve_grpc(
     store: Arc<dyn infera_store::InferaStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
+    default_vault: Uuid,
+    default_account: Uuid,
 ) -> anyhow::Result<()> {
     use grpc::proto::infera_service_server::InferaServiceServer;
     use tonic::transport::Server;
@@ -428,17 +424,6 @@ pub async fn serve_grpc(
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    // Extract default vault from config for auth-disabled mode
-    let default_vault = config
-        .multi_tenancy
-        .default_vault
-        .as_ref()
-        .and_then(|s| uuid::Uuid::parse_str(s).ok())
-        .unwrap_or_else(|| {
-            tracing::warn!("No default vault configured, using nil UUID");
-            uuid::Uuid::nil()
-        });
-
     let state = AppState {
         evaluator,
         store,
@@ -446,6 +431,7 @@ pub async fn serve_grpc(
         jwks_cache: jwks_cache.clone(),
         health_tracker,
         default_vault,
+        default_account,
     };
 
     let service = grpc::InferaServiceImpl::new(state);
@@ -515,6 +501,8 @@ pub async fn serve_both(
     store: Arc<dyn infera_store::InferaStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
+    default_vault: Uuid,
+    default_account: Uuid,
 ) -> anyhow::Result<()> {
     let rest_evaluator = Arc::clone(&evaluator);
     let rest_store = Arc::clone(&store);
@@ -527,8 +515,22 @@ pub async fn serve_both(
     let grpc_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
 
     tokio::try_join!(
-        serve(rest_evaluator, rest_store, rest_config, rest_jwks_cache),
-        serve_grpc(grpc_evaluator, grpc_store, grpc_config, grpc_jwks_cache),
+        serve(
+            rest_evaluator,
+            rest_store,
+            rest_config,
+            rest_jwks_cache,
+            default_vault,
+            default_account
+        ),
+        serve_grpc(
+            grpc_evaluator,
+            grpc_store,
+            grpc_config,
+            grpc_jwks_cache,
+            default_vault,
+            default_account
+        ),
     )?;
 
     Ok(())
@@ -567,6 +569,7 @@ mod tests {
         )]));
         // Use a test vault ID
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_account = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
         let evaluator = Arc::new(Evaluator::new(
             Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
             schema,
@@ -590,6 +593,7 @@ mod tests {
             jwks_cache: None,
             health_tracker,
             default_vault: test_vault,
+            default_account: test_account,
         }
     }
 

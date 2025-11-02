@@ -7,18 +7,11 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use infera_auth::jwks_cache::JwksCache;
+use infera_bin::initialization;
 use infera_config::load_or_default;
 use infera_core::{Evaluator, ipl::Schema};
 use infera_store::MemoryBackend;
 use infera_wasm::WasmHost;
-use uuid::Uuid;
-
-/// Get the vault ID for server operations
-/// TODO(Phase 2): Load default vault from system config on startup
-/// For Phase 1, we use a nil UUID as a placeholder for the default vault
-fn get_vault() -> Uuid {
-    Uuid::nil()
-}
 
 #[derive(Parser, Debug)]
 #[command(name = "inferadb")]
@@ -64,6 +57,14 @@ async fn main() -> Result<()> {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     tracing::info!("Using in-memory storage backend");
 
+    // Initialize system (create default account/vault if needed)
+    let system_config = initialization::initialize_system(&store, &config).await?;
+    tracing::info!(
+        "Using default vault {} for account {}",
+        system_config.default_vault,
+        system_config.default_account
+    );
+
     // Initialize WASM host
     let wasm_host = WasmHost::new().ok().map(Arc::new);
     if wasm_host.is_some() {
@@ -81,7 +82,7 @@ async fn main() -> Result<()> {
         Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
         schema,
         wasm_host,
-        get_vault(),
+        system_config.default_vault,
     ));
     tracing::info!("Policy evaluator initialized");
 
@@ -122,7 +123,15 @@ async fn main() -> Result<()> {
     // Start API server
     tracing::info!("Starting API server on {}:{}", config.server.host, config.server.port);
 
-    infera_api::serve(evaluator, store, config, jwks_cache).await?;
+    infera_api::serve(
+        evaluator,
+        store,
+        config,
+        jwks_cache,
+        system_config.default_vault,
+        system_config.default_account,
+    )
+    .await?;
 
     Ok(())
 }

@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+[lib]
+name = "infera_bin"
+path = "src/lib.rs"
+
 [[bin]]
 name = "inferadb"
 path = "src/main.rs"
@@ -21,8 +25,12 @@ uuid = { workspace = true }
 infera-auth = { path = "../infera-auth" }
 infera-core = { path = "../infera-core" }
 infera-store = { path = "../infera-store" }
+infera-types = { path = "../infera-types" }
 infera-wasm = { path = "../infera-wasm" }
 infera-api = { path = "../infera-api" }
 infera-config = { path = "../infera-config" }
 infera-observe = { path = "../infera-observe" }
 infera-cache = { path = "../infera-cache" }
+
+[dev-dependencies]
+futures = { workspace = true }
