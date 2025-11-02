@@ -122,6 +122,18 @@ pub async fn write_relationships_handler(
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to write relationships: {}", e)))?;
 
+    // Invalidate cache for affected resources in this vault
+    if let Some(cache) = state.evaluator.cache() {
+        let affected_resources =
+            infera_cache::AuthCache::extract_affected_resources(&relationships);
+        cache.invalidate_vault_resources(vault, &affected_resources).await;
+        tracing::debug!(
+            vault = %vault,
+            resources_invalidated = affected_resources.len(),
+            "Cache invalidated for affected resources"
+        );
+    }
+
     Ok(Json(WriteResponse {
         revision: revision.0.to_string(), // Extract the u64 value
         relationships_written: relationships.len(),

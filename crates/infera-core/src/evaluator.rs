@@ -52,6 +52,14 @@ impl Evaluator {
         Self { store, schema, wasm_host, cache, vault }
     }
 
+    /// Get a reference to the cache for manual invalidation
+    ///
+    /// Returns Some(&Arc<AuthCache>) if caching is enabled, None otherwise.
+    /// This is used by API handlers to invalidate cache entries after writes.
+    pub fn cache(&self) -> Option<&Arc<AuthCache>> {
+        self.cache.as_ref()
+    }
+
     /// Check if a subject has permission on a resource
     #[instrument(skip(self))]
     pub async fn check(&self, request: EvaluateRequest) -> Result<Decision> {
@@ -70,6 +78,7 @@ impl Evaluator {
         // Check cache if enabled
         if let Some(cache) = &self.cache {
             let cache_key = CheckCacheKey::new(
+                self.vault,
                 request.subject.clone(),
                 request.resource.clone(),
                 request.permission.clone(),
@@ -137,6 +146,7 @@ impl Evaluator {
                 // Cache the deny decision
                 if let Some(cache) = &self.cache {
                     let cache_key = CheckCacheKey::new(
+                        self.vault,
                         request.subject.clone(),
                         request.resource.clone(),
                         request.permission.clone(),
@@ -166,6 +176,7 @@ impl Evaluator {
         // Cache the result if enabled
         if let Some(cache) = &self.cache {
             let cache_key = CheckCacheKey::new(
+                self.vault,
                 request.subject.clone(),
                 request.resource.clone(),
                 request.permission.clone(),
@@ -677,6 +688,7 @@ impl Evaluator {
                 // Try cache first
                 let cache_key = if let Some(_cache) = &self.cache {
                     Some(infera_cache::ExpandCacheKey::new(
+                        self.vault,
                         resource.to_string(),
                         "".to_string(), // "this" uses empty relation
                         ctx.revision,
@@ -859,6 +871,7 @@ impl Evaluator {
                 // Try cache first
                 let cache_key = if let Some(_cache) = &self.cache {
                     Some(infera_cache::ExpandCacheKey::new(
+                        self.vault,
                         resource.to_string(),
                         relation.clone(),
                         ctx.revision,

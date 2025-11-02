@@ -91,6 +91,7 @@ pub async fn delete_relationships_handler(
 
     let mut total_deleted = 0;
     let mut last_revision = None;
+    let mut affected_resources = std::collections::HashSet::new();
 
     // Handle filter-based deletion if filter is provided
     if let Some(filter) = request.filter {
@@ -108,6 +109,11 @@ pub async fn delete_relationships_handler(
             Some(n) => Some(n), // Explicit limit
             None => Some(1000), // Default limit
         };
+
+        // Track affected resources for cache invalidation
+        if let Some(ref resource) = filter.resource {
+            affected_resources.insert(resource.clone());
+        }
 
         // Perform batch deletion
         let (revision, count) = state
@@ -155,6 +161,9 @@ pub async fn delete_relationships_handler(
                     )));
                 }
 
+                // Track resource for cache invalidation
+                affected_resources.insert(relationship.resource.clone());
+
                 keys.push(RelationshipKey {
                     resource: relationship.resource.clone(),
                     relation: relationship.relation.clone(),
@@ -181,6 +190,19 @@ pub async fn delete_relationships_handler(
     // Return the last revision from successful deletes
     let revision = last_revision
         .ok_or_else(|| ApiError::Internal("No relationships were deleted".to_string()))?;
+
+    // Invalidate cache for all affected resources in this vault
+    if !affected_resources.is_empty() {
+        if let Some(cache) = state.evaluator.cache() {
+            let resources_vec: Vec<String> = affected_resources.into_iter().collect();
+            cache.invalidate_vault_resources(vault, &resources_vec).await;
+            tracing::debug!(
+                vault = %vault,
+                resources_invalidated = resources_vec.len(),
+                "Cache invalidated for deleted relationships"
+            );
+        }
+    }
 
     Ok(Json(DeleteResponse {
         revision: revision.0.to_string(),

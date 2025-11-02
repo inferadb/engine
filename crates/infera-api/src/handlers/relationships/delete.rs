@@ -112,6 +112,16 @@ pub async fn delete_relationship(
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to delete relationship: {}", e)))?;
 
+    // Invalidate cache for the deleted resource in this vault
+    if let Some(cache) = state.evaluator.cache() {
+        cache.invalidate_vault_resources(vault, &[resource.clone()]).await;
+        tracing::debug!(
+            vault = %vault,
+            resource = %resource,
+            "Cache invalidated for deleted relationship"
+        );
+    }
+
     // Record metrics
     let duration = start.elapsed();
     infera_observe::metrics::record_api_request(
