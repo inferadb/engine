@@ -301,6 +301,20 @@ pub fn init_metrics_descriptions() {
         "inferadb_condition_evaluation_failure_total",
         "Total number of failed condition evaluations"
     );
+
+    // Audit logging metrics
+    describe_counter!(
+        "inferadb_audit_events_total",
+        "Total number of audit events logged"
+    );
+    describe_counter!(
+        "inferadb_audit_events_sampled_total",
+        "Total number of audit events sampled (dropped due to sampling)"
+    );
+    describe_counter!(
+        "inferadb_audit_events_errors_total",
+        "Total number of audit logging errors"
+    );
 }
 
 /// Record an authorization check
@@ -912,4 +926,21 @@ pub fn record_condition_evaluation(condition_type: &str, duration_seconds: f64, 
         )
         .increment(1);
     }
+}
+
+/// Record an audit event
+pub fn record_audit_event(event_type: &str) {
+    counter!("inferadb_audit_events_total", "event_type" => event_type.to_string()).increment(1);
+}
+
+/// Record a sampled audit event
+pub fn record_audit_event_sampled(event_type: &str) {
+    counter!("inferadb_audit_events_sampled_total", "event_type" => event_type.to_string())
+        .increment(1);
+}
+
+/// Record an audit logging error
+pub fn record_audit_error(error_type: &str) {
+    counter!("inferadb_audit_events_errors_total", "error_type" => error_type.to_string())
+        .increment(1);
 }

@@ -13,6 +13,7 @@ use opentelemetry_sdk::{
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub mod aggregation;
+pub mod audit;
 pub mod logging;
 pub mod metrics;
 pub mod reconfigure;
