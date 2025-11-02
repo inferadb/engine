@@ -452,9 +452,122 @@ assert decision == "allow", "Expected allow"
 print("✓ Test passed")
 ```
 
+## AuthZEN-Compliant API
+
+InferaDB implements the OpenID Foundation's AuthZEN specification for standardized authorization APIs. Use AuthZEN endpoints for interoperability with other AuthZEN-compliant systems.
+
+### AuthZEN Single Evaluation
+
+Check if a subject can perform an action on a resource:
+
+```bash
+curl -X POST http://localhost:8080/access/v1/evaluation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": {"type": "user", "id": "alice"},
+    "action": {"name": "view"},
+    "resource": {"type": "document", "id": "readme"}
+  }'
+```
+
+Response:
+
+```json
+{
+  "decision": true
+}
+```
+
+### AuthZEN Batch Evaluations
+
+Check multiple permissions in one request:
+
+```bash
+curl -X POST http://localhost:8080/access/v1/evaluations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "evaluations": [
+      {
+        "subject": {"type": "user", "id": "alice"},
+        "action": {"name": "view"},
+        "resource": {"type": "document", "id": "readme"}
+      },
+      {
+        "subject": {"type": "user", "id": "alice"},
+        "action": {"name": "edit"},
+        "resource": {"type": "document", "id": "readme"}
+      }
+    ]
+  }'
+```
+
+Response:
+
+```json
+{
+  "evaluations": [
+    {"decision": true},
+    {"decision": false}
+  ]
+}
+```
+
+### AuthZEN Search
+
+Find all resources a subject can access:
+
+```bash
+curl -X POST http://localhost:8080/access/v1/search/resource \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": {"type": "user", "id": "alice"},
+    "action": {"name": "view"},
+    "resource_type": "document"
+  }'
+```
+
+Response:
+
+```json
+{
+  "resources": [
+    {"type": "document", "id": "readme"},
+    {"type": "document", "id": "guide"}
+  ]
+}
+```
+
+### Service Discovery
+
+Discover InferaDB's AuthZEN capabilities:
+
+```bash
+curl http://localhost:8080/.well-known/authzen-configuration
+```
+
+Response shows available endpoints and extensions:
+
+```json
+{
+  "issuer": "http://127.0.0.1:8080",
+  "access_evaluation_endpoint": "http://127.0.0.1:8080/access/v1/evaluation",
+  "access_evaluations_endpoint": "http://127.0.0.1:8080/access/v1/evaluations",
+  "search_resource_endpoint": "http://127.0.0.1:8080/access/v1/search/resource",
+  "search_subject_endpoint": "http://127.0.0.1:8080/access/v1/search/subject",
+  "extensions": {
+    "inferadb_relationship_management": true,
+    "inferadb_relation_expansion": true,
+    "inferadb_simulation": true,
+    "inferadb_realtime_streaming": true
+  }
+}
+```
+
 ## Explore Further
 
 - [Complete API Reference](api-rest.md)
+- [AuthZEN Extensions Documentation](../docs/api/authzen-extensions.md)
+- [AuthZEN Data Model Mapping](../docs/api/authzen-mapping.md)
 - [IPL Language Guide](core/ipl.md)
 - [gRPC API](api-grpc.md)
 - [WASM Integration](wasm-integration.md)

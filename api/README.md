@@ -75,9 +75,28 @@ grpcurl -plaintext -d '{
 
 ## API Features
 
-### Core Operations
+### AuthZEN-Compliant Endpoints
 
-Both APIs support these operations:
+InferaDB implements the [OpenID Foundation's AuthZEN specification](https://openid.github.io/authzen/) for authorization API interoperability:
+
+**Core AuthZEN Operations**:
+- **Single Evaluation** (`POST /access/v1/evaluation`) - Single authorization decision
+- **Batch Evaluations** (`POST /access/v1/evaluations`) - Multiple authorization decisions
+- **Resource Search** (`POST /access/v1/search/resource`) - Find resources accessible by subject
+- **Subject Search** (`POST /access/v1/search/subject`) - Find subjects with access to resource
+- **Service Discovery** (`GET /.well-known/authzen-configuration`) - Capability discovery
+
+**InferaDB Extensions** (advertised via well-known endpoint):
+- `inferadb_relationship_management` - Direct relationship CRUD operations
+- `inferadb_relation_expansion` - Relation tree expansion for debugging
+- `inferadb_simulation` - What-if testing with ephemeral relationships
+- `inferadb_realtime_streaming` - Real-time change notifications
+
+See [AuthZEN Extensions Documentation](../docs/api/authzen-extensions.md) for details.
+
+### Native InferaDB Operations
+
+In addition to AuthZEN compliance, InferaDB's native API supports:
 
 **Authorization Checks**:
 - **Check** - Check if a subject has permission on a resource (streaming for batch)
