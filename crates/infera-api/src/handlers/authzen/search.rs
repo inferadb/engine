@@ -6,10 +6,12 @@
 use axum::{extract::State, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
-use crate::adapters::authzen::{parse_entity, AuthZENAction, AuthZENEntity, AuthZENSubject};
+use crate::adapters::authzen::{
+    parse_entity, AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject,
+};
 use crate::ApiError;
 use crate::AppState;
-use infera_types::ListResourcesRequest;
+use infera_types::{ListResourcesRequest, ListSubjectsRequest};
 
 /// AuthZEN resource search request
 ///
@@ -186,6 +188,178 @@ pub async fn post_search_resource(
 
     Ok(Json(AuthZENResourceSearchResponse {
         resources: authzen_resources,
+        cursor: response.cursor,
+    }))
+}
+
+/// AuthZEN subject search request
+///
+/// Searches for subjects that have a specific relation to a resource.
+///
+/// # Example
+/// ```json
+/// {
+///   "resource": {"type": "document", "id": "readme"},
+///   "action": {"name": "view"},
+///   "subject_type": "user",
+///   "limit": 100,
+///   "cursor": "optional-continuation-token"
+/// }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthZENSubjectSearchRequest {
+    /// The resource being accessed
+    pub resource: AuthZENResource,
+
+    /// The action being performed
+    pub action: AuthZENAction,
+
+    /// Optional filter by subject type
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_type: Option<String>,
+
+    /// Optional limit on number of subjects to return
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+
+    /// Optional continuation token for pagination
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+/// AuthZEN subject search response
+///
+/// Returns a list of subjects that match the search criteria.
+///
+/// # Example
+/// ```json
+/// {
+///   "subjects": [
+///     {"type": "user", "id": "alice"},
+///     {"type": "user", "id": "bob"}
+///   ],
+///   "cursor": "optional-continuation-token"
+/// }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthZENSubjectSearchResponse {
+    /// List of subjects matching the search criteria
+    pub subjects: Vec<AuthZENEntity>,
+
+    /// Continuation token for pagination (if more results available)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+/// Handler for `POST /access/v1/search/subject`
+///
+/// This is a thin adapter that translates AuthZEN subject search requests to
+/// InferaDB's native list_subjects format, performs the search, and translates
+/// the response back to AuthZEN format.
+///
+/// # AuthZEN Specification
+///
+/// Request format:
+/// ```json
+/// {
+///   "resource": {"type": "document", "id": "readme"},
+///   "action": {"name": "view"},
+///   "subject_type": "user",
+///   "limit": 100
+/// }
+/// ```
+///
+/// Response format:
+/// ```json
+/// {
+///   "subjects": [
+///     {"type": "user", "id": "alice"},
+///     {"type": "user", "id": "bob"}
+///   ]
+/// }
+/// ```
+#[tracing::instrument(skip(state), fields(authzen_alias = true, search_type = "subject"))]
+pub async fn post_search_subject(
+    State(state): State<AppState>,
+    Json(request): Json<AuthZENSubjectSearchRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    let start = std::time::Instant::now();
+
+    // Validate required fields
+    if request.resource.resource_type.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "Resource type cannot be empty".to_string(),
+        ));
+    }
+    if request.resource.id.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "Resource id cannot be empty".to_string(),
+        ));
+    }
+    if request.action.name.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "Action name cannot be empty".to_string(),
+        ));
+    }
+
+    // Convert AuthZEN request to native format
+    let resource = format!("{}:{}", request.resource.resource_type, request.resource.id);
+    let relation = request.action.name.clone();
+
+    // Validate the generated resource string
+    parse_entity(&resource)
+        .map_err(|e| ApiError::InvalidRequest(format!("Invalid resource format: {}", e)))?;
+
+    tracing::debug!(
+        resource = %resource,
+        relation = %relation,
+        subject_type = ?request.subject_type,
+        limit = ?request.limit,
+        "Converted AuthZEN subject search request to native format"
+    );
+
+    // Convert to core request
+    let list_request = ListSubjectsRequest {
+        resource,
+        relation,
+        subject_type: request.subject_type,
+        limit: request.limit.map(|l| l as usize),
+        cursor: request.cursor,
+    };
+
+    // Execute the search operation
+    let response = state.evaluator.list_subjects(list_request).await?;
+
+    // Convert native response to AuthZEN format
+    let authzen_subjects: Result<Vec<AuthZENEntity>, ApiError> = response
+        .subjects
+        .iter()
+        .map(|subject_str| {
+            parse_entity(subject_str)
+                .map_err(|e| ApiError::Internal(format!("Failed to parse subject: {}", e)))
+        })
+        .collect();
+
+    let authzen_subjects = authzen_subjects?;
+
+    // Record API request metric
+    let duration = start.elapsed();
+    infera_observe::metrics::record_api_request(
+        "/access/v1/search/subject",
+        "POST",
+        200,
+        duration.as_secs_f64(),
+    );
+
+    tracing::info!(
+        subject_count = response.subjects.len(),
+        has_cursor = response.cursor.is_some(),
+        duration_ms = duration.as_millis(),
+        "AuthZEN subject search completed"
+    );
+
+    Ok(Json(AuthZENSubjectSearchResponse {
+        subjects: authzen_subjects,
         cursor: response.cursor,
     }))
 }
@@ -577,5 +751,332 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    // Subject search tests
+
+    #[tokio::test]
+    async fn test_search_subject_basic() {
+        let state = create_test_state().await;
+
+        let app = Router::new()
+            .route("/access/v1/search/subject", post(post_search_subject))
+            .with_state(state);
+
+        let request = AuthZENSubjectSearchRequest {
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "readme".to_string(),
+            },
+            action: AuthZENAction {
+                name: "view".to_string(),
+            },
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/access/v1/search/subject")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: AuthZENSubjectSearchResponse = serde_json::from_slice(&body).unwrap();
+
+        // Alice has view access to readme
+        assert_eq!(json.subjects.len(), 1);
+        assert_eq!(json.subjects[0].entity_type, "user");
+        assert_eq!(json.subjects[0].id, "alice");
+    }
+
+    #[tokio::test]
+    async fn test_search_subject_no_matches() {
+        let state = create_test_state().await;
+
+        let app = Router::new()
+            .route("/access/v1/search/subject", post(post_search_subject))
+            .with_state(state);
+
+        let request = AuthZENSubjectSearchRequest {
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "nonexistent".to_string(),
+            },
+            action: AuthZENAction {
+                name: "view".to_string(),
+            },
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/access/v1/search/subject")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: AuthZENSubjectSearchResponse = serde_json::from_slice(&body).unwrap();
+
+        // No subjects have access to nonexistent document
+        assert_eq!(json.subjects.len(), 0);
+        assert!(json.cursor.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_search_subject_with_limit() {
+        let state = create_test_state().await;
+
+        let app = Router::new()
+            .route("/access/v1/search/subject", post(post_search_subject))
+            .with_state(state);
+
+        let request = AuthZENSubjectSearchRequest {
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "readme".to_string(),
+            },
+            action: AuthZENAction {
+                name: "view".to_string(),
+            },
+            subject_type: None,
+            limit: Some(10),
+            cursor: None,
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/access/v1/search/subject")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: AuthZENSubjectSearchResponse = serde_json::from_slice(&body).unwrap();
+
+        // Should return results within limit
+        assert!(json.subjects.len() <= 10);
+    }
+
+    #[tokio::test]
+    async fn test_search_subject_empty_resource_type() {
+        let state = create_test_state().await;
+
+        let app = Router::new()
+            .route("/access/v1/search/subject", post(post_search_subject))
+            .with_state(state);
+
+        let request = AuthZENSubjectSearchRequest {
+            resource: AuthZENResource {
+                resource_type: "".to_string(),
+                id: "readme".to_string(),
+            },
+            action: AuthZENAction {
+                name: "view".to_string(),
+            },
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/access/v1/search/subject")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_search_subject_empty_resource_id() {
+        let state = create_test_state().await;
+
+        let app = Router::new()
+            .route("/access/v1/search/subject", post(post_search_subject))
+            .with_state(state);
+
+        let request = AuthZENSubjectSearchRequest {
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "".to_string(),
+            },
+            action: AuthZENAction {
+                name: "view".to_string(),
+            },
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/access/v1/search/subject")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_search_subject_empty_action() {
+        let state = create_test_state().await;
+
+        let app = Router::new()
+            .route("/access/v1/search/subject", post(post_search_subject))
+            .with_state(state);
+
+        let request = AuthZENSubjectSearchRequest {
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "readme".to_string(),
+            },
+            action: AuthZENAction {
+                name: "".to_string(),
+            },
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/access/v1/search/subject")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_search_subject_invalid_resource_format() {
+        let state = create_test_state().await;
+
+        let app = Router::new()
+            .route("/access/v1/search/subject", post(post_search_subject))
+            .with_state(state);
+
+        let request = AuthZENSubjectSearchRequest {
+            resource: AuthZENResource {
+                resource_type: "Document".to_string(), // Invalid: uppercase
+                id: "readme".to_string(),
+            },
+            action: AuthZENAction {
+                name: "view".to_string(),
+            },
+            subject_type: None,
+            limit: None,
+            cursor: None,
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/access/v1/search/subject")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_search_subject_with_subject_type_filter() {
+        let state = create_test_state().await;
+
+        let app = Router::new()
+            .route("/access/v1/search/subject", post(post_search_subject))
+            .with_state(state);
+
+        let request = AuthZENSubjectSearchRequest {
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "readme".to_string(),
+            },
+            action: AuthZENAction {
+                name: "view".to_string(),
+            },
+            subject_type: Some("user".to_string()),
+            limit: None,
+            cursor: None,
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/access/v1/search/subject")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: AuthZENSubjectSearchResponse = serde_json::from_slice(&body).unwrap();
+
+        // All returned subjects should be of type "user"
+        for subject in &json.subjects {
+            assert_eq!(subject.entity_type, "user");
+        }
     }
 }

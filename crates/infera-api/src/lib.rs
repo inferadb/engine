@@ -221,6 +221,10 @@ pub fn create_router(state: AppState) -> Router {
             "/access/v1/search/resource",
             post(handlers::authzen::search::post_search_resource),
         )
+        .route(
+            "/access/v1/search/subject",
+            post(handlers::authzen::search::post_search_subject),
+        )
         .merge(protected_routes)
         .with_state(state.clone());
 

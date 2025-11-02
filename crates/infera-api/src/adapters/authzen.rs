@@ -11,7 +11,7 @@
 //! ```
 //!
 //! InferaDB uses type:id strings:
-//! ```
+//! ```text
 //! "user:alice"
 //! ```
 //!
