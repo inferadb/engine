@@ -108,8 +108,8 @@ pub async fn get_authzen_configuration(State(state): State<AppState>) -> impl In
         extensions: Some(AuthZENExtensions {
             inferadb_relationship_management: Some(true),
             inferadb_relation_expansion: Some(true),
-            inferadb_simulation: Some(false), // Not yet implemented
-            inferadb_realtime_streaming: Some(false), // Not yet implemented
+            inferadb_simulation: Some(true),
+            inferadb_realtime_streaming: Some(true),
         }),
     };
 
@@ -324,8 +324,8 @@ mod tests {
         let extensions = config.extensions.unwrap();
         assert_eq!(extensions.inferadb_relationship_management, Some(true));
         assert_eq!(extensions.inferadb_relation_expansion, Some(true));
-        assert_eq!(extensions.inferadb_simulation, Some(false));
-        assert_eq!(extensions.inferadb_realtime_streaming, Some(false));
+        assert_eq!(extensions.inferadb_simulation, Some(true));
+        assert_eq!(extensions.inferadb_realtime_streaming, Some(true));
     }
 
     #[tokio::test]
