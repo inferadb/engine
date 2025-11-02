@@ -6,13 +6,74 @@
 //! - Multi-tenant isolation
 //! - Default vault mode
 
+use async_trait::async_trait;
 use chrono::Utc;
 use infera_auth::{
     AuthError,
     context::{AuthContext, AuthMethod},
-    validate_vault_access,
+    validate_vault_access, validate_vault_access_with_store,
 };
+use infera_store::VaultStore;
+use infera_types::{StoreResult, SystemConfig, Vault};
 use uuid::Uuid;
+
+/// Mock VaultStore for testing database validation
+struct MockVaultStore {
+    vaults: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<Uuid, Vault>>>,
+}
+
+impl MockVaultStore {
+    fn new() -> Self {
+        Self {
+            vaults: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+        }
+    }
+
+    fn insert_vault(&self, vault: Vault) {
+        self.vaults.lock().unwrap().insert(vault.id, vault);
+    }
+}
+
+#[async_trait]
+impl VaultStore for MockVaultStore {
+    async fn create_vault(&self, vault: Vault) -> StoreResult<Vault> {
+        self.vaults.lock().unwrap().insert(vault.id, vault.clone());
+        Ok(vault)
+    }
+
+    async fn get_vault(&self, id: Uuid) -> StoreResult<Option<Vault>> {
+        Ok(self.vaults.lock().unwrap().get(&id).cloned())
+    }
+
+    async fn list_vaults_for_account(&self, account_id: Uuid) -> StoreResult<Vec<Vault>> {
+        Ok(self
+            .vaults
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|v| v.account == account_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn delete_vault(&self, id: Uuid) -> StoreResult<()> {
+        self.vaults.lock().unwrap().remove(&id);
+        Ok(())
+    }
+
+    async fn update_vault(&self, vault: Vault) -> StoreResult<Vault> {
+        self.vaults.lock().unwrap().insert(vault.id, vault.clone());
+        Ok(vault)
+    }
+
+    async fn get_system_config(&self) -> StoreResult<Option<SystemConfig>> {
+        Ok(None)
+    }
+
+    async fn set_system_config(&self, _config: SystemConfig) -> StoreResult<()> {
+        Ok(())
+    }
+}
 
 /// Create a test AuthContext with specified vault and account
 fn create_auth_context(vault: Uuid, account: Uuid, tenant_id: &str) -> AuthContext {
@@ -230,4 +291,133 @@ fn test_concurrent_vault_validations() {
         let result = handle.join().expect("Thread should not panic");
         assert!(result.is_ok(), "Concurrent validation should succeed");
     }
+}
+
+// ============================================================================
+// Database Validation Tests
+// ============================================================================
+
+#[tokio::test]
+async fn test_validate_vault_access_with_store_success() {
+    let store = MockVaultStore::new();
+    let account_id = Uuid::new_v4();
+    let vault_id = Uuid::new_v4();
+
+    // Create and insert vault
+    let vault = Vault::with_id(vault_id, account_id, "Test Vault".to_string());
+    store.insert_vault(vault);
+
+    // Create auth context
+    let auth = create_auth_context(vault_id, account_id, "tenant-a");
+
+    // Validation should succeed
+    let result = validate_vault_access_with_store(&auth, &store).await;
+    assert!(result.is_ok(), "Valid vault with matching account should pass: {:?}", result);
+}
+
+#[tokio::test]
+async fn test_validate_vault_access_with_store_vault_not_found() {
+    let store = MockVaultStore::new();
+    let account_id = Uuid::new_v4();
+    let nonexistent_vault = Uuid::new_v4();
+
+    // Create auth context for vault that doesn't exist
+    let auth = create_auth_context(nonexistent_vault, account_id, "tenant-a");
+
+    // Validation should fail - vault doesn't exist
+    let result = validate_vault_access_with_store(&auth, &store).await;
+    assert!(result.is_err(), "Non-existent vault should be rejected");
+    match result {
+        Err(AuthError::InvalidTokenFormat(msg)) => {
+            assert!(
+                msg.contains("does not exist"),
+                "Error should mention vault doesn't exist: {}",
+                msg
+            );
+        },
+        _ => panic!("Expected InvalidTokenFormat error"),
+    }
+}
+
+#[tokio::test]
+async fn test_validate_vault_access_with_store_wrong_account() {
+    let store = MockVaultStore::new();
+    let vault_account = Uuid::new_v4();
+    let wrong_account = Uuid::new_v4();
+    let vault_id = Uuid::new_v4();
+
+    // Create vault owned by vault_account
+    let vault = Vault::with_id(vault_id, vault_account, "Test Vault".to_string());
+    store.insert_vault(vault);
+
+    // Create auth context with wrong account
+    let auth = create_auth_context(vault_id, wrong_account, "tenant-a");
+
+    // Validation should fail - account mismatch
+    let result = validate_vault_access_with_store(&auth, &store).await;
+    assert!(result.is_err(), "Vault owned by different account should be rejected");
+    match result {
+        Err(AuthError::InvalidTokenFormat(msg)) => {
+            assert!(
+                msg.contains("does not own"),
+                "Error should mention account doesn't own vault: {}",
+                msg
+            );
+        },
+        _ => panic!("Expected InvalidTokenFormat error"),
+    }
+}
+
+#[tokio::test]
+async fn test_validate_vault_access_with_store_nil_vault() {
+    let store = MockVaultStore::new();
+    let account_id = Uuid::new_v4();
+    let nil_vault = Uuid::nil();
+
+    // Create auth context with nil vault
+    let auth = create_auth_context(nil_vault, account_id, "tenant-a");
+
+    // Validation should fail - nil vault
+    let result = validate_vault_access_with_store(&auth, &store).await;
+    assert!(result.is_err(), "Nil vault should be rejected");
+    match result {
+        Err(AuthError::InvalidTokenFormat(msg)) => {
+            assert!(msg.contains("nil"), "Error should mention nil vault: {}", msg);
+        },
+        _ => panic!("Expected InvalidTokenFormat error"),
+    }
+}
+
+#[tokio::test]
+async fn test_validate_vault_access_with_store_multiple_vaults() {
+    let store = MockVaultStore::new();
+    let account_a = Uuid::new_v4();
+    let account_b = Uuid::new_v4();
+    let vault_a = Uuid::new_v4();
+    let vault_b = Uuid::new_v4();
+
+    // Create vaults for different accounts
+    store.insert_vault(Vault::with_id(vault_a, account_a, "Vault A".to_string()));
+    store.insert_vault(Vault::with_id(vault_b, account_b, "Vault B".to_string()));
+
+    // Test vault A with account A - should succeed
+    let auth_a = create_auth_context(vault_a, account_a, "tenant-a");
+    assert!(
+        validate_vault_access_with_store(&auth_a, &store).await.is_ok(),
+        "Account A should access vault A"
+    );
+
+    // Test vault B with account B - should succeed
+    let auth_b = create_auth_context(vault_b, account_b, "tenant-b");
+    assert!(
+        validate_vault_access_with_store(&auth_b, &store).await.is_ok(),
+        "Account B should access vault B"
+    );
+
+    // Test vault A with account B - should fail
+    let auth_cross = create_auth_context(vault_a, account_b, "tenant-b");
+    assert!(
+        validate_vault_access_with_store(&auth_cross, &store).await.is_err(),
+        "Account B should not access vault A"
+    );
 }
