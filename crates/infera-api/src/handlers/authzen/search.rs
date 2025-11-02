@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::adapters::authzen::{
     parse_entity, AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject,
 };
+use crate::validation::{
+    validate_authzen_resource_search_request, validate_authzen_subject_search_request,
+};
 use crate::ApiError;
 use crate::AppState;
 use infera_types::{ListResourcesRequest, ListSubjectsRequest};
@@ -107,26 +110,7 @@ pub async fn post_search_resource(
     let start = std::time::Instant::now();
 
     // Validate required fields
-    if request.subject.subject_type.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Subject type cannot be empty".to_string(),
-        ));
-    }
-    if request.subject.id.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Subject id cannot be empty".to_string(),
-        ));
-    }
-    if request.action.name.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Action name cannot be empty".to_string(),
-        ));
-    }
-    if request.resource_type.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Resource type cannot be empty".to_string(),
-        ));
-    }
+    validate_authzen_resource_search_request(&request)?;
 
     // Convert AuthZEN request to native format
     let subject = format!("{}:{}", request.subject.subject_type, request.subject.id);
@@ -286,21 +270,7 @@ pub async fn post_search_subject(
     let start = std::time::Instant::now();
 
     // Validate required fields
-    if request.resource.resource_type.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Resource type cannot be empty".to_string(),
-        ));
-    }
-    if request.resource.id.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Resource id cannot be empty".to_string(),
-        ));
-    }
-    if request.action.name.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Action name cannot be empty".to_string(),
-        ));
-    }
+    validate_authzen_subject_search_request(&request)?;
 
     // Convert AuthZEN request to native format
     let resource = format!("{}:{}", request.resource.resource_type, request.resource.id);

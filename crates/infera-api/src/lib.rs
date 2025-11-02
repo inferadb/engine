@@ -37,6 +37,7 @@ pub mod grpc_interceptor;
 pub mod handlers;
 pub mod health;
 pub mod routes;
+pub mod validation;
 
 #[derive(Debug, Error)]
 pub enum ApiError {

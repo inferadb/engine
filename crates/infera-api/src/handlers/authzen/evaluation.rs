@@ -9,6 +9,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::adapters::authzen::{convert_authzen_request_to_native, AuthZENEvaluationRequest};
+use crate::validation::validate_authzen_evaluation_request;
 use crate::ApiError;
 use crate::AppState;
 use infera_types::{Decision, EvaluateRequest};
@@ -61,31 +62,7 @@ pub async fn post_evaluation(
     let start = std::time::Instant::now();
 
     // Validate required fields
-    if request.subject.subject_type.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Subject type cannot be empty".to_string(),
-        ));
-    }
-    if request.subject.id.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Subject id cannot be empty".to_string(),
-        ));
-    }
-    if request.resource.resource_type.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Resource type cannot be empty".to_string(),
-        ));
-    }
-    if request.resource.id.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Resource id cannot be empty".to_string(),
-        ));
-    }
-    if request.action.name.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Action name cannot be empty".to_string(),
-        ));
-    }
+    validate_authzen_evaluation_request(&request)?;
 
     // Convert AuthZEN request to native format
     let (subject, resource, permission) = convert_authzen_request_to_native(&request)
@@ -260,10 +237,10 @@ pub async fn post_evaluations(
 
     for (index, eval_request) in request.evaluations.into_iter().enumerate() {
         // Validate required fields for this evaluation
-        let validation_result = validate_evaluation_request(&eval_request);
-        if let Err(error_msg) = validation_result {
+        if let Err(e) = validate_authzen_evaluation_request(&eval_request) {
             // On validation error, return a deny decision with error context
             let evaluation_id = Uuid::new_v4();
+            let error_msg = e.to_string();
             results.push(EnhancedAuthZENEvaluationResponse {
                 decision: false,
                 context: Some(json!({
@@ -375,26 +352,6 @@ pub async fn post_evaluations(
     };
 
     Ok((StatusCode::OK, Json(response)))
-}
-
-/// Validates an evaluation request and returns an error message if invalid
-fn validate_evaluation_request(request: &AuthZENEvaluationRequest) -> Result<(), String> {
-    if request.subject.subject_type.is_empty() {
-        return Err("Subject type cannot be empty".to_string());
-    }
-    if request.subject.id.is_empty() {
-        return Err("Subject id cannot be empty".to_string());
-    }
-    if request.resource.resource_type.is_empty() {
-        return Err("Resource type cannot be empty".to_string());
-    }
-    if request.resource.id.is_empty() {
-        return Err("Resource id cannot be empty".to_string());
-    }
-    if request.action.name.is_empty() {
-        return Err("Action name cannot be empty".to_string());
-    }
-    Ok(())
 }
 
 #[cfg(test)]
