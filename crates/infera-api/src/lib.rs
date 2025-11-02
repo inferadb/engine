@@ -217,6 +217,10 @@ pub fn create_router(state: AppState) -> Router {
             "/access/v1/evaluations",
             post(handlers::authzen::evaluation::post_evaluations),
         )
+        .route(
+            "/access/v1/search/resource",
+            post(handlers::authzen::search::post_search_resource),
+        )
         .merge(protected_routes)
         .with_state(state.clone());
 

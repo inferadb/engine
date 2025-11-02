@@ -4,4 +4,5 @@
 //! InferaDB's native functionality with the standard AuthZEN protocol.
 
 pub mod evaluation;
+pub mod search;
 pub mod well_known;
