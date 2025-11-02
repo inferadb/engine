@@ -56,7 +56,7 @@ mod common {
             let public_key_bytes = public_key.to_bytes();
             let x_base64 = base64::Engine::encode(
                 &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                &public_key_bytes,
+                public_key_bytes,
             );
 
             let jwks = json!({

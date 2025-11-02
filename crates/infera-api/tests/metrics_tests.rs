@@ -6,7 +6,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::StreamExt;
 use infera_api::grpc::proto::EvaluateRequest as ProtoEvaluateRequest;
 use infera_api::{grpc::proto::infera_service_client::InferaServiceClient, AppState};
 use infera_auth::internal::InternalJwksLoader;

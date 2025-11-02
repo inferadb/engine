@@ -183,7 +183,7 @@ mod tests {
             eprintln!("Error: {:?}", result.as_ref().err());
         }
         assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
     }
 
     #[test]
@@ -213,7 +213,7 @@ mod tests {
 
         let result = host.execute("deny_all", "check", context);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), false);
+        assert!(!result.unwrap());
     }
 
     #[test]
@@ -292,7 +292,7 @@ mod tests {
 
         let result = host.execute("with_memory", "check", context);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
     }
 
     #[test]
@@ -328,6 +328,6 @@ mod tests {
 
         let result = host.execute("with_log", "check", context);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
     }
 }

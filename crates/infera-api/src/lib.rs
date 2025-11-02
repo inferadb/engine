@@ -31,6 +31,7 @@ use infera_types::{
     ListResourcesRequest, ListSubjectsRequest, Relationship, RelationshipKey,
 };
 
+pub mod adapters;
 pub mod grpc;
 pub mod grpc_interceptor;
 pub mod health;
@@ -154,19 +155,23 @@ pub fn create_router(state: AppState) -> Router {
     };
 
     // Protected routes that require authentication
+    // All native InferaDB endpoints are versioned under /v1/
     let protected_routes = Router::new()
-        .route("/evaluate", post(evaluate_stream_handler))
-        .route("/expand", post(expand_handler))
-        .route("/list-resources", post(list_resources_stream_handler))
+        .route("/v1/evaluate", post(evaluate_stream_handler))
+        .route("/v1/expand", post(expand_handler))
+        .route("/v1/resources/list", post(list_resources_stream_handler))
         .route(
-            "/list-relationships",
+            "/v1/relationships/list",
             post(list_relationships_stream_handler),
         )
-        .route("/list-subjects", post(list_subjects_stream_handler))
-        .route("/write-relationships", post(write_relationships_handler))
-        .route("/delete-relationships", post(delete_relationships_handler))
-        .route("/simulate", post(simulate_handler))
-        .route("/watch", post(watch_handler));
+        .route("/v1/subjects/list", post(list_subjects_stream_handler))
+        .route("/v1/relationships/write", post(write_relationships_handler))
+        .route(
+            "/v1/relationships/delete",
+            post(delete_relationships_handler),
+        )
+        .route("/v1/simulate", post(simulate_handler))
+        .route("/v1/watch", post(watch_handler));
 
     // Apply authentication middleware if enabled and JWKS cache is available
     let protected_routes = if state.config.auth.enabled {
@@ -1566,7 +1571,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                     .unwrap(),
@@ -1607,7 +1612,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1637,7 +1642,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_string(&evaluate_request).unwrap(),
@@ -1673,7 +1678,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1700,7 +1705,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1724,7 +1729,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/expand")
+                    .uri("/v1/expand")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&expand_request).unwrap()))
                     .unwrap(),
@@ -1766,7 +1771,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1791,7 +1796,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_string(&evaluate_request).unwrap(),
@@ -1825,7 +1830,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -1855,7 +1860,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_string(&evaluate_request).unwrap(),
@@ -1887,7 +1892,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -1914,7 +1919,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -1951,7 +1956,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -1981,7 +1986,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -2019,7 +2024,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                     .unwrap(),
@@ -2053,7 +2058,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/list-resources")
+                    .uri("/v1/resources/list")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&list_request).unwrap()))
                     .unwrap(),
@@ -2075,7 +2080,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/list-resources")
+                    .uri("/v1/resources/list")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&list_request).unwrap()))
                     .unwrap(),
@@ -2096,7 +2101,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/list-resources")
+                    .uri("/v1/resources/list")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&list_request).unwrap()))
                     .unwrap(),
@@ -2138,7 +2143,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2158,7 +2163,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -2188,7 +2193,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_string(&evaluate_request).unwrap(),
@@ -2220,7 +2225,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_string(&evaluate_request).unwrap(),
@@ -2271,7 +2276,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2291,7 +2296,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -2321,7 +2326,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_string(&evaluate_request).unwrap(),
@@ -2353,7 +2358,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_string(&evaluate_request).unwrap(),
@@ -2404,7 +2409,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2424,7 +2429,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -2473,7 +2478,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2493,7 +2498,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -2524,7 +2529,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),
@@ -2562,7 +2567,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2600,7 +2605,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&batch_request).unwrap()))
                     .unwrap(),
@@ -2655,7 +2660,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2677,7 +2682,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_string(&evaluate_request).unwrap(),
@@ -2738,7 +2743,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/write-relationships")
+                    .uri("/v1/relationships/write")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&write_request).unwrap()))
                     .unwrap(),
@@ -2762,7 +2767,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/delete-relationships")
+                    .uri("/v1/relationships/delete")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&delete_request).unwrap()))
                     .unwrap(),

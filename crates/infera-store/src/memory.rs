@@ -1229,7 +1229,7 @@ mod tests {
 
                     // Reading at rev2 should see relationship2
                     let results_at_rev2 = store.read(&key2, rev2).await.unwrap();
-                    prop_assert!(results_at_rev2.len() > 0,
+                    prop_assert!(!results_at_rev2.is_empty(),
                         "Should see relationship2 at rev2");
 
                     Ok(())
@@ -1300,7 +1300,7 @@ mod tests {
                             subject: Some(relationship.subject.clone()),
                         };
                         let results = store.read(&key, rev).await.unwrap();
-                        prop_assert!(results.len() > 0, "Relationship not found after batch write");
+                        prop_assert!(!results.is_empty(), "Relationship not found after batch write");
                     }
 
                     Ok(())

@@ -316,7 +316,7 @@ async fn test_watch_with_resource_type_filter() {
                 let event = result.unwrap();
                 events.push(event);
                 // Should only get 1 event (doc type only)
-                if events.len() >= 1 {
+                if !events.is_empty() {
                     // Wait a bit more to make sure no other events come through
                     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                     break;
@@ -387,7 +387,7 @@ async fn test_watch_captures_delete_events() {
             Some(result) = watch_stream.next() => {
                 let event = result.unwrap();
                 events.push(event);
-                if events.len() >= 1 {
+                if !events.is_empty() {
                     break;
                 }
             }

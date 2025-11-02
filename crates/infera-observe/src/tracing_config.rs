@@ -188,7 +188,7 @@ mod tests {
             &span,
             "tenant_jwt",
             Some("acme"),
-            Some(&vec!["read".to_string(), "write".to_string()]),
+            Some(&["read".to_string(), "write".to_string()]),
             "success",
             None,
         );

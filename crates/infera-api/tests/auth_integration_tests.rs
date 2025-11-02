@@ -51,7 +51,7 @@ mod common {
             let public_key_bytes = public_key.to_bytes();
             let x_base64 = base64::Engine::encode(
                 &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                &public_key_bytes,
+                public_key_bytes,
             );
 
             let jwks = json!({
@@ -169,11 +169,7 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     let mut config = Config::default();
 
     // Enable auth for these tests but disable rate limiting
-    if jwks_cache.is_some() {
-        config.auth.enabled = true;
-    } else {
-        config.auth.enabled = false;
-    }
+    config.auth.enabled = jwks_cache.is_some();
     config.server.rate_limiting_enabled = false;
 
     let config = Arc::new(config);
@@ -210,7 +206,7 @@ async fn test_auth_disabled_allows_unauthenticated_requests() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/evaluate")
+                .uri("/v1/evaluate")
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::to_string(&check_request).unwrap()))
                 .unwrap(),
@@ -253,7 +249,7 @@ async fn test_missing_authorization_header() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/evaluate")
+                .uri("/v1/evaluate")
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::to_string(&check_request).unwrap()))
                 .unwrap(),
@@ -304,7 +300,7 @@ async fn test_malformed_authorization_header() {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/evaluate")
+                    .uri("/v1/evaluate")
                     .header("content-type", "application/json")
                     .header("authorization", auth_value)
                     .body(Body::from(serde_json::to_string(&check_request).unwrap()))
@@ -392,7 +388,7 @@ async fn test_invalid_jwt_format() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/evaluate")
+                .uri("/v1/evaluate")
                 .header("content-type", "application/json")
                 .header("authorization", "Bearer not-a-valid-jwt")
                 .body(Body::from(serde_json::to_string(&check_request).unwrap()))

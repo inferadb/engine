@@ -587,6 +587,118 @@ pub fn record_oidc_discovery(issuer: &str, success: bool) {
     .increment(1);
 }
 
+/// Record replication changes
+pub fn record_replication_changes(count: u64, duration_seconds: f64) {
+    counter!("inferadb_replication_changes_total").increment(count);
+    histogram!("inferadb_replication_duration_seconds").record(duration_seconds);
+}
+
+/// Record replication failure
+pub fn record_replication_failure(count: u64) {
+    counter!("inferadb_replication_failures_total").increment(count);
+}
+
+/// Record replication conflict
+pub fn record_replication_conflict(resolution: &str) {
+    counter!("inferadb_replication_conflicts_total").increment(1);
+
+    match resolution {
+        "local" => counter!("inferadb_replication_conflicts_resolved_local").increment(1),
+        "remote" => counter!("inferadb_replication_conflicts_resolved_remote").increment(1),
+        _ => {}
+    }
+}
+
+/// Update replication lag
+pub fn update_replication_lag(lag_milliseconds: u64) {
+    gauge!("inferadb_replication_lag_milliseconds").set(lag_milliseconds as f64);
+}
+
+/// Update replication targets
+pub fn update_replication_targets(connected: usize, total: usize) {
+    gauge!("inferadb_replication_targets_connected").set(connected as f64);
+    gauge!("inferadb_replication_targets_total").set(total as f64);
+}
+
+/// Record replication batch
+pub fn record_replication_batch(batch_size: usize) {
+    histogram!("inferadb_replication_batch_size").record(batch_size as f64);
+}
+
+/// Record a query operation by type
+pub fn record_query_operation(operation: &str, duration_seconds: f64) {
+    counter!("inferadb_query_operations_total", "operation" => operation.to_string()).increment(1);
+    histogram!(
+        "inferadb_query_operation_duration_seconds",
+        "operation" => operation.to_string()
+    )
+    .record(duration_seconds);
+}
+
+/// Record an access pattern - resource check
+pub fn record_resource_check(resource: &str, resource_type: &str) {
+    counter!("inferadb_resource_checks_total", "resource" => resource.to_string()).increment(1);
+    counter!("inferadb_resource_type_checks_total", "resource_type" => resource_type.to_string())
+        .increment(1);
+}
+
+/// Record an access pattern - subject check
+pub fn record_subject_check(subject: &str) {
+    counter!("inferadb_subject_checks_total", "subject" => subject.to_string()).increment(1);
+}
+
+/// Record an access pattern - permission check
+pub fn record_permission_check(permission: &str) {
+    counter!("inferadb_permission_checks_total", "permission" => permission.to_string())
+        .increment(1);
+}
+
+/// Record a condition evaluation
+pub fn record_condition_evaluation(condition_type: &str, duration_seconds: f64, success: bool) {
+    counter!(
+        "inferadb_condition_evaluations_total",
+        "condition_type" => condition_type.to_string()
+    )
+    .increment(1);
+
+    histogram!(
+        "inferadb_condition_evaluation_duration_seconds",
+        "condition_type" => condition_type.to_string()
+    )
+    .record(duration_seconds);
+
+    if success {
+        counter!(
+            "inferadb_condition_evaluation_success_total",
+            "condition_type" => condition_type.to_string()
+        )
+        .increment(1);
+    } else {
+        counter!(
+            "inferadb_condition_evaluation_failure_total",
+            "condition_type" => condition_type.to_string()
+        )
+        .increment(1);
+    }
+}
+
+/// Record an audit event
+pub fn record_audit_event(event_type: &str) {
+    counter!("inferadb_audit_events_total", "event_type" => event_type.to_string()).increment(1);
+}
+
+/// Record a sampled audit event
+pub fn record_audit_event_sampled(event_type: &str) {
+    counter!("inferadb_audit_events_sampled_total", "event_type" => event_type.to_string())
+        .increment(1);
+}
+
+/// Record an audit logging error
+pub fn record_audit_error(error_type: &str) {
+    counter!("inferadb_audit_events_errors_total", "error_type" => error_type.to_string())
+        .increment(1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -831,116 +943,4 @@ mod tests {
         record_replication_batch(25);
         // Just verify it doesn't panic
     }
-}
-
-/// Record replication changes
-pub fn record_replication_changes(count: u64, duration_seconds: f64) {
-    counter!("inferadb_replication_changes_total").increment(count);
-    histogram!("inferadb_replication_duration_seconds").record(duration_seconds);
-}
-
-/// Record replication failure
-pub fn record_replication_failure(count: u64) {
-    counter!("inferadb_replication_failures_total").increment(count);
-}
-
-/// Record replication conflict
-pub fn record_replication_conflict(resolution: &str) {
-    counter!("inferadb_replication_conflicts_total").increment(1);
-
-    match resolution {
-        "local" => counter!("inferadb_replication_conflicts_resolved_local").increment(1),
-        "remote" => counter!("inferadb_replication_conflicts_resolved_remote").increment(1),
-        _ => {}
-    }
-}
-
-/// Update replication lag
-pub fn update_replication_lag(lag_milliseconds: u64) {
-    gauge!("inferadb_replication_lag_milliseconds").set(lag_milliseconds as f64);
-}
-
-/// Update replication targets
-pub fn update_replication_targets(connected: usize, total: usize) {
-    gauge!("inferadb_replication_targets_connected").set(connected as f64);
-    gauge!("inferadb_replication_targets_total").set(total as f64);
-}
-
-/// Record replication batch
-pub fn record_replication_batch(batch_size: usize) {
-    histogram!("inferadb_replication_batch_size").record(batch_size as f64);
-}
-
-/// Record a query operation by type
-pub fn record_query_operation(operation: &str, duration_seconds: f64) {
-    counter!("inferadb_query_operations_total", "operation" => operation.to_string()).increment(1);
-    histogram!(
-        "inferadb_query_operation_duration_seconds",
-        "operation" => operation.to_string()
-    )
-    .record(duration_seconds);
-}
-
-/// Record an access pattern - resource check
-pub fn record_resource_check(resource: &str, resource_type: &str) {
-    counter!("inferadb_resource_checks_total", "resource" => resource.to_string()).increment(1);
-    counter!("inferadb_resource_type_checks_total", "resource_type" => resource_type.to_string())
-        .increment(1);
-}
-
-/// Record an access pattern - subject check
-pub fn record_subject_check(subject: &str) {
-    counter!("inferadb_subject_checks_total", "subject" => subject.to_string()).increment(1);
-}
-
-/// Record an access pattern - permission check
-pub fn record_permission_check(permission: &str) {
-    counter!("inferadb_permission_checks_total", "permission" => permission.to_string())
-        .increment(1);
-}
-
-/// Record a condition evaluation
-pub fn record_condition_evaluation(condition_type: &str, duration_seconds: f64, success: bool) {
-    counter!(
-        "inferadb_condition_evaluations_total",
-        "condition_type" => condition_type.to_string()
-    )
-    .increment(1);
-
-    histogram!(
-        "inferadb_condition_evaluation_duration_seconds",
-        "condition_type" => condition_type.to_string()
-    )
-    .record(duration_seconds);
-
-    if success {
-        counter!(
-            "inferadb_condition_evaluation_success_total",
-            "condition_type" => condition_type.to_string()
-        )
-        .increment(1);
-    } else {
-        counter!(
-            "inferadb_condition_evaluation_failure_total",
-            "condition_type" => condition_type.to_string()
-        )
-        .increment(1);
-    }
-}
-
-/// Record an audit event
-pub fn record_audit_event(event_type: &str) {
-    counter!("inferadb_audit_events_total", "event_type" => event_type.to_string()).increment(1);
-}
-
-/// Record a sampled audit event
-pub fn record_audit_event_sampled(event_type: &str) {
-    counter!("inferadb_audit_events_sampled_total", "event_type" => event_type.to_string())
-        .increment(1);
-}
-
-/// Record an audit logging error
-pub fn record_audit_error(error_type: &str) {
-    counter!("inferadb_audit_events_errors_total", "error_type" => error_type.to_string())
-        .increment(1);
 }

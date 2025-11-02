@@ -124,9 +124,14 @@ mod tests {
 
     #[test]
     fn test_sandbox_with_custom_limits() {
-        let mut config = SandboxConfig::default();
-        config.max_execution_time = Duration::from_millis(50);
-        config.store_limits.max_memory_bytes = 5 * 1024 * 1024; // 5 MB
+        let config = SandboxConfig {
+            max_execution_time: Duration::from_millis(50),
+            store_limits: StoreLimits {
+                max_memory_bytes: 5 * 1024 * 1024, // 5 MB
+                ..Default::default()
+            },
+            ..Default::default()
+        };
 
         let sandbox = Sandbox::new(config);
         assert!(sandbox.is_ok());

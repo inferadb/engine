@@ -544,9 +544,11 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let mut config = AuthConfig::default();
-        config.enabled = true;
-        config.jwks_base_url = String::new();
+        let config = AuthConfig {
+            enabled: true,
+            jwks_base_url: String::new(),
+            ..Default::default()
+        };
 
         // Should warn but not panic
         let _ = config.validate();
@@ -559,9 +561,11 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let mut config = AuthConfig::default();
-        config.internal_jwks_path = None;
-        config.internal_jwks_env = None;
+        let config = AuthConfig {
+            internal_jwks_path: None,
+            internal_jwks_env: None,
+            ..Default::default()
+        };
 
         // Should log info but not panic
         let _ = config.validate();
@@ -574,9 +578,11 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let mut config = AuthConfig::default();
-        config.replay_protection = true;
-        config.redis_url = None;
+        let config = AuthConfig {
+            replay_protection: true,
+            redis_url: None,
+            ..Default::default()
+        };
 
         // Should warn but not panic
         let _ = config.validate();
@@ -589,8 +595,10 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let mut config = AuthConfig::default();
-        config.accepted_algorithms = vec![];
+        let config = AuthConfig {
+            accepted_algorithms: vec![],
+            ..Default::default()
+        };
 
         // Should warn but not panic
         let _ = config.validate();

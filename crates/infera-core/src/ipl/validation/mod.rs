@@ -231,7 +231,7 @@ mod tests {
 
         assert!(!results.is_valid());
         assert!(results.has_errors());
-        assert!(results.error_messages().len() > 0);
+        assert!(!results.error_messages().is_empty());
     }
 
     #[test]

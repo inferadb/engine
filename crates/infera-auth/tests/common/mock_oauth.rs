@@ -6,6 +6,8 @@
 //! - Token introspection endpoint (/introspect)
 //! - JWT and opaque token generation
 
+#![allow(dead_code)]
+
 use axum::{
     extract::State,
     http::StatusCode,

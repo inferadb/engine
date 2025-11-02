@@ -414,6 +414,8 @@ paths:
       description: |
         Expand a relation into a tree showing all users and how they have access.
 
+        **Extension**: `inferadb_relation_expansion`
+
         This is an InferaDB extension not defined in AuthZEN.
         Useful for debugging and visualization of authorization relationships.
       operationId: expandRelation
@@ -445,6 +447,8 @@ paths:
       description: |
         Create authorization relationships.
 
+        **Extension**: `inferadb_relationship_management`
+
         This is an InferaDB extension for ReBAC relationship management.
       operationId: writeRelationships
       security:
@@ -475,6 +479,8 @@ paths:
       description: |
         Query authorization relationships with filtering and pagination.
 
+        **Extension**: `inferadb_relationship_management`
+
         This is an InferaDB extension for ReBAC relationship management.
       operationId: listRelationships
       security:
@@ -504,6 +510,8 @@ paths:
       summary: Delete relationships (extension)
       description: |
         Delete authorization relationships using exact matches or filters.
+
+        **Extension**: `inferadb_relationship_management`
 
         This is an InferaDB extension for ReBAC relationship management.
       operationId: deleteRelationships
@@ -596,6 +604,8 @@ paths:
       summary: Watch for relationship changes (extension)
       description: |
         Stream real-time relationship changes using Server-Sent Events.
+
+        **Extension**: `inferadb_realtime_streaming`
 
         This is an InferaDB extension for real-time synchronization.
       operationId: watch
@@ -705,7 +715,16 @@ components:
         extensions:
           type: object
           additionalProperties: true
-          description: InferaDB-specific extensions
+          description: |
+            InferaDB-specific extensions to the AuthZEN specification.
+
+            Available extensions:
+            - `inferadb_relationship_management`: Create, query, and delete relationships
+            - `inferadb_relation_expansion`: Expand relation trees to visualize authorization graphs
+            - `inferadb_simulation`: Simulate authorization changes before committing
+            - `inferadb_realtime_streaming`: Watch for relationship changes in real-time
+
+            See [Extension Documentation](../../docs/api/authzen-extensions.md) for details.
           example:
             inferadb_relationship_management: true
             inferadb_relation_expansion: true

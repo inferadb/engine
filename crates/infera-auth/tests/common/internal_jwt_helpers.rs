@@ -3,8 +3,11 @@
 //! This module provides utilities for creating Ed25519 keypairs and signing
 //! internal JWTs for testing purposes.
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use base64::Engine;
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use ed25519_dalek::SigningKey;
 use infera_auth::internal::InternalJwks;
 use infera_auth::jwks_cache::Jwk;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};

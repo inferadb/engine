@@ -235,7 +235,7 @@ mod tests {
     fn test_log_config_default() {
         let config = LogConfig::default();
         assert_eq!(config.format, LogFormat::default());
-        assert_eq!(config.include_target, true);
+        assert!(config.include_target);
     }
 
     #[test]

@@ -12,7 +12,7 @@ use infera_repl::{
     ZoneId,
 };
 use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{Relationship, RelationshipKey, Revision};
+use infera_types::{Relationship, Revision};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
