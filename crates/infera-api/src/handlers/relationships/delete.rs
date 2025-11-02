@@ -132,11 +132,9 @@ pub async fn delete_relationship(
     let mut headers = HeaderMap::new();
     headers.insert(
         "X-Revision",
-        revision
-            .0
-            .to_string()
-            .parse()
-            .map_err(|e| ApiError::Internal(format!("Failed to create X-Revision header: {}", e)))?,
+        revision.0.to_string().parse().map_err(|e| {
+            ApiError::Internal(format!("Failed to create X-Revision header: {}", e))
+        })?,
     );
 
     // Always return 204 No Content for idempotency
