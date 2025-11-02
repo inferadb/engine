@@ -18,6 +18,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
 base64 = "0.22"
+uuid = { version = "1.10", features = ["v4"] }
 
 # gRPC dependencies
 tonic = "0.12"

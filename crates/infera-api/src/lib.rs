@@ -34,6 +34,7 @@ use infera_types::{
 pub mod adapters;
 pub mod grpc;
 pub mod grpc_interceptor;
+pub mod handlers;
 pub mod health;
 pub mod routes;
 
@@ -204,6 +205,18 @@ pub fn create_router(state: AppState) -> Router {
         .route("/health/live", get(health::liveness_handler))
         .route("/health/ready", get(health::readiness_handler))
         .route("/health/startup", get(health::startup_handler))
+        .route(
+            "/.well-known/authzen-configuration",
+            get(handlers::authzen::well_known::get_authzen_configuration),
+        )
+        .route(
+            "/access/v1/evaluation",
+            post(handlers::authzen::evaluation::post_evaluation),
+        )
+        .route(
+            "/access/v1/evaluations",
+            post(handlers::authzen::evaluation::post_evaluations),
+        )
         .merge(protected_routes)
         .with_state(state.clone());
 
