@@ -41,7 +41,7 @@ fn arb_relationship() -> impl Strategy<Value = Relationship> {
         ],
     )
         .prop_map(|(resource, relation, subject)| Relationship {
-            vault_id: test_vault_id(),
+            vault: test_vault_id(),
             resource,
             relation,
             subject,
@@ -205,7 +205,7 @@ proptest! {
 
             // Write some data first
             let relationship = Relationship {
-                vault_id: test_vault_id(),
+                vault: test_vault_id(),
                 resource: resource.clone(),
                 relation: relation.clone(),
                 subject: "user:test".to_string(),
@@ -246,7 +246,7 @@ proptest! {
 
             let relationships: Vec<Relationship> = (0..size)
                 .map(|i| Relationship {
-                    vault_id: test_vault_id(),
+                    vault: test_vault_id(),
                     resource: format!("obj{}", i),
                     relation: "rel".to_string(),
                     subject: format!("user{}", i),
@@ -310,7 +310,7 @@ proptest! {
             }
 
             let relationship = Relationship {
-                vault_id: test_vault_id(),
+                vault: test_vault_id(),
                 resource,
                 relation: "rel".to_string(),
                 subject: "user:test".to_string(),
@@ -343,7 +343,7 @@ proptest! {
             let store = Arc::new(MemoryBackend::new());
 
             let relationship = Relationship {
-                vault_id: test_vault_id(),
+                vault: test_vault_id(),
                 resource: "obj:test".to_string(),
                 relation: "viewer".to_string(),
                 subject: pattern.to_string(),
@@ -368,7 +368,7 @@ proptest! {
     fn fuzz_mixed_operations(
         valid_relationships in prop::collection::vec(
             (1usize..100, 1usize..50, 1usize..100).prop_map(|(o, r, u)| Relationship {
-                vault_id: test_vault_id(),
+                vault: test_vault_id(),
                 resource: format!("obj{}", o),
                 relation: format!("rel{}", r),
                 subject: format!("user{}", u),
@@ -410,7 +410,7 @@ mod integration_tests {
 
         // Empty fields
         let relationship = Relationship {
-            vault_id: test_vault_id(),
+            vault: test_vault_id(),
             resource: "".to_string(),
             relation: "".to_string(),
             subject: "".to_string(),
@@ -426,7 +426,7 @@ mod integration_tests {
 
         // Very long fields
         let relationship = Relationship {
-            vault_id: test_vault_id(),
+            vault: test_vault_id(),
             resource: "a".repeat(100000),
             relation: "b".repeat(100000),
             subject: "c".repeat(100000),
@@ -447,7 +447,7 @@ mod integration_tests {
             let store_clone = store.clone();
             handles.push(tokio::spawn(async move {
                 let relationship = Relationship {
-                    vault_id: test_vault_id(),
+                    vault: test_vault_id(),
                     resource: format!("obj{}", i),
                     relation: "rel".to_string(),
                     subject: format!("user{}", i),
@@ -473,18 +473,20 @@ mod integration_tests {
 
         // Try to cause errors with invalid data
         let invalid_relationship = Relationship {
-            vault_id: test_vault_id(),
+            vault: test_vault_id(),
             resource: "'; DROP TABLE relationships; --".to_string(),
             relation: "../../etc/passwd".to_string(),
             subject: "<script>alert('xss')</script>".to_string(),
         };
 
         // Should handle gracefully
-        let _ = store.write(test_vault_id(), vec![invalid_relationship]).await;
+        let _ = store
+            .write(test_vault_id(), vec![invalid_relationship])
+            .await;
 
         // Storage should still be functional
         let valid_relationship = Relationship {
-            vault_id: test_vault_id(),
+            vault: test_vault_id(),
             resource: "obj:test".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

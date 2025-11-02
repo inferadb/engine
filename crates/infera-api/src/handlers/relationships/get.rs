@@ -236,6 +236,7 @@ mod tests {
     use infera_types::Relationship;
     use std::sync::Arc;
     use tower::ServiceExt;
+    use uuid::Uuid;
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -251,24 +252,34 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store),
+            schema,
+            None,
+            uuid::Uuid::nil(),
+        ));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add test relationships
         store
-            .write(vec![
-                Relationship {
-                    resource: "document:readme".to_string(),
-                    relation: "view".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                Relationship {
-                    resource: "document:guide".to_string(),
-                    relation: "view".to_string(),
-                    subject: "user:bob".to_string(),
-                },
-            ])
+            .write(
+                Uuid::nil(),
+                vec![
+                    Relationship {
+                        vault: Uuid::nil(),
+                        resource: "document:readme".to_string(),
+                        relation: "view".to_string(),
+                        subject: "user:alice".to_string(),
+                    },
+                    Relationship {
+                        vault: Uuid::nil(),
+                        resource: "document:guide".to_string(),
+                        relation: "view".to_string(),
+                        subject: "user:bob".to_string(),
+                    },
+                ],
+            )
             .await
             .unwrap();
 
@@ -381,11 +392,15 @@ mod tests {
         // Add a relationship with special characters
         state
             .store
-            .write(vec![Relationship {
-                resource: "document:file-name_with.dots".to_string(),
-                relation: "view".to_string(),
-                subject: "user:alice@example.com".to_string(),
-            }])
+            .write(
+                Uuid::nil(),
+                vec![Relationship {
+                    vault: Uuid::nil(),
+                    resource: "document:file-name_with.dots".to_string(),
+                    relation: "view".to_string(),
+                    subject: "user:alice@example.com".to_string(),
+                }],
+            )
             .await
             .unwrap();
 

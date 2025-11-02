@@ -6,6 +6,7 @@ use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use infera_wasm::WasmHost;
 use std::sync::Arc;
+use uuid::Uuid;
 
 /// Helper to create a simple schema with WASM module
 fn create_wasm_schema(module_name: &str) -> Schema {
@@ -77,6 +78,7 @@ async fn test_wasm_allow_policy() {
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
+        Uuid::nil(),
     );
 
     // Test check - should allow due to WASM module
@@ -117,6 +119,7 @@ async fn test_wasm_deny_policy() {
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
+        Uuid::nil(),
     );
 
     // Test check - should deny due to WASM module
@@ -157,15 +160,20 @@ async fn test_wasm_with_union() {
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
+        Uuid::nil(),
     );
 
     // Add direct relationship
     store
-        .write(vec![Relationship {
-            resource: "document:readme".to_string(),
-            relation: "viewer".to_string(),
-            subject: "user:alice".to_string(),
-        }])
+        .write(
+            Uuid::nil(),
+            vec![Relationship {
+                resource: "document:readme".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
+            }],
+        )
         .await
         .unwrap();
 
@@ -219,15 +227,20 @@ async fn test_wasm_with_intersection() {
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
+        Uuid::nil(),
     );
 
     // Add direct relationship
     store
-        .write(vec![Relationship {
-            resource: "document:readme".to_string(),
-            relation: "viewer".to_string(),
-            subject: "user:alice".to_string(),
-        }])
+        .write(
+            Uuid::nil(),
+            vec![Relationship {
+                resource: "document:readme".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
+            }],
+        )
         .await
         .unwrap();
 
@@ -264,6 +277,7 @@ async fn test_wasm_missing_host() {
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None, // No WASM host
+        Uuid::nil(),
     );
 
     // Test check - should error with WASM host not configured
@@ -292,6 +306,7 @@ async fn test_wasm_module_not_loaded() {
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
+        Uuid::nil(),
     );
 
     // Test check - should error with module not found
@@ -333,6 +348,7 @@ async fn test_wasm_with_trace() {
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         Some(wasm_host),
+        Uuid::nil(),
     );
 
     // Test check with trace

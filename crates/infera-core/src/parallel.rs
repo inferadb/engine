@@ -204,6 +204,7 @@ mod tests {
     use super::*;
     use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::MemoryBackend;
+    use uuid::Uuid;
 
     async fn create_test_evaluator() -> Arc<Evaluator> {
         let store = Arc::new(MemoryBackend::new());
@@ -217,7 +218,7 @@ mod tests {
         )];
 
         let schema = Arc::new(Schema::new(types));
-        Arc::new(Evaluator::new(store, schema, None))
+        Arc::new(Evaluator::new(store, schema, None, Uuid::nil()))
     }
 
     #[tokio::test]

@@ -34,7 +34,12 @@ fn create_test_schema() -> Arc<Schema> {
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
     let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
+    let evaluator = Arc::new(Evaluator::new(
+        Arc::clone(&store),
+        schema,
+        None,
+        uuid::Uuid::nil(),
+    ));
 
     let mut config = Config::default();
     config.auth.enabled = auth_enabled;

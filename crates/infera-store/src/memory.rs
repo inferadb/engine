@@ -92,11 +92,11 @@ impl MemoryBackend {
     }
 
     /// Collect garbage for revisions older than the given revision in a specific vault
-    pub async fn gc_before(&self, vault_id: Uuid, before: Revision) -> Result<usize> {
+    pub async fn gc_before(&self, vault: Uuid, before: Revision) -> Result<usize> {
         let mut data = self.data.write().await;
         let mut removed = 0;
 
-        if let Some(vault_data) = data.vaults_data.get_mut(&vault_id) {
+        if let Some(vault_data) = data.vaults_data.get_mut(&vault) {
             // Remove old revisions from history
             let old_revisions: Vec<_> = vault_data
                 .revision_history
@@ -115,8 +115,8 @@ impl MemoryBackend {
     }
 
     /// Get or create vault data
-    fn get_or_create_vault_data(data: &mut MemoryData, vault_id: Uuid) -> &mut VaultData {
-        data.vaults_data.entry(vault_id).or_insert_with(VaultData::new)
+    fn get_or_create_vault_data(data: &mut MemoryData, vault: Uuid) -> &mut VaultData {
+        data.vaults_data.entry(vault).or_insert_with(VaultData::new)
     }
 }
 
@@ -165,23 +165,21 @@ impl AccountStore for MemoryBackend {
         let mut data = self.data.write().await;
 
         // Find and delete all vaults owned by this account
-        let vault_ids: Vec<_> = data
+        let vaults: Vec<_> = data
             .vaults
             .iter()
-            .filter(|(_, v)| v.account_id == id)
+            .filter(|(_, v)| v.account == id)
             .map(|(id, _)| *id)
             .collect();
 
         // Delete vault data
-        for vault_id in vault_ids {
-            data.vaults.remove(&vault_id);
-            data.vaults_data.remove(&vault_id);
+        for vault in vaults {
+            data.vaults.remove(&vault);
+            data.vaults_data.remove(&vault);
         }
 
         // Delete account
-        data.accounts
-            .remove(&id)
-            .ok_or(StoreError::NotFound)?;
+        data.accounts.remove(&id).ok_or(StoreError::NotFound)?;
 
         Ok(())
     }
@@ -213,10 +211,8 @@ impl VaultStore for MemoryBackend {
         }
 
         // Verify account exists
-        if !data.accounts.contains_key(&vault.account_id) {
-            return Err(StoreError::Internal(
-                "Account does not exist".to_string(),
-            ));
+        if !data.accounts.contains_key(&vault.account) {
+            return Err(StoreError::Internal("Account does not exist".to_string()));
         }
 
         data.vaults.insert(vault.id, vault.clone());
@@ -236,7 +232,7 @@ impl VaultStore for MemoryBackend {
         let vaults: Vec<_> = data
             .vaults
             .values()
-            .filter(|v| v.account_id == account_id)
+            .filter(|v| v.account == account_id)
             .cloned()
             .collect();
         Ok(vaults)
@@ -283,14 +279,14 @@ impl VaultStore for MemoryBackend {
 impl RelationshipStore for MemoryBackend {
     async fn read(
         &self,
-        vault_id: Uuid,
+        vault: Uuid,
         key: &RelationshipKey,
         revision: Revision,
     ) -> Result<Vec<Relationship>> {
         let timer = OpTimer::new();
         let data = self.data.read().await;
 
-        let vault_data = match data.vaults_data.get(&vault_id) {
+        let vault_data = match data.vaults_data.get(&vault) {
             Some(vd) => vd,
             None => {
                 self.metrics.record_read(timer.elapsed(), false);
@@ -342,20 +338,20 @@ impl RelationshipStore for MemoryBackend {
         Ok(relationships)
     }
 
-    async fn write(&self, vault_id: Uuid, relationships: Vec<Relationship>) -> Result<Revision> {
+    async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision> {
         let timer = OpTimer::new();
         let mut data = self.data.write().await;
 
-        // Verify all relationships have correct vault_id
+        // Verify all relationships have correct vault
         for rel in &relationships {
-            if rel.vault_id != vault_id {
+            if rel.vault != vault {
                 return Err(StoreError::Internal(
-                    "Relationship vault_id does not match requested vault_id".to_string(),
+                    "Relationship vault does not match requested vault".to_string(),
                 ));
             }
         }
 
-        let vault_data = Self::get_or_create_vault_data(&mut data, vault_id);
+        let vault_data = Self::get_or_create_vault_data(&mut data, vault);
 
         // Increment revision
         vault_data.revision = vault_data.revision.next();
@@ -453,26 +449,28 @@ impl RelationshipStore for MemoryBackend {
         // Update metrics
         let relationship_bytes: usize = batch_relationships.len() * 64; // Approximate bytes per relationship
         self.metrics.record_write(timer.elapsed(), false);
-        self.metrics
-            .update_key_space(vault_data.relationships.len() as u64, relationship_bytes as u64);
+        self.metrics.update_key_space(
+            vault_data.relationships.len() as u64,
+            relationship_bytes as u64,
+        );
 
         Ok(current_revision)
     }
 
-    async fn get_revision(&self, vault_id: Uuid) -> Result<Revision> {
+    async fn get_revision(&self, vault: Uuid) -> Result<Revision> {
         let data = self.data.read().await;
         Ok(data
             .vaults_data
-            .get(&vault_id)
+            .get(&vault)
             .map(|vd| vd.revision)
             .unwrap_or(Revision::zero()))
     }
 
-    async fn delete(&self, vault_id: Uuid, key: &RelationshipKey) -> Result<Revision> {
+    async fn delete(&self, vault: Uuid, key: &RelationshipKey) -> Result<Revision> {
         let timer = OpTimer::new();
         let mut data = self.data.write().await;
 
-        let vault_data = Self::get_or_create_vault_data(&mut data, vault_id);
+        let vault_data = Self::get_or_create_vault_data(&mut data, vault);
 
         // Increment revision
         vault_data.revision = vault_data.revision.next();
@@ -533,7 +531,7 @@ impl RelationshipStore for MemoryBackend {
 
     async fn delete_by_filter(
         &self,
-        vault_id: Uuid,
+        vault: Uuid,
         filter: &DeleteFilter,
         limit: Option<usize>,
     ) -> Result<(Revision, usize)> {
@@ -547,7 +545,7 @@ impl RelationshipStore for MemoryBackend {
         }
 
         let mut data = self.data.write().await;
-        let vault_data = Self::get_or_create_vault_data(&mut data, vault_id);
+        let vault_data = Self::get_or_create_vault_data(&mut data, vault);
 
         // Increment revision
         vault_data.revision = vault_data.revision.next();
@@ -631,14 +629,14 @@ impl RelationshipStore for MemoryBackend {
 
     async fn list_resources_by_type(
         &self,
-        vault_id: Uuid,
+        vault: Uuid,
         resource_type: &str,
         revision: Revision,
     ) -> Result<Vec<String>> {
         let timer = OpTimer::new();
         let data = self.data.read().await;
 
-        let vault_data = match data.vaults_data.get(&vault_id) {
+        let vault_data = match data.vaults_data.get(&vault) {
             Some(vd) => vd,
             None => {
                 self.metrics.record_read(timer.elapsed(), false);
@@ -669,7 +667,7 @@ impl RelationshipStore for MemoryBackend {
 
     async fn list_relationships(
         &self,
-        vault_id: Uuid,
+        vault: Uuid,
         resource: Option<&str>,
         relation: Option<&str>,
         subject: Option<&str>,
@@ -678,7 +676,7 @@ impl RelationshipStore for MemoryBackend {
         let timer = OpTimer::new();
         let data = self.data.read().await;
 
-        let vault_data = match data.vaults_data.get(&vault_id) {
+        let vault_data = match data.vaults_data.get(&vault) {
             Some(vd) => vd,
             None => {
                 self.metrics.record_read(timer.elapsed(), false);
@@ -729,9 +727,9 @@ impl RelationshipStore for MemoryBackend {
         Some(self.metrics.snapshot())
     }
 
-    async fn append_change(&self, vault_id: Uuid, event: ChangeEvent) -> Result<()> {
+    async fn append_change(&self, vault: Uuid, event: ChangeEvent) -> Result<()> {
         let mut data = self.data.write().await;
-        let vault_data = Self::get_or_create_vault_data(&mut data, vault_id);
+        let vault_data = Self::get_or_create_vault_data(&mut data, vault);
 
         vault_data
             .change_log
@@ -744,14 +742,14 @@ impl RelationshipStore for MemoryBackend {
 
     async fn read_changes(
         &self,
-        vault_id: Uuid,
+        vault: Uuid,
         start_revision: Revision,
         resource_types: &[String],
         limit: Option<usize>,
     ) -> Result<Vec<ChangeEvent>> {
         let data = self.data.read().await;
 
-        let vault_data = match data.vaults_data.get(&vault_id) {
+        let vault_data = match data.vaults_data.get(&vault) {
             Some(vd) => vd,
             None => return Ok(Vec::new()),
         };
@@ -783,10 +781,10 @@ impl RelationshipStore for MemoryBackend {
         Ok(events)
     }
 
-    async fn get_change_log_revision(&self, vault_id: Uuid) -> Result<Revision> {
+    async fn get_change_log_revision(&self, vault: Uuid) -> Result<Revision> {
         let data = self.data.read().await;
 
-        let vault_data = match data.vaults_data.get(&vault_id) {
+        let vault_data = match data.vaults_data.get(&vault) {
             Some(vd) => vd,
             None => return Ok(Revision::zero()),
         };
@@ -831,7 +829,7 @@ mod tests {
 
         // Write relationships to vault1
         let rel1 = Relationship {
-            vault_id: vault1.id,
+            vault: vault1.id,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -841,7 +839,7 @@ mod tests {
 
         // Write relationships to vault2
         let rel2 = Relationship {
-            vault_id: vault2.id,
+            vault: vault2.id,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
@@ -856,32 +854,24 @@ mod tests {
             subject: None,
         };
 
-        let vault1_rels = backend
-            .read(vault1.id, &key, Revision(1))
-            .await
-            .unwrap();
+        let vault1_rels = backend.read(vault1.id, &key, Revision(1)).await.unwrap();
         assert_eq!(vault1_rels.len(), 1);
         assert_eq!(vault1_rels[0].subject, "user:alice");
 
-        let vault2_rels = backend
-            .read(vault2.id, &key, Revision(1))
-            .await
-            .unwrap();
+        let vault2_rels = backend.read(vault2.id, &key, Revision(1)).await.unwrap();
         assert_eq!(vault2_rels.len(), 1);
         assert_eq!(vault2_rels[0].subject, "user:bob");
 
         // Verify cross-vault queries return empty
-        let vault1_rels_in_vault2 = backend
-            .read(vault2.id, &key, Revision(1))
-            .await
-            .unwrap();
-        assert!(!vault1_rels_in_vault2.iter().any(|r| r.subject == "user:alice"));
+        let vault1_rels_in_vault2 = backend.read(vault2.id, &key, Revision(1)).await.unwrap();
+        assert!(!vault1_rels_in_vault2
+            .iter()
+            .any(|r| r.subject == "user:alice"));
 
-        let vault2_rels_in_vault1 = backend
-            .read(vault1.id, &key, Revision(1))
-            .await
-            .unwrap();
-        assert!(!vault2_rels_in_vault1.iter().any(|r| r.subject == "user:bob"));
+        let vault2_rels_in_vault1 = backend.read(vault1.id, &key, Revision(1)).await.unwrap();
+        assert!(!vault2_rels_in_vault1
+            .iter()
+            .any(|r| r.subject == "user:bob"));
     }
 
     #[tokio::test]
@@ -892,7 +882,7 @@ mod tests {
 
         // Write some relationships
         let rel = Relationship {
-            vault_id: vault.id,
+            vault: vault.id,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -928,15 +918,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vault_id_mismatch_error() {
+    async fn test_vault_mismatch_error() {
         let backend = MemoryBackend::new();
 
         let (_, vault) = create_test_account_and_vault(&backend).await;
 
-        // Try to write relationship with wrong vault_id
-        let wrong_vault_id = Uuid::new_v4();
+        // Try to write relationship with wrong vault
+        let wrong_vault = Uuid::new_v4();
         let rel = Relationship {
-            vault_id: wrong_vault_id, // Wrong vault ID!
+            vault: wrong_vault, // Wrong vault ID!
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

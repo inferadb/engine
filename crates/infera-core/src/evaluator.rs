@@ -28,7 +28,7 @@ pub struct Evaluator {
     cache: Option<Arc<AuthCache>>,
     /// The vault ID for multi-tenant isolation
     /// TODO: In Phase 2, this will be extracted from auth context instead
-    vault_id: Uuid,
+    vault: Uuid,
 }
 
 impl Evaluator {
@@ -36,14 +36,14 @@ impl Evaluator {
         store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
-        vault_id: Uuid,
+        vault: Uuid,
     ) -> Self {
         Self {
             store,
             schema,
             wasm_host,
             cache: Some(Arc::new(AuthCache::default())),
-            vault_id,
+            vault,
         }
     }
 
@@ -52,14 +52,14 @@ impl Evaluator {
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
         cache: Option<Arc<AuthCache>>,
-        vault_id: Uuid,
+        vault: Uuid,
     ) -> Self {
         Self {
             store,
             schema,
             wasm_host,
             cache,
-            vault_id,
+            vault,
         }
     }
 
@@ -76,7 +76,7 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision to ensure consistent read
-        let revision = self.store.get_revision(self.vault_id).await?;
+        let revision = self.store.get_revision(self.vault).await?;
 
         // Check cache if enabled
         if let Some(cache) = &self.cache {
@@ -101,8 +101,12 @@ impl Evaluator {
         }
 
         // Create graph context for traversal
-        let mut ctx =
-            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision, self.vault_id);
+        let mut ctx = GraphContext::new(
+            Arc::clone(&self.schema),
+            Arc::clone(&self.store),
+            revision,
+            self.vault,
+        );
 
         // FIRST: Check all forbid rules - if any match, return DENY immediately
         // Forbid rules override all permit rules (explicit deny)
@@ -211,11 +215,15 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision
-        let revision = self.store.get_revision(self.vault_id).await?;
+        let revision = self.store.get_revision(self.vault).await?;
 
         // Create graph context
-        let mut ctx =
-            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision, self.vault_id);
+        let mut ctx = GraphContext::new(
+            Arc::clone(&self.schema),
+            Arc::clone(&self.store),
+            revision,
+            self.vault,
+        );
 
         // FIRST: Check all forbid rules - if any match, return DENY immediately
         let type_name = request
@@ -309,8 +317,15 @@ impl Evaluator {
         ctx: &mut GraphContext,
     ) -> Result<EvaluationNode> {
         // Check for direct relationship first
-        let has_direct =
-            has_direct_relationship(&*ctx.store, ctx.vault_id, resource,relation, subject, ctx.revision).await?;
+        let has_direct = has_direct_relationship(
+            &*ctx.store,
+            ctx.vault,
+            resource,
+            relation,
+            subject,
+            ctx.revision,
+        )
+        .await?;
 
         if has_direct {
             return Ok(EvaluationNode {
@@ -373,9 +388,15 @@ impl Evaluator {
 
         match expr {
             RelationExpr::This => {
-                let has_direct =
-                    has_direct_relationship(&*ctx.store, ctx.vault_id, resource,"this", subject, ctx.revision)
-                        .await?;
+                let has_direct = has_direct_relationship(
+                    &*ctx.store,
+                    ctx.vault,
+                    resource,
+                    "this",
+                    subject,
+                    ctx.revision,
+                )
+                .await?;
                 Ok(EvaluationNode {
                     node_type: NodeType::DirectCheck {
                         resource: resource.to_string(),
@@ -399,7 +420,7 @@ impl Evaluator {
                 // Get objects from relationship and check if any have user in relation
                 let related_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
-                    ctx.vault_id,
+                    ctx.vault,
                     resource,
                     relationship,
                     ctx.revision,
@@ -436,7 +457,7 @@ impl Evaluator {
                 // Get objects from relationship and evaluate computed relation on each
                 let related_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
-                    ctx.vault_id,
+                    ctx.vault,
                     resource,
                     relationship,
                     ctx.revision,
@@ -589,9 +610,15 @@ impl Evaluator {
     ) -> Result<bool> {
         // Check for direct relationship first (forbid with no expression or `this`)
         if expr.is_none() {
-            let has_direct =
-                has_direct_relationship(&*ctx.store, ctx.vault_id, resource,forbid_name, subject, ctx.revision)
-                    .await?;
+            let has_direct = has_direct_relationship(
+                &*ctx.store,
+                ctx.vault,
+                resource,
+                forbid_name,
+                subject,
+                ctx.revision,
+            )
+            .await?;
             return Ok(has_direct);
         }
 
@@ -614,7 +641,7 @@ impl Evaluator {
         );
 
         // Get current revision
-        let revision = self.store.get_revision(self.vault_id).await?;
+        let revision = self.store.get_revision(self.vault).await?;
 
         // Get the relation definition
         let type_name = request
@@ -633,8 +660,12 @@ impl Evaluator {
         })?;
 
         // Create graph context for actual user resolution
-        let mut ctx =
-            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision, self.vault_id);
+        let mut ctx = GraphContext::new(
+            Arc::clone(&self.schema),
+            Arc::clone(&self.store),
+            revision,
+            self.vault,
+        );
 
         // Build userset tree with actual users
         let tree = if relation_def.expr.is_none() {
@@ -677,7 +708,9 @@ impl Evaluator {
     ) -> Result<UsersetTree> {
         use crate::graph::get_users_with_relation;
 
-        let users = get_users_with_relation(&*ctx.store, ctx.vault_id, resource,relation, ctx.revision).await?;
+        let users =
+            get_users_with_relation(&*ctx.store, ctx.vault, resource, relation, ctx.revision)
+                .await?;
 
         Ok(UsersetTree {
             node_type: UsersetNodeType::Leaf {
@@ -717,22 +750,27 @@ impl Evaluator {
                         if let Some(cached_users) = cache.get_expand(key).await {
                             cached_users
                         } else {
-                            let users: Vec<String> =
-                                get_users_with_relation(&*ctx.store, ctx.vault_id, resource,"", ctx.revision)
-                                    .await?
-                                    .into_iter()
-                                    .collect();
+                            let users: Vec<String> = get_users_with_relation(
+                                &*ctx.store,
+                                ctx.vault,
+                                resource,
+                                "",
+                                ctx.revision,
+                            )
+                            .await?
+                            .into_iter()
+                            .collect();
                             cache.put_expand(key.clone(), users.clone()).await;
                             users
                         }
                     } else {
-                        get_users_with_relation(&*ctx.store, ctx.vault_id, resource,"", ctx.revision)
+                        get_users_with_relation(&*ctx.store, ctx.vault, resource, "", ctx.revision)
                             .await?
                             .into_iter()
                             .collect()
                     }
                 } else {
-                    get_users_with_relation(&*ctx.store, ctx.vault_id, resource,"", ctx.revision)
+                    get_users_with_relation(&*ctx.store, ctx.vault, resource, "", ctx.revision)
                         .await?
                         .into_iter()
                         .collect()
@@ -749,9 +787,14 @@ impl Evaluator {
                 relationship,
             } => {
                 // Get users from computed relation on relationship
-                let related_objects =
-                    get_users_with_relation(&*ctx.store, ctx.vault_id, resource,relationship, ctx.revision)
-                        .await?;
+                let related_objects = get_users_with_relation(
+                    &*ctx.store,
+                    ctx.vault,
+                    resource,
+                    relationship,
+                    ctx.revision,
+                )
+                .await?;
 
                 // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
@@ -759,7 +802,7 @@ impl Evaluator {
                     // Batch prefetch for multiple objects
                     let prefetched = crate::graph::prefetch_users_batch(
                         &*ctx.store,
-                        ctx.vault_id,
+                        ctx.vault,
                         &related_objects,
                         relation,
                         ctx.revision,
@@ -774,9 +817,14 @@ impl Evaluator {
                 } else {
                     // Single object - use direct fetch
                     for obj in related_objects {
-                        let users =
-                            get_users_with_relation(&*ctx.store, ctx.vault_id, &obj,relation, ctx.revision)
-                                .await?;
+                        let users = get_users_with_relation(
+                            &*ctx.store,
+                            ctx.vault,
+                            &obj,
+                            relation,
+                            ctx.revision,
+                        )
+                        .await?;
                         all_users.extend(users);
                     }
                 }
@@ -794,9 +842,14 @@ impl Evaluator {
                 computed,
             } => {
                 // Get objects from relationship
-                let related_objects =
-                    get_users_with_relation(&*ctx.store, ctx.vault_id, resource,relationship, ctx.revision)
-                        .await?;
+                let related_objects = get_users_with_relation(
+                    &*ctx.store,
+                    ctx.vault,
+                    resource,
+                    relationship,
+                    ctx.revision,
+                )
+                .await?;
 
                 // Use prefetching for better performance when we have multiple objects
                 let mut all_users = std::collections::HashSet::new();
@@ -804,7 +857,7 @@ impl Evaluator {
                     // Batch prefetch for multiple objects
                     let prefetched = crate::graph::prefetch_users_batch(
                         &*ctx.store,
-                        ctx.vault_id,
+                        ctx.vault,
                         &related_objects,
                         computed,
                         ctx.revision,
@@ -819,9 +872,14 @@ impl Evaluator {
                 } else {
                     // Single object - use direct fetch
                     for obj in related_objects {
-                        let users =
-                            get_users_with_relation(&*ctx.store, ctx.vault_id, &obj,computed, ctx.revision)
-                                .await?;
+                        let users = get_users_with_relation(
+                            &*ctx.store,
+                            ctx.vault,
+                            &obj,
+                            computed,
+                            ctx.revision,
+                        )
+                        .await?;
                         all_users.extend(users);
                     }
                 }
@@ -924,11 +982,16 @@ impl Evaluator {
 
                 // If the referenced relation has no expression, it's a direct relation
                 let tree = if expr_opt.is_none() {
-                    let users: Vec<String> =
-                        get_users_with_relation(&*ctx.store, ctx.vault_id, resource,relation, ctx.revision)
-                            .await?
-                            .into_iter()
-                            .collect();
+                    let users: Vec<String> = get_users_with_relation(
+                        &*ctx.store,
+                        ctx.vault,
+                        resource,
+                        relation,
+                        ctx.revision,
+                    )
+                    .await?
+                    .into_iter()
+                    .collect();
                     UsersetTree {
                         node_type: UsersetNodeType::Leaf {
                             users: users.clone(),
@@ -978,7 +1041,7 @@ impl Evaluator {
                     Arc::clone(&ctx.schema),
                     Arc::clone(&ctx.store),
                     ctx.revision,
-                    ctx.vault_id,
+                    ctx.vault,
                 );
                 // Copy the visited set for cycle detection
                 branch_ctx.visited = ctx.visited.clone();
@@ -1137,12 +1200,12 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision to ensure consistent read
-        let revision = self.store.get_revision(self.vault_id).await?;
+        let revision = self.store.get_revision(self.vault).await?;
 
         // List all resources of the given type
         let all_resources = self
             .store
-            .list_resources_by_type(self.vault_id, &request.resource_type, revision)
+            .list_resources_by_type(self.vault, &request.resource_type, revision)
             .await?;
 
         debug!(
@@ -1315,13 +1378,13 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision to ensure consistent read
-        let revision = self.store.get_revision(self.vault_id).await?;
+        let revision = self.store.get_revision(self.vault).await?;
 
         // Query storage with filters (storage uses resource/subject, returns Tuples)
         let all_relationships = self
             .store
             .list_relationships(
-                self.vault_id,
+                self.vault,
                 request.resource.as_deref(),
                 request.relation.as_deref(),
                 request.subject.as_deref(),
@@ -1353,7 +1416,7 @@ impl Evaluator {
             .skip(offset)
             .take(limit)
             .map(|t| Relationship {
-                vault_id: t.vault_id,
+                vault: t.vault,
                 resource: t.resource,
                 relation: t.relation,
                 subject: t.subject,
@@ -1404,7 +1467,7 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision to ensure consistent read
-        let revision = self.store.get_revision(self.vault_id).await?;
+        let revision = self.store.get_revision(self.vault).await?;
 
         // Parse resource to extract type
         let resource_parts: Vec<&str> = request.resource.split(':').collect();
@@ -1520,7 +1583,7 @@ impl Evaluator {
                         let tuples = self
                             .store
                             .list_relationships(
-                                self.vault_id,
+                                self.vault,
                                 Some(resource),
                                 Some(&relation_def.name),
                                 None,
@@ -1541,7 +1604,13 @@ impl Evaluator {
                         // First, find related objects via the relationship
                         let related_tuples = self
                             .store
-                            .list_relationships(self.vault_id, Some(resource), Some(relationship), None, revision)
+                            .list_relationships(
+                                self.vault,
+                                Some(resource),
+                                Some(relationship),
+                                None,
+                                revision,
+                            )
                             .await?;
 
                         // For each related object, find subjects via the computed relation
@@ -1664,7 +1733,13 @@ impl Evaluator {
                         // First, find all related objects via the relationship
                         let related_tuples = self
                             .store
-                            .list_relationships(self.vault_id, Some(resource), Some(relationship), None, revision)
+                            .list_relationships(
+                                self.vault,
+                                Some(resource),
+                                Some(relationship),
+                                None,
+                                revision,
+                            )
                             .await?;
 
                         // For each related object, find subjects via the computed relation
@@ -1734,7 +1809,13 @@ impl Evaluator {
                 // No expression means it's a direct relation (This)
                 let tuples = self
                     .store
-                    .list_relationships(self.vault_id, Some(resource), Some(&relation_def.name), None, revision)
+                    .list_relationships(
+                        self.vault,
+                        Some(resource),
+                        Some(&relation_def.name),
+                        None,
+                        revision,
+                    )
                     .await?;
 
                 for tuple in tuples {
@@ -1764,7 +1845,13 @@ impl Evaluator {
                     // Collect direct relationships for this relation
                     let tuples = self
                         .store
-                        .list_relationships(self.vault_id, Some(resource), Some(relation_name), None, revision)
+                        .list_relationships(
+                            self.vault,
+                            Some(resource),
+                            Some(relation_name),
+                            None,
+                            revision,
+                        )
                         .await?;
                     Ok(tuples.into_iter().map(|t| t.subject).collect())
                 }
@@ -1776,7 +1863,13 @@ impl Evaluator {
                     let mut all_subjects = HashSet::new();
                     let related_tuples = self
                         .store
-                        .list_relationships(self.vault_id, Some(resource), Some(relationship), None, revision)
+                        .list_relationships(
+                            self.vault,
+                            Some(resource),
+                            Some(relationship),
+                            None,
+                            revision,
+                        )
                         .await?;
 
                     for tuple in related_tuples {
@@ -1919,7 +2012,13 @@ impl Evaluator {
                     let mut all_subjects = HashSet::new();
                     let related_tuples = self
                         .store
-                        .list_relationships(self.vault_id, Some(resource), Some(relationship), None, revision)
+                        .list_relationships(
+                            self.vault,
+                            Some(resource),
+                            Some(relationship),
+                            None,
+                            revision,
+                        )
                         .await?;
 
                     for tuple in related_tuples {
@@ -2037,10 +2136,11 @@ mod tests {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
+            vault: Uuid::nil(),
         };
-        store.write(vec![relationship]).await.unwrap();
+        store.write(Uuid::nil(), vec![relationship]).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -2059,7 +2159,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -2083,10 +2183,11 @@ mod tests {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:*".to_string(),
+            vault: Uuid::nil(),
         };
-        store.write(vec![relationship]).await.unwrap();
+        store.write(Uuid::nil(), vec![relationship]).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Check that subject:alice has access
         let request = EvaluateRequest {
@@ -2135,10 +2236,11 @@ mod tests {
             resource: "folder:docs".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
+            vault: Uuid::nil(),
         };
-        store.write(vec![relationship]).await.unwrap();
+        store.write(Uuid::nil(), vec![relationship]).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -2163,16 +2265,18 @@ mod tests {
                 resource: "folder:docs".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "parent".to_string(),
                 subject: "folder:docs".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Alice should be able to view doc:readme through parent->viewer
         let request = EvaluateRequest {
@@ -2197,10 +2301,11 @@ mod tests {
             resource: "doc:readme".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
+            vault: Uuid::nil(),
         }];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Alice should be viewer through owner->editor->viewer chain
         let request = EvaluateRequest {
@@ -2224,10 +2329,11 @@ mod tests {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
+            vault: Uuid::nil(),
         };
-        store.write(vec![relationship]).await.unwrap();
+        store.write(Uuid::nil(), vec![relationship]).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -2248,7 +2354,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             resource: "doc:readme".to_string(),
@@ -2272,7 +2378,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_complex_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2309,7 +2415,7 @@ mod tests {
         )]);
 
         let store = Arc::new(MemoryBackend::new());
-        let evaluator = Evaluator::new(store, Arc::new(schema), None);
+        let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2346,7 +2452,7 @@ mod tests {
         )]);
 
         let store = Arc::new(MemoryBackend::new());
-        let evaluator = Evaluator::new(store, Arc::new(schema), None);
+        let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2366,7 +2472,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_complex_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Expand doc.viewer which has: this | editor | parent->viewer
         let request = ExpandRequest {
@@ -2387,7 +2493,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_complex_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Get the viewer relation which has a relationship-to-userset component
         let request = ExpandRequest {
@@ -2418,7 +2524,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2436,7 +2542,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2454,7 +2560,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2479,11 +2585,12 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: format!("user:{}", i),
+                vault: Uuid::nil(),
             });
         }
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // First page: get 10 users
         let request = ExpandRequest {
@@ -2552,11 +2659,12 @@ mod tests {
                 resource: "doc:large".to_string(),
                 relation: "reader".to_string(),
                 subject: format!("user:{}", i),
+                vault: Uuid::nil(),
             });
         }
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Request without pagination (get all users)
         let request = ExpandRequest {
@@ -2613,35 +2721,42 @@ mod tests {
 
         // Write overlapping users to both relations
         store
-            .write(vec![
-                // alice is both reader and editor
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "reader".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "editor".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                // bob is only reader
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "reader".to_string(),
-                    subject: "user:bob".to_string(),
-                },
-                // charlie is only editor
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "editor".to_string(),
-                    subject: "user:charlie".to_string(),
-                },
-            ])
+            .write(
+                Uuid::nil(),
+                vec![
+                    // alice is both reader and editor
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "reader".to_string(),
+                        subject: "user:alice".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "editor".to_string(),
+                        subject: "user:alice".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // bob is only reader
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "reader".to_string(),
+                        subject: "user:bob".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // charlie is only editor
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "editor".to_string(),
+                        subject: "user:charlie".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                ],
+            )
             .await
             .unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2689,35 +2804,42 @@ mod tests {
 
         // Write test data
         store
-            .write(vec![
-                // alice is both approver and editor (should be in intersection)
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "approver".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "editor".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                // bob is only approver (should NOT be in intersection)
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "approver".to_string(),
-                    subject: "user:bob".to_string(),
-                },
-                // charlie is only editor (should NOT be in intersection)
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "editor".to_string(),
-                    subject: "user:charlie".to_string(),
-                },
-            ])
+            .write(
+                Uuid::nil(),
+                vec![
+                    // alice is both approver and editor (should be in intersection)
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "approver".to_string(),
+                        subject: "user:alice".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "editor".to_string(),
+                        subject: "user:alice".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // bob is only approver (should NOT be in intersection)
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "approver".to_string(),
+                        subject: "user:bob".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // charlie is only editor (should NOT be in intersection)
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "editor".to_string(),
+                        subject: "user:charlie".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                ],
+            )
             .await
             .unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2766,35 +2888,42 @@ mod tests {
 
         // Write test data
         store
-            .write(vec![
-                // alice is viewer but not blocked (should be in result)
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "viewer".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                // bob is viewer AND blocked (should NOT be in result)
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "viewer".to_string(),
-                    subject: "user:bob".to_string(),
-                },
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "blocked".to_string(),
-                    subject: "user:bob".to_string(),
-                },
-                // charlie is viewer but not blocked (should be in result)
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "viewer".to_string(),
-                    subject: "user:charlie".to_string(),
-                },
-            ])
+            .write(
+                Uuid::nil(),
+                vec![
+                    // alice is viewer but not blocked (should be in result)
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "viewer".to_string(),
+                        subject: "user:alice".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // bob is viewer AND blocked (should NOT be in result)
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "viewer".to_string(),
+                        subject: "user:bob".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "blocked".to_string(),
+                        subject: "user:bob".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // charlie is viewer but not blocked (should be in result)
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "viewer".to_string(),
+                        subject: "user:charlie".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                ],
+            )
             .await
             .unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2854,47 +2983,56 @@ mod tests {
 
         // Write users to different relations (some overlap intentionally)
         store
-            .write(vec![
-                // alice is admin
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "admin".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                // bob is editor
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "editor".to_string(),
-                    subject: "user:bob".to_string(),
-                },
-                // charlie is viewer
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "viewer".to_string(),
-                    subject: "user:charlie".to_string(),
-                },
-                // dave is contributor
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "contributor".to_string(),
-                    subject: "user:dave".to_string(),
-                },
-                // eve is both editor and viewer (test deduplication)
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "editor".to_string(),
-                    subject: "user:eve".to_string(),
-                },
-                Relationship {
-                    resource: "doc:readme".to_string(),
-                    relation: "viewer".to_string(),
-                    subject: "user:eve".to_string(),
-                },
-            ])
+            .write(
+                Uuid::nil(),
+                vec![
+                    // alice is admin
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "admin".to_string(),
+                        subject: "user:alice".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // bob is editor
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "editor".to_string(),
+                        subject: "user:bob".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // charlie is viewer
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "viewer".to_string(),
+                        subject: "user:charlie".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // dave is contributor
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "contributor".to_string(),
+                        subject: "user:dave".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    // eve is both editor and viewer (test deduplication)
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "editor".to_string(),
+                        subject: "user:eve".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                    Relationship {
+                        resource: "doc:readme".to_string(),
+                        relation: "viewer".to_string(),
+                        subject: "user:eve".to_string(),
+                        vault: Uuid::nil(),
+                    },
+                ],
+            )
             .await
             .unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ExpandRequest {
             limit: None,
@@ -2952,16 +3090,18 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "editor".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "blocked".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, Arc::new(schema), None);
+        let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -3005,16 +3145,18 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "employee".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, Arc::new(schema), None);
+        let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -3057,10 +3199,11 @@ mod tests {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
+            vault: Uuid::nil(),
         }];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, Arc::new(schema), None);
+        let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -3084,10 +3227,11 @@ mod tests {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
+            vault: Uuid::nil(),
         }];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -3124,11 +3268,12 @@ mod tests {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
+            vault: Uuid::nil(),
         }];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
         // Create evaluator without cache
-        let evaluator = Evaluator::new_with_cache(store, schema, None, None);
+        let evaluator = Evaluator::new_with_cache(store, schema, None, None, Uuid::nil());
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -3155,16 +3300,18 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Different subject
         let request1 = EvaluateRequest {
@@ -3206,21 +3353,24 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:secret".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListResourcesRequest {
             subject: "user:alice".to_string(),
@@ -3252,16 +3402,18 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListResourcesRequest {
             subject: "user:charlie".to_string(),
@@ -3289,31 +3441,36 @@ mod tests {
                 resource: "doc:1".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:2".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:3".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:4".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:5".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Request with limit of 2
         let request = ListResourcesRequest {
@@ -3344,11 +3501,12 @@ mod tests {
                 resource: format!("doc:{}", i),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             });
         }
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // First page: get 3 resources
         let request1 = ListResourcesRequest {
@@ -3389,7 +3547,7 @@ mod tests {
         let schema = Arc::new(create_simple_schema());
 
         // No documents exist of this type
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListResourcesRequest {
             subject: "user:alice".to_string(),
@@ -3419,21 +3577,24 @@ mod tests {
                 resource: "doc:1".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:2".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:3".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListResourcesRequest {
             subject: "user:alice".to_string(),
@@ -3464,26 +3625,30 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme_v2".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:tutorial".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Test wildcard pattern "readme*"
         let request = ListResourcesRequest {
@@ -3514,21 +3679,24 @@ mod tests {
                 resource: "doc:file1".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:file2".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:file10".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Test ? pattern - matches single character
         let request = ListResourcesRequest {
@@ -3558,21 +3726,24 @@ mod tests {
                 resource: "doc:project_abc_report".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:project_xyz_report".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:project_abc_summary".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Test mixed pattern "project_*_report"
         let request = ListResourcesRequest {
@@ -3611,21 +3782,24 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:charlie".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "doc:readme".to_string(),
@@ -3655,10 +3829,11 @@ mod tests {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
+            vault: Uuid::nil(),
         }];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "doc:readme".to_string(),
@@ -3686,26 +3861,30 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "group:admins".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "group:engineers".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store.clone(), schema.clone(), None);
+        let evaluator = Evaluator::new(store.clone(), schema.clone(), None, Uuid::nil());
 
         // Filter by user type
         let request = ListSubjectsRequest {
@@ -3751,31 +3930,36 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:charlie".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:dave".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:eve".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Request with limit of 2
         let request = ListSubjectsRequest {
@@ -3805,11 +3989,12 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: format!("user:{}", i),
+                vault: Uuid::nil(),
             });
         }
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // First page: get 3 subjects
         let request1 = ListSubjectsRequest {
@@ -3855,16 +4040,18 @@ mod tests {
                 resource: "doc:1".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:1".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "doc:1".to_string(),
@@ -3894,16 +4081,18 @@ mod tests {
                 resource: "doc:1".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:1".to_string(),
                 relation: "editor".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "doc:1".to_string(),
@@ -3932,21 +4121,24 @@ mod tests {
                 resource: "folder:docs".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "parent".to_string(),
                 subject: "folder:docs".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "doc:readme".to_string(),
@@ -3977,16 +4169,18 @@ mod tests {
                 resource: "doc:1".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:1".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "doc:1".to_string(),
@@ -4008,7 +4202,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "invalid-format".to_string(), // Missing colon
@@ -4027,7 +4221,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "unknown:123".to_string(),
@@ -4046,7 +4240,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         let request = ListSubjectsRequest {
             resource: "doc:readme".to_string(),
@@ -4111,21 +4305,24 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:charlie".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // List all relationships with no filters
         let request = ListRelationshipsRequest {
@@ -4152,21 +4349,24 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Filter by resource
         let request = ListRelationshipsRequest {
@@ -4196,21 +4396,24 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:charlie".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Filter by relation
         let request = ListRelationshipsRequest {
@@ -4237,21 +4440,24 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Filter by subject
         let request = ListRelationshipsRequest {
@@ -4281,26 +4487,30 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:bob".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:guide".to_string(),
                 relation: "owner".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Filter by resource + relation + subject
         let request = ListRelationshipsRequest {
@@ -4331,11 +4541,12 @@ mod tests {
                 resource: format!("doc:{}", i),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             });
         }
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // First page with default limit (100)
         let request = ListRelationshipsRequest {
@@ -4378,11 +4589,12 @@ mod tests {
                 resource: format!("doc:{}", i),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             });
         }
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Custom limit of 10
         let request = ListRelationshipsRequest {
@@ -4404,7 +4616,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Request with limit > max (1000)
         let request = ListRelationshipsRequest {
@@ -4426,7 +4638,7 @@ mod tests {
         let store = Arc::new(MemoryBackend::new());
         let schema = Arc::new(create_simple_schema());
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Query with no matching relationships
         let request = ListRelationshipsRequest {
@@ -4457,10 +4669,14 @@ mod tests {
             resource: "doc:public".to_string(),
             relation: "reader".to_string(),
             subject: "user:*".to_string(),
+            vault: Uuid::nil(),
         };
-        store.write(vec![wildcard_relationship]).await.unwrap();
+        store
+            .write(Uuid::nil(), vec![wildcard_relationship])
+            .await
+            .unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Test that alice (a user) can read
         let request_alice = EvaluateRequest {
@@ -4497,10 +4713,14 @@ mod tests {
             resource: "doc:public".to_string(),
             relation: "reader".to_string(),
             subject: "user:*".to_string(),
+            vault: Uuid::nil(),
         };
-        store.write(vec![wildcard_relationship]).await.unwrap();
+        store
+            .write(Uuid::nil(), vec![wildcard_relationship])
+            .await
+            .unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Test that a group cannot read (type mismatch)
         let request_group = EvaluateRequest {
@@ -4526,16 +4746,18 @@ mod tests {
                 resource: "doc:public".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:*".to_string(),
+                vault: Uuid::nil(),
             },
             Relationship {
                 resource: "doc:public".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Both specific and wildcard should allow access
         let request = EvaluateRequest {
@@ -4560,10 +4782,11 @@ mod tests {
             resource: "doc:announcement".to_string(),
             relation: "reader".to_string(),
             subject: "user:*".to_string(),
+            vault: Uuid::nil(),
         };
-        store.write(vec![public_doc]).await.unwrap();
+        store.write(Uuid::nil(), vec![public_doc]).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Multiple different users should all have access
         let users = vec!["user:alice", "user:bob", "user:charlie", "user:david"];
@@ -4601,17 +4824,19 @@ mod tests {
                 resource: "doc:public_readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:*".to_string(),
+                vault: Uuid::nil(),
             },
             // Private document - only Alice can read
             Relationship {
                 resource: "doc:private_notes".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
             },
         ];
-        store.write(relationships).await.unwrap();
+        store.write(Uuid::nil(), relationships).await.unwrap();
 
-        let evaluator = Evaluator::new(store, schema, None);
+        let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
         // Alice can read both
         let alice_public = EvaluateRequest {

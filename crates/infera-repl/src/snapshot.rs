@@ -13,7 +13,7 @@ use uuid::Uuid;
 /// Get the vault ID for REPL operations
 /// TODO(Phase 2): Allow users to specify vault via REPL command
 /// For Phase 1, we use a nil UUID as a placeholder for the default vault
-fn get_vault_id() -> Uuid {
+fn get_vault() -> Uuid {
     Uuid::nil()
 }
 
@@ -79,11 +79,11 @@ impl SnapshotReader {
     ) -> Result<Vec<Relationship>> {
         // Poll until the store has reached the target revision
         loop {
-            let current_revision = self.store.get_revision(get_vault_id()).await?;
+            let current_revision = self.store.get_revision(get_vault()).await?;
 
             if current_revision >= target_revision {
                 // Revision is available, perform the read
-                let relationships = self.store.read(get_vault_id(), key, target_revision).await?;
+                let relationships = self.store.read(get_vault(), key, target_revision).await?;
                 return Ok(relationships);
             }
 
@@ -94,14 +94,14 @@ impl SnapshotReader {
 
     /// Read relationships at the current revision
     pub async fn read_current(&self, key: &RelationshipKey) -> Result<Vec<Relationship>> {
-        let current_revision = self.store.get_revision(get_vault_id()).await?;
-        let relationships = self.store.read(get_vault_id(), key, current_revision).await?;
+        let current_revision = self.store.get_revision(get_vault()).await?;
+        let relationships = self.store.read(get_vault(), key, current_revision).await?;
         Ok(relationships)
     }
 
     /// Get the current revision as a token
     pub async fn current_token(&self, node_id: String) -> Result<RevisionToken> {
-        let revision = self.store.get_revision(get_vault_id()).await?;
+        let revision = self.store.get_revision(get_vault()).await?;
         Ok(RevisionToken::new(node_id, revision.0))
     }
 }
@@ -119,11 +119,15 @@ mod tests {
 
         // Write a relationship
         let relationship = Relationship {
+            vault: uuid::Uuid::nil(),
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        store.write(vec![relationship.clone()]).await.unwrap();
+        store
+            .write(uuid::Uuid::nil(), vec![relationship.clone()])
+            .await
+            .unwrap();
 
         // Read at current revision
         let key = RelationshipKey {
@@ -144,22 +148,30 @@ mod tests {
 
         // Write first relationship
         let relationship1 = Relationship {
+            vault: uuid::Uuid::nil(),
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let rev1 = store.write(vec![relationship1.clone()]).await.unwrap();
+        let rev1 = store
+            .write(uuid::Uuid::nil(), vec![relationship1.clone()])
+            .await
+            .unwrap();
 
         // Create token at revision 1
         let token1 = RevisionToken::new("node1".to_string(), rev1.0);
 
         // Write second relationship
         let relationship2 = Relationship {
+            vault: uuid::Uuid::nil(),
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
         };
-        store.write(vec![relationship2.clone()]).await.unwrap();
+        store
+            .write(uuid::Uuid::nil(), vec![relationship2.clone()])
+            .await
+            .unwrap();
 
         // Read at revision 1 (should only see first relationship)
         let key = RelationshipKey {
@@ -180,11 +192,15 @@ mod tests {
 
         // Write a relationship
         let relationship = Relationship {
+            vault: uuid::Uuid::nil(),
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let revision = store.write(vec![relationship]).await.unwrap();
+        let revision = store
+            .write(uuid::Uuid::nil(), vec![relationship])
+            .await
+            .unwrap();
 
         // Get current token
         let token = reader.current_token("node1".to_string()).await.unwrap();

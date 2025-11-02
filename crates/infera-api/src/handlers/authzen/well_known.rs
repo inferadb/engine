@@ -140,7 +140,12 @@ mod tests {
     fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(infera_core::ipl::Schema::new(vec![]));
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store),
+            schema,
+            None,
+            uuid::Uuid::nil(),
+        ));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 

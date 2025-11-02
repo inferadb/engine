@@ -60,7 +60,7 @@ pub enum Resolution {
     /// Both changes should be kept (rare, application-specific)
     KeepBoth,
     /// Custom resolution with a new merged change
-    Merge(Change),
+    Merge(Box<Change>),
 }
 
 /// Conflict resolver that applies a resolution strategy
@@ -254,6 +254,7 @@ mod tests {
     use infera_types::Revision;
     fn create_test_relationship() -> Relationship {
         Relationship {
+            vault: uuid::Uuid::nil(),
             resource: "doc:test".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

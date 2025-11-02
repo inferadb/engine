@@ -351,17 +351,26 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store),
+            schema,
+            None,
+            uuid::Uuid::nil(),
+        ));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add a test relationship: user:alice can view document:readme
         store
-            .write(vec![Relationship {
-                subject: "user:alice".to_string(),
-                relation: "view".to_string(),
-                resource: "document:readme".to_string(),
-            }])
+            .write(
+                uuid::Uuid::nil(),
+                vec![Relationship {
+                    vault: uuid::Uuid::nil(),
+                    subject: "user:alice".to_string(),
+                    relation: "view".to_string(),
+                    resource: "document:readme".to_string(),
+                }],
+            )
             .await
             .unwrap();
 

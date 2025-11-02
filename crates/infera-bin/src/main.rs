@@ -18,7 +18,7 @@ use infera_wasm::WasmHost;
 /// Get the vault ID for server operations
 /// TODO(Phase 2): Load default vault from system config on startup
 /// For Phase 1, we use a nil UUID as a placeholder for the default vault
-fn get_vault_id() -> Uuid {
+fn get_vault() -> Uuid {
     Uuid::nil()
 }
 
@@ -79,7 +79,12 @@ async fn main() -> Result<()> {
     tracing::info!("Schema loaded");
 
     // Create evaluator
-    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, wasm_host, get_vault_id()));
+    let evaluator = Arc::new(Evaluator::new(
+        Arc::clone(&store),
+        schema,
+        wasm_host,
+        get_vault(),
+    ));
     tracing::info!("Policy evaluator initialized");
 
     // Initialize JWKS cache if authentication is enabled

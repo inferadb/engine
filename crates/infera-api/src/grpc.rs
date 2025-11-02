@@ -73,7 +73,7 @@ use uuid::Uuid;
 /// Get the vault ID for the current request
 /// TODO(Phase 2): Extract this from authentication context (JWT token)
 /// For Phase 1, we use a nil UUID as a placeholder for the default vault
-fn get_vault_id() -> Uuid {
+fn get_vault() -> Uuid {
     Uuid::nil()
 }
 
@@ -321,7 +321,7 @@ impl InferaService for InferaServiceImpl {
             let (revision, count) = self
                 .state
                 .store
-                .delete_by_filter(get_vault_id(), &filter, limit)
+                .delete_by_filter(get_vault(), &filter, limit)
                 .await
                 .map_err(|e| Status::internal(format!("Failed to delete by filter: {}", e)))?;
 
@@ -348,10 +348,12 @@ impl InferaService for InferaServiceImpl {
                 subject: Some(relationship.subject),
             };
 
-            last_revision =
-                self.state.store.delete(get_vault_id(), &key).await.map_err(|e| {
-                    Status::internal(format!("Failed to delete relationship: {}", e))
-                })?;
+            last_revision = self
+                .state
+                .store
+                .delete(get_vault(), &key)
+                .await
+                .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
 
             total_deleted += 1;
         }
@@ -376,7 +378,7 @@ impl InferaService for InferaServiceImpl {
             let write_req = write_req?;
             for relationship in write_req.relationships {
                 all_relationships.push(Relationship {
-                    vault_id: get_vault_id(),
+                    vault: get_vault(),
                     resource: relationship.resource,
                     relation: relationship.relation,
                     subject: relationship.subject,
@@ -427,7 +429,7 @@ impl InferaService for InferaServiceImpl {
         let revision = self
             .state
             .store
-            .write(get_vault_id(), all_relationships.clone())
+            .write(get_vault(), all_relationships.clone())
             .await
             .map_err(|e| Status::internal(format!("Write failed: {}", e)))?;
 
@@ -642,7 +644,7 @@ impl InferaService for InferaServiceImpl {
         } else {
             // Start from current revision (won't get historical events)
             store
-                .get_change_log_revision(get_vault_id())
+                .get_change_log_revision(get_vault())
                 .await
                 .map_err(|e| Status::internal(format!("Failed to get current revision: {}", e)))?
         };
@@ -655,7 +657,7 @@ impl InferaService for InferaServiceImpl {
 
             loop {
                 // Read changes from the change log
-                match store.read_changes(get_vault_id(), last_revision, &resource_types, Some(100)).await {
+                match store.read_changes(get_vault(), last_revision, &resource_types, Some(100)).await {
                     Ok(events) => {
                         for event in &events {
                             // Convert ChangeEvent to WatchResponse
@@ -737,7 +739,7 @@ impl InferaService for InferaServiceImpl {
             .context_relationships
             .into_iter()
             .map(|rel| Relationship {
-                vault_id: get_vault_id(),
+                vault: get_vault(),
                 resource: rel.resource,
                 relation: rel.relation,
                 subject: rel.subject,
@@ -760,7 +762,7 @@ impl InferaService for InferaServiceImpl {
 
         // Write context relationships to ephemeral store
         ephemeral_store
-            .write(get_vault_id(), context_relationships.clone())
+            .write(get_vault(), context_relationships.clone())
             .await
             .map_err(|e| {
                 Status::internal(format!("Failed to write context relationships: {}", e))
@@ -770,7 +772,8 @@ impl InferaService for InferaServiceImpl {
         use infera_core::ipl::Schema;
         use infera_core::Evaluator;
         let temp_schema = Arc::new(Schema { types: Vec::new() });
-        let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault_id());
+        let temp_evaluator =
+            Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault());
 
         // Parse context string to JSON if provided
         let context =
@@ -929,7 +932,12 @@ mod tests {
                 ),
             ],
         )]));
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store),
+            schema,
+            None,
+            uuid::Uuid::nil(),
+        ));
         let config = Arc::new(Config::default());
 
         let health_tracker = Arc::new(crate::health::HealthTracker::new());

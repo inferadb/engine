@@ -29,7 +29,12 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],
     )]));
-    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
+    let evaluator = Arc::new(Evaluator::new(
+        Arc::clone(&store),
+        schema,
+        None,
+        uuid::Uuid::nil(),
+    ));
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for tests
 

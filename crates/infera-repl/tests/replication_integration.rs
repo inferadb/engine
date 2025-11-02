@@ -21,6 +21,7 @@ use tokio::time::sleep;
 /// Helper to create a test relationship
 fn test_relationship(resource: &str, relation: &str, subject: &str) -> Relationship {
     Relationship {
+        vault: uuid::Uuid::nil(),
         resource: resource.to_string(),
         relation: relation.to_string(),
         subject: subject.to_string(),

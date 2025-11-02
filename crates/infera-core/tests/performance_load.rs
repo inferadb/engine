@@ -3,6 +3,8 @@
 //! This module contains comprehensive load tests that verify the system's performance
 //! under various load patterns without requiring external deployment.
 
+use uuid::Uuid;
+
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::Evaluator;
 use infera_store::{MemoryBackend, RelationshipStore};
@@ -141,10 +143,11 @@ async fn test_sustained_throughput_100k_rps() {
             resource: format!("resource:doc{}", i),
             relation: "viewer".to_string(),
             subject: format!("subject:user{}", i % 100), // 100 unique users
+            vault: Uuid::nil(),
         });
     }
     store
-        .write(relationships)
+        .write(Uuid::nil(), relationships)
         .await
         .expect("Failed to write relationships");
 
@@ -152,6 +155,7 @@ async fn test_sustained_throughput_100k_rps() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
+        Uuid::nil(),
     ));
 
     // Run for 10 seconds with high concurrency
@@ -230,11 +234,15 @@ async fn test_latency_p99_under_10ms() {
     // Small dataset for optimal performance
     for i in 0..100 {
         store
-            .write(vec![Relationship {
-                resource: format!("resource:doc{}", i),
-                relation: "viewer".to_string(),
-                subject: format!("subject:user{}", i % 10),
-            }])
+            .write(
+                Uuid::nil(),
+                vec![Relationship {
+                    vault: Uuid::nil(),
+                    resource: format!("resource:doc{}", i),
+                    relation: "viewer".to_string(),
+                    subject: format!("subject:user{}", i % 10),
+                }],
+            )
             .await
             .expect("Failed to write");
     }
@@ -243,6 +251,7 @@ async fn test_latency_p99_under_10ms() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
+        Uuid::nil(),
     ));
 
     // Run 10k requests with moderate concurrency
@@ -315,11 +324,15 @@ async fn test_spike_load() {
     // Populate data
     for i in 0..500 {
         store
-            .write(vec![Relationship {
-                resource: format!("resource:doc{}", i),
-                relation: "viewer".to_string(),
-                subject: format!("subject:user{}", i % 50),
-            }])
+            .write(
+                Uuid::nil(),
+                vec![Relationship {
+                    vault: Uuid::nil(),
+                    resource: format!("resource:doc{}", i),
+                    relation: "viewer".to_string(),
+                    subject: format!("subject:user{}", i % 50),
+                }],
+            )
             .await
             .expect("Failed to write");
     }
@@ -328,6 +341,7 @@ async fn test_spike_load() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
+        Uuid::nil(),
     ));
 
     println!("Starting spike test (100 RPS -> 10k RPS)...");
@@ -422,11 +436,15 @@ async fn test_stress_beyond_capacity() {
     // Large dataset
     for i in 0..5000 {
         store
-            .write(vec![Relationship {
-                resource: format!("resource:doc{}", i),
-                relation: "viewer".to_string(),
-                subject: format!("subject:user{}", i % 200),
-            }])
+            .write(
+                Uuid::nil(),
+                vec![Relationship {
+                    vault: Uuid::nil(),
+                    resource: format!("resource:doc{}", i),
+                    relation: "viewer".to_string(),
+                    subject: format!("subject:user{}", i % 200),
+                }],
+            )
             .await
             .expect("Failed to write");
     }
@@ -435,6 +453,7 @@ async fn test_stress_beyond_capacity() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
+        Uuid::nil(),
     ));
 
     println!("Starting stress test (gradually increasing load)...");
@@ -507,11 +526,15 @@ async fn test_soak_24h_simulation() {
     // Pre-populate
     for i in 0..1000 {
         store
-            .write(vec![Relationship {
-                resource: format!("resource:doc{}", i),
-                relation: "viewer".to_string(),
-                subject: format!("subject:user{}", i % 100),
-            }])
+            .write(
+                Uuid::nil(),
+                vec![Relationship {
+                    vault: Uuid::nil(),
+                    resource: format!("resource:doc{}", i),
+                    relation: "viewer".to_string(),
+                    subject: format!("subject:user{}", i % 100),
+                }],
+            )
             .await
             .expect("Failed to write");
     }
@@ -520,6 +543,7 @@ async fn test_soak_24h_simulation() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
+        Uuid::nil(),
     ));
 
     println!("Starting soak test (60s simulating 24h load pattern)...");
@@ -630,10 +654,11 @@ async fn test_large_graph_1m_relationships() {
                 resource: format!("resource:doc{}", relationship_id),
                 relation: "viewer".to_string(),
                 subject: format!("subject:user{}", relationship_id % 10000),
+                vault: Uuid::nil(),
             });
         }
         store
-            .write(relationships)
+            .write(Uuid::nil(), relationships)
             .await
             .expect("Failed to write batch");
 
@@ -652,6 +677,7 @@ async fn test_large_graph_1m_relationships() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
+        Uuid::nil(),
     ));
 
     // Run performance test on large graph
@@ -740,11 +766,15 @@ async fn test_deep_nesting_10_levels() {
 
     // Create deep hierarchy
     store
-        .write(vec![Relationship {
-            resource: "resource:root".to_string(),
-            relation: "level0".to_string(),
-            subject: "user:alice".to_string(),
-        }])
+        .write(
+            Uuid::nil(),
+            vec![Relationship {
+                resource: "resource:root".to_string(),
+                relation: "level0".to_string(),
+                subject: "user:alice".to_string(),
+                vault: Uuid::nil(),
+            }],
+        )
         .await
         .expect("Failed to write");
 
@@ -752,6 +782,7 @@ async fn test_deep_nesting_10_levels() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
+        Uuid::nil(),
     ));
 
     println!("Testing deep nesting (15 levels)...");
@@ -809,15 +840,20 @@ async fn test_wide_expansion_10k_users() {
                 resource: "resource:shared".to_string(),
                 relation: "viewer".to_string(),
                 subject: format!("subject:user{}", batch * batch_size + i),
+                vault: Uuid::nil(),
             });
         }
-        store.write(relationships).await.expect("Failed to write");
+        store
+            .write(Uuid::nil(), relationships)
+            .await
+            .expect("Failed to write");
     }
 
     let evaluator = Arc::new(Evaluator::new(
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
+        Uuid::nil(),
     ));
 
     println!("Running expansion on 10k user resource...");

@@ -6,12 +6,12 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use uuid::Uuid;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 /// Get the vault ID for health checks
 /// TODO(Phase 2): Extract this from authentication context
-fn get_vault_id() -> Uuid {
+fn get_vault() -> Uuid {
     Uuid::nil()
 }
 
@@ -151,7 +151,9 @@ impl HealthTracker {
 
         // Check storage health with a simple read
         let storage_status =
-            match tokio::time::timeout(Duration::from_secs(1), store.get_revision(get_vault_id())).await {
+            match tokio::time::timeout(Duration::from_secs(1), store.get_revision(get_vault()))
+                .await
+            {
                 Ok(Ok(_)) => ComponentStatus {
                     status: HealthStatus::Healthy,
                     message: Some("Storage operational".to_string()),

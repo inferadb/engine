@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use infera_types::{Relationship, Revision};
+pub use uuid::Uuid;
 
 /// Authorization decision
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -821,16 +822,19 @@ mod tests {
     async fn test_extract_affected_resources() {
         let relationships = vec![
             Relationship {
+                vault: Uuid::nil(),
                 resource: "doc:1".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
             },
             Relationship {
+                vault: Uuid::nil(),
                 resource: "doc:1".to_string(),
                 relation: "editor".to_string(),
                 subject: "user:bob".to_string(),
             },
             Relationship {
+                vault: Uuid::nil(),
                 resource: "doc:2".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:charlie".to_string(),

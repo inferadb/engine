@@ -366,29 +366,40 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store),
+            schema,
+            None,
+            uuid::Uuid::nil(),
+        ));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add test relationships
         store
-            .write(vec![
-                Relationship {
-                    resource: "document:readme".to_string(),
-                    relation: "view".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                Relationship {
-                    resource: "document:guide".to_string(),
-                    relation: "view".to_string(),
-                    subject: "user:alice".to_string(),
-                },
-                Relationship {
-                    resource: "document:secret".to_string(),
-                    relation: "view".to_string(),
-                    subject: "user:bob".to_string(),
-                },
-            ])
+            .write(
+                uuid::Uuid::nil(),
+                vec![
+                    Relationship {
+                        vault: uuid::Uuid::nil(),
+                        resource: "document:readme".to_string(),
+                        relation: "view".to_string(),
+                        subject: "user:alice".to_string(),
+                    },
+                    Relationship {
+                        vault: uuid::Uuid::nil(),
+                        resource: "document:guide".to_string(),
+                        relation: "view".to_string(),
+                        subject: "user:alice".to_string(),
+                    },
+                    Relationship {
+                        vault: uuid::Uuid::nil(),
+                        resource: "document:secret".to_string(),
+                        relation: "view".to_string(),
+                        subject: "user:bob".to_string(),
+                    },
+                ],
+            )
             .await
             .unwrap();
 
