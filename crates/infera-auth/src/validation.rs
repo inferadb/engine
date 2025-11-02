@@ -15,11 +15,12 @@
 //! - Issuer validation to prevent token confusion attacks
 //! - Strict algorithm checks to prevent algorithm substitution attacks
 
-use crate::error::AuthError;
-use crate::jwt::JwtClaims;
-use infera_config::AuthConfig;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use infera_config::AuthConfig;
 use tracing::warn;
+
+use crate::{error::AuthError, jwt::JwtClaims};
 
 /// Validate all timestamp-related claims with clock skew tolerance
 ///
@@ -59,9 +60,7 @@ pub fn validate_timestamp_claims(claims: &JwtClaims, config: &AuthConfig) -> Res
 
     // Check issued-at is not in the future (with clock skew)
     if claims.iat > now + clock_skew {
-        return Err(AuthError::InvalidTokenFormat(
-            "iat claim is in the future".into(),
-        ));
+        return Err(AuthError::InvalidTokenFormat("iat claim is in the future".into()));
     }
 
     // Check token age (prevent very old tokens from being used)
@@ -100,10 +99,7 @@ pub fn validate_issuer(iss: &str, config: &AuthConfig) -> Result<(), AuthError> 
     if let Some(ref blocklist) = config.issuer_blocklist {
         if blocklist.iter().any(|blocked| blocked == iss) {
             warn!(issuer = %iss, "Issuer is blocked");
-            return Err(AuthError::InvalidIssuer(format!(
-                "Issuer '{}' is blocked",
-                iss
-            )));
+            return Err(AuthError::InvalidIssuer(format!("Issuer '{}' is blocked", iss)));
         }
     }
 
@@ -111,10 +107,7 @@ pub fn validate_issuer(iss: &str, config: &AuthConfig) -> Result<(), AuthError> 
     if let Some(ref allowlist) = config.issuer_allowlist {
         if !allowlist.iter().any(|allowed| allowed == iss) {
             warn!(issuer = %iss, "Issuer not in allowlist");
-            return Err(AuthError::InvalidIssuer(format!(
-                "Issuer '{}' is not in allowlist",
-                iss
-            )));
+            return Err(AuthError::InvalidIssuer(format!("Issuer '{}' is not in allowlist", iss)));
         }
     }
 
@@ -142,21 +135,12 @@ pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError
     // Check against allowed audiences
     if config.allowed_audiences.is_empty() {
         warn!("No allowed audiences configured but enforcement is enabled");
-        return Err(AuthError::InvalidAudience(
-            "No allowed audiences configured".into(),
-        ));
+        return Err(AuthError::InvalidAudience("No allowed audiences configured".into()));
     }
 
-    if !config
-        .allowed_audiences
-        .iter()
-        .any(|allowed| allowed == aud)
-    {
+    if !config.allowed_audiences.iter().any(|allowed| allowed == aud) {
         warn!(audience = %aud, "Audience not in allowed list");
-        return Err(AuthError::InvalidAudience(format!(
-            "Audience '{}' is not allowed",
-            aud
-        )));
+        return Err(AuthError::InvalidAudience(format!("Audience '{}' is not allowed", aud)));
     }
 
     Ok(())
@@ -195,16 +179,10 @@ pub fn validate_algorithm(alg: &str, config: &AuthConfig) -> Result<(), AuthErro
     // Check against accepted algorithms
     if config.accepted_algorithms.is_empty() {
         warn!("No accepted algorithms configured");
-        return Err(AuthError::UnsupportedAlgorithm(
-            "No accepted algorithms configured".into(),
-        ));
+        return Err(AuthError::UnsupportedAlgorithm("No accepted algorithms configured".into()));
     }
 
-    if !config
-        .accepted_algorithms
-        .iter()
-        .any(|accepted| accepted == alg)
-    {
+    if !config.accepted_algorithms.iter().any(|accepted| accepted == alg) {
         warn!(algorithm = %alg, "Algorithm not in accepted list");
         return Err(AuthError::UnsupportedAlgorithm(format!(
             "Algorithm '{}' is not in accepted list",
@@ -217,15 +195,13 @@ pub fn validate_algorithm(alg: &str, config: &AuthConfig) -> Result<(), AuthErro
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::jwt::JwtClaims;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use super::*;
+    use crate::jwt::JwtClaims;
+
     fn now() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
     }
 
     fn default_config() -> AuthConfig {

@@ -1,15 +1,16 @@
 //! Graph traversal for policy evaluation
 
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use async_recursion::async_recursion;
-use uuid::Uuid;
-
-use crate::ipl::{RelationExpr, Schema};
-use crate::{EvalError, Result};
 use infera_store::RelationshipStore;
 use infera_types::{RelationshipKey, Revision};
+use uuid::Uuid;
+
+use crate::{
+    EvalError, Result,
+    ipl::{RelationExpr, Schema},
+};
 
 /// Graph traversal context
 pub struct GraphContext {
@@ -237,17 +238,14 @@ async fn evaluate_relation_expr(
                 get_users_with_relation(&*ctx.store, ctx.vault, resource, relation, ctx.revision)
                     .await?;
             Ok(direct_users.into_iter().collect())
-        }
+        },
 
         RelationExpr::RelationRef { relation } => {
             // Reference to another relation on the same object
             resolve_userset(resource, relation, ctx).await
-        }
+        },
 
-        RelationExpr::ComputedUserset {
-            relation,
-            relationship,
-        } => {
+        RelationExpr::ComputedUserset { relation, relationship } => {
             // Get objects from relationship, then compute relation on each
             let related_objects = get_users_with_relation(
                 &*ctx.store,
@@ -264,12 +262,9 @@ async fn evaluate_relation_expr(
                 users.extend(obj_users);
             }
             Ok(users)
-        }
+        },
 
-        RelationExpr::RelatedObjectUserset {
-            relationship,
-            computed,
-        } => {
+        RelationExpr::RelatedObjectUserset { relationship, computed } => {
             // Get objects from relationship, evaluate computed relation on each
             let related_objects = get_users_with_relation(
                 &*ctx.store,
@@ -286,7 +281,7 @@ async fn evaluate_relation_expr(
                 users.extend(obj_users);
             }
             Ok(users)
-        }
+        },
 
         RelationExpr::Union(exprs) => {
             let mut users = HashSet::new();
@@ -295,7 +290,7 @@ async fn evaluate_relation_expr(
                 users.extend(expr_users);
             }
             Ok(users)
-        }
+        },
 
         RelationExpr::Intersection(exprs) => {
             if exprs.is_empty() {
@@ -311,7 +306,7 @@ async fn evaluate_relation_expr(
                 users.retain(|u| expr_users.contains(u));
             }
             Ok(users)
-        }
+        },
 
         RelationExpr::Exclusion { base, subtract } => {
             let mut base_users = evaluate_relation_expr(resource, relation, base, ctx).await?;
@@ -319,7 +314,7 @@ async fn evaluate_relation_expr(
 
             base_users.retain(|u| !subtract_users.contains(u));
             Ok(base_users)
-        }
+        },
 
         RelationExpr::WasmModule { module_name } => {
             // WASM modules require specific user context and cannot enumerate users
@@ -328,16 +323,17 @@ async fn evaluate_relation_expr(
                 "WASM module '{}' cannot be used for user enumeration - use check operations instead",
                 module_name
             )))
-        }
+        },
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::ipl::{RelationDef, Schema, TypeDef};
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
+
+    use super::*;
+    use crate::ipl::{RelationDef, Schema, TypeDef};
 
     #[tokio::test]
     async fn test_has_direct_relationship() {
@@ -352,16 +348,10 @@ mod tests {
 
         let rev = store.write(Uuid::nil(), vec![relationship]).await.unwrap();
 
-        let has_relationship = has_direct_relationship(
-            &store,
-            Uuid::nil(),
-            "doc:readme",
-            "reader",
-            "user:alice",
-            rev,
-        )
-        .await
-        .unwrap();
+        let has_relationship =
+            has_direct_relationship(&store, Uuid::nil(), "doc:readme", "reader", "user:alice", rev)
+                .await
+                .unwrap();
 
         assert!(has_relationship);
 

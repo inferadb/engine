@@ -2,8 +2,8 @@
 //!
 //! Hosts sandboxed WASM policy modules with deterministic execution.
 
-use std::collections::HashMap;
-use std::sync::RwLock;
+use std::{collections::HashMap, sync::RwLock};
+
 use thiserror::Error;
 use wasmtime::*;
 
@@ -44,19 +44,13 @@ impl WasmHost {
         let config = SandboxConfig::default();
         let sandbox = Sandbox::new(config)?;
 
-        Ok(Self {
-            sandbox,
-            modules: RwLock::new(HashMap::new()),
-        })
+        Ok(Self { sandbox, modules: RwLock::new(HashMap::new()) })
     }
 
     pub fn new_with_config(config: SandboxConfig) -> Result<Self> {
         let sandbox = Sandbox::new(config)?;
 
-        Ok(Self {
-            sandbox,
-            modules: RwLock::new(HashMap::new()),
-        })
+        Ok(Self { sandbox, modules: RwLock::new(HashMap::new()) })
     }
 
     /// Load a WASM module
@@ -258,10 +252,7 @@ mod tests {
 
         let result = host.execute("test", "check", context);
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            WasmError::FunctionNotFound(_)
-        ));
+        assert!(matches!(result.unwrap_err(), WasmError::FunctionNotFound(_)));
     }
 
     #[test]

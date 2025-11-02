@@ -2,8 +2,9 @@
 //!
 //! Allows runtime reconfiguration of log levels and filters without restarting the service.
 
-use anyhow::Result;
 use std::sync::{Arc, RwLock};
+
+use anyhow::Result;
 use tracing::Level;
 use tracing_subscriber::{EnvFilter, Registry, reload};
 
@@ -16,9 +17,7 @@ pub struct LogReconfigHandle {
 impl LogReconfigHandle {
     /// Create a new reconfiguration handle
     pub fn new(filter_handle: reload::Handle<EnvFilter, Registry>) -> Self {
-        Self {
-            filter_handle: Arc::new(RwLock::new(filter_handle)),
-        }
+        Self { filter_handle: Arc::new(RwLock::new(filter_handle)) }
     }
 
     /// Update the log filter
@@ -43,9 +42,7 @@ impl LogReconfigHandle {
             .read()
             .map_err(|e| anyhow::anyhow!("Failed to acquire read lock: {}", e))?;
 
-        handle
-            .reload(new_filter)
-            .map_err(|e| anyhow::anyhow!("Failed to reload filter: {}", e))?;
+        handle.reload(new_filter).map_err(|e| anyhow::anyhow!("Failed to reload filter: {}", e))?;
 
         tracing::info!(filter = filter, "Log filter reconfigured");
         Ok(())
@@ -95,11 +92,7 @@ pub struct LogConfigSnapshot {
 impl LogConfigSnapshot {
     /// Create a new snapshot
     pub fn new(filter: String, updated_by: String) -> Self {
-        Self {
-            filter,
-            updated_at: chrono::Utc::now(),
-            updated_by,
-        }
+        Self { filter, updated_at: chrono::Utc::now(), updated_by }
     }
 
     /// Save snapshot to file
@@ -127,11 +120,7 @@ pub struct LogReconfigManager {
 impl LogReconfigManager {
     /// Create a new manager
     pub fn new(handle: LogReconfigHandle) -> Self {
-        Self {
-            handle,
-            history: Arc::new(RwLock::new(Vec::new())),
-            snapshot_path: None,
-        }
+        Self { handle, history: Arc::new(RwLock::new(Vec::new())), snapshot_path: None }
     }
 
     /// Enable snapshot persistence to file
@@ -202,7 +191,8 @@ impl LogReconfigManager {
 /// HTTP API for log reconfiguration
 #[cfg(feature = "http-api")]
 pub mod http_api {
-    use super::*;
+    use std::sync::Arc;
+
     use axum::{
         Json, Router,
         extract::State,
@@ -211,7 +201,8 @@ pub mod http_api {
         routing::{get, post},
     };
     use serde::{Deserialize, Serialize};
-    use std::sync::Arc;
+
+    use super::*;
 
     #[derive(Deserialize)]
     pub struct SetFilterRequest {
@@ -275,8 +266,7 @@ pub mod http_api {
 pub fn init_with_reload(
     config: super::logging::LogConfig,
 ) -> Result<(LogReconfigHandle, impl tracing::Subscriber + Send + Sync)> {
-    use tracing_subscriber::fmt::format::FmtSpan;
-    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::{fmt::format::FmtSpan, prelude::*};
 
     let env_filter = if let Some(filter) = config.filter {
         EnvFilter::try_new(filter)?
@@ -286,11 +276,7 @@ pub fn init_with_reload(
 
     let (filter, reload_handle) = reload::Layer::new(env_filter);
 
-    let fmt_span = if config.log_spans {
-        FmtSpan::NEW | FmtSpan::CLOSE
-    } else {
-        FmtSpan::NONE
-    };
+    let fmt_span = if config.log_spans { FmtSpan::NEW | FmtSpan::CLOSE } else { FmtSpan::NONE };
 
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(config.include_target)

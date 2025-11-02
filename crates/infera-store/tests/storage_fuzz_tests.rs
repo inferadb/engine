@@ -3,10 +3,11 @@
 //! These tests use property-based testing to fuzz storage operations,
 //! ensuring data integrity, crash resistance, and proper error handling.
 
+use std::sync::Arc;
+
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Relationship, RelationshipKey, Revision};
 use proptest::prelude::*;
-use std::sync::Arc;
 use uuid::Uuid;
 
 // Test vault ID for all fuzz tests
@@ -480,9 +481,7 @@ mod integration_tests {
         };
 
         // Should handle gracefully
-        let _ = store
-            .write(test_vault_id(), vec![invalid_relationship])
-            .await;
+        let _ = store.write(test_vault_id(), vec![invalid_relationship]).await;
 
         // Storage should still be functional
         let valid_relationship = Relationship {

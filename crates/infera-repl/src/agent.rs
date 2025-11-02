@@ -4,11 +4,12 @@
 //! Subscribes to the local change feed and forwards changes to configured remote nodes,
 //! with retry logic, partition handling, and conflict resolution.
 
-use crate::{
-    Change, ChangeFeed, Operation, ReplError, Result,
-    conflict::{ConflictResolver, ConflictStats},
-    topology::{NodeId, RegionId, Topology},
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
 };
+
 use infera_api::grpc::proto::{
     DeleteRequest, Relationship as ProtoRelationship, WriteRequest,
     infera_service_client::InferaServiceClient,
@@ -18,13 +19,18 @@ use infera_observe::metrics::{
     update_replication_targets,
 };
 use infera_store::RelationshipStore;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, mpsc};
-use tokio::time::sleep;
+use tokio::{
+    sync::{RwLock, mpsc},
+    time::sleep,
+};
 use tonic::transport::Channel;
 use tracing::{debug, error, info, warn};
+
+use crate::{
+    Change, ChangeFeed, Operation, ReplError, Result,
+    conflict::{ConflictResolver, ConflictStats},
+    topology::{NodeId, RegionId, Topology},
+};
 
 /// Configuration for the replication agent
 #[derive(Debug, Clone)]
@@ -84,19 +90,16 @@ impl ReplicationTarget {
         match InferaServiceClient::connect(self.endpoint.clone()).await {
             Ok(client) => {
                 self.client = Some(client);
-                info!(
-                    "Connected to replication target: {} ({})",
-                    self.node_id, self.endpoint
-                );
+                info!("Connected to replication target: {} ({})", self.node_id, self.endpoint);
                 Ok(())
-            }
+            },
             Err(e) => {
                 error!(
                     "Failed to connect to replication target {} ({}): {}",
                     self.node_id, self.endpoint, e
                 );
                 Err(ReplError::Replication(format!("Connection failed: {}", e)))
-            }
+            },
         }
     }
 
@@ -196,7 +199,7 @@ impl ReplicationAgent {
                 Err(e) => {
                     error!("Failed to subscribe to change feed: {}", e);
                     return;
-                }
+                },
             };
 
             let mut batch = Vec::new();
@@ -328,7 +331,7 @@ impl ReplicationAgent {
                         // Record metrics
                         let duration = start.elapsed().as_secs_f64();
                         record_replication_changes(batch.len() as u64, duration);
-                    }
+                    },
                     Err(e) => {
                         warn!(
                             "Failed to replicate to {} (attempt {}/{}): {}",
@@ -347,7 +350,7 @@ impl ReplicationAgent {
 
                         // Clear client on failure to force reconnect
                         target.client = None;
-                    }
+                    },
                 }
             }
 
@@ -384,15 +387,9 @@ impl ReplicationAgent {
             .ok_or_else(|| ReplError::Replication("Not connected".to_string()))?;
 
         // Separate inserts and deletes
-        let inserts: Vec<_> = batch
-            .iter()
-            .filter(|c| c.operation == Operation::Insert)
-            .collect();
+        let inserts: Vec<_> = batch.iter().filter(|c| c.operation == Operation::Insert).collect();
 
-        let deletes: Vec<_> = batch
-            .iter()
-            .filter(|c| c.operation == Operation::Delete)
-            .collect();
+        let deletes: Vec<_> = batch.iter().filter(|c| c.operation == Operation::Delete).collect();
 
         // Send inserts
         if !inserts.is_empty() {
@@ -427,11 +424,7 @@ impl ReplicationAgent {
                 })
                 .collect();
 
-            let delete_request = DeleteRequest {
-                filter: None,
-                relationships,
-                limit: None,
-            };
+            let delete_request = DeleteRequest { filter: None, relationships, limit: None };
             let stream = futures::stream::once(async { delete_request });
             let mut request = tonic::Request::new(stream);
             request.set_timeout(config.request_timeout);
@@ -452,21 +445,19 @@ impl ReplicationAgent {
 
     /// Get number of connected targets
     pub async fn connected_targets(&self) -> usize {
-        self.targets
-            .read()
-            .await
-            .values()
-            .filter(|t| t.is_connected())
-            .count()
+        self.targets.read().await.values().filter(|t| t.is_connected()).count()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::conflict::ConflictResolutionStrategy;
-    use crate::topology::{ReplicationStrategy, TopologyBuilder, ZoneId};
     use infera_store::MemoryBackend;
+
+    use super::*;
+    use crate::{
+        conflict::ConflictResolutionStrategy,
+        topology::{ReplicationStrategy, TopologyBuilder, ZoneId},
+    };
 
     #[tokio::test]
     async fn test_replication_target() {
@@ -497,25 +488,21 @@ mod tests {
     #[tokio::test]
     async fn test_replication_agent_creation() {
         let topology = Arc::new(RwLock::new(
-            TopologyBuilder::new(
-                ReplicationStrategy::ActiveActive,
-                RegionId::new("us-west-1"),
-            )
-            .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
-            .add_zone(
-                RegionId::new("us-west-1"),
-                ZoneId::new("us-west-1a"),
-                "Zone A".to_string(),
-            )
-            .build()
-            .unwrap(),
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .build()
+                .unwrap(),
         ));
 
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
         let change_feed = Arc::new(ChangeFeed::new());
-        let conflict_resolver = Arc::new(ConflictResolver::new(
-            ConflictResolutionStrategy::LastWriteWins,
-        ));
+        let conflict_resolver =
+            Arc::new(ConflictResolver::new(ConflictResolutionStrategy::LastWriteWins));
 
         let agent = ReplicationAgent::new(
             topology,

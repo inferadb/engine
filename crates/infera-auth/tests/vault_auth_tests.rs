@@ -8,8 +8,9 @@
 
 use chrono::Utc;
 use infera_auth::{
+    AuthError,
     context::{AuthContext, AuthMethod},
-    validate_vault_access, AuthError,
+    validate_vault_access,
 };
 use uuid::Uuid;
 
@@ -40,11 +41,7 @@ fn test_vault_validation_with_valid_vault() {
     let auth = create_auth_context(vault_id, account_id, "tenant-a");
 
     let result = validate_vault_access(&auth);
-    assert!(
-        result.is_ok(),
-        "Valid vault UUID should pass validation: {:?}",
-        result
-    );
+    assert!(result.is_ok(), "Valid vault UUID should pass validation: {:?}", result);
 }
 
 #[test]
@@ -54,10 +51,7 @@ fn test_vault_validation_rejects_nil_vault() {
     let auth = create_auth_context(nil_vault, account_id, "tenant-a");
 
     let result = validate_vault_access(&auth);
-    assert!(
-        result.is_err(),
-        "Nil vault UUID should be rejected"
-    );
+    assert!(result.is_err(), "Nil vault UUID should be rejected");
     match result {
         Err(AuthError::InvalidTokenFormat(msg)) => {
             assert!(
@@ -65,7 +59,7 @@ fn test_vault_validation_rejects_nil_vault() {
                 "Error message should mention vault or nil: {}",
                 msg
             );
-        }
+        },
         _ => panic!("Expected InvalidTokenFormat error"),
     }
 }
@@ -82,24 +76,12 @@ fn test_multi_tenant_vault_isolation() {
     let auth_b = create_auth_context(vault_b, account_b, "tenant-b");
 
     // Both should pass validation individually
-    assert!(
-        validate_vault_access(&auth_a).is_ok(),
-        "Tenant A vault should be valid"
-    );
-    assert!(
-        validate_vault_access(&auth_b).is_ok(),
-        "Tenant B vault should be valid"
-    );
+    assert!(validate_vault_access(&auth_a).is_ok(), "Tenant A vault should be valid");
+    assert!(validate_vault_access(&auth_b).is_ok(), "Tenant B vault should be valid");
 
     // Vaults should be different (isolation)
-    assert_ne!(
-        auth_a.vault, auth_b.vault,
-        "Different tenants should have different vaults"
-    );
-    assert_ne!(
-        auth_a.account, auth_b.account,
-        "Different tenants should have different accounts"
-    );
+    assert_ne!(auth_a.vault, auth_b.vault, "Different tenants should have different vaults");
+    assert_ne!(auth_a.account, auth_b.account, "Different tenants should have different accounts");
 }
 
 #[test]
@@ -113,10 +95,7 @@ fn test_vault_and_account_relationship() {
     assert!(!auth.account.is_nil(), "Account should not be nil");
 
     // Validation should pass
-    assert!(
-        validate_vault_access(&auth).is_ok(),
-        "Valid vault and account should pass validation"
-    );
+    assert!(validate_vault_access(&auth).is_ok(), "Valid vault and account should pass validation");
 }
 
 #[test]
@@ -139,10 +118,7 @@ fn test_default_unauthenticated_context() {
     assert!(auth.has_scope("inferadb.expand"));
 
     // Should pass vault validation since it's not nil
-    assert!(
-        validate_vault_access(&auth).is_ok(),
-        "Default vault should pass validation"
-    );
+    assert!(validate_vault_access(&auth).is_ok(), "Default vault should pass validation");
 }
 
 #[test]
@@ -162,10 +138,7 @@ fn test_vault_validation_with_same_vault_different_accounts() {
 
     // Even with same vault, accounts should be different
     assert_eq!(auth_a.vault, auth_b.vault, "Vaults should be the same");
-    assert_ne!(
-        auth_a.account, auth_b.account,
-        "Accounts should be different"
-    );
+    assert_ne!(auth_a.account, auth_b.account, "Accounts should be different");
 }
 
 #[test]
@@ -208,19 +181,13 @@ fn test_vault_validation_with_special_uuids() {
     let account_id = Uuid::new_v4();
     let auth = create_auth_context(vault_max, account_id, "tenant-a");
 
-    assert!(
-        validate_vault_access(&auth).is_ok(),
-        "Max UUID vault should be valid"
-    );
+    assert!(validate_vault_access(&auth).is_ok(), "Max UUID vault should be valid");
 
     // Test with another random UUID
     let vault_v2 = Uuid::new_v4();
     let auth_v2 = create_auth_context(vault_v2, account_id, "tenant-b");
 
-    assert!(
-        validate_vault_access(&auth_v2).is_ok(),
-        "Random UUID vault should be valid"
-    );
+    assert!(validate_vault_access(&auth_v2).is_ok(), "Random UUID vault should be valid");
 }
 
 #[test]
@@ -240,8 +207,7 @@ fn test_auth_context_clone_preserves_vault() {
 
 #[test]
 fn test_concurrent_vault_validations() {
-    use std::sync::Arc;
-    use std::thread;
+    use std::{sync::Arc, thread};
 
     // Test that vault validation is thread-safe
     let vault_id = Arc::new(Uuid::new_v4());

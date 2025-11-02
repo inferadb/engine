@@ -45,10 +45,7 @@ pub enum TypeCheckError {
     /// Referenced relationship (for computed userset) does not exist
     UndefinedRelationship { referenced: String },
     /// Relation reference in expression has wrong type
-    InvalidRelationReference {
-        relation: String,
-        expected_type: String,
-    },
+    InvalidRelationReference { relation: String, expected_type: String },
     /// Circular dependency detected
     CircularDependency { chain: Vec<String> },
 }
@@ -57,17 +54,11 @@ pub enum TypeCheckError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConflictError {
     /// Permit and forbid conflict on the same permission
-    PermitForbidConflict {
-        permission: String,
-        forbid_name: String,
-    },
+    PermitForbidConflict { permission: String, forbid_name: String },
     /// Unreachable relation (dead code)
     UnreachableRelation { relation: String, reason: String },
     /// Ambiguous permission evaluation
-    AmbiguousPermission {
-        permission: String,
-        paths: Vec<String>,
-    },
+    AmbiguousPermission { permission: String, paths: Vec<String> },
 }
 
 /// Coverage analysis warning categories
@@ -89,12 +80,7 @@ impl ValidationError {
         message: String,
         suggestion: Option<String>,
     ) -> Self {
-        Self {
-            location,
-            kind,
-            message,
-            suggestion,
-        }
+        Self { location, kind, message, suggestion }
     }
 
     /// Get severity level of this error
@@ -124,13 +110,7 @@ pub enum Severity {
 
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "[{}] {} in type '{}'",
-            self.severity(),
-            self.message,
-            self.location.type_name
-        )?;
+        write!(f, "[{}] {} in type '{}'", self.severity(), self.message, self.location.type_name)?;
 
         if let Some(relation) = &self.location.relation_name {
             write!(f, ", relation '{}'", relation)?;
@@ -157,18 +137,12 @@ impl fmt::Display for Severity {
 impl ErrorLocation {
     /// Create a location for a type-level error
     pub fn type_level(type_name: String) -> Self {
-        Self {
-            type_name,
-            relation_name: None,
-        }
+        Self { type_name, relation_name: None }
     }
 
     /// Create a location for a relation-level error
     pub fn relation_level(type_name: String, relation_name: String) -> Self {
-        Self {
-            type_name,
-            relation_name: Some(relation_name),
-        }
+        Self { type_name, relation_name: Some(relation_name) }
     }
 }
 

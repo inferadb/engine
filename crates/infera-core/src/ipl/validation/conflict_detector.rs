@@ -118,7 +118,8 @@ impl<'a> ConflictDetector<'a> {
             // Check if this relation is referenced by any other relation or forbid
             let is_referenced = referenced.contains(&relation.name);
 
-            // Check if this relation has the same name as any forbid (it's used for permission checks)
+            // Check if this relation has the same name as any forbid (it's used for permission
+            // checks)
             let has_forbid = type_def.find_forbid(&relation.name).is_some();
 
             if !is_referenced && !has_forbid {
@@ -145,32 +146,26 @@ impl<'a> ConflictDetector<'a> {
         match expr {
             RelationExpr::RelationRef { relation } => {
                 refs.insert(relation.clone());
-            }
-            RelationExpr::ComputedUserset {
-                relation: _,
-                relationship,
-            } => {
+            },
+            RelationExpr::ComputedUserset { relation: _, relationship } => {
                 refs.insert(relationship.clone());
                 // Note: `relation` is on the related object, not directly referenced here
-            }
-            RelationExpr::RelatedObjectUserset {
-                relationship,
-                computed: _,
-            } => {
+            },
+            RelationExpr::RelatedObjectUserset { relationship, computed: _ } => {
                 refs.insert(relationship.clone());
-            }
+            },
             RelationExpr::Union(exprs) | RelationExpr::Intersection(exprs) => {
                 for sub_expr in exprs {
                     Self::collect_references(sub_expr, refs);
                 }
-            }
+            },
             RelationExpr::Exclusion { base, subtract } => {
                 Self::collect_references(base, refs);
                 Self::collect_references(subtract, refs);
-            }
+            },
             RelationExpr::This | RelationExpr::WasmModule { .. } => {
                 // No references
-            }
+            },
         }
     }
 }
@@ -225,9 +220,7 @@ mod tests {
                 // unused_relation is computed but never referenced
                 RelationDef::new(
                     "unused_relation".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
             ],
         )]);
@@ -250,17 +243,13 @@ mod tests {
                 RelationDef::new("owner".to_string(), None),
                 RelationDef::new(
                     "editor".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
                 RelationDef::new(
                     "viewer".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
                     ])),
                 ),
             ],
@@ -294,10 +283,7 @@ mod tests {
     fn test_relation_used_by_forbid_not_unreachable() {
         let schema = Schema::new(vec![TypeDef::new_with_forbids(
             "document".to_string(),
-            vec![RelationDef::new(
-                "blocked".to_string(),
-                Some(RelationExpr::This),
-            )],
+            vec![RelationDef::new("blocked".to_string(), Some(RelationExpr::This))],
             vec![ForbidDef::new("blocked".to_string(), None)],
         )]);
 

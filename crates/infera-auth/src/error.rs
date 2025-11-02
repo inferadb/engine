@@ -83,17 +83,17 @@ impl From<jsonwebtoken::errors::Error> for AuthError {
         match err.kind() {
             ErrorKind::InvalidToken => {
                 AuthError::InvalidTokenFormat("Invalid JWT structure".into())
-            }
+            },
             ErrorKind::InvalidSignature => AuthError::InvalidSignature,
             ErrorKind::ExpiredSignature => AuthError::TokenExpired,
             ErrorKind::ImmatureSignature => AuthError::TokenNotYetValid,
             ErrorKind::InvalidAudience => {
                 AuthError::InvalidAudience("Audience validation failed".into())
-            }
+            },
             ErrorKind::InvalidIssuer => AuthError::InvalidIssuer("Issuer validation failed".into()),
             ErrorKind::InvalidAlgorithm => {
                 AuthError::UnsupportedAlgorithm("Algorithm not supported".into())
-            }
+            },
             _ => AuthError::InvalidTokenFormat(format!("JWT error: {}", err)),
         }
     }
@@ -133,10 +133,7 @@ mod tests {
         assert_eq!(err.to_string(), "Introspection failed: connection refused");
 
         let err = AuthError::InvalidIntrospectionResponse("malformed JSON".into());
-        assert_eq!(
-            err.to_string(),
-            "Invalid introspection response: malformed JSON"
-        );
+        assert_eq!(err.to_string(), "Invalid introspection response: malformed JSON");
 
         let err = AuthError::TokenInactive;
         assert_eq!(err.to_string(), "Token is inactive");

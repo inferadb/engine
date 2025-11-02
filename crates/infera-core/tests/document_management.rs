@@ -26,35 +26,23 @@ fn create_schema() -> Schema {
                     "can_view".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "viewer".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "owner".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "viewer".to_string() },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
+                        RelationExpr::RelationRef { relation: "owner".to_string() },
                     ])),
                 ),
                 // can_edit = editor | owner
                 RelationDef::new(
                     "can_edit".to_string(),
                     Some(RelationExpr::Union(vec![
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "owner".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
+                        RelationExpr::RelationRef { relation: "owner".to_string() },
                     ])),
                 ),
                 // can_delete = owner
                 RelationDef::new(
                     "can_delete".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
             ],
         ),
@@ -71,15 +59,9 @@ fn create_schema() -> Schema {
                     "can_view".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "viewer".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "owner".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "viewer".to_string() },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
+                        RelationExpr::RelationRef { relation: "owner".to_string() },
                         RelationExpr::RelatedObjectUserset {
                             relationship: "parent".to_string(),
                             computed: "can_view".to_string(),
@@ -90,20 +72,14 @@ fn create_schema() -> Schema {
                 RelationDef::new(
                     "can_edit".to_string(),
                     Some(RelationExpr::Union(vec![
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "owner".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
+                        RelationExpr::RelationRef { relation: "owner".to_string() },
                     ])),
                 ),
                 // can_delete = owner
                 RelationDef::new(
                     "can_delete".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
             ],
         ),
@@ -121,26 +97,14 @@ async fn test_direct_document_permissions() {
         .unwrap();
 
     // Alice can view, edit, and delete as owner
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_edit")
-        .await;
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_delete")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_view").await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_edit").await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_delete").await;
 
     // Bob has no permissions
-    fixture
-        .assert_denied("user:bob", "document:doc1", "can_view")
-        .await;
-    fixture
-        .assert_denied("user:bob", "document:doc1", "can_edit")
-        .await;
-    fixture
-        .assert_denied("user:bob", "document:doc1", "can_delete")
-        .await;
+    fixture.assert_denied("user:bob", "document:doc1", "can_view").await;
+    fixture.assert_denied("user:bob", "document:doc1", "can_edit").await;
+    fixture.assert_denied("user:bob", "document:doc1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -154,15 +118,9 @@ async fn test_editor_permissions() {
         .unwrap();
 
     // Bob can view and edit, but not delete
-    fixture
-        .assert_allowed("user:bob", "document:doc1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "document:doc1", "can_edit")
-        .await;
-    fixture
-        .assert_denied("user:bob", "document:doc1", "can_delete")
-        .await;
+    fixture.assert_allowed("user:bob", "document:doc1", "can_view").await;
+    fixture.assert_allowed("user:bob", "document:doc1", "can_edit").await;
+    fixture.assert_denied("user:bob", "document:doc1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -171,24 +129,14 @@ async fn test_viewer_permissions() {
 
     // Charlie is a viewer of doc1
     fixture
-        .write_relationships(vec![relationship(
-            "document:doc1",
-            "viewer",
-            "user:charlie",
-        )])
+        .write_relationships(vec![relationship("document:doc1", "viewer", "user:charlie")])
         .await
         .unwrap();
 
     // Charlie can only view
-    fixture
-        .assert_allowed("user:charlie", "document:doc1", "can_view")
-        .await;
-    fixture
-        .assert_denied("user:charlie", "document:doc1", "can_edit")
-        .await;
-    fixture
-        .assert_denied("user:charlie", "document:doc1", "can_delete")
-        .await;
+    fixture.assert_allowed("user:charlie", "document:doc1", "can_view").await;
+    fixture.assert_denied("user:charlie", "document:doc1", "can_edit").await;
+    fixture.assert_denied("user:charlie", "document:doc1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -207,17 +155,11 @@ async fn test_hierarchical_folder_permissions() {
         .unwrap();
 
     // Alice can view doc1 through folder permissions
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_view")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_view").await;
 
     // But Alice cannot edit or delete (folder viewer != document editor)
-    fixture
-        .assert_denied("user:alice", "document:doc1", "can_edit")
-        .await;
-    fixture
-        .assert_denied("user:alice", "document:doc1", "can_delete")
-        .await;
+    fixture.assert_denied("user:alice", "document:doc1", "can_edit").await;
+    fixture.assert_denied("user:alice", "document:doc1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -237,37 +179,19 @@ async fn test_multiple_permission_sources() {
         .unwrap();
 
     // All three users can view
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "document:doc1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "document:doc1", "can_view")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_view").await;
+    fixture.assert_allowed("user:bob", "document:doc1", "can_view").await;
+    fixture.assert_allowed("user:charlie", "document:doc1", "can_view").await;
 
     // Only alice and bob can edit
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_edit")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "document:doc1", "can_edit")
-        .await;
-    fixture
-        .assert_denied("user:charlie", "document:doc1", "can_edit")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_edit").await;
+    fixture.assert_allowed("user:bob", "document:doc1", "can_edit").await;
+    fixture.assert_denied("user:charlie", "document:doc1", "can_edit").await;
 
     // Only alice can delete
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_delete")
-        .await;
-    fixture
-        .assert_denied("user:bob", "document:doc1", "can_delete")
-        .await;
-    fixture
-        .assert_denied("user:charlie", "document:doc1", "can_delete")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_delete").await;
+    fixture.assert_denied("user:bob", "document:doc1", "can_delete").await;
+    fixture.assert_denied("user:charlie", "document:doc1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -290,26 +214,14 @@ async fn test_complex_folder_hierarchy() {
         .unwrap();
 
     // Alice can view all three documents (via folder)
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:alice", "document:doc2", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:alice", "document:doc3", "can_view")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_view").await;
+    fixture.assert_allowed("user:alice", "document:doc2", "can_view").await;
+    fixture.assert_allowed("user:alice", "document:doc3", "can_view").await;
 
     // Bob can only view doc2 (direct viewer)
-    fixture
-        .assert_denied("user:bob", "document:doc1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "document:doc2", "can_view")
-        .await;
-    fixture
-        .assert_denied("user:bob", "document:doc3", "can_view")
-        .await;
+    fixture.assert_denied("user:bob", "document:doc1", "can_view").await;
+    fixture.assert_allowed("user:bob", "document:doc2", "can_view").await;
+    fixture.assert_denied("user:bob", "document:doc3", "can_view").await;
 }
 
 #[tokio::test]
@@ -323,9 +235,7 @@ async fn test_permission_revocation() {
         .unwrap();
 
     // Alice can view
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "can_view")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "can_view").await;
 
     // Now remove alice as owner (in a real system, you'd have a delete operation)
     // For this test, we'll just verify the permission check works as expected

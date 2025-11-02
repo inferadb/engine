@@ -3,16 +3,19 @@
 //! This module provides support for validating OAuth 2.0 access tokens,
 //! including JWKS fetching from OAuth issuers and token introspection.
 
-use crate::context::{AuthContext, AuthMethod};
-use crate::error::AuthError;
-use crate::jwks_cache::{Jwk, JwksCache};
-use crate::jwt::JwtClaims;
-use crate::oidc::OidcDiscoveryClient;
+use std::{collections::HashMap, sync::Arc};
+
 use chrono::Utc;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
+
+use crate::{
+    context::{AuthContext, AuthMethod},
+    error::AuthError,
+    jwks_cache::{Jwk, JwksCache},
+    jwt::JwtClaims,
+    oidc::OidcDiscoveryClient,
+};
 
 /// OAuth JWKS fetcher that uses OIDC Discovery
 pub struct OAuthJwksClient {
@@ -29,10 +32,7 @@ impl OAuthJwksClient {
     /// * `oidc_client` - OIDC Discovery client for finding JWKS endpoints
     /// * `jwks_cache` - JWKS cache for storing fetched keys
     pub fn new(oidc_client: Arc<OidcDiscoveryClient>, jwks_cache: Arc<JwksCache>) -> Self {
-        Self {
-            oidc_client,
-            jwks_cache,
-        }
+        Self { oidc_client, jwks_cache }
     }
 
     /// Fetch JWKS from an OAuth issuer using OIDC Discovery
@@ -113,9 +113,7 @@ impl OAuthJwksClient {
             .map_err(|e| AuthError::JwksError(format!("Failed to parse OAuth JWKS: {}", e)))?;
 
         if jwks.keys.is_empty() {
-            return Err(AuthError::JwksError(
-                "OAuth JWKS response contains no keys".to_string(),
-            ));
+            return Err(AuthError::JwksError("OAuth JWKS response contains no keys".to_string()));
         }
 
         tracing::info!(
@@ -152,10 +150,7 @@ impl OAuthJwksClient {
             if let Some(key) = jwks.iter().find(|k| k.kid == kid) {
                 return Ok(key);
             }
-            return Err(AuthError::JwksError(format!(
-                "No key found with kid: {}",
-                kid
-            )));
+            return Err(AuthError::JwksError(format!("No key found with kid: {}", kid)));
         }
 
         // No kid specified - find first key with matching algorithm
@@ -222,10 +217,7 @@ impl IntrospectionClient {
             .build()
             .expect("Failed to create HTTP client");
 
-        Self {
-            http_client,
-            cache: None,
-        }
+        Self { http_client, cache: None }
     }
 
     /// Create a new introspection client with caching
@@ -247,10 +239,7 @@ impl IntrospectionClient {
                 .build(),
         );
 
-        Self {
-            http_client,
-            cache: Some(cache),
-        }
+        Self { http_client, cache: Some(cache) }
     }
 
     /// Introspect a token using RFC 7662 (with caching if enabled)
@@ -314,13 +303,8 @@ impl IntrospectionClient {
         params.insert("token", token);
 
         let result = async {
-            let response = self
-                .http_client
-                .post(endpoint)
-                .form(&params)
-                .send()
-                .await
-                .map_err(|e| {
+            let response =
+                self.http_client.post(endpoint).form(&params).send().await.map_err(|e| {
                     AuthError::JwksError(format!("Token introspection request failed: {}", e))
                 })?;
 
@@ -429,7 +413,7 @@ pub async fn validate_oauth_jwt(
                 "Unsupported algorithm: {:?}",
                 header.alg
             )));
-        }
+        },
     };
 
     // Decode without verification first to get issuer
@@ -473,7 +457,7 @@ pub async fn validate_oauth_jwt(
                 jsonwebtoken::errors::ErrorKind::InvalidSignature => AuthError::InvalidSignature,
                 jsonwebtoken::errors::ErrorKind::InvalidAudience => {
                     AuthError::InvalidAudience("Audience mismatch".to_string())
-                }
+                },
                 _ => AuthError::InvalidTokenFormat(format!("JWT validation failed: {}", e)),
             })?;
 
@@ -481,26 +465,16 @@ pub async fn validate_oauth_jwt(
 
         // Extract tenant_id - look for it in the claims
         // OAuth tokens might have it as a custom claim or in the sub
-        let tenant_id = claims
-            .extract_tenant_id()
-            .unwrap_or_else(|_| claims.sub.clone());
+        let tenant_id = claims.extract_tenant_id().unwrap_or_else(|_| claims.sub.clone());
 
         // Parse scopes
-        let scopes: Vec<String> = claims
-            .scope
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
+        let scopes: Vec<String> = claims.scope.split_whitespace().map(|s| s.to_string()).collect();
 
         // Extract vault and account UUIDs
-        let vault_str = claims
-            .vault
-            .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+        let vault_str = claims.vault.unwrap_or_else(|| uuid::Uuid::nil().to_string());
         let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
 
-        let account_str = claims
-            .account
-            .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+        let account_str = claims.account.unwrap_or_else(|| uuid::Uuid::nil().to_string());
         let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
 
         // Create AuthContext
@@ -546,7 +520,7 @@ fn jwk_to_decoding_key(jwk: &Jwk) -> Result<DecodingKey, AuthError> {
 
             Ok(DecodingKey::from_rsa_components(n, e)
                 .map_err(|e| AuthError::JwksError(format!("Invalid RSA key: {}", e)))?)
-        }
+        },
         "OKP" => {
             // For EdDSA/Ed25519, we need x
             let x = jwk
@@ -560,11 +534,8 @@ fn jwk_to_decoding_key(jwk: &Jwk) -> Result<DecodingKey, AuthError> {
                     .map_err(|e| AuthError::JwksError(format!("Invalid base64 in key: {}", e)))?;
 
             Ok(DecodingKey::from_ed_der(&public_key_bytes))
-        }
-        _ => Err(AuthError::JwksError(format!(
-            "Unsupported key type: {}",
-            jwk.kty
-        ))),
+        },
+        _ => Err(AuthError::JwksError(format!("Unsupported key type: {}", jwk.kty))),
     }
 }
 

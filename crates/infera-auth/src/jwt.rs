@@ -1,8 +1,9 @@
-use crate::error::AuthError;
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
 use jsonwebtoken::{Algorithm, DecodingKey, Header, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
+
+use crate::error::AuthError;
 
 /// JWT claims structure
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -62,10 +63,7 @@ impl JwtClaims {
 
     /// Parse scopes from space-separated string
     pub fn parse_scopes(&self) -> Vec<String> {
-        self.scope
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect()
+        self.scope.split_whitespace().map(|s| s.to_string()).collect()
     }
 
     /// Extract vault UUID from claims
@@ -141,15 +139,11 @@ pub fn validate_claims(
 
     // Check issued-at is reasonable (not too far in past, max 24 hours)
     if claims.iat > now {
-        return Err(AuthError::InvalidTokenFormat(
-            "iat claim is in the future".into(),
-        ));
+        return Err(AuthError::InvalidTokenFormat("iat claim is in the future".into()));
     }
     if now - claims.iat > 86400 {
         // 24 hours
-        return Err(AuthError::InvalidTokenFormat(
-            "iat claim is too old (> 24 hours)".into(),
-        ));
+        return Err(AuthError::InvalidTokenFormat("iat claim is too old (> 24 hours)".into()));
     }
 
     // Check audience if enforced
@@ -296,7 +290,7 @@ pub async fn verify_with_jwks(
                     kid, tenant_id
                 ))
             })?
-        }
+        },
     };
 
     // 4. Convert JWK to DecodingKey

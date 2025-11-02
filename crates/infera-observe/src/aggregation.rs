@@ -96,11 +96,8 @@ impl ElasticsearchShipper {
         let mut bulk_body = String::new();
 
         for entry in entries {
-            let index_name = format!(
-                "{}-{}",
-                self.index_prefix,
-                chrono::Utc::now().format("%Y.%m.%d")
-            );
+            let index_name =
+                format!("{}-{}", self.index_prefix, chrono::Utc::now().format("%Y.%m.%d"));
 
             // Index action
             let action = json!({
@@ -123,10 +120,7 @@ impl ElasticsearchShipper {
         }
 
         let url = format!("{}/_bulk", self.endpoint);
-        let mut request = self
-            .client
-            .post(&url)
-            .header("Content-Type", "application/x-ndjson");
+        let mut request = self.client.post(&url).header("Content-Type", "application/x-ndjson");
 
         if let Some(token) = &self.auth_token {
             request = request.bearer_auth(token);
@@ -208,15 +202,10 @@ impl LokiShipper {
         });
 
         let url = format!("{}/loki/api/v1/push", self.endpoint);
-        let mut request = self
-            .client
-            .post(&url)
-            .header("Content-Type", "application/json");
+        let mut request = self.client.post(&url).header("Content-Type", "application/json");
 
         if let Some(token) = &self.auth_token {
-            request = request
-                .header("X-Scope-OrgID", "inferadb")
-                .bearer_auth(token);
+            request = request.header("X-Scope-OrgID", "inferadb").bearer_auth(token);
         }
 
         let response = request.json(&payload).send().await?;
@@ -248,11 +237,7 @@ impl CloudWatchShipper {
         let log_group = parts.get(2).unwrap_or(&"inferadb").to_string();
         let log_stream = parts.get(3).unwrap_or(&"inferadb-default").to_string();
 
-        Self {
-            log_group_name: log_group,
-            log_stream_name: log_stream,
-            region,
-        }
+        Self { log_group_name: log_group, log_stream_name: log_stream, region }
     }
 
     /// Ship logs to CloudWatch
@@ -316,9 +301,7 @@ where
         let entry = LogEntry {
             timestamp_ns,
             level: metadata.level().to_string(),
-            message: visitor
-                .message
-                .unwrap_or_else(|| metadata.target().to_string()),
+            message: visitor.message.unwrap_or_else(|| metadata.target().to_string()),
             fields: serde_json::Value::Object(visitor.fields),
         };
 
@@ -341,8 +324,7 @@ impl tracing::field::Visit for JsonVisitor {
         if field.name() == "message" {
             self.message = Some(value_str);
         } else {
-            self.fields
-                .insert(field.name().to_string(), json!(value_str));
+            self.fields.insert(field.name().to_string(), json!(value_str));
         }
     }
 
@@ -420,15 +402,15 @@ impl LogShipper {
             AggregationBackend::Elasticsearch => {
                 let shipper = ElasticsearchShipper::new(&self.config);
                 shipper.ship(entries).await
-            }
+            },
             AggregationBackend::Loki => {
                 let shipper = LokiShipper::new(&self.config);
                 shipper.ship(entries).await
-            }
+            },
             AggregationBackend::CloudWatch => {
                 let shipper = CloudWatchShipper::new(&self.config);
                 shipper.ship(entries).await
-            }
+            },
         };
 
         if let Err(e) = result {

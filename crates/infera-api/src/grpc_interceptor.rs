@@ -20,6 +20,10 @@
 //!     .await?;
 //! ```
 
+use std::{sync::Arc, time::Instant};
+
+// Re-export chrono from infera_auth's context module
+use chrono::{DateTime, Duration, Utc};
 use infera_auth::{
     audit::{AuditEvent, log_audit_event},
     context::{AuthContext, AuthMethod},
@@ -30,12 +34,7 @@ use infera_auth::{
 };
 use infera_config::AuthConfig;
 use infera_observe::metrics;
-use std::sync::Arc;
-use std::time::Instant;
 use tonic::{Request, Status, metadata::MetadataMap};
-
-// Re-export chrono from infera_auth's context module
-use chrono::{DateTime, Duration, Utc};
 
 /// Extract Bearer token from gRPC metadata
 ///
@@ -70,9 +69,7 @@ pub fn extract_bearer_from_metadata(metadata: &MetadataMap) -> Result<String, Au
     // Extract token (skip "Bearer " prefix)
     let token = &auth_str[7..];
     if token.is_empty() {
-        return Err(AuthError::InvalidTokenFormat(
-            "Empty bearer token".to_string(),
-        ));
+        return Err(AuthError::InvalidTokenFormat("Empty bearer token".to_string()));
     }
 
     Ok(token.to_string())
@@ -100,11 +97,7 @@ impl AuthInterceptor {
         internal_loader: Option<Arc<InternalJwksLoader>>,
         config: Arc<AuthConfig>,
     ) -> Self {
-        Self {
-            jwks_cache,
-            internal_loader,
-            config,
-        }
+        Self { jwks_cache, internal_loader, config }
     }
 
     /// Authenticate a request and return AuthContext
@@ -117,7 +110,7 @@ impl AuthInterceptor {
             Err(e) => {
                 tracing::debug!(error = %e, "Failed to extract bearer token");
                 return Err(e);
-            }
+            },
         };
 
         // Detect token type
@@ -152,7 +145,7 @@ impl AuthInterceptor {
                     timestamp: Utc::now(),
                     ip_address: None, // TODO: Extract from gRPC metadata when available
                 });
-            }
+            },
             Err(e) => {
                 let error_type = auth_error_type(e);
                 let tenant_id = "unknown";
@@ -175,7 +168,7 @@ impl AuthInterceptor {
                     timestamp: Utc::now(),
                     ip_address: None, // TODO: Extract from gRPC metadata when available
                 });
-            }
+            },
         }
 
         result
@@ -205,11 +198,11 @@ impl AuthInterceptor {
                 Ok(c) => {
                     metrics::record_jwt_signature_verification("EdDSA", true);
                     c
-                }
+                },
                 Err(e) => {
                     metrics::record_jwt_signature_verification("EdDSA", false);
                     return Err(e);
-                }
+                },
             };
 
             // Extract tenant ID and create AuthContext
@@ -217,14 +210,10 @@ impl AuthInterceptor {
             let scopes = claims.parse_scopes();
 
             // Extract vault and account UUIDs
-            let vault_str = claims
-                .vault
-                .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+            let vault_str = claims.vault.unwrap_or_else(|| uuid::Uuid::nil().to_string());
             let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
 
-            let account_str = claims
-                .account
-                .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+            let account_str = claims.account.unwrap_or_else(|| uuid::Uuid::nil().to_string());
             let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
 
             return Ok(AuthContext {
@@ -265,7 +254,7 @@ impl tonic::service::Interceptor for AuthInterceptor {
             Ok(auth_ctx) => {
                 request.extensions_mut().insert(auth_ctx);
                 Ok(request)
-            }
+            },
             Err(e) => Err(auth_error_to_status(e)),
         }
     }
@@ -347,16 +336,14 @@ pub fn extract_auth<T>(request: &Request<T>) -> Result<AuthContext, Status> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tonic::metadata::{MetadataMap, MetadataValue};
+
+    use super::*;
 
     #[test]
     fn test_extract_bearer_valid() {
         let mut metadata = MetadataMap::new();
-        metadata.insert(
-            "authorization",
-            MetadataValue::from_static("Bearer test_token_12345"),
-        );
+        metadata.insert("authorization", MetadataValue::from_static("Bearer test_token_12345"));
 
         let result = extract_bearer_from_metadata(&metadata);
         assert!(result.is_ok());
@@ -374,10 +361,7 @@ mod tests {
     #[test]
     fn test_extract_bearer_no_prefix() {
         let mut metadata = MetadataMap::new();
-        metadata.insert(
-            "authorization",
-            MetadataValue::from_static("test_token_12345"),
-        );
+        metadata.insert("authorization", MetadataValue::from_static("test_token_12345"));
 
         let result = extract_bearer_from_metadata(&metadata);
         assert!(result.is_err());
@@ -398,10 +382,7 @@ mod tests {
     fn test_extract_bearer_lowercase_key() {
         // Test that lowercase "authorization" key works
         let mut metadata = MetadataMap::new();
-        metadata.insert(
-            "authorization",
-            MetadataValue::from_static("Bearer lowercase_works"),
-        );
+        metadata.insert("authorization", MetadataValue::from_static("Bearer lowercase_works"));
 
         let result = extract_bearer_from_metadata(&metadata);
         assert!(result.is_ok());

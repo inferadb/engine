@@ -7,10 +7,7 @@ use metrics::{counter, describe_counter, describe_gauge, describe_histogram, gau
 /// Initialize all metric descriptions
 pub fn init_metrics_descriptions() {
     // Authorization check metrics
-    describe_counter!(
-        "inferadb_checks_total",
-        "Total number of authorization checks performed"
-    );
+    describe_counter!("inferadb_checks_total", "Total number of authorization checks performed");
     describe_counter!(
         "inferadb_checks_allowed_total",
         "Total number of checks that resulted in Allow"
@@ -26,28 +23,13 @@ pub fn init_metrics_descriptions() {
 
     // Cache metrics
     describe_counter!("inferadb_cache_hits_total", "Total number of cache hits");
-    describe_counter!(
-        "inferadb_cache_misses_total",
-        "Total number of cache misses"
-    );
-    describe_gauge!(
-        "inferadb_cache_entries",
-        "Current number of entries in the cache"
-    );
-    describe_gauge!(
-        "inferadb_cache_hit_rate",
-        "Current cache hit rate as a percentage"
-    );
+    describe_counter!("inferadb_cache_misses_total", "Total number of cache misses");
+    describe_gauge!("inferadb_cache_entries", "Current number of entries in the cache");
+    describe_gauge!("inferadb_cache_hit_rate", "Current cache hit rate as a percentage");
 
     // Storage metrics
-    describe_counter!(
-        "inferadb_storage_reads_total",
-        "Total number of storage read operations"
-    );
-    describe_counter!(
-        "inferadb_storage_writes_total",
-        "Total number of storage write operations"
-    );
+    describe_counter!("inferadb_storage_reads_total", "Total number of storage read operations");
+    describe_counter!("inferadb_storage_writes_total", "Total number of storage write operations");
     describe_histogram!(
         "inferadb_storage_read_duration_seconds",
         "Duration of storage read operations in seconds"
@@ -60,20 +42,11 @@ pub fn init_metrics_descriptions() {
         "inferadb_storage_relationships_total",
         "Total number of relationships in storage"
     );
-    describe_gauge!(
-        "inferadb_storage_revision",
-        "Current storage revision number"
-    );
+    describe_gauge!("inferadb_storage_revision", "Current storage revision number");
 
     // WASM metrics
-    describe_counter!(
-        "inferadb_wasm_invocations_total",
-        "Total number of WASM module invocations"
-    );
-    describe_counter!(
-        "inferadb_wasm_errors_total",
-        "Total number of WASM execution errors"
-    );
+    describe_counter!("inferadb_wasm_invocations_total", "Total number of WASM module invocations");
+    describe_counter!("inferadb_wasm_errors_total", "Total number of WASM execution errors");
     describe_histogram!(
         "inferadb_wasm_duration_seconds",
         "Duration of WASM module executions in seconds"
@@ -84,18 +57,9 @@ pub fn init_metrics_descriptions() {
     );
 
     // Evaluation metrics
-    describe_counter!(
-        "inferadb_evaluations_total",
-        "Total number of relation evaluations"
-    );
-    describe_histogram!(
-        "inferadb_evaluation_depth",
-        "Depth of relation evaluation trees"
-    );
-    describe_histogram!(
-        "inferadb_evaluation_branches",
-        "Number of branches evaluated per check"
-    );
+    describe_counter!("inferadb_evaluations_total", "Total number of relation evaluations");
+    describe_histogram!("inferadb_evaluation_depth", "Depth of relation evaluation trees");
+    describe_histogram!("inferadb_evaluation_branches", "Number of branches evaluated per check");
 
     // Query optimization metrics
     describe_counter!(
@@ -127,18 +91,9 @@ pub fn init_metrics_descriptions() {
     );
 
     // Authentication metrics
-    describe_counter!(
-        "inferadb_auth_attempts_total",
-        "Total number of authentication attempts"
-    );
-    describe_counter!(
-        "inferadb_auth_success_total",
-        "Total number of successful authentications"
-    );
-    describe_counter!(
-        "inferadb_auth_failure_total",
-        "Total number of failed authentications"
-    );
+    describe_counter!("inferadb_auth_attempts_total", "Total number of authentication attempts");
+    describe_counter!("inferadb_auth_success_total", "Total number of successful authentications");
+    describe_counter!("inferadb_auth_failure_total", "Total number of failed authentications");
     describe_histogram!(
         "inferadb_auth_duration_seconds",
         "Duration of authentication operations in seconds"
@@ -153,22 +108,10 @@ pub fn init_metrics_descriptions() {
     );
 
     // JWKS metrics
-    describe_counter!(
-        "inferadb_jwks_cache_hits_total",
-        "Total number of JWKS cache hits"
-    );
-    describe_counter!(
-        "inferadb_jwks_cache_misses_total",
-        "Total number of JWKS cache misses"
-    );
-    describe_counter!(
-        "inferadb_jwks_refresh_total",
-        "Total number of JWKS refresh operations"
-    );
-    describe_counter!(
-        "inferadb_jwks_refresh_errors_total",
-        "Total number of JWKS refresh errors"
-    );
+    describe_counter!("inferadb_jwks_cache_hits_total", "Total number of JWKS cache hits");
+    describe_counter!("inferadb_jwks_cache_misses_total", "Total number of JWKS cache misses");
+    describe_counter!("inferadb_jwks_refresh_total", "Total number of JWKS refresh operations");
+    describe_counter!("inferadb_jwks_refresh_errors_total", "Total number of JWKS refresh errors");
     describe_histogram!(
         "inferadb_jwks_fetch_duration_seconds",
         "Duration of JWKS fetch operations in seconds"
@@ -195,10 +138,7 @@ pub fn init_metrics_descriptions() {
         "inferadb_oauth_introspection_cache_misses_total",
         "Total number of OAuth introspection cache misses"
     );
-    describe_counter!(
-        "inferadb_oidc_discovery_total",
-        "Total number of OIDC discovery attempts"
-    );
+    describe_counter!("inferadb_oidc_discovery_total", "Total number of OIDC discovery attempts");
     describe_histogram!(
         "inferadb_oauth_introspection_duration_seconds",
         "Duration of OAuth token introspection in seconds"
@@ -237,24 +177,15 @@ pub fn init_metrics_descriptions() {
         "inferadb_replication_targets_total",
         "Total number of configured replication targets"
     );
-    describe_histogram!(
-        "inferadb_replication_batch_size",
-        "Size of replication batches"
-    );
+    describe_histogram!("inferadb_replication_batch_size", "Size of replication batches");
     describe_histogram!(
         "inferadb_replication_duration_seconds",
         "Duration of replication operations in seconds"
     );
 
     // System metrics
-    describe_gauge!(
-        "inferadb_build_info",
-        "Build information (version, commit, etc.)"
-    );
-    describe_gauge!(
-        "inferadb_uptime_seconds",
-        "Time since server started in seconds"
-    );
+    describe_gauge!("inferadb_build_info", "Build information (version, commit, etc.)");
+    describe_gauge!("inferadb_uptime_seconds", "Time since server started in seconds");
 
     // Authorization query type metrics
     describe_counter!(
@@ -303,18 +234,12 @@ pub fn init_metrics_descriptions() {
     );
 
     // Audit logging metrics
-    describe_counter!(
-        "inferadb_audit_events_total",
-        "Total number of audit events logged"
-    );
+    describe_counter!("inferadb_audit_events_total", "Total number of audit events logged");
     describe_counter!(
         "inferadb_audit_events_sampled_total",
         "Total number of audit events sampled (dropped due to sampling)"
     );
-    describe_counter!(
-        "inferadb_audit_events_errors_total",
-        "Total number of audit logging errors"
-    );
+    describe_counter!("inferadb_audit_events_errors_total", "Total number of audit logging errors");
 }
 
 /// Record an authorization check
@@ -324,7 +249,7 @@ pub fn record_check(decision: &str, duration_seconds: f64) {
     match decision {
         "allow" => counter!("inferadb_checks_allowed_total").increment(1),
         "deny" => counter!("inferadb_checks_denied_total").increment(1),
-        _ => {}
+        _ => {},
     }
 
     histogram!("inferadb_check_duration_seconds").record(duration_seconds);
@@ -605,7 +530,7 @@ pub fn record_replication_conflict(resolution: &str) {
     match resolution {
         "local" => counter!("inferadb_replication_conflicts_resolved_local").increment(1),
         "remote" => counter!("inferadb_replication_conflicts_resolved_remote").increment(1),
-        _ => {}
+        _ => {},
     }
 }
 
@@ -701,8 +626,9 @@ pub fn record_audit_error(error_type: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Once;
+
+    use super::*;
 
     static INIT: Once = Once::new();
 

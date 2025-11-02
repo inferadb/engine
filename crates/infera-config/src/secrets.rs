@@ -2,21 +2,17 @@
 //!
 //! Handles loading secrets from environment variables, files, and cloud secret managers
 
-use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
-use thiserror::Error;
+use std::{collections::HashMap, fs, path::Path};
 
 #[cfg(feature = "aws-secrets")]
 use aws_config::BehaviorVersion;
 #[cfg(feature = "aws-secrets")]
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
-
-#[cfg(feature = "gcp-secrets")]
-use google_secretmanager1::{SecretManager, hyper, hyper_rustls, oauth2};
-
 #[cfg(feature = "azure-secrets")]
 use azure_security_keyvault::SecretClient;
+#[cfg(feature = "gcp-secrets")]
+use google_secretmanager1::{SecretManager, hyper, hyper_rustls, oauth2};
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SecretError {
@@ -62,9 +58,7 @@ pub struct FileSecretProvider {
 
 impl FileSecretProvider {
     pub fn new(base_path: impl Into<String>) -> Self {
-        Self {
-            base_path: base_path.into(),
-        }
+        Self { base_path: base_path.into() }
     }
 }
 
@@ -96,9 +90,7 @@ pub struct CompositeSecretProvider {
 
 impl CompositeSecretProvider {
     pub fn new() -> Self {
-        Self {
-            providers: Vec::new(),
-        }
+        Self { providers: Vec::new() }
     }
 
     pub fn add_provider(mut self, provider: Box<dyn SecretProvider>) -> Self {
@@ -135,9 +127,7 @@ pub struct MemorySecretProvider {
 
 impl MemorySecretProvider {
     pub fn new() -> Self {
-        Self {
-            secrets: HashMap::new(),
-        }
+        Self { secrets: HashMap::new() }
     }
 
     pub fn with_secret(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
@@ -154,10 +144,7 @@ impl Default for MemorySecretProvider {
 
 impl SecretProvider for MemorySecretProvider {
     fn get(&self, key: &str) -> Result<String, SecretError> {
-        self.secrets
-            .get(key)
-            .cloned()
-            .ok_or_else(|| SecretError::NotFound(key.to_string()))
+        self.secrets.get(key).cloned().ok_or_else(|| SecretError::NotFound(key.to_string()))
     }
 
     fn has(&self, key: &str) -> bool {
@@ -186,21 +173,15 @@ impl AwsSecretsProvider {
 
         let client = SecretsManagerClient::new(&config);
 
-        Ok(Self {
-            client,
-            region: region_str,
-        })
+        Ok(Self { client, region: region_str })
     }
 
     /// Get a secret from AWS Secrets Manager (async)
     pub async fn get_async(&self, key: &str) -> Result<String, SecretError> {
-        let result = self
-            .client
-            .get_secret_value()
-            .secret_id(key)
-            .send()
-            .await
-            .map_err(|e| SecretError::InvalidFormat(format!("AWS Secrets Manager error: {}", e)))?;
+        let result =
+            self.client.get_secret_value().secret_id(key).send().await.map_err(|e| {
+                SecretError::InvalidFormat(format!("AWS Secrets Manager error: {}", e))
+            })?;
 
         result
             .secret_string()
@@ -234,11 +215,9 @@ pub struct GcpSecretsProvider {
 impl GcpSecretsProvider {
     /// Create a new GCP Secret Manager provider
     pub async fn new(project_id: impl Into<String>) -> Result<Self, SecretError> {
-        let secret = oauth2::read_application_secret("credentials.json")
-            .await
-            .map_err(|e| {
-                SecretError::InvalidFormat(format!("Failed to read GCP credentials: {}", e))
-            })?;
+        let secret = oauth2::read_application_secret("credentials.json").await.map_err(|e| {
+            SecretError::InvalidFormat(format!("Failed to read GCP credentials: {}", e))
+        })?;
 
         let auth = oauth2::InstalledFlowAuthenticator::builder(
             secret,
@@ -260,26 +239,17 @@ impl GcpSecretsProvider {
             auth,
         );
 
-        Ok(Self {
-            hub,
-            project_id: project_id.into(),
-        })
+        Ok(Self { hub, project_id: project_id.into() })
     }
 
     /// Get a secret from GCP Secret Manager (async)
     pub async fn get_async(&self, key: &str) -> Result<String, SecretError> {
-        let name = format!(
-            "projects/{}/secrets/{}/versions/latest",
-            self.project_id, key
-        );
+        let name = format!("projects/{}/secrets/{}/versions/latest", self.project_id, key);
 
-        let (_, secret_version) = self
-            .hub
-            .projects()
-            .secrets_versions_access(&name)
-            .doit()
-            .await
-            .map_err(|e| SecretError::InvalidFormat(format!("GCP Secret Manager error: {}", e)))?;
+        let (_, secret_version) =
+            self.hub.projects().secrets_versions_access(&name).doit().await.map_err(|e| {
+                SecretError::InvalidFormat(format!("GCP Secret Manager error: {}", e))
+            })?;
 
         let payload = secret_version
             .payload
@@ -324,10 +294,7 @@ impl AzureSecretsProvider {
             SecretError::InvalidFormat(format!("Azure Key Vault client error: {}", e))
         })?;
 
-        Ok(Self {
-            client,
-            vault_url: vault_url_str,
-        })
+        Ok(Self { client, vault_url: vault_url_str })
     }
 
     /// Get a secret from Azure Key Vault (async)
@@ -431,10 +398,7 @@ mod tests {
 
         let input = "connection_string: postgres://user:${API_KEY}@localhost/db";
         let result = resolve_secrets(input, &provider).unwrap();
-        assert_eq!(
-            result,
-            "connection_string: postgres://user:secret123@localhost/db"
-        );
+        assert_eq!(result, "connection_string: postgres://user:secret123@localhost/db");
     }
 
     #[test]
@@ -445,10 +409,7 @@ mod tests {
 
         let input = "connection_string: postgres://${USER}:${PASS}@localhost/db";
         let result = resolve_secrets(input, &provider).unwrap();
-        assert_eq!(
-            result,
-            "connection_string: postgres://admin:secret123@localhost/db"
-        );
+        assert_eq!(result, "connection_string: postgres://admin:secret123@localhost/db");
     }
 
     #[test]

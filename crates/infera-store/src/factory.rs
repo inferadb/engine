@@ -3,13 +3,11 @@
 //! Provides a flexible way to instantiate different storage backends
 //! without exposing implementation details to consumers.
 
-use crate::memory::MemoryBackend;
-use crate::{RelationshipStore, Result, StoreError};
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 #[cfg(feature = "fdb")]
 use crate::foundationdb::FoundationDBBackend;
+use crate::{RelationshipStore, Result, StoreError, memory::MemoryBackend};
 
 /// Storage backend type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,29 +54,20 @@ pub struct StorageConfig {
 
 impl Default for StorageConfig {
     fn default() -> Self {
-        Self {
-            backend: BackendType::Memory,
-            connection_string: None,
-        }
+        Self { backend: BackendType::Memory, connection_string: None }
     }
 }
 
 impl StorageConfig {
     /// Create config for memory backend
     pub fn memory() -> Self {
-        Self {
-            backend: BackendType::Memory,
-            connection_string: None,
-        }
+        Self { backend: BackendType::Memory, connection_string: None }
     }
 
     /// Create config for FoundationDB backend
     #[cfg(feature = "fdb")]
     pub fn foundationdb(connection_string: Option<String>) -> Self {
-        Self {
-            backend: BackendType::FoundationDB,
-            connection_string,
-        }
+        Self { backend: BackendType::FoundationDB, connection_string }
     }
 }
 
@@ -98,7 +87,7 @@ impl StorageFactory {
                     FoundationDBBackend::new().await?
                 };
                 Ok(Arc::new(backend) as Arc<dyn RelationshipStore>)
-            }
+            },
         }
     }
 
@@ -108,10 +97,7 @@ impl StorageFactory {
         connection_string: Option<String>,
     ) -> Result<Arc<dyn RelationshipStore>> {
         let backend_type = BackendType::from_str(backend_str)?;
-        let config = StorageConfig {
-            backend: backend_type,
-            connection_string,
-        };
+        let config = StorageConfig { backend: backend_type, connection_string };
         Self::create(config).await
     }
 
@@ -127,33 +113,15 @@ mod tests {
 
     #[test]
     fn test_backend_type_from_str() {
-        assert_eq!(
-            BackendType::from_str("memory").unwrap(),
-            BackendType::Memory
-        );
-        assert_eq!(
-            BackendType::from_str("Memory").unwrap(),
-            BackendType::Memory
-        );
-        assert_eq!(
-            BackendType::from_str("MEMORY").unwrap(),
-            BackendType::Memory
-        );
+        assert_eq!(BackendType::from_str("memory").unwrap(), BackendType::Memory);
+        assert_eq!(BackendType::from_str("Memory").unwrap(), BackendType::Memory);
+        assert_eq!(BackendType::from_str("MEMORY").unwrap(), BackendType::Memory);
 
         #[cfg(feature = "fdb")]
         {
-            assert_eq!(
-                BackendType::from_str("foundationdb").unwrap(),
-                BackendType::FoundationDB
-            );
-            assert_eq!(
-                BackendType::from_str("fdb").unwrap(),
-                BackendType::FoundationDB
-            );
-            assert_eq!(
-                BackendType::from_str("FoundationDB").unwrap(),
-                BackendType::FoundationDB
-            );
+            assert_eq!(BackendType::from_str("foundationdb").unwrap(), BackendType::FoundationDB);
+            assert_eq!(BackendType::from_str("fdb").unwrap(), BackendType::FoundationDB);
+            assert_eq!(BackendType::from_str("FoundationDB").unwrap(), BackendType::FoundationDB);
         }
 
         assert!(BackendType::from_str("invalid").is_err());
@@ -210,11 +178,11 @@ mod tests {
             Ok(s) => {
                 let rev = s.get_revision().await.unwrap();
                 assert!(rev.0 >= 0);
-            }
+            },
             Err(e) => {
                 // Expected if FDB is not running
                 assert!(matches!(e, StoreError::Database(_)));
-            }
+            },
         }
     }
 }

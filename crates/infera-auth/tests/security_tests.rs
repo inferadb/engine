@@ -8,20 +8,20 @@
 //! - Issuer validation
 //! - Audience validation
 
-use infera_auth::error::AuthError;
-use infera_auth::jwt::JwtClaims;
-use infera_auth::replay::{InMemoryReplayProtection, ReplayProtection};
-use infera_auth::validation::{
-    validate_algorithm, validate_audience, validate_issuer, validate_timestamp_claims,
-};
-use infera_config::AuthConfig;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use infera_auth::{
+    error::AuthError,
+    jwt::JwtClaims,
+    replay::{InMemoryReplayProtection, ReplayProtection},
+    validation::{
+        validate_algorithm, validate_audience, validate_issuer, validate_timestamp_claims,
+    },
+};
+use infera_config::AuthConfig;
+
 fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
 fn future_timestamp(offset_secs: u64) -> u64 {
@@ -110,10 +110,7 @@ async fn test_replay_protection_second_use_fails() {
 
     // Second use (replay)
     let is_replay = replay.check_and_mark(jti, exp).await.unwrap();
-    assert!(
-        !is_replay,
-        "Second use should return false (replay detected)"
-    );
+    assert!(!is_replay, "Second use should return false (replay detected)");
 }
 
 #[tokio::test]
@@ -123,10 +120,7 @@ async fn test_replay_protection_expired_token_rejected() {
     let jti = "expired-jti-001";
 
     let result = replay.check_and_mark(jti, exp).await;
-    assert!(
-        matches!(result, Err(AuthError::TokenExpired)),
-        "Expired token should be rejected"
-    );
+    assert!(matches!(result, Err(AuthError::TokenExpired)), "Expired token should be rejected");
 }
 
 #[tokio::test]
@@ -226,30 +220,17 @@ fn test_expired_token_outside_skew_rejected() {
 fn test_nbf_within_skew_accepted() {
     let config = default_config();
     // nbf is 30 seconds in future, but clock skew is 60 seconds
-    let claims = test_claims(
-        future_timestamp(3600),
-        now(),
-        Some(future_timestamp(30)),
-        None,
-    );
+    let claims = test_claims(future_timestamp(3600), now(), Some(future_timestamp(30)), None);
 
     let result = validate_timestamp_claims(&claims, &config);
-    assert!(
-        result.is_ok(),
-        "Token with nbf within clock skew should be accepted"
-    );
+    assert!(result.is_ok(), "Token with nbf within clock skew should be accepted");
 }
 
 #[test]
 fn test_nbf_outside_skew_rejected() {
     let config = default_config();
     // nbf is 120 seconds in future, outside 60 second clock skew
-    let claims = test_claims(
-        future_timestamp(3600),
-        now(),
-        Some(future_timestamp(120)),
-        None,
-    );
+    let claims = test_claims(future_timestamp(3600), now(), Some(future_timestamp(120)), None);
 
     let result = validate_timestamp_claims(&claims, &config);
     assert!(
@@ -340,10 +321,7 @@ fn test_empty_issuer_rejected() {
     let config = default_config();
 
     let result = validate_issuer("", &config);
-    assert!(
-        matches!(result, Err(AuthError::InvalidIssuer(_))),
-        "Empty issuer should be rejected"
-    );
+    assert!(matches!(result, Err(AuthError::InvalidIssuer(_))), "Empty issuer should be rejected");
 }
 
 // ============================================================================
@@ -406,10 +384,7 @@ fn test_config_rejects_empty_algorithms() {
     config.accepted_algorithms = vec![];
 
     let result = config.validate();
-    assert!(
-        result.is_err(),
-        "Config with empty algorithms should be rejected"
-    );
+    assert!(result.is_err(), "Config with empty algorithms should be rejected");
 }
 
 #[test]
@@ -417,10 +392,7 @@ fn test_config_validates_with_asymmetric_algorithms() {
     let config = default_config();
 
     let result = config.validate();
-    assert!(
-        result.is_ok(),
-        "Config with only asymmetric algorithms should be valid"
-    );
+    assert!(result.is_ok(), "Config with only asymmetric algorithms should be valid");
 }
 
 // ============================================================================
@@ -430,12 +402,7 @@ fn test_config_validates_with_asymmetric_algorithms() {
 #[tokio::test]
 async fn test_full_validation_flow_success() {
     let config = default_config();
-    let claims = test_claims(
-        future_timestamp(3600),
-        now(),
-        None,
-        Some("unique-jti-100".into()),
-    );
+    let claims = test_claims(future_timestamp(3600), now(), None, Some("unique-jti-100".into()));
 
     // Validate timestamps
     assert!(validate_timestamp_claims(&claims, &config).is_ok());
@@ -458,12 +425,7 @@ async fn test_full_validation_flow_success() {
 #[tokio::test]
 async fn test_full_validation_flow_replay_detected() {
     let _config = default_config();
-    let claims = test_claims(
-        future_timestamp(3600),
-        now(),
-        None,
-        Some("unique-jti-101".into()),
-    );
+    let claims = test_claims(future_timestamp(3600), now(), None, Some("unique-jti-101".into()));
 
     let replay = InMemoryReplayProtection::new();
     let jti = claims.jti.as_ref().unwrap();

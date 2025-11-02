@@ -1,14 +1,15 @@
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, Mutex, OnceLock},
+};
+
 use axum::{Json, Router, extract::Path, routing::get};
 use ed25519_dalek::{SigningKey, VerifyingKey};
+use infera_auth::{jwks_cache::Jwk, jwt::JwtClaims};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use serde_json::json;
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex, OnceLock};
 use tokio::task::JoinHandle;
-
-use infera_auth::jwks_cache::Jwk;
-use infera_auth::jwt::JwtClaims;
 
 /// Thread-safe storage for test keypairs
 static TEST_KEYPAIRS: OnceLock<Arc<Mutex<HashMap<String, SigningKey>>>> = OnceLock::new();
@@ -97,11 +98,7 @@ pub fn generate_jwt_for_mock_jwks(tenant: &str, scopes: Vec<String>, exp_secs: i
         iat: now as u64,
         nbf: None,
         jti: Some(uuid::Uuid::new_v4().to_string()),
-        scope: if scopes.is_empty() {
-            String::new()
-        } else {
-            scopes.join(" ")
-        },
+        scope: if scopes.is_empty() { String::new() } else { scopes.join(" ") },
         tenant_id: None,
         vault: Some(uuid::Uuid::new_v4().to_string()),
         account: Some(uuid::Uuid::new_v4().to_string()),

@@ -1,14 +1,7 @@
 //! Policy evaluation engine
 
-use std::sync::Arc;
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
-use tracing::{debug, instrument};
-
-use crate::graph::{GraphContext, has_direct_relationship};
-use crate::ipl::{RelationDef, Schema};
-use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
-use crate::{EvalError, Result};
 use infera_cache::{AuthCache, CheckCacheKey};
 use infera_const::{DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT};
 use infera_store::RelationshipStore;
@@ -18,7 +11,15 @@ use infera_types::{
     ListSubjectsResponse, Relationship, Revision, UsersetNodeType, UsersetTree,
 };
 use infera_wasm::WasmHost;
+use tracing::{debug, instrument};
 use uuid::Uuid;
+
+use crate::{
+    EvalError, Result,
+    graph::{GraphContext, has_direct_relationship},
+    ipl::{RelationDef, Schema},
+    trace::{DecisionTrace, EvaluationNode, NodeType},
+};
 
 /// The main policy evaluator
 pub struct Evaluator {
@@ -38,13 +39,7 @@ impl Evaluator {
         wasm_host: Option<Arc<WasmHost>>,
         vault: Uuid,
     ) -> Self {
-        Self {
-            store,
-            schema,
-            wasm_host,
-            cache: Some(Arc::new(AuthCache::default())),
-            vault,
-        }
+        Self { store, schema, wasm_host, cache: Some(Arc::new(AuthCache::default())), vault }
     }
 
     pub fn new_with_cache(
@@ -54,13 +49,7 @@ impl Evaluator {
         cache: Option<Arc<AuthCache>>,
         vault: Uuid,
     ) -> Self {
-        Self {
-            store,
-            schema,
-            wasm_host,
-            cache,
-            vault,
-        }
+        Self { store, schema, wasm_host, cache, vault }
     }
 
     /// Check if a subject has permission on a resource
@@ -153,9 +142,7 @@ impl Evaluator {
                         request.permission.clone(),
                         revision,
                     );
-                    cache
-                        .put_check(cache_key, infera_cache::Decision::Deny)
-                        .await;
+                    cache.put_check(cache_key, infera_cache::Decision::Deny).await;
                 }
 
                 return Ok(decision);
@@ -174,11 +161,7 @@ impl Evaluator {
             .await?;
 
         // Determine decision from evaluation result
-        let decision = if root.result {
-            Decision::Allow
-        } else {
-            Decision::Deny
-        };
+        let decision = if root.result { Decision::Allow } else { Decision::Deny };
 
         // Cache the result if enabled
         if let Some(cache) = &self.cache {
@@ -292,11 +275,7 @@ impl Evaluator {
         let relations_evaluated = ctx.visited.len();
 
         // Determine decision from root node
-        let decision = if root.result {
-            Decision::Allow
-        } else {
-            Decision::Deny
-        };
+        let decision = if root.result { Decision::Allow } else { Decision::Deny };
 
         Ok(DecisionTrace {
             decision,
@@ -371,8 +350,7 @@ impl Evaluator {
         }
 
         // Evaluate the relation expression
-        self.build_expr_node(resource, &expr_opt.unwrap(), subject, ctx)
-            .await
+        self.build_expr_node(resource, &expr_opt.unwrap(), subject, ctx).await
     }
 
     /// Build evaluation node for a relation expression
@@ -406,17 +384,13 @@ impl Evaluator {
                     result: has_direct,
                     children: vec![],
                 })
-            }
+            },
 
             RelationExpr::RelationRef { relation } => {
-                self.build_evaluation_node(resource, relation, subject, ctx)
-                    .await
-            }
+                self.build_evaluation_node(resource, relation, subject, ctx).await
+            },
 
-            RelationExpr::ComputedUserset {
-                relation,
-                relationship,
-            } => {
+            RelationExpr::ComputedUserset { relation, relationship } => {
                 // Get objects from relationship and check if any have user in relation
                 let related_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
@@ -431,9 +405,7 @@ impl Evaluator {
                 let mut result = false;
 
                 for obj in related_objects {
-                    let child = self
-                        .build_evaluation_node(&obj, relation, subject, ctx)
-                        .await?;
+                    let child = self.build_evaluation_node(&obj, relation, subject, ctx).await?;
                     if child.result {
                         result = true;
                     }
@@ -448,12 +420,9 @@ impl Evaluator {
                     result,
                     children,
                 })
-            }
+            },
 
-            RelationExpr::RelatedObjectUserset {
-                relationship,
-                computed,
-            } => {
+            RelationExpr::RelatedObjectUserset { relationship, computed } => {
                 // Get objects from relationship and evaluate computed relation on each
                 let related_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
@@ -468,9 +437,7 @@ impl Evaluator {
                 let mut result = false;
 
                 for obj in related_objects {
-                    let child = self
-                        .build_evaluation_node(&obj, computed, subject, ctx)
-                        .await?;
+                    let child = self.build_evaluation_node(&obj, computed, subject, ctx).await?;
                     if child.result {
                         result = true;
                     }
@@ -485,7 +452,7 @@ impl Evaluator {
                     result,
                     children,
                 })
-            }
+            },
 
             RelationExpr::Union(exprs) => {
                 let mut children = vec![];
@@ -499,12 +466,8 @@ impl Evaluator {
                     children.push(child);
                 }
 
-                Ok(EvaluationNode {
-                    node_type: NodeType::Union,
-                    result,
-                    children,
-                })
-            }
+                Ok(EvaluationNode { node_type: NodeType::Union, result, children })
+            },
 
             RelationExpr::Intersection(exprs) => {
                 let mut children = vec![];
@@ -523,18 +486,12 @@ impl Evaluator {
                     result = false;
                 }
 
-                Ok(EvaluationNode {
-                    node_type: NodeType::Intersection,
-                    result,
-                    children,
-                })
-            }
+                Ok(EvaluationNode { node_type: NodeType::Intersection, result, children })
+            },
 
             RelationExpr::Exclusion { base, subtract } => {
                 let base_child = self.build_expr_node(resource, base, subject, ctx).await?;
-                let subtract_child = self
-                    .build_expr_node(resource, subtract, subject, ctx)
-                    .await?;
+                let subtract_child = self.build_expr_node(resource, subtract, subject, ctx).await?;
 
                 let result = base_child.result && !subtract_child.result;
 
@@ -543,7 +500,7 @@ impl Evaluator {
                     result,
                     children: vec![base_child, subtract_child],
                 })
-            }
+            },
 
             RelationExpr::WasmModule { module_name } => {
                 // Execute WASM module to determine access
@@ -569,9 +526,8 @@ impl Evaluator {
                     "Executing WASM module"
                 );
 
-                let result = wasm_host
-                    .execute(module_name, "check", exec_context)
-                    .map_err(|e| {
+                let result =
+                    wasm_host.execute(module_name, "check", exec_context).map_err(|e| {
                         debug!(module = %module_name, error = %e, "WASM execution failed");
                         EvalError::Evaluation(format!("WASM execution failed: {}", e))
                     })?;
@@ -584,13 +540,11 @@ impl Evaluator {
                 );
 
                 Ok(EvaluationNode {
-                    node_type: NodeType::WasmModule {
-                        module_name: module_name.clone(),
-                    },
+                    node_type: NodeType::WasmModule { module_name: module_name.clone() },
                     result,
                     children: vec![],
                 })
-            }
+            },
         }
     }
 
@@ -623,9 +577,7 @@ impl Evaluator {
         }
 
         // If there's an expression, evaluate it
-        let node = self
-            .build_expr_node(resource, expr.as_ref().unwrap(), subject, ctx)
-            .await?;
+        let node = self.build_expr_node(resource, expr.as_ref().unwrap(), subject, ctx).await?;
 
         Ok(node.result)
     }
@@ -670,8 +622,7 @@ impl Evaluator {
         // Build userset tree with actual users
         let tree = if relation_def.expr.is_none() {
             // Direct relation - collect direct users
-            self.build_direct_userset_tree(&request.resource, &request.relation, &mut ctx)
-                .await?
+            self.build_direct_userset_tree(&request.resource, &request.relation, &mut ctx).await?
         } else {
             self.build_userset_tree_with_users(
                 &request.resource,
@@ -685,18 +636,10 @@ impl Evaluator {
         let all_users = self.collect_users_from_tree(&tree);
 
         // Handle pagination
-        let (users, continuation_token, total_count) = self.paginate_users(
-            all_users,
-            request.limit,
-            request.continuation_token.as_deref(),
-        )?;
+        let (users, continuation_token, total_count) =
+            self.paginate_users(all_users, request.limit, request.continuation_token.as_deref())?;
 
-        Ok(ExpandResponse {
-            tree,
-            users,
-            continuation_token,
-            total_count,
-        })
+        Ok(ExpandResponse { tree, users, continuation_token, total_count })
     }
 
     /// Build a userset tree for a direct relation with actual users
@@ -713,9 +656,7 @@ impl Evaluator {
                 .await?;
 
         Ok(UsersetTree {
-            node_type: UsersetNodeType::Leaf {
-                users: users.into_iter().collect(),
-            },
+            node_type: UsersetNodeType::Leaf { users: users.into_iter().collect() },
             children: vec![],
         })
     }
@@ -728,8 +669,7 @@ impl Evaluator {
         expr: &crate::ipl::RelationExpr,
         ctx: &mut GraphContext,
     ) -> Result<UsersetTree> {
-        use crate::graph::get_users_with_relation;
-        use crate::ipl::RelationExpr;
+        use crate::{graph::get_users_with_relation, ipl::RelationExpr};
 
         match expr {
             RelationExpr::This => {
@@ -776,16 +716,10 @@ impl Evaluator {
                         .collect()
                 };
 
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::Leaf { users },
-                    children: vec![],
-                })
-            }
+                Ok(UsersetTree { node_type: UsersetNodeType::Leaf { users }, children: vec![] })
+            },
 
-            RelationExpr::ComputedUserset {
-                relation,
-                relationship,
-            } => {
+            RelationExpr::ComputedUserset { relation, relationship } => {
                 // Get users from computed relation on relationship
                 let related_objects = get_users_with_relation(
                     &*ctx.store,
@@ -830,17 +764,12 @@ impl Evaluator {
                 }
 
                 Ok(UsersetTree {
-                    node_type: UsersetNodeType::Leaf {
-                        users: all_users.into_iter().collect(),
-                    },
+                    node_type: UsersetNodeType::Leaf { users: all_users.into_iter().collect() },
                     children: vec![],
                 })
-            }
+            },
 
-            RelationExpr::RelatedObjectUserset {
-                relationship,
-                computed,
-            } => {
+            RelationExpr::RelatedObjectUserset { relationship, computed } => {
                 // Get objects from relationship
                 let related_objects = get_users_with_relation(
                     &*ctx.store,
@@ -885,30 +814,22 @@ impl Evaluator {
                 }
 
                 Ok(UsersetTree {
-                    node_type: UsersetNodeType::Leaf {
-                        users: all_users.into_iter().collect(),
-                    },
+                    node_type: UsersetNodeType::Leaf { users: all_users.into_iter().collect() },
                     children: vec![],
                 })
-            }
+            },
 
             RelationExpr::Union(exprs) => {
                 // Parallelize union branch expansion
                 let children = self.expand_branches_parallel(resource, exprs, ctx).await?;
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::Union,
-                    children,
-                })
-            }
+                Ok(UsersetTree { node_type: UsersetNodeType::Union, children })
+            },
 
             RelationExpr::Intersection(exprs) => {
                 // Parallelize intersection branch expansion
                 let children = self.expand_branches_parallel(resource, exprs, ctx).await?;
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::Intersection,
-                    children,
-                })
-            }
+                Ok(UsersetTree { node_type: UsersetNodeType::Intersection, children })
+            },
 
             RelationExpr::Exclusion { base, subtract } => {
                 // Parallelize exclusion: evaluate base and subtract concurrently
@@ -919,11 +840,8 @@ impl Evaluator {
                         ctx,
                     )
                     .await?;
-                Ok(UsersetTree {
-                    node_type: UsersetNodeType::Exclusion,
-                    children,
-                })
-            }
+                Ok(UsersetTree { node_type: UsersetNodeType::Exclusion, children })
+            },
 
             RelationExpr::WasmModule { module_name } => {
                 // WASM modules in expand are treated as computed usersets
@@ -934,7 +852,7 @@ impl Evaluator {
                     "WASM module '{}' cannot be used in expand - WASM modules require specific subject context",
                     module_name
                 )))
-            }
+            },
 
             RelationExpr::RelationRef { relation } => {
                 // Relation reference - recursively expand the referenced relation
@@ -954,9 +872,7 @@ impl Evaluator {
                     if let Some(cache) = &self.cache {
                         if let Some(cached_users) = cache.get_expand(key).await {
                             return Ok(UsersetTree {
-                                node_type: UsersetNodeType::Leaf {
-                                    users: cached_users,
-                                },
+                                node_type: UsersetNodeType::Leaf { users: cached_users },
                                 children: vec![],
                             });
                         }
@@ -993,9 +909,7 @@ impl Evaluator {
                     .into_iter()
                     .collect();
                     UsersetTree {
-                        node_type: UsersetNodeType::Leaf {
-                            users: users.clone(),
-                        },
+                        node_type: UsersetNodeType::Leaf { users: users.clone() },
                         children: vec![],
                     }
                 } else {
@@ -1018,7 +932,7 @@ impl Evaluator {
                 }
 
                 Ok(tree)
-            }
+            },
         }
     }
 
@@ -1050,8 +964,7 @@ impl Evaluator {
                 let expr = expr.clone();
 
                 async move {
-                    self.build_userset_tree_with_users(&resource, &expr, &mut branch_ctx)
-                        .await
+                    self.build_userset_tree_with_users(&resource, &expr, &mut branch_ctx).await
                 }
             })
             .collect();
@@ -1082,7 +995,7 @@ impl Evaluator {
         match &tree.node_type {
             UsersetNodeType::Leaf { users: leaf_users } => {
                 users.extend(leaf_users.iter().cloned());
-            }
+            },
             UsersetNodeType::Intersection => {
                 // For intersection, we need users present in ALL children
                 if tree.children.is_empty() {
@@ -1101,7 +1014,7 @@ impl Evaluator {
                 }
 
                 users.extend(intersection_users);
-            }
+            },
             UsersetNodeType::Exclusion => {
                 // For exclusion: users in base minus users in subtract
                 if tree.children.len() != 2 {
@@ -1116,13 +1029,13 @@ impl Evaluator {
 
                 base_users.retain(|u| !subtract_users.contains(u));
                 users.extend(base_users);
-            }
+            },
             _ => {
                 // For Union, This, ComputedUserset, RelatedObjectUserset: collect from all children
                 for child in &tree.children {
                     self.collect_users_recursive(child, users);
                 }
-            }
+            },
         }
     }
 
@@ -1161,11 +1074,7 @@ impl Evaluator {
             if all_users.len() > limit {
                 let next_offset = offset + limit;
                 let continuation_token = Some(self.encode_continuation_token(next_offset));
-                (
-                    all_users.into_iter().take(limit).collect(),
-                    continuation_token,
-                    Some(total_count),
-                )
+                (all_users.into_iter().take(limit).collect(), continuation_token, Some(total_count))
             } else {
                 (all_users, None, Some(total_count))
             }
@@ -1203,16 +1112,10 @@ impl Evaluator {
         let revision = self.store.get_revision(self.vault).await?;
 
         // List all resources of the given type
-        let all_resources = self
-            .store
-            .list_resources_by_type(self.vault, &request.resource_type, revision)
-            .await?;
+        let all_resources =
+            self.store.list_resources_by_type(self.vault, &request.resource_type, revision).await?;
 
-        debug!(
-            "Found {} total resources of type '{}'",
-            all_resources.len(),
-            request.resource_type
-        );
+        debug!("Found {} total resources of type '{}'", all_resources.len(), request.resource_type);
 
         // Decode cursor to get offset if provided
         let offset = if let Some(cursor) = &request.cursor {
@@ -1270,11 +1173,8 @@ impl Evaluator {
         // Determine if there are more results
         let has_more = checked < usize::MAX
             && accessible_resources.len() == request.limit.unwrap_or(usize::MAX);
-        let cursor = if has_more {
-            Some(self.encode_continuation_token(offset + checked))
-        } else {
-            None
-        };
+        let cursor =
+            if has_more { Some(self.encode_continuation_token(offset + checked)) } else { None };
 
         debug!(
             accessible_count = accessible_resources.len(),
@@ -1392,10 +1292,7 @@ impl Evaluator {
             )
             .await?;
 
-        debug!(
-            "Found {} total relationships matching filters",
-            all_relationships.len()
-        );
+        debug!("Found {} total relationships matching filters", all_relationships.len());
 
         // Decode cursor to get offset if provided
         let offset = if let Some(cursor) = &request.cursor {
@@ -1405,10 +1302,7 @@ impl Evaluator {
         };
 
         // Apply default and maximum limits
-        let limit = request
-            .limit
-            .unwrap_or(DEFAULT_LIST_LIMIT)
-            .min(MAX_LIST_LIMIT);
+        let limit = request.limit.unwrap_or(DEFAULT_LIST_LIMIT).min(MAX_LIST_LIMIT);
 
         // Apply pagination
         let relationships: Vec<Relationship> = all_relationships
@@ -1440,11 +1334,7 @@ impl Evaluator {
             "List relationships complete"
         );
 
-        Ok(ListRelationshipsResponse {
-            relationships,
-            cursor,
-            total_count: Some(returned_count),
-        })
+        Ok(ListRelationshipsResponse { relationships, cursor, total_count: Some(returned_count) })
     }
 
     /// List all subjects that have a specific relation to a resource
@@ -1485,11 +1375,8 @@ impl Evaluator {
             .find_type(resource_type)
             .ok_or_else(|| EvalError::Evaluation(format!("Unknown type: {}", resource_type)))?;
 
-        let relation_def = type_def
-            .relations
-            .iter()
-            .find(|r| r.name == request.relation)
-            .ok_or_else(|| {
+        let relation_def =
+            type_def.relations.iter().find(|r| r.name == request.relation).ok_or_else(|| {
                 EvalError::Evaluation(format!(
                     "Unknown relation: {}#{}",
                     resource_type, request.relation
@@ -1501,10 +1388,7 @@ impl Evaluator {
             .collect_subjects_for_relation(&request.resource, relation_def, resource_type, revision)
             .await?;
 
-        debug!(
-            "Found {} total subjects before filtering",
-            all_subjects.len()
-        );
+        debug!("Found {} total subjects before filtering", all_subjects.len());
 
         // Sort for stable pagination
         all_subjects.sort();
@@ -1512,11 +1396,7 @@ impl Evaluator {
         // Apply subject_type filter if provided
         if let Some(subject_type_filter) = &request.subject_type {
             all_subjects.retain(|subject| {
-                subject
-                    .split(':')
-                    .next()
-                    .map(|t| t == subject_type_filter)
-                    .unwrap_or(false)
+                subject.split(':').next().map(|t| t == subject_type_filter).unwrap_or(false)
             });
         }
 
@@ -1530,10 +1410,7 @@ impl Evaluator {
         };
 
         // Apply default and maximum limits
-        let limit = request
-            .limit
-            .unwrap_or(DEFAULT_LIST_LIMIT)
-            .min(MAX_LIST_LIMIT);
+        let limit = request.limit.unwrap_or(DEFAULT_LIST_LIMIT).min(MAX_LIST_LIMIT);
 
         // Apply pagination
         let subjects: Vec<String> = all_subjects.into_iter().skip(offset).take(limit).collect();
@@ -1555,11 +1432,7 @@ impl Evaluator {
             "List subjects complete"
         );
 
-        Ok(ListSubjectsResponse {
-            subjects,
-            cursor,
-            total_count: Some(returned_count),
-        })
+        Ok(ListSubjectsResponse { subjects, cursor, total_count: Some(returned_count) })
     }
 
     /// Collect subjects for a given relation (recursive helper)
@@ -1571,8 +1444,9 @@ impl Evaluator {
         revision: Revision,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + 'a>> {
         Box::pin(async move {
-            use crate::ipl::RelationExpr;
             use std::collections::HashSet;
+
+            use crate::ipl::RelationExpr;
 
             let mut subjects = HashSet::new();
 
@@ -1594,13 +1468,11 @@ impl Evaluator {
                         for tuple in tuples {
                             subjects.insert(tuple.subject);
                         }
-                    }
+                    },
 
-                    // Computed userset: follow relationship then get subjects from computed relation
-                    RelationExpr::ComputedUserset {
-                        ref relationship,
-                        ref relation,
-                    } => {
+                    // Computed userset: follow relationship then get subjects from computed
+                    // relation
+                    RelationExpr::ComputedUserset { ref relationship, ref relation } => {
                         // First, find related objects via the relationship
                         let related_tuples = self
                             .store
@@ -1640,7 +1512,7 @@ impl Evaluator {
                                 }
                             }
                         }
-                    }
+                    },
 
                     // Union: collect subjects from all branches
                     RelationExpr::Union(ref branches) => {
@@ -1656,7 +1528,7 @@ impl Evaluator {
                                 .await?;
                             subjects.extend(branch_subjects);
                         }
-                    }
+                    },
 
                     // Intersection: collect subjects that appear in all branches
                     RelationExpr::Intersection(ref branches) => {
@@ -1694,7 +1566,7 @@ impl Evaluator {
                         }
 
                         subjects.extend(intersection_subjects);
-                    }
+                    },
 
                     // Exclusion: subjects in base but not in subtract
                     RelationExpr::Exclusion { base, subtract } => {
@@ -1723,13 +1595,10 @@ impl Evaluator {
                             .collect();
 
                         subjects.extend(base_subjects.difference(&subtract_subjects).cloned());
-                    }
+                    },
 
                     // RelatedObjectUserset: find related objects, then their subjects
-                    RelationExpr::RelatedObjectUserset {
-                        ref relationship,
-                        ref computed,
-                    } => {
+                    RelationExpr::RelatedObjectUserset { ref relationship, ref computed } => {
                         // First, find all related objects via the relationship
                         let related_tuples = self
                             .store
@@ -1771,7 +1640,7 @@ impl Evaluator {
                                 }
                             }
                         }
-                    }
+                    },
 
                     // Relation reference: recursively get subjects from referenced relation
                     RelationExpr::RelationRef { ref relation } => {
@@ -1795,15 +1664,16 @@ impl Evaluator {
                             )
                             .await?;
                         subjects.extend(ref_subjects);
-                    }
+                    },
 
-                    // WASM module: Not supported for list_subjects (requires evaluation per subject)
+                    // WASM module: Not supported for list_subjects (requires evaluation per
+                    // subject)
                     RelationExpr::WasmModule { .. } => {
                         return Err(EvalError::Evaluation(
                             "WASM module-based relations are not supported for list_subjects"
                                 .to_string(),
                         ));
-                    }
+                    },
                 }
             } else {
                 // No expression means it's a direct relation (This)
@@ -1837,8 +1707,9 @@ impl Evaluator {
         revision: Revision,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + 'a>> {
         Box::pin(async move {
-            use crate::ipl::RelationExpr;
             use std::collections::HashSet;
+
+            use crate::ipl::RelationExpr;
 
             match expr {
                 RelationExpr::This => {
@@ -1854,12 +1725,9 @@ impl Evaluator {
                         )
                         .await?;
                     Ok(tuples.into_iter().map(|t| t.subject).collect())
-                }
+                },
 
-                RelationExpr::ComputedUserset {
-                    ref relationship,
-                    ref relation,
-                } => {
+                RelationExpr::ComputedUserset { ref relationship, ref relation } => {
                     let mut all_subjects = HashSet::new();
                     let related_tuples = self
                         .store
@@ -1879,10 +1747,8 @@ impl Evaluator {
                         if related_parts.len() == 2 {
                             let related_type = related_parts[0];
                             if let Some(related_type_def) = self.schema.find_type(related_type) {
-                                if let Some(computed_rel_def) = related_type_def
-                                    .relations
-                                    .iter()
-                                    .find(|r| r.name == *relation)
+                                if let Some(computed_rel_def) =
+                                    related_type_def.relations.iter().find(|r| r.name == *relation)
                                 {
                                     let related_subjects = self
                                         .collect_subjects_for_relation(
@@ -1899,7 +1765,7 @@ impl Evaluator {
                     }
 
                     Ok(all_subjects.into_iter().collect())
-                }
+                },
 
                 RelationExpr::RelationRef { ref relation } => {
                     let ref_rel_def = self
@@ -1920,7 +1786,7 @@ impl Evaluator {
                         revision,
                     )
                     .await
-                }
+                },
 
                 RelationExpr::Union(ref branches) => {
                     let mut all_subjects = HashSet::new();
@@ -1937,7 +1803,7 @@ impl Evaluator {
                         all_subjects.extend(branch_subjects);
                     }
                     Ok(all_subjects.into_iter().collect())
-                }
+                },
 
                 RelationExpr::Intersection(ref branches) => {
                     if branches.is_empty() {
@@ -1972,7 +1838,7 @@ impl Evaluator {
                     }
 
                     Ok(intersection_subjects.into_iter().collect())
-                }
+                },
 
                 RelationExpr::Exclusion { base, subtract } => {
                     let base_subjects: HashSet<String> = self
@@ -1999,16 +1865,10 @@ impl Evaluator {
                         .into_iter()
                         .collect();
 
-                    Ok(base_subjects
-                        .difference(&subtract_subjects)
-                        .cloned()
-                        .collect())
-                }
+                    Ok(base_subjects.difference(&subtract_subjects).cloned().collect())
+                },
 
-                RelationExpr::RelatedObjectUserset {
-                    ref relationship,
-                    ref computed,
-                } => {
+                RelationExpr::RelatedObjectUserset { ref relationship, ref computed } => {
                     let mut all_subjects = HashSet::new();
                     let related_tuples = self
                         .store
@@ -2028,10 +1888,8 @@ impl Evaluator {
                         if related_parts.len() == 2 {
                             let related_type = related_parts[0];
                             if let Some(related_type_def) = self.schema.find_type(related_type) {
-                                if let Some(computed_rel_def) = related_type_def
-                                    .relations
-                                    .iter()
-                                    .find(|r| r.name == *computed)
+                                if let Some(computed_rel_def) =
+                                    related_type_def.relations.iter().find(|r| r.name == *computed)
                                 {
                                     let related_subjects = self
                                         .collect_subjects_for_relation(
@@ -2048,7 +1906,7 @@ impl Evaluator {
                     }
 
                     Ok(all_subjects.into_iter().collect())
-                }
+                },
 
                 RelationExpr::WasmModule { .. } => Err(EvalError::Evaluation(
                     "WASM module-based relations are not supported for list_subjects".to_string(),
@@ -2065,10 +1923,11 @@ impl Evaluator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
+
+    use super::*;
+    use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
     fn create_simple_schema() -> Schema {
         Schema::new(vec![TypeDef::new(
@@ -2087,9 +1946,7 @@ mod tests {
                         "viewer".to_string(),
                         Some(RelationExpr::Union(vec![
                             RelationExpr::This,
-                            RelationExpr::RelationRef {
-                                relation: "owner".to_string(),
-                            },
+                            RelationExpr::RelationRef { relation: "owner".to_string() },
                         ])),
                     ),
                 ],
@@ -2103,18 +1960,14 @@ mod tests {
                         "editor".to_string(),
                         Some(RelationExpr::Union(vec![
                             RelationExpr::This,
-                            RelationExpr::RelationRef {
-                                relation: "owner".to_string(),
-                            },
+                            RelationExpr::RelationRef { relation: "owner".to_string() },
                         ])),
                     ),
                     RelationDef::new(
                         "viewer".to_string(),
                         Some(RelationExpr::Union(vec![
                             RelationExpr::This,
-                            RelationExpr::RelationRef {
-                                relation: "editor".to_string(),
-                            },
+                            RelationExpr::RelationRef { relation: "editor".to_string() },
                             RelationExpr::RelatedObjectUserset {
                                 relationship: "parent".to_string(),
                                 computed: "viewer".to_string(),
@@ -2364,10 +2217,7 @@ mod tests {
         };
 
         let response = evaluator.expand(request).await.unwrap();
-        assert!(matches!(
-            response.tree.node_type,
-            UsersetNodeType::Leaf { .. }
-        ));
+        assert!(matches!(response.tree.node_type, UsersetNodeType::Leaf { .. }));
         assert_eq!(response.tree.children.len(), 0);
         assert_eq!(response.users.len(), 0); // No relationships written yet
         assert!(response.continuation_token.is_none());
@@ -2403,12 +2253,8 @@ mod tests {
                 RelationDef::new(
                     "viewer".to_string(),
                     Some(RelationExpr::Intersection(vec![
-                        RelationExpr::RelationRef {
-                            relation: "reader".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "employee".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "reader".to_string() },
+                        RelationExpr::RelationRef { relation: "employee".to_string() },
                     ])),
                 ),
             ],
@@ -2708,12 +2554,8 @@ mod tests {
                 RelationDef::new(
                     "viewer".to_string(),
                     Some(RelationExpr::Union(vec![
-                        RelationExpr::RelationRef {
-                            relation: "reader".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "reader".to_string() },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
                     ])),
                 ),
             ],
@@ -2791,12 +2633,8 @@ mod tests {
                 RelationDef::new(
                     "can_publish".to_string(),
                     Some(RelationExpr::Intersection(vec![
-                        RelationExpr::RelationRef {
-                            relation: "approver".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "approver".to_string() },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
                     ])),
                 ),
             ],
@@ -2855,10 +2693,7 @@ mod tests {
         assert_eq!(response.users[0], "user:alice");
 
         // Verify tree structure is Intersection with Leaf children
-        assert!(matches!(
-            response.tree.node_type,
-            UsersetNodeType::Intersection
-        ));
+        assert!(matches!(response.tree.node_type, UsersetNodeType::Intersection));
         assert_eq!(response.tree.children.len(), 2);
     }
 
@@ -2941,10 +2776,7 @@ mod tests {
         assert!(!response.users.contains(&"user:bob".to_string()));
 
         // Verify tree structure is Exclusion with Leaf children
-        assert!(matches!(
-            response.tree.node_type,
-            UsersetNodeType::Exclusion
-        ));
+        assert!(matches!(response.tree.node_type, UsersetNodeType::Exclusion));
         assert_eq!(response.tree.children.len(), 2);
     }
 
@@ -2964,18 +2796,10 @@ mod tests {
                 RelationDef::new(
                     "any_access".to_string(),
                     Some(RelationExpr::Union(vec![
-                        RelationExpr::RelationRef {
-                            relation: "admin".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "viewer".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "contributor".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "admin".to_string() },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
+                        RelationExpr::RelationRef { relation: "viewer".to_string() },
+                        RelationExpr::RelationRef { relation: "contributor".to_string() },
                     ])),
                 ),
             ],
@@ -3126,12 +2950,8 @@ mod tests {
                 RelationDef::new(
                     "viewer".to_string(),
                     Some(RelationExpr::Intersection(vec![
-                        RelationExpr::RelationRef {
-                            relation: "reader".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "employee".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "reader".to_string() },
+                        RelationExpr::RelationRef { relation: "employee".to_string() },
                     ])),
                 ),
             ],
@@ -3181,12 +3001,8 @@ mod tests {
                 RelationDef::new(
                     "viewer".to_string(),
                     Some(RelationExpr::Intersection(vec![
-                        RelationExpr::RelationRef {
-                            relation: "reader".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "employee".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "reader".to_string() },
+                        RelationExpr::RelationRef { relation: "employee".to_string() },
                     ])),
                 ),
             ],
@@ -3759,16 +3575,8 @@ mod tests {
 
         // Should match both *_report files but not *_summary
         assert_eq!(response.resources.len(), 2);
-        assert!(
-            response
-                .resources
-                .contains(&"doc:project_abc_report".to_string())
-        );
-        assert!(
-            response
-                .resources
-                .contains(&"doc:project_xyz_report".to_string())
-        );
+        assert!(response.resources.contains(&"doc:project_abc_report".to_string()));
+        assert!(response.resources.contains(&"doc:project_xyz_report".to_string()));
     }
 
     // ============================================================================
@@ -4265,10 +4073,7 @@ mod tests {
         assert!(Evaluator::matches_glob_pattern("doc:readme", "doc:*"));
         assert!(Evaluator::matches_glob_pattern("doc:readme", "*"));
         assert!(Evaluator::matches_glob_pattern("doc:readme", "doc:read*"));
-        assert!(Evaluator::matches_glob_pattern(
-            "doc:readme_v2",
-            "doc:readme*"
-        ));
+        assert!(Evaluator::matches_glob_pattern("doc:readme_v2", "doc:readme*"));
 
         // Test question mark
         assert!(Evaluator::matches_glob_pattern("doc:file1", "doc:file?"));
@@ -4276,18 +4081,9 @@ mod tests {
         assert!(!Evaluator::matches_glob_pattern("doc:file10", "doc:file?"));
 
         // Test mixed patterns
-        assert!(Evaluator::matches_glob_pattern(
-            "project_abc_report",
-            "project_*_report"
-        ));
-        assert!(Evaluator::matches_glob_pattern(
-            "project_xyz_report",
-            "project_*_report"
-        ));
-        assert!(!Evaluator::matches_glob_pattern(
-            "project_abc_summary",
-            "project_*_report"
-        ));
+        assert!(Evaluator::matches_glob_pattern("project_abc_report", "project_*_report"));
+        assert!(Evaluator::matches_glob_pattern("project_xyz_report", "project_*_report"));
+        assert!(!Evaluator::matches_glob_pattern("project_abc_summary", "project_*_report"));
 
         // Test edge cases
         assert!(Evaluator::matches_glob_pattern("", ""));
@@ -4384,12 +4180,7 @@ mod tests {
         let response = evaluator.list_relationships(request).await.unwrap();
 
         assert_eq!(response.relationships.len(), 2);
-        assert!(
-            response
-                .relationships
-                .iter()
-                .all(|r| r.resource == "doc:readme")
-        );
+        assert!(response.relationships.iter().all(|r| r.resource == "doc:readme"));
     }
 
     #[tokio::test]
@@ -4477,12 +4268,7 @@ mod tests {
         let response = evaluator.list_relationships(request).await.unwrap();
 
         assert_eq!(response.relationships.len(), 2);
-        assert!(
-            response
-                .relationships
-                .iter()
-                .all(|r| r.subject == "user:alice")
-        );
+        assert!(response.relationships.iter().all(|r| r.subject == "user:alice"));
     }
 
     #[tokio::test]
@@ -4679,10 +4465,7 @@ mod tests {
             subject: "user:*".to_string(),
             vault: Uuid::nil(),
         };
-        store
-            .write(Uuid::nil(), vec![wildcard_relationship])
-            .await
-            .unwrap();
+        store.write(Uuid::nil(), vec![wildcard_relationship]).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
@@ -4723,10 +4506,7 @@ mod tests {
             subject: "user:*".to_string(),
             vault: Uuid::nil(),
         };
-        store
-            .write(Uuid::nil(), vec![wildcard_relationship])
-            .await
-            .unwrap();
+        store.write(Uuid::nil(), vec![wildcard_relationship]).await.unwrap();
 
         let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
 
@@ -4854,10 +4634,7 @@ mod tests {
             context: None,
             trace: None,
         };
-        assert_eq!(
-            evaluator.check(alice_public).await.unwrap(),
-            Decision::Allow
-        );
+        assert_eq!(evaluator.check(alice_public).await.unwrap(), Decision::Allow);
 
         let alice_private = EvaluateRequest {
             subject: "user:alice".to_string(),
@@ -4866,10 +4643,7 @@ mod tests {
             context: None,
             trace: None,
         };
-        assert_eq!(
-            evaluator.check(alice_private).await.unwrap(),
-            Decision::Allow
-        );
+        assert_eq!(evaluator.check(alice_private).await.unwrap(), Decision::Allow);
 
         // Bob can only read public
         let bob_public = EvaluateRequest {

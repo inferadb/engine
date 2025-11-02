@@ -33,11 +33,7 @@ pub struct TracingConfig {
 
 impl Default for TracingConfig {
     fn default() -> Self {
-        Self {
-            service_name: "inferadb".to_string(),
-            otlp_endpoint: None,
-            sample_rate: 1.0,
-        }
+        Self { service_name: "inferadb".to_string(), otlp_endpoint: None, sample_rate: 1.0 }
     }
 }
 
@@ -55,11 +51,7 @@ pub fn init_tracing_with_config(config: TracingConfig) -> Result<()> {
     if let Some(endpoint) = config.otlp_endpoint {
         let tracer = opentelemetry_otlp::new_pipeline()
             .tracing()
-            .with_exporter(
-                opentelemetry_otlp::new_exporter()
-                    .tonic()
-                    .with_endpoint(endpoint),
-            )
+            .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(endpoint))
             .with_trace_config(
                 opentelemetry_sdk::trace::Config::default()
                     .with_sampler(Sampler::TraceIdRatioBased(config.sample_rate))
@@ -126,8 +118,9 @@ pub fn init() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Once;
+
+    use super::*;
 
     static INIT: Once = Once::new();
 
@@ -154,10 +147,7 @@ mod tests {
             sample_rate: 0.5,
         };
         assert_eq!(custom_config.service_name, "test-service");
-        assert_eq!(
-            custom_config.otlp_endpoint,
-            Some("http://localhost:4317".to_string())
-        );
+        assert_eq!(custom_config.otlp_endpoint, Some("http://localhost:4317".to_string()));
         assert_eq!(custom_config.sample_rate, 0.5);
     }
 }

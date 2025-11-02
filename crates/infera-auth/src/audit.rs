@@ -96,17 +96,12 @@ pub fn log_audit_event(event: AuditEvent) {
         Err(e) => {
             tracing::error!(error = %e, "Failed to serialize audit event");
             return;
-        }
+        },
     };
 
     // Log at appropriate level based on event type
     match &event {
-        AuditEvent::AuthenticationSuccess {
-            tenant_id,
-            method,
-            timestamp,
-            ip_address,
-        } => {
+        AuditEvent::AuthenticationSuccess { tenant_id, method, timestamp, ip_address } => {
             tracing::info!(
                 audit_event = %json,
                 tenant_id = %tenant_id,
@@ -115,14 +110,8 @@ pub fn log_audit_event(event: AuditEvent) {
                 ip_address = ?ip_address,
                 "Authentication succeeded"
             );
-        }
-        AuditEvent::AuthenticationFailure {
-            tenant_id,
-            method,
-            error,
-            timestamp,
-            ip_address,
-        } => {
+        },
+        AuditEvent::AuthenticationFailure { tenant_id, method, error, timestamp, ip_address } => {
             tracing::warn!(
                 audit_event = %json,
                 tenant_id = %tenant_id,
@@ -132,12 +121,8 @@ pub fn log_audit_event(event: AuditEvent) {
                 ip_address = ?ip_address,
                 "Authentication failed"
             );
-        }
-        AuditEvent::ScopeViolation {
-            tenant_id,
-            required_scope,
-            timestamp,
-        } => {
+        },
+        AuditEvent::ScopeViolation { tenant_id, required_scope, timestamp } => {
             tracing::warn!(
                 audit_event = %json,
                 tenant_id = %tenant_id,
@@ -145,12 +130,8 @@ pub fn log_audit_event(event: AuditEvent) {
                 timestamp = %timestamp,
                 "Scope violation"
             );
-        }
-        AuditEvent::TenantIsolationViolation {
-            tenant_id,
-            attempted_tenant,
-            timestamp,
-        } => {
+        },
+        AuditEvent::TenantIsolationViolation { tenant_id, attempted_tenant, timestamp } => {
             tracing::warn!(
                 audit_event = %json,
                 tenant_id = %tenant_id,
@@ -158,7 +139,7 @@ pub fn log_audit_event(event: AuditEvent) {
                 timestamp = %timestamp,
                 "Tenant isolation violation"
             );
-        }
+        },
     }
 }
 

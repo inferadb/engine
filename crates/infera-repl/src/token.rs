@@ -2,9 +2,11 @@
 //!
 //! Implements "zookie"-style revision tokens for snapshot consistency
 
-use crate::{ReplError, Result};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+
+use crate::{ReplError, Result};
 
 /// A zookie-style revision token for snapshot consistency
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -23,11 +25,7 @@ impl RevisionToken {
         let mut vector_clock = HashMap::new();
         vector_clock.insert(node_id.clone(), revision);
 
-        Self {
-            node_id,
-            revision,
-            vector_clock,
-        }
+        Self { node_id, revision, vector_clock }
     }
 
     /// Create a revision token with a specific vector clock
@@ -36,11 +34,7 @@ impl RevisionToken {
         revision: u64,
         vector_clock: HashMap<String, u64>,
     ) -> Self {
-        Self {
-            node_id,
-            revision,
-            vector_clock,
-        }
+        Self { node_id, revision, vector_clock }
     }
 
     /// Check if this token is causally after another token

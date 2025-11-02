@@ -57,15 +57,19 @@
 //! - Key validation ensures proper JWK structure
 //! - Network timeouts prevent indefinite hangs (10 second default)
 
-use crate::error::AuthError;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use base64::Engine;
 use jsonwebtoken::{Algorithm, DecodingKey};
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
+
+use crate::error::AuthError;
 
 /// JSON Web Key as defined in RFC 7517
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -112,9 +116,8 @@ impl Jwk {
                 })?;
 
                 // Decode base64url public key (raw 32 bytes)
-                let key_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
-                    .decode(x)
-                    .map_err(|e| {
+                let key_bytes =
+                    base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(x).map_err(|e| {
                         AuthError::JwksError(format!("Failed to decode EdDSA public key: {}", e))
                     })?;
 
@@ -136,7 +139,7 @@ impl Jwk {
                 DecodingKey::from_ed_pem(pem.as_bytes()).map_err(|e| {
                     AuthError::JwksError(format!("Failed to create EdDSA decoding key: {}", e))
                 })
-            }
+            },
             "RSA" => {
                 // RS256 key
                 let n = self
@@ -151,11 +154,10 @@ impl Jwk {
                 DecodingKey::from_rsa_components(n, e).map_err(|e| {
                     AuthError::JwksError(format!("Failed to create RSA decoding key: {}", e))
                 })
-            }
-            _ => Err(AuthError::UnsupportedAlgorithm(format!(
-                "Unsupported key type: {}",
-                self.kty
-            ))),
+            },
+            _ => {
+                Err(AuthError::UnsupportedAlgorithm(format!("Unsupported key type: {}", self.kty)))
+            },
         }
     }
 
@@ -263,9 +265,7 @@ impl JwksCache {
 
     /// Get JWKS for a tenant (with caching and thundering-herd protection)
     pub async fn get_jwks(&self, tenant_id: &str) -> Result<Vec<Jwk>, AuthError> {
-        let key = JwksCacheKey {
-            tenant_id: tenant_id.to_string(),
-        };
+        let key = JwksCacheKey { tenant_id: tenant_id.to_string() };
 
         // Check cache first
         if let Some(cached) = self.cache.get(&key).await {
@@ -284,30 +284,22 @@ impl JwksCache {
             tokio::spawn(async move {
                 match Self::fetch_jwks(&http_client, &base_url, &tenant_id_clone).await {
                     Ok(keys) => {
-                        let cached = CachedJwks {
-                            keys,
-                            fetched_at: Instant::now(),
-                        };
+                        let cached = CachedJwks { keys, fetched_at: Instant::now() };
                         cache_clone
-                            .insert(
-                                JwksCacheKey {
-                                    tenant_id: tenant_id_clone.clone(),
-                                },
-                                cached,
-                            )
+                            .insert(JwksCacheKey { tenant_id: tenant_id_clone.clone() }, cached)
                             .await;
                         tracing::debug!(
                             tenant_id = %tenant_id_clone,
                             "Background JWKS refresh completed successfully"
                         );
-                    }
+                    },
                     Err(e) => {
                         tracing::warn!(
                             tenant_id = %tenant_id_clone,
                             error = %e,
                             "Background JWKS refresh failed, continuing with stale cache"
                         );
-                    }
+                    },
                 }
             });
 
@@ -349,10 +341,7 @@ impl JwksCache {
         notify.notify_waiters();
 
         let keys = result?;
-        let cached = CachedJwks {
-            keys: keys.clone(),
-            fetched_at: Instant::now(),
-        };
+        let cached = CachedJwks { keys: keys.clone(), fetched_at: Instant::now() };
 
         self.cache.insert(key, cached).await;
         Ok(keys)
@@ -363,10 +352,7 @@ impl JwksCache {
         let keys = self.get_jwks(tenant_id).await?;
 
         keys.into_iter().find(|k| k.kid == kid).ok_or_else(|| {
-            AuthError::JwksError(format!(
-                "Key '{}' not found in tenant '{}' JWKS",
-                kid, tenant_id
-            ))
+            AuthError::JwksError(format!("Key '{}' not found in tenant '{}' JWKS", kid, tenant_id))
         })
     }
 
@@ -430,15 +416,9 @@ mod tests {
 
     #[test]
     fn test_jwks_cache_key_equality() {
-        let key1 = JwksCacheKey {
-            tenant_id: "acme".into(),
-        };
-        let key2 = JwksCacheKey {
-            tenant_id: "acme".into(),
-        };
-        let key3 = JwksCacheKey {
-            tenant_id: "other".into(),
-        };
+        let key1 = JwksCacheKey { tenant_id: "acme".into() };
+        let key2 = JwksCacheKey { tenant_id: "acme".into() };
+        let key3 = JwksCacheKey { tenant_id: "other".into() };
 
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);

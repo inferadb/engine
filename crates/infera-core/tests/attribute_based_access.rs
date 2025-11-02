@@ -4,10 +4,11 @@
 //! ABAC allows fine-grained access control based on attributes of the subject, resource,
 //! and environment context.
 
+use std::sync::Arc;
+
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_types::Decision;
 use infera_wasm::WasmHost;
-use std::sync::Arc;
 
 mod common;
 use common::TestFixture;
@@ -19,9 +20,7 @@ fn create_abac_schema() -> Schema {
         "document".to_string(),
         vec![RelationDef::new(
             "viewer".to_string(),
-            Some(RelationExpr::WasmModule {
-                module_name: "attribute_policy".to_string(),
-            }),
+            Some(RelationExpr::WasmModule { module_name: "attribute_policy".to_string() }),
         )],
     )])
 }
@@ -123,9 +122,7 @@ async fn test_clearance_based_access() {
 
     // Document with classification level
     // The WASM policy checks if user's clearance >= document classification
-    fixture
-        .assert_allowed("user:alice", "document:secret_file", "viewer")
-        .await;
+    fixture.assert_allowed("user:alice", "document:secret_file", "viewer").await;
 }
 
 #[tokio::test]
@@ -139,9 +136,7 @@ async fn test_time_based_access() {
     let fixture = TestFixture::new_with_wasm(schema, wasm_host);
 
     // Access allowed during business hours
-    fixture
-        .assert_allowed("user:bob", "document:report", "viewer")
-        .await;
+    fixture.assert_allowed("user:bob", "document:report", "viewer").await;
 }
 
 #[tokio::test]
@@ -155,9 +150,7 @@ async fn test_ip_based_access() {
     let fixture = TestFixture::new_with_wasm(schema, wasm_host);
 
     // Access from allowed IP range
-    fixture
-        .assert_allowed("user:charlie", "document:internal", "viewer")
-        .await;
+    fixture.assert_allowed("user:charlie", "document:internal", "viewer").await;
 }
 
 #[tokio::test]
@@ -171,9 +164,7 @@ async fn test_policy_denies_access() {
     let fixture = TestFixture::new_with_wasm(schema, wasm_host);
 
     // Policy explicitly denies
-    fixture
-        .assert_denied("user:eve", "document:classified", "viewer")
-        .await;
+    fixture.assert_denied("user:eve", "document:classified", "viewer").await;
 }
 
 #[tokio::test]
@@ -181,18 +172,13 @@ async fn test_multi_attribute_policy() {
     let schema = create_abac_schema();
     let wasm_host = Arc::new(WasmHost::new().expect("Failed to create WASM host"));
     wasm_host
-        .load_module(
-            "attribute_policy".to_string(),
-            &multi_attribute_policy_wasm(),
-        )
+        .load_module("attribute_policy".to_string(), &multi_attribute_policy_wasm())
         .expect("Failed to load WASM module");
 
     let fixture = TestFixture::new_with_wasm(schema, wasm_host);
 
     // Complex policy checking multiple attributes
-    fixture
-        .assert_allowed("user:frank", "document:project_plan", "viewer")
-        .await;
+    fixture.assert_allowed("user:frank", "document:project_plan", "viewer").await;
 }
 
 #[tokio::test]
@@ -228,9 +214,7 @@ async fn test_wasm_with_context_attributes() {
     //   "department": "engineering",
     //   "time": "2024-01-15T14:30:00Z"
     // }
-    fixture
-        .assert_allowed("user:admin", "document:sensitive", "viewer")
-        .await;
+    fixture.assert_allowed("user:admin", "document:sensitive", "viewer").await;
 }
 
 #[tokio::test]
@@ -244,15 +228,9 @@ async fn test_abac_with_multiple_users() {
     let fixture = TestFixture::new_with_wasm(schema, wasm_host);
 
     // Multiple users with different clearance levels
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "viewer")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "document:doc1", "viewer")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "document:doc1", "viewer")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "viewer").await;
+    fixture.assert_allowed("user:bob", "document:doc1", "viewer").await;
+    fixture.assert_allowed("user:charlie", "document:doc1", "viewer").await;
 }
 
 #[tokio::test]
@@ -268,9 +246,7 @@ async fn test_abac_policy_switching() {
 
     let fixture1 = TestFixture::new_with_wasm(schema.clone(), wasm_host.clone());
 
-    fixture1
-        .assert_allowed("user:alice", "document:doc1", "viewer")
-        .await;
+    fixture1.assert_allowed("user:alice", "document:doc1", "viewer").await;
 
     // Create a new evaluator with deny policy
     // Note: We can't hot-swap policies in the same evaluator due to caching
@@ -281,7 +257,5 @@ async fn test_abac_policy_switching() {
 
     let fixture2 = TestFixture::new_with_wasm(schema, wasm_host2);
 
-    fixture2
-        .assert_denied("user:alice", "document:doc1", "viewer")
-        .await;
+    fixture2.assert_denied("user:alice", "document:doc1", "viewer").await;
 }

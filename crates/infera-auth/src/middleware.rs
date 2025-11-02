@@ -6,10 +6,8 @@
 //! - Creates authenticated request contexts
 //! - Enforces scope-based authorization
 
-use crate::context::{AuthContext, AuthMethod};
-use crate::error::AuthError;
-use crate::jwks_cache::JwksCache;
-use crate::jwt::verify_with_jwks;
+use std::sync::Arc;
+
 use axum::{
     body::Body,
     extract::Request,
@@ -17,7 +15,13 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use std::sync::Arc;
+
+use crate::{
+    context::{AuthContext, AuthMethod},
+    error::AuthError,
+    jwks_cache::JwksCache,
+    jwt::verify_with_jwks,
+};
 
 /// Helper to create unauthorized response with WWW-Authenticate header
 fn unauthorized_response(message: &str) -> Response {
@@ -83,9 +87,7 @@ pub fn extract_bearer_token(headers: &HeaderMap) -> Result<String, AuthError> {
 
     // Ensure token is not empty
     if token.is_empty() {
-        return Err(AuthError::InvalidTokenFormat(
-            "Bearer token is empty".into(),
-        ));
+        return Err(AuthError::InvalidTokenFormat("Bearer token is empty".into()));
     }
 
     Ok(token.to_string())
@@ -103,10 +105,7 @@ pub fn extract_bearer_token(headers: &HeaderMap) -> Result<String, AuthError> {
 /// Returns `AuthError::InvalidScope` if the scope is not present
 pub fn require_scope(auth: &AuthContext, scope: &str) -> Result<(), AuthError> {
     if !auth.has_scope(scope) {
-        return Err(AuthError::InvalidScope(format!(
-            "Required scope '{}' not present",
-            scope
-        )));
+        return Err(AuthError::InvalidScope(format!("Required scope '{}' not present", scope)));
     }
     Ok(())
 }
@@ -128,10 +127,7 @@ pub fn require_any_scope(auth: &AuthContext, scopes: &[&str]) -> Result<(), Auth
         }
     }
 
-    Err(AuthError::InvalidScope(format!(
-        "Required one of scopes: {}",
-        scopes.join(", ")
-    )))
+    Err(AuthError::InvalidScope(format!("Required one of scopes: {}", scopes.join(", "))))
 }
 
 /// Axum middleware for JWT authentication
@@ -168,21 +164,19 @@ pub async fn auth_middleware(
         .map_err(|e| unauthorized_response(&e.to_string()))?;
 
     // Verify JWT with JWKS and get validated claims
-    let claims = verify_with_jwks(&token, &jwks_cache)
-        .await
-        .map_err(|e| match e {
-            AuthError::TokenExpired => unauthorized_response("Token expired"),
-            AuthError::TokenNotYetValid => unauthorized_response("Token not yet valid"),
-            AuthError::InvalidSignature => unauthorized_response("Invalid signature"),
-            AuthError::InvalidTokenFormat(ref msg) => unauthorized_response(msg),
-            AuthError::InvalidAudience(msg) => {
-                (StatusCode::FORBIDDEN, format!("Invalid audience: {}", msg)).into_response()
-            }
-            AuthError::InvalidScope(msg) => {
-                (StatusCode::FORBIDDEN, format!("Invalid scope: {}", msg)).into_response()
-            }
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-        })?;
+    let claims = verify_with_jwks(&token, &jwks_cache).await.map_err(|e| match e {
+        AuthError::TokenExpired => unauthorized_response("Token expired"),
+        AuthError::TokenNotYetValid => unauthorized_response("Token not yet valid"),
+        AuthError::InvalidSignature => unauthorized_response("Invalid signature"),
+        AuthError::InvalidTokenFormat(ref msg) => unauthorized_response(msg),
+        AuthError::InvalidAudience(msg) => {
+            (StatusCode::FORBIDDEN, format!("Invalid audience: {}", msg)).into_response()
+        },
+        AuthError::InvalidScope(msg) => {
+            (StatusCode::FORBIDDEN, format!("Invalid scope: {}", msg)).into_response()
+        },
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    })?;
 
     // Extract tenant ID from claims
     let tenant_id = claims
@@ -191,41 +185,21 @@ pub async fn auth_middleware(
 
     // Extract vault and account UUIDs from claims
     let vault_str = claims.extract_vault().ok_or_else(|| {
-        (
-            StatusCode::UNAUTHORIZED,
-            "Missing vault claim in JWT".to_string(),
-        )
-            .into_response()
+        (StatusCode::UNAUTHORIZED, "Missing vault claim in JWT".to_string()).into_response()
     })?;
     let vault = uuid::Uuid::parse_str(&vault_str).map_err(|_| {
-        (
-            StatusCode::UNAUTHORIZED,
-            "Invalid vault UUID format".to_string(),
-        )
-            .into_response()
+        (StatusCode::UNAUTHORIZED, "Invalid vault UUID format".to_string()).into_response()
     })?;
 
     let account_str = claims.extract_account().ok_or_else(|| {
-        (
-            StatusCode::UNAUTHORIZED,
-            "Missing account claim in JWT".to_string(),
-        )
-            .into_response()
+        (StatusCode::UNAUTHORIZED, "Missing account claim in JWT".to_string()).into_response()
     })?;
     let account = uuid::Uuid::parse_str(&account_str).map_err(|_| {
-        (
-            StatusCode::UNAUTHORIZED,
-            "Invalid account UUID format".to_string(),
-        )
-            .into_response()
+        (StatusCode::UNAUTHORIZED, "Invalid account UUID format".to_string()).into_response()
     })?;
 
     // Parse scopes from space-separated string
-    let scopes: Vec<String> = claims
-        .scope
-        .split_whitespace()
-        .map(|s| s.to_string())
-        .collect();
+    let scopes: Vec<String> = claims.scope.split_whitespace().map(|s| s.to_string()).collect();
 
     // Create AuthContext
     let auth_context = AuthContext {
@@ -338,18 +312,11 @@ pub async fn vault_validation_middleware(
     next: Next,
 ) -> Result<Response, Response> {
     // Extract AuthContext from request extensions
-    let auth = request
-        .extensions()
-        .get::<AuthContext>()
-        .cloned()
-        .ok_or_else(|| {
-            tracing::error!("AuthContext missing from request extensions");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Authentication context not found".to_string(),
-            )
-                .into_response()
-        })?;
+    let auth = request.extensions().get::<AuthContext>().cloned().ok_or_else(|| {
+        tracing::error!("AuthContext missing from request extensions");
+        (StatusCode::INTERNAL_SERVER_ERROR, "Authentication context not found".to_string())
+            .into_response()
+    })?;
 
     // Validate vault access
     validate_vault_access(&auth).map_err(|e| {
@@ -420,9 +387,10 @@ pub async fn optional_auth_middleware(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum::http::HeaderMap;
     use chrono::{Duration, Utc};
+
+    use super::*;
 
     fn create_test_auth_context(scopes: Vec<&str>) -> AuthContext {
         AuthContext {
@@ -451,10 +419,7 @@ mod tests {
     #[test]
     fn test_extract_bearer_token_with_whitespace() {
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "authorization",
-            "Bearer   token-with-spaces  ".parse().unwrap(),
-        );
+        headers.insert("authorization", "Bearer   token-with-spaces  ".parse().unwrap());
 
         let token = extract_bearer_token(&headers).unwrap();
         assert_eq!(token, "token-with-spaces");
@@ -590,7 +555,7 @@ mod tests {
         match result {
             Err(AuthError::InvalidTokenFormat(msg)) => {
                 assert!(msg.contains("vault") || msg.contains("nil"));
-            }
+            },
             _ => panic!("Expected InvalidTokenFormat error"),
         }
     }

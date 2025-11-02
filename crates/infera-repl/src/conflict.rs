@@ -4,10 +4,12 @@
 //! When the same relationship is modified concurrently in different regions, conflicts must be
 //! detected and resolved deterministically across all replicas.
 
-use crate::{Change, Operation, ReplError};
+use std::cmp::Ordering;
+
 use infera_types::Relationship;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+
+use crate::{Change, Operation, ReplError};
 
 /// Represents a conflict between two concurrent changes
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,11 +24,7 @@ pub struct Conflict {
 
 impl Conflict {
     pub fn new(local: Change, remote: Change) -> Self {
-        Self {
-            relationship: local.relationship.clone(),
-            local,
-            remote,
-        }
+        Self { relationship: local.relationship.clone(), local, remote }
     }
 }
 
@@ -74,10 +72,7 @@ pub struct ConflictResolver {
 impl ConflictResolver {
     /// Create a new resolver with the given strategy
     pub fn new(strategy: ConflictResolutionStrategy) -> Self {
-        Self {
-            strategy,
-            region_priorities: Vec::new(),
-        }
+        Self { strategy, region_priorities: Vec::new() }
     }
 
     /// Set region priorities for SourcePriority strategy
@@ -112,7 +107,7 @@ impl ConflictResolver {
             ConflictResolutionStrategy::Custom => {
                 // Custom resolution must be implemented by caller
                 Err(ReplError::Conflict)
-            }
+            },
         }
     }
 
@@ -124,25 +119,17 @@ impl ConflictResolver {
             Ordering::Equal => {
                 // Timestamps equal, use source node as tiebreaker
                 self.resolve_by_source_node(conflict)
-            }
+            },
         }
     }
 
     /// Source priority resolution
     fn resolve_source_priority(&self, conflict: &Conflict) -> Result<Resolution, ReplError> {
-        let local_source = conflict
-            .local
-            .metadata
-            .as_ref()
-            .and_then(|m| m.source_node.as_deref())
-            .unwrap_or("");
+        let local_source =
+            conflict.local.metadata.as_ref().and_then(|m| m.source_node.as_deref()).unwrap_or("");
 
-        let remote_source = conflict
-            .remote
-            .metadata
-            .as_ref()
-            .and_then(|m| m.source_node.as_deref())
-            .unwrap_or("");
+        let remote_source =
+            conflict.remote.metadata.as_ref().and_then(|m| m.source_node.as_deref()).unwrap_or("");
 
         let local_priority = self.get_region_priority(local_source);
         let remote_priority = self.get_region_priority(remote_source);
@@ -153,7 +140,7 @@ impl ConflictResolver {
             Ordering::Equal => {
                 // Same priority, fall back to LWW
                 self.resolve_lww(conflict)
-            }
+            },
         }
     }
 
@@ -165,25 +152,17 @@ impl ConflictResolver {
             _ => {
                 // Both same operation, fall back to LWW
                 self.resolve_lww(conflict)
-            }
+            },
         }
     }
 
     /// Resolve conflict by source node (lexicographic comparison)
     fn resolve_by_source_node(&self, conflict: &Conflict) -> Result<Resolution, ReplError> {
-        let local_source = conflict
-            .local
-            .metadata
-            .as_ref()
-            .and_then(|m| m.source_node.as_deref())
-            .unwrap_or("");
+        let local_source =
+            conflict.local.metadata.as_ref().and_then(|m| m.source_node.as_deref()).unwrap_or("");
 
-        let remote_source = conflict
-            .remote
-            .metadata
-            .as_ref()
-            .and_then(|m| m.source_node.as_deref())
-            .unwrap_or("");
+        let remote_source =
+            conflict.remote.metadata.as_ref().and_then(|m| m.source_node.as_deref()).unwrap_or("");
 
         match local_source.cmp(remote_source) {
             Ordering::Greater => Ok(Resolution::KeepLocal),
@@ -191,16 +170,13 @@ impl ConflictResolver {
             Ordering::Equal => {
                 // Shouldn't happen (same source, same timestamp), but keep local as fallback
                 Ok(Resolution::KeepLocal)
-            }
+            },
         }
     }
 
     /// Get priority for a region (higher = more priority)
     fn get_region_priority(&self, region: &str) -> usize {
-        self.region_priorities
-            .iter()
-            .position(|r| r == region)
-            .unwrap_or(0)
+        self.region_priorities.iter().position(|r| r == region).unwrap_or(0)
     }
 }
 
@@ -249,9 +225,10 @@ impl ConflictStats {
 
 #[cfg(test)]
 mod tests {
+    use infera_types::Revision;
+
     use super::*;
     use crate::ChangeMetadata;
-    use infera_types::Revision;
     fn create_test_relationship() -> Relationship {
         Relationship {
             vault: uuid::Uuid::nil(),

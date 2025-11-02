@@ -3,25 +3,28 @@
 //! These tests verify that authentication metrics are properly exported
 //! via the Prometheus `/metrics` endpoint.
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use infera_api::grpc::proto::EvaluateRequest as ProtoEvaluateRequest;
-use infera_api::{AppState, grpc::proto::infera_service_client::InferaServiceClient};
-use infera_auth::internal::InternalJwksLoader;
-use infera_auth::jwks_cache::JwksCache;
+use infera_api::{
+    AppState,
+    grpc::proto::{
+        EvaluateRequest as ProtoEvaluateRequest, infera_service_client::InferaServiceClient,
+    },
+};
+use infera_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
 use infera_config::Config;
 use infera_core::{
     Evaluator,
     ipl::{RelationDef, Schema, TypeDef},
 };
 use infera_store::{MemoryBackend, RelationshipStore};
-use tonic::Request;
-use tonic::metadata::MetadataValue;
-use tonic::transport::{Channel, Server};
-
 use infera_test_fixtures::{
     InternalClaims, create_internal_jwks, generate_internal_jwt, generate_internal_keypair,
+};
+use tonic::{
+    Request,
+    metadata::MetadataValue,
+    transport::{Channel, Server},
 };
 
 fn create_test_schema() -> Arc<Schema> {
@@ -34,12 +37,7 @@ fn create_test_schema() -> Arc<Schema> {
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
     let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store),
-        schema,
-        None,
-        uuid::Uuid::nil(),
-    ));
+    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
 
     let mut config = Config::default();
     config.auth.enabled = auth_enabled;
@@ -50,13 +48,7 @@ fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> 
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    AppState {
-        evaluator,
-        store,
-        config,
-        jwks_cache,
-        health_tracker,
-    }
+    AppState { evaluator, store, config, jwks_cache, health_tracker }
 }
 
 /// Start a gRPC server with authentication enabled
@@ -64,8 +56,10 @@ async fn start_grpc_server_with_auth(
     state: AppState,
     internal_loader: Option<Arc<InternalJwksLoader>>,
 ) -> (tokio::task::JoinHandle<()>, u16) {
-    use infera_api::grpc::{InferaServiceImpl, proto::infera_service_server::InferaServiceServer};
-    use infera_api::grpc_interceptor::AuthInterceptor;
+    use infera_api::{
+        grpc::{InferaServiceImpl, proto::infera_service_server::InferaServiceServer},
+        grpc_interceptor::AuthInterceptor,
+    };
 
     let port = portpicker::pick_unused_port().expect("No free ports");
     let addr = format!("127.0.0.1:{}", port).parse().unwrap();
@@ -119,11 +113,7 @@ async fn test_metrics_after_successful_auth() {
     // Save JWKS to temp file
     let temp_dir = tempfile::tempdir().unwrap();
     let jwks_path = temp_dir.path().join("internal_jwks.json");
-    std::fs::write(
-        &jwks_path,
-        serde_json::to_string_pretty(&internal_jwks).unwrap(),
-    )
-    .unwrap();
+    std::fs::write(&jwks_path, serde_json::to_string_pretty(&internal_jwks).unwrap()).unwrap();
 
     // Create internal loader
     let internal_loader = InternalJwksLoader::from_config(Some(&jwks_path), None)
@@ -170,10 +160,9 @@ async fn test_metrics_after_successful_auth() {
     let mut request = Request::new(stream);
 
     // Add valid internal token to metadata
-    request.metadata_mut().insert(
-        "authorization",
-        MetadataValue::try_from(format!("Bearer {}", token)).unwrap(),
-    );
+    request
+        .metadata_mut()
+        .insert("authorization", MetadataValue::try_from(format!("Bearer {}", token)).unwrap());
 
     let response = client.evaluate(request).await;
     assert!(response.is_ok(), "Authentication should succeed");
@@ -230,10 +219,9 @@ async fn test_metrics_after_failed_auth() {
     let mut request = Request::new(stream);
 
     // Add invalid token to metadata
-    request.metadata_mut().insert(
-        "authorization",
-        MetadataValue::from_static("Bearer invalid-jwt-token"),
-    );
+    request
+        .metadata_mut()
+        .insert("authorization", MetadataValue::from_static("Bearer invalid-jwt-token"));
 
     let response = client.evaluate(request).await;
     assert!(response.is_err(), "Authentication should fail");
@@ -258,11 +246,7 @@ async fn test_metrics_cardinality() {
     // Save JWKS to temp file
     let temp_dir = tempfile::tempdir().unwrap();
     let jwks_path = temp_dir.path().join("internal_jwks.json");
-    std::fs::write(
-        &jwks_path,
-        serde_json::to_string_pretty(&internal_jwks).unwrap(),
-    )
-    .unwrap();
+    std::fs::write(&jwks_path, serde_json::to_string_pretty(&internal_jwks).unwrap()).unwrap();
 
     // Create internal loader
     let internal_loader = InternalJwksLoader::from_config(Some(&jwks_path), None)
@@ -309,10 +293,9 @@ async fn test_metrics_cardinality() {
         let stream = futures::stream::once(async { req });
         let mut request = Request::new(stream);
 
-        request.metadata_mut().insert(
-            "authorization",
-            MetadataValue::try_from(format!("Bearer {}", token)).unwrap(),
-        );
+        request
+            .metadata_mut()
+            .insert("authorization", MetadataValue::try_from(format!("Bearer {}", token)).unwrap());
 
         let _response = client.evaluate(request).await;
     }

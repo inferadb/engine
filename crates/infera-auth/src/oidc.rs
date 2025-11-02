@@ -3,11 +3,12 @@
 //! This module implements OpenID Connect Discovery (RFC 8414) for fetching
 //! OAuth 2.0 server metadata.
 
-use crate::error::AuthError;
+use std::{sync::Arc, time::Duration};
+
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::time::Duration;
+
+use crate::error::AuthError;
 
 /// OpenID Connect Discovery configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,10 +104,7 @@ impl OidcDiscoveryClient {
 
         // Construct well-known URL
         let discovery_url = if issuer_url.ends_with('/') {
-            format!(
-                "{}/.well-known/openid-configuration",
-                issuer_url.trim_end_matches('/')
-            )
+            format!("{}/.well-known/openid-configuration", issuer_url.trim_end_matches('/'))
         } else {
             format!("{}/.well-known/openid-configuration", issuer_url)
         };
@@ -114,14 +112,9 @@ impl OidcDiscoveryClient {
         // Perform discovery and record metrics
         let result = async {
             // Fetch discovery document
-            let response = self
-                .http_client
-                .get(&discovery_url)
-                .send()
-                .await
-                .map_err(|e| {
-                    AuthError::JwksError(format!("Failed to fetch OIDC discovery: {}", e))
-                })?;
+            let response = self.http_client.get(&discovery_url).send().await.map_err(|e| {
+                AuthError::JwksError(format!("Failed to fetch OIDC discovery: {}", e))
+            })?;
 
             if !response.status().is_success() {
                 return Err(AuthError::JwksError(format!(
@@ -165,9 +158,7 @@ impl OidcDiscoveryClient {
         match result {
             Ok(config) => {
                 // Cache the result
-                self.cache
-                    .insert(issuer_url.to_string(), config.clone())
-                    .await;
+                self.cache.insert(issuer_url.to_string(), config.clone()).await;
 
                 tracing::info!(
                     issuer = %issuer_url,
@@ -176,7 +167,7 @@ impl OidcDiscoveryClient {
                 );
 
                 Ok(config)
-            }
+            },
             Err(e) => Err(e),
         }
     }
@@ -237,32 +228,20 @@ mod tests {
         // Test with trailing slash
         let url_with_slash = "https://auth.example.com/";
         let discovery_url = if url_with_slash.ends_with('/') {
-            format!(
-                "{}/.well-known/openid-configuration",
-                url_with_slash.trim_end_matches('/')
-            )
+            format!("{}/.well-known/openid-configuration", url_with_slash.trim_end_matches('/'))
         } else {
             format!("{}/.well-known/openid-configuration", url_with_slash)
         };
-        assert_eq!(
-            discovery_url,
-            "https://auth.example.com/.well-known/openid-configuration"
-        );
+        assert_eq!(discovery_url, "https://auth.example.com/.well-known/openid-configuration");
 
         // Test without trailing slash
         let url_without_slash = "https://auth.example.com";
         let discovery_url = if url_without_slash.ends_with('/') {
-            format!(
-                "{}/.well-known/openid-configuration",
-                url_without_slash.trim_end_matches('/')
-            )
+            format!("{}/.well-known/openid-configuration", url_without_slash.trim_end_matches('/'))
         } else {
             format!("{}/.well-known/openid-configuration", url_without_slash)
         };
-        assert_eq!(
-            discovery_url,
-            "https://auth.example.com/.well-known/openid-configuration"
-        );
+        assert_eq!(discovery_url, "https://auth.example.com/.well-known/openid-configuration");
     }
 
     #[tokio::test]
@@ -270,12 +249,7 @@ mod tests {
         let client = OidcDiscoveryClient::new(Duration::from_secs(300));
 
         // Initially empty
-        assert!(
-            client
-                .get_cached("https://auth.example.com")
-                .await
-                .is_none()
-        );
+        assert!(client.get_cached("https://auth.example.com").await.is_none());
 
         // Manually insert for testing
         let config = OidcConfiguration {
@@ -286,10 +260,7 @@ mod tests {
             id_token_signing_alg_values_supported: vec!["RS256".to_string()],
         };
 
-        client
-            .cache
-            .insert("https://auth.example.com".to_string(), config.clone())
-            .await;
+        client.cache.insert("https://auth.example.com".to_string(), config.clone()).await;
 
         // Should be cached now
         let cached = client.get_cached("https://auth.example.com").await;
@@ -300,11 +271,6 @@ mod tests {
         client.clear_cache().await;
 
         // Should be empty again
-        assert!(
-            client
-                .get_cached("https://auth.example.com")
-                .await
-                .is_none()
-        );
+        assert!(client.get_cached("https://auth.example.com").await.is_none());
     }
 }

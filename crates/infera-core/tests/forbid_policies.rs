@@ -30,9 +30,7 @@ async fn test_forbid_overrides_permit() {
         .unwrap();
 
     // Check: Alice is viewer but blocked, so access should be DENIED
-    fixture
-        .assert_denied("user:alice", "document:readme", "viewer")
-        .await;
+    fixture.assert_denied("user:alice", "document:readme", "viewer").await;
 }
 
 #[tokio::test]
@@ -55,9 +53,7 @@ async fn test_forbid_without_permit() {
         .unwrap();
 
     // Check: Bob is blocked (no permit anyway)
-    fixture
-        .assert_denied("user:bob", "document:readme", "viewer")
-        .await;
+    fixture.assert_denied("user:bob", "document:readme", "viewer").await;
 }
 
 #[tokio::test]
@@ -75,18 +71,12 @@ async fn test_permit_without_forbid() {
 
     // Charlie is a viewer and NOT blocked
     fixture
-        .write_relationships(vec![relationship(
-            "document:readme",
-            "viewer",
-            "user:charlie",
-        )])
+        .write_relationships(vec![relationship("document:readme", "viewer", "user:charlie")])
         .await
         .unwrap();
 
     // Check: Charlie can access (viewer, not blocked)
-    fixture
-        .assert_allowed("user:charlie", "document:readme", "viewer")
-        .await;
+    fixture.assert_allowed("user:charlie", "document:readme", "viewer").await;
 }
 
 #[tokio::test]
@@ -123,14 +113,10 @@ async fn test_forbid_with_union_expression() {
         .unwrap();
 
     // Check Alice: blocked via union
-    fixture
-        .assert_denied("user:alice", "document:readme", "viewer")
-        .await;
+    fixture.assert_denied("user:alice", "document:readme", "viewer").await;
 
     // Check Bob: suspended via union
-    fixture
-        .assert_denied("user:bob", "document:readme", "viewer")
-        .await;
+    fixture.assert_denied("user:bob", "document:readme", "viewer").await;
 }
 
 #[tokio::test]
@@ -166,13 +152,9 @@ async fn test_multiple_forbids_order_independent() {
         .unwrap();
 
     // Both should be denied
-    fixture
-        .assert_denied("user:alice", "document:readme", "viewer")
-        .await;
+    fixture.assert_denied("user:alice", "document:readme", "viewer").await;
 
-    fixture
-        .assert_denied("user:bob", "document:readme", "viewer")
-        .await;
+    fixture.assert_denied("user:bob", "document:readme", "viewer").await;
 }
 
 #[tokio::test]
@@ -202,14 +184,10 @@ async fn test_forbid_vs_exclusion() {
         .unwrap();
 
     // Check viewer permission: exclusion means alice is NOT a viewer
-    fixture
-        .assert_denied("user:alice", "document:readme", "viewer")
-        .await;
+    fixture.assert_denied("user:alice", "document:readme", "viewer").await;
 
     // Check editor permission: forbid blocks even direct editor access
-    fixture
-        .assert_denied("user:alice", "document:readme", "editor")
-        .await;
+    fixture.assert_denied("user:alice", "document:readme", "editor").await;
 }
 
 #[tokio::test]
@@ -244,10 +222,6 @@ async fn test_forbid_with_trace() {
     };
 
     let trace = fixture.evaluator.check_with_trace(request).await.unwrap();
-    assert_eq!(
-        trace.decision,
-        infera_types::Decision::Deny,
-        "Trace should show deny"
-    );
+    assert_eq!(trace.decision, infera_types::Decision::Deny, "Trace should show deny");
     assert!(trace.root.result, "Forbid node should be true (matched)");
 }

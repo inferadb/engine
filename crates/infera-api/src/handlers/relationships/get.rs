@@ -9,12 +9,11 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::IntoResponse,
 };
+use infera_types::ListRelationshipsRequest;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::ApiError;
-use crate::AppState;
-use infera_types::ListRelationshipsRequest;
+use crate::{ApiError, AppState};
 
 /// Path parameters for exact relationship match
 #[derive(Debug, Clone, Deserialize)]
@@ -116,19 +115,13 @@ pub async fn get_relationship(
 
     // Validate parameters are non-empty
     if resource.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Resource cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Resource cannot be empty".to_string()));
     }
     if relation.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Relation cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Relation cannot be empty".to_string()));
     }
     if subject.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Subject cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Subject cannot be empty".to_string()));
     }
 
     // Query the store using exact match filters
@@ -147,11 +140,7 @@ pub async fn get_relationship(
     infera_observe::metrics::record_api_request(
         "/v1/relationships/{resource}/{relation}/{subject}",
         "GET",
-        if response.relationships.is_empty() {
-            404
-        } else {
-            200
-        },
+        if response.relationships.is_empty() { 404 } else { 200 },
         duration.as_secs_f64(),
     );
 
@@ -222,8 +211,8 @@ fn generate_etag(resource: &str, relation: &str, subject: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::AppState;
+    use std::sync::Arc;
+
     use axum::{
         Router,
         body::Body,
@@ -234,9 +223,11 @@ mod tests {
     use infera_core::Evaluator;
     use infera_store::{MemoryBackend, RelationshipStore};
     use infera_types::Relationship;
-    use std::sync::Arc;
     use tower::ServiceExt;
     use uuid::Uuid;
+
+    use super::*;
+    use crate::AppState;
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -252,12 +243,8 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store),
-            schema,
-            None,
-            uuid::Uuid::nil(),
-        ));
+        let evaluator =
+            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -283,13 +270,7 @@ mod tests {
             .await
             .unwrap();
 
-        AppState {
-            evaluator,
-            store,
-            config,
-            jwks_cache: None,
-            health_tracker,
-        }
+        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
     }
 
     #[tokio::test]
@@ -297,10 +278,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                get(get_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
             .with_state(state);
 
         let response = app
@@ -320,9 +298,7 @@ mod tests {
         assert!(response.headers().get(header::ETAG).is_some());
         assert!(response.headers().get(header::CACHE_CONTROL).is_some());
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: RelationshipExistsResponse = serde_json::from_slice(&body).unwrap();
 
         assert!(json.exists);
@@ -339,10 +315,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                get(get_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
             .with_state(state);
 
         let response = app
@@ -364,10 +337,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                get(get_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
             .with_state(state);
 
         // URL encode "document:readme" -> "document%3Areadme"
@@ -405,10 +375,7 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                get(get_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
             .with_state(state);
 
         // URL encode the special characters
@@ -445,10 +412,7 @@ mod tests {
         let etag1 = generate_etag("document:readme", "view", "user:alice");
         let etag2 = generate_etag("document:guide", "view", "user:alice");
 
-        assert_ne!(
-            etag1, etag2,
-            "Different relationships should have different ETags"
-        );
+        assert_ne!(etag1, etag2, "Different relationships should have different ETags");
     }
 
     #[tokio::test]
@@ -456,10 +420,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                get(get_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
             .with_state(state);
 
         let response = app
@@ -473,12 +434,8 @@ mod tests {
             .await
             .unwrap();
 
-        let cache_control = response
-            .headers()
-            .get(header::CACHE_CONTROL)
-            .unwrap()
-            .to_str()
-            .unwrap();
+        let cache_control =
+            response.headers().get(header::CACHE_CONTROL).unwrap().to_str().unwrap();
 
         assert_eq!(cache_control, "max-age=60");
     }

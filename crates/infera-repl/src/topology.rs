@@ -3,8 +3,9 @@
 //! Defines the multi-region replication topology including regions, zones,
 //! replication strategies, and failure handling.
 
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+
+use serde::{Deserialize, Serialize};
 
 /// Unique identifier for a region
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -81,12 +82,7 @@ pub struct Region {
 
 impl Region {
     pub fn new(id: RegionId, name: String, is_primary: bool) -> Self {
-        Self {
-            id,
-            name,
-            zones: Vec::new(),
-            is_primary,
-        }
+        Self { id, name, zones: Vec::new(), is_primary }
     }
 
     pub fn add_zone(&mut self, zone: Zone) {
@@ -111,11 +107,7 @@ pub struct Zone {
 
 impl Zone {
     pub fn new(id: ZoneId, name: String) -> Self {
-        Self {
-            id,
-            name,
-            nodes: Vec::new(),
-        }
+        Self { id, name, nodes: Vec::new() }
     }
 
     pub fn add_node(&mut self, node: Node) {
@@ -142,12 +134,7 @@ pub struct Node {
 
 impl Node {
     pub fn new(id: NodeId, endpoint: String) -> Self {
-        Self {
-            id,
-            endpoint,
-            status: NodeStatus::Healthy,
-            last_heartbeat: 0,
-        }
+        Self { id, endpoint, status: NodeStatus::Healthy, last_heartbeat: 0 }
     }
 
     pub fn is_healthy(&self) -> bool {
@@ -201,12 +188,7 @@ pub struct Topology {
 impl Topology {
     /// Create a new topology with the given strategy
     pub fn new(strategy: ReplicationStrategy, local_region: RegionId) -> Self {
-        Self {
-            regions: Vec::new(),
-            strategy,
-            replication_graph: HashMap::new(),
-            local_region,
-        }
+        Self { regions: Vec::new(), strategy, replication_graph: HashMap::new(), local_region }
     }
 
     /// Add a region to the topology
@@ -330,9 +312,7 @@ pub struct TopologyBuilder {
 impl TopologyBuilder {
     /// Create a new topology builder
     pub fn new(strategy: ReplicationStrategy, local_region: RegionId) -> Self {
-        Self {
-            topology: Topology::new(strategy, local_region),
-        }
+        Self { topology: Topology::new(strategy, local_region) }
     }
 
     /// Add a region with zones and nodes
@@ -368,8 +348,7 @@ impl TopologyBuilder {
 
     /// Set replication targets for a region (which regions it replicates to)
     pub fn set_replication_targets(mut self, source: RegionId, targets: Vec<RegionId>) -> Self {
-        self.topology
-            .set_replication_targets(source, targets.into_iter().collect());
+        self.topology.set_replication_targets(source, targets.into_iter().collect());
         self
     }
 
@@ -386,48 +365,42 @@ mod tests {
 
     #[test]
     fn test_active_active_topology() {
-        let topology = TopologyBuilder::new(
-            ReplicationStrategy::ActiveActive,
-            RegionId::new("us-west-1"),
-        )
-        .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
-        .add_zone(
-            RegionId::new("us-west-1"),
-            ZoneId::new("us-west-1a"),
-            "Zone A".to_string(),
-        )
-        .add_node(
-            RegionId::new("us-west-1"),
-            ZoneId::new("us-west-1a"),
-            NodeId::new("node1"),
-            "localhost:50051".to_string(),
-        )
-        .add_region(
-            RegionId::new("eu-central-1"),
-            "EU Central 1".to_string(),
-            false,
-        )
-        .add_zone(
-            RegionId::new("eu-central-1"),
-            ZoneId::new("eu-central-1a"),
-            "Zone A".to_string(),
-        )
-        .add_node(
-            RegionId::new("eu-central-1"),
-            ZoneId::new("eu-central-1a"),
-            NodeId::new("node2"),
-            "localhost:50052".to_string(),
-        )
-        .set_replication_targets(
-            RegionId::new("us-west-1"),
-            vec![RegionId::new("eu-central-1")],
-        )
-        .set_replication_targets(
-            RegionId::new("eu-central-1"),
-            vec![RegionId::new("us-west-1")],
-        )
-        .build()
-        .unwrap();
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("eu-central-1"),
+                    ZoneId::new("eu-central-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("eu-central-1"),
+                    ZoneId::new("eu-central-1a"),
+                    NodeId::new("node2"),
+                    "localhost:50052".to_string(),
+                )
+                .set_replication_targets(
+                    RegionId::new("us-west-1"),
+                    vec![RegionId::new("eu-central-1")],
+                )
+                .set_replication_targets(
+                    RegionId::new("eu-central-1"),
+                    vec![RegionId::new("us-west-1")],
+                )
+                .build()
+                .unwrap();
 
         assert_eq!(topology.regions.len(), 2);
         assert_eq!(topology.strategy, ReplicationStrategy::ActiveActive);
@@ -436,35 +409,23 @@ mod tests {
 
     #[test]
     fn test_primary_replica_topology() {
-        let topology = TopologyBuilder::new(
-            ReplicationStrategy::PrimaryReplica,
-            RegionId::new("us-west-1"),
-        )
-        .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), true)
-        .add_region(
-            RegionId::new("eu-central-1"),
-            "EU Central 1".to_string(),
-            false,
-        )
-        .set_replication_targets(
-            RegionId::new("us-west-1"),
-            vec![RegionId::new("eu-central-1")],
-        )
-        .build()
-        .unwrap();
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), true)
+                .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), false)
+                .set_replication_targets(
+                    RegionId::new("us-west-1"),
+                    vec![RegionId::new("eu-central-1")],
+                )
+                .build()
+                .unwrap();
 
-        assert_eq!(
-            topology.get_primary_region().unwrap().id,
-            RegionId::new("us-west-1")
-        );
+        assert_eq!(topology.get_primary_region().unwrap().id, RegionId::new("us-west-1"));
     }
 
     #[test]
     fn test_topology_validation_no_regions() {
-        let topology = Topology::new(
-            ReplicationStrategy::ActiveActive,
-            RegionId::new("us-west-1"),
-        );
+        let topology = Topology::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"));
         assert!(matches!(topology.validate(), Err(TopologyError::NoRegions)));
     }
 
@@ -477,71 +438,52 @@ mod tests {
             "US West 1".to_string(),
             false,
         ));
-        assert!(matches!(
-            topology.validate(),
-            Err(TopologyError::InvalidLocalRegion(_))
-        ));
+        assert!(matches!(topology.validate(), Err(TopologyError::InvalidLocalRegion(_))));
     }
 
     #[test]
     fn test_topology_validation_no_primary() {
-        let mut topology = Topology::new(
-            ReplicationStrategy::PrimaryReplica,
-            RegionId::new("us-west-1"),
-        );
+        let mut topology =
+            Topology::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"));
         topology.add_region(Region::new(
             RegionId::new("us-west-1"),
             "US West 1".to_string(),
             false,
         ));
-        assert!(matches!(
-            topology.validate(),
-            Err(TopologyError::NoPrimaryRegion)
-        ));
+        assert!(matches!(topology.validate(), Err(TopologyError::NoPrimaryRegion)));
     }
 
     #[test]
     fn test_topology_validation_multiple_primary() {
-        let mut topology = Topology::new(
-            ReplicationStrategy::PrimaryReplica,
-            RegionId::new("us-west-1"),
-        );
-        topology.add_region(Region::new(
-            RegionId::new("us-west-1"),
-            "US West 1".to_string(),
-            true,
-        ));
+        let mut topology =
+            Topology::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"));
+        topology.add_region(Region::new(RegionId::new("us-west-1"), "US West 1".to_string(), true));
         topology.add_region(Region::new(
             RegionId::new("eu-central-1"),
             "EU Central 1".to_string(),
             true,
         ));
-        assert!(matches!(
-            topology.validate(),
-            Err(TopologyError::MultiplePrimaryRegions)
-        ));
+        assert!(matches!(topology.validate(), Err(TopologyError::MultiplePrimaryRegions)));
     }
 
     #[test]
     fn test_get_healthy_nodes() {
-        let mut topology = TopologyBuilder::new(
-            ReplicationStrategy::ActiveActive,
-            RegionId::new("us-west-1"),
-        )
-        .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
-        .add_zone(
-            RegionId::new("us-west-1"),
-            ZoneId::new("us-west-1a"),
-            "Zone A".to_string(),
-        )
-        .add_node(
-            RegionId::new("us-west-1"),
-            ZoneId::new("us-west-1a"),
-            NodeId::new("node1"),
-            "localhost:50051".to_string(),
-        )
-        .build()
-        .unwrap();
+        let mut topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .build()
+                .unwrap();
 
         let healthy = topology.get_healthy_nodes(&RegionId::new("us-west-1"));
         assert_eq!(healthy.len(), 1);
@@ -561,30 +503,17 @@ mod tests {
 
     #[test]
     fn test_replication_graph() {
-        let topology = TopologyBuilder::new(
-            ReplicationStrategy::ActiveActive,
-            RegionId::new("us-west-1"),
-        )
-        .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
-        .add_region(
-            RegionId::new("eu-central-1"),
-            "EU Central 1".to_string(),
-            false,
-        )
-        .add_region(
-            RegionId::new("ap-southeast-1"),
-            "AP Southeast 1".to_string(),
-            false,
-        )
-        .set_replication_targets(
-            RegionId::new("us-west-1"),
-            vec![
-                RegionId::new("eu-central-1"),
-                RegionId::new("ap-southeast-1"),
-            ],
-        )
-        .build()
-        .unwrap();
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), false)
+                .add_region(RegionId::new("ap-southeast-1"), "AP Southeast 1".to_string(), false)
+                .set_replication_targets(
+                    RegionId::new("us-west-1"),
+                    vec![RegionId::new("eu-central-1"), RegionId::new("ap-southeast-1")],
+                )
+                .build()
+                .unwrap();
 
         let targets = topology.get_replication_targets(&RegionId::new("us-west-1"));
         assert_eq!(targets.len(), 2);

@@ -320,10 +320,7 @@ pub struct MultiTenancyConfig {
 
 impl Default for MultiTenancyConfig {
     fn default() -> Self {
-        Self {
-            default_vault: None,
-            default_account: None,
-        }
+        Self { default_vault: None, default_account: None }
     }
 }
 
@@ -437,11 +434,9 @@ impl AuthConfig {
 
         // CRITICAL: Reject if replay_protection enabled but no redis_url
         if self.replay_protection && self.redis_url.is_none() {
-            return Err(
-                "replay_protection is enabled but redis_url is not configured. \
+            return Err("replay_protection is enabled but redis_url is not configured. \
                  Either disable replay_protection or configure redis_url."
-                    .to_string(),
-            );
+                .to_string());
         }
 
         // Warn if replay protection is enabled with require_jti false
@@ -515,10 +510,7 @@ impl Default for Config {
                 worker_threads: default_worker_threads(),
                 rate_limiting_enabled: default_rate_limiting_enabled(),
             },
-            store: StoreConfig {
-                backend: default_backend(),
-                connection_string: None,
-            },
+            store: StoreConfig { backend: default_backend(), connection_string: None },
             cache: CacheConfig {
                 enabled: default_cache_enabled(),
                 max_capacity: default_cache_max_capacity(),
@@ -569,11 +561,8 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let config = AuthConfig {
-            enabled: true,
-            jwks_base_url: String::new(),
-            ..Default::default()
-        };
+        let config =
+            AuthConfig { enabled: true, jwks_base_url: String::new(), ..Default::default() };
 
         // Should warn but not panic
         let _ = config.validate();
@@ -586,11 +575,8 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let config = AuthConfig {
-            internal_jwks_path: None,
-            internal_jwks_env: None,
-            ..Default::default()
-        };
+        let config =
+            AuthConfig { internal_jwks_path: None, internal_jwks_env: None, ..Default::default() };
 
         // Should log info but not panic
         let _ = config.validate();
@@ -603,11 +589,7 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let config = AuthConfig {
-            replay_protection: true,
-            redis_url: None,
-            ..Default::default()
-        };
+        let config = AuthConfig { replay_protection: true, redis_url: None, ..Default::default() };
 
         // Should warn but not panic
         let _ = config.validate();
@@ -620,10 +602,7 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let config = AuthConfig {
-            accepted_algorithms: vec![],
-            ..Default::default()
-        };
+        let config = AuthConfig { accepted_algorithms: vec![], ..Default::default() };
 
         // Should warn but not panic
         let _ = config.validate();

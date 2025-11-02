@@ -74,10 +74,7 @@ impl Default for OTelAuthConfig {
 impl OTelAuthConfig {
     /// Create a new OpenTelemetry configuration
     pub fn new(endpoint: String) -> Self {
-        Self {
-            endpoint,
-            ..Default::default()
-        }
+        Self { endpoint, ..Default::default() }
     }
 
     /// Set service name
@@ -159,10 +156,7 @@ mod tests {
         assert_eq!(config.endpoint, "http://otel-collector:4317");
         assert!(!config.always_sample_failures);
         assert_eq!(config.service_name, "test-service");
-        assert_eq!(
-            config.resource_attributes.get("env"),
-            Some(&"production".to_string())
-        );
+        assert_eq!(config.resource_attributes.get("env"), Some(&"production".to_string()));
     }
 
     #[test]
@@ -194,7 +188,8 @@ mod tests {
         );
 
         // Span should have all fields recorded
-        // (We can't easily assert on span fields in tests, but this verifies the function doesn't panic)
+        // (We can't easily assert on span fields in tests, but this verifies the function doesn't
+        // panic)
     }
 
     #[test]

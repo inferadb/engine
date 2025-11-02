@@ -1,9 +1,13 @@
 //! Sandboxed WASM execution with resource limits
 
-use crate::host::{ExecutionContext, HostFunctions, HostState, StoreLimits};
-use crate::{Result, WasmError};
 use std::time::Duration;
+
 use wasmtime::*;
+
+use crate::{
+    Result, WasmError,
+    host::{ExecutionContext, HostFunctions, HostState, StoreLimits},
+};
 
 /// Configuration for WASM execution sandbox
 #[derive(Debug, Clone)]
@@ -51,11 +55,7 @@ impl Sandbox {
         // Add host functions
         HostFunctions::add_to_linker(&mut linker)?;
 
-        Ok(Self {
-            engine,
-            linker,
-            config,
-        })
+        Ok(Self { engine, linker, config })
     }
 
     /// Execute a WASM module in the sandbox

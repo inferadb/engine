@@ -4,17 +4,18 @@
 //! adapter layer over InferaDB's native list resources and list subjects functionality.
 
 use axum::{Json, extract::State, response::IntoResponse};
+use infera_types::{ListResourcesRequest, ListSubjectsRequest};
 use serde::{Deserialize, Serialize};
 
-use crate::ApiError;
-use crate::AppState;
-use crate::adapters::authzen::{
-    AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject, parse_entity,
+use crate::{
+    ApiError, AppState,
+    adapters::authzen::{
+        AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject, parse_entity,
+    },
+    validation::{
+        validate_authzen_resource_search_request, validate_authzen_subject_search_request,
+    },
 };
-use crate::validation::{
-    validate_authzen_resource_search_request, validate_authzen_subject_search_request,
-};
-use infera_types::{ListResourcesRequest, ListSubjectsRequest};
 
 /// AuthZEN resource search request
 ///
@@ -328,16 +329,13 @@ pub async fn post_search_subject(
         "AuthZEN subject search completed"
     );
 
-    Ok(Json(AuthZENSubjectSearchResponse {
-        subjects: authzen_subjects,
-        cursor: response.cursor,
-    }))
+    Ok(Json(AuthZENSubjectSearchResponse { subjects: authzen_subjects, cursor: response.cursor }))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::AppState;
+    use std::sync::Arc;
+
     use axum::{
         Router,
         body::Body,
@@ -348,8 +346,10 @@ mod tests {
     use infera_core::Evaluator;
     use infera_store::{MemoryBackend, RelationshipStore};
     use infera_types::Relationship;
-    use std::sync::Arc;
     use tower::ServiceExt;
+
+    use super::*;
+    use crate::AppState;
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -366,12 +366,8 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store),
-            schema,
-            None,
-            uuid::Uuid::nil(),
-        ));
+        let evaluator =
+            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -403,13 +399,7 @@ mod tests {
             .await
             .unwrap();
 
-        AppState {
-            evaluator,
-            store,
-            config,
-            jwks_cache: None,
-            health_tracker,
-        }
+        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
     }
 
     #[tokio::test]
@@ -421,13 +411,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
             cursor: None,
@@ -447,9 +432,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: AuthZENResourceSearchResponse = serde_json::from_slice(&body).unwrap();
 
         // Alice should have access to readme and guide
@@ -474,13 +457,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "charlie".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "charlie".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
             cursor: None,
@@ -500,9 +478,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: AuthZENResourceSearchResponse = serde_json::from_slice(&body).unwrap();
 
         // Charlie has no access to any documents
@@ -519,13 +495,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: Some(1),
             cursor: None,
@@ -545,9 +516,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: AuthZENResourceSearchResponse = serde_json::from_slice(&body).unwrap();
 
         // Should only return 1 resource due to limit
@@ -563,13 +532,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject {
-                subject_type: "".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
             cursor: None,
@@ -599,13 +563,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
             cursor: None,
@@ -635,13 +594,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "".to_string() },
             resource_type: "document".to_string(),
             limit: None,
             cursor: None,
@@ -671,13 +625,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource_type: "".to_string(),
             limit: None,
             cursor: None,
@@ -711,9 +660,7 @@ mod tests {
                 subject_type: "User".to_string(), // Invalid: uppercase
                 id: "alice".to_string(),
             },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
             cursor: None,
@@ -749,9 +696,7 @@ mod tests {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
             },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: None,
             cursor: None,
@@ -771,9 +716,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: AuthZENSubjectSearchResponse = serde_json::from_slice(&body).unwrap();
 
         // Alice has view access to readme
@@ -795,9 +738,7 @@ mod tests {
                 resource_type: "document".to_string(),
                 id: "nonexistent".to_string(),
             },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: None,
             cursor: None,
@@ -817,9 +758,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: AuthZENSubjectSearchResponse = serde_json::from_slice(&body).unwrap();
 
         // No subjects have access to nonexistent document
@@ -840,9 +779,7 @@ mod tests {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
             },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: Some(10),
             cursor: None,
@@ -862,9 +799,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: AuthZENSubjectSearchResponse = serde_json::from_slice(&body).unwrap();
 
         // Should return results within limit
@@ -880,13 +815,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENSubjectSearchRequest {
-            resource: AuthZENResource {
-                resource_type: "".to_string(),
-                id: "readme".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            resource: AuthZENResource { resource_type: "".to_string(), id: "readme".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: None,
             cursor: None,
@@ -916,13 +846,8 @@ mod tests {
             .with_state(state);
 
         let request = AuthZENSubjectSearchRequest {
-            resource: AuthZENResource {
-                resource_type: "document".to_string(),
-                id: "".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            resource: AuthZENResource { resource_type: "document".to_string(), id: "".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: None,
             cursor: None,
@@ -956,9 +881,7 @@ mod tests {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
             },
-            action: AuthZENAction {
-                name: "".to_string(),
-            },
+            action: AuthZENAction { name: "".to_string() },
             subject_type: None,
             limit: None,
             cursor: None,
@@ -992,9 +915,7 @@ mod tests {
                 resource_type: "Document".to_string(), // Invalid: uppercase
                 id: "readme".to_string(),
             },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: None,
             cursor: None,
@@ -1028,9 +949,7 @@ mod tests {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
             },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            action: AuthZENAction { name: "view".to_string() },
             subject_type: Some("user".to_string()),
             limit: None,
             cursor: None,
@@ -1050,9 +969,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: AuthZENSubjectSearchResponse = serde_json::from_slice(&body).unwrap();
 
         // All returned subjects should be of type "user"

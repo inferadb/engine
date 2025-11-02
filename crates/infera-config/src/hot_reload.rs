@@ -2,17 +2,20 @@
 //!
 //! Watches configuration files and reloads on changes or SIGHUP signal
 
-use crate::{Config, load};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    thread,
+    time::Duration,
+};
+
 use notify::{Config as NotifyConfig, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use signal_hook::consts::SIGHUP;
-use signal_hook::iterator::Signals;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
+use signal_hook::{consts::SIGHUP, iterator::Signals};
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
+
+use crate::{Config, load};
 
 #[derive(Debug, Error)]
 pub enum HotReloadError {
@@ -80,10 +83,7 @@ impl HotReloadHandle {
             }
         });
 
-        info!(
-            "Hot reload watchers started for {}",
-            self.config_path.display()
-        );
+        info!("Hot reload watchers started for {}", self.config_path.display());
 
         Ok(())
     }
@@ -217,17 +217,16 @@ impl HotReloadHandle {
             info!("Rolled back to previous configuration");
             Ok(())
         } else {
-            Err(HotReloadError::LoadError(
-                "No previous configuration to roll back to".to_string(),
-            ))
+            Err(HotReloadError::LoadError("No previous configuration to roll back to".to_string()))
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::NamedTempFile;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_hot_reload_handle_creation() {

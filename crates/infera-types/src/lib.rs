@@ -54,7 +54,8 @@ impl Relationship {
         self.subject.split(':').next()
     }
 
-    /// Get the subject ID from a subject string (e.g., "alice" from "user:alice", or "*" from "user:*")
+    /// Get the subject ID from a subject string (e.g., "alice" from "user:alice", or "*" from
+    /// "user:*")
     pub fn subject_id(&self) -> Option<&str> {
         self.subject.split(':').nth(1)
     }
@@ -212,19 +213,12 @@ pub struct UsersetTree {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UsersetNodeType {
     This,
-    ComputedUserset {
-        relation: String,
-    },
-    RelatedObjectUserset {
-        relationship: String,
-        computed: String,
-    },
+    ComputedUserset { relation: String },
+    RelatedObjectUserset { relationship: String, computed: String },
     Union,
     Intersection,
     Exclusion,
-    Leaf {
-        users: Vec<String>,
-    },
+    Leaf { users: Vec<String> },
 }
 
 // ============================================================================
@@ -272,38 +266,22 @@ impl DeleteFilter {
 
     /// Create a filter for an exact relationship
     pub fn exact(resource: String, relation: String, subject: String) -> Self {
-        Self {
-            resource: Some(resource),
-            relation: Some(relation),
-            subject: Some(subject),
-        }
+        Self { resource: Some(resource), relation: Some(relation), subject: Some(subject) }
     }
 
     /// Create a filter for all relationships of a resource
     pub fn by_resource(resource: String) -> Self {
-        Self {
-            resource: Some(resource),
-            relation: None,
-            subject: None,
-        }
+        Self { resource: Some(resource), relation: None, subject: None }
     }
 
     /// Create a filter for all relationships of a subject (user offboarding)
     pub fn by_subject(subject: String) -> Self {
-        Self {
-            resource: None,
-            relation: None,
-            subject: Some(subject),
-        }
+        Self { resource: None, relation: None, subject: Some(subject) }
     }
 
     /// Create a filter by resource and relation
     pub fn by_resource_relation(resource: String, relation: String) -> Self {
-        Self {
-            resource: Some(resource),
-            relation: Some(relation),
-            subject: None,
-        }
+        Self { resource: Some(resource), relation: Some(relation), subject: None }
     }
 }
 
@@ -325,29 +303,17 @@ pub struct DeleteRequest {
 impl DeleteRequest {
     /// Create request to delete exact relationships
     pub fn exact(relationships: Vec<Relationship>) -> Self {
-        Self {
-            filter: None,
-            relationships: Some(relationships),
-            limit: None,
-        }
+        Self { filter: None, relationships: Some(relationships), limit: None }
     }
 
     /// Create request to delete by filter
     pub fn by_filter(filter: DeleteFilter) -> Self {
-        Self {
-            filter: Some(filter),
-            relationships: None,
-            limit: None,
-        }
+        Self { filter: Some(filter), relationships: None, limit: None }
     }
 
     /// Create request to delete by filter with limit
     pub fn by_filter_limited(filter: DeleteFilter, limit: usize) -> Self {
-        Self {
-            filter: Some(filter),
-            relationships: None,
-            limit: Some(limit),
-        }
+        Self { filter: Some(filter), relationships: None, limit: Some(limit) }
     }
 }
 
@@ -497,22 +463,12 @@ pub struct ChangeEvent {
 impl ChangeEvent {
     /// Create a new change event for a relationship creation
     pub fn create(relationship: Relationship, revision: Revision, timestamp_nanos: i64) -> Self {
-        Self {
-            operation: ChangeOperation::Create,
-            relationship,
-            revision,
-            timestamp_nanos,
-        }
+        Self { operation: ChangeOperation::Create, relationship, revision, timestamp_nanos }
     }
 
     /// Create a new change event for a relationship deletion
     pub fn delete(relationship: Relationship, revision: Revision, timestamp_nanos: i64) -> Self {
-        Self {
-            operation: ChangeOperation::Delete,
-            relationship,
-            revision,
-            timestamp_nanos,
-        }
+        Self { operation: ChangeOperation::Delete, relationship, revision, timestamp_nanos }
     }
 
     /// Get the resource type from this change event
@@ -679,11 +635,7 @@ mod tests {
             relation: "viewer".to_string(),
             subject: "user:*:subgroup".to_string(),
         };
-        assert!(
-            invalid_subject_position
-                .validate_wildcard_placement()
-                .is_err()
-        );
+        assert!(invalid_subject_position.validate_wildcard_placement().is_err());
     }
 
     #[test]

@@ -19,24 +19,15 @@ pub enum QueryStep {
     /// Direct tuple lookup
     DirectLookup { relation: String },
     /// Compute a userset
-    ComputeUserset {
-        relation: String,
-        computed_userset: String,
-    },
+    ComputeUserset { relation: String, computed_userset: String },
     /// Evaluate a union (can be parallelized)
     Union { branches: Vec<QueryPlan> },
     /// Evaluate an intersection (must check all)
     Intersection { branches: Vec<QueryPlan> },
     /// Evaluate an exclusion (base minus subtract)
-    Exclusion {
-        base: Box<QueryPlan>,
-        subtract: Box<QueryPlan>,
-    },
+    Exclusion { base: Box<QueryPlan>, subtract: Box<QueryPlan> },
     /// Related object userset lookup
-    RelatedObjectUserset {
-        relationship_relation: String,
-        computed_userset: String,
-    },
+    RelatedObjectUserset { relationship_relation: String, computed_userset: String },
 }
 
 /// Query planner that analyzes relations and creates optimal execution plans
@@ -49,13 +40,11 @@ impl QueryPlanner {
             None => {
                 // No expression means direct tuple lookup
                 return QueryPlan {
-                    steps: vec![QueryStep::DirectLookup {
-                        relation: relation_name.to_string(),
-                    }],
+                    steps: vec![QueryStep::DirectLookup { relation: relation_name.to_string() }],
                     parallelizable: false,
                     estimated_cost: 1,
                 };
-            }
+            },
             Some(e) => e,
         };
 
@@ -63,16 +52,12 @@ impl QueryPlanner {
             RelationExpr::This => {
                 // Direct tuple lookup
                 QueryPlan {
-                    steps: vec![QueryStep::DirectLookup {
-                        relation: relation_name.to_string(),
-                    }],
+                    steps: vec![QueryStep::DirectLookup { relation: relation_name.to_string() }],
                     parallelizable: false,
                     estimated_cost: 1, // Direct lookup is cheapest
                 }
-            }
-            RelationExpr::RelationRef {
-                relation: computed_userset,
-            } => {
+            },
+            RelationExpr::RelationRef { relation: computed_userset } => {
                 // Reference to another relation (computed userset)
                 QueryPlan {
                     steps: vec![QueryStep::ComputeUserset {
@@ -82,11 +67,8 @@ impl QueryPlanner {
                     parallelizable: false,
                     estimated_cost: 5, // Requires recursion
                 }
-            }
-            RelationExpr::ComputedUserset {
-                relation: computed_userset,
-                ..
-            } => {
+            },
+            RelationExpr::ComputedUserset { relation: computed_userset, .. } => {
                 // Computed userset: `<relation> from <relationship>`
                 QueryPlan {
                     steps: vec![QueryStep::ComputeUserset {
@@ -96,7 +78,7 @@ impl QueryPlanner {
                     parallelizable: false,
                     estimated_cost: 5, // Requires recursion
                 }
-            }
+            },
             RelationExpr::RelatedObjectUserset {
                 relationship: relationship_relation,
                 computed: computed_userset,
@@ -110,17 +92,15 @@ impl QueryPlanner {
                     parallelizable: false,
                     estimated_cost: 10, // Most expensive operation
                 }
-            }
+            },
             RelationExpr::WasmModule { .. } => {
                 // WASM module invocation
                 QueryPlan {
-                    steps: vec![QueryStep::DirectLookup {
-                        relation: relation_name.to_string(),
-                    }],
+                    steps: vec![QueryStep::DirectLookup { relation: relation_name.to_string() }],
                     parallelizable: false,
                     estimated_cost: 8, // WASM is moderately expensive
                 }
-            }
+            },
             RelationExpr::Union(exprs) => {
                 // Plan each branch independently
                 let mut branches = Vec::new();
@@ -128,37 +108,29 @@ impl QueryPlanner {
 
                 for expr in exprs {
                     // Create temporary relation for planning
-                    let temp_relation = RelationDef {
-                        name: relation_name.to_string(),
-                        expr: Some(expr.clone()),
-                    };
+                    let temp_relation =
+                        RelationDef { name: relation_name.to_string(), expr: Some(expr.clone()) };
                     let plan = Self::plan_relation(&temp_relation, relation_name);
                     total_cost += plan.estimated_cost;
                     branches.push(plan);
                 }
 
-                let avg_cost = if !branches.is_empty() {
-                    total_cost / 2
-                } else {
-                    0
-                };
+                let avg_cost = if !branches.is_empty() { total_cost / 2 } else { 0 };
 
                 QueryPlan {
                     steps: vec![QueryStep::Union { branches }],
                     parallelizable: true, // Union branches can run in parallel
                     estimated_cost: avg_cost, // Parallelization reduces effective cost
                 }
-            }
+            },
             RelationExpr::Intersection(exprs) => {
                 // Plan each branch independently
                 let mut branches = Vec::new();
                 let mut max_cost = 0;
 
                 for expr in exprs {
-                    let temp_relation = RelationDef {
-                        name: relation_name.to_string(),
-                        expr: Some(expr.clone()),
-                    };
+                    let temp_relation =
+                        RelationDef { name: relation_name.to_string(), expr: Some(expr.clone()) };
                     let plan = Self::plan_relation(&temp_relation, relation_name);
                     max_cost = max_cost.max(plan.estimated_cost);
                     branches.push(plan);
@@ -169,13 +141,11 @@ impl QueryPlanner {
                     parallelizable: true, // Intersection branches can run in parallel
                     estimated_cost: max_cost + 1, // Cost is dominated by slowest branch
                 }
-            }
+            },
             RelationExpr::Exclusion { base, subtract } => {
                 // Plan both base and subtract
-                let base_relation = RelationDef {
-                    name: relation_name.to_string(),
-                    expr: Some((**base).clone()),
-                };
+                let base_relation =
+                    RelationDef { name: relation_name.to_string(), expr: Some((**base).clone()) };
                 let base_plan = Self::plan_relation(&base_relation, relation_name);
 
                 let subtract_relation = RelationDef {
@@ -194,7 +164,7 @@ impl QueryPlanner {
                     parallelizable: true, // Base and subtract can run in parallel
                     estimated_cost: total_cost / 2,
                 }
-            }
+            },
         }
     }
 
@@ -224,12 +194,12 @@ impl QueryPlanner {
                     for branch in branches {
                         hints.extend(Self::analyze_plan(branch));
                     }
-                }
+                },
                 QueryStep::Exclusion { base, subtract } => {
                     hints.extend(Self::analyze_plan(base));
                     hints.extend(Self::analyze_plan(subtract));
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
 
@@ -251,27 +221,24 @@ impl QueryPlanner {
                         relation: relation.clone(),
                         priority: PrefetchPriority::High,
                     });
-                }
-                QueryStep::RelatedObjectUserset {
-                    relationship_relation,
-                    ..
-                } => {
+                },
+                QueryStep::RelatedObjectUserset { relationship_relation, .. } => {
                     candidates.push(PrefetchCandidate {
                         resource: resource.to_string(),
                         relation: relationship_relation.clone(),
                         priority: PrefetchPriority::High,
                     });
-                }
+                },
                 QueryStep::Union { branches } | QueryStep::Intersection { branches } => {
                     for branch in branches {
                         candidates.extend(Self::identify_prefetch_candidates(resource, branch));
                     }
-                }
+                },
                 QueryStep::Exclusion { base, subtract } => {
                     candidates.extend(Self::identify_prefetch_candidates(resource, base));
                     candidates.extend(Self::identify_prefetch_candidates(resource, subtract));
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
 
@@ -283,10 +250,7 @@ impl QueryPlanner {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OptimizationHint {
     /// Query is expensive and should be cached
-    ExpensiveQuery {
-        estimated_cost: u64,
-        suggestion: String,
-    },
+    ExpensiveQuery { estimated_cost: u64, suggestion: String },
     /// Query can benefit from parallel evaluation
     ParallelizationOpportunity { description: String },
 }
@@ -313,10 +277,7 @@ mod tests {
 
     #[test]
     fn test_plan_direct_lookup() {
-        let relation = RelationDef {
-            name: "viewer".to_string(),
-            expr: Some(RelationExpr::This),
-        };
+        let relation = RelationDef { name: "viewer".to_string(), expr: Some(RelationExpr::This) };
 
         let plan = QueryPlanner::plan_relation(&relation, "viewer");
 
@@ -327,7 +288,7 @@ mod tests {
         match &plan.steps[0] {
             QueryStep::DirectLookup { relation } => {
                 assert_eq!(relation, "viewer");
-            }
+            },
             _ => panic!("Expected DirectLookup step"),
         }
     }
@@ -336,9 +297,7 @@ mod tests {
     fn test_plan_computed_userset() {
         let relation = RelationDef {
             name: "viewer".to_string(),
-            expr: Some(RelationExpr::RelationRef {
-                relation: "owner".to_string(),
-            }),
+            expr: Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
         };
 
         let plan = QueryPlanner::plan_relation(&relation, "viewer");
@@ -348,13 +307,10 @@ mod tests {
         assert_eq!(plan.estimated_cost, 5);
 
         match &plan.steps[0] {
-            QueryStep::ComputeUserset {
-                relation,
-                computed_userset,
-            } => {
+            QueryStep::ComputeUserset { relation, computed_userset } => {
                 assert_eq!(relation, "viewer");
                 assert_eq!(computed_userset, "owner");
-            }
+            },
             _ => panic!("Expected ComputeUserset step"),
         }
     }
@@ -365,9 +321,7 @@ mod tests {
             name: "viewer".to_string(),
             expr: Some(RelationExpr::Union(vec![
                 RelationExpr::This,
-                RelationExpr::RelationRef {
-                    relation: "owner".to_string(),
-                },
+                RelationExpr::RelationRef { relation: "owner".to_string() },
             ])),
         };
 
@@ -379,7 +333,7 @@ mod tests {
         match &plan.steps[0] {
             QueryStep::Union { branches } => {
                 assert_eq!(branches.len(), 2);
-            }
+            },
             _ => panic!("Expected Union step"),
         }
     }
@@ -390,9 +344,7 @@ mod tests {
             name: "viewer".to_string(),
             expr: Some(RelationExpr::Intersection(vec![
                 RelationExpr::This,
-                RelationExpr::RelationRef {
-                    relation: "owner".to_string(),
-                },
+                RelationExpr::RelationRef { relation: "owner".to_string() },
             ])),
         };
 
@@ -404,7 +356,7 @@ mod tests {
         match &plan.steps[0] {
             QueryStep::Intersection { branches } => {
                 assert_eq!(branches.len(), 2);
-            }
+            },
             _ => panic!("Expected Intersection step"),
         }
     }
@@ -414,9 +366,7 @@ mod tests {
         let relation = RelationDef {
             name: "viewer".to_string(),
             expr: Some(RelationExpr::Exclusion {
-                base: Box::new(RelationExpr::RelationRef {
-                    relation: "owner".to_string(),
-                }),
+                base: Box::new(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 subtract: Box::new(RelationExpr::This),
             }),
         };
@@ -430,7 +380,7 @@ mod tests {
             QueryStep::Exclusion { base, subtract } => {
                 assert_eq!(base.estimated_cost, 5);
                 assert_eq!(subtract.estimated_cost, 1);
-            }
+            },
             _ => panic!("Expected Exclusion step"),
         }
     }
@@ -452,33 +402,23 @@ mod tests {
         assert_eq!(plan.estimated_cost, 10); // Most expensive
 
         match &plan.steps[0] {
-            QueryStep::RelatedObjectUserset {
-                relationship_relation,
-                computed_userset,
-            } => {
+            QueryStep::RelatedObjectUserset { relationship_relation, computed_userset } => {
                 assert_eq!(relationship_relation, "parent");
                 assert_eq!(computed_userset, "viewer");
-            }
+            },
             _ => panic!("Expected RelatedObjectUserset step"),
         }
     }
 
     #[test]
     fn test_analyze_cheap_query() {
-        let relation = RelationDef {
-            name: "viewer".to_string(),
-            expr: Some(RelationExpr::This),
-        };
+        let relation = RelationDef { name: "viewer".to_string(), expr: Some(RelationExpr::This) };
 
         let plan = QueryPlanner::plan_relation(&relation, "viewer");
         let hints = QueryPlanner::analyze_plan(&plan);
 
         // Cheap query should not generate expensive query hint
-        assert!(
-            !hints
-                .iter()
-                .any(|h| matches!(h, OptimizationHint::ExpensiveQuery { .. }))
-        );
+        assert!(!hints.iter().any(|h| matches!(h, OptimizationHint::ExpensiveQuery { .. })));
     }
 
     #[test]
@@ -515,17 +455,11 @@ mod tests {
         let hints = QueryPlanner::analyze_plan(&plan);
 
         // Should suggest caching
-        assert!(
-            hints
-                .iter()
-                .any(|h| matches!(h, OptimizationHint::ExpensiveQuery { .. }))
-        );
+        assert!(hints.iter().any(|h| matches!(h, OptimizationHint::ExpensiveQuery { .. })));
 
         // Should identify parallelization opportunity
         assert!(
-            hints
-                .iter()
-                .any(|h| matches!(h, OptimizationHint::ParallelizationOpportunity { .. }))
+            hints.iter().any(|h| matches!(h, OptimizationHint::ParallelizationOpportunity { .. }))
         );
     }
 
@@ -562,18 +496,13 @@ mod tests {
     #[test]
     fn test_cost_estimation() {
         // Direct lookup should be cheapest
-        let direct = RelationDef {
-            name: "viewer".to_string(),
-            expr: Some(RelationExpr::This),
-        };
+        let direct = RelationDef { name: "viewer".to_string(), expr: Some(RelationExpr::This) };
         let direct_plan = QueryPlanner::plan_relation(&direct, "viewer");
 
         // Computed userset should be more expensive
         let computed = RelationDef {
             name: "viewer".to_string(),
-            expr: Some(RelationExpr::RelationRef {
-                relation: "owner".to_string(),
-            }),
+            expr: Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
         };
         let computed_plan = QueryPlanner::plan_relation(&computed, "viewer");
 

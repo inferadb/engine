@@ -15,21 +15,19 @@ use axum::{
     routing::{get, post},
 };
 use futures::stream::{self, Stream, StreamExt};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
-use tower_http::{compression::CompressionLayer, cors::CorsLayer};
-use tracing::info;
-
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
-use infera_core::DecisionTrace;
-use infera_core::Evaluator;
+use infera_core::{DecisionTrace, Evaluator};
 use infera_store::RelationshipStore;
 use infera_types::{
     Decision, DeleteFilter, EvaluateRequest, ExpandRequest, ListRelationshipsRequest,
     ListResourcesRequest, ListSubjectsRequest, Relationship, RelationshipKey,
 };
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer};
+use tracing::info;
 use uuid::Uuid;
 
 pub mod adapters;
@@ -94,7 +92,7 @@ impl IntoResponse for ApiError {
                     HeaderValue::from_static("Bearer realm=\"InferaDB\""),
                 );
                 (StatusCode::UNAUTHORIZED, self.to_string(), Some(headers))
-            }
+            },
             ApiError::InvalidTokenFormat(_) => {
                 let mut headers = HeaderMap::new();
                 headers.insert(
@@ -102,7 +100,7 @@ impl IntoResponse for ApiError {
                     HeaderValue::from_static("Bearer realm=\"InferaDB\", error=\"invalid_token\""),
                 );
                 (StatusCode::UNAUTHORIZED, self.to_string(), Some(headers))
-            }
+            },
             ApiError::Forbidden(_) => (StatusCode::FORBIDDEN, self.to_string(), None),
             ApiError::UnknownTenant(_) => (StatusCode::NOT_FOUND, self.to_string(), None),
 
@@ -112,12 +110,8 @@ impl IntoResponse for ApiError {
                 headers.insert(header::RETRY_AFTER, HeaderValue::from_static("60"));
                 headers.insert("x-ratelimit-limit", HeaderValue::from_static("1000"));
                 headers.insert("x-ratelimit-remaining", HeaderValue::from_static("0"));
-                (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    self.to_string(),
-                    Some(headers),
-                )
-            }
+                (StatusCode::TOO_MANY_REQUESTS, self.to_string(), Some(headers))
+            },
 
             // Optimistic locking conflict
             ApiError::RevisionMismatch { .. } => (StatusCode::CONFLICT, self.to_string(), None),
@@ -161,9 +155,7 @@ pub fn create_router(state: AppState) -> Router {
             .unwrap(),
     );
 
-    let governor_layer = GovernorLayer {
-        config: governor_conf,
-    };
+    let governor_layer = GovernorLayer { config: governor_conf };
 
     // Protected routes that require authentication
     // All native InferaDB endpoints are versioned under /v1/
@@ -171,16 +163,10 @@ pub fn create_router(state: AppState) -> Router {
         .route("/v1/evaluate", post(evaluate_stream_handler))
         .route("/v1/expand", post(expand_handler))
         .route("/v1/resources/list", post(list_resources_stream_handler))
-        .route(
-            "/v1/relationships/list",
-            post(list_relationships_stream_handler),
-        )
+        .route("/v1/relationships/list", post(list_relationships_stream_handler))
         .route("/v1/subjects/list", post(list_subjects_stream_handler))
         .route("/v1/relationships/write", post(write_relationships_handler))
-        .route(
-            "/v1/relationships/delete",
-            post(delete_relationships_handler),
-        )
+        .route("/v1/relationships/delete", post(delete_relationships_handler))
         .route(
             "/v1/relationships/:resource/:relation/:subject",
             axum::routing::get(handlers::relationships::get::get_relationship)
@@ -278,22 +264,10 @@ pub fn create_router(state: AppState) -> Router {
             "/.well-known/authzen-configuration",
             get(handlers::authzen::well_known::get_authzen_configuration),
         )
-        .route(
-            "/access/v1/evaluation",
-            post(handlers::authzen::evaluation::post_evaluation),
-        )
-        .route(
-            "/access/v1/evaluations",
-            post(handlers::authzen::evaluation::post_evaluations),
-        )
-        .route(
-            "/access/v1/search/resource",
-            post(handlers::authzen::search::post_search_resource),
-        )
-        .route(
-            "/access/v1/search/subject",
-            post(handlers::authzen::search::post_search_subject),
-        )
+        .route("/access/v1/evaluation", post(handlers::authzen::evaluation::post_evaluation))
+        .route("/access/v1/evaluations", post(handlers::authzen::evaluation::post_evaluations))
+        .route("/access/v1/search/resource", post(handlers::authzen::search::post_search_resource))
+        .route("/access/v1/search/subject", post(handlers::authzen::search::post_search_subject))
         .merge(protected_routes)
         .with_state(state.clone());
 
@@ -327,9 +301,7 @@ async fn shutdown_signal() {
     use tokio::signal;
 
     let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
+        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
     };
 
     #[cfg(unix)]
@@ -403,14 +375,9 @@ async fn evaluate_stream_handler(
             infera_auth::middleware::require_scope(&auth_ctx, "inferadb.check")
                 .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!(
-                "Streaming check request from tenant: {}",
-                auth_ctx.tenant_id
-            );
+            tracing::debug!("Streaming check request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
@@ -504,10 +471,7 @@ async fn evaluate_stream_handler(
             // Send summary event at the end
             Event::default()
                 .event("summary")
-                .json_data(EvaluateSummary {
-                    total: total_evaluations,
-                    complete: true,
-                })
+                .json_data(EvaluateSummary { total: total_evaluations, complete: true })
         }));
 
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
@@ -532,14 +496,9 @@ async fn expand_handler(
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!(
-                "Streaming expand request from tenant: {}",
-                auth_ctx.tenant_id
-            );
+            tracing::debug!("Streaming expand request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
@@ -590,17 +549,13 @@ async fn write_relationships_handler(
 
             tracing::debug!("Write request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
     // Validate request
     if request.relationships.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "No relationships provided".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("No relationships provided".to_string()));
     }
 
     // Validate relationship format
@@ -698,18 +653,13 @@ async fn delete_relationships_handler(
 
             tracing::debug!("Delete request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
     // Validate that at least one deletion method is specified
     let has_filter = request.filter.is_some();
-    let has_relationships = request
-        .relationships
-        .as_ref()
-        .is_some_and(|r| !r.is_empty());
+    let has_relationships = request.relationships.as_ref().is_some_and(|r| !r.is_empty());
 
     if !has_filter && !has_relationships {
         return Err(ApiError::InvalidRequest(
@@ -813,11 +763,11 @@ async fn delete_relationships_handler(
                     Ok(revision) => {
                         last_revision = Some(revision);
                         total_deleted += 1;
-                    }
+                    },
                     Err(e) => {
                         tracing::warn!("Failed to delete relationship {:?}: {}", key, e);
                         // Continue deleting other relationships even if one fails
-                    }
+                    },
                 }
             }
         }
@@ -874,9 +824,7 @@ async fn simulate_handler(
 
             tracing::debug!("Simulate request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
@@ -892,9 +840,7 @@ async fn simulate_handler(
             || relationship.relation.is_empty()
             || relationship.subject.is_empty()
         {
-            return Err(ApiError::InvalidRequest(
-                "Invalid relationship format".to_string(),
-            ));
+            return Err(ApiError::InvalidRequest("Invalid relationship format".to_string()));
         }
     }
 
@@ -989,32 +935,21 @@ async fn list_resources_stream_handler(
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!(
-                "Streaming list resources request from tenant: {}",
-                auth_ctx.tenant_id
-            );
+            tracing::debug!("Streaming list resources request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
     // Validate request
     if request.subject.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Subject cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Subject cannot be empty".to_string()));
     }
     if request.resource_type.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Resource type cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Resource type cannot be empty".to_string()));
     }
     if request.permission.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Permission cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Permission cannot be empty".to_string()));
     }
 
     // Convert to core request
@@ -1097,9 +1032,7 @@ async fn list_relationships_stream_handler(
                 auth_ctx.tenant_id
             );
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
@@ -1120,19 +1053,14 @@ async fn list_relationships_stream_handler(
     let cursor = response.cursor;
     let total_count = response.total_count;
 
-    let stream = stream::iter(
-        relationships
-            .into_iter()
-            .enumerate()
-            .map(|(idx, relationship)| {
-                let data = serde_json::json!({
-                    "relationship": relationship,
-                    "index": idx,
-                });
+    let stream = stream::iter(relationships.into_iter().enumerate().map(|(idx, relationship)| {
+        let data = serde_json::json!({
+            "relationship": relationship,
+            "index": idx,
+        });
 
-                Event::default().json_data(data)
-            }),
-    )
+        Event::default().json_data(data)
+    }))
     .chain(stream::once(async move {
         // Send final summary event
         let summary = serde_json::json!({
@@ -1181,14 +1109,9 @@ async fn list_subjects_stream_handler(
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 
-            tracing::debug!(
-                "Streaming list subjects request from tenant: {}",
-                auth_ctx.tenant_id
-            );
+            tracing::debug!("Streaming list subjects request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
@@ -1260,9 +1183,7 @@ async fn watch_handler(
 
             tracing::debug!("Watch request from tenant: {}", auth_ctx.tenant_id);
         } else {
-            return Err(ApiError::Unauthorized(
-                "Authentication required".to_string(),
-            ));
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
         }
     }
 
@@ -1371,13 +1292,7 @@ pub async fn serve(
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    let state = AppState {
-        evaluator,
-        store,
-        config: config.clone(),
-        jwks_cache,
-        health_tracker,
-    };
+    let state = AppState { evaluator, store, config: config.clone(), jwks_cache, health_tracker };
     let app = create_router(state);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
@@ -1444,10 +1359,7 @@ pub async fn serve_grpc(
     // Set up authentication if enabled
     if config.auth.enabled {
         if let Some(cache) = jwks_cache {
-            info!(
-                "Starting gRPC server on {} with authentication enabled",
-                addr
-            );
+            info!("Starting gRPC server on {} with authentication enabled", addr);
 
             // Try to load internal JWKS if configured
             let internal_loader = infera_auth::InternalJwksLoader::from_config(
@@ -1475,9 +1387,7 @@ pub async fn serve_grpc(
                 .serve(addr)
                 .await?;
         } else {
-            return Err(anyhow::anyhow!(
-                "Authentication enabled but JWKS cache not initialized"
-            ));
+            return Err(anyhow::anyhow!("Authentication enabled but JWKS cache not initialized"));
         }
     } else {
         info!("Starting gRPC server on {} WITHOUT authentication", addr);
@@ -1520,7 +1430,6 @@ pub async fn serve_both(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -1529,7 +1438,9 @@ mod tests {
     use infera_store::MemoryBackend;
     use infera_types::{UsersetNodeType, UsersetTree};
     use serde_json::json;
-    use tower::ServiceExt; // for `oneshot`
+    use tower::ServiceExt;
+
+    use super::*; // for `oneshot`
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -1541,19 +1452,12 @@ mod tests {
                     "editor".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "reader".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "reader".to_string() },
                     ])),
                 ),
             ],
         )]));
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store),
-            schema,
-            None,
-            get_vault(),
-        ));
+        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, get_vault()));
         let mut config = infera_config::Config::default();
         // Disable auth and rate limiting for tests
         config.auth.enabled = false;
@@ -1564,13 +1468,7 @@ mod tests {
         health_tracker.set_ready(true);
         health_tracker.set_startup_complete(true);
 
-        AppState {
-            evaluator,
-            store,
-            config,
-            jwks_cache: None,
-            health_tracker,
-        }
+        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
     }
 
     /// Helper function to parse SSE response and extract evaluation results
@@ -1636,12 +1534,7 @@ mod tests {
         let app = create_router(create_test_state());
 
         let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/health")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
             .await
             .unwrap();
 
@@ -1676,9 +1569,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -1717,9 +1608,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let write_response: WriteResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(write_response.relationships_written, 1);
 
@@ -1739,9 +1628,7 @@ mod tests {
                     .method("POST")
                     .uri("/v1/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::to_string(&evaluate_request).unwrap(),
-                    ))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -1749,9 +1636,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -1834,9 +1719,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let (_users, summary) = parse_sse_expand_response(&body).await;
@@ -1893,18 +1776,14 @@ mod tests {
                     .method("POST")
                     .uri("/v1/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::to_string(&evaluate_request).unwrap(),
-                    ))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -1935,9 +1814,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(delete_response.relationships_deleted, 1);
 
@@ -1957,18 +1834,14 @@ mod tests {
                     .method("POST")
                     .uri("/v1/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::to_string(&evaluate_request).unwrap(),
-                    ))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -2091,9 +1964,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(delete_response.relationships_deleted, 2);
     }
@@ -2268,9 +2139,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(delete_response.relationships_deleted, 2);
 
@@ -2290,17 +2159,13 @@ mod tests {
                     .method("POST")
                     .uri("/v1/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::to_string(&evaluate_request).unwrap(),
-                    ))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -2322,17 +2187,13 @@ mod tests {
                     .method("POST")
                     .uri("/v1/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::to_string(&evaluate_request).unwrap(),
-                    ))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -2401,9 +2262,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(delete_response.relationships_deleted, 2);
 
@@ -2423,17 +2282,13 @@ mod tests {
                     .method("POST")
                     .uri("/v1/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::to_string(&evaluate_request).unwrap(),
-                    ))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -2455,17 +2310,13 @@ mod tests {
                     .method("POST")
                     .uri("/v1/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::to_string(&evaluate_request).unwrap(),
-                    ))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -2534,9 +2385,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         // Should only delete 2 relationships due to limit
         assert_eq!(delete_response.relationships_deleted, 2);
@@ -2603,9 +2452,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         // Should only delete the one matching relationship
         assert_eq!(delete_response.relationships_deleted, 1);
@@ -2710,9 +2557,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE batch response
         let results = parse_sse_evaluate_response(&body).await;
@@ -2779,9 +2624,7 @@ mod tests {
                     .method("POST")
                     .uri("/v1/evaluate")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::to_string(&evaluate_request).unwrap(),
-                    ))
+                    .body(Body::from(serde_json::to_string(&evaluate_request).unwrap()))
                     .unwrap(),
             )
             .await
@@ -2789,9 +2632,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Parse SSE response
         let results = parse_sse_evaluate_response(&body).await;
@@ -2872,9 +2713,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         // Should delete 2 for eve + 1 for frank = 3 total
         assert_eq!(delete_response.relationships_deleted, 3);

@@ -2,8 +2,9 @@
 //!
 //! Validates configuration values and ensures consistency
 
-use crate::{CacheConfig, Config, ObservabilityConfig, ServerConfig, StoreConfig};
 use thiserror::Error;
+
+use crate::{CacheConfig, Config, ObservabilityConfig, ServerConfig, StoreConfig};
 
 #[derive(Debug, Error)]
 pub enum ValidationError {
@@ -94,16 +95,14 @@ pub fn validate_store(config: &StoreConfig) -> ValidationResult<()> {
         "memory" => {
             // Memory backend doesn't need connection string
             Ok(())
-        }
+        },
         "foundationdb" => {
             // FoundationDB requires connection string
             if config.connection_string.is_none() {
-                return Err(ValidationError::MissingConnectionString(
-                    config.backend.clone(),
-                ));
+                return Err(ValidationError::MissingConnectionString(config.backend.clone()));
             }
             Ok(())
-        }
+        },
         _ => Err(ValidationError::InvalidBackend(config.backend.clone())),
     }
 }
@@ -152,10 +151,7 @@ mod tests {
             worker_threads: 4,
             rate_limiting_enabled: true,
         };
-        assert!(matches!(
-            validate_server(&config),
-            Err(ValidationError::InvalidPort(0))
-        ));
+        assert!(matches!(validate_server(&config), Err(ValidationError::InvalidPort(0))));
     }
 
     #[test]
@@ -166,10 +162,7 @@ mod tests {
             worker_threads: 4,
             rate_limiting_enabled: true,
         };
-        assert!(matches!(
-            validate_server(&config),
-            Err(ValidationError::InvalidHost(_))
-        ));
+        assert!(matches!(validate_server(&config), Err(ValidationError::InvalidHost(_))));
     }
 
     #[test]
@@ -180,27 +173,18 @@ mod tests {
             worker_threads: 0,
             rate_limiting_enabled: true,
         };
-        assert!(matches!(
-            validate_server(&config),
-            Err(ValidationError::InvalidWorkerThreads(0))
-        ));
+        assert!(matches!(validate_server(&config), Err(ValidationError::InvalidWorkerThreads(0))));
     }
 
     #[test]
     fn test_validate_store_memory_backend() {
-        let config = StoreConfig {
-            backend: "memory".to_string(),
-            connection_string: None,
-        };
+        let config = StoreConfig { backend: "memory".to_string(), connection_string: None };
         assert!(validate_store(&config).is_ok());
     }
 
     #[test]
     fn test_validate_store_foundationdb_without_connection() {
-        let config = StoreConfig {
-            backend: "foundationdb".to_string(),
-            connection_string: None,
-        };
+        let config = StoreConfig { backend: "foundationdb".to_string(), connection_string: None };
         assert!(matches!(
             validate_store(&config),
             Err(ValidationError::MissingConnectionString(_))
@@ -218,49 +202,25 @@ mod tests {
 
     #[test]
     fn test_validate_store_invalid_backend() {
-        let config = StoreConfig {
-            backend: "redis".to_string(),
-            connection_string: None,
-        };
-        assert!(matches!(
-            validate_store(&config),
-            Err(ValidationError::InvalidBackend(_))
-        ));
+        let config = StoreConfig { backend: "redis".to_string(), connection_string: None };
+        assert!(matches!(validate_store(&config), Err(ValidationError::InvalidBackend(_))));
     }
 
     #[test]
     fn test_validate_cache_zero_capacity() {
-        let config = CacheConfig {
-            enabled: true,
-            max_capacity: 0,
-            ttl_seconds: 300,
-        };
-        assert!(matches!(
-            validate_cache(&config),
-            Err(ValidationError::InvalidCacheCapacity(0))
-        ));
+        let config = CacheConfig { enabled: true, max_capacity: 0, ttl_seconds: 300 };
+        assert!(matches!(validate_cache(&config), Err(ValidationError::InvalidCacheCapacity(0))));
     }
 
     #[test]
     fn test_validate_cache_zero_ttl() {
-        let config = CacheConfig {
-            enabled: true,
-            max_capacity: 10000,
-            ttl_seconds: 0,
-        };
-        assert!(matches!(
-            validate_cache(&config),
-            Err(ValidationError::InvalidCacheTTL(0))
-        ));
+        let config = CacheConfig { enabled: true, max_capacity: 10000, ttl_seconds: 0 };
+        assert!(matches!(validate_cache(&config), Err(ValidationError::InvalidCacheTTL(0))));
     }
 
     #[test]
     fn test_validate_cache_disabled() {
-        let config = CacheConfig {
-            enabled: false,
-            max_capacity: 0,
-            ttl_seconds: 0,
-        };
+        let config = CacheConfig { enabled: false, max_capacity: 0, ttl_seconds: 0 };
         // When disabled, zero values are acceptable
         assert!(validate_cache(&config).is_ok());
     }
@@ -299,15 +259,8 @@ mod tests {
                 worker_threads: 0,
                 rate_limiting_enabled: true,
             },
-            store: StoreConfig {
-                backend: "invalid".to_string(),
-                connection_string: None,
-            },
-            cache: CacheConfig {
-                enabled: true,
-                max_capacity: 0,
-                ttl_seconds: 0,
-            },
+            store: StoreConfig { backend: "invalid".to_string(), connection_string: None },
+            cache: CacheConfig { enabled: true, max_capacity: 0, ttl_seconds: 0 },
             observability: ObservabilityConfig {
                 log_level: "invalid".to_string(),
                 metrics_enabled: true,
@@ -320,7 +273,7 @@ mod tests {
         match validate(&config) {
             Err(ValidationError::Multiple(errors)) => {
                 assert!(errors.len() > 1);
-            }
+            },
             _ => panic!("Expected Multiple error"),
         }
     }

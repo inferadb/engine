@@ -34,15 +34,15 @@ pub mod coverage_analyzer;
 pub mod error;
 pub mod type_checker;
 
-use crate::ipl::ast::Schema;
+use conflict_detector::ConflictDetector;
+use coverage_analyzer::CoverageAnalyzer;
 pub use error::{
     ConflictError, CoverageWarning, ErrorLocation, Severity, TypeCheckError, ValidationError,
     ValidationErrorKind,
 };
-
-use conflict_detector::ConflictDetector;
-use coverage_analyzer::CoverageAnalyzer;
 use type_checker::TypeChecker;
+
+use crate::ipl::ast::Schema;
 
 /// Validation results containing all errors and warnings
 #[derive(Debug, Clone)]
@@ -63,9 +63,7 @@ impl ValidationResults {
 
     /// Check if there are any warnings
     pub fn has_warnings(&self) -> bool {
-        self.errors
-            .iter()
-            .any(|e| e.severity() == Severity::Warning)
+        self.errors.iter().any(|e| e.severity() == Severity::Warning)
     }
 
     /// Get all validation errors (includes warnings and info)
@@ -75,26 +73,17 @@ impl ValidationResults {
 
     /// Get only errors (severity Error)
     pub fn error_messages(&self) -> Vec<&ValidationError> {
-        self.errors
-            .iter()
-            .filter(|e| e.severity() == Severity::Error)
-            .collect()
+        self.errors.iter().filter(|e| e.severity() == Severity::Error).collect()
     }
 
     /// Get only warnings (severity Warning)
     pub fn warning_messages(&self) -> Vec<&ValidationError> {
-        self.errors
-            .iter()
-            .filter(|e| e.severity() == Severity::Warning)
-            .collect()
+        self.errors.iter().filter(|e| e.severity() == Severity::Warning).collect()
     }
 
     /// Get only info messages (severity Info)
     pub fn info_messages(&self) -> Vec<&ValidationError> {
-        self.errors
-            .iter()
-            .filter(|e| e.severity() == Severity::Info)
-            .collect()
+        self.errors.iter().filter(|e| e.severity() == Severity::Info).collect()
     }
 
     /// Get the total count of all validation messages
@@ -119,10 +108,7 @@ impl ValidationResults {
                 errors, warnings, info
             )
         } else if warnings > 0 {
-            format!(
-                "Validation passed with warnings: {} warning(s), {} info",
-                warnings, info
-            )
+            format!("Validation passed with warnings: {} warning(s), {} info", warnings, info)
         } else {
             format!("Validation passed: {} info message(s)", info)
         }
@@ -199,9 +185,7 @@ mod tests {
                 RelationDef::new("owner".to_string(), None),
                 RelationDef::new(
                     "viewer".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
             ],
         )]);
@@ -220,9 +204,7 @@ mod tests {
             "document".to_string(),
             vec![RelationDef::new(
                 "viewer".to_string(),
-                Some(RelationExpr::RelationRef {
-                    relation: "nonexistent".to_string(),
-                }),
+                Some(RelationExpr::RelationRef { relation: "nonexistent".to_string() }),
             )],
         )]);
 
@@ -284,9 +266,7 @@ mod tests {
             "document".to_string(),
             vec![RelationDef::new(
                 "viewer".to_string(),
-                Some(RelationExpr::RelationRef {
-                    relation: "nonexistent".to_string(),
-                }),
+                Some(RelationExpr::RelationRef { relation: "nonexistent".to_string() }),
             )],
         )]);
 
@@ -318,9 +298,7 @@ mod tests {
                 RelationDef::new("owner".to_string(), None),
                 RelationDef::new(
                     "unused".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
             ],
         )]);

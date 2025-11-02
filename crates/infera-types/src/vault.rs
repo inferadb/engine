@@ -35,25 +35,13 @@ impl Vault {
     /// Create a new Vault with a generated UUID
     pub fn new(account: Uuid, name: String) -> Self {
         let now = Utc::now();
-        Self {
-            id: Uuid::new_v4(),
-            account,
-            name,
-            created_at: now,
-            updated_at: now,
-        }
+        Self { id: Uuid::new_v4(), account, name, created_at: now, updated_at: now }
     }
 
     /// Create a Vault with a specific ID (useful for testing)
     pub fn with_id(id: Uuid, account: Uuid, name: String) -> Self {
         let now = Utc::now();
-        Self {
-            id,
-            account,
-            name,
-            created_at: now,
-            updated_at: now,
-        }
+        Self { id, account, name, created_at: now, updated_at: now }
     }
 }
 
@@ -70,10 +58,7 @@ pub struct SystemConfig {
 impl SystemConfig {
     /// Create a new SystemConfig
     pub fn new(default_account: Uuid, default_vault: Uuid) -> Self {
-        Self {
-            default_vault,
-            default_account,
-        }
+        Self { default_vault, default_account }
     }
 }
 

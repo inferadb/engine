@@ -139,10 +139,7 @@ pub fn parallel_span(operation: &str, branch_count: usize) -> Span {
 /// * `decision` - The decision result ("allow" or "deny")
 pub fn record_decision(span: &Span, decision: &str) {
     span.record("decision", decision);
-    span.record(
-        "otel.status_code",
-        if decision == "allow" { "OK" } else { "ERROR" },
-    );
+    span.record("otel.status_code", if decision == "allow" { "OK" } else { "ERROR" });
 }
 
 /// Record cache hit/miss information
@@ -322,8 +319,9 @@ pub fn record_jwks_result(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Once;
+
+    use super::*;
 
     static INIT: Once = Once::new();
 

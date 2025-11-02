@@ -2,13 +2,14 @@
 //!
 //! Provides snapshot isolation for reads at specific revision tokens
 
-use crate::{ReplError, Result, RevisionToken};
+use std::{sync::Arc, time::Duration};
+
 use infera_store::RelationshipStore;
 use infera_types::{Relationship, RelationshipKey, Revision};
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::time::timeout;
 use uuid::Uuid;
+
+use crate::{ReplError, Result, RevisionToken};
 
 /// Get the vault ID for REPL operations
 /// TODO(Phase 2): Allow users to specify vault via REPL command
@@ -26,18 +27,12 @@ pub struct SnapshotReader {
 impl SnapshotReader {
     /// Create a new snapshot reader
     pub fn new(store: Arc<dyn RelationshipStore>) -> Self {
-        Self {
-            store,
-            timeout_duration: Duration::from_secs(30),
-        }
+        Self { store, timeout_duration: Duration::from_secs(30) }
     }
 
     /// Create a snapshot reader with a custom timeout
     pub fn with_timeout(store: Arc<dyn RelationshipStore>, timeout_duration: Duration) -> Self {
-        Self {
-            store,
-            timeout_duration,
-        }
+        Self { store, timeout_duration }
     }
 
     /// Read relationships at a specific revision token
@@ -56,11 +51,8 @@ impl SnapshotReader {
         let revision = Revision(token.revision);
 
         // Attempt to read at the specified revision with timeout
-        let result = timeout(
-            self.timeout_duration,
-            self.wait_for_revision_and_read(key, revision),
-        )
-        .await;
+        let result =
+            timeout(self.timeout_duration, self.wait_for_revision_and_read(key, revision)).await;
 
         match result {
             Ok(Ok(relationships)) => Ok(relationships),
@@ -108,9 +100,10 @@ impl SnapshotReader {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_read_current() {
@@ -124,10 +117,7 @@ mod tests {
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        store
-            .write(uuid::Uuid::nil(), vec![relationship.clone()])
-            .await
-            .unwrap();
+        store.write(uuid::Uuid::nil(), vec![relationship.clone()]).await.unwrap();
 
         // Read at current revision
         let key = RelationshipKey {
@@ -153,10 +143,7 @@ mod tests {
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let rev1 = store
-            .write(uuid::Uuid::nil(), vec![relationship1.clone()])
-            .await
-            .unwrap();
+        let rev1 = store.write(uuid::Uuid::nil(), vec![relationship1.clone()]).await.unwrap();
 
         // Create token at revision 1
         let token1 = RevisionToken::new("node1".to_string(), rev1.0);
@@ -168,10 +155,7 @@ mod tests {
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
         };
-        store
-            .write(uuid::Uuid::nil(), vec![relationship2.clone()])
-            .await
-            .unwrap();
+        store.write(uuid::Uuid::nil(), vec![relationship2.clone()]).await.unwrap();
 
         // Read at revision 1 (should only see first relationship)
         let key = RelationshipKey {
@@ -197,10 +181,7 @@ mod tests {
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let revision = store
-            .write(uuid::Uuid::nil(), vec![relationship])
-            .await
-            .unwrap();
+        let revision = store.write(uuid::Uuid::nil(), vec![relationship]).await.unwrap();
 
         // Get current token
         let token = reader.current_token("node1".to_string()).await.unwrap();

@@ -4,14 +4,15 @@
 //! adapter layer over InferaDB's native evaluation functionality.
 
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use infera_types::EvaluateRequest;
 use serde::{Deserialize, Serialize};
 
-use crate::ApiError;
-use crate::AppState;
-use crate::adapters::authzen::{AuthZENEvaluationRequest, convert_authzen_request_to_native};
-use crate::formatters::authzen::{format_denial_with_error, format_evaluation_response};
-use crate::validation::validate_authzen_evaluation_request;
-use infera_types::EvaluateRequest;
+use crate::{
+    ApiError, AppState,
+    adapters::authzen::{AuthZENEvaluationRequest, convert_authzen_request_to_native},
+    formatters::authzen::{format_denial_with_error, format_evaluation_response},
+    validation::validate_authzen_evaluation_request,
+};
 
 /// Enhanced AuthZEN evaluation response with additional context
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,11 +109,8 @@ pub async fn post_evaluation(
 
     tracing::info!(
         decision = response.decision,
-        evaluation_id = response
-            .context
-            .as_ref()
-            .and_then(|c| c.get("id"))
-            .and_then(|id| id.as_str()),
+        evaluation_id =
+            response.context.as_ref().and_then(|c| c.get("id")).and_then(|id| id.as_str()),
         duration_ms = duration.as_millis(),
         "AuthZEN evaluation completed"
     );
@@ -210,10 +208,7 @@ pub async fn post_evaluations(
         )));
     }
 
-    tracing::info!(
-        batch_size = batch_size,
-        "Processing AuthZEN batch evaluation request"
-    );
+    tracing::info!(batch_size = batch_size, "Processing AuthZEN batch evaluation request");
 
     // Process each evaluation in the batch
     let mut results = Vec::with_capacity(batch_size);
@@ -270,7 +265,7 @@ pub async fn post_evaluations(
                 );
 
                 results.push(response);
-            }
+            },
             Err(e) => {
                 // On evaluation error, return deny with error context
                 let error_msg = format!("Evaluation error: {}", e);
@@ -286,7 +281,7 @@ pub async fn post_evaluations(
                 );
 
                 results.push(response);
-            }
+            },
         }
     }
 
@@ -305,18 +300,15 @@ pub async fn post_evaluations(
         "AuthZEN batch evaluation completed"
     );
 
-    let response = AuthZENEvaluationsResponse {
-        evaluations: results,
-    };
+    let response = AuthZENEvaluationsResponse { evaluations: results };
 
     Ok((StatusCode::OK, Json(response)))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::AppState;
-    use crate::adapters::authzen::{AuthZENAction, AuthZENResource, AuthZENSubject};
+    use std::sync::Arc;
+
     use axum::{
         Router,
         body::Body,
@@ -327,8 +319,13 @@ mod tests {
     use infera_core::Evaluator;
     use infera_store::{MemoryBackend, RelationshipStore};
     use infera_types::Relationship;
-    use std::sync::Arc;
     use tower::ServiceExt;
+
+    use super::*;
+    use crate::{
+        AppState,
+        adapters::authzen::{AuthZENAction, AuthZENResource, AuthZENSubject},
+    };
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -339,24 +336,14 @@ mod tests {
         let schema = Arc::new(Schema::new(vec![TypeDef {
             name: "document".to_string(),
             relations: vec![
-                RelationDef {
-                    name: "view".to_string(),
-                    expr: Some(RelationExpr::This),
-                },
-                RelationDef {
-                    name: "delete".to_string(),
-                    expr: Some(RelationExpr::This),
-                },
+                RelationDef { name: "view".to_string(), expr: Some(RelationExpr::This) },
+                RelationDef { name: "delete".to_string(), expr: Some(RelationExpr::This) },
             ],
             forbids: vec![],
         }]));
 
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store),
-            schema,
-            None,
-            uuid::Uuid::nil(),
-        ));
+        let evaluator =
+            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -374,31 +361,19 @@ mod tests {
             .await
             .unwrap();
 
-        AppState {
-            evaluator,
-            store,
-            config,
-            jwks_cache: None,
-            health_tracker,
-        }
+        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
     }
 
     #[tokio::test]
     async fn test_evaluation_allow() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluation", post(post_evaluation))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluation", post(post_evaluation)).with_state(state);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -420,9 +395,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: EnhancedAuthZENEvaluationResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.decision, true);
@@ -440,18 +413,12 @@ mod tests {
     async fn test_evaluation_deny() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluation", post(post_evaluation))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluation", post(post_evaluation)).with_state(state);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "bob".to_string(),
-            },
-            action: AuthZENAction {
-                name: "delete".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "bob".to_string() },
+            action: AuthZENAction { name: "delete".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -473,18 +440,14 @@ mod tests {
 
         if response.status() != StatusCode::OK {
             let status = response.status();
-            let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-                .await
-                .unwrap();
+            let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
             eprintln!("Error response body: {}", String::from_utf8_lossy(&body));
             panic!("Expected 200 OK, got {}", status);
         }
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: EnhancedAuthZENEvaluationResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.decision, false);
@@ -502,18 +465,12 @@ mod tests {
     async fn test_evaluation_missing_subject_type() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluation", post(post_evaluation))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluation", post(post_evaluation)).with_state(state);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject {
-                subject_type: "".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -540,18 +497,12 @@ mod tests {
     async fn test_evaluation_missing_action_name() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluation", post(post_evaluation))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluation", post(post_evaluation)).with_state(state);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -578,18 +529,15 @@ mod tests {
     async fn test_evaluation_invalid_entity_format() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluation", post(post_evaluation))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluation", post(post_evaluation)).with_state(state);
 
         let request_body = AuthZENEvaluationRequest {
             subject: AuthZENSubject {
                 subject_type: "User".to_string(), // Invalid: uppercase not allowed
                 id: "alice".to_string(),
             },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -616,18 +564,12 @@ mod tests {
     async fn test_evaluation_response_structure() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluation", post(post_evaluation))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluation", post(post_evaluation)).with_state(state);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -647,9 +589,7 @@ mod tests {
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
         // Verify structure
@@ -666,9 +606,8 @@ mod tests {
     async fn test_batch_evaluation_single() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluations", post(post_evaluations))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluations", post(post_evaluations)).with_state(state);
 
         let request_body = AuthZENEvaluationsRequest {
             evaluations: vec![AuthZENEvaluationRequest {
@@ -676,9 +615,7 @@ mod tests {
                     subject_type: "user".to_string(),
                     id: "alice".to_string(),
                 },
-                action: AuthZENAction {
-                    name: "view".to_string(),
-                },
+                action: AuthZENAction { name: "view".to_string() },
                 resource: AuthZENResource {
                     resource_type: "document".to_string(),
                     id: "readme".to_string(),
@@ -701,9 +638,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: AuthZENEvaluationsResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.evaluations.len(), 1);
@@ -714,9 +649,8 @@ mod tests {
     async fn test_batch_evaluation_multiple() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluations", post(post_evaluations))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluations", post(post_evaluations)).with_state(state);
 
         let request_body = AuthZENEvaluationsRequest {
             evaluations: vec![
@@ -725,9 +659,7 @@ mod tests {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "view".to_string(),
-                    },
+                    action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -739,9 +671,7 @@ mod tests {
                         subject_type: "user".to_string(),
                         id: "bob".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "delete".to_string(),
-                    },
+                    action: AuthZENAction { name: "delete".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -753,9 +683,7 @@ mod tests {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "delete".to_string(),
-                    },
+                    action: AuthZENAction { name: "delete".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -779,9 +707,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: AuthZENEvaluationsResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.evaluations.len(), 3);
@@ -794,13 +720,10 @@ mod tests {
     async fn test_batch_evaluation_empty() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluations", post(post_evaluations))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluations", post(post_evaluations)).with_state(state);
 
-        let request_body = AuthZENEvaluationsRequest {
-            evaluations: vec![],
-        };
+        let request_body = AuthZENEvaluationsRequest { evaluations: vec![] };
 
         let response = app
             .oneshot(
@@ -821,9 +744,8 @@ mod tests {
     async fn test_batch_evaluation_over_limit() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluations", post(post_evaluations))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluations", post(post_evaluations)).with_state(state);
 
         // Create 101 evaluations (over the limit of 100)
         let mut evaluations = Vec::new();
@@ -833,9 +755,7 @@ mod tests {
                     subject_type: "user".to_string(),
                     id: format!("user{}", i),
                 },
-                action: AuthZENAction {
-                    name: "view".to_string(),
-                },
+                action: AuthZENAction { name: "view".to_string() },
                 resource: AuthZENResource {
                     resource_type: "document".to_string(),
                     id: "readme".to_string(),
@@ -865,9 +785,8 @@ mod tests {
     async fn test_batch_evaluation_partial_failures() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluations", post(post_evaluations))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluations", post(post_evaluations)).with_state(state);
 
         let request_body = AuthZENEvaluationsRequest {
             evaluations: vec![
@@ -876,9 +795,7 @@ mod tests {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "view".to_string(),
-                    },
+                    action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -890,9 +807,7 @@ mod tests {
                         subject_type: "".to_string(), // Invalid: empty type
                         id: "bob".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "view".to_string(),
-                    },
+                    action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -904,9 +819,7 @@ mod tests {
                         subject_type: "User".to_string(), // Invalid: uppercase
                         id: "charlie".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "view".to_string(),
-                    },
+                    action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -930,9 +843,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: AuthZENEvaluationsResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.evaluations.len(), 3);
@@ -952,9 +863,8 @@ mod tests {
     async fn test_batch_evaluation_preserves_order() {
         let state = create_test_state().await;
 
-        let app = Router::new()
-            .route("/access/v1/evaluations", post(post_evaluations))
-            .with_state(state);
+        let app =
+            Router::new().route("/access/v1/evaluations", post(post_evaluations)).with_state(state);
 
         let request_body = AuthZENEvaluationsRequest {
             evaluations: vec![
@@ -963,9 +873,7 @@ mod tests {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "view".to_string(),
-                    },
+                    action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -977,9 +885,7 @@ mod tests {
                         subject_type: "user".to_string(),
                         id: "bob".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "view".to_string(),
-                    },
+                    action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -991,9 +897,7 @@ mod tests {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
                     },
-                    action: AuthZENAction {
-                        name: "delete".to_string(),
-                    },
+                    action: AuthZENAction { name: "delete".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
@@ -1015,9 +919,7 @@ mod tests {
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: AuthZENEvaluationsResponse = serde_json::from_slice(&body).unwrap();
 
         // Verify order is preserved

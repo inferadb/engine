@@ -30,23 +30,13 @@ impl Account {
     /// Create a new Account with a generated UUID
     pub fn new(name: String) -> Self {
         let now = Utc::now();
-        Self {
-            id: Uuid::new_v4(),
-            name,
-            created_at: now,
-            updated_at: now,
-        }
+        Self { id: Uuid::new_v4(), name, created_at: now, updated_at: now }
     }
 
     /// Create an Account with a specific ID (useful for testing)
     pub fn with_id(id: Uuid, name: String) -> Self {
         let now = Utc::now();
-        Self {
-            id,
-            name,
-            created_at: now,
-            updated_at: now,
-        }
+        Self { id, name, created_at: now, updated_at: now }
     }
 }
 

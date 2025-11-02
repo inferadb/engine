@@ -1,11 +1,14 @@
 //! Integration tests for WASM policy modules
 
-use infera_core::Evaluator;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use std::sync::Arc;
+
+use infera_core::{
+    Evaluator,
+    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
+};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use infera_wasm::WasmHost;
-use std::sync::Arc;
 use uuid::Uuid;
 
 /// Helper to create a simple schema with WASM module
@@ -14,9 +17,7 @@ fn create_wasm_schema(module_name: &str) -> Schema {
         "document".to_string(),
         vec![RelationDef::new(
             "viewer".to_string(),
-            Some(RelationExpr::WasmModule {
-                module_name: module_name.to_string(),
-            }),
+            Some(RelationExpr::WasmModule { module_name: module_name.to_string() }),
         )],
     )])
 }
@@ -29,9 +30,7 @@ fn create_union_schema(module_name: &str) -> Schema {
             "viewer".to_string(),
             Some(RelationExpr::Union(vec![
                 RelationExpr::This,
-                RelationExpr::WasmModule {
-                    module_name: module_name.to_string(),
-                },
+                RelationExpr::WasmModule { module_name: module_name.to_string() },
             ])),
         )],
     )])
@@ -45,9 +44,7 @@ fn create_intersection_schema(module_name: &str) -> Schema {
             "viewer".to_string(),
             Some(RelationExpr::Intersection(vec![
                 RelationExpr::This,
-                RelationExpr::WasmModule {
-                    module_name: module_name.to_string(),
-                },
+                RelationExpr::WasmModule { module_name: module_name.to_string() },
             ])),
         )],
     )])
@@ -68,9 +65,7 @@ async fn test_wasm_allow_policy() {
     .unwrap();
 
     let wasm_host = Arc::new(WasmHost::new().unwrap());
-    wasm_host
-        .load_module("allow_all".to_string(), &wasm)
-        .unwrap();
+    wasm_host.load_module("allow_all".to_string(), &wasm).unwrap();
 
     let schema = create_wasm_schema("allow_all");
     let store = Arc::new(MemoryBackend::new());
@@ -109,9 +104,7 @@ async fn test_wasm_deny_policy() {
     .unwrap();
 
     let wasm_host = Arc::new(WasmHost::new().unwrap());
-    wasm_host
-        .load_module("deny_all".to_string(), &wasm)
-        .unwrap();
+    wasm_host.load_module("deny_all".to_string(), &wasm).unwrap();
 
     let schema = create_wasm_schema("deny_all");
     let store = Arc::new(MemoryBackend::new());
@@ -150,9 +143,7 @@ async fn test_wasm_with_union() {
     .unwrap();
 
     let wasm_host = Arc::new(WasmHost::new().unwrap());
-    wasm_host
-        .load_module("business_hours".to_string(), &wasm)
-        .unwrap();
+    wasm_host.load_module("business_hours".to_string(), &wasm).unwrap();
 
     let schema = create_union_schema("business_hours");
     let store = Arc::new(MemoryBackend::new());
@@ -217,9 +208,7 @@ async fn test_wasm_with_intersection() {
     .unwrap();
 
     let wasm_host = Arc::new(WasmHost::new().unwrap());
-    wasm_host
-        .load_module("is_verified".to_string(), &wasm)
-        .unwrap();
+    wasm_host.load_module("is_verified".to_string(), &wasm).unwrap();
 
     let schema = create_intersection_schema("is_verified");
     let store = Arc::new(MemoryBackend::new());
@@ -291,12 +280,7 @@ async fn test_wasm_missing_host() {
 
     let result = evaluator.check(request).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("WASM host not configured")
-    );
+    assert!(result.unwrap_err().to_string().contains("WASM host not configured"));
 }
 
 #[tokio::test]
@@ -340,9 +324,7 @@ async fn test_wasm_with_trace() {
     .unwrap();
 
     let wasm_host = Arc::new(WasmHost::new().unwrap());
-    wasm_host
-        .load_module("test_module".to_string(), &wasm)
-        .unwrap();
+    wasm_host.load_module("test_module".to_string(), &wasm).unwrap();
 
     let schema = create_wasm_schema("test_module");
     let store = Arc::new(MemoryBackend::new());
@@ -370,7 +352,7 @@ async fn test_wasm_with_trace() {
     match &trace.root.node_type {
         NodeType::WasmModule { module_name } => {
             assert_eq!(module_name, "test_module");
-        }
+        },
         _ => panic!("Expected WasmModule node type"),
     }
     assert!(trace.root.result);

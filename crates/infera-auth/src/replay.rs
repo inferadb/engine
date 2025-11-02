@@ -4,7 +4,8 @@
 //! each token can only be used once. Two implementations are provided:
 //!
 //! - **Redis-based**: For production multi-node deployments (requires `replay-protection` feature)
-//! - **In-memory**: For single-node deployments or development (not suitable for production clusters)
+//! - **In-memory**: For single-node deployments or development (not suitable for production
+//!   clusters)
 //!
 //! ## Security
 //!
@@ -24,11 +25,15 @@
 //! assert!(!is_replay); // Second use returns false (replay detected)
 //! ```
 
-use crate::error::AuthError;
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
 use moka::future::Cache;
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, warn};
+
+use crate::error::AuthError;
 
 /// Trait for replay protection implementations
 ///
@@ -86,18 +91,13 @@ impl RedisReplayProtection {
             AuthError::ReplayProtectionError(format!("Failed to create Redis client: {}", e))
         })?;
 
-        let connection_manager = redis::aio::ConnectionManager::new(client)
-            .await
-            .map_err(|e| {
-                AuthError::ReplayProtectionError(format!("Failed to connect to Redis: {}", e))
-            })?;
+        let connection_manager = redis::aio::ConnectionManager::new(client).await.map_err(|e| {
+            AuthError::ReplayProtectionError(format!("Failed to connect to Redis: {}", e))
+        })?;
 
         debug!("Redis replay protection initialized");
 
-        Ok(Self {
-            client: connection_manager,
-            key_prefix: "inferadb:jti:".to_string(),
-        })
+        Ok(Self { client: connection_manager, key_prefix: "inferadb:jti:".to_string() })
     }
 
     /// Calculate TTL in seconds from Unix timestamp
@@ -181,9 +181,7 @@ impl InMemoryReplayProtection {
 
         let cache = Cache::builder().max_capacity(100_000).build();
 
-        Self {
-            cache: Arc::new(cache),
-        }
+        Self { cache: Arc::new(cache) }
     }
 
     /// Calculate TTL duration from Unix timestamp
@@ -231,23 +229,16 @@ impl ReplayProtection for InMemoryReplayProtection {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use super::*;
+
     fn future_timestamp(offset_secs: u64) -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            + offset_secs
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + offset_secs
     }
 
     fn past_timestamp(offset_secs: u64) -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            .saturating_sub(offset_secs)
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs().saturating_sub(offset_secs)
     }
 
     #[tokio::test]
@@ -268,10 +259,7 @@ mod tests {
         assert!(is_new, "First use should return true");
 
         let is_replay = replay.check_and_mark("test-jti-2", exp).await.unwrap();
-        assert!(
-            !is_replay,
-            "Second use should return false (replay detected)"
-        );
+        assert!(!is_replay, "Second use should return false (replay detected)");
     }
 
     #[tokio::test]
@@ -343,10 +331,7 @@ mod tests {
             assert!(is_new, "First use should return true");
 
             let is_replay = replay.check_and_mark(&jti, exp).await.unwrap();
-            assert!(
-                !is_replay,
-                "Second use should return false (replay detected)"
-            );
+            assert!(!is_replay, "Second use should return false (replay detected)");
         }
 
         #[tokio::test]

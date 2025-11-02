@@ -2,12 +2,12 @@
 
 #![allow(dead_code)] // Some test files use subsets of these utilities
 
-use infera_core::Evaluator;
-use infera_core::ipl::Schema;
+use std::sync::Arc;
+
+use infera_core::{Evaluator, ipl::Schema};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use infera_wasm::WasmHost;
-use std::sync::Arc;
 use uuid::Uuid;
 
 /// Test fixture for setting up a complete evaluation environment

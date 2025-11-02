@@ -69,10 +69,7 @@ impl<'a> TypeChecker<'a> {
                         ValidationErrorKind::TypeCheck(TypeCheckError::CircularDependency {
                             chain: cycle,
                         }),
-                        format!(
-                            "Circular dependency detected in relation '{}'",
-                            relation.name
-                        ),
+                        format!("Circular dependency detected in relation '{}'", relation.name),
                         Some(
                             "Break the circular dependency by restructuring relations".to_string(),
                         ),
@@ -96,7 +93,7 @@ impl<'a> TypeChecker<'a> {
         match expr {
             RelationExpr::This => {
                 // Always valid
-            }
+            },
             RelationExpr::RelationRef { relation } => {
                 // Check that the referenced relation exists in this type
                 if type_def.find_relation(relation).is_none() {
@@ -115,11 +112,8 @@ impl<'a> TypeChecker<'a> {
                         Some(format!("Define relation '{}' or check for typos", relation)),
                     ));
                 }
-            }
-            RelationExpr::ComputedUserset {
-                relation: _,
-                relationship,
-            } => {
+            },
+            RelationExpr::ComputedUserset { relation: _, relationship } => {
                 // Check that the relationship exists
                 if type_def.find_relation(relationship).is_none() {
                     errors.push(ValidationError::new(
@@ -143,11 +137,8 @@ impl<'a> TypeChecker<'a> {
 
                 // The relation will be checked when we evaluate the relationship
                 // We can't fully validate it without runtime type information
-            }
-            RelationExpr::RelatedObjectUserset {
-                relationship,
-                computed: _,
-            } => {
+            },
+            RelationExpr::RelatedObjectUserset { relationship, computed: _ } => {
                 // Check that the relationship exists in this type
                 if type_def.find_relation(relationship).is_none() {
                     errors.push(ValidationError::new(
@@ -170,10 +161,10 @@ impl<'a> TypeChecker<'a> {
                 }
 
                 // The computed relation will be validated at runtime on the related object
-            }
+            },
             RelationExpr::WasmModule { module_name: _ } => {
                 // WASM modules are validated at runtime, not during static analysis
-            }
+            },
             RelationExpr::Union(exprs) | RelationExpr::Intersection(exprs) => {
                 for sub_expr in exprs {
                     errors.extend(Self::check_expression(
@@ -183,21 +174,11 @@ impl<'a> TypeChecker<'a> {
                         _visited,
                     ));
                 }
-            }
+            },
             RelationExpr::Exclusion { base, subtract } => {
-                errors.extend(Self::check_expression(
-                    type_def,
-                    relation_name,
-                    base,
-                    _visited,
-                ));
-                errors.extend(Self::check_expression(
-                    type_def,
-                    relation_name,
-                    subtract,
-                    _visited,
-                ));
-            }
+                errors.extend(Self::check_expression(type_def, relation_name, base, _visited));
+                errors.extend(Self::check_expression(type_def, relation_name, subtract, _visited));
+            },
         }
 
         errors
@@ -237,7 +218,7 @@ impl<'a> TypeChecker<'a> {
 
                 path.pop();
                 None
-            }
+            },
             RelationExpr::Union(exprs) | RelationExpr::Intersection(exprs) => {
                 for sub_expr in exprs {
                     let cycle = Self::detect_cycle(type_def, sub_expr, visited, path);
@@ -246,7 +227,7 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
                 None
-            }
+            },
             RelationExpr::Exclusion { base, subtract } => {
                 let cycle = Self::detect_cycle(type_def, base, visited, path);
                 if cycle.is_some() {
@@ -257,7 +238,7 @@ impl<'a> TypeChecker<'a> {
                     return cycle;
                 }
                 None
-            }
+            },
             _ => None,
         }
     }
@@ -276,9 +257,7 @@ mod tests {
                 RelationDef::new("owner".to_string(), None),
                 RelationDef::new(
                     "viewer".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
             ],
         )]);
@@ -295,9 +274,7 @@ mod tests {
             "document".to_string(),
             vec![RelationDef::new(
                 "viewer".to_string(),
-                Some(RelationExpr::RelationRef {
-                    relation: "nonexistent".to_string(),
-                }),
+                Some(RelationExpr::RelationRef { relation: "nonexistent".to_string() }),
             )],
         )]);
 
@@ -341,15 +318,11 @@ mod tests {
             vec![
                 RelationDef::new(
                     "a".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "b".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "b".to_string() }),
                 ),
                 RelationDef::new(
                     "b".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "a".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "a".to_string() }),
                 ),
             ],
         )]);
@@ -372,9 +345,7 @@ mod tests {
                 "viewer".to_string(),
                 Some(RelationExpr::Union(vec![
                     RelationExpr::This,
-                    RelationExpr::RelationRef {
-                        relation: "nonexistent".to_string(),
-                    },
+                    RelationExpr::RelationRef { relation: "nonexistent".to_string() },
                 ])),
             )],
         )]);

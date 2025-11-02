@@ -1,9 +1,9 @@
 //! Decision tracing for explainability
 
-use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 use infera_types::Decision;
+use serde::{Deserialize, Serialize};
 
 /// A complete decision trace showing how a decision was reached
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,23 +40,13 @@ pub struct EvaluationNode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NodeType {
     /// Direct relationship check
-    DirectCheck {
-        resource: String,
-        relation: String,
-        subject: String,
-    },
+    DirectCheck { resource: String, relation: String, subject: String },
 
     /// Computed userset evaluation
-    ComputedUserset {
-        relation: String,
-        relationship: String,
-    },
+    ComputedUserset { relation: String, relationship: String },
 
     /// Related object userset
-    RelatedObjectUserset {
-        relationship: String,
-        computed: String,
-    },
+    RelatedObjectUserset { relationship: String, computed: String },
 
     /// Union operation
     Union,
@@ -75,13 +65,7 @@ impl DecisionTrace {
     pub fn new(decision: Decision, root: EvaluationNode, duration: Duration) -> Self {
         let (relationships_read, relations_evaluated) = Self::count_operations(&root);
 
-        Self {
-            decision,
-            root,
-            duration,
-            relationships_read,
-            relations_evaluated,
-        }
+        Self { decision, root, duration, relationships_read, relations_evaluated }
     }
 
     fn count_operations(node: &EvaluationNode) -> (usize, usize) {

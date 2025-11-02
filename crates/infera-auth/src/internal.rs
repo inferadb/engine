@@ -21,14 +21,17 @@
 //! let auth_ctx = validate_internal_jwt(token, &loader, &config)?;
 //! ```
 
-use crate::context::{AuthContext, AuthMethod};
-use crate::error::AuthError;
-use crate::jwks_cache::Jwk;
-use crate::jwt::JwtClaims;
+use std::{path::Path, sync::Arc};
+
 use jsonwebtoken::{Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::sync::Arc;
+
+use crate::{
+    context::{AuthContext, AuthMethod},
+    error::AuthError,
+    jwks_cache::Jwk,
+    jwt::JwtClaims,
+};
 
 /// Internal JWKS structure for local key storage
 ///
@@ -57,11 +60,7 @@ impl InternalJwks {
     /// - Any key is missing required fields
     /// - Issuer is empty
     pub fn new(issuer: String, audience: String, keys: Vec<Jwk>) -> Result<Self, AuthError> {
-        let jwks = Self {
-            issuer,
-            audience,
-            keys,
-        };
+        let jwks = Self { issuer, audience, keys };
 
         jwks.validate()?;
         Ok(jwks)
@@ -96,9 +95,7 @@ impl InternalJwks {
 
         // Issuer must be non-empty
         if self.issuer.is_empty() {
-            return Err(AuthError::JwksError(
-                "Internal JWKS issuer cannot be empty".to_string(),
-            ));
+            return Err(AuthError::JwksError("Internal JWKS issuer cannot be empty".to_string()));
         }
 
         Ok(())
@@ -183,9 +180,7 @@ pub struct InternalJwksLoader {
 impl InternalJwksLoader {
     /// Create a new loader from an InternalJwks
     pub fn new(jwks: InternalJwks) -> Self {
-        Self {
-            jwks: Arc::new(jwks),
-        }
+        Self { jwks: Arc::new(jwks) }
     }
 
     /// Create a new loader from configuration
@@ -212,10 +207,7 @@ impl InternalJwksLoader {
 
         // Try environment variable
         if let Some(env_var) = jwks_env {
-            tracing::info!(
-                var = env_var,
-                "Loading internal JWKS from environment variable"
-            );
+            tracing::info!(var = env_var, "Loading internal JWKS from environment variable");
             let jwks = InternalJwks::from_env(env_var)?;
             return Ok(Self::new(jwks));
         }
@@ -298,24 +290,16 @@ pub async fn validate_internal_jwt(
     let claims = token_data.claims;
 
     // Extract scopes from space-separated string
-    let scopes: Vec<String> = claims
-        .scope
-        .split_whitespace()
-        .map(|s| s.to_string())
-        .collect();
+    let scopes: Vec<String> = claims.scope.split_whitespace().map(|s| s.to_string()).collect();
 
     // Use tenant_id from claims if present, otherwise default to "internal"
     let tenant_id = claims.tenant_id.unwrap_or_else(|| "internal".to_string());
 
     // Extract vault and account UUIDs
-    let vault_str = claims
-        .vault
-        .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+    let vault_str = claims.vault.unwrap_or_else(|| uuid::Uuid::nil().to_string());
     let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
 
-    let account_str = claims
-        .account
-        .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+    let account_str = claims.account.unwrap_or_else(|| uuid::Uuid::nil().to_string());
     let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
 
     // Create AuthContext with proper fields

@@ -18,12 +18,11 @@ pub mod vault_store;
 
 pub use account_store::AccountStore;
 pub use factory::{BackendType, StorageConfig, StorageFactory};
+#[cfg(feature = "fdb")]
+pub use foundationdb::FoundationDBBackend;
 pub use memory::MemoryBackend;
 pub use metrics::{MetricsSnapshot, OpTimer, StoreMetrics};
 pub use vault_store::VaultStore;
-
-#[cfg(feature = "fdb")]
-pub use foundationdb::FoundationDBBackend;
 
 type Result<T> = StoreResult<T>;
 

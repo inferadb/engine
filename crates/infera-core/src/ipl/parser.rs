@@ -24,12 +24,12 @@ pub fn parse_schema(source: &str) -> Result<Schema> {
                     match inner.as_rule() {
                         Rule::type_def => {
                             types.push(parse_type_def(inner)?);
-                        }
-                        Rule::EOI => {}
+                        },
+                        Rule::EOI => {},
                         _ => unreachable!("Unexpected rule: {:?}", inner.as_rule()),
                     }
                 }
-            }
+            },
             _ => unreachable!("Unexpected rule: {:?}", pair.as_rule()),
         }
     }
@@ -53,11 +53,11 @@ fn parse_type_def(pair: pest::iterators::Pair<Rule>) -> Result<TypeDef> {
         match def_pair.as_rule() {
             Rule::relation_def => {
                 relations.push(parse_relation_def(def_pair)?);
-            }
+            },
             Rule::forbid_def => {
                 forbids.push(parse_forbid_def(def_pair)?);
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 
@@ -108,15 +108,12 @@ fn parse_relation_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr
                 .next()
                 .ok_or_else(|| EvalError::Parse("Expected expression".to_string()))?;
             parse_relation_expr(inner)
-        }
+        },
         Rule::union_expr => parse_union_expr(pair),
         Rule::intersection_expr => parse_intersection_expr(pair),
         Rule::exclusion_expr => parse_exclusion_expr(pair),
         Rule::primary_expr => parse_primary_expr(pair),
-        _ => Err(EvalError::Parse(format!(
-            "Unexpected rule: {:?}",
-            pair.as_rule()
-        ))),
+        _ => Err(EvalError::Parse(format!("Unexpected rule: {:?}", pair.as_rule()))),
     }
 }
 
@@ -151,17 +148,12 @@ fn parse_intersection_expr(pair: pest::iterators::Pair<Rule>) -> Result<Relation
 fn parse_exclusion_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
     let mut inner = pair.into_inner();
     let base = parse_primary_expr(
-        inner
-            .next()
-            .ok_or_else(|| EvalError::Parse("Expected base expression".to_string()))?,
+        inner.next().ok_or_else(|| EvalError::Parse("Expected base expression".to_string()))?,
     )?;
 
     if let Some(subtract_pair) = inner.next() {
         let subtract = parse_primary_expr(subtract_pair)?;
-        Ok(RelationExpr::Exclusion {
-            base: Box::new(base),
-            subtract: Box::new(subtract),
-        })
+        Ok(RelationExpr::Exclusion { base: Box::new(base), subtract: Box::new(subtract) })
     } else {
         Ok(base)
     }
@@ -175,17 +167,14 @@ fn parse_primary_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr>
 
     match inner.as_rule() {
         Rule::this_ref => Ok(RelationExpr::This),
-        Rule::relation_ref => Ok(RelationExpr::RelationRef {
-            relation: inner.as_str().to_string(),
-        }),
+        Rule::relation_ref => {
+            Ok(RelationExpr::RelationRef { relation: inner.as_str().to_string() })
+        },
         Rule::computed_userset => parse_computed_userset(inner),
         Rule::tuple_to_userset => parse_related_object_userset(inner),
         Rule::wasm_module => parse_wasm_module(inner),
         Rule::relation_expr => parse_relation_expr(inner),
-        _ => Err(EvalError::Parse(format!(
-            "Unexpected primary expression: {:?}",
-            inner.as_rule()
-        ))),
+        _ => Err(EvalError::Parse(format!("Unexpected primary expression: {:?}", inner.as_rule()))),
     }
 }
 
@@ -204,10 +193,7 @@ fn parse_computed_userset(pair: pest::iterators::Pair<Rule>) -> Result<RelationE
         .as_str()
         .to_string();
 
-    Ok(RelationExpr::ComputedUserset {
-        relation,
-        relationship,
-    })
+    Ok(RelationExpr::ComputedUserset { relation, relationship })
 }
 
 fn parse_related_object_userset(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
@@ -225,10 +211,7 @@ fn parse_related_object_userset(pair: pest::iterators::Pair<Rule>) -> Result<Rel
         .as_str()
         .to_string();
 
-    Ok(RelationExpr::RelatedObjectUserset {
-        relationship,
-        computed,
-    })
+    Ok(RelationExpr::RelatedObjectUserset { relationship, computed })
 }
 
 fn parse_wasm_module(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
@@ -300,13 +283,10 @@ mod tests {
         let schema = result.unwrap();
 
         match &schema.types[0].relations[0].expr {
-            Some(RelationExpr::ComputedUserset {
-                relation,
-                relationship,
-            }) => {
+            Some(RelationExpr::ComputedUserset { relation, relationship }) => {
                 assert_eq!(relation, "viewer");
                 assert_eq!(relationship, "parent");
-            }
+            },
             _ => panic!("Expected ComputedUserset"),
         }
     }
@@ -324,13 +304,10 @@ mod tests {
         let schema = result.unwrap();
 
         match &schema.types[0].relations[0].expr {
-            Some(RelationExpr::RelatedObjectUserset {
-                relationship,
-                computed,
-            }) => {
+            Some(RelationExpr::RelatedObjectUserset { relationship, computed }) => {
                 assert_eq!(relationship, "parent");
                 assert_eq!(computed, "viewer");
-            }
+            },
             _ => panic!("Expected RelatedObjectUserset"),
         }
     }
@@ -350,7 +327,7 @@ mod tests {
         match &schema.types[0].relations[0].expr {
             Some(RelationExpr::Union(exprs)) => {
                 assert_eq!(exprs.len(), 2);
-            }
+            },
             _ => panic!("Expected Union"),
         }
     }
@@ -370,7 +347,7 @@ mod tests {
         match &schema.types[0].relations[0].expr {
             Some(RelationExpr::Intersection(exprs)) => {
                 assert_eq!(exprs.len(), 2);
-            }
+            },
             _ => panic!("Expected Intersection"),
         }
     }
@@ -388,12 +365,9 @@ mod tests {
         let schema = result.unwrap();
 
         match &schema.types[0].relations[0].expr {
-            Some(RelationExpr::Exclusion {
-                base: _,
-                subtract: _,
-            }) => {
+            Some(RelationExpr::Exclusion { base: _, subtract: _ }) => {
                 // Success
-            }
+            },
             _ => panic!("Expected Exclusion"),
         }
     }
@@ -416,7 +390,7 @@ mod tests {
         match &schema.types[0].relations[0].expr {
             Some(RelationExpr::WasmModule { module_name }) => {
                 assert_eq!(module_name, "business_hours");
-            }
+            },
             _ => panic!("Expected WasmModule"),
         }
     }
@@ -514,7 +488,7 @@ mod tests {
         match &schema.types[0].forbids[0].expr {
             Some(RelationExpr::Union(_)) => {
                 // Success
-            }
+            },
             _ => panic!("Expected Union expression in forbid"),
         }
     }
@@ -556,7 +530,7 @@ mod tests {
         match &schema.types[0].forbids[0].expr {
             Some(RelationExpr::WasmModule { module_name }) => {
                 assert_eq!(module_name, "business_hours");
-            }
+            },
             _ => panic!("Expected WasmModule in forbid"),
         }
     }

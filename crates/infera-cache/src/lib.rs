@@ -2,16 +2,19 @@
 //!
 //! Optimizes common queries with deterministic caching.
 
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
 
+use infera_types::{Relationship, Revision};
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-
-use infera_types::{Relationship, Revision};
 pub use uuid::Uuid;
 
 /// Authorization decision
@@ -32,12 +35,7 @@ pub struct CheckCacheKey {
 
 impl CheckCacheKey {
     pub fn new(subject: String, resource: String, permission: String, revision: Revision) -> Self {
-        Self {
-            subject,
-            resource,
-            permission,
-            revision,
-        }
+        Self { subject, resource, permission, revision }
     }
 }
 
@@ -54,11 +52,7 @@ pub struct ExpandCacheKey {
 
 impl ExpandCacheKey {
     pub fn new(resource: String, relation: String, revision: Revision) -> Self {
-        Self {
-            resource,
-            relation,
-            revision,
-        }
+        Self { resource, relation, revision }
     }
 }
 
@@ -82,15 +76,9 @@ pub struct AuthCache {
 
 impl AuthCache {
     pub fn new(max_capacity: u64, ttl: Duration) -> Self {
-        let check_cache = Cache::builder()
-            .max_capacity(max_capacity)
-            .time_to_live(ttl)
-            .build();
+        let check_cache = Cache::builder().max_capacity(max_capacity).time_to_live(ttl).build();
 
-        let expand_cache = Cache::builder()
-            .max_capacity(max_capacity)
-            .time_to_live(ttl)
-            .build();
+        let expand_cache = Cache::builder().max_capacity(max_capacity).time_to_live(ttl).build();
 
         Self {
             check_cache,
@@ -120,10 +108,7 @@ impl AuthCache {
     pub async fn put_check(&self, key: CheckCacheKey, value: CheckCacheValue) {
         // Update the secondary index
         let mut index = self.check_resource_index.write().await;
-        index
-            .entry(key.resource.clone())
-            .or_insert_with(HashSet::new)
-            .insert(key.clone());
+        index.entry(key.resource.clone()).or_insert_with(HashSet::new).insert(key.clone());
         drop(index);
 
         self.check_cache.insert(key, value).await;
@@ -144,10 +129,7 @@ impl AuthCache {
     pub async fn put_expand(&self, key: ExpandCacheKey, value: ExpandCacheValue) {
         // Update the secondary index
         let mut index = self.expand_object_index.write().await;
-        index
-            .entry(key.resource.clone())
-            .or_insert_with(HashSet::new)
-            .insert(key.clone());
+        index.entry(key.resource.clone()).or_insert_with(HashSet::new).insert(key.clone());
         drop(index);
 
         self.expand_cache.insert(key, value).await;
@@ -222,11 +204,8 @@ impl AuthCache {
         let expand_misses = self.expand_misses.load(Ordering::Relaxed);
 
         let total_requests = hits + misses;
-        let hit_rate = if total_requests > 0 {
-            (hits as f64 / total_requests as f64) * 100.0
-        } else {
-            0.0
-        };
+        let hit_rate =
+            if total_requests > 0 { (hits as f64 / total_requests as f64) * 100.0 } else { 0.0 };
 
         let expand_total_requests = expand_hits + expand_misses;
         let expand_hit_rate = if expand_total_requests > 0 {
@@ -279,8 +258,9 @@ pub struct CacheStats {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_types::Revision;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_cache_operations() {
@@ -716,9 +696,7 @@ mod tests {
         assert_eq!(cache.get_check(&key3).await, Some(Decision::Allow));
 
         // Invalidate only entries for "doc:readme"
-        cache
-            .invalidate_resources(&["doc:readme".to_string()])
-            .await;
+        cache.invalidate_resources(&["doc:readme".to_string()]).await;
 
         // key1 and key2 should be invalidated (both reference doc:readme)
         assert!(cache.get_check(&key1).await.is_none());
@@ -767,9 +745,7 @@ mod tests {
         assert_eq!(cache.get_expand(&key3).await, Some(users3.clone()));
 
         // Invalidate only entries for "doc:readme"
-        cache
-            .invalidate_resources(&["doc:readme".to_string()])
-            .await;
+        cache.invalidate_resources(&["doc:readme".to_string()]).await;
 
         // key1 and key2 should be invalidated (both reference doc:readme)
         assert!(cache.get_expand(&key1).await.is_none());
@@ -809,9 +785,7 @@ mod tests {
         cache.put_check(key3.clone(), Decision::Allow).await;
 
         // Invalidate doc:1 and doc:3, but not doc:2
-        cache
-            .invalidate_resources(&["doc:1".to_string(), "doc:3".to_string()])
-            .await;
+        cache.invalidate_resources(&["doc:1".to_string(), "doc:3".to_string()]).await;
 
         assert!(cache.get_check(&key1).await.is_none());
         assert_eq!(cache.get_check(&key2).await, Some(Decision::Allow));
@@ -1092,9 +1066,7 @@ mod tests {
         let cache_clone = cache.clone();
         let invalidator = tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(5)).await;
-            cache_clone
-                .invalidate_resources(&["doc:shared".to_string()])
-                .await;
+            cache_clone.invalidate_resources(&["doc:shared".to_string()]).await;
         });
         handles.push(invalidator);
 
@@ -1192,9 +1164,7 @@ mod tests {
         assert_eq!(stats.entry_count, 100);
 
         // Now invalidate the shared resource
-        cache
-            .invalidate_resources(&["doc:shared".to_string()])
-            .await;
+        cache.invalidate_resources(&["doc:shared".to_string()]).await;
 
         // Run pending tasks to sync state
         cache.check_cache.run_pending_tasks().await;

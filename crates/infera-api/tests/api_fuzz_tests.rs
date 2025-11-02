@@ -38,13 +38,8 @@ fn arb_string() -> impl Strategy<Value = String> {
 
 /// Generate arbitrary relationships for fuzzing
 fn arb_relationship() -> impl Strategy<Value = ProtoRelationship> {
-    (arb_string(), arb_string(), arb_string()).prop_map(|(resource, relation, subject)| {
-        ProtoRelationship {
-            resource,
-            relation,
-            subject,
-        }
-    })
+    (arb_string(), arb_string(), arb_string())
+        .prop_map(|(resource, relation, subject)| ProtoRelationship { resource, relation, subject })
 }
 
 proptest! {
@@ -369,9 +364,7 @@ mod integration_tests {
             })
             .collect();
 
-        let request = WriteRequest {
-            relationships: large_batch,
-        };
+        let request = WriteRequest { relationships: large_batch };
 
         // Should construct without panicking
         assert_eq!(request.relationships.len(), 10000);

@@ -71,11 +71,7 @@ pub fn init_logging(config: LogConfig) -> anyhow::Result<()> {
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,infera=debug"))
     };
 
-    let fmt_span = if config.log_spans {
-        FmtSpan::NEW | FmtSpan::CLOSE
-    } else {
-        FmtSpan::NONE
-    };
+    let fmt_span = if config.log_spans { FmtSpan::NEW | FmtSpan::CLOSE } else { FmtSpan::NONE };
 
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter(env_filter)
@@ -91,19 +87,19 @@ pub fn init_logging(config: LogConfig) -> anyhow::Result<()> {
                 .pretty()
                 .try_init()
                 .map_err(|e| anyhow::anyhow!("Failed to initialize pretty logger: {}", e))?;
-        }
+        },
         LogFormat::Compact => {
             subscriber
                 .compact()
                 .try_init()
                 .map_err(|e| anyhow::anyhow!("Failed to initialize compact logger: {}", e))?;
-        }
+        },
         LogFormat::Json => {
             subscriber
                 .json()
                 .try_init()
                 .map_err(|e| anyhow::anyhow!("Failed to initialize JSON logger: {}", e))?;
-        }
+        },
     }
 
     tracing::info!(
@@ -213,8 +209,9 @@ pub fn log_error_with_context(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Once;
+
+    use super::*;
 
     static INIT: Once = Once::new();
 

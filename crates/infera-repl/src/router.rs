@@ -5,13 +5,15 @@
 //! - For writes: route to primary (PrimaryReplica) or local (ActiveActive)
 //! - Handle region failures with automatic failover
 
+use std::sync::Arc;
+
+use tokio::sync::RwLock;
+use tracing::{debug, warn};
+
 use crate::{
     ReplError, Result,
     topology::{NodeId, RegionId, ReplicationStrategy, Topology},
 };
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{debug, warn};
 
 /// Request type for routing decisions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,10 +66,7 @@ impl Router {
 
         if nodes.is_empty() {
             // No healthy nodes in local region, try to find a fallback
-            warn!(
-                "No healthy nodes in local region {}, attempting failover",
-                local_region
-            );
+            warn!("No healthy nodes in local region {}, attempting failover", local_region);
             return self.find_fallback_region(topology, RequestType::Read).await;
         }
 
@@ -87,16 +86,16 @@ impl Router {
             ReplicationStrategy::PrimaryReplica => {
                 // Route writes to primary region
                 self.route_to_primary(topology).await
-            }
+            },
             ReplicationStrategy::ActiveActive => {
                 // Route writes to local region (all regions can accept writes)
                 self.route_to_local(topology, RequestType::Write).await
-            }
+            },
             ReplicationStrategy::MultiMaster => {
                 // For multi-master, route to local region
                 // (in a real implementation, this would check tenant/namespace partitioning)
                 self.route_to_local(topology, RequestType::Write).await
-            }
+            },
         }
     }
 
@@ -110,17 +109,12 @@ impl Router {
 
         if nodes.is_empty() {
             warn!("No healthy nodes in primary region {}", primary.id);
-            return Err(ReplError::Replication(
-                "Primary region has no healthy nodes".to_string(),
-            ));
+            return Err(ReplError::Replication("Primary region has no healthy nodes".to_string()));
         }
 
         let node = nodes[0];
 
-        debug!(
-            "Routing write to primary region {} node {}",
-            primary.id, node.id
-        );
+        debug!("Routing write to primary region {} node {}", primary.id, node.id);
 
         Ok(RoutingDecision {
             region_id: primary.id.clone(),
@@ -140,19 +134,13 @@ impl Router {
         let nodes = topology.get_healthy_nodes(local_region);
 
         if nodes.is_empty() {
-            warn!(
-                "No healthy nodes in local region {}, attempting failover",
-                local_region
-            );
+            warn!("No healthy nodes in local region {}, attempting failover", local_region);
             return self.find_fallback_region(topology, request_type).await;
         }
 
         let node = nodes[0];
 
-        debug!(
-            "Routing {:?} to local region {} node {}",
-            request_type, local_region, node.id
-        );
+        debug!("Routing {:?} to local region {} node {}", request_type, local_region, node.id);
 
         Ok(RoutingDecision {
             region_id: local_region.clone(),
@@ -200,9 +188,7 @@ impl Router {
             }
         }
 
-        Err(ReplError::Replication(
-            "No healthy nodes in any region".to_string(),
-        ))
+        Err(ReplError::Replication("No healthy nodes in any region".to_string()))
     }
 
     /// Check if a specific region is available
@@ -230,83 +216,73 @@ mod tests {
 
     async fn create_test_topology_active_active() -> Arc<RwLock<Topology>> {
         Arc::new(RwLock::new(
-            TopologyBuilder::new(
-                ReplicationStrategy::ActiveActive,
-                RegionId::new("us-west-1"),
-            )
-            .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
-            .add_zone(
-                RegionId::new("us-west-1"),
-                ZoneId::new("us-west-1a"),
-                "Zone A".to_string(),
-            )
-            .add_node(
-                RegionId::new("us-west-1"),
-                ZoneId::new("us-west-1a"),
-                NodeId::new("node1"),
-                "localhost:50051".to_string(),
-            )
-            .add_region(
-                RegionId::new("eu-central-1"),
-                "EU Central".to_string(),
-                false,
-            )
-            .add_zone(
-                RegionId::new("eu-central-1"),
-                ZoneId::new("eu-central-1a"),
-                "Zone A".to_string(),
-            )
-            .add_node(
-                RegionId::new("eu-central-1"),
-                ZoneId::new("eu-central-1a"),
-                NodeId::new("node2"),
-                "localhost:50052".to_string(),
-            )
-            .build()
-            .unwrap(),
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .add_region(RegionId::new("eu-central-1"), "EU Central".to_string(), false)
+                .add_zone(
+                    RegionId::new("eu-central-1"),
+                    ZoneId::new("eu-central-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("eu-central-1"),
+                    ZoneId::new("eu-central-1a"),
+                    NodeId::new("node2"),
+                    "localhost:50052".to_string(),
+                )
+                .build()
+                .unwrap(),
         ))
     }
 
     async fn create_test_topology_primary_replica() -> Arc<RwLock<Topology>> {
         Arc::new(RwLock::new(
-            TopologyBuilder::new(
-                ReplicationStrategy::PrimaryReplica,
-                RegionId::new("us-west-1"),
-            )
-            .add_region(
-                RegionId::new("us-west-1"),
-                "US West".to_string(),
-                true, // primary
-            )
-            .add_zone(
-                RegionId::new("us-west-1"),
-                ZoneId::new("us-west-1a"),
-                "Zone A".to_string(),
-            )
-            .add_node(
-                RegionId::new("us-west-1"),
-                ZoneId::new("us-west-1a"),
-                NodeId::new("node1"),
-                "localhost:50051".to_string(),
-            )
-            .add_region(
-                RegionId::new("eu-central-1"),
-                "EU Central".to_string(),
-                false, // replica
-            )
-            .add_zone(
-                RegionId::new("eu-central-1"),
-                ZoneId::new("eu-central-1a"),
-                "Zone A".to_string(),
-            )
-            .add_node(
-                RegionId::new("eu-central-1"),
-                ZoneId::new("eu-central-1a"),
-                NodeId::new("node2"),
-                "localhost:50052".to_string(),
-            )
-            .build()
-            .unwrap(),
+            TopologyBuilder::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"))
+                .add_region(
+                    RegionId::new("us-west-1"),
+                    "US West".to_string(),
+                    true, // primary
+                )
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .add_region(
+                    RegionId::new("eu-central-1"),
+                    "EU Central".to_string(),
+                    false, // replica
+                )
+                .add_zone(
+                    RegionId::new("eu-central-1"),
+                    ZoneId::new("eu-central-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("eu-central-1"),
+                    ZoneId::new("eu-central-1a"),
+                    NodeId::new("node2"),
+                    "localhost:50052".to_string(),
+                )
+                .build()
+                .unwrap(),
         ))
     }
 
@@ -387,21 +363,9 @@ mod tests {
         let topology = create_test_topology_active_active().await;
         let router = Router::new(topology);
 
-        assert!(
-            router
-                .is_region_available(&RegionId::new("us-west-1"))
-                .await
-        );
-        assert!(
-            router
-                .is_region_available(&RegionId::new("eu-central-1"))
-                .await
-        );
-        assert!(
-            !router
-                .is_region_available(&RegionId::new("non-existent"))
-                .await
-        );
+        assert!(router.is_region_available(&RegionId::new("us-west-1")).await);
+        assert!(router.is_region_available(&RegionId::new("eu-central-1")).await);
+        assert!(!router.is_region_available(&RegionId::new("non-existent")).await);
     }
 
     #[tokio::test]

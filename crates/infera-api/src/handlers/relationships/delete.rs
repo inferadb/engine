@@ -8,13 +8,11 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
-
-use crate::ApiError;
-use crate::AppState;
 use infera_types::DeleteFilter;
 use uuid::Uuid;
 
 use super::get::RelationshipPath;
+use crate::{ApiError, AppState};
 
 /// Get the vault ID for the current request
 /// TODO(Phase 2): Extract this from authentication context
@@ -88,19 +86,13 @@ pub async fn delete_relationship(
 
     // Validate parameters are non-empty
     if resource.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Resource cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Resource cannot be empty".to_string()));
     }
     if relation.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Relation cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Relation cannot be empty".to_string()));
     }
     if subject.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Subject cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Subject cannot be empty".to_string()));
     }
 
     // Delete using exact match filters
@@ -151,8 +143,8 @@ pub async fn delete_relationship(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::AppState;
+    use std::sync::Arc;
+
     use axum::{
         Router,
         body::Body,
@@ -163,9 +155,11 @@ mod tests {
     use infera_core::Evaluator;
     use infera_store::{MemoryBackend, RelationshipStore};
     use infera_types::Relationship;
-    use std::sync::Arc;
     use tower::ServiceExt;
     use uuid::Uuid;
+
+    use super::*;
+    use crate::AppState;
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -181,12 +175,8 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store),
-            schema,
-            None,
-            uuid::Uuid::nil(),
-        ));
+        let evaluator =
+            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -212,13 +202,7 @@ mod tests {
             .await
             .unwrap();
 
-        AppState {
-            evaluator,
-            store,
-            config,
-            jwks_cache: None,
-            health_tracker,
-        }
+        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
     }
 
     #[tokio::test]
@@ -226,10 +210,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                delete(delete_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
             .with_state(state);
 
         let response = app
@@ -254,10 +235,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                delete(delete_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
             .with_state(state);
 
         let response = app
@@ -284,10 +262,7 @@ mod tests {
 
         // First deletion
         let app1 = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                delete(delete_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
             .with_state(state.clone());
 
         let response1 = app1
@@ -305,10 +280,7 @@ mod tests {
 
         // Second deletion of the same relationship
         let app2 = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                delete(delete_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
             .with_state(state);
 
         let response2 = app2
@@ -346,10 +318,7 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                delete(delete_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
             .with_state(state);
 
         // URL encode the parameters (space becomes %20, @ becomes %40, : becomes %3A)
@@ -387,10 +356,7 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                delete(delete_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
             .with_state(state);
 
         // URL encode the special characters
@@ -419,10 +385,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route(
-                "/v1/relationships/:resource/:relation/:subject",
-                delete(delete_relationship),
-            )
+            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
             .with_state(state);
 
         let response = app
@@ -436,12 +399,7 @@ mod tests {
             .await
             .unwrap();
 
-        let revision = response
-            .headers()
-            .get("X-Revision")
-            .unwrap()
-            .to_str()
-            .unwrap();
+        let revision = response.headers().get("X-Revision").unwrap().to_str().unwrap();
 
         // Revision should be a non-empty string
         assert!(!revision.is_empty());

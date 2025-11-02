@@ -3,13 +3,17 @@
 //! Implements change streaming for replication and event-driven updates.
 //! Supports multiple subscribers, filtering, and reconnection handling.
 
-use crate::{ReplError, Result};
+use std::{
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use infera_const::DEFAULT_CHANNEL_CAPACITY;
 use infera_types::{Relationship, Revision};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{RwLock, broadcast};
+
+use crate::{ReplError, Result};
 
 /// A change event representing a relationship operation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -61,10 +65,7 @@ impl Change {
     }
 
     fn current_timestamp() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
     }
 }
 
@@ -97,9 +98,7 @@ pub struct ChangeFeedConfig {
 
 impl Default for ChangeFeedConfig {
     fn default() -> Self {
-        Self {
-            channel_capacity: DEFAULT_CHANNEL_CAPACITY,
-        }
+        Self { channel_capacity: DEFAULT_CHANNEL_CAPACITY }
     }
 }
 
@@ -133,11 +132,7 @@ impl ChangeFeed {
     /// Create a new change feed with custom configuration
     pub fn with_config(config: ChangeFeedConfig) -> Self {
         let (tx, _) = broadcast::channel(config.channel_capacity);
-        Self {
-            tx,
-            config,
-            stats: Arc::new(RwLock::new(ChangeFeedStats::default())),
-        }
+        Self { tx, config, stats: Arc::new(RwLock::new(ChangeFeedStats::default())) }
     }
 
     /// Publish a change event to all subscribers
@@ -150,12 +145,12 @@ impl ChangeFeed {
                 stats.published += 1;
                 stats.subscribers = count;
                 Ok(())
-            }
+            },
             Err(_) => {
                 // No active subscribers, which is fine
                 stats.published += 1;
                 Ok(())
-            }
+            },
         }
     }
 
@@ -174,10 +169,7 @@ impl ChangeFeed {
         let mut stats = self.stats.write().await;
         stats.subscribers = self.tx.receiver_count();
 
-        Ok(ChangeStream {
-            rx,
-            filter: Some(ChangeFilter::ResourceType(resource_type)),
-        })
+        Ok(ChangeStream { rx, filter: Some(ChangeFilter::ResourceType(resource_type)) })
     }
 
     /// Get current statistics
@@ -219,7 +211,7 @@ impl ChangeFilter {
         match self {
             ChangeFilter::ResourceType(type_name) => {
                 change.resource_type() == Some(type_name.as_str())
-            }
+            },
             ChangeFilter::Relation(relation) => &change.relationship.relation == relation,
             ChangeFilter::Operation(op) => change.operation == *op,
         }
@@ -248,15 +240,15 @@ impl ChangeStream {
                         }
                     }
                     return Some(change);
-                }
+                },
                 Err(broadcast::error::RecvError::Closed) => {
                     return None;
-                }
+                },
                 Err(broadcast::error::RecvError::Lagged(_)) => {
                     // The receiver lagged behind and lost events
                     // Return None to signal the client should resync
                     return None;
-                }
+                },
             }
         }
     }
@@ -273,18 +265,18 @@ impl ChangeStream {
                         }
                     }
                     return Ok(Some(change));
-                }
+                },
                 Err(broadcast::error::TryRecvError::Empty) => {
                     return Ok(None);
-                }
+                },
                 Err(broadcast::error::TryRecvError::Closed) => {
                     return Err(ReplError::Replication("Stream closed".to_string()));
-                }
+                },
                 Err(broadcast::error::TryRecvError::Lagged(_)) => {
                     return Err(ReplError::Replication(
                         "Stream lagged, resync required".to_string(),
                     ));
-                }
+                },
             }
         }
     }
@@ -468,15 +460,9 @@ mod tests {
         };
 
         // Publish both changes
-        feed.publish(Change::insert(Revision(1), relationship1.clone()))
-            .await
-            .unwrap();
-        feed.publish(Change::insert(Revision(2), relationship2))
-            .await
-            .unwrap();
-        feed.publish(Change::insert(Revision(3), relationship1.clone()))
-            .await
-            .unwrap();
+        feed.publish(Change::insert(Revision(1), relationship1.clone())).await.unwrap();
+        feed.publish(Change::insert(Revision(2), relationship2)).await.unwrap();
+        feed.publish(Change::insert(Revision(3), relationship1.clone())).await.unwrap();
 
         // Should only receive doc changes
         let received1 = stream.recv().await.unwrap();
@@ -504,9 +490,7 @@ mod tests {
             subject: "user:alice".to_string(),
         };
 
-        feed.publish(Change::insert(Revision(1), relationship))
-            .await
-            .unwrap();
+        feed.publish(Change::insert(Revision(1), relationship)).await.unwrap();
 
         // Should receive the change
         let received = stream.try_recv().unwrap().unwrap();
@@ -530,12 +514,8 @@ mod tests {
             subject: "user:alice".to_string(),
         };
 
-        feed.publish(Change::insert(Revision(1), relationship.clone()))
-            .await
-            .unwrap();
-        feed.publish(Change::insert(Revision(2), relationship))
-            .await
-            .unwrap();
+        feed.publish(Change::insert(Revision(1), relationship.clone())).await.unwrap();
+        feed.publish(Change::insert(Revision(2), relationship)).await.unwrap();
 
         let stats = feed.stats().await;
         assert_eq!(stats.published, 2);
@@ -556,9 +536,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_custom_config() {
-        let config = ChangeFeedConfig {
-            channel_capacity: 10,
-        };
+        let config = ChangeFeedConfig { channel_capacity: 10 };
         let feed = ChangeFeed::with_config(config);
         assert_eq!(feed.config.channel_capacity, 10);
     }

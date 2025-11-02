@@ -2,11 +2,16 @@
 //!
 //! Provides liveness, readiness, and startup probes for container orchestration.
 
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 /// Get the vault ID for health checks
@@ -88,10 +93,7 @@ impl Default for HealthTracker {
 impl HealthTracker {
     /// Create a new health tracker
     pub fn new() -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
         Self {
             start_time: Arc::new(AtomicU64::new(now)),
@@ -103,10 +105,7 @@ impl HealthTracker {
 
     /// Get uptime in seconds
     pub fn uptime_seconds(&self) -> u64 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let start = self.start_time.load(Ordering::Relaxed);
         now.saturating_sub(start)
     }
@@ -144,10 +143,7 @@ impl HealthTracker {
     /// Perform a comprehensive health check
     pub async fn check_health(&self, store: &Arc<dyn crate::RelationshipStore>) -> HealthResponse {
         let uptime = self.uptime_seconds();
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
         // Check storage health with a simple read
         let storage_status =
@@ -247,7 +243,8 @@ pub async fn readiness_handler(State(state): State<crate::AppState>) -> impl Int
 
     match health.status {
         HealthStatus::Healthy => (StatusCode::OK, Json(health)),
-        HealthStatus::Degraded => (StatusCode::OK, Json(health)), // Still serve traffic when degraded
+        HealthStatus::Degraded => (StatusCode::OK, Json(health)), // Still serve traffic when
+        // degraded
         HealthStatus::Unhealthy => (StatusCode::SERVICE_UNAVAILABLE, Json(health)),
     }
 }

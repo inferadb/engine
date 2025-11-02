@@ -24,9 +24,7 @@ fn create_schema() -> Schema {
                     "user".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "member".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "member".to_string() },
                         RelationExpr::RelatedObjectUserset {
                             relationship: "parent_role".to_string(),
                             computed: "user".to_string(),
@@ -102,19 +100,13 @@ async fn test_basic_role_assignment() {
         .unwrap();
 
     // Alice can read resource1
-    fixture
-        .assert_allowed("user:alice", "resource:resource1", "can_read")
-        .await;
+    fixture.assert_allowed("user:alice", "resource:resource1", "can_read").await;
 
     // Alice cannot write
-    fixture
-        .assert_denied("user:alice", "resource:resource1", "can_write")
-        .await;
+    fixture.assert_denied("user:alice", "resource:resource1", "can_write").await;
 
     // Alice cannot delete
-    fixture
-        .assert_denied("user:alice", "resource:resource1", "can_delete")
-        .await;
+    fixture.assert_denied("user:alice", "resource:resource1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -132,19 +124,13 @@ async fn test_writer_role() {
         .unwrap();
 
     // Bob can read (writers can also read)
-    fixture
-        .assert_allowed("user:bob", "resource:resource1", "can_read")
-        .await;
+    fixture.assert_allowed("user:bob", "resource:resource1", "can_read").await;
 
     // Bob can write
-    fixture
-        .assert_allowed("user:bob", "resource:resource1", "can_write")
-        .await;
+    fixture.assert_allowed("user:bob", "resource:resource1", "can_write").await;
 
     // Bob cannot delete
-    fixture
-        .assert_denied("user:bob", "resource:resource1", "can_delete")
-        .await;
+    fixture.assert_denied("user:bob", "resource:resource1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -162,19 +148,13 @@ async fn test_admin_role() {
         .unwrap();
 
     // Charlie can read
-    fixture
-        .assert_allowed("user:charlie", "resource:resource1", "can_read")
-        .await;
+    fixture.assert_allowed("user:charlie", "resource:resource1", "can_read").await;
 
     // Charlie can write
-    fixture
-        .assert_allowed("user:charlie", "resource:resource1", "can_write")
-        .await;
+    fixture.assert_allowed("user:charlie", "resource:resource1", "can_write").await;
 
     // Charlie can delete
-    fixture
-        .assert_allowed("user:charlie", "resource:resource1", "can_delete")
-        .await;
+    fixture.assert_allowed("user:charlie", "resource:resource1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -196,9 +176,7 @@ async fn test_role_hierarchy() {
 
     // Alice can read through the role hierarchy
     // users -> power_users -> resource1
-    fixture
-        .assert_allowed("user:alice", "resource:resource1", "can_read")
-        .await;
+    fixture.assert_allowed("user:alice", "resource:resource1", "can_read").await;
 }
 
 #[tokio::test]
@@ -219,19 +197,13 @@ async fn test_multiple_roles_per_user() {
         .unwrap();
 
     // Bob can read resource1 (through readers role)
-    fixture
-        .assert_allowed("user:bob", "resource:resource1", "can_read")
-        .await;
+    fixture.assert_allowed("user:bob", "resource:resource1", "can_read").await;
 
     // Bob can write resource2 (through writers role)
-    fixture
-        .assert_allowed("user:bob", "resource:resource2", "can_write")
-        .await;
+    fixture.assert_allowed("user:bob", "resource:resource2", "can_write").await;
 
     // Bob cannot write resource1 (only has reader role)
-    fixture
-        .assert_denied("user:bob", "resource:resource1", "can_write")
-        .await;
+    fixture.assert_denied("user:bob", "resource:resource1", "can_write").await;
 }
 
 #[tokio::test]
@@ -252,28 +224,16 @@ async fn test_multiple_roles_per_resource() {
         .unwrap();
 
     // Alice can read
-    fixture
-        .assert_allowed("user:alice", "resource:resource1", "can_read")
-        .await;
+    fixture.assert_allowed("user:alice", "resource:resource1", "can_read").await;
 
     // Bob can read and write
-    fixture
-        .assert_allowed("user:bob", "resource:resource1", "can_read")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "resource:resource1", "can_write")
-        .await;
+    fixture.assert_allowed("user:bob", "resource:resource1", "can_read").await;
+    fixture.assert_allowed("user:bob", "resource:resource1", "can_write").await;
 
     // Charlie can do everything
-    fixture
-        .assert_allowed("user:charlie", "resource:resource1", "can_read")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "resource:resource1", "can_write")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "resource:resource1", "can_delete")
-        .await;
+    fixture.assert_allowed("user:charlie", "resource:resource1", "can_read").await;
+    fixture.assert_allowed("user:charlie", "resource:resource1", "can_write").await;
+    fixture.assert_allowed("user:charlie", "resource:resource1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -285,15 +245,9 @@ async fn test_no_role_no_access() {
     fixture.write_relationships(vec![]).await.unwrap();
 
     // Dave cannot access resource1 at all
-    fixture
-        .assert_denied("user:dave", "resource:resource1", "can_read")
-        .await;
-    fixture
-        .assert_denied("user:dave", "resource:resource1", "can_write")
-        .await;
-    fixture
-        .assert_denied("user:dave", "resource:resource1", "can_delete")
-        .await;
+    fixture.assert_denied("user:dave", "resource:resource1", "can_read").await;
+    fixture.assert_denied("user:dave", "resource:resource1", "can_write").await;
+    fixture.assert_denied("user:dave", "resource:resource1", "can_delete").await;
 }
 
 #[tokio::test]
@@ -319,9 +273,7 @@ async fn test_complex_role_hierarchy() {
 
     // Alice can read through the deep hierarchy
     // users -> power_users -> admins -> super_admins -> resource1
-    fixture
-        .assert_allowed("user:alice", "resource:resource1", "can_read")
-        .await;
+    fixture.assert_allowed("user:alice", "resource:resource1", "can_read").await;
 }
 
 #[tokio::test]
@@ -349,55 +301,25 @@ async fn test_rbac_with_multiple_users_and_resources() {
         .unwrap();
 
     // Alice (reader) can only read public
-    fixture
-        .assert_allowed("user:alice", "resource:public", "can_read")
-        .await;
-    fixture
-        .assert_denied("user:alice", "resource:internal", "can_read")
-        .await;
-    fixture
-        .assert_denied("user:alice", "resource:confidential", "can_read")
-        .await;
+    fixture.assert_allowed("user:alice", "resource:public", "can_read").await;
+    fixture.assert_denied("user:alice", "resource:internal", "can_read").await;
+    fixture.assert_denied("user:alice", "resource:confidential", "can_read").await;
 
     // Bob (writer) can read/write internal
-    fixture
-        .assert_denied("user:bob", "resource:public", "can_read")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "resource:internal", "can_read")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "resource:internal", "can_write")
-        .await;
-    fixture
-        .assert_denied("user:bob", "resource:confidential", "can_read")
-        .await;
+    fixture.assert_denied("user:bob", "resource:public", "can_read").await;
+    fixture.assert_allowed("user:bob", "resource:internal", "can_read").await;
+    fixture.assert_allowed("user:bob", "resource:internal", "can_write").await;
+    fixture.assert_denied("user:bob", "resource:confidential", "can_read").await;
 
     // Charlie (writer + admin) can access internal and confidential
-    fixture
-        .assert_allowed("user:charlie", "resource:internal", "can_read")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "resource:internal", "can_write")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "resource:confidential", "can_read")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "resource:confidential", "can_write")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "resource:confidential", "can_delete")
-        .await;
+    fixture.assert_allowed("user:charlie", "resource:internal", "can_read").await;
+    fixture.assert_allowed("user:charlie", "resource:internal", "can_write").await;
+    fixture.assert_allowed("user:charlie", "resource:confidential", "can_read").await;
+    fixture.assert_allowed("user:charlie", "resource:confidential", "can_write").await;
+    fixture.assert_allowed("user:charlie", "resource:confidential", "can_delete").await;
 
     // Dave (admin) has full access to confidential
-    fixture
-        .assert_allowed("user:dave", "resource:confidential", "can_read")
-        .await;
-    fixture
-        .assert_allowed("user:dave", "resource:confidential", "can_write")
-        .await;
-    fixture
-        .assert_allowed("user:dave", "resource:confidential", "can_delete")
-        .await;
+    fixture.assert_allowed("user:dave", "resource:confidential", "can_read").await;
+    fixture.assert_allowed("user:dave", "resource:confidential", "can_write").await;
+    fixture.assert_allowed("user:dave", "resource:confidential", "can_delete").await;
 }

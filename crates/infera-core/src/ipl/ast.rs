@@ -40,19 +40,13 @@ pub enum RelationExpr {
     RelationRef { relation: String },
 
     /// Computed userset: `<relation> from <relationship>`
-    ComputedUserset {
-        relation: String,
-        relationship: String,
-    },
+    ComputedUserset { relation: String, relationship: String },
 
     /// Related object userset: `<relationship>-><computed>`
     /// Computes permissions by following a relationship to related objects
     /// and evaluating a permission on those objects.
     /// Example: document viewers include parent folder viewers
-    RelatedObjectUserset {
-        relationship: String,
-        computed: String,
-    },
+    RelatedObjectUserset { relationship: String, computed: String },
 
     /// WASM module invocation: `module("name")`
     WasmModule { module_name: String },
@@ -64,10 +58,7 @@ pub enum RelationExpr {
     Intersection(Vec<RelationExpr>),
 
     /// Exclusion: `expr1 - expr2`
-    Exclusion {
-        base: Box<RelationExpr>,
-        subtract: Box<RelationExpr>,
-    },
+    Exclusion { base: Box<RelationExpr>, subtract: Box<RelationExpr> },
 }
 
 impl Schema {
@@ -83,11 +74,7 @@ impl Schema {
 
 impl TypeDef {
     pub fn new(name: String, relations: Vec<RelationDef>) -> Self {
-        Self {
-            name,
-            relations,
-            forbids: Vec::new(),
-        }
+        Self { name, relations, forbids: Vec::new() }
     }
 
     pub fn new_with_forbids(
@@ -95,11 +82,7 @@ impl TypeDef {
         relations: Vec<RelationDef>,
         forbids: Vec<ForbidDef>,
     ) -> Self {
-        Self {
-            name,
-            relations,
-            forbids,
-        }
+        Self { name, relations, forbids }
     }
 
     /// Find a relation by name
@@ -143,10 +126,7 @@ mod tests {
     fn test_schema_creation() {
         let schema = Schema::new(vec![TypeDef::new(
             "document".to_string(),
-            vec![RelationDef::new(
-                "viewer".to_string(),
-                Some(RelationExpr::This),
-            )],
+            vec![RelationDef::new("viewer".to_string(), Some(RelationExpr::This))],
         )]);
 
         assert_eq!(schema.types.len(), 1);

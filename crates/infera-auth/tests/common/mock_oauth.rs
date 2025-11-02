@@ -8,6 +8,12 @@
 
 #![allow(dead_code)]
 
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, Mutex, OnceLock},
+};
+
 use axum::{
     Json, Router,
     extract::State,
@@ -15,17 +21,11 @@ use axum::{
     routing::{get, post},
 };
 use ed25519_dalek::{SigningKey, VerifyingKey};
+use infera_auth::{jwks_cache::Jwk, jwt::JwtClaims, oauth::IntrospectionResponse};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex, OnceLock};
 use tokio::task::JoinHandle;
-
-use infera_auth::jwks_cache::Jwk;
-use infera_auth::jwt::JwtClaims;
-use infera_auth::oauth::IntrospectionResponse;
 
 /// Thread-safe storage for the OAuth server's signing key
 static OAUTH_KEYPAIR: OnceLock<SigningKey> = OnceLock::new();
@@ -38,9 +38,7 @@ pub struct OAuthServerState {
 
 impl OAuthServerState {
     fn new() -> Self {
-        Self {
-            opaque_tokens: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self { opaque_tokens: Arc::new(Mutex::new(HashMap::new())) }
     }
 }
 

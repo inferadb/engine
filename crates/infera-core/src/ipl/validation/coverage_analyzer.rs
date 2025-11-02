@@ -102,29 +102,23 @@ impl<'a> CoverageAnalyzer<'a> {
         match expr {
             RelationExpr::RelationRef { relation } => {
                 refs.insert(relation.clone());
-            }
-            RelationExpr::ComputedUserset {
-                relation: _,
-                relationship,
-            } => {
+            },
+            RelationExpr::ComputedUserset { relation: _, relationship } => {
                 refs.insert(relationship.clone());
-            }
-            RelationExpr::RelatedObjectUserset {
-                relationship,
-                computed: _,
-            } => {
+            },
+            RelationExpr::RelatedObjectUserset { relationship, computed: _ } => {
                 refs.insert(relationship.clone());
-            }
+            },
             RelationExpr::Union(exprs) | RelationExpr::Intersection(exprs) => {
                 for sub_expr in exprs {
                     Self::collect_relation_refs(sub_expr, refs);
                 }
-            }
+            },
             RelationExpr::Exclusion { base, subtract } => {
                 Self::collect_relation_refs(base, refs);
                 Self::collect_relation_refs(subtract, refs);
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 
@@ -173,25 +167,25 @@ impl<'a> CoverageAnalyzer<'a> {
                 } else {
                     false
                 }
-            }
+            },
             RelationExpr::ComputedUserset { .. }
             | RelationExpr::RelatedObjectUserset { .. }
             | RelationExpr::WasmModule { .. } => {
                 // These are runtime-evaluated, assume they have paths
                 true
-            }
+            },
             RelationExpr::Union(exprs) => {
                 // At least one branch must have a path
                 exprs.iter().any(|e| Self::expression_has_path(e, type_def))
-            }
+            },
             RelationExpr::Intersection(exprs) => {
                 // All branches must have paths
                 exprs.iter().all(|e| Self::expression_has_path(e, type_def))
-            }
+            },
             RelationExpr::Exclusion { base, subtract: _ } => {
                 // Base must have a path (subtract doesn't matter for reachability)
                 Self::expression_has_path(base, type_def)
-            }
+            },
         }
     }
 
@@ -201,11 +195,8 @@ impl<'a> CoverageAnalyzer<'a> {
 
         for type_def in &self.schema.types {
             // Suggest tests for direct relations
-            let direct_relations: Vec<_> = type_def
-                .relations
-                .iter()
-                .filter(|r| r.is_direct())
-                .collect();
+            let direct_relations: Vec<_> =
+                type_def.relations.iter().filter(|r| r.is_direct()).collect();
 
             if !direct_relations.is_empty() {
                 warnings.push(ValidationError::new(
@@ -220,20 +211,14 @@ impl<'a> CoverageAnalyzer<'a> {
                                 .join(", ")
                         ),
                     }),
-                    format!(
-                        "Consider adding integration tests for type '{}'",
-                        type_def.name
-                    ),
+                    format!("Consider adding integration tests for type '{}'", type_def.name),
                     Some("Test direct tuple grants for each relation".to_string()),
                 ));
             }
 
             // Suggest tests for computed relations
-            let computed_relations: Vec<_> = type_def
-                .relations
-                .iter()
-                .filter(|r| !r.is_direct() && r.expr.is_some())
-                .collect();
+            let computed_relations: Vec<_> =
+                type_def.relations.iter().filter(|r| !r.is_direct() && r.expr.is_some()).collect();
 
             if !computed_relations.is_empty() {
                 warnings.push(ValidationError::new(
@@ -271,10 +256,7 @@ impl<'a> CoverageAnalyzer<'a> {
                                 .join(", ")
                         ),
                     }),
-                    format!(
-                        "Consider adding tests for forbid rules in type '{}'",
-                        type_def.name
-                    ),
+                    format!("Consider adding tests for forbid rules in type '{}'", type_def.name),
                     Some("Test that forbid rules correctly deny access".to_string()),
                 ));
             }
@@ -298,9 +280,7 @@ mod tests {
                 // This computed relation is never used
                 RelationDef::new(
                     "unused".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
             ],
         )]);
@@ -322,15 +302,11 @@ mod tests {
                 RelationDef::new("owner".to_string(), None),
                 RelationDef::new(
                     "editor".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
                 RelationDef::new(
                     "viewer".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "editor".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "editor".to_string() }),
                 ),
             ],
         )]);
@@ -362,9 +338,7 @@ mod tests {
                 RelationDef::new("owner".to_string(), None),
                 RelationDef::new(
                     "viewer".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "owner".to_string() }),
                 ),
             ],
             vec![ForbidDef::new("blocked".to_string(), None)],
@@ -395,9 +369,7 @@ mod tests {
                 // This relation references a non-existent relation
                 RelationDef::new(
                     "broken".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "nonexistent".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "nonexistent".to_string() }),
                 ),
             ],
         )]);

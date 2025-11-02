@@ -20,12 +20,13 @@
 //! cargo run --example internal_service_auth
 //! ```
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use base64::Engine;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Jwk {

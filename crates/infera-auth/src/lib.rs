@@ -62,7 +62,6 @@ pub use jwks_cache::{Jwk, JwksCache};
 pub use middleware::{validate_vault_access, vault_validation_middleware};
 pub use oauth::OAuthJwksClient;
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
-pub use replay::{InMemoryReplayProtection, ReplayProtection};
-
 #[cfg(feature = "replay-protection")]
 pub use replay::RedisReplayProtection;
+pub use replay::{InMemoryReplayProtection, ReplayProtection};

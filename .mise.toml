@@ -10,8 +10,7 @@
 # See Makefile for convenient shortcuts.
 
 [tools]
-# Rust toolchain - using stable with common components
-rust = "stable"
+rust = "nightly"
 
 # Development tools (installed automatically with `mise install`)
 "cargo:cargo-watch" = "latest"          # Auto-rebuild on file changes

@@ -23,9 +23,7 @@ fn create_schema() -> Schema {
                 // can_manage = admin
                 RelationDef::new(
                     "can_manage".to_string(),
-                    Some(RelationExpr::RelationRef {
-                        relation: "admin".to_string(),
-                    }),
+                    Some(RelationExpr::RelationRef { relation: "admin".to_string() }),
                 ),
             ],
         ),
@@ -41,12 +39,8 @@ fn create_schema() -> Schema {
                     "can_view".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "member".to_string(),
-                        },
-                        RelationExpr::RelationRef {
-                            relation: "lead".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "member".to_string() },
+                        RelationExpr::RelationRef { relation: "lead".to_string() },
                         RelationExpr::RelatedObjectUserset {
                             relationship: "organization".to_string(),
                             computed: "admin".to_string(),
@@ -57,9 +51,7 @@ fn create_schema() -> Schema {
                 RelationDef::new(
                     "can_manage".to_string(),
                     Some(RelationExpr::Union(vec![
-                        RelationExpr::RelationRef {
-                            relation: "lead".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "lead".to_string() },
                         RelationExpr::RelatedObjectUserset {
                             relationship: "organization".to_string(),
                             computed: "admin".to_string(),
@@ -79,9 +71,7 @@ fn create_schema() -> Schema {
                     "can_view".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "contributor".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "contributor".to_string() },
                         RelationExpr::RelatedObjectUserset {
                             relationship: "team".to_string(),
                             computed: "can_view".to_string(),
@@ -113,23 +103,15 @@ async fn test_organization_admin_permissions() {
 
     // Alice is admin of org1
     fixture
-        .write_relationships(vec![relationship(
-            "organization:org1",
-            "admin",
-            "user:alice",
-        )])
+        .write_relationships(vec![relationship("organization:org1", "admin", "user:alice")])
         .await
         .unwrap();
 
     // Alice can manage the organization
-    fixture
-        .assert_allowed("user:alice", "organization:org1", "can_manage")
-        .await;
+    fixture.assert_allowed("user:alice", "organization:org1", "can_manage").await;
 
     // Bob cannot
-    fixture
-        .assert_denied("user:bob", "organization:org1", "can_manage")
-        .await;
+    fixture.assert_denied("user:bob", "organization:org1", "can_manage").await;
 }
 
 #[tokio::test]
@@ -143,14 +125,10 @@ async fn test_team_member_permissions() {
         .unwrap();
 
     // Bob can view the team
-    fixture
-        .assert_allowed("user:bob", "team:team1", "can_view")
-        .await;
+    fixture.assert_allowed("user:bob", "team:team1", "can_view").await;
 
     // But cannot manage it
-    fixture
-        .assert_denied("user:bob", "team:team1", "can_manage")
-        .await;
+    fixture.assert_denied("user:bob", "team:team1", "can_manage").await;
 }
 
 #[tokio::test]
@@ -164,12 +142,8 @@ async fn test_team_lead_permissions() {
         .unwrap();
 
     // Charlie can both view and manage the team
-    fixture
-        .assert_allowed("user:charlie", "team:team1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "team:team1", "can_manage")
-        .await;
+    fixture.assert_allowed("user:charlie", "team:team1", "can_view").await;
+    fixture.assert_allowed("user:charlie", "team:team1", "can_manage").await;
 }
 
 #[tokio::test]
@@ -188,14 +162,10 @@ async fn test_hierarchical_org_to_team_permissions() {
         .unwrap();
 
     // Alice can view the team (through org admin)
-    fixture
-        .assert_allowed("user:alice", "team:team1", "can_view")
-        .await;
+    fixture.assert_allowed("user:alice", "team:team1", "can_view").await;
 
     // Alice can manage the team (through org admin)
-    fixture
-        .assert_allowed("user:alice", "team:team1", "can_manage")
-        .await;
+    fixture.assert_allowed("user:alice", "team:team1", "can_manage").await;
 }
 
 #[tokio::test]
@@ -214,14 +184,10 @@ async fn test_project_team_permissions() {
         .unwrap();
 
     // Bob can view the project (through team membership)
-    fixture
-        .assert_allowed("user:bob", "project:project1", "can_view")
-        .await;
+    fixture.assert_allowed("user:bob", "project:project1", "can_view").await;
 
     // Bob can edit the project (team members can edit)
-    fixture
-        .assert_allowed("user:bob", "project:project1", "can_edit")
-        .await;
+    fixture.assert_allowed("user:bob", "project:project1", "can_edit").await;
 }
 
 #[tokio::test]
@@ -242,15 +208,11 @@ async fn test_full_hierarchy_org_to_project() {
         .unwrap();
 
     // Alice can view the project (org admin -> team viewer -> project viewer)
-    fixture
-        .assert_allowed("user:alice", "project:project1", "can_view")
-        .await;
+    fixture.assert_allowed("user:alice", "project:project1", "can_view").await;
 
     // But Alice cannot edit the project (org admin doesn't grant team membership)
     // This is correct - admins can see everything but need to be team members to edit
-    fixture
-        .assert_denied("user:alice", "project:project1", "can_edit")
-        .await;
+    fixture.assert_denied("user:alice", "project:project1", "can_edit").await;
 }
 
 #[tokio::test]
@@ -274,28 +236,16 @@ async fn test_multiple_teams_in_organization() {
         .unwrap();
 
     // Alice can view both teams (org admin)
-    fixture
-        .assert_allowed("user:alice", "team:team1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:alice", "team:team2", "can_view")
-        .await;
+    fixture.assert_allowed("user:alice", "team:team1", "can_view").await;
+    fixture.assert_allowed("user:alice", "team:team2", "can_view").await;
 
     // Bob can only view team1
-    fixture
-        .assert_allowed("user:bob", "team:team1", "can_view")
-        .await;
-    fixture
-        .assert_denied("user:bob", "team:team2", "can_view")
-        .await;
+    fixture.assert_allowed("user:bob", "team:team1", "can_view").await;
+    fixture.assert_denied("user:bob", "team:team2", "can_view").await;
 
     // Charlie can only view team2
-    fixture
-        .assert_denied("user:charlie", "team:team1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "team:team2", "can_view")
-        .await;
+    fixture.assert_denied("user:charlie", "team:team1", "can_view").await;
+    fixture.assert_allowed("user:charlie", "team:team2", "can_view").await;
 }
 
 #[tokio::test]
@@ -304,23 +254,15 @@ async fn test_project_contributor_permissions() {
 
     // Dave is a contributor to project1 (not a team member)
     fixture
-        .write_relationships(vec![relationship(
-            "project:project1",
-            "contributor",
-            "user:dave",
-        )])
+        .write_relationships(vec![relationship("project:project1", "contributor", "user:dave")])
         .await
         .unwrap();
 
     // Dave can view the project
-    fixture
-        .assert_allowed("user:dave", "project:project1", "can_view")
-        .await;
+    fixture.assert_allowed("user:dave", "project:project1", "can_view").await;
 
     // But Dave cannot edit (only team members can edit)
-    fixture
-        .assert_denied("user:dave", "project:project1", "can_edit")
-        .await;
+    fixture.assert_denied("user:dave", "project:project1", "can_edit").await;
 }
 
 #[tokio::test]
@@ -349,57 +291,27 @@ async fn test_complex_multi_level_hierarchy() {
         .unwrap();
 
     // Alice (org admin) can view all teams and projects
-    fixture
-        .assert_allowed("user:alice", "team:team1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:alice", "team:team2", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:alice", "project:project1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:alice", "project:project2", "can_view")
-        .await;
+    fixture.assert_allowed("user:alice", "team:team1", "can_view").await;
+    fixture.assert_allowed("user:alice", "team:team2", "can_view").await;
+    fixture.assert_allowed("user:alice", "project:project1", "can_view").await;
+    fixture.assert_allowed("user:alice", "project:project2", "can_view").await;
 
     // Bob (team1 lead) can view and manage team1, and edit project1
-    fixture
-        .assert_allowed("user:bob", "team:team1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "team:team1", "can_manage")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "project:project1", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:bob", "project:project1", "can_edit")
-        .await;
+    fixture.assert_allowed("user:bob", "team:team1", "can_view").await;
+    fixture.assert_allowed("user:bob", "team:team1", "can_manage").await;
+    fixture.assert_allowed("user:bob", "project:project1", "can_view").await;
+    fixture.assert_allowed("user:bob", "project:project1", "can_edit").await;
 
     // Bob cannot access team2 or project2
-    fixture
-        .assert_denied("user:bob", "team:team2", "can_view")
-        .await;
-    fixture
-        .assert_denied("user:bob", "project:project2", "can_view")
-        .await;
+    fixture.assert_denied("user:bob", "team:team2", "can_view").await;
+    fixture.assert_denied("user:bob", "project:project2", "can_view").await;
 
     // Charlie (team2 member) can view team2 and edit project2
-    fixture
-        .assert_allowed("user:charlie", "team:team2", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "project:project2", "can_view")
-        .await;
-    fixture
-        .assert_allowed("user:charlie", "project:project2", "can_edit")
-        .await;
+    fixture.assert_allowed("user:charlie", "team:team2", "can_view").await;
+    fixture.assert_allowed("user:charlie", "project:project2", "can_view").await;
+    fixture.assert_allowed("user:charlie", "project:project2", "can_edit").await;
 
     // Dave (project2 contributor) can only view project2
-    fixture
-        .assert_allowed("user:dave", "project:project2", "can_view")
-        .await;
-    fixture
-        .assert_denied("user:dave", "project:project2", "can_edit")
-        .await;
+    fixture.assert_allowed("user:dave", "project:project2", "can_view").await;
+    fixture.assert_denied("user:dave", "project:project2", "can_edit").await;
 }

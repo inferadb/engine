@@ -59,11 +59,7 @@ pub struct HostState {
 
 impl HostState {
     pub fn new(context: ExecutionContext) -> Self {
-        Self {
-            context,
-            logs: Vec::new(),
-            store_limits: StoreLimits::default(),
-        }
+        Self { context, logs: Vec::new(), store_limits: StoreLimits::default() }
     }
 }
 

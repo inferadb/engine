@@ -84,8 +84,9 @@ impl AuthContext {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Duration;
+
+    use super::*;
 
     fn create_test_context(scopes: Vec<&str>, exp_offset_secs: i64) -> AuthContext {
         AuthContext {

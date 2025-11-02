@@ -3,9 +3,9 @@
 //! Provides comprehensive audit logging for all authorization decisions and relationship changes.
 //! Audit events are structured, tamper-evident, and exportable to SIEM systems.
 
+use std::{sync::Arc, time::SystemTime};
+
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::time::SystemTime;
 use tracing::{error, info};
 
 /// Audit event type
@@ -291,19 +291,12 @@ pub struct AuditLogger {
 impl AuditLogger {
     /// Create a new audit logger
     pub fn new(config: AuditConfig) -> Self {
-        Self {
-            config: Arc::new(config),
-        }
+        Self { config: Arc::new(config) }
     }
 
     /// Create a disabled audit logger
     pub fn disabled() -> Self {
-        Self {
-            config: Arc::new(AuditConfig {
-                enabled: false,
-                ..Default::default()
-            }),
-        }
+        Self { config: Arc::new(AuditConfig { enabled: false, ..Default::default() }) }
     }
 
     /// Log an audit event
@@ -344,11 +337,11 @@ impl AuditLogger {
             Ok(json) => {
                 info!(target: "inferadb_audit", "{}", json);
                 crate::metrics::record_audit_event(&event_type_str);
-            }
+            },
             Err(e) => {
                 error!(target: "inferadb_audit", "Failed to serialize audit event: {}", e);
                 crate::metrics::record_audit_error("serialization_error");
-            }
+            },
         }
     }
 

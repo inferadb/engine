@@ -1,11 +1,11 @@
 //! Parallel evaluation support for relations
 
-use crate::evaluator::Evaluator;
-use crate::ipl::RelationExpr;
-use crate::{EvalError, Result};
-use infera_types::{Decision, EvaluateRequest};
 use std::sync::Arc;
+
+use infera_types::{Decision, EvaluateRequest};
 use tokio::task::JoinSet;
+
+use crate::{EvalError, Result, evaluator::Evaluator, ipl::RelationExpr};
 
 /// Parallel evaluator for relation expressions
 pub struct ParallelEvaluator {
@@ -201,20 +201,18 @@ impl ParallelEvaluator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::MemoryBackend;
     use uuid::Uuid;
+
+    use super::*;
+    use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
     async fn create_test_evaluator() -> Arc<Evaluator> {
         let store = Arc::new(MemoryBackend::new());
 
         let types = vec![TypeDef::new(
             "document".to_string(),
-            vec![RelationDef::new(
-                "viewer".to_string(),
-                Some(RelationExpr::This),
-            )],
+            vec![RelationDef::new("viewer".to_string(), Some(RelationExpr::This))],
         )];
 
         let schema = Arc::new(Schema::new(types));
@@ -243,9 +241,8 @@ mod tests {
             trace: None,
         };
 
-        let result = parallel_eval
-            .evaluate_union(evaluator, request, &[], "document".to_string())
-            .await;
+        let result =
+            parallel_eval.evaluate_union(evaluator, request, &[], "document".to_string()).await;
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Decision::Deny);

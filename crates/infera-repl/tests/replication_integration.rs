@@ -6,6 +6,8 @@
 //! - Network partition handling
 //! - Failover scenarios
 
+use std::{sync::Arc, time::Duration};
+
 use infera_repl::{
     Change, ChangeFeed, Conflict, ConflictResolutionStrategy, ConflictResolver, NodeId, Operation,
     RegionId, ReplicationAgent, ReplicationConfig, ReplicationStrategy, Topology, TopologyBuilder,
@@ -13,10 +15,7 @@ use infera_repl::{
 };
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Relationship, Revision};
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::RwLock;
-use tokio::time::sleep;
+use tokio::{sync::RwLock, time::sleep};
 
 /// Helper to create a test relationship
 fn test_relationship(resource: &str, relation: &str, subject: &str) -> Relationship {
@@ -30,13 +29,7 @@ fn test_relationship(resource: &str, relation: &str, subject: &str) -> Relations
 
 /// Helper to create a test change
 fn test_change(relationship: Relationship, operation: Operation, timestamp: u64) -> Change {
-    Change {
-        revision: Revision(1),
-        operation,
-        relationship,
-        timestamp,
-        metadata: None,
-    }
+    Change { revision: Revision(1), operation, relationship, timestamp, metadata: None }
 }
 
 #[tokio::test]
@@ -58,12 +51,10 @@ async fn test_conflict_resolution_last_write_wins() {
 
 #[tokio::test]
 async fn test_conflict_resolution_source_priority() {
-    let resolver = ConflictResolver::new(ConflictResolutionStrategy::SourcePriority)
-        .with_region_priorities(vec![
-            "us-west".to_string(),
-            "eu-central".to_string(),
-            "ap-southeast".to_string(),
-        ]);
+    let resolver =
+        ConflictResolver::new(ConflictResolutionStrategy::SourcePriority).with_region_priorities(
+            vec!["us-west".to_string(), "eu-central".to_string(), "ap-southeast".to_string()],
+        );
 
     let relationship = test_relationship("doc:readme", "viewer", "user:alice");
 
@@ -141,48 +132,38 @@ async fn test_multiple_conflicts_in_sequence() {
 
 #[tokio::test]
 async fn test_topology_active_active() {
-    let topology = TopologyBuilder::new(
-        ReplicationStrategy::ActiveActive,
-        RegionId::new("us-west-1"),
-    )
-    .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
-    .add_zone(
-        RegionId::new("us-west-1"),
-        ZoneId::new("us-west-1a"),
-        "Zone A".to_string(),
-    )
-    .add_node(
-        RegionId::new("us-west-1"),
-        ZoneId::new("us-west-1a"),
-        NodeId::new("node1"),
-        "localhost:50051".to_string(),
-    )
-    .add_region(
-        RegionId::new("eu-central-1"),
-        "EU Central 1".to_string(),
-        false,
-    )
-    .add_zone(
-        RegionId::new("eu-central-1"),
-        ZoneId::new("eu-central-1a"),
-        "Zone A".to_string(),
-    )
-    .add_node(
-        RegionId::new("eu-central-1"),
-        ZoneId::new("eu-central-1a"),
-        NodeId::new("node2"),
-        "localhost:50052".to_string(),
-    )
-    .set_replication_targets(
-        RegionId::new("us-west-1"),
-        vec![RegionId::new("eu-central-1")],
-    )
-    .set_replication_targets(
-        RegionId::new("eu-central-1"),
-        vec![RegionId::new("us-west-1")],
-    )
-    .build()
-    .unwrap();
+    let topology =
+        TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+            .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+            .add_zone(RegionId::new("us-west-1"), ZoneId::new("us-west-1a"), "Zone A".to_string())
+            .add_node(
+                RegionId::new("us-west-1"),
+                ZoneId::new("us-west-1a"),
+                NodeId::new("node1"),
+                "localhost:50051".to_string(),
+            )
+            .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), false)
+            .add_zone(
+                RegionId::new("eu-central-1"),
+                ZoneId::new("eu-central-1a"),
+                "Zone A".to_string(),
+            )
+            .add_node(
+                RegionId::new("eu-central-1"),
+                ZoneId::new("eu-central-1a"),
+                NodeId::new("node2"),
+                "localhost:50052".to_string(),
+            )
+            .set_replication_targets(
+                RegionId::new("us-west-1"),
+                vec![RegionId::new("eu-central-1")],
+            )
+            .set_replication_targets(
+                RegionId::new("eu-central-1"),
+                vec![RegionId::new("us-west-1")],
+            )
+            .build()
+            .unwrap();
 
     // Verify topology
     assert_eq!(topology.regions.len(), 2);
@@ -200,34 +181,29 @@ async fn test_topology_active_active() {
 
 #[tokio::test]
 async fn test_topology_primary_replica() {
-    let topology = TopologyBuilder::new(
-        ReplicationStrategy::PrimaryReplica,
-        RegionId::new("us-west-1"),
-    )
-    .add_region(
-        RegionId::new("us-west-1"),
-        "US West 1".to_string(),
-        true, // primary
-    )
-    .add_region(
-        RegionId::new("eu-central-1"),
-        "EU Central 1".to_string(),
-        false, // replica
-    )
-    .add_region(
-        RegionId::new("ap-southeast-1"),
-        "AP Southeast 1".to_string(),
-        false, // replica
-    )
-    .set_replication_targets(
-        RegionId::new("us-west-1"),
-        vec![
-            RegionId::new("eu-central-1"),
-            RegionId::new("ap-southeast-1"),
-        ],
-    )
-    .build()
-    .unwrap();
+    let topology =
+        TopologyBuilder::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"))
+            .add_region(
+                RegionId::new("us-west-1"),
+                "US West 1".to_string(),
+                true, // primary
+            )
+            .add_region(
+                RegionId::new("eu-central-1"),
+                "EU Central 1".to_string(),
+                false, // replica
+            )
+            .add_region(
+                RegionId::new("ap-southeast-1"),
+                "AP Southeast 1".to_string(),
+                false, // replica
+            )
+            .set_replication_targets(
+                RegionId::new("us-west-1"),
+                vec![RegionId::new("eu-central-1"), RegionId::new("ap-southeast-1")],
+            )
+            .build()
+            .unwrap();
 
     // Verify primary region
     let primary = topology.get_primary_region().unwrap();
@@ -240,10 +216,8 @@ async fn test_topology_primary_replica() {
 
 #[tokio::test]
 async fn test_topology_validation_no_primary() {
-    let mut topology = Topology::new(
-        ReplicationStrategy::PrimaryReplica,
-        RegionId::new("us-west-1"),
-    );
+    let mut topology =
+        Topology::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"));
     topology.add_region(infera_repl::Region::new(
         RegionId::new("us-west-1"),
         "US West 1".to_string(),
@@ -252,18 +226,13 @@ async fn test_topology_validation_no_primary() {
 
     let result = topology.validate();
     assert!(result.is_err());
-    assert!(matches!(
-        result.unwrap_err(),
-        infera_repl::TopologyError::NoPrimaryRegion
-    ));
+    assert!(matches!(result.unwrap_err(), infera_repl::TopologyError::NoPrimaryRegion));
 }
 
 #[tokio::test]
 async fn test_topology_validation_multiple_primary() {
-    let mut topology = Topology::new(
-        ReplicationStrategy::PrimaryReplica,
-        RegionId::new("us-west-1"),
-    );
+    let mut topology =
+        Topology::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"));
     topology.add_region(infera_repl::Region::new(
         RegionId::new("us-west-1"),
         "US West 1".to_string(),
@@ -277,10 +246,7 @@ async fn test_topology_validation_multiple_primary() {
 
     let result = topology.validate();
     assert!(result.is_err());
-    assert!(matches!(
-        result.unwrap_err(),
-        infera_repl::TopologyError::MultiplePrimaryRegions
-    ));
+    assert!(matches!(result.unwrap_err(), infera_repl::TopologyError::MultiplePrimaryRegions));
 }
 
 #[tokio::test]
@@ -313,23 +279,14 @@ async fn test_change_feed_with_filtering() {
     let change_feed = Arc::new(ChangeFeed::new());
 
     // Subscribe with resource type filter
-    let mut stream = change_feed
-        .subscribe_filtered("document".to_string())
-        .await
-        .unwrap();
+    let mut stream = change_feed.subscribe_filtered("document".to_string()).await.unwrap();
 
     // Publish changes with different resource types
     let doc_relationship = test_relationship("document:readme", "viewer", "user:alice");
     let folder_relationship = test_relationship("folder:root", "viewer", "user:alice");
 
-    change_feed
-        .publish(test_change(doc_relationship, Operation::Insert, 1000))
-        .await
-        .unwrap();
-    change_feed
-        .publish(test_change(folder_relationship, Operation::Insert, 2000))
-        .await
-        .unwrap();
+    change_feed.publish(test_change(doc_relationship, Operation::Insert, 1000)).await.unwrap();
+    change_feed.publish(test_change(folder_relationship, Operation::Insert, 2000)).await.unwrap();
 
     // Should only receive the document change
     let received = stream.recv().await;
@@ -343,25 +300,17 @@ async fn test_change_feed_with_filtering() {
 #[tokio::test]
 async fn test_replication_agent_creation_and_shutdown() {
     let topology = Arc::new(RwLock::new(
-        TopologyBuilder::new(
-            ReplicationStrategy::ActiveActive,
-            RegionId::new("us-west-1"),
-        )
-        .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
-        .add_zone(
-            RegionId::new("us-west-1"),
-            ZoneId::new("us-west-1a"),
-            "Zone A".to_string(),
-        )
-        .build()
-        .unwrap(),
+        TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+            .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
+            .add_zone(RegionId::new("us-west-1"), ZoneId::new("us-west-1a"), "Zone A".to_string())
+            .build()
+            .unwrap(),
     ));
 
     let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
     let change_feed = Arc::new(ChangeFeed::new());
-    let conflict_resolver = Arc::new(ConflictResolver::new(
-        ConflictResolutionStrategy::LastWriteWins,
-    ));
+    let conflict_resolver =
+        Arc::new(ConflictResolver::new(ConflictResolutionStrategy::LastWriteWins));
 
     let mut agent = ReplicationAgent::new(
         topology,
@@ -387,40 +336,30 @@ async fn test_replication_agent_creation_and_shutdown() {
 async fn test_network_partition_simulation() {
     // Simulate a network partition by creating a topology where a node becomes unreachable
 
-    let mut topology = TopologyBuilder::new(
-        ReplicationStrategy::ActiveActive,
-        RegionId::new("us-west-1"),
-    )
-    .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
-    .add_zone(
-        RegionId::new("us-west-1"),
-        ZoneId::new("us-west-1a"),
-        "Zone A".to_string(),
-    )
-    .add_node(
-        RegionId::new("us-west-1"),
-        ZoneId::new("us-west-1a"),
-        NodeId::new("node1"),
-        "localhost:50051".to_string(),
-    )
-    .add_region(
-        RegionId::new("eu-central-1"),
-        "EU Central 1".to_string(),
-        false,
-    )
-    .add_zone(
-        RegionId::new("eu-central-1"),
-        ZoneId::new("eu-central-1a"),
-        "Zone A".to_string(),
-    )
-    .add_node(
-        RegionId::new("eu-central-1"),
-        ZoneId::new("eu-central-1a"),
-        NodeId::new("node2"),
-        "localhost:50052".to_string(),
-    )
-    .build()
-    .unwrap();
+    let mut topology =
+        TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+            .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+            .add_zone(RegionId::new("us-west-1"), ZoneId::new("us-west-1a"), "Zone A".to_string())
+            .add_node(
+                RegionId::new("us-west-1"),
+                ZoneId::new("us-west-1a"),
+                NodeId::new("node1"),
+                "localhost:50051".to_string(),
+            )
+            .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), false)
+            .add_zone(
+                RegionId::new("eu-central-1"),
+                ZoneId::new("eu-central-1a"),
+                "Zone A".to_string(),
+            )
+            .add_node(
+                RegionId::new("eu-central-1"),
+                ZoneId::new("eu-central-1a"),
+                NodeId::new("node2"),
+                "localhost:50052".to_string(),
+            )
+            .build()
+            .unwrap();
 
     // Initially, all nodes are healthy
     let healthy = topology.get_healthy_nodes(&RegionId::new("eu-central-1"));
@@ -442,9 +381,7 @@ async fn test_network_partition_simulation() {
 
 #[tokio::test]
 async fn test_concurrent_conflict_resolution() {
-    let resolver = Arc::new(ConflictResolver::new(
-        ConflictResolutionStrategy::LastWriteWins,
-    ));
+    let resolver = Arc::new(ConflictResolver::new(ConflictResolutionStrategy::LastWriteWins));
 
     // Simulate multiple concurrent conflicts
     let mut handles = vec![];
@@ -476,44 +413,38 @@ async fn test_concurrent_conflict_resolution() {
 async fn test_failover_scenario() {
     // Test failover when primary region fails in PrimaryReplica strategy
 
-    let topology = TopologyBuilder::new(
-        ReplicationStrategy::PrimaryReplica,
-        RegionId::new("us-west-1"),
-    )
-    .add_region(
-        RegionId::new("us-west-1"),
-        "US West 1".to_string(),
-        true, // primary
-    )
-    .add_zone(
-        RegionId::new("us-west-1"),
-        ZoneId::new("us-west-1a"),
-        "Zone A".to_string(),
-    )
-    .add_node(
-        RegionId::new("us-west-1"),
-        ZoneId::new("us-west-1a"),
-        NodeId::new("node1"),
-        "localhost:50051".to_string(),
-    )
-    .add_region(
-        RegionId::new("eu-central-1"),
-        "EU Central 1".to_string(),
-        false, // replica
-    )
-    .add_zone(
-        RegionId::new("eu-central-1"),
-        ZoneId::new("eu-central-1a"),
-        "Zone A".to_string(),
-    )
-    .add_node(
-        RegionId::new("eu-central-1"),
-        ZoneId::new("eu-central-1a"),
-        NodeId::new("node2"),
-        "localhost:50052".to_string(),
-    )
-    .build()
-    .unwrap();
+    let topology =
+        TopologyBuilder::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"))
+            .add_region(
+                RegionId::new("us-west-1"),
+                "US West 1".to_string(),
+                true, // primary
+            )
+            .add_zone(RegionId::new("us-west-1"), ZoneId::new("us-west-1a"), "Zone A".to_string())
+            .add_node(
+                RegionId::new("us-west-1"),
+                ZoneId::new("us-west-1a"),
+                NodeId::new("node1"),
+                "localhost:50051".to_string(),
+            )
+            .add_region(
+                RegionId::new("eu-central-1"),
+                "EU Central 1".to_string(),
+                false, // replica
+            )
+            .add_zone(
+                RegionId::new("eu-central-1"),
+                ZoneId::new("eu-central-1a"),
+                "Zone A".to_string(),
+            )
+            .add_node(
+                RegionId::new("eu-central-1"),
+                ZoneId::new("eu-central-1a"),
+                NodeId::new("node2"),
+                "localhost:50052".to_string(),
+            )
+            .build()
+            .unwrap();
 
     // Primary region should be us-west-1
     let primary = topology.get_primary_region().unwrap();
@@ -526,11 +457,7 @@ async fn test_failover_scenario() {
     // 4. Resume operations
 
     // For this test, we verify the topology structure supports this pattern
-    assert!(
-        topology
-            .get_region(&RegionId::new("eu-central-1"))
-            .is_some()
-    );
+    assert!(topology.get_region(&RegionId::new("eu-central-1")).is_some());
 }
 
 #[tokio::test]

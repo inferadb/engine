@@ -25,10 +25,11 @@ use tower::ServiceExt;
 
 // Re-use the mock JWKS infrastructure from infera-auth tests
 mod common {
+    use std::sync::Arc;
+
     use ed25519_dalek::SigningKey;
     use rand::rngs::OsRng;
     use serde_json::json;
-    use std::sync::Arc;
     use tokio::sync::RwLock;
     use warp::Filter;
 
@@ -91,12 +92,7 @@ mod common {
             // Find the bound port (for now, use a fixed test port)
             let url = "http://127.0.0.1:8999".to_string();
 
-            Self {
-                keypair,
-                kid,
-                server,
-                url,
-            }
+            Self { keypair, kid, server, url }
         }
 
         pub fn generate_jwt(
@@ -158,19 +154,12 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
                 "editor".to_string(),
                 Some(RelationExpr::Union(vec![
                     RelationExpr::This,
-                    RelationExpr::RelationRef {
-                        relation: "reader".to_string(),
-                    },
+                    RelationExpr::RelationRef { relation: "reader".to_string() },
                 ])),
             ),
         ],
     )]));
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store),
-        schema,
-        None,
-        uuid::Uuid::nil(),
-    ));
+    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
     let mut config = Config::default();
 
     // Enable auth for these tests but disable rate limiting
@@ -183,13 +172,7 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    AppState {
-        evaluator,
-        store,
-        config,
-        jwks_cache,
-        health_tracker,
-    }
+    AppState { evaluator, store, config, jwks_cache, health_tracker }
 }
 
 #[tokio::test]
@@ -342,21 +325,12 @@ async fn test_health_endpoint_unauthenticated() {
     let state = create_test_state_with_auth(Some(jwks_cache));
     let app = create_router(state);
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/health")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response =
+        app.oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap()).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let health_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(health_response["status"], "healthy");
 }

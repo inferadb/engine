@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use std::{sync::Arc, time::Instant};
 
 // Performance benchmarks for ListResources API
 //
@@ -9,12 +9,10 @@ use uuid::Uuid;
 // - Benchmark with deep hierarchies (10+ levels)
 // - Load test: concurrent requests (100 QPS)
 // - Load test: heavy load (1000 QPS)
-
 use infera_core::Evaluator;
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, ListResourcesRequest, Relationship};
-use std::sync::Arc;
-use std::time::Instant;
+use uuid::Uuid;
 
 fn create_simple_schema() -> infera_core::ipl::Schema {
     let schema_str = r#"
@@ -39,10 +37,7 @@ async fn create_test_data(store: &Arc<MemoryBackend>, num_resources: usize) {
 
         // Batch writes every 1000 relationships to avoid memory issues
         if relationships.len() >= 1000 {
-            store
-                .write(Uuid::nil(), relationships.clone())
-                .await
-                .unwrap();
+            store.write(Uuid::nil(), relationships.clone()).await.unwrap();
             relationships.clear();
         }
     }
@@ -154,11 +149,7 @@ async fn bench_list_resources_100k() {
     assert_eq!(response.resources.len(), 100_000);
     println!("✅ 100K resources: {:?} (target: <1s)", duration);
 
-    assert!(
-        duration.as_secs() < 1,
-        "Failed to meet <1s target: {:?}",
-        duration
-    );
+    assert!(duration.as_secs() < 1, "Failed to meet <1s target: {:?}", duration);
 }
 
 #[tokio::test]
@@ -216,11 +207,7 @@ async fn bench_list_resources_deep_hierarchy() {
     println!("✅ Deep hierarchy ({} levels): {:?}", depth, duration);
 
     // Should complete in reasonable time even with deep hierarchy
-    assert!(
-        duration.as_millis() < 100,
-        "Deep hierarchy check took too long: {:?}",
-        duration
-    );
+    assert!(duration.as_millis() < 100, "Deep hierarchy check took too long: {:?}", duration);
 }
 
 #[tokio::test]
@@ -324,11 +311,8 @@ async fn bench_concurrent_requests_100qps() {
     let total_duration = start.elapsed();
 
     let successful = results.iter().filter(|r| r.as_ref().unwrap().0).count();
-    let avg_latency: Duration = results
-        .iter()
-        .map(|r| r.as_ref().unwrap().1)
-        .sum::<Duration>()
-        / (num_requests as u32);
+    let avg_latency: Duration =
+        results.iter().map(|r| r.as_ref().unwrap().1).sum::<Duration>() / (num_requests as u32);
 
     println!(
         "✅ 100 QPS load test: {}/{} successful, avg latency: {:?}, total time: {:?}",
@@ -390,11 +374,8 @@ async fn bench_concurrent_requests_1000qps() {
     let total_duration = start.elapsed();
 
     let successful = results.iter().filter(|r| r.as_ref().unwrap().0).count();
-    let avg_latency: Duration = results
-        .iter()
-        .map(|r| r.as_ref().unwrap().1)
-        .sum::<Duration>()
-        / (num_requests as u32);
+    let avg_latency: Duration =
+        results.iter().map(|r| r.as_ref().unwrap().1).sum::<Duration>() / (num_requests as u32);
     let max_latency = results.iter().map(|r| r.as_ref().unwrap().1).max().unwrap();
 
     println!(

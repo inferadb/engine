@@ -5,8 +5,7 @@
 
 use base64::Engine;
 use ed25519_dalek::SigningKey;
-use infera_auth::internal::InternalJwks;
-use infera_auth::jwks_cache::Jwk;
+use infera_auth::{internal::InternalJwks, jwks_cache::Jwk};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
@@ -128,11 +127,7 @@ pub fn generate_internal_keypair() -> InternalKeyPair {
         use_: Some("sig".to_string()),
     };
 
-    InternalKeyPair {
-        signing_key,
-        private_jwk,
-        public_jwk,
-    }
+    InternalKeyPair { signing_key, private_jwk, public_jwk }
 }
 
 /// Generate an internal JWT signed with the provided keypair

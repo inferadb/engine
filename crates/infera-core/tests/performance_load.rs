@@ -3,16 +3,22 @@
 //! This module contains comprehensive load tests that verify the system's performance
 //! under various load patterns without requiring external deployment.
 
-use uuid::Uuid;
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{Duration, Instant},
+};
 
-use infera_core::Evaluator;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use infera_core::{
+    Evaluator,
+    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
+};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, ExpandRequest, Relationship};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
 use tokio::task::JoinSet;
+use uuid::Uuid;
 
 mod common;
 
@@ -49,22 +55,10 @@ impl PerformanceMetrics {
         let p95_idx = (total as f64 * 0.95) as usize;
         let p99_idx = (total as f64 * 0.99) as usize;
 
-        let p50 = sorted
-            .get(p50_idx.min(sorted.len() - 1))
-            .copied()
-            .unwrap_or(Duration::ZERO);
-        let p90 = sorted
-            .get(p90_idx.min(sorted.len() - 1))
-            .copied()
-            .unwrap_or(Duration::ZERO);
-        let p95 = sorted
-            .get(p95_idx.min(sorted.len() - 1))
-            .copied()
-            .unwrap_or(Duration::ZERO);
-        let p99 = sorted
-            .get(p99_idx.min(sorted.len() - 1))
-            .copied()
-            .unwrap_or(Duration::ZERO);
+        let p50 = sorted.get(p50_idx.min(sorted.len() - 1)).copied().unwrap_or(Duration::ZERO);
+        let p90 = sorted.get(p90_idx.min(sorted.len() - 1)).copied().unwrap_or(Duration::ZERO);
+        let p95 = sorted.get(p95_idx.min(sorted.len() - 1)).copied().unwrap_or(Duration::ZERO);
+        let p99 = sorted.get(p99_idx.min(sorted.len() - 1)).copied().unwrap_or(Duration::ZERO);
 
         let rps = if total_duration.as_secs_f64() > 0.0 {
             total as f64 / total_duration.as_secs_f64()
@@ -115,16 +109,13 @@ fn create_test_schema() -> Schema {
                 "admin".to_string(),
                 Some(RelationExpr::Union(vec![
                     RelationExpr::This,
-                    RelationExpr::RelationRef {
-                        relation: "editor".to_string(),
-                    },
+                    RelationExpr::RelationRef { relation: "editor".to_string() },
                 ])),
             ),
         ],
     )])
 }
 
-//
 // Load Tests
 //
 
@@ -146,10 +137,7 @@ async fn test_sustained_throughput_100k_rps() {
             vault: Uuid::nil(),
         });
     }
-    store
-        .write(Uuid::nil(), relationships)
-        .await
-        .expect("Failed to write relationships");
+    store.write(Uuid::nil(), relationships).await.expect("Failed to write relationships");
 
     let evaluator = Arc::new(Evaluator::new(
         store as Arc<dyn RelationshipStore>,
@@ -580,10 +568,10 @@ async fn test_soak_24h_simulation() {
                 match evaluator.check(request).await {
                     Ok(_) => {
                         request_count.fetch_add(1, Ordering::Relaxed);
-                    }
+                    },
                     Err(_) => {
                         error_count.fetch_add(1, Ordering::Relaxed);
-                    }
+                    },
                 }
 
                 i += 1;
@@ -620,14 +608,9 @@ async fn test_soak_24h_simulation() {
 
     // Assertions for long-term stability
     assert!(total_requests > 0, "No requests completed during soak test");
-    assert!(
-        error_rate < 0.1,
-        "Error rate too high: {:.3}% (target: <0.1%)",
-        error_rate
-    );
+    assert!(error_rate < 0.1, "Error rate too high: {:.3}% (target: <0.1%)", error_rate);
 }
 
-//
 // Scale Tests
 //
 
@@ -657,16 +640,10 @@ async fn test_large_graph_1m_relationships() {
                 vault: Uuid::nil(),
             });
         }
-        store
-            .write(Uuid::nil(), relationships)
-            .await
-            .expect("Failed to write batch");
+        store.write(Uuid::nil(), relationships).await.expect("Failed to write batch");
 
         if batch % 10 == 0 {
-            println!(
-                "Progress: {}%",
-                (batch * 100) / (total_relationships / batch_size)
-            );
+            println!("Progress: {}%", (batch * 100) / (total_relationships / batch_size));
         }
     }
 
@@ -684,10 +661,7 @@ async fn test_large_graph_1m_relationships() {
     let num_requests = 1000;
     let concurrency = 10;
 
-    println!(
-        "Running {} checks on 1M relationship graph...",
-        num_requests
-    );
+    println!("Running {} checks on 1M relationship graph...", num_requests);
 
     let start = Instant::now();
     let latencies = Arc::new(tokio::sync::Mutex::new(Vec::new()));
@@ -745,18 +719,13 @@ async fn test_large_graph_1m_relationships() {
 #[tokio::test]
 async fn test_deep_nesting_10_levels() {
     // Create schema with deep nesting
-    let mut relations = vec![RelationDef::new(
-        "level0".to_string(),
-        Some(RelationExpr::This),
-    )];
+    let mut relations = vec![RelationDef::new("level0".to_string(), Some(RelationExpr::This))];
 
     // Create 15 levels of nesting
     for level in 1..=15 {
         relations.push(RelationDef::new(
             format!("level{}", level),
-            Some(RelationExpr::RelationRef {
-                relation: format!("level{}", level - 1),
-            }),
+            Some(RelationExpr::RelationRef { relation: format!("level{}", level - 1) }),
         ));
     }
 
@@ -843,10 +812,7 @@ async fn test_wide_expansion_10k_users() {
                 vault: Uuid::nil(),
             });
         }
-        store
-            .write(Uuid::nil(), relationships)
-            .await
-            .expect("Failed to write");
+        store.write(Uuid::nil(), relationships).await.expect("Failed to write");
     }
 
     let evaluator = Arc::new(Evaluator::new(
@@ -878,14 +844,6 @@ async fn test_wide_expansion_10k_users() {
     println!("============================\n");
 
     // Expansion should complete in reasonable time even with 10k users
-    assert!(
-        duration < Duration::from_millis(500),
-        "Wide expansion too slow: {:?}",
-        duration
-    );
-    assert!(
-        response.users.len() >= 10_000,
-        "Not all users returned: {}",
-        response.users.len()
-    );
+    assert!(duration < Duration::from_millis(500), "Wide expansion too slow: {:?}", duration);
+    assert!(response.users.len() >= 10_000, "Not all users returned: {}", response.users.len());
 }

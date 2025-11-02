@@ -6,14 +6,12 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-use uuid::Uuid;
-
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::load_or_default;
-use infera_core::Evaluator;
-use infera_core::ipl::Schema;
+use infera_core::{Evaluator, ipl::Schema};
 use infera_store::MemoryBackend;
 use infera_wasm::WasmHost;
+use uuid::Uuid;
 
 /// Get the vault ID for server operations
 /// TODO(Phase 2): Load default vault from system config on startup
@@ -79,12 +77,7 @@ async fn main() -> Result<()> {
     tracing::info!("Schema loaded");
 
     // Create evaluator
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store),
-        schema,
-        wasm_host,
-        get_vault(),
-    ));
+    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, wasm_host, get_vault()));
     tracing::info!("Policy evaluator initialized");
 
     // Initialize JWKS cache if authentication is enabled
@@ -122,11 +115,7 @@ async fn main() -> Result<()> {
     };
 
     // Start API server
-    tracing::info!(
-        "Starting API server on {}:{}",
-        config.server.host,
-        config.server.port
-    );
+    tracing::info!("Starting API server on {}:{}", config.server.host, config.server.port);
 
     infera_api::serve(evaluator, store, config, jwks_cache).await?;
 

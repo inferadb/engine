@@ -39,9 +39,7 @@
 //! ```
 
 use std::sync::Arc;
-use tonic::{Request, Response, Status};
 
-use crate::AppState;
 use infera_core::{DecisionTrace, EvaluationNode, NodeType as CoreNodeType};
 use infera_store::RelationshipStore;
 use infera_types::{
@@ -51,6 +49,9 @@ use infera_types::{
     ListSubjectsRequest as CoreListSubjectsRequest, Relationship, RelationshipKey, Revision,
     UsersetNodeType as CoreUsersetNodeType, UsersetTree,
 };
+use tonic::{Request, Response, Status};
+
+use crate::AppState;
 
 // Include generated proto code
 pub mod proto {
@@ -59,7 +60,6 @@ pub mod proto {
 
 // Re-export client for external use
 pub use proto::infera_service_client::InferaServiceClient;
-
 use proto::{
     ChangeOperation, Decision as ProtoDecision, DeleteRequest, DeleteResponse, EvaluateRequest,
     EvaluateResponse, ExpandRequest, HealthRequest, HealthResponse, ListRelationshipsRequest,
@@ -67,7 +67,6 @@ use proto::{
     ListSubjectsResponse, SimulateRequest, SimulateResponse, WatchRequest, WatchResponse,
     WriteRequest, WriteResponse, infera_service_server::InferaService,
 };
-
 use uuid::Uuid;
 
 /// Get the vault ID for the current request
@@ -242,10 +241,7 @@ impl InferaService for InferaServiceImpl {
                 })
                 .chain(std::iter::once(Ok(proto::ExpandResponse {
                     payload: Some(proto::expand_response::Payload::Summary(
-                        proto::ExpandStreamSummary {
-                            tree: Some(tree),
-                            total_users,
-                        },
+                        proto::ExpandStreamSummary { tree: Some(tree), total_users },
                     )),
                 }))),
         );
@@ -348,12 +344,10 @@ impl InferaService for InferaServiceImpl {
                 subject: Some(relationship.subject),
             };
 
-            last_revision = self
-                .state
-                .store
-                .delete(get_vault(), &key)
-                .await
-                .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
+            last_revision =
+                self.state.store.delete(get_vault(), &key).await.map_err(|e| {
+                    Status::internal(format!("Failed to delete relationship: {}", e))
+                })?;
 
             total_deleted += 1;
         }
@@ -393,19 +387,13 @@ impl InferaService for InferaServiceImpl {
         // Validate relationship format
         for relationship in &all_relationships {
             if relationship.resource.is_empty() {
-                return Err(Status::invalid_argument(
-                    "Relationship resource cannot be empty",
-                ));
+                return Err(Status::invalid_argument("Relationship resource cannot be empty"));
             }
             if relationship.relation.is_empty() {
-                return Err(Status::invalid_argument(
-                    "Relationship relation cannot be empty",
-                ));
+                return Err(Status::invalid_argument("Relationship relation cannot be empty"));
             }
             if relationship.subject.is_empty() {
-                return Err(Status::invalid_argument(
-                    "Relationship subject cannot be empty",
-                ));
+                return Err(Status::invalid_argument("Relationship subject cannot be empty"));
             }
             if !relationship.resource.contains(':') {
                 return Err(Status::invalid_argument(format!(
@@ -487,11 +475,7 @@ impl InferaService for InferaServiceImpl {
             resources
                 .into_iter()
                 .map(|resource| {
-                    Ok(ListResourcesResponse {
-                        resource,
-                        cursor: None,
-                        total_count: None,
-                    })
+                    Ok(ListResourcesResponse { resource, cursor: None, total_count: None })
                 })
                 .chain(std::iter::once(Ok(ListResourcesResponse {
                     resource: String::new(), // Empty resource in final message
@@ -601,11 +585,7 @@ impl InferaService for InferaServiceImpl {
             subjects
                 .into_iter()
                 .map(|subject| {
-                    Ok(ListSubjectsResponse {
-                        subject,
-                        cursor: None,
-                        total_count: None,
-                    })
+                    Ok(ListSubjectsResponse { subject, cursor: None, total_count: None })
                 })
                 .chain(std::iter::once(Ok(ListSubjectsResponse {
                     subject: String::new(), // Empty subject in final message
@@ -724,15 +704,11 @@ impl InferaService for InferaServiceImpl {
 
         // Validate context relationships
         if request.context_relationships.is_empty() {
-            return Err(Status::invalid_argument(
-                "At least one context relationship required",
-            ));
+            return Err(Status::invalid_argument("At least one context relationship required"));
         }
 
         // Extract check from request
-        let check = request
-            .check
-            .ok_or_else(|| Status::invalid_argument("Check is required"))?;
+        let check = request.check.ok_or_else(|| Status::invalid_argument("Check is required"))?;
 
         // Convert proto relationships to core Relationship type
         let context_relationships: Vec<Relationship> = request
@@ -761,16 +737,12 @@ impl InferaService for InferaServiceImpl {
         let ephemeral_store = Arc::new(MemoryBackend::new());
 
         // Write context relationships to ephemeral store
-        ephemeral_store
-            .write(get_vault(), context_relationships.clone())
-            .await
-            .map_err(|e| {
-                Status::internal(format!("Failed to write context relationships: {}", e))
-            })?;
+        ephemeral_store.write(get_vault(), context_relationships.clone()).await.map_err(|e| {
+            Status::internal(format!("Failed to write context relationships: {}", e))
+        })?;
 
         // Create a temporary evaluator with the ephemeral store
-        use infera_core::Evaluator;
-        use infera_core::ipl::Schema;
+        use infera_core::{Evaluator, ipl::Schema};
         let temp_schema = Arc::new(Schema { types: Vec::new() });
         let temp_evaluator =
             Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault());
@@ -810,43 +782,33 @@ impl InferaService for InferaServiceImpl {
 fn convert_trace_to_proto(trace: DecisionTrace) -> proto::DecisionTrace {
     fn convert_node(node: EvaluationNode) -> proto::EvaluationNode {
         let node_type = match node.node_type {
-            CoreNodeType::DirectCheck {
-                resource,
-                relation,
-                subject,
-            } => Some(proto::node_type::Type::DirectCheck(proto::DirectCheck {
-                resource,
-                relation,
-                subject,
-            })),
-            CoreNodeType::ComputedUserset {
-                relation,
-                relationship,
-            } => Some(proto::node_type::Type::ComputedUserset(
-                proto::ComputedUserset {
+            CoreNodeType::DirectCheck { resource, relation, subject } => {
+                Some(proto::node_type::Type::DirectCheck(proto::DirectCheck {
+                    resource,
+                    relation,
+                    subject,
+                }))
+            },
+            CoreNodeType::ComputedUserset { relation, relationship } => {
+                Some(proto::node_type::Type::ComputedUserset(proto::ComputedUserset {
                     relation,
                     relationship,
-                },
-            )),
-            CoreNodeType::RelatedObjectUserset {
-                relationship,
-                computed,
-            } => Some(proto::node_type::Type::RelatedObjectUserset(
-                proto::RelatedObjectUserset {
+                }))
+            },
+            CoreNodeType::RelatedObjectUserset { relationship, computed } => {
+                Some(proto::node_type::Type::RelatedObjectUserset(proto::RelatedObjectUserset {
                     relationship,
                     computed,
-                },
-            )),
+                }))
+            },
             CoreNodeType::Union => Some(proto::node_type::Type::Union(proto::Union {})),
             CoreNodeType::Intersection => {
                 Some(proto::node_type::Type::Intersection(proto::Intersection {}))
-            }
+            },
             CoreNodeType::Exclusion => Some(proto::node_type::Type::Exclusion(proto::Exclusion {})),
             CoreNodeType::WasmModule { module_name } => {
-                Some(proto::node_type::Type::WasmModule(proto::WasmModule {
-                    module_name,
-                }))
-            }
+                Some(proto::node_type::Type::WasmModule(proto::WasmModule { module_name }))
+            },
         };
 
         proto::EvaluationNode {
@@ -877,17 +839,14 @@ fn convert_userset_tree_to_proto(tree: UsersetTree) -> proto::UsersetTree {
     let node_type = match tree.node_type {
         CoreUsersetNodeType::This => Some(Type::This(proto::This {})),
         CoreUsersetNodeType::ComputedUserset { relation } => {
-            Some(Type::ComputedUserset(proto::ComputedUsersetRef {
-                relation,
+            Some(Type::ComputedUserset(proto::ComputedUsersetRef { relation }))
+        },
+        CoreUsersetNodeType::RelatedObjectUserset { relationship, computed } => {
+            Some(Type::RelatedObjectUserset(proto::RelatedObjectUsersetRef {
+                relationship,
+                computed,
             }))
-        }
-        CoreUsersetNodeType::RelatedObjectUserset {
-            relationship,
-            computed,
-        } => Some(Type::RelatedObjectUserset(proto::RelatedObjectUsersetRef {
-            relationship,
-            computed,
-        })),
+        },
         CoreUsersetNodeType::Union => Some(Type::Union(proto::UnionNode {})),
         CoreUsersetNodeType::Intersection => Some(Type::Intersection(proto::IntersectionNode {})),
         CoreUsersetNodeType::Exclusion => Some(Type::Exclusion(proto::ExclusionNode {})),
@@ -896,24 +855,22 @@ fn convert_userset_tree_to_proto(tree: UsersetTree) -> proto::UsersetTree {
 
     proto::UsersetTree {
         node_type: Some(UsersetNodeType { r#type: node_type }),
-        children: tree
-            .children
-            .into_iter()
-            .map(convert_userset_tree_to_proto)
-            .collect(),
+        children: tree.children.into_iter().map(convert_userset_tree_to_proto).collect(),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
     use infera_config::Config;
     use infera_core::{
         Evaluator,
         ipl::{RelationDef, RelationExpr, Schema, TypeDef},
     };
     use infera_store::{MemoryBackend, RelationshipStore};
-    use std::sync::Arc;
+
+    use super::*;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -925,32 +882,20 @@ mod tests {
                     "editor".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "reader".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "reader".to_string() },
                     ])),
                 ),
             ],
         )]));
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store),
-            schema,
-            None,
-            uuid::Uuid::nil(),
-        ));
+        let evaluator =
+            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
         let config = Arc::new(Config::default());
 
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
         health_tracker.set_ready(true);
         health_tracker.set_startup_complete(true);
 
-        AppState {
-            evaluator,
-            store,
-            config,
-            jwks_cache: None,
-            health_tracker,
-        }
+        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
     }
 
     #[tokio::test]

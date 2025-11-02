@@ -4,10 +4,9 @@
 //! All formatting functions ensure consistent structure, localization, and compliance with
 //! the AuthZEN specification.
 
+use infera_types::Decision;
 use serde_json::{Value, json};
 use uuid::Uuid;
-
-use infera_types::Decision;
 
 /// Formats an AuthZEN evaluation response with decision and context
 ///
@@ -55,10 +54,7 @@ pub fn format_evaluation_response(
     let reason = if decision_bool {
         format!("{} has {} permission on {}", subject, permission, resource)
     } else {
-        format!(
-            "{} does not have {} permission on {}",
-            subject, permission, resource
-        )
+        format!("{} does not have {} permission on {}", subject, permission, resource)
     };
 
     json!({
@@ -312,15 +308,9 @@ mod tests {
         assert!(obj.get("id").is_some());
 
         let reason_admin = obj.get("reason_admin").unwrap().as_object().unwrap();
-        assert_eq!(
-            reason_admin.get("en").unwrap().as_str().unwrap(),
-            "Invalid subject type"
-        );
+        assert_eq!(reason_admin.get("en").unwrap().as_str().unwrap(), "Invalid subject type");
 
-        assert_eq!(
-            obj.get("error").unwrap().as_str().unwrap(),
-            "Invalid subject type"
-        );
+        assert_eq!(obj.get("error").unwrap().as_str().unwrap(), "Invalid subject type");
     }
 
     #[test]
@@ -335,10 +325,7 @@ mod tests {
         assert!(context.get("error").is_some());
 
         let reason_admin = context.get("reason_admin").unwrap().as_object().unwrap();
-        assert_eq!(
-            reason_admin.get("en").unwrap().as_str().unwrap(),
-            "Validation failed"
-        );
+        assert_eq!(reason_admin.get("en").unwrap().as_str().unwrap(), "Validation failed");
     }
 
     #[test]
@@ -357,10 +344,7 @@ mod tests {
         assert!(obj.get("id").is_some());
 
         let reason_admin = obj.get("reason_admin").unwrap().as_object().unwrap();
-        assert_eq!(
-            reason_admin.get("en").unwrap().as_str().unwrap(),
-            "Permission granted"
-        );
+        assert_eq!(reason_admin.get("en").unwrap().as_str().unwrap(), "Permission granted");
     }
 
     #[test]
@@ -398,20 +382,8 @@ mod tests {
         let context1 = format_error_context("Error 1");
         let context2 = format_error_context("Error 2");
 
-        let id1 = context1
-            .as_object()
-            .unwrap()
-            .get("id")
-            .unwrap()
-            .as_str()
-            .unwrap();
-        let id2 = context2
-            .as_object()
-            .unwrap()
-            .get("id")
-            .unwrap()
-            .as_str()
-            .unwrap();
+        let id1 = context1.as_object().unwrap().get("id").unwrap().as_str().unwrap();
+        let id2 = context2.as_object().unwrap().get("id").unwrap().as_str().unwrap();
 
         assert_ne!(id1, id2, "Each error context should have a unique ID");
     }
@@ -425,9 +397,6 @@ mod tests {
 
         // Should have at least English
         assert!(reason_admin.contains_key("en"));
-        assert_eq!(
-            reason_admin.get("en").unwrap().as_str().unwrap(),
-            "Test message"
-        );
+        assert_eq!(reason_admin.get("en").unwrap().as_str().unwrap(), "Test message");
     }
 }

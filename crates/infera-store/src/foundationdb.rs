@@ -7,15 +7,18 @@
 //! - Horizontal scalability
 //! - High availability
 
-use async_trait::async_trait;
-use foundationdb::relationship::{Subspace, pack, unpack};
-use foundationdb::{Database, FdbError, TransactOption};
-use serde_json;
 use std::sync::Arc;
+
+use async_trait::async_trait;
+use foundationdb::{
+    Database, FdbError, TransactOption,
+    relationship::{Subspace, pack, unpack},
+};
+use infera_types::{ChangeEvent, DeleteFilter};
+use serde_json;
 use tracing::{debug, error, warn};
 
 use crate::{Relationship, RelationshipKey, RelationshipStore, Result, Revision, StoreError};
-use infera_types::{ChangeEvent, DeleteFilter};
 
 /// FoundationDB storage backend
 pub struct FoundationDBBackend {
@@ -79,7 +82,7 @@ impl FoundationDBBackend {
                             FdbError::from(format!("Failed to deserialize revision: {}", e))
                         })?;
                         Ok(Revision(rev))
-                    }
+                    },
                     None => Ok(Revision::zero()),
                 }
             })
@@ -101,7 +104,7 @@ impl FoundationDBBackend {
                         let rev: u64 = serde_json::from_slice(&bytes)
                             .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
                         rev
-                    }
+                    },
                     None => 0,
                 };
 
@@ -136,8 +139,7 @@ impl FoundationDBBackend {
         subject: &str,
         revision: Revision,
     ) -> Vec<u8> {
-        self.index_subspace
-            .pack(&("obj", object, relation, user, revision.0))
+        self.index_subspace.pack(&("obj", object, relation, user, revision.0))
     }
 
     /// Create an index key for reverse lookups (user/relation)
@@ -148,8 +150,7 @@ impl FoundationDBBackend {
         resource: &str,
         revision: Revision,
     ) -> Vec<u8> {
-        self.index_subspace
-            .pack(&("user", user, relation, object, revision.0))
+        self.index_subspace.pack(&("user", user, relation, object, revision.0))
     }
 
     /// Parse a relationship from a key
@@ -162,11 +163,7 @@ impl FoundationDBBackend {
                 )))
             })?;
 
-        Ok(Relationship {
-            resource: unpacked.0,
-            relation: unpacked.1,
-            subject: unpacked.2,
-        })
+        Ok(Relationship { resource: unpacked.0, relation: unpacked.1, subject: unpacked.2 })
     }
 }
 
@@ -253,12 +250,7 @@ impl RelationshipStore for FoundationDBBackend {
             .await
             .map_err(|e| StoreError::Database(format!("Failed to read: {}", e)))?;
 
-        debug!(
-            "Read {} relationships for {}:{}",
-            result.len(),
-            key.resource,
-            key.relation
-        );
+        debug!("Read {} relationships for {}:{}", result.len(), key.resource, key.relation);
         Ok(result)
     }
 
@@ -280,7 +272,7 @@ impl RelationshipStore for FoundationDBBackend {
                         let rev: u64 = serde_json::from_slice(&bytes)
                             .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
                         rev
-                    }
+                    },
                     None => 0,
                 };
 
@@ -328,11 +320,7 @@ impl RelationshipStore for FoundationDBBackend {
             .await
             .map_err(|e| StoreError::Database(format!("Failed to write: {}", e)))?;
 
-        debug!(
-            "Wrote {} relationships at revision {:?}",
-            relationships.len(),
-            result
-        );
+        debug!("Wrote {} relationships at revision {:?}", relationships.len(), result);
         Ok(result)
     }
 
@@ -356,7 +344,7 @@ impl RelationshipStore for FoundationDBBackend {
                         let rev: u64 = serde_json::from_slice(&bytes)
                             .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
                         rev
-                    }
+                    },
                     None => 0,
                 };
 
@@ -448,7 +436,7 @@ impl RelationshipStore for FoundationDBBackend {
                         let rev: u64 = serde_json::from_slice(&bytes)
                             .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
                         rev
-                    }
+                    },
                     None => 0,
                 };
 
@@ -505,17 +493,17 @@ impl RelationshipStore for FoundationDBBackend {
                         // All three specified (exact match)
                         (Some(res), Some(rel_name), Some(sub)) => {
                             resource == *res && relation == *rel_name && subject == *sub
-                        }
+                        },
                         // Resource + Relation
                         (Some(res), Some(rel_name), None) => {
                             resource == *res && relation == *rel_name
-                        }
+                        },
                         // Resource + Subject
                         (Some(res), None, Some(sub)) => resource == *res && subject == *sub,
                         // Relation + Subject
                         (None, Some(rel_name), Some(sub)) => {
                             relation == *rel_name && subject == *sub
-                        }
+                        },
                         // Resource only
                         (Some(res), None, None) => resource == *res,
                         // Relation only
@@ -546,10 +534,7 @@ impl RelationshipStore for FoundationDBBackend {
             .await
             .map_err(|e| StoreError::Database(format!("Failed to delete by filter: {}", e)))?;
 
-        debug!(
-            "Deleted {} relationships matching filter at revision {:?}",
-            result.1, result.0
-        );
+        debug!("Deleted {} relationships matching filter at revision {:?}", result.1, result.0);
         Ok(result)
     }
 
@@ -711,15 +696,11 @@ impl RelationshipStore for FoundationDBBackend {
                                 relationships_subspace.pack(&(&object, &relation, &user, rev));
                             if let Some(value) = trx.get(&relationship_key, false).await? {
                                 if &value == b"active" {
-                                    relationships.push(Relationship {
-                                        object,
-                                        relation,
-                                        user,
-                                    });
+                                    relationships.push(Relationship { object, relation, user });
                                 }
                             }
                         }
-                    }
+                    },
                     // Use user index when we have user filter (but no object filter)
                     (None, Some(rel), Some(usr)) | (None, None, Some(usr)) => {
                         let start_key = if let Some(rel) = &relation_filter {
@@ -776,15 +757,11 @@ impl RelationshipStore for FoundationDBBackend {
                                 relationships_subspace.pack(&(&object, &relation, &user, rev));
                             if let Some(value) = trx.get(&relationship_key, false).await? {
                                 if &value == b"active" {
-                                    relationships.push(Relationship {
-                                        object,
-                                        relation,
-                                        user,
-                                    });
+                                    relationships.push(Relationship { object, relation, user });
                                 }
                             }
                         }
-                    }
+                    },
                     // Only relation filter or no filters - scan all relationships
                     (None, Some(_), None) | (None, None, None) => {
                         // Full scan of relationships
@@ -838,14 +815,10 @@ impl RelationshipStore for FoundationDBBackend {
 
                             // Check if active
                             if &kv.value() == b"active" {
-                                relationships.push(Relationship {
-                                    object,
-                                    relation,
-                                    user,
-                                });
+                                relationships.push(Relationship { object, relation, user });
                             }
                         }
-                    }
+                    },
                 }
 
                 Ok(relationships)

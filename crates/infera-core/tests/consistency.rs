@@ -3,11 +3,14 @@
 //! These tests verify that the system maintains consistency under various
 //! concurrent access patterns.
 
-use infera_core::Evaluator;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use std::sync::Arc;
+
+use infera_core::{
+    Evaluator,
+    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
+};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, Relationship, RelationshipKey};
-use std::sync::Arc;
 use tokio::task::JoinSet;
 use uuid::Uuid;
 
@@ -25,7 +28,6 @@ fn create_simple_schema() -> Schema {
     )])
 }
 
-//
 // Write-then-Read Consistency Tests
 //
 
@@ -40,9 +42,7 @@ async fn test_write_then_read_same_client() {
         .expect("Failed to write relationship");
 
     // Immediately read it - should see the write
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "viewer")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "viewer").await;
 }
 
 #[tokio::test]
@@ -103,9 +103,7 @@ async fn test_delete_then_read() {
         .expect("Failed to write");
 
     // Verify it exists
-    fixture
-        .assert_allowed("user:alice", "document:doc1", "viewer")
-        .await;
+    fixture.assert_allowed("user:alice", "document:doc1", "viewer").await;
 
     // Delete the relationship
     let key = RelationshipKey {
@@ -114,19 +112,12 @@ async fn test_delete_then_read() {
         subject: Some("user:alice".to_string()),
     };
 
-    fixture
-        .store
-        .delete(Uuid::nil(), &key)
-        .await
-        .expect("Failed to delete");
+    fixture.store.delete(Uuid::nil(), &key).await.expect("Failed to delete");
 
     // Should no longer have access
-    fixture
-        .assert_denied("user:alice", "document:doc1", "viewer")
-        .await;
+    fixture.assert_denied("user:alice", "document:doc1", "viewer").await;
 }
 
-//
 // Revision Consistency Tests
 //
 
@@ -215,7 +206,6 @@ async fn test_write_returns_new_revision() {
     assert!(rev3 > rev2);
 }
 
-//
 // Concurrent Operations Tests
 //
 
@@ -260,11 +250,7 @@ async fn test_concurrent_reads() {
             );
 
             let request = EvaluateRequest {
-                subject: if i % 2 == 0 {
-                    "user:alice".to_string()
-                } else {
-                    "user:bob".to_string()
-                },
+                subject: if i % 2 == 0 { "user:alice".to_string() } else { "user:bob".to_string() },
                 resource: if i % 2 == 0 {
                     "document:doc1".to_string()
                 } else {
@@ -319,11 +305,7 @@ async fn test_concurrent_writes() {
     // All revisions should be unique
     revisions.sort();
     revisions.dedup();
-    assert_eq!(
-        revisions.len(),
-        10,
-        "All writes should have unique revisions"
-    );
+    assert_eq!(revisions.len(), 10, "All writes should have unique revisions");
 }
 
 #[tokio::test]
@@ -502,7 +484,6 @@ async fn test_read_your_own_writes() {
     }
 }
 
-//
 // Replication Consistency Tests
 // (These tests verify basic consistency properties that replication should maintain)
 //
@@ -530,26 +511,14 @@ async fn test_eventual_consistency_simulation() {
         },
     ];
 
-    store1
-        .write(Uuid::nil(), relationships.clone())
-        .await
-        .expect("Failed to write to store1");
+    store1.write(Uuid::nil(), relationships.clone()).await.expect("Failed to write to store1");
 
     // Replicate to store2
-    store2
-        .write(Uuid::nil(), relationships)
-        .await
-        .expect("Failed to replicate to store2");
+    store2.write(Uuid::nil(), relationships).await.expect("Failed to replicate to store2");
 
     // Both stores should now have the same revisions
-    let rev1 = store1
-        .write(Uuid::nil(), vec![])
-        .await
-        .expect("Failed to get revision from store1");
-    let rev2 = store2
-        .write(Uuid::nil(), vec![])
-        .await
-        .expect("Failed to get revision from store2");
+    let rev1 = store1.write(Uuid::nil(), vec![]).await.expect("Failed to get revision from store1");
+    let rev2 = store2.write(Uuid::nil(), vec![]).await.expect("Failed to get revision from store2");
 
     // After replication, both should be in sync (or store2 >= store1)
     assert!(rev2 >= rev1, "Replicated store should have caught up");
@@ -588,12 +557,8 @@ async fn test_conflicting_writes_both_preserved() {
 
     // Both users should have access (both relationships should exist)
     let schema = Arc::new(create_simple_schema());
-    let evaluator = Evaluator::new(
-        store.clone() as Arc<dyn RelationshipStore>,
-        schema,
-        None,
-        Uuid::nil(),
-    );
+    let evaluator =
+        Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None, Uuid::nil());
 
     let alice_req = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -611,14 +576,8 @@ async fn test_conflicting_writes_both_preserved() {
         trace: None,
     };
 
-    assert_eq!(
-        evaluator.check(alice_req).await.expect("Check failed"),
-        Decision::Allow
-    );
-    assert_eq!(
-        evaluator.check(bob_req).await.expect("Check failed"),
-        Decision::Allow
-    );
+    assert_eq!(evaluator.check(alice_req).await.expect("Check failed"), Decision::Allow);
+    assert_eq!(evaluator.check(bob_req).await.expect("Check failed"), Decision::Allow);
 }
 
 #[tokio::test]
@@ -641,26 +600,14 @@ async fn test_cross_region_consistency() {
         .expect("Failed to write in region A");
 
     // Simulate replication to region B
-    region_b
-        .write(Uuid::nil(), vec![relationship])
-        .await
-        .expect("Failed to replicate to region B");
+    region_b.write(Uuid::nil(), vec![relationship]).await.expect("Failed to replicate to region B");
 
     // Both regions should have consistent views
     let schema = Arc::new(create_simple_schema());
 
-    let eval_a = Evaluator::new(
-        region_a as Arc<dyn RelationshipStore>,
-        schema.clone(),
-        None,
-        Uuid::nil(),
-    );
-    let eval_b = Evaluator::new(
-        region_b as Arc<dyn RelationshipStore>,
-        schema,
-        None,
-        Uuid::nil(),
-    );
+    let eval_a =
+        Evaluator::new(region_a as Arc<dyn RelationshipStore>, schema.clone(), None, Uuid::nil());
+    let eval_b = Evaluator::new(region_b as Arc<dyn RelationshipStore>, schema, None, Uuid::nil());
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -670,14 +617,8 @@ async fn test_cross_region_consistency() {
         trace: None,
     };
 
-    let decision_a = eval_a
-        .check(request.clone())
-        .await
-        .expect("Check failed in region A");
-    let decision_b = eval_b
-        .check(request)
-        .await
-        .expect("Check failed in region B");
+    let decision_a = eval_a.check(request.clone()).await.expect("Check failed in region A");
+    let decision_b = eval_b.check(request).await.expect("Check failed in region B");
 
     assert_eq!(decision_a, Decision::Allow);
     assert_eq!(decision_b, Decision::Allow);

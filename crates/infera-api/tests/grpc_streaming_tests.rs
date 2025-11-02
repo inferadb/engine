@@ -9,19 +9,26 @@ use std::sync::Arc;
 
 use base64::Engine;
 use futures::StreamExt;
-use infera_api::grpc::proto::{
-    ExpandRequest, Relationship as ProtoRelationship, WriteRequest, expand_response,
-    infera_service_client::InferaServiceClient,
+use infera_api::{
+    AppState,
+    grpc::{
+        InferaServiceImpl,
+        proto::{
+            ExpandRequest, Relationship as ProtoRelationship, WriteRequest, expand_response,
+            infera_service_client::InferaServiceClient,
+        },
+    },
 };
-use infera_api::{AppState, grpc::InferaServiceImpl};
 use infera_config::Config;
 use infera_core::{
     Evaluator,
     ipl::{RelationDef, Schema, TypeDef},
 };
 use infera_store::{MemoryBackend, RelationshipStore};
-use tonic::Request;
-use tonic::transport::{Channel, Server};
+use tonic::{
+    Request,
+    transport::{Channel, Server},
+};
 
 async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -29,12 +36,7 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],
     )]));
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store),
-        schema,
-        None,
-        uuid::Uuid::nil(),
-    ));
+    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for tests
 
@@ -42,13 +44,8 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    let state = AppState {
-        evaluator,
-        store,
-        config: Arc::new(config),
-        jwks_cache: None,
-        health_tracker,
-    };
+    let state =
+        AppState { evaluator, store, config: Arc::new(config), jwks_cache: None, health_tracker };
 
     let service = InferaServiceImpl::new(state);
 
@@ -60,9 +57,9 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     // Start gRPC server in background
     tokio::spawn(async move {
         Server::builder()
-            .add_service(
-                infera_api::grpc::proto::infera_service_server::InferaServiceServer::new(service),
-            )
+            .add_service(infera_api::grpc::proto::infera_service_server::InferaServiceServer::new(
+                service,
+            ))
             .serve(addr_clone.parse().unwrap())
             .await
             .unwrap();
@@ -71,9 +68,7 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     // Wait for server to start
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    let client = InferaServiceClient::connect(format!("http://{}", addr))
-        .await
-        .unwrap();
+    let client = InferaServiceClient::connect(format!("http://{}", addr)).await.unwrap();
 
     (client, addr)
 }
@@ -122,13 +117,13 @@ async fn test_expand_stream() {
         match response.payload {
             Some(expand_response::Payload::User(user)) => {
                 users.push(user);
-            }
+            },
             Some(expand_response::Payload::Summary(summary)) => {
                 got_summary = true;
                 assert_eq!(summary.total_users, 3);
                 assert!(summary.tree.is_some());
-            }
-            None => {}
+            },
+            None => {},
         }
     }
 
@@ -203,12 +198,12 @@ async fn test_expand_stream_empty() {
         match response.payload {
             Some(expand_response::Payload::User(user)) => {
                 users.push(user);
-            }
+            },
             Some(expand_response::Payload::Summary(summary)) => {
                 got_summary = true;
                 assert_eq!(summary.total_users, 0);
-            }
-            None => {}
+            },
+            None => {},
         }
     }
 
@@ -269,14 +264,8 @@ async fn test_watch_captures_write_events() {
 
     // Should have captured 2 create events
     assert_eq!(events.len(), 2);
-    assert_eq!(
-        events[0].operation,
-        infera_api::grpc::proto::ChangeOperation::Create as i32
-    );
-    assert_eq!(
-        events[1].operation,
-        infera_api::grpc::proto::ChangeOperation::Create as i32
-    );
+    assert_eq!(events[0].operation, infera_api::grpc::proto::ChangeOperation::Create as i32);
+    assert_eq!(events[1].operation, infera_api::grpc::proto::ChangeOperation::Create as i32);
 }
 
 #[tokio::test]
@@ -353,11 +342,7 @@ async fn test_watch_captures_delete_events() {
     };
 
     let stream = futures::stream::once(async { write_req });
-    let write_response = client
-        .write_relationships(stream)
-        .await
-        .unwrap()
-        .into_inner();
+    let write_response = client.write_relationships(stream).await.unwrap().into_inner();
 
     // Start watching from after the write
     let cursor = format!("{}", write_response.revision.parse::<u64>().unwrap() + 1);
@@ -404,8 +389,5 @@ async fn test_watch_captures_delete_events() {
 
     // Should have captured 1 delete event
     assert_eq!(events.len(), 1);
-    assert_eq!(
-        events[0].operation,
-        infera_api::grpc::proto::ChangeOperation::Delete as i32
-    );
+    assert_eq!(events[0].operation, infera_api::grpc::proto::ChangeOperation::Delete as i32);
 }

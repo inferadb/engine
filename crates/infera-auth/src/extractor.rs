@@ -6,13 +6,14 @@
 //! - `RequireAuth`: Requires authentication, returns 401 if not present
 //! - `OptionalAuth`: Optional authentication, returns None if not present
 
-use crate::context::AuthContext;
 use axum::{
     async_trait,
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
 };
+
+use crate::context::AuthContext;
 
 /// Extractor that requires authentication
 ///
@@ -47,18 +48,9 @@ where
     type Rejection = Response;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts
-            .extensions
-            .get::<AuthContext>()
-            .cloned()
-            .map(RequireAuth)
-            .ok_or_else(|| {
-                (
-                    StatusCode::UNAUTHORIZED,
-                    "Authentication required but not present",
-                )
-                    .into_response()
-            })
+        parts.extensions.get::<AuthContext>().cloned().map(RequireAuth).ok_or_else(|| {
+            (StatusCode::UNAUTHORIZED, "Authentication required but not present").into_response()
+        })
     }
 }
 
@@ -105,10 +97,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::context::AuthMethod;
     use axum::http::{Request, StatusCode};
     use chrono::{Duration, Utc};
+
+    use super::*;
+    use crate::context::AuthMethod;
 
     fn create_test_auth_context() -> AuthContext {
         AuthContext {

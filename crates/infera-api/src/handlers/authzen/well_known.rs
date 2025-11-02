@@ -75,10 +75,7 @@ pub struct AuthZENExtensions {
 /// clients to cache the configuration for 1 hour, reducing unnecessary requests.
 pub async fn get_authzen_configuration(State(state): State<AppState>) -> impl IntoResponse {
     // Construct the base URL from configuration
-    let base_url = format!(
-        "http://{}:{}",
-        state.config.server.host, state.config.server.port
-    );
+    let base_url = format!("http://{}:{}", state.config.server.host, state.config.server.port);
 
     // Build the configuration response
     let config = AuthZENConfiguration {
@@ -125,8 +122,8 @@ pub async fn get_authzen_configuration(State(state): State<AppState>) -> impl In
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::AppState;
+    use std::sync::Arc;
+
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -134,28 +131,20 @@ mod tests {
     use infera_config::Config;
     use infera_core::Evaluator;
     use infera_store::{MemoryBackend, RelationshipStore};
-    use std::sync::Arc;
     use tower::ServiceExt;
+
+    use super::*;
+    use crate::AppState;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(infera_core::ipl::Schema::new(vec![]));
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store),
-            schema,
-            None,
-            uuid::Uuid::nil(),
-        ));
+        let evaluator =
+            Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
-        AppState {
-            evaluator,
-            store,
-            config,
-            jwks_cache: None,
-            health_tracker,
-        }
+        AppState { evaluator, store, config, jwks_cache: None, health_tracker }
     }
 
     #[tokio::test]
@@ -163,13 +152,9 @@ mod tests {
         let state = create_test_state();
 
         // Create a simple router just for this test
-        use axum::Router;
-        use axum::routing::get;
+        use axum::{Router, routing::get};
         let app = Router::new()
-            .route(
-                "/.well-known/authzen-configuration",
-                get(get_authzen_configuration),
-            )
+            .route("/.well-known/authzen-configuration", get(get_authzen_configuration))
             .with_state(state);
 
         let response = app
@@ -185,9 +170,7 @@ mod tests {
         // Debug: print response body if not OK
         if response.status() != StatusCode::OK {
             let status = response.status();
-            let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-                .await
-                .unwrap();
+            let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
             eprintln!("Error response body: {}", String::from_utf8_lossy(&body));
             panic!("Expected 200 OK, got {}", status);
         }
@@ -196,42 +179,25 @@ mod tests {
 
         // Check cache headers
         let cache_control = response.headers().get(header::CACHE_CONTROL);
-        assert_eq!(
-            cache_control.and_then(|v| v.to_str().ok()),
-            Some("public, max-age=3600")
-        );
+        assert_eq!(cache_control.and_then(|v| v.to_str().ok()), Some("public, max-age=3600"));
 
         // Parse response body
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let config: AuthZENConfiguration = serde_json::from_slice(&body).unwrap();
 
         // Verify required fields
         assert!(config.issuer.contains("127.0.0.1"));
-        assert!(
-            config
-                .access_evaluation_endpoint
-                .ends_with("/access/v1/evaluation")
-        );
-        assert!(
-            config
-                .access_evaluations_endpoint
-                .ends_with("/access/v1/evaluations")
-        );
+        assert!(config.access_evaluation_endpoint.ends_with("/access/v1/evaluation"));
+        assert!(config.access_evaluations_endpoint.ends_with("/access/v1/evaluations"));
     }
 
     #[tokio::test]
     async fn test_configuration_includes_search_endpoints() {
         let state = create_test_state();
 
-        use axum::Router;
-        use axum::routing::get;
+        use axum::{Router, routing::get};
         let app = Router::new()
-            .route(
-                "/.well-known/authzen-configuration",
-                get(get_authzen_configuration),
-            )
+            .route("/.well-known/authzen-configuration", get(get_authzen_configuration))
             .with_state(state);
 
         let response = app
@@ -244,38 +210,22 @@ mod tests {
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let config: AuthZENConfiguration = serde_json::from_slice(&body).unwrap();
 
         assert!(config.search_resource_endpoint.is_some());
         assert!(config.search_subject_endpoint.is_some());
-        assert!(
-            config
-                .search_resource_endpoint
-                .unwrap()
-                .ends_with("/access/v1/search/resource")
-        );
-        assert!(
-            config
-                .search_subject_endpoint
-                .unwrap()
-                .ends_with("/access/v1/search/subject")
-        );
+        assert!(config.search_resource_endpoint.unwrap().ends_with("/access/v1/search/resource"));
+        assert!(config.search_subject_endpoint.unwrap().ends_with("/access/v1/search/subject"));
     }
 
     #[tokio::test]
     async fn test_configuration_includes_supported_types() {
         let state = create_test_state();
 
-        use axum::Router;
-        use axum::routing::get;
+        use axum::{Router, routing::get};
         let app = Router::new()
-            .route(
-                "/.well-known/authzen-configuration",
-                get(get_authzen_configuration),
-            )
+            .route("/.well-known/authzen-configuration", get(get_authzen_configuration))
             .with_state(state);
 
         let response = app
@@ -288,9 +238,7 @@ mod tests {
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let config: AuthZENConfiguration = serde_json::from_slice(&body).unwrap();
 
         // Verify subject types
@@ -310,13 +258,9 @@ mod tests {
     async fn test_configuration_includes_extensions() {
         let state = create_test_state();
 
-        use axum::Router;
-        use axum::routing::get;
+        use axum::{Router, routing::get};
         let app = Router::new()
-            .route(
-                "/.well-known/authzen-configuration",
-                get(get_authzen_configuration),
-            )
+            .route("/.well-known/authzen-configuration", get(get_authzen_configuration))
             .with_state(state);
 
         let response = app
@@ -329,9 +273,7 @@ mod tests {
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let config: AuthZENConfiguration = serde_json::from_slice(&body).unwrap();
 
         let extensions = config.extensions.unwrap();
@@ -345,13 +287,9 @@ mod tests {
     async fn test_configuration_json_structure() {
         let state = create_test_state();
 
-        use axum::Router;
-        use axum::routing::get;
+        use axum::{Router, routing::get};
         let app = Router::new()
-            .route(
-                "/.well-known/authzen-configuration",
-                get(get_authzen_configuration),
-            )
+            .route("/.well-known/authzen-configuration", get(get_authzen_configuration))
             .with_state(state);
 
         let response = app
@@ -364,9 +302,7 @@ mod tests {
             .await
             .unwrap();
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
         // Verify it's valid JSON
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();

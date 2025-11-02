@@ -4,6 +4,8 @@
 
 mod common;
 
+use std::{sync::Arc, time::Duration};
+
 use common::mock_oauth::{
     generate_oauth_jwt, generate_opaque_token, register_opaque_token, start_mock_oauth_server,
 };
@@ -14,8 +16,6 @@ use infera_auth::{
     oidc::OidcDiscoveryClient,
 };
 use moka::future::Cache;
-use std::sync::Arc;
-use std::time::Duration;
 
 /// Test OAuth JWT validation end-to-end
 #[tokio::test]
@@ -39,10 +39,7 @@ async fn test_oauth_jwt_validation() {
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Fetch JWKS from OAuth server (via OIDC discovery)
-    let jwks = client
-        .fetch_oauth_jwks(&base_url)
-        .await
-        .expect("Failed to fetch OAuth JWKS");
+    let jwks = client.fetch_oauth_jwks(&base_url).await.expect("Failed to fetch OAuth JWKS");
 
     assert_eq!(jwks.len(), 1);
     assert_eq!(jwks[0].kid, "oauth-test-key-001");
@@ -90,10 +87,7 @@ async fn test_oauth_jwt_validation_expired() {
     .await;
 
     assert!(result.is_err());
-    assert!(matches!(
-        result.unwrap_err(),
-        infera_auth::error::AuthError::TokenExpired
-    ));
+    assert!(matches!(result.unwrap_err(), infera_auth::error::AuthError::TokenExpired));
 }
 
 /// Test OIDC discovery
@@ -105,19 +99,13 @@ async fn test_oidc_discovery() {
     let client = OidcDiscoveryClient::new(Duration::from_secs(300));
 
     // Discover OIDC configuration
-    let config = client
-        .discover(&base_url)
-        .await
-        .expect("Failed to discover OIDC configuration");
+    let config = client.discover(&base_url).await.expect("Failed to discover OIDC configuration");
 
     // Verify configuration extracted correctly
     assert_eq!(config.issuer, base_url);
     assert_eq!(config.jwks_uri, format!("{}/jwks.json", base_url));
     assert_eq!(config.token_endpoint, format!("{}/token", base_url));
-    assert_eq!(
-        config.introspection_endpoint,
-        Some(format!("{}/introspect", base_url))
-    );
+    assert_eq!(config.introspection_endpoint, Some(format!("{}/introspect", base_url)));
 }
 
 /// Test OIDC discovery caching
@@ -129,16 +117,11 @@ async fn test_oidc_discovery_caching() {
     let client = OidcDiscoveryClient::new(Duration::from_secs(300));
 
     // First discovery - cache miss
-    let config1 = client
-        .discover(&base_url)
-        .await
-        .expect("Failed to discover OIDC configuration");
+    let config1 = client.discover(&base_url).await.expect("Failed to discover OIDC configuration");
 
     // Second discovery - cache hit (should be instant)
-    let config2 = client
-        .discover(&base_url)
-        .await
-        .expect("Failed to discover OIDC configuration (cached)");
+    let config2 =
+        client.discover(&base_url).await.expect("Failed to discover OIDC configuration (cached)");
 
     // Both configs should be identical
     assert_eq!(config1.issuer, config2.issuer);

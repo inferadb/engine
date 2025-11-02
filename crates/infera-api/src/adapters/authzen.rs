@@ -17,7 +17,8 @@
 //!
 //! # Validation Rules
 //!
-//! - Type: Must match `^[a-z_][a-z0-9_]*$` (lowercase letters, numbers, underscores; must start with letter or underscore)
+//! - Type: Must match `^[a-z_][a-z0-9_]*$` (lowercase letters, numbers, underscores; must start
+//!   with letter or underscore)
 //! - ID: Must match `^[a-z0-9_-]+$` (lowercase letters, numbers, underscores, hyphens)
 //! - Neither type nor id can be empty
 //! - The string format must contain exactly one colon separator
@@ -240,10 +241,7 @@ pub fn convert_authzen_request_to_native(
 
 /// Converts a native InferaDB decision to AuthZEN format
 pub fn convert_native_decision_to_authzen(decision: bool) -> AuthZENEvaluationResponse {
-    AuthZENEvaluationResponse {
-        decision,
-        context: None,
-    }
+    AuthZENEvaluationResponse { decision, context: None }
 }
 
 #[cfg(test)]
@@ -281,10 +279,7 @@ mod tests {
             Err(EntityError::InvalidFormat("too:many:colons".to_string()))
         );
 
-        assert_eq!(
-            parse_entity(""),
-            Err(EntityError::InvalidFormat("".to_string()))
-        );
+        assert_eq!(parse_entity(""), Err(EntityError::InvalidFormat("".to_string())));
     }
 
     #[test]
@@ -296,16 +291,10 @@ mod tests {
     #[test]
     fn test_parse_entity_invalid_type() {
         // Type can't start with digit
-        assert_eq!(
-            parse_entity("9user:alice"),
-            Err(EntityError::InvalidType("9user".to_string()))
-        );
+        assert_eq!(parse_entity("9user:alice"), Err(EntityError::InvalidType("9user".to_string())));
 
         // Type can't contain uppercase
-        assert_eq!(
-            parse_entity("User:alice"),
-            Err(EntityError::InvalidType("User".to_string()))
-        );
+        assert_eq!(parse_entity("User:alice"), Err(EntityError::InvalidType("User".to_string())));
 
         // Type can't contain special characters
         assert_eq!(
@@ -317,10 +306,7 @@ mod tests {
     #[test]
     fn test_parse_entity_invalid_id() {
         // ID can't contain uppercase
-        assert_eq!(
-            parse_entity("user:Alice"),
-            Err(EntityError::InvalidId("Alice".to_string()))
-        );
+        assert_eq!(parse_entity("user:Alice"), Err(EntityError::InvalidId("Alice".to_string())));
 
         // ID can't contain special characters (except - and _)
         assert_eq!(
@@ -336,22 +322,14 @@ mod tests {
 
     #[test]
     fn test_format_entity() {
-        let entity = AuthZENEntity {
-            entity_type: "user".to_string(),
-            id: "alice".to_string(),
-        };
+        let entity = AuthZENEntity { entity_type: "user".to_string(), id: "alice".to_string() };
         assert_eq!(format_entity(&entity), "user:alice");
 
-        let entity = AuthZENEntity {
-            entity_type: "team".to_string(),
-            id: "engineering".to_string(),
-        };
+        let entity =
+            AuthZENEntity { entity_type: "team".to_string(), id: "engineering".to_string() };
         assert_eq!(format_entity(&entity), "team:engineering");
 
-        let entity = AuthZENEntity {
-            entity_type: "doc".to_string(),
-            id: "design-doc".to_string(),
-        };
+        let entity = AuthZENEntity { entity_type: "doc".to_string(), id: "design-doc".to_string() };
         assert_eq!(format_entity(&entity), "doc:design-doc");
     }
 
@@ -405,13 +383,8 @@ mod tests {
     #[test]
     fn test_convert_authzen_request_to_native() {
         let req = AuthZENEvaluationRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -432,9 +405,7 @@ mod tests {
                 subject_type: "User".to_string(), // Invalid: uppercase
                 id: "alice".to_string(),
             },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -492,10 +463,7 @@ mod tests {
 
     #[test]
     fn test_authzen_entity_serialization() {
-        let entity = AuthZENEntity {
-            entity_type: "user".to_string(),
-            id: "alice".to_string(),
-        };
+        let entity = AuthZENEntity { entity_type: "user".to_string(), id: "alice".to_string() };
 
         let json = serde_json::to_string(&entity).unwrap();
         assert_eq!(json, r#"{"type":"user","id":"alice"}"#);
@@ -507,13 +475,8 @@ mod tests {
     #[test]
     fn test_authzen_evaluation_request_serialization() {
         let req = AuthZENEvaluationRequest {
-            subject: AuthZENSubject {
-                subject_type: "user".to_string(),
-                id: "alice".to_string(),
-            },
-            action: AuthZENAction {
-                name: "view".to_string(),
-            },
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
@@ -533,10 +496,7 @@ mod tests {
 
     #[test]
     fn test_authzen_evaluation_response_serialization() {
-        let response = AuthZENEvaluationResponse {
-            decision: true,
-            context: None,
-        };
+        let response = AuthZENEvaluationResponse { decision: true, context: None };
 
         let json = serde_json::to_string(&response).unwrap();
         assert_eq!(json, r#"{"decision":true}"#);

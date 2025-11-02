@@ -1,11 +1,12 @@
-use infera_store::RelationshipStore;
-use infera_types::Relationship;
 use std::sync::Arc;
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_core::{CheckRequest, Evaluator, ExpandRequest};
-use infera_store::MemoryBackend;
+use infera_core::{
+    CheckRequest, Evaluator, ExpandRequest,
+    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
+};
+use infera_store::{MemoryBackend, RelationshipStore};
+use infera_types::Relationship;
 
 fn create_complex_schema() -> Schema {
     Schema::new(vec![
@@ -17,9 +18,7 @@ fn create_complex_schema() -> Schema {
                     "viewer".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "owner".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "owner".to_string() },
                     ])),
                 ),
             ],
@@ -33,18 +32,14 @@ fn create_complex_schema() -> Schema {
                     "editor".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "owner".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "owner".to_string() },
                     ])),
                 ),
                 RelationDef::new(
                     "viewer".to_string(),
                     Some(RelationExpr::Union(vec![
                         RelationExpr::This,
-                        RelationExpr::RelationRef {
-                            relation: "editor".to_string(),
-                        },
+                        RelationExpr::RelationRef { relation: "editor".to_string() },
                         RelationExpr::RelatedObjectUserset {
                             relationship: "parent".to_string(),
                             computed: "viewer".to_string(),
@@ -219,18 +214,10 @@ fn bench_parallel_expand(c: &mut Criterion) {
                     RelationDef::new(
                         "any_access".to_string(),
                         Some(RelationExpr::Union(vec![
-                            RelationExpr::RelationRef {
-                                relation: "admin".to_string(),
-                            },
-                            RelationExpr::RelationRef {
-                                relation: "editor".to_string(),
-                            },
-                            RelationExpr::RelationRef {
-                                relation: "viewer".to_string(),
-                            },
-                            RelationExpr::RelationRef {
-                                relation: "contributor".to_string(),
-                            },
+                            RelationExpr::RelationRef { relation: "admin".to_string() },
+                            RelationExpr::RelationRef { relation: "editor".to_string() },
+                            RelationExpr::RelationRef { relation: "viewer".to_string() },
+                            RelationExpr::RelationRef { relation: "contributor".to_string() },
                         ])),
                     ),
                 ],
@@ -282,15 +269,9 @@ fn bench_parallel_expand(c: &mut Criterion) {
                     RelationDef::new(
                         "all_groups".to_string(),
                         Some(RelationExpr::Intersection(vec![
-                            RelationExpr::RelationRef {
-                                relation: "group_a".to_string(),
-                            },
-                            RelationExpr::RelationRef {
-                                relation: "group_b".to_string(),
-                            },
-                            RelationExpr::RelationRef {
-                                relation: "group_c".to_string(),
-                            },
+                            RelationExpr::RelationRef { relation: "group_a".to_string() },
+                            RelationExpr::RelationRef { relation: "group_b".to_string() },
+                            RelationExpr::RelationRef { relation: "group_c".to_string() },
                         ])),
                     ),
                 ],
@@ -357,8 +338,9 @@ fn bench_large_scale(c: &mut Criterion) {
 }
 
 fn bench_expand_cache(c: &mut Criterion) {
-    use infera_cache::AuthCache;
     use std::time::Duration;
+
+    use infera_cache::AuthCache;
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     // Benchmark expand with cache enabled (repeated queries)
@@ -374,12 +356,8 @@ fn bench_expand_cache(c: &mut Criterion) {
                     RelationDef::new(
                         "viewer".to_string(),
                         Some(RelationExpr::Union(vec![
-                            RelationExpr::RelationRef {
-                                relation: "reader".to_string(),
-                            },
-                            RelationExpr::RelationRef {
-                                relation: "editor".to_string(),
-                            },
+                            RelationExpr::RelationRef { relation: "reader".to_string() },
+                            RelationExpr::RelationRef { relation: "editor".to_string() },
                         ])),
                     ),
                 ],
