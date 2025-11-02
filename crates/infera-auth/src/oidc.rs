@@ -270,10 +270,12 @@ mod tests {
         let client = OidcDiscoveryClient::new(Duration::from_secs(300));
 
         // Initially empty
-        assert!(client
-            .get_cached("https://auth.example.com")
-            .await
-            .is_none());
+        assert!(
+            client
+                .get_cached("https://auth.example.com")
+                .await
+                .is_none()
+        );
 
         // Manually insert for testing
         let config = OidcConfiguration {
@@ -298,9 +300,11 @@ mod tests {
         client.clear_cache().await;
 
         // Should be empty again
-        assert!(client
-            .get_cached("https://auth.example.com")
-            .await
-            .is_none());
+        assert!(
+            client
+                .get_cached("https://auth.example.com")
+                .await
+                .is_none()
+        );
     }
 }

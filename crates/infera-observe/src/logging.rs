@@ -3,7 +3,7 @@
 //! Provides enhanced logging with contextual fields and formatting options.
 
 use tracing::Span;
-use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 
 /// Log output format options
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

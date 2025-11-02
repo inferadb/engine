@@ -3,8 +3,8 @@
 //! Optimizes common queries with deterministic caching.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use moka::future::Cache;

@@ -10,14 +10,14 @@ use std::sync::Arc;
 
 use axum::{
     body::Body,
-    http::{header, Request, StatusCode},
+    http::{Request, StatusCode, header},
 };
-use infera_api::{create_router, AppState};
+use infera_api::{AppState, create_router};
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
 use infera_core::{
-    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
     Evaluator,
+    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
 use infera_store::{MemoryBackend, RelationshipStore};
 use serde_json::json;
@@ -105,7 +105,7 @@ mod common {
             scopes: &[&str],
             expires_in_secs: i64,
         ) -> String {
-            use jsonwebtoken::{encode, EncodingKey, Header};
+            use jsonwebtoken::{EncodingKey, Header, encode};
             use serde::{Deserialize, Serialize};
 
             #[derive(Debug, Serialize, Deserialize)]

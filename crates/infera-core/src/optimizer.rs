@@ -474,9 +474,11 @@ mod tests {
         let hints = QueryPlanner::analyze_plan(&plan);
 
         // Cheap query should not generate expensive query hint
-        assert!(!hints
-            .iter()
-            .any(|h| matches!(h, OptimizationHint::ExpensiveQuery { .. })));
+        assert!(
+            !hints
+                .iter()
+                .any(|h| matches!(h, OptimizationHint::ExpensiveQuery { .. }))
+        );
     }
 
     #[test]
@@ -513,14 +515,18 @@ mod tests {
         let hints = QueryPlanner::analyze_plan(&plan);
 
         // Should suggest caching
-        assert!(hints
-            .iter()
-            .any(|h| matches!(h, OptimizationHint::ExpensiveQuery { .. })));
+        assert!(
+            hints
+                .iter()
+                .any(|h| matches!(h, OptimizationHint::ExpensiveQuery { .. }))
+        );
 
         // Should identify parallelization opportunity
-        assert!(hints
-            .iter()
-            .any(|h| matches!(h, OptimizationHint::ParallelizationOpportunity { .. })));
+        assert!(
+            hints
+                .iter()
+                .any(|h| matches!(h, OptimizationHint::ParallelizationOpportunity { .. }))
+        );
     }
 
     #[test]
@@ -541,12 +547,16 @@ mod tests {
 
         // Should identify both the direct lookup and tuple-to-userset
         assert_eq!(candidates.len(), 2);
-        assert!(candidates
-            .iter()
-            .any(|c| c.relation == "viewer" && c.priority == PrefetchPriority::High));
-        assert!(candidates
-            .iter()
-            .any(|c| c.relation == "parent" && c.priority == PrefetchPriority::High));
+        assert!(
+            candidates
+                .iter()
+                .any(|c| c.relation == "viewer" && c.priority == PrefetchPriority::High)
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|c| c.relation == "parent" && c.priority == PrefetchPriority::High)
+        );
     }
 
     #[test]

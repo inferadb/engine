@@ -9,7 +9,7 @@ use infera_types::{Relationship, Revision};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 
 /// A change event representing a relationship operation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -8,7 +8,7 @@
 //! - High availability
 
 use async_trait::async_trait;
-use foundationdb::relationship::{pack, unpack, Subspace};
+use foundationdb::relationship::{Subspace, pack, unpack};
 use foundationdb::{Database, FdbError, TransactOption};
 use serde_json;
 use std::sync::Arc;

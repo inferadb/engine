@@ -4,11 +4,11 @@
 //! All validation functions return detailed error messages to help clients understand
 //! what went wrong.
 
+use crate::ApiError;
 use crate::adapters::authzen::{
     AuthZENAction, AuthZENEntity, AuthZENEvaluationRequest, AuthZENResource, AuthZENSubject,
 };
 use crate::handlers::authzen::search::{AuthZENResourceSearchRequest, AuthZENSubjectSearchRequest};
-use crate::ApiError;
 
 /// Validates an AuthZEN entity (subject or resource)
 ///
@@ -238,10 +238,12 @@ mod tests {
         };
         let result = validate_authzen_entity(&entity, "subject");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("subject type cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("subject type cannot be empty")
+        );
     }
 
     #[test]
@@ -252,10 +254,12 @@ mod tests {
         };
         let result = validate_authzen_entity(&entity, "resource");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("resource id cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("resource id cannot be empty")
+        );
     }
 
     // Subject validation tests
@@ -277,10 +281,12 @@ mod tests {
         };
         let result = validate_authzen_subject(&subject);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Subject type cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Subject type cannot be empty")
+        );
     }
 
     #[test]
@@ -291,10 +297,12 @@ mod tests {
         };
         let result = validate_authzen_subject(&subject);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Subject id cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Subject id cannot be empty")
+        );
     }
 
     // Resource validation tests
@@ -316,10 +324,12 @@ mod tests {
         };
         let result = validate_authzen_resource(&resource);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Resource type cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Resource type cannot be empty")
+        );
     }
 
     #[test]
@@ -330,10 +340,12 @@ mod tests {
         };
         let result = validate_authzen_resource(&resource);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Resource id cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Resource id cannot be empty")
+        );
     }
 
     // Action validation tests
@@ -353,10 +365,12 @@ mod tests {
         };
         let result = validate_authzen_action(&action);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Action name cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Action name cannot be empty")
+        );
     }
 
     // Evaluation request validation tests
@@ -506,10 +520,12 @@ mod tests {
         };
         let result = validate_authzen_resource_search_request(&request);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Resource type cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Resource type cannot be empty")
+        );
     }
 
     // Subject search request validation tests

@@ -5,12 +5,12 @@
 
 use uuid::Uuid;
 
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::Evaluator;
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, ExpandRequest, Relationship};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tokio::task::JoinSet;
 

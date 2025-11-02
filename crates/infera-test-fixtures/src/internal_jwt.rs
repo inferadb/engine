@@ -7,7 +7,7 @@ use base64::Engine;
 use ed25519_dalek::SigningKey;
 use infera_auth::internal::InternalJwks;
 use infera_auth::jwks_cache::Jwk;
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 

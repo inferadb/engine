@@ -8,7 +8,7 @@
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;
-use common::{relationship, TestFixture};
+use common::{TestFixture, relationship};
 
 /// Create a role-based access control schema
 fn create_schema() -> Schema {

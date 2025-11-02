@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use infera_cache::{AuthCache, CheckCacheKey, Decision};
 use infera_store::Revision;
 use std::sync::Arc;

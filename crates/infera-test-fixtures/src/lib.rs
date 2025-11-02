@@ -6,6 +6,6 @@
 pub mod internal_jwt;
 
 pub use internal_jwt::{
-    create_internal_jwks, generate_internal_jwt, generate_internal_keypair, InternalClaims,
-    InternalKeyPair,
+    InternalClaims, InternalKeyPair, create_internal_jwks, generate_internal_jwt,
+    generate_internal_keypair,
 };

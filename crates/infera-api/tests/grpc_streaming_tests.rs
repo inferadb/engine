@@ -10,18 +10,18 @@ use std::sync::Arc;
 use base64::Engine;
 use futures::StreamExt;
 use infera_api::grpc::proto::{
-    expand_response, infera_service_client::InferaServiceClient, ExpandRequest,
-    Relationship as ProtoRelationship, WriteRequest,
+    ExpandRequest, Relationship as ProtoRelationship, WriteRequest, expand_response,
+    infera_service_client::InferaServiceClient,
 };
-use infera_api::{grpc::InferaServiceImpl, AppState};
+use infera_api::{AppState, grpc::InferaServiceImpl};
 use infera_config::Config;
 use infera_core::{
-    ipl::{RelationDef, Schema, TypeDef},
     Evaluator,
+    ipl::{RelationDef, Schema, TypeDef},
 };
 use infera_store::{MemoryBackend, RelationshipStore};
-use tonic::transport::{Channel, Server};
 use tonic::Request;
+use tonic::transport::{Channel, Server};
 
 async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());

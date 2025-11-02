@@ -3,8 +3,8 @@
 //! These tests verify that the system maintains consistency under various
 //! concurrent access patterns.
 
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::Evaluator;
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, Relationship, RelationshipKey};
 use std::sync::Arc;
@@ -12,7 +12,7 @@ use tokio::task::JoinSet;
 use uuid::Uuid;
 
 mod common;
-use common::{relationship, TestFixture};
+use common::{TestFixture, relationship};
 
 /// Create a simple schema for testing
 fn create_simple_schema() -> Schema {

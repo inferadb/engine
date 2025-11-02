@@ -9,7 +9,7 @@
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;
-use common::{relationship, TestFixture};
+use common::{TestFixture, relationship};
 
 /// Create an organization hierarchy schema
 fn create_schema() -> Schema {

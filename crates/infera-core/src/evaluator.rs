@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use tracing::{debug, instrument};
 
-use crate::graph::{has_direct_relationship, GraphContext};
+use crate::graph::{GraphContext, has_direct_relationship};
 use crate::ipl::{RelationDef, Schema};
 use crate::trace::{DecisionTrace, EvaluationNode, NodeType};
 use crate::{EvalError, Result};
@@ -3759,12 +3759,16 @@ mod tests {
 
         // Should match both *_report files but not *_summary
         assert_eq!(response.resources.len(), 2);
-        assert!(response
-            .resources
-            .contains(&"doc:project_abc_report".to_string()));
-        assert!(response
-            .resources
-            .contains(&"doc:project_xyz_report".to_string()));
+        assert!(
+            response
+                .resources
+                .contains(&"doc:project_abc_report".to_string())
+        );
+        assert!(
+            response
+                .resources
+                .contains(&"doc:project_xyz_report".to_string())
+        );
     }
 
     // ============================================================================
@@ -4380,10 +4384,12 @@ mod tests {
         let response = evaluator.list_relationships(request).await.unwrap();
 
         assert_eq!(response.relationships.len(), 2);
-        assert!(response
-            .relationships
-            .iter()
-            .all(|r| r.resource == "doc:readme"));
+        assert!(
+            response
+                .relationships
+                .iter()
+                .all(|r| r.resource == "doc:readme")
+        );
     }
 
     #[tokio::test]
@@ -4471,10 +4477,12 @@ mod tests {
         let response = evaluator.list_relationships(request).await.unwrap();
 
         assert_eq!(response.relationships.len(), 2);
-        assert!(response
-            .relationships
-            .iter()
-            .all(|r| r.subject == "user:alice"));
+        assert!(
+            response
+                .relationships
+                .iter()
+                .all(|r| r.subject == "user:alice")
+        );
     }
 
     #[tokio::test]

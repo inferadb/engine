@@ -526,9 +526,11 @@ async fn test_failover_scenario() {
     // 4. Resume operations
 
     // For this test, we verify the topology structure supports this pattern
-    assert!(topology
-        .get_region(&RegionId::new("eu-central-1"))
-        .is_some());
+    assert!(
+        topology
+            .get_region(&RegionId::new("eu-central-1"))
+            .is_some()
+    );
 }
 
 #[tokio::test]

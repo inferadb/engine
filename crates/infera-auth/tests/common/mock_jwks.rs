@@ -1,6 +1,6 @@
-use axum::{extract::Path, routing::get, Json, Router};
+use axum::{Json, Router, extract::Path, routing::get};
 use ed25519_dalek::{SigningKey, VerifyingKey};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use serde_json::json;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -103,6 +103,8 @@ pub fn generate_jwt_for_mock_jwks(tenant: &str, scopes: Vec<String>, exp_secs: i
             scopes.join(" ")
         },
         tenant_id: None,
+        vault: Some(uuid::Uuid::new_v4().to_string()),
+        account: Some(uuid::Uuid::new_v4().to_string()),
     };
 
     let mut header = Header::new(Algorithm::EdDSA);

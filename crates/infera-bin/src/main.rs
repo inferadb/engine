@@ -10,8 +10,8 @@ use uuid::Uuid;
 
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::load_or_default;
-use infera_core::ipl::Schema;
 use infera_core::Evaluator;
+use infera_core::ipl::Schema;
 use infera_store::MemoryBackend;
 use infera_wasm::WasmHost;
 

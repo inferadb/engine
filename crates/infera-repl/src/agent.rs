@@ -5,13 +5,13 @@
 //! with retry logic, partition handling, and conflict resolution.
 
 use crate::{
+    Change, ChangeFeed, Operation, ReplError, Result,
     conflict::{ConflictResolver, ConflictStats},
     topology::{NodeId, RegionId, Topology},
-    Change, ChangeFeed, Operation, ReplError, Result,
 };
 use infera_api::grpc::proto::{
-    infera_service_client::InferaServiceClient, DeleteRequest, Relationship as ProtoRelationship,
-    WriteRequest,
+    DeleteRequest, Relationship as ProtoRelationship, WriteRequest,
+    infera_service_client::InferaServiceClient,
 };
 use infera_observe::metrics::{
     record_replication_batch, record_replication_changes, record_replication_failure,
@@ -21,7 +21,7 @@ use infera_store::RelationshipStore;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 use tokio::time::sleep;
 use tonic::transport::Channel;
 use tracing::{debug, error, info, warn};

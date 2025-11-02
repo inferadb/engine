@@ -2,8 +2,8 @@
 
 #![allow(dead_code)] // Some test files use subsets of these utilities
 
-use infera_core::ipl::Schema;
 use infera_core::Evaluator;
+use infera_core::ipl::Schema;
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use infera_wasm::WasmHost;

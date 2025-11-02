@@ -864,14 +864,18 @@ mod tests {
 
         // Verify cross-vault queries return empty
         let vault1_rels_in_vault2 = backend.read(vault2.id, &key, Revision(1)).await.unwrap();
-        assert!(!vault1_rels_in_vault2
-            .iter()
-            .any(|r| r.subject == "user:alice"));
+        assert!(
+            !vault1_rels_in_vault2
+                .iter()
+                .any(|r| r.subject == "user:alice")
+        );
 
         let vault2_rels_in_vault1 = backend.read(vault1.id, &key, Revision(1)).await.unwrap();
-        assert!(!vault2_rels_in_vault1
-            .iter()
-            .any(|r| r.subject == "user:bob"));
+        assert!(
+            !vault2_rels_in_vault1
+                .iter()
+                .any(|r| r.subject == "user:bob")
+        );
     }
 
     #[tokio::test]

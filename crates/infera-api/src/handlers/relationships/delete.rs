@@ -154,10 +154,10 @@ mod tests {
     use super::*;
     use crate::AppState;
     use axum::{
+        Router,
         body::Body,
         http::{Request, StatusCode},
         routing::delete,
-        Router,
     };
     use infera_config::Config;
     use infera_core::Evaluator;

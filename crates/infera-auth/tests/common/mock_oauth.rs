@@ -9,13 +9,13 @@
 #![allow(dead_code)]
 
 use axum::{
+    Json, Router,
     extract::State,
     http::StatusCode,
     routing::{get, post},
-    Json, Router,
 };
 use ed25519_dalek::{SigningKey, VerifyingKey};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -252,6 +252,8 @@ pub fn generate_oauth_jwt(
         jti: Some(uuid::Uuid::new_v4().to_string()),
         scope: scopes.join(" "),
         tenant_id: Some(tenant_id.to_string()),
+        vault: Some(uuid::Uuid::new_v4().to_string()),
+        account: Some(uuid::Uuid::new_v4().to_string()),
     };
 
     let mut header = Header::new(Algorithm::EdDSA);

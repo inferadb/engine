@@ -3,17 +3,17 @@
 //! Implements the AuthZEN-compliant search endpoints that provide a thin
 //! adapter layer over InferaDB's native list resources and list subjects functionality.
 
-use axum::{extract::State, response::IntoResponse, Json};
+use axum::{Json, extract::State, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
+use crate::ApiError;
+use crate::AppState;
 use crate::adapters::authzen::{
-    parse_entity, AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject,
+    AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject, parse_entity,
 };
 use crate::validation::{
     validate_authzen_resource_search_request, validate_authzen_subject_search_request,
 };
-use crate::ApiError;
-use crate::AppState;
 use infera_types::{ListResourcesRequest, ListSubjectsRequest};
 
 /// AuthZEN resource search request
@@ -339,10 +339,10 @@ mod tests {
     use super::*;
     use crate::AppState;
     use axum::{
+        Router,
         body::Body,
         http::{Request, StatusCode},
         routing::post,
-        Router,
     };
     use infera_config::Config;
     use infera_core::Evaluator;

@@ -314,6 +314,7 @@ mod tests {
                 tracing_enabled: true,
             },
             auth: crate::AuthConfig::default(),
+            multi_tenancy: crate::MultiTenancyConfig::default(),
         };
 
         match validate(&config) {

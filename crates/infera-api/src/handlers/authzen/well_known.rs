@@ -3,7 +3,7 @@
 //! Implements the `GET /.well-known/authzen-configuration` endpoint as specified
 //! by the AuthZEN specification for service discovery and capability negotiation.
 
-use axum::{extract::State, http::header, response::IntoResponse, Json};
+use axum::{Json, extract::State, http::header, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
@@ -163,8 +163,8 @@ mod tests {
         let state = create_test_state();
 
         // Create a simple router just for this test
-        use axum::routing::get;
         use axum::Router;
+        use axum::routing::get;
         let app = Router::new()
             .route(
                 "/.well-known/authzen-configuration",
@@ -209,20 +209,24 @@ mod tests {
 
         // Verify required fields
         assert!(config.issuer.contains("127.0.0.1"));
-        assert!(config
-            .access_evaluation_endpoint
-            .ends_with("/access/v1/evaluation"));
-        assert!(config
-            .access_evaluations_endpoint
-            .ends_with("/access/v1/evaluations"));
+        assert!(
+            config
+                .access_evaluation_endpoint
+                .ends_with("/access/v1/evaluation")
+        );
+        assert!(
+            config
+                .access_evaluations_endpoint
+                .ends_with("/access/v1/evaluations")
+        );
     }
 
     #[tokio::test]
     async fn test_configuration_includes_search_endpoints() {
         let state = create_test_state();
 
-        use axum::routing::get;
         use axum::Router;
+        use axum::routing::get;
         let app = Router::new()
             .route(
                 "/.well-known/authzen-configuration",
@@ -247,22 +251,26 @@ mod tests {
 
         assert!(config.search_resource_endpoint.is_some());
         assert!(config.search_subject_endpoint.is_some());
-        assert!(config
-            .search_resource_endpoint
-            .unwrap()
-            .ends_with("/access/v1/search/resource"));
-        assert!(config
-            .search_subject_endpoint
-            .unwrap()
-            .ends_with("/access/v1/search/subject"));
+        assert!(
+            config
+                .search_resource_endpoint
+                .unwrap()
+                .ends_with("/access/v1/search/resource")
+        );
+        assert!(
+            config
+                .search_subject_endpoint
+                .unwrap()
+                .ends_with("/access/v1/search/subject")
+        );
     }
 
     #[tokio::test]
     async fn test_configuration_includes_supported_types() {
         let state = create_test_state();
 
-        use axum::routing::get;
         use axum::Router;
+        use axum::routing::get;
         let app = Router::new()
             .route(
                 "/.well-known/authzen-configuration",
@@ -302,8 +310,8 @@ mod tests {
     async fn test_configuration_includes_extensions() {
         let state = create_test_state();
 
-        use axum::routing::get;
         use axum::Router;
+        use axum::routing::get;
         let app = Router::new()
             .route(
                 "/.well-known/authzen-configuration",
@@ -337,8 +345,8 @@ mod tests {
     async fn test_configuration_json_structure() {
         let state = create_test_state();
 
-        use axum::routing::get;
         use axum::Router;
+        use axum::routing::get;
         let app = Router::new()
             .route(
                 "/.well-known/authzen-configuration",

@@ -679,9 +679,11 @@ mod tests {
             relation: "viewer".to_string(),
             subject: "user:*:subgroup".to_string(),
         };
-        assert!(invalid_subject_position
-            .validate_wildcard_placement()
-            .is_err());
+        assert!(
+            invalid_subject_position
+                .validate_wildcard_placement()
+                .is_err()
+        );
     }
 
     #[test]

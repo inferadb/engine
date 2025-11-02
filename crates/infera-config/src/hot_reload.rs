@@ -2,7 +2,7 @@
 //!
 //! Watches configuration files and reloads on changes or SIGHUP signal
 
-use crate::{load, Config};
+use crate::{Config, load};
 use notify::{Config as NotifyConfig, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use signal_hook::consts::SIGHUP;
 use signal_hook::iterator::Signals;

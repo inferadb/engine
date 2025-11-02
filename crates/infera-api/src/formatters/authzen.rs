@@ -4,7 +4,7 @@
 //! All formatting functions ensure consistent structure, localization, and compliance with
 //! the AuthZEN specification.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use infera_types::Decision;

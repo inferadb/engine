@@ -25,7 +25,7 @@ use crate::context::{AuthContext, AuthMethod};
 use crate::error::AuthError;
 use crate::jwks_cache::Jwk;
 use crate::jwt::JwtClaims;
-use jsonwebtoken::{decode, decode_header, Validation};
+use jsonwebtoken::{Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -307,6 +307,17 @@ pub async fn validate_internal_jwt(
     // Use tenant_id from claims if present, otherwise default to "internal"
     let tenant_id = claims.tenant_id.unwrap_or_else(|| "internal".to_string());
 
+    // Extract vault and account UUIDs
+    let vault_str = claims
+        .vault
+        .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+    let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
+
+    let account_str = claims
+        .account
+        .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+    let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
+
     // Create AuthContext with proper fields
     Ok(AuthContext {
         tenant_id,
@@ -319,6 +330,8 @@ pub async fn validate_internal_jwt(
         expires_at: chrono::DateTime::from_timestamp(claims.exp as i64, 0)
             .unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::hours(1)),
         jti: claims.jti,
+        vault,
+        account,
     })
 }
 

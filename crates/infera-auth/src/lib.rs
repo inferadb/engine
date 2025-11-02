@@ -53,12 +53,13 @@ pub mod replay;
 pub mod validation;
 
 // Re-export key types
-pub use audit::{log_audit_event, AuditEvent};
+pub use audit::{AuditEvent, log_audit_event};
 pub use context::{AuthContext, AuthMethod};
 pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
 pub use internal::{InternalJwks, InternalJwksLoader};
 pub use jwks_cache::{Jwk, JwksCache};
+pub use middleware::{validate_vault_access, vault_validation_middleware};
 pub use oauth::OAuthJwksClient;
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
 pub use replay::{InMemoryReplayProtection, ReplayProtection};

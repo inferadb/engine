@@ -5,19 +5,19 @@
 use std::sync::Arc;
 
 use axum::{
+    Json, Router,
     extract::State,
-    http::{header, HeaderMap, HeaderValue, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{
-        sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
+        sse::{Event, KeepAlive, Sse},
     },
     routing::{get, post},
-    Json, Router,
 };
 use futures::stream::{self, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer};
 use tracing::info;
 
@@ -189,17 +189,35 @@ pub fn create_router(state: AppState) -> Router {
         .route("/v1/simulate", post(simulate_handler))
         .route("/v1/watch", post(watch_handler));
 
-    // Apply authentication middleware if enabled and JWKS cache is available
+    // Apply authentication middleware (either with JWT validation or default context)
     let protected_routes = if state.config.auth.enabled {
         if let Some(jwks_cache) = &state.jwks_cache {
             info!("Authentication ENABLED - applying auth middleware to protected routes");
             let jwks_cache = Arc::clone(jwks_cache);
             let auth_enabled = state.config.auth.enabled;
 
+            // Get default vault and account from config
+            let default_vault = state
+                .config
+                .multi_tenancy
+                .default_vault
+                .as_ref()
+                .and_then(|s| uuid::Uuid::parse_str(s).ok())
+                .unwrap_or(uuid::Uuid::nil());
+            let default_account = state
+                .config
+                .multi_tenancy
+                .default_account
+                .as_ref()
+                .and_then(|s| uuid::Uuid::parse_str(s).ok())
+                .unwrap_or(uuid::Uuid::nil());
+
             protected_routes.layer(axum::middleware::from_fn(move |req, next| {
                 let jwks_cache = Arc::clone(&jwks_cache);
                 infera_auth::middleware::optional_auth_middleware(
                     auth_enabled,
+                    default_vault,
+                    default_account,
                     jwks_cache,
                     req,
                     next,
@@ -210,8 +228,44 @@ pub fn create_router(state: AppState) -> Router {
             protected_routes
         }
     } else {
-        tracing::warn!("Authentication DISABLED - requests will not be authenticated");
-        protected_routes
+        // Auth disabled - inject default AuthContext
+        tracing::warn!("Authentication DISABLED - using default vault for all requests");
+        let auth_enabled = false;
+
+        // Get default vault and account from config
+        let default_vault = state
+            .config
+            .multi_tenancy
+            .default_vault
+            .as_ref()
+            .and_then(|s| uuid::Uuid::parse_str(s).ok())
+            .unwrap_or(uuid::Uuid::nil());
+        let default_account = state
+            .config
+            .multi_tenancy
+            .default_account
+            .as_ref()
+            .and_then(|s| uuid::Uuid::parse_str(s).ok())
+            .unwrap_or(uuid::Uuid::nil());
+
+        // Create a dummy JWKS cache (not used when auth is disabled)
+        let dummy_jwks_cache = Arc::new(infera_auth::jwks_cache::JwksCache::new(
+            "https://unused.example.com".to_string(),
+            Arc::new(moka::future::Cache::new(1)),
+            std::time::Duration::from_secs(300),
+        ));
+
+        protected_routes.layer(axum::middleware::from_fn(move |req, next| {
+            let jwks_cache = Arc::clone(&dummy_jwks_cache);
+            infera_auth::middleware::optional_auth_middleware(
+                auth_enabled,
+                default_vault,
+                default_account,
+                jwks_cache,
+                req,
+                next,
+            )
+        }))
     };
 
     // Combine health endpoints (unprotected) with protected routes
@@ -1214,7 +1268,7 @@ async fn watch_handler(
 
     // Parse cursor (base64 decode to revision)
     let start_revision = if let Some(cursor) = &request.cursor {
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::{Engine as _, engine::general_purpose};
         let decoded = general_purpose::STANDARD
             .decode(cursor)
             .map_err(|e| ApiError::InvalidRequest(format!("Invalid cursor: {}", e)))?;

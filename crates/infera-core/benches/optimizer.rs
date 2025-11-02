@@ -1,6 +1,6 @@
 //! Benchmarks for query optimizer
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use infera_core::ipl::{RelationDef, RelationExpr};
 use infera_core::optimizer::QueryPlanner;
 

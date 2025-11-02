@@ -2,7 +2,7 @@ use infera_store::RelationshipStore;
 use infera_types::Relationship;
 use std::sync::Arc;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::{CheckRequest, Evaluator, ExpandRequest};
 use infera_store::MemoryBackend;

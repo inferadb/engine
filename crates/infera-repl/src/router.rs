@@ -6,8 +6,8 @@
 //! - Handle region failures with automatic failover
 
 use crate::{
-    topology::{NodeId, RegionId, ReplicationStrategy, Topology},
     ReplError, Result,
+    topology::{NodeId, RegionId, ReplicationStrategy, Topology},
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;

@@ -3,7 +3,7 @@
 //! Provides convenient macros and functions for creating spans with
 //! consistent attributes across the InferaDB codebase.
 
-use tracing::{span, Level, Span};
+use tracing::{Level, Span, span};
 
 /// Create a span for an authorization check operation
 ///

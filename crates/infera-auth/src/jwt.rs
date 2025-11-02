@@ -1,7 +1,7 @@
 use crate::error::AuthError;
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
-use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Header, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, Header, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
 
 /// JWT claims structure
@@ -28,6 +28,12 @@ pub struct JwtClaims {
     /// Tenant ID (for OAuth tokens)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tenant_id: Option<String>,
+    /// Vault UUID (for multi-tenancy isolation)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vault: Option<String>,
+    /// Account UUID (vault owner)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
 }
 
 impl JwtClaims {
@@ -60,6 +66,18 @@ impl JwtClaims {
             .split_whitespace()
             .map(|s| s.to_string())
             .collect()
+    }
+
+    /// Extract vault UUID from claims
+    /// Returns None if not present
+    pub fn extract_vault(&self) -> Option<String> {
+        self.vault.clone()
+    }
+
+    /// Extract account UUID from claims
+    /// Returns None if not present
+    pub fn extract_account(&self) -> Option<String> {
+        self.account.clone()
     }
 }
 
@@ -306,6 +324,8 @@ mod tests {
             jti: None,
             scope: "inferadb.check".into(),
             tenant_id: None,
+            vault: None,
+            account: None,
         };
 
         assert_eq!(claims.extract_tenant_id().unwrap(), "acme");
@@ -323,6 +343,8 @@ mod tests {
             jti: None,
             scope: "inferadb.check".into(),
             tenant_id: Some("acme".into()),
+            vault: None,
+            account: None,
         };
 
         assert_eq!(claims.extract_tenant_id().unwrap(), "acme");
@@ -340,6 +362,8 @@ mod tests {
             jti: None,
             scope: "inferadb.check".into(),
             tenant_id: None,
+            vault: None,
+            account: None,
         };
 
         assert!(claims.extract_tenant_id().is_err());
@@ -357,6 +381,8 @@ mod tests {
             jti: None,
             scope: "inferadb.check inferadb.write inferadb.expand".into(),
             tenant_id: None,
+            vault: None,
+            account: None,
         };
 
         let scopes = claims.parse_scopes();
@@ -378,6 +404,8 @@ mod tests {
             jti: None,
             scope: "".into(),
             tenant_id: None,
+            vault: None,
+            account: None,
         };
 
         let scopes = claims.parse_scopes();

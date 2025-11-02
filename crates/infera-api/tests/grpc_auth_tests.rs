@@ -12,13 +12,13 @@ use std::time::Duration;
 
 use futures::StreamExt;
 use infera_api::grpc::proto::{EvaluateRequest as ProtoEvaluateRequest, HealthRequest};
-use infera_api::{grpc::proto::infera_service_client::InferaServiceClient, AppState};
+use infera_api::{AppState, grpc::proto::infera_service_client::InferaServiceClient};
 use infera_auth::internal::InternalJwksLoader;
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
 use infera_core::{
-    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
     Evaluator,
+    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
 use infera_store::{MemoryBackend, RelationshipStore};
 use tonic::metadata::MetadataValue;
@@ -27,7 +27,7 @@ use tonic::{Code, Request};
 
 // Re-use test helpers from test fixtures
 use infera_test_fixtures::{
-    create_internal_jwks, generate_internal_jwt, generate_internal_keypair, InternalClaims,
+    InternalClaims, create_internal_jwks, generate_internal_jwt, generate_internal_keypair,
 };
 
 mod common {
@@ -111,7 +111,7 @@ mod common {
             scopes: &[&str],
             expires_in_secs: i64,
         ) -> String {
-            use jsonwebtoken::{encode, EncodingKey, Header};
+            use jsonwebtoken::{EncodingKey, Header, encode};
             use serde::{Deserialize, Serialize};
 
             #[derive(Debug, Serialize, Deserialize)]
@@ -215,7 +215,7 @@ async fn start_grpc_server_with_auth(
     state: AppState,
     internal_loader: Option<Arc<InternalJwksLoader>>,
 ) -> (tokio::task::JoinHandle<()>, u16) {
-    use infera_api::grpc::{proto::infera_service_server::InferaServiceServer, InferaServiceImpl};
+    use infera_api::grpc::{InferaServiceImpl, proto::infera_service_server::InferaServiceServer};
     use infera_api::grpc_interceptor::AuthInterceptor;
 
     let port = portpicker::pick_unused_port().expect("No free ports");

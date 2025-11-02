@@ -10,7 +10,7 @@ use base64::Engine;
 use ed25519_dalek::SigningKey;
 use infera_auth::internal::InternalJwks;
 use infera_auth::jwks_cache::Jwk;
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +27,10 @@ pub struct InternalClaims {
     pub tenant_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jti: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vault: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
 }
 
 impl InternalClaims {
@@ -42,6 +46,8 @@ impl InternalClaims {
             scope: "inferadb.admin".to_string(),
             tenant_id: Some("internal".to_string()),
             jti: Some(uuid::Uuid::new_v4().to_string()),
+            vault: Some(uuid::Uuid::nil().to_string()),
+            account: Some(uuid::Uuid::nil().to_string()),
         }
     }
 
@@ -57,6 +63,8 @@ impl InternalClaims {
             scope: "inferadb.admin".to_string(),
             tenant_id: Some("internal".to_string()),
             jti: Some(uuid::Uuid::new_v4().to_string()),
+            vault: Some(uuid::Uuid::nil().to_string()),
+            account: Some(uuid::Uuid::nil().to_string()),
         }
     }
 

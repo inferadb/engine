@@ -13,7 +13,7 @@ use crate::jwt::verify_with_jwks;
 use axum::{
     body::Body,
     extract::Request,
-    http::{header, HeaderMap, HeaderValue, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -189,6 +189,37 @@ pub async fn auth_middleware(
         .extract_tenant_id()
         .map_err(|e| (StatusCode::UNAUTHORIZED, e.to_string()).into_response())?;
 
+    // Extract vault and account UUIDs from claims
+    let vault_str = claims.extract_vault().ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            "Missing vault claim in JWT".to_string(),
+        )
+            .into_response()
+    })?;
+    let vault = uuid::Uuid::parse_str(&vault_str).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            "Invalid vault UUID format".to_string(),
+        )
+            .into_response()
+    })?;
+
+    let account_str = claims.extract_account().ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            "Missing account claim in JWT".to_string(),
+        )
+            .into_response()
+    })?;
+    let account = uuid::Uuid::parse_str(&account_str).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            "Invalid account UUID format".to_string(),
+        )
+            .into_response()
+    })?;
+
     // Parse scopes from space-separated string
     let scopes: Vec<String> = claims
         .scope
@@ -208,6 +239,8 @@ pub async fn auth_middleware(
         expires_at: chrono::DateTime::from_timestamp(claims.exp as i64, 0)
             .unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::seconds(300)),
         jti: claims.jti.clone(),
+        vault,
+        account,
     };
 
     // Insert AuthContext into request extensions
@@ -217,18 +250,136 @@ pub async fn auth_middleware(
     Ok(next.run(request).await)
 }
 
+/// Validate vault access in AuthContext
+///
+/// This function performs vault-level access validation:
+/// 1. Ensures vault UUID is not nil
+/// 2. Logs vault access for audit purposes
+/// 3. (Future) Will validate vault exists in database when Phase 1 is complete
+///
+/// # Arguments
+///
+/// * `auth` - The authenticated context containing vault information
+///
+/// # Errors
+///
+/// Returns `AuthError::InvalidTokenFormat` if:
+/// - Vault UUID is nil (indicates missing/invalid vault claim)
+///
+/// # Future Enhancements
+///
+/// When Phase 1 (Account & Vault database tables) is implemented:
+/// - Verify vault exists in database
+/// - Verify account owns the vault
+/// - Verify vault is not suspended/deleted
+pub fn validate_vault_access(auth: &AuthContext) -> Result<(), AuthError> {
+    // Check if vault is nil UUID
+    if auth.vault.is_nil() {
+        tracing::warn!(
+            tenant_id = %auth.tenant_id,
+            client_id = %auth.client_id,
+            "Vault access denied: nil UUID detected"
+        );
+        return Err(AuthError::InvalidTokenFormat(
+            "Invalid vault: vault UUID cannot be nil".to_string(),
+        ));
+    }
+
+    // Log vault access for audit trail
+    tracing::debug!(
+        tenant_id = %auth.tenant_id,
+        vault = %auth.vault,
+        account = %auth.account,
+        client_id = %auth.client_id,
+        "Vault access validated"
+    );
+
+    // TODO: When Phase 1 is complete, add database validation:
+    // - Verify vault exists: vault_store.get_vault(auth.vault).await?
+    // - Verify ownership: if vault.account != auth.account { return Err(AccessDenied) }
+    // - Verify vault status: if vault.status == Suspended { return Err(VaultSuspended) }
+
+    Ok(())
+}
+
+/// Axum middleware for vault access validation
+///
+/// This middleware layer validates that the authenticated request has proper
+/// vault access. It should be applied after auth_middleware in the middleware stack.
+///
+/// # Arguments
+///
+/// * `request` - The incoming HTTP request (must have AuthContext in extensions)
+/// * `next` - The next layer in the middleware stack
+///
+/// # Returns
+///
+/// Returns the response from the next layer, or an error response if vault validation fails
+///
+/// # Errors
+///
+/// Returns HTTP 403 Forbidden if vault validation fails
+///
+/// # Example
+///
+/// ```ignore
+/// use axum::{Router, middleware};
+/// use infera_auth::middleware::{auth_middleware, vault_validation_middleware};
+///
+/// let app = Router::new()
+///     .route("/api/check", post(check_handler))
+///     .layer(middleware::from_fn(vault_validation_middleware))
+///     .layer(middleware::from_fn(move |req, next| {
+///         auth_middleware(jwks_cache.clone(), req, next)
+///     }));
+/// ```
+pub async fn vault_validation_middleware(
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, Response> {
+    // Extract AuthContext from request extensions
+    let auth = request
+        .extensions()
+        .get::<AuthContext>()
+        .cloned()
+        .ok_or_else(|| {
+            tracing::error!("AuthContext missing from request extensions");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Authentication context not found".to_string(),
+            )
+                .into_response()
+        })?;
+
+    // Validate vault access
+    validate_vault_access(&auth).map_err(|e| {
+        tracing::warn!(
+            error = %e,
+            vault = %auth.vault,
+            tenant_id = %auth.tenant_id,
+            "Vault validation failed"
+        );
+        (StatusCode::FORBIDDEN, format!("Vault access denied: {}", e)).into_response()
+    })?;
+
+    // Vault validation passed, continue to handler
+    Ok(next.run(request).await)
+}
+
 /// Optional authentication middleware that respects auth.enabled config
 ///
 /// When auth is disabled (auth.enabled = false), this middleware:
 /// - Logs a warning that authentication is disabled
-/// - Passes the request through without validation
-/// - Does NOT inject an AuthContext
+/// - Injects a default AuthContext with the provided vault/account
+/// - Passes the request through without token validation
 ///
 /// When auth is enabled, delegates to the standard auth_middleware.
 ///
 /// # Arguments
 ///
 /// * `enabled` - Whether authentication is enabled
+/// * `default_vault` - Default vault UUID to use when auth is disabled
+/// * `default_account` - Default account UUID to use when auth is disabled
 /// * `jwks_cache` - The JWKS cache for verifying signatures (only used if enabled)
 /// * `request` - The incoming HTTP request
 /// * `next` - The next layer in the middleware stack
@@ -243,12 +394,23 @@ pub async fn auth_middleware(
 /// Production systems should always have authentication enabled.
 pub async fn optional_auth_middleware(
     enabled: bool,
+    default_vault: uuid::Uuid,
+    default_account: uuid::Uuid,
     jwks_cache: Arc<JwksCache>,
-    request: Request<Body>,
+    mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
     if !enabled {
-        tracing::warn!("Authentication is DISABLED - request proceeding without validation");
+        tracing::warn!(
+            "Authentication is DISABLED - using default vault {} and account {}",
+            default_vault,
+            default_account
+        );
+
+        // Create default AuthContext for unauthenticated requests
+        let auth_context = AuthContext::default_unauthenticated(default_vault, default_account);
+        request.extensions_mut().insert(auth_context);
+
         return Ok(next.run(request).await);
     }
 
@@ -272,6 +434,8 @@ mod tests {
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
+            vault: uuid::Uuid::nil(),
+            account: uuid::Uuid::nil(),
         }
     }
 
@@ -383,5 +547,73 @@ mod tests {
 
         let result = require_any_scope(&auth, &["inferadb.check", "inferadb.write"]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_vault_access_valid() {
+        let vault_id = uuid::Uuid::new_v4();
+        let account_id = uuid::Uuid::new_v4();
+
+        let auth = AuthContext {
+            tenant_id: "test-tenant".to_string(),
+            client_id: "test-client".to_string(),
+            key_id: "test-key-001".to_string(),
+            auth_method: crate::context::AuthMethod::PrivateKeyJwt,
+            scopes: vec!["inferadb.check".to_string()],
+            issued_at: Utc::now(),
+            expires_at: Utc::now() + Duration::seconds(300),
+            jti: Some("test-jti".to_string()),
+            vault: vault_id,
+            account: account_id,
+        };
+
+        assert!(validate_vault_access(&auth).is_ok());
+    }
+
+    #[test]
+    fn test_validate_vault_access_nil_vault() {
+        let auth = AuthContext {
+            tenant_id: "test-tenant".to_string(),
+            client_id: "test-client".to_string(),
+            key_id: "test-key-001".to_string(),
+            auth_method: crate::context::AuthMethod::PrivateKeyJwt,
+            scopes: vec!["inferadb.check".to_string()],
+            issued_at: Utc::now(),
+            expires_at: Utc::now() + Duration::seconds(300),
+            jti: Some("test-jti".to_string()),
+            vault: uuid::Uuid::nil(),
+            account: uuid::Uuid::new_v4(),
+        };
+
+        let result = validate_vault_access(&auth);
+        assert!(result.is_err());
+        match result {
+            Err(AuthError::InvalidTokenFormat(msg)) => {
+                assert!(msg.contains("vault") || msg.contains("nil"));
+            }
+            _ => panic!("Expected InvalidTokenFormat error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_vault_access_with_default_vault() {
+        // Test that non-nil vaults pass validation
+        let default_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let account_id = uuid::Uuid::new_v4();
+
+        let auth = AuthContext {
+            tenant_id: "default".to_string(),
+            client_id: "system:unauthenticated".to_string(),
+            key_id: "default".to_string(),
+            auth_method: crate::context::AuthMethod::InternalServiceJwt,
+            scopes: vec!["inferadb.check".to_string()],
+            issued_at: Utc::now(),
+            expires_at: Utc::now() + Duration::seconds(300),
+            jti: None,
+            vault: default_vault,
+            account: account_id,
+        };
+
+        assert!(validate_vault_access(&auth).is_ok());
     }
 }

@@ -3,14 +3,14 @@
 //! Implements the AuthZEN-compliant evaluation endpoints that provide a thin
 //! adapter layer over InferaDB's native evaluation functionality.
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::adapters::authzen::{convert_authzen_request_to_native, AuthZENEvaluationRequest};
-use crate::formatters::authzen::{format_denial_with_error, format_evaluation_response};
-use crate::validation::validate_authzen_evaluation_request;
 use crate::ApiError;
 use crate::AppState;
+use crate::adapters::authzen::{AuthZENEvaluationRequest, convert_authzen_request_to_native};
+use crate::formatters::authzen::{format_denial_with_error, format_evaluation_response};
+use crate::validation::validate_authzen_evaluation_request;
 use infera_types::EvaluateRequest;
 
 /// Enhanced AuthZEN evaluation response with additional context
@@ -315,13 +315,13 @@ pub async fn post_evaluations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::authzen::{AuthZENAction, AuthZENResource, AuthZENSubject};
     use crate::AppState;
+    use crate::adapters::authzen::{AuthZENAction, AuthZENResource, AuthZENSubject};
     use axum::{
+        Router,
         body::Body,
         http::{Request, StatusCode},
         routing::post,
-        Router,
     };
     use infera_config::Config;
     use infera_core::Evaluator;

@@ -1,7 +1,7 @@
 //! Integration tests for WASM policy modules
 
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_core::Evaluator;
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use infera_wasm::WasmHost;
@@ -291,10 +291,12 @@ async fn test_wasm_missing_host() {
 
     let result = evaluator.check(request).await;
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("WASM host not configured"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("WASM host not configured")
+    );
 }
 
 #[tokio::test]

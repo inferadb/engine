@@ -406,7 +406,7 @@ async fn test_jwks_fetch_404_error() {
 
 #[tokio::test]
 async fn test_jwks_malformed_response() {
-    use axum::{routing::get, Router};
+    use axum::{Router, routing::get};
 
     // Start a server that returns malformed JSON
     async fn malformed_handler() -> &'static str {
@@ -447,7 +447,7 @@ async fn test_jwks_malformed_response() {
 
 #[tokio::test]
 async fn test_jwks_empty_keys_array() {
-    use axum::{routing::get, Json, Router};
+    use axum::{Json, Router, routing::get};
 
     // Start a server that returns empty keys array
     async fn empty_keys_handler() -> Json<serde_json::Value> {

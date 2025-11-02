@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Authentication context extracted from validated JWT
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,6 +28,12 @@ pub struct AuthContext {
 
     /// JWT ID for replay protection (optional)
     pub jti: Option<String>,
+
+    /// Vault UUID for multi-tenancy isolation
+    pub vault: Uuid,
+
+    /// Account UUID (vault owner)
+    pub account: Uuid,
 }
 
 /// Authentication method used to verify the token
@@ -50,6 +57,29 @@ impl AuthContext {
     pub fn is_valid(&self) -> bool {
         Utc::now() < self.expires_at
     }
+
+    /// Create a default AuthContext for when authentication is disabled
+    /// Uses the provided default vault and account UUIDs
+    pub fn default_unauthenticated(default_vault: Uuid, default_account: Uuid) -> Self {
+        Self {
+            tenant_id: "default".to_string(),
+            client_id: "system:unauthenticated".to_string(),
+            key_id: "default".to_string(),
+            auth_method: AuthMethod::InternalServiceJwt,
+            scopes: vec![
+                "inferadb.check".to_string(),
+                "inferadb.write".to_string(),
+                "inferadb.expand".to_string(),
+            ],
+            issued_at: Utc::now(),
+            // Set to far future so it never expires
+            expires_at: DateTime::<Utc>::from_timestamp(i64::MAX / 1000, 0)
+                .unwrap_or_else(Utc::now),
+            jti: None,
+            vault: default_vault,
+            account: default_account,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -67,6 +97,8 @@ mod tests {
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(exp_offset_secs),
             jti: Some("test-jti".into()),
+            vault: Uuid::nil(),
+            account: Uuid::nil(),
         }
     }
 

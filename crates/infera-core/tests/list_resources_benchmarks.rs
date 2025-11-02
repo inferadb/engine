@@ -276,7 +276,7 @@ async fn bench_list_resources_with_pattern() {
 
 #[tokio::test]
 async fn bench_concurrent_requests_100qps() {
-    use tokio::time::{sleep, Duration};
+    use tokio::time::{Duration, sleep};
 
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
@@ -289,7 +289,7 @@ async fn bench_concurrent_requests_100qps() {
     // Run for 1 second at 100 QPS = 100 requests
     let num_requests: usize = 100;
     let test_duration = Duration::from_secs(1);
-    let request_interval = test_duration / num_requests as u32;
+    let request_interval = test_duration / (num_requests as u32);
 
     let start = Instant::now();
     let mut handles = vec![];
@@ -328,7 +328,7 @@ async fn bench_concurrent_requests_100qps() {
         .iter()
         .map(|r| r.as_ref().unwrap().1)
         .sum::<Duration>()
-        / num_requests as u32;
+        / (num_requests as u32);
 
     println!(
         "✅ 100 QPS load test: {}/{} successful, avg latency: {:?}, total time: {:?}",
@@ -342,7 +342,7 @@ async fn bench_concurrent_requests_100qps() {
 #[tokio::test]
 #[ignore] // Expensive test - run with --ignored
 async fn bench_concurrent_requests_1000qps() {
-    use tokio::time::{sleep, Duration};
+    use tokio::time::{Duration, sleep};
 
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
@@ -355,7 +355,7 @@ async fn bench_concurrent_requests_1000qps() {
     // Run for 1 second at 1000 QPS = 1000 requests
     let num_requests: usize = 1000;
     let test_duration = Duration::from_secs(1);
-    let request_interval = test_duration / num_requests as u32;
+    let request_interval = test_duration / (num_requests as u32);
 
     let start = Instant::now();
     let mut handles = vec![];
@@ -394,7 +394,7 @@ async fn bench_concurrent_requests_1000qps() {
         .iter()
         .map(|r| r.as_ref().unwrap().1)
         .sum::<Duration>()
-        / num_requests as u32;
+        / (num_requests as u32);
     let max_latency = results.iter().map(|r| r.as_ref().unwrap().1).max().unwrap();
 
     println!(

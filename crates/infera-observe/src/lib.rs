@@ -4,13 +4,13 @@
 
 use anyhow::Result;
 use metrics_exporter_prometheus::PrometheusBuilder;
-use opentelemetry::{trace::TracerProvider as _, KeyValue};
+use opentelemetry::{KeyValue, trace::TracerProvider as _};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
-    trace::{RandomIdGenerator, Sampler},
     Resource,
+    trace::{RandomIdGenerator, Sampler},
 };
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub mod aggregation;
 pub mod audit;

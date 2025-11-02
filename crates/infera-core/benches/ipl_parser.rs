@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use infera_core::ipl::parse_schema;
 
 fn simple_schema() -> &'static str {

@@ -19,6 +19,8 @@ pub struct Config {
     pub observability: ObservabilityConfig,
     #[serde(default)]
     pub auth: AuthConfig,
+    #[serde(default)]
+    pub multi_tenancy: MultiTenancyConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -303,6 +305,28 @@ fn default_internal_audience() -> String {
     "https://api.inferadb.com/internal".to_string()
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiTenancyConfig {
+    /// Default vault UUID (for auth-disabled mode)
+    /// Will be auto-generated on first startup if not set
+    #[serde(default)]
+    pub default_vault: Option<String>,
+
+    /// Default account UUID (for auth-disabled mode)
+    /// Will be auto-generated on first startup if not set
+    #[serde(default)]
+    pub default_account: Option<String>,
+}
+
+impl Default for MultiTenancyConfig {
+    fn default() -> Self {
+        Self {
+            default_vault: None,
+            default_account: None,
+        }
+    }
+}
+
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
@@ -506,6 +530,7 @@ impl Default for Config {
                 tracing_enabled: default_tracing_enabled(),
             },
             auth: AuthConfig::default(),
+            multi_tenancy: MultiTenancyConfig::default(),
         }
     }
 }

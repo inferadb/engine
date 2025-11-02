@@ -21,7 +21,7 @@
 //! ```
 
 use infera_auth::{
-    audit::{log_audit_event, AuditEvent},
+    audit::{AuditEvent, log_audit_event},
     context::{AuthContext, AuthMethod},
     error::AuthError,
     internal::InternalJwksLoader,
@@ -32,7 +32,7 @@ use infera_config::AuthConfig;
 use infera_observe::metrics;
 use std::sync::Arc;
 use std::time::Instant;
-use tonic::{metadata::MetadataMap, Request, Status};
+use tonic::{Request, Status, metadata::MetadataMap};
 
 // Re-export chrono from infera_auth's context module
 use chrono::{DateTime, Duration, Utc};
@@ -216,6 +216,17 @@ impl AuthInterceptor {
             let tenant_id = claims.extract_tenant_id()?;
             let scopes = claims.parse_scopes();
 
+            // Extract vault and account UUIDs
+            let vault_str = claims
+                .vault
+                .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+            let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
+
+            let account_str = claims
+                .account
+                .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+            let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
+
             return Ok(AuthContext {
                 tenant_id,
                 client_id: claims.sub.clone(),
@@ -226,6 +237,8 @@ impl AuthInterceptor {
                 expires_at: DateTime::from_timestamp(claims.exp as i64, 0)
                     .unwrap_or_else(|| Utc::now() + Duration::seconds(300)),
                 jti: claims.jti.clone(),
+                vault,
+                account,
             });
         }
 

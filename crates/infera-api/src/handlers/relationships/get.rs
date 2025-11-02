@@ -4,10 +4,10 @@
 //! This is a convenience endpoint that wraps the native list relationships functionality.
 
 use axum::{
-    extract::{Path, State},
-    http::{header, HeaderMap, StatusCode},
-    response::IntoResponse,
     Json,
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode, header},
+    response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -225,10 +225,10 @@ mod tests {
     use super::*;
     use crate::AppState;
     use axum::{
+        Router,
         body::Body,
         http::{Request, StatusCode},
         routing::get,
-        Router,
     };
     use infera_config::Config;
     use infera_core::Evaluator;

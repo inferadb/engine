@@ -13,7 +13,7 @@ use aws_config::BehaviorVersion;
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 
 #[cfg(feature = "gcp-secrets")]
-use google_secretmanager1::{hyper, hyper_rustls, oauth2, SecretManager};
+use google_secretmanager1::{SecretManager, hyper, hyper_rustls, oauth2};
 
 #[cfg(feature = "azure-secrets")]
 use azure_security_keyvault::SecretClient;

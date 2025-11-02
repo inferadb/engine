@@ -7,21 +7,21 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use infera_api::grpc::proto::EvaluateRequest as ProtoEvaluateRequest;
-use infera_api::{grpc::proto::infera_service_client::InferaServiceClient, AppState};
+use infera_api::{AppState, grpc::proto::infera_service_client::InferaServiceClient};
 use infera_auth::internal::InternalJwksLoader;
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
 use infera_core::{
-    ipl::{RelationDef, Schema, TypeDef},
     Evaluator,
+    ipl::{RelationDef, Schema, TypeDef},
 };
 use infera_store::{MemoryBackend, RelationshipStore};
+use tonic::Request;
 use tonic::metadata::MetadataValue;
 use tonic::transport::{Channel, Server};
-use tonic::Request;
 
 use infera_test_fixtures::{
-    create_internal_jwks, generate_internal_jwt, generate_internal_keypair, InternalClaims,
+    InternalClaims, create_internal_jwks, generate_internal_jwt, generate_internal_keypair,
 };
 
 fn create_test_schema() -> Arc<Schema> {
@@ -64,7 +64,7 @@ async fn start_grpc_server_with_auth(
     state: AppState,
     internal_loader: Option<Arc<InternalJwksLoader>>,
 ) -> (tokio::task::JoinHandle<()>, u16) {
-    use infera_api::grpc::{proto::infera_service_server::InferaServiceServer, InferaServiceImpl};
+    use infera_api::grpc::{InferaServiceImpl, proto::infera_service_server::InferaServiceServer};
     use infera_api::grpc_interceptor::AuthInterceptor;
 
     let port = portpicker::pick_unused_port().expect("No free ports");

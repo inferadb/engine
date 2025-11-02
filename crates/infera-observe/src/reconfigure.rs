@@ -5,7 +5,7 @@
 use anyhow::Result;
 use std::sync::{Arc, RwLock};
 use tracing::Level;
-use tracing_subscriber::{reload, EnvFilter, Registry};
+use tracing_subscriber::{EnvFilter, Registry, reload};
 
 /// Handle for dynamic log reconfiguration
 #[derive(Clone)]
@@ -204,11 +204,11 @@ impl LogReconfigManager {
 pub mod http_api {
     use super::*;
     use axum::{
+        Json, Router,
         extract::State,
         http::StatusCode,
         response::IntoResponse,
         routing::{get, post},
-        Json, Router,
     };
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;

@@ -275,6 +275,8 @@ mod tests {
             jti: Some("test-jti".into()),
             scope: "inferadb.check".into(),
             tenant_id: None,
+            vault: None,
+            account: None,
         }
     }
 

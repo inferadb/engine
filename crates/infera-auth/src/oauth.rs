@@ -9,7 +9,7 @@ use crate::jwks_cache::{Jwk, JwksCache};
 use crate::jwt::JwtClaims;
 use crate::oidc::OidcDiscoveryClient;
 use chrono::Utc;
-use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -428,7 +428,7 @@ pub async fn validate_oauth_jwt(
             return Err(AuthError::InvalidTokenFormat(format!(
                 "Unsupported algorithm: {:?}",
                 header.alg
-            )))
+            )));
         }
     };
 
@@ -492,6 +492,17 @@ pub async fn validate_oauth_jwt(
             .map(|s| s.to_string())
             .collect();
 
+        // Extract vault and account UUIDs
+        let vault_str = claims
+            .vault
+            .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+        let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
+
+        let account_str = claims
+            .account
+            .unwrap_or_else(|| uuid::Uuid::nil().to_string());
+        let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
+
         // Create AuthContext
         let auth_context = AuthContext {
             tenant_id,
@@ -504,6 +515,8 @@ pub async fn validate_oauth_jwt(
             expires_at: chrono::DateTime::from_timestamp(claims.exp as i64, 0)
                 .unwrap_or_else(|| Utc::now() + chrono::Duration::seconds(300)),
             jti: claims.jti.clone(),
+            vault,
+            account,
         };
 
         Ok(auth_context)
@@ -650,7 +663,9 @@ mod tests {
     #[test]
     fn test_is_jwt_detection() {
         // Valid JWT format
-        assert!(is_jwt("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"));
+        assert!(is_jwt(
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        ));
 
         // Also valid (any 3-part format)
         assert!(is_jwt("a.b.c"));
@@ -738,6 +753,8 @@ mod tests {
             jti: None,
             scope: "read write".to_string(),
             tenant_id: Some("acme-corp".to_string()),
+            vault: None,
+            account: None,
         };
 
         let result = extract_tenant_from_oauth(&claims);
@@ -757,6 +774,8 @@ mod tests {
             jti: None,
             scope: "read write".to_string(),
             tenant_id: None,
+            vault: None,
+            account: None,
         };
 
         let result = extract_tenant_from_oauth(&claims);
@@ -776,6 +795,8 @@ mod tests {
             jti: None,
             scope: "read write".to_string(),
             tenant_id: Some("".to_string()),
+            vault: None,
+            account: None,
         };
 
         let result = extract_tenant_from_oauth(&claims);

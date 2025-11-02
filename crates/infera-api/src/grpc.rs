@@ -61,11 +61,11 @@ pub mod proto {
 pub use proto::infera_service_client::InferaServiceClient;
 
 use proto::{
-    infera_service_server::InferaService, ChangeOperation, Decision as ProtoDecision,
-    DeleteRequest, DeleteResponse, EvaluateRequest, EvaluateResponse, ExpandRequest, HealthRequest,
-    HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
-    ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse, SimulateRequest,
-    SimulateResponse, WatchRequest, WatchResponse, WriteRequest, WriteResponse,
+    ChangeOperation, Decision as ProtoDecision, DeleteRequest, DeleteResponse, EvaluateRequest,
+    EvaluateResponse, ExpandRequest, HealthRequest, HealthResponse, ListRelationshipsRequest,
+    ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, ListSubjectsRequest,
+    ListSubjectsResponse, SimulateRequest, SimulateResponse, WatchRequest, WatchResponse,
+    WriteRequest, WriteResponse, infera_service_server::InferaService,
 };
 
 use uuid::Uuid;
@@ -630,7 +630,7 @@ impl InferaService for InferaServiceImpl {
                 Revision::zero()
             } else {
                 // Decode base64 cursor
-                use base64::{engine::general_purpose, Engine as _};
+                use base64::{Engine as _, engine::general_purpose};
                 let decoded = general_purpose::STANDARD
                     .decode(cursor)
                     .map_err(|e| Status::invalid_argument(format!("Invalid cursor: {}", e)))?;
@@ -769,8 +769,8 @@ impl InferaService for InferaServiceImpl {
             })?;
 
         // Create a temporary evaluator with the ephemeral store
-        use infera_core::ipl::Schema;
         use infera_core::Evaluator;
+        use infera_core::ipl::Schema;
         let temp_schema = Arc::new(Schema { types: Vec::new() });
         let temp_evaluator =
             Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault());
@@ -872,7 +872,7 @@ fn convert_trace_to_proto(trace: DecisionTrace) -> proto::DecisionTrace {
 
 // Helper function to convert UsersetTree to proto
 fn convert_userset_tree_to_proto(tree: UsersetTree) -> proto::UsersetTree {
-    use proto::{userset_node_type::Type, UsersetNodeType};
+    use proto::{UsersetNodeType, userset_node_type::Type};
 
     let node_type = match tree.node_type {
         CoreUsersetNodeType::This => Some(Type::This(proto::This {})),
@@ -909,8 +909,8 @@ mod tests {
     use super::*;
     use infera_config::Config;
     use infera_core::{
-        ipl::{RelationDef, RelationExpr, Schema, TypeDef},
         Evaluator,
+        ipl::{RelationDef, RelationExpr, Schema, TypeDef},
     };
     use infera_store::{MemoryBackend, RelationshipStore};
     use std::sync::Arc;

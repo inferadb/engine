@@ -5,7 +5,7 @@
 use infera_core::ipl::parse_schema;
 
 mod common;
-use common::{relationship, TestFixture};
+use common::{TestFixture, relationship};
 
 #[tokio::test]
 async fn test_forbid_overrides_permit() {
