@@ -7,7 +7,7 @@ use axum::{
 use infera_types::VaultResponse;
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, authorize_account_access};
+use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access};
 
 /// Get a vault by ID
 ///

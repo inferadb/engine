@@ -6,7 +6,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, require_admin_scope};
+use crate::{ApiError, AppState, handlers::utils::auth::require_admin_scope};
 
 /// Delete an account
 ///

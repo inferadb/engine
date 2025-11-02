@@ -7,7 +7,10 @@ use axum::{
 use infera_types::{AccountResponse, UpdateAccountRequest};
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, require_admin_scope, validation::validate_account_name};
+use crate::{
+    ApiError, AppState, handlers::utils::auth::require_admin_scope,
+    validation::validate_account_name,
+};
 
 /// Update an account
 ///

@@ -4,4 +4,7 @@
 //! including exact match helpers for GET and DELETE.
 
 pub mod delete;
+pub mod delete_bulk;
 pub mod get;
+pub mod list;
+pub mod write;

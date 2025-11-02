@@ -7,7 +7,9 @@ use axum::{
 use infera_types::{UpdateVaultRequest, VaultResponse};
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, require_admin_scope, validation::validate_vault_name};
+use crate::{
+    ApiError, AppState, handlers::utils::auth::require_admin_scope, validation::validate_vault_name,
+};
 
 /// Update a vault
 ///

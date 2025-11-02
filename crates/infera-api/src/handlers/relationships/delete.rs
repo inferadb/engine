@@ -11,6 +11,7 @@ use axum::{
 use infera_types::DeleteFilter;
 
 use super::get::RelationshipPath;
+use crate::handlers::utils::auth::get_vault;
 use crate::{ApiError, AppState};
 
 /// Handler for `DELETE /v1/relationships/{resource}/{relation}/{subject}`
@@ -59,7 +60,7 @@ pub async fn delete_relationship(
     let start = std::time::Instant::now();
 
     // Extract vault from auth context or use default
-    let vault = crate::get_vault(&auth.0, state.default_vault);
+    let vault = get_vault(&auth.0, state.default_vault);
 
     // Validate vault access (basic nil check)
     if let Some(ref auth_ctx) = auth.0 {

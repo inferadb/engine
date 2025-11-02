@@ -6,7 +6,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, authorize_account_access};
+use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access};
 
 /// Delete a vault
 ///

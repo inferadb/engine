@@ -7,7 +7,7 @@ use axum::{
 use infera_types::{AccountResponse, ListAccountsResponse};
 use serde::Deserialize;
 
-use crate::{ApiError, AppState, require_admin_scope};
+use crate::{ApiError, AppState, handlers::utils::auth::require_admin_scope};
 
 /// Query parameters for listing accounts
 #[derive(Debug, Deserialize)]

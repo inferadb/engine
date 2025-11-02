@@ -9,7 +9,10 @@ use axum::{
 use infera_types::{CreateVaultRequest, Vault, VaultResponse};
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, authorize_account_access, validation::validate_vault_name};
+use crate::{
+    ApiError, AppState, handlers::utils::auth::authorize_account_access,
+    validation::validate_vault_name,
+};
 
 /// Create a new vault for an account
 ///
