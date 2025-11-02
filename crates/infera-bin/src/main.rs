@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
+use uuid::Uuid;
 
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::load_or_default;
@@ -13,6 +14,13 @@ use infera_core::ipl::Schema;
 use infera_core::Evaluator;
 use infera_store::MemoryBackend;
 use infera_wasm::WasmHost;
+
+/// Get the vault ID for server operations
+/// TODO(Phase 2): Load default vault from system config on startup
+/// For Phase 1, we use a nil UUID as a placeholder for the default vault
+fn get_vault_id() -> Uuid {
+    Uuid::nil()
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "inferadb")]
@@ -71,7 +79,7 @@ async fn main() -> Result<()> {
     tracing::info!("Schema loaded");
 
     // Create evaluator
-    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, wasm_host));
+    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, wasm_host, get_vault_id()));
     tracing::info!("Policy evaluator initialized");
 
     // Initialize JWKS cache if authentication is enabled

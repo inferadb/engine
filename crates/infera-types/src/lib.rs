@@ -7,14 +7,29 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use uuid::Uuid;
+
+// ============================================================================
+// Multi-Tenancy Types
+// ============================================================================
+
+pub mod account;
+pub mod vault;
+
+pub use account::Account;
+pub use vault::{SystemConfig, Vault};
 
 // ============================================================================
 // Core Domain Types
 // ============================================================================
 
 /// A relationship representing an authorization relationship between a subject and resource
+///
+/// All relationships are scoped to a specific Vault for multi-tenant isolation.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Relationship {
+    /// The vault this relationship belongs to
+    pub vault_id: Uuid,
     pub resource: String,
     pub relation: String,
     pub subject: String,

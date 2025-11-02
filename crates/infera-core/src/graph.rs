@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_recursion::async_recursion;
+use uuid::Uuid;
 
 use crate::ipl::{RelationExpr, Schema};
 use crate::{EvalError, Result};
@@ -21,6 +22,9 @@ pub struct GraphContext {
     /// Current revision to read at
     pub revision: Revision,
 
+    /// Vault ID for multi-tenant isolation
+    pub vault_id: Uuid,
+
     /// Visited nodes for cycle detection
     pub visited: HashSet<String>,
 
@@ -29,11 +33,12 @@ pub struct GraphContext {
 }
 
 impl GraphContext {
-    pub fn new(schema: Arc<Schema>, store: Arc<dyn RelationshipStore>, revision: Revision) -> Self {
+    pub fn new(schema: Arc<Schema>, store: Arc<dyn RelationshipStore>, revision: Revision, vault_id: Uuid) -> Self {
         Self {
             schema,
             store,
             revision,
+            vault_id,
             visited: HashSet::new(),
             max_depth: 100, // Prevent infinite recursion
         }
@@ -69,6 +74,7 @@ impl GraphContext {
 /// This checks both for exact subject matches and wildcard matches
 pub async fn has_direct_relationship(
     store: &dyn RelationshipStore,
+    vault_id: Uuid,
     resource: &str,
     relation: &str,
     subject: &str,
@@ -81,7 +87,7 @@ pub async fn has_direct_relationship(
         subject: Some(subject.to_string()),
     };
 
-    let relationships = store.read(&key, revision).await?;
+    let relationships = store.read(vault_id, &key, revision).await?;
     if !relationships.is_empty() {
         return Ok(true);
     }
@@ -96,7 +102,7 @@ pub async fn has_direct_relationship(
             subject: Some(wildcard_subject),
         };
 
-        let wildcard_relationships = store.read(&wildcard_key, revision).await?;
+        let wildcard_relationships = store.read(vault_id, &wildcard_key, revision).await?;
         if !wildcard_relationships.is_empty() {
             return Ok(true);
         }
@@ -108,6 +114,7 @@ pub async fn has_direct_relationship(
 /// Get all users with a specific relation on an object
 pub async fn get_users_with_relation(
     store: &dyn RelationshipStore,
+    vault_id: Uuid,
     resource: &str,
     relation: &str,
     revision: Revision,
@@ -118,7 +125,7 @@ pub async fn get_users_with_relation(
         subject: None,
     };
 
-    let relationships = store.read(&key, revision).await?;
+    let relationships = store.read(vault_id, &key, revision).await?;
     Ok(relationships.into_iter().map(|t| t.subject).collect())
 }
 
@@ -127,6 +134,7 @@ pub async fn get_users_with_relation(
 /// the same relation for many objects (e.g., ComputedUserset, RelatedObjectUserset)
 pub async fn prefetch_users_batch(
     store: &dyn RelationshipStore,
+    vault_id: Uuid,
     objects: &[String],
     relation: &str,
     revision: Revision,
@@ -140,7 +148,7 @@ pub async fn prefetch_users_batch(
             let obj = object.clone();
             let rel = relation.to_string();
             async move {
-                let users = get_users_with_relation(store, &obj, &rel, revision).await?;
+                let users = get_users_with_relation(store, vault_id, &obj, &rel, revision).await?;
                 Ok::<_, crate::EvalError>((obj, users))
             }
         })
@@ -200,7 +208,7 @@ pub async fn resolve_userset(
         users = evaluate_relation_expr(resource, relation, &expr_clone, ctx).await?;
     } else {
         let direct_users =
-            get_users_with_relation(&*ctx.store, resource, relation, ctx.revision).await?;
+            get_users_with_relation(&*ctx.store, ctx.vault_id, resource, relation, ctx.revision).await?;
         users.extend(direct_users);
     }
 
@@ -220,7 +228,7 @@ async fn evaluate_relation_expr(
         RelationExpr::This => {
             // Direct relationships for the current relation
             let direct_users =
-                get_users_with_relation(&*ctx.store, resource, relation, ctx.revision).await?;
+                get_users_with_relation(&*ctx.store, ctx.vault_id, resource, relation, ctx.revision).await?;
             Ok(direct_users.into_iter().collect())
         }
 
@@ -235,7 +243,7 @@ async fn evaluate_relation_expr(
         } => {
             // Get objects from relationship, then compute relation on each
             let related_objects =
-                get_users_with_relation(&*ctx.store, resource, relationship, ctx.revision).await?;
+                get_users_with_relation(&*ctx.store, ctx.vault_id, resource, relationship, ctx.revision).await?;
 
             let mut users = HashSet::new();
             for obj in related_objects {
@@ -251,7 +259,7 @@ async fn evaluate_relation_expr(
         } => {
             // Get objects from relationship, evaluate computed relation on each
             let related_objects =
-                get_users_with_relation(&*ctx.store, resource, relationship, ctx.revision).await?;
+                get_users_with_relation(&*ctx.store, ctx.vault_id, resource, relationship, ctx.revision).await?;
 
             let mut users = HashSet::new();
             for obj in related_objects {

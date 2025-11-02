@@ -8,6 +8,14 @@ use infera_types::{Relationship, RelationshipKey, Revision};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
+use uuid::Uuid;
+
+/// Get the vault ID for REPL operations
+/// TODO(Phase 2): Allow users to specify vault via REPL command
+/// For Phase 1, we use a nil UUID as a placeholder for the default vault
+fn get_vault_id() -> Uuid {
+    Uuid::nil()
+}
 
 /// Snapshot reader for consistent reads at a specific revision
 pub struct SnapshotReader {
@@ -71,11 +79,11 @@ impl SnapshotReader {
     ) -> Result<Vec<Relationship>> {
         // Poll until the store has reached the target revision
         loop {
-            let current_revision = self.store.get_revision().await?;
+            let current_revision = self.store.get_revision(get_vault_id()).await?;
 
             if current_revision >= target_revision {
                 // Revision is available, perform the read
-                let relationships = self.store.read(key, target_revision).await?;
+                let relationships = self.store.read(get_vault_id(), key, target_revision).await?;
                 return Ok(relationships);
             }
 
@@ -86,14 +94,14 @@ impl SnapshotReader {
 
     /// Read relationships at the current revision
     pub async fn read_current(&self, key: &RelationshipKey) -> Result<Vec<Relationship>> {
-        let current_revision = self.store.get_revision().await?;
-        let relationships = self.store.read(key, current_revision).await?;
+        let current_revision = self.store.get_revision(get_vault_id()).await?;
+        let relationships = self.store.read(get_vault_id(), key, current_revision).await?;
         Ok(relationships)
     }
 
     /// Get the current revision as a token
     pub async fn current_token(&self, node_id: String) -> Result<RevisionToken> {
-        let revision = self.store.get_revision().await?;
+        let revision = self.store.get_revision(get_vault_id()).await?;
         Ok(RevisionToken::new(node_id, revision.0))
     }
 }

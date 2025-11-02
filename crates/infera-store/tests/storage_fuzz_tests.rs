@@ -7,6 +7,12 @@ use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Relationship, RelationshipKey, Revision};
 use proptest::prelude::*;
 use std::sync::Arc;
+use uuid::Uuid;
+
+// Test vault ID for all fuzz tests
+fn test_vault_id() -> Uuid {
+    Uuid::from_u128(0x0123456789abcdef0123456789abcdef)
+}
 
 /// Generate arbitrary relationship data
 fn arb_relationship() -> impl Strategy<Value = Relationship> {
@@ -35,6 +41,7 @@ fn arb_relationship() -> impl Strategy<Value = Relationship> {
         ],
     )
         .prop_map(|(resource, relation, subject)| Relationship {
+            vault_id: test_vault_id(),
             resource,
             relation,
             subject,
@@ -52,7 +59,7 @@ proptest! {
             let store = Arc::new(MemoryBackend::new());
 
             // Write should not panic, even with invalid data
-            let result = store.write(relationships.clone()).await;
+            let result = store.write(test_vault_id(), relationships.clone()).await;
 
             // We expect either success or a clean error
             // Panics are not acceptable
@@ -88,7 +95,7 @@ proptest! {
             let store = Arc::new(MemoryBackend::new());
 
             // Get current revision
-            let revision = store.get_revision().await.unwrap_or(Revision(0));
+            let revision = store.get_revision(test_vault_id()).await.unwrap_or(Revision(0));
 
             // Create relationship key
             let key = RelationshipKey {
@@ -98,7 +105,7 @@ proptest! {
             };
 
             // Read should not panic
-            let result = store.read(&key, revision).await;
+            let result = store.read(test_vault_id(), &key, revision).await;
 
             // Should return Ok (possibly empty results) or a clean error
             match result {
@@ -140,7 +147,7 @@ proptest! {
             };
 
             // Delete should not panic
-            let result = store.delete(&key).await;
+            let result = store.delete(test_vault_id(), &key).await;
 
             match result {
                 Ok(revision) => {
@@ -168,11 +175,11 @@ proptest! {
             let store2 = store.clone();
 
             let handle1 = tokio::spawn(async move {
-                store1.write(batch1).await
+                store1.write(test_vault_id(), batch1).await
             });
 
             let handle2 = tokio::spawn(async move {
-                store2.write(batch2).await
+                store2.write(test_vault_id(), batch2).await
             });
 
             // Both should complete without panicking
@@ -198,12 +205,13 @@ proptest! {
 
             // Write some data first
             let relationship = Relationship {
+                vault_id: test_vault_id(),
                 resource: resource.clone(),
                 relation: relation.clone(),
                 subject: "user:test".to_string(),
             };
 
-            if let Ok(write_rev) = store.write(vec![relationship]).await {
+            if let Ok(write_rev) = store.write(test_vault_id(), vec![relationship]).await {
                 // Try reading at various revisions
                 let read_rev = write_rev.0.saturating_sub(revision_offset);
 
@@ -214,7 +222,7 @@ proptest! {
                     subject: None,
                 };
 
-                let result = store.read(&key, Revision(read_rev)).await;
+                let result = store.read(test_vault_id(), &key, Revision(read_rev)).await;
 
                 // Should not panic
                 match result {
@@ -238,6 +246,7 @@ proptest! {
 
             let relationships: Vec<Relationship> = (0..size)
                 .map(|i| Relationship {
+                    vault_id: test_vault_id(),
                     resource: format!("obj{}", i),
                     relation: "rel".to_string(),
                     subject: format!("user{}", i),
@@ -245,7 +254,7 @@ proptest! {
                 .collect();
 
             // Large batch should not crash (though it might error on limits)
-            let result = store.write(relationships).await;
+            let result = store.write(test_vault_id(), relationships).await;
 
             match result {
                 Ok(rev) => {
@@ -269,7 +278,7 @@ proptest! {
             let relationships = vec![relationship; count];
 
             // Should handle duplicates gracefully
-            let result = store.write(relationships).await;
+            let result = store.write(test_vault_id(), relationships).await;
 
             match result {
                 Ok(_) => {
@@ -301,13 +310,14 @@ proptest! {
             }
 
             let relationship = Relationship {
+                vault_id: test_vault_id(),
                 resource,
                 relation: "rel".to_string(),
                 subject: "user:test".to_string(),
             };
 
             // Should not crash
-            let result = store.write(vec![relationship]).await;
+            let result = store.write(test_vault_id(), vec![relationship]).await;
 
             match result {
                 Ok(_) => {}
@@ -333,13 +343,14 @@ proptest! {
             let store = Arc::new(MemoryBackend::new());
 
             let relationship = Relationship {
+                vault_id: test_vault_id(),
                 resource: "obj:test".to_string(),
                 relation: "viewer".to_string(),
                 subject: pattern.to_string(),
             };
 
             // Wildcards should be handled correctly
-            let result = store.write(vec![relationship]).await;
+            let result = store.write(test_vault_id(), vec![relationship]).await;
 
             match result {
                 Ok(_) => {
@@ -357,6 +368,7 @@ proptest! {
     fn fuzz_mixed_operations(
         valid_relationships in prop::collection::vec(
             (1usize..100, 1usize..50, 1usize..100).prop_map(|(o, r, u)| Relationship {
+                vault_id: test_vault_id(),
                 resource: format!("obj{}", o),
                 relation: format!("rel{}", r),
                 subject: format!("user{}", u),
@@ -373,7 +385,7 @@ proptest! {
             all_relationships.extend(invalid_relationships);
 
             // Mixed batch should not panic
-            let result = store.write(all_relationships).await;
+            let result = store.write(test_vault_id(), all_relationships).await;
 
             match result {
                 Ok(_) => {
@@ -398,13 +410,14 @@ mod integration_tests {
 
         // Empty fields
         let relationship = Relationship {
+            vault_id: test_vault_id(),
             resource: "".to_string(),
             relation: "".to_string(),
             subject: "".to_string(),
         };
 
         // Should not crash (may error)
-        let _ = store.write(vec![relationship]).await;
+        let _ = store.write(test_vault_id(), vec![relationship]).await;
     }
 
     #[tokio::test]
@@ -413,13 +426,14 @@ mod integration_tests {
 
         // Very long fields
         let relationship = Relationship {
+            vault_id: test_vault_id(),
             resource: "a".repeat(100000),
             relation: "b".repeat(100000),
             subject: "c".repeat(100000),
         };
 
         // Should not crash (may error on size limits)
-        let _ = store.write(vec![relationship]).await;
+        let _ = store.write(test_vault_id(), vec![relationship]).await;
     }
 
     #[tokio::test]
@@ -433,11 +447,12 @@ mod integration_tests {
             let store_clone = store.clone();
             handles.push(tokio::spawn(async move {
                 let relationship = Relationship {
+                    vault_id: test_vault_id(),
                     resource: format!("obj{}", i),
                     relation: "rel".to_string(),
                     subject: format!("user{}", i),
                 };
-                store_clone.write(vec![relationship]).await
+                store_clone.write(test_vault_id(), vec![relationship]).await
             }));
         }
 
@@ -448,7 +463,7 @@ mod integration_tests {
         }
 
         // Data should be consistent
-        let current_rev = store.get_revision().await.unwrap();
+        let current_rev = store.get_revision(test_vault_id()).await.unwrap();
         assert!(current_rev.0 >= 100, "Should have at least 100 revisions");
     }
 
@@ -458,22 +473,24 @@ mod integration_tests {
 
         // Try to cause errors with invalid data
         let invalid_relationship = Relationship {
+            vault_id: test_vault_id(),
             resource: "'; DROP TABLE relationships; --".to_string(),
             relation: "../../etc/passwd".to_string(),
             subject: "<script>alert('xss')</script>".to_string(),
         };
 
         // Should handle gracefully
-        let _ = store.write(vec![invalid_relationship]).await;
+        let _ = store.write(test_vault_id(), vec![invalid_relationship]).await;
 
         // Storage should still be functional
         let valid_relationship = Relationship {
+            vault_id: test_vault_id(),
             resource: "obj:test".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
 
-        let result = store.write(vec![valid_relationship]).await;
+        let result = store.write(test_vault_id(), vec![valid_relationship]).await;
         assert!(result.is_ok(), "Storage should recover from errors");
     }
 }

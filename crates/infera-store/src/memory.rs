@@ -1,15 +1,16 @@
-//! In-memory storage backend for testing and development
+//! In-memory storage backend for testing and development with multi-tenant support
 
 use async_trait::async_trait;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
 use crate::{
-    MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore, Result, Revision,
-    StoreMetrics,
+    AccountStore, MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore,
+    Result, Revision, StoreMetrics, VaultStore,
 };
-use infera_types::{ChangeEvent, DeleteFilter, StoreError};
+use infera_types::{Account, ChangeEvent, DeleteFilter, StoreError, SystemConfig, Vault};
 
 /// A versioned relationship with its creation revision
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,26 +20,21 @@ struct VersionedRelationship {
     deleted_at: Option<Revision>,
 }
 
-/// In-memory relationship store implementation with full indexing and revision support
-pub struct MemoryBackend {
-    data: Arc<RwLock<MemoryStore>>,
-    metrics: Arc<StoreMetrics>,
-}
-
-struct MemoryStore {
+/// Storage for a single vault's data
+struct VaultData {
     /// Primary storage: all relationships with their version history
     relationships: Vec<VersionedRelationship>,
 
-    /// Index by (object, relation) for fast lookups
+    /// Index by (resource, relation) for fast lookups
     resource_relation_index: HashMap<(String, String), Vec<usize>>,
 
-    /// Index by (user, relation) for reverse lookups
+    /// Index by (subject, relation) for reverse lookups
     subject_relation_index: HashMap<(String, String), Vec<usize>>,
 
-    /// Index by object for wildcard queries
+    /// Index by resource for wildcard queries
     resource_index: HashMap<String, Vec<usize>>,
 
-    /// Current revision number
+    /// Current revision number for this vault
     revision: Revision,
 
     /// Revision history for garbage collection
@@ -48,41 +44,79 @@ struct MemoryStore {
     change_log: BTreeMap<Revision, Vec<ChangeEvent>>,
 }
 
+impl VaultData {
+    fn new() -> Self {
+        Self {
+            relationships: Vec::new(),
+            resource_relation_index: HashMap::new(),
+            subject_relation_index: HashMap::new(),
+            resource_index: HashMap::new(),
+            revision: Revision::zero(),
+            revision_history: BTreeMap::new(),
+            change_log: BTreeMap::new(),
+        }
+    }
+}
+
+/// In-memory relationship store implementation with full indexing, revision support, and multi-tenancy
+pub struct MemoryBackend {
+    data: Arc<RwLock<MemoryData>>,
+    metrics: Arc<StoreMetrics>,
+}
+
+struct MemoryData {
+    /// Vault-partitioned relationship storage
+    vaults_data: HashMap<Uuid, VaultData>,
+
+    /// Account storage
+    accounts: HashMap<Uuid, Account>,
+
+    /// Vault storage
+    vaults: HashMap<Uuid, Vault>,
+
+    /// System configuration (default vault info)
+    system_config: Option<SystemConfig>,
+}
+
 impl MemoryBackend {
     pub fn new() -> Self {
         Self {
-            data: Arc::new(RwLock::new(MemoryStore {
-                relationships: Vec::new(),
-                resource_relation_index: HashMap::new(),
-                subject_relation_index: HashMap::new(),
-                resource_index: HashMap::new(),
-                revision: Revision::zero(),
-                revision_history: BTreeMap::new(),
-                change_log: BTreeMap::new(),
+            data: Arc::new(RwLock::new(MemoryData {
+                vaults_data: HashMap::new(),
+                accounts: HashMap::new(),
+                vaults: HashMap::new(),
+                system_config: None,
             })),
             metrics: Arc::new(StoreMetrics::new()),
         }
     }
 
-    /// Collect garbage for revisions older than the given revision
-    pub async fn gc_before(&self, before: Revision) -> Result<usize> {
-        let mut store = self.data.write().await;
+    /// Collect garbage for revisions older than the given revision in a specific vault
+    pub async fn gc_before(&self, vault_id: Uuid, before: Revision) -> Result<usize> {
+        let mut data = self.data.write().await;
         let mut removed = 0;
 
-        // Remove old revisions from history
-        let old_revisions: Vec<_> = store
-            .revision_history
-            .range(..before)
-            .map(|(rev, _)| *rev)
-            .collect();
+        if let Some(vault_data) = data.vaults_data.get_mut(&vault_id) {
+            // Remove old revisions from history
+            let old_revisions: Vec<_> = vault_data
+                .revision_history
+                .range(..before)
+                .map(|(rev, _)| *rev)
+                .collect();
 
-        for rev in old_revisions {
-            if let Some(indices) = store.revision_history.remove(&rev) {
-                removed += indices.len();
+            for rev in old_revisions {
+                if let Some(indices) = vault_data.revision_history.remove(&rev) {
+                    removed += indices.len();
+                }
             }
         }
 
         Ok(removed)
+    }
+
+    /// Get or create vault data
+    fn get_or_create_vault_data(data: &mut MemoryData, vault_id: Uuid) -> &mut VaultData {
+        data.vaults_data.entry(vault_id).or_insert_with(VaultData::new)
     }
 }
 
@@ -92,30 +126,196 @@ impl Default for MemoryBackend {
     }
 }
 
+// ============================================================================
+// AccountStore Implementation
+// ============================================================================
+
+#[async_trait]
+impl AccountStore for MemoryBackend {
+    async fn create_account(&self, account: Account) -> Result<Account> {
+        let mut data = self.data.write().await;
+
+        // Check for duplicate ID
+        if data.accounts.contains_key(&account.id) {
+            return Err(StoreError::Conflict);
+        }
+
+        data.accounts.insert(account.id, account.clone());
+        Ok(account)
+    }
+
+    async fn get_account(&self, id: Uuid) -> Result<Option<Account>> {
+        let data = self.data.read().await;
+        Ok(data.accounts.get(&id).cloned())
+    }
+
+    async fn list_accounts(&self, limit: Option<usize>) -> Result<Vec<Account>> {
+        let data = self.data.read().await;
+        let mut accounts: Vec<_> = data.accounts.values().cloned().collect();
+        accounts.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+
+        if let Some(limit) = limit {
+            accounts.truncate(limit);
+        }
+
+        Ok(accounts)
+    }
+
+    async fn delete_account(&self, id: Uuid) -> Result<()> {
+        let mut data = self.data.write().await;
+
+        // Find and delete all vaults owned by this account
+        let vault_ids: Vec<_> = data
+            .vaults
+            .iter()
+            .filter(|(_, v)| v.account_id == id)
+            .map(|(id, _)| *id)
+            .collect();
+
+        // Delete vault data
+        for vault_id in vault_ids {
+            data.vaults.remove(&vault_id);
+            data.vaults_data.remove(&vault_id);
+        }
+
+        // Delete account
+        data.accounts
+            .remove(&id)
+            .ok_or(StoreError::NotFound)?;
+
+        Ok(())
+    }
+
+    async fn update_account(&self, account: Account) -> Result<Account> {
+        let mut data = self.data.write().await;
+
+        if !data.accounts.contains_key(&account.id) {
+            return Err(StoreError::NotFound);
+        }
+
+        data.accounts.insert(account.id, account.clone());
+        Ok(account)
+    }
+}
+
+// ============================================================================
+// VaultStore Implementation
+// ============================================================================
+
+#[async_trait]
+impl VaultStore for MemoryBackend {
+    async fn create_vault(&self, vault: Vault) -> Result<Vault> {
+        let mut data = self.data.write().await;
+
+        // Check for duplicate ID
+        if data.vaults.contains_key(&vault.id) {
+            return Err(StoreError::Conflict);
+        }
+
+        // Verify account exists
+        if !data.accounts.contains_key(&vault.account_id) {
+            return Err(StoreError::Internal(
+                "Account does not exist".to_string(),
+            ));
+        }
+
+        data.vaults.insert(vault.id, vault.clone());
+        // Initialize vault data
+        data.vaults_data.insert(vault.id, VaultData::new());
+
+        Ok(vault)
+    }
+
+    async fn get_vault(&self, id: Uuid) -> Result<Option<Vault>> {
+        let data = self.data.read().await;
+        Ok(data.vaults.get(&id).cloned())
+    }
+
+    async fn list_vaults_for_account(&self, account_id: Uuid) -> Result<Vec<Vault>> {
+        let data = self.data.read().await;
+        let vaults: Vec<_> = data
+            .vaults
+            .values()
+            .filter(|v| v.account_id == account_id)
+            .cloned()
+            .collect();
+        Ok(vaults)
+    }
+
+    async fn delete_vault(&self, id: Uuid) -> Result<()> {
+        let mut data = self.data.write().await;
+
+        // Delete vault and its data
+        data.vaults.remove(&id).ok_or(StoreError::NotFound)?;
+        data.vaults_data.remove(&id);
+
+        Ok(())
+    }
+
+    async fn update_vault(&self, vault: Vault) -> Result<Vault> {
+        let mut data = self.data.write().await;
+
+        if !data.vaults.contains_key(&vault.id) {
+            return Err(StoreError::NotFound);
+        }
+
+        data.vaults.insert(vault.id, vault.clone());
+        Ok(vault)
+    }
+
+    async fn get_system_config(&self) -> Result<Option<SystemConfig>> {
+        let data = self.data.read().await;
+        Ok(data.system_config.clone())
+    }
+
+    async fn set_system_config(&self, config: SystemConfig) -> Result<()> {
+        let mut data = self.data.write().await;
+        data.system_config = Some(config);
+        Ok(())
+    }
+}
+
+// ============================================================================
+// RelationshipStore Implementation
+// ============================================================================
+
 #[async_trait]
 impl RelationshipStore for MemoryBackend {
-    async fn read(&self, key: &RelationshipKey, revision: Revision) -> Result<Vec<Relationship>> {
+    async fn read(
+        &self,
+        vault_id: Uuid,
+        key: &RelationshipKey,
+        revision: Revision,
+    ) -> Result<Vec<Relationship>> {
         let timer = OpTimer::new();
-        let store = self.data.read().await;
+        let data = self.data.read().await;
+
+        let vault_data = match data.vaults_data.get(&vault_id) {
+            Some(vd) => vd,
+            None => {
+                self.metrics.record_read(timer.elapsed(), false);
+                return Ok(Vec::new());
+            }
+        };
 
         // Find matching relationship indices
-        let indices = if let Some(user) = &key.subject {
-            // Specific user query
-            store
+        let indices = if let Some(subject) = &key.subject {
+            // Specific subject query
+            vault_data
                 .resource_relation_index
                 .get(&(key.resource.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
                 .iter()
                 .filter(|&&idx| {
-                    let vt = &store.relationships[idx];
-                    vt.relationship.subject == *user
+                    let vt = &vault_data.relationships[idx];
+                    vt.relationship.subject == *subject
                 })
                 .copied()
                 .collect::<Vec<_>>()
         } else {
-            // All users for this object+relation
-            store
+            // All subjects for this resource+relation
+            vault_data
                 .resource_relation_index
                 .get(&(key.resource.clone(), key.relation.clone()))
                 .cloned()
@@ -126,7 +326,7 @@ impl RelationshipStore for MemoryBackend {
         let relationships = indices
             .iter()
             .filter_map(|&idx| {
-                let vt = &store.relationships[idx];
+                let vt = &vault_data.relationships[idx];
                 // Include if created before or at revision and not deleted before or at revision
                 if vt.created_at <= revision
                     && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
@@ -142,13 +342,24 @@ impl RelationshipStore for MemoryBackend {
         Ok(relationships)
     }
 
-    async fn write(&self, relationships: Vec<Relationship>) -> Result<Revision> {
+    async fn write(&self, vault_id: Uuid, relationships: Vec<Relationship>) -> Result<Revision> {
         let timer = OpTimer::new();
-        let mut store = self.data.write().await;
+        let mut data = self.data.write().await;
+
+        // Verify all relationships have correct vault_id
+        for rel in &relationships {
+            if rel.vault_id != vault_id {
+                return Err(StoreError::Internal(
+                    "Relationship vault_id does not match requested vault_id".to_string(),
+                ));
+            }
+        }
+
+        let vault_data = Self::get_or_create_vault_data(&mut data, vault_id);
 
         // Increment revision
-        store.revision = store.revision.next();
-        let current_revision = store.revision;
+        vault_data.revision = vault_data.revision.next();
+        let current_revision = vault_data.revision;
 
         let mut new_indices = Vec::new();
 
@@ -171,14 +382,14 @@ impl RelationshipStore for MemoryBackend {
 
             // Check for duplicates at current revision
             let key = (relationship.resource.clone(), relationship.relation.clone());
-            let existing_indices = store
+            let existing_indices = vault_data
                 .resource_relation_index
                 .get(&key)
                 .cloned()
                 .unwrap_or_default();
 
             let is_duplicate = existing_indices.iter().any(|&idx| {
-                let vt = &store.relationships[idx];
+                let vt = &vault_data.relationships[idx];
                 vt.relationship.subject == relationship.subject && vt.deleted_at.is_none()
             });
 
@@ -191,30 +402,30 @@ impl RelationshipStore for MemoryBackend {
             batch_relationships.insert(relationship_key);
 
             // Add new versioned relationship
-            let idx = store.relationships.len();
+            let idx = vault_data.relationships.len();
             let versioned = VersionedRelationship {
                 relationship: relationship.clone(),
                 created_at: current_revision,
                 deleted_at: None,
             };
 
-            store.relationships.push(versioned);
+            vault_data.relationships.push(versioned);
             new_indices.push(idx);
 
             // Update indices
-            store
+            vault_data
                 .resource_relation_index
                 .entry(key.clone())
                 .or_insert_with(Vec::new)
                 .push(idx);
 
-            store
+            vault_data
                 .subject_relation_index
                 .entry((relationship.subject.clone(), relationship.relation.clone()))
                 .or_insert_with(Vec::new)
                 .push(idx);
 
-            store
+            vault_data
                 .resource_index
                 .entry(relationship.resource.clone())
                 .or_insert_with(Vec::new)
@@ -227,7 +438,7 @@ impl RelationshipStore for MemoryBackend {
                 .as_nanos() as i64;
             let change_event =
                 ChangeEvent::create(relationship.clone(), current_revision, timestamp_nanos);
-            store
+            vault_data
                 .change_log
                 .entry(current_revision)
                 .or_insert_with(Vec::new)
@@ -235,54 +446,62 @@ impl RelationshipStore for MemoryBackend {
         }
 
         // Track revision history
-        store.revision_history.insert(current_revision, new_indices);
+        vault_data
+            .revision_history
+            .insert(current_revision, new_indices);
 
         // Update metrics
         let relationship_bytes: usize = batch_relationships.len() * 64; // Approximate bytes per relationship
         self.metrics.record_write(timer.elapsed(), false);
         self.metrics
-            .update_key_space(store.relationships.len() as u64, relationship_bytes as u64);
+            .update_key_space(vault_data.relationships.len() as u64, relationship_bytes as u64);
 
         Ok(current_revision)
     }
 
-    async fn get_revision(&self) -> Result<Revision> {
-        let store = self.data.read().await;
-        Ok(store.revision)
+    async fn get_revision(&self, vault_id: Uuid) -> Result<Revision> {
+        let data = self.data.read().await;
+        Ok(data
+            .vaults_data
+            .get(&vault_id)
+            .map(|vd| vd.revision)
+            .unwrap_or(Revision::zero()))
     }
 
-    async fn delete(&self, key: &RelationshipKey) -> Result<Revision> {
+    async fn delete(&self, vault_id: Uuid, key: &RelationshipKey) -> Result<Revision> {
         let timer = OpTimer::new();
-        let mut store = self.data.write().await;
+        let mut data = self.data.write().await;
+
+        let vault_data = Self::get_or_create_vault_data(&mut data, vault_id);
 
         // Increment revision
-        store.revision = store.revision.next();
-        let current_revision = store.revision;
+        vault_data.revision = vault_data.revision.next();
+        let current_revision = vault_data.revision;
 
         // Find relationships to delete
-        let indices = if let Some(user) = &key.subject {
-            // Delete specific user
-            store
+        let indices = if let Some(subject) = &key.subject {
+            // Delete specific subject
+            vault_data
                 .resource_relation_index
                 .get(&(key.resource.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
                 .iter()
                 .filter(|&&idx| {
-                    let vt = &store.relationships[idx];
-                    vt.relationship.subject == *user && vt.deleted_at.is_none()
+                    let vt = &vault_data.relationships[idx];
+                    vt.relationship.subject == *subject && vt.deleted_at.is_none()
                 })
                 .copied()
                 .collect::<Vec<_>>()
         } else {
-            // Delete all users for this object+relation
-            store
+            // Delete all subjects for this resource+relation
+            vault_data
                 .resource_relation_index
                 .get(&(key.resource.clone(), key.relation.clone()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[])
                 .iter()
-                .filter(|&&idx| store.relationships[idx].deleted_at.is_none())
+                .filter(|&&idx| vault_data.relationships[idx].deleted_at.is_none())
                 .copied()
                 .collect::<Vec<_>>()
         };
@@ -295,12 +514,12 @@ impl RelationshipStore for MemoryBackend {
 
         // Mark relationships as deleted and append change events
         for idx in indices {
-            let relationship = store.relationships[idx].relationship.clone();
-            store.relationships[idx].deleted_at = Some(current_revision);
+            let relationship = vault_data.relationships[idx].relationship.clone();
+            vault_data.relationships[idx].deleted_at = Some(current_revision);
 
             // Append change event to change log
             let change_event = ChangeEvent::delete(relationship, current_revision, timestamp_nanos);
-            store
+            vault_data
                 .change_log
                 .entry(current_revision)
                 .or_insert_with(Vec::new)
@@ -314,6 +533,7 @@ impl RelationshipStore for MemoryBackend {
 
     async fn delete_by_filter(
         &self,
+        vault_id: Uuid,
         filter: &DeleteFilter,
         limit: Option<usize>,
     ) -> Result<(Revision, usize)> {
@@ -326,16 +546,17 @@ impl RelationshipStore for MemoryBackend {
             ));
         }
 
-        let mut store = self.data.write().await;
+        let mut data = self.data.write().await;
+        let vault_data = Self::get_or_create_vault_data(&mut data, vault_id);
 
         // Increment revision
-        store.revision = store.revision.next();
-        let current_revision = store.revision;
+        vault_data.revision = vault_data.revision.next();
+        let current_revision = vault_data.revision;
 
         // Find all relationships matching the filter
         let mut matching_indices = Vec::new();
 
-        for (idx, versioned) in store.relationships.iter().enumerate() {
+        for (idx, versioned) in vault_data.relationships.iter().enumerate() {
             // Skip already deleted
             if versioned.deleted_at.is_some() {
                 continue;
@@ -349,23 +570,23 @@ impl RelationshipStore for MemoryBackend {
                 (Some(res), Some(rel_name), Some(sub)) => {
                     rel.resource == *res && rel.relation == *rel_name && rel.subject == *sub
                 }
-                // Resource + Relation
+                // Resource and relation
                 (Some(res), Some(rel_name), None) => {
                     rel.resource == *res && rel.relation == *rel_name
                 }
-                // Resource + Subject
+                // Resource and subject
                 (Some(res), None, Some(sub)) => rel.resource == *res && rel.subject == *sub,
-                // Relation + Subject
+                // Relation and subject
                 (None, Some(rel_name), Some(sub)) => {
                     rel.relation == *rel_name && rel.subject == *sub
                 }
-                // Resource only
+                // Only resource
                 (Some(res), None, None) => rel.resource == *res,
-                // Relation only
+                // Only relation
                 (None, Some(rel_name), None) => rel.relation == *rel_name,
-                // Subject only (user offboarding)
+                // Only subject
                 (None, None, Some(sub)) => rel.subject == *sub,
-                // None (should be caught by filter.is_empty())
+                // None specified (already checked above)
                 (None, None, None) => false,
             };
 
@@ -373,8 +594,8 @@ impl RelationshipStore for MemoryBackend {
                 matching_indices.push(idx);
 
                 // Check limit
-                if let Some(lim) = limit {
-                    if lim > 0 && matching_indices.len() >= lim {
+                if let Some(limit) = limit {
+                    if matching_indices.len() >= limit {
                         break;
                     }
                 }
@@ -391,12 +612,12 @@ impl RelationshipStore for MemoryBackend {
 
         // Mark relationships as deleted and append change events
         for idx in matching_indices {
-            let relationship = store.relationships[idx].relationship.clone();
-            store.relationships[idx].deleted_at = Some(current_revision);
+            let relationship = vault_data.relationships[idx].relationship.clone();
+            vault_data.relationships[idx].deleted_at = Some(current_revision);
 
             // Append change event to change log
             let change_event = ChangeEvent::delete(relationship, current_revision, timestamp_nanos);
-            store
+            vault_data
                 .change_log
                 .entry(current_revision)
                 .or_insert_with(Vec::new)
@@ -410,150 +631,94 @@ impl RelationshipStore for MemoryBackend {
 
     async fn list_resources_by_type(
         &self,
-        object_type: &str,
+        vault_id: Uuid,
+        resource_type: &str,
         revision: Revision,
     ) -> Result<Vec<String>> {
         let timer = OpTimer::new();
-        let store = self.data.read().await;
+        let data = self.data.read().await;
 
-        // Build the type prefix (e.g., "document:")
-        let type_prefix = format!("{}:", object_type);
+        let vault_data = match data.vaults_data.get(&vault_id) {
+            Some(vd) => vd,
+            None => {
+                self.metrics.record_read(timer.elapsed(), false);
+                return Ok(Vec::new());
+            }
+        };
 
-        // Collect unique objects that match the type prefix and have active relationships at this revision
-        let mut objects = std::collections::HashSet::new();
+        let prefix = format!("{}:", resource_type);
+        let mut resources = std::collections::HashSet::new();
 
-        for (object, indices) in &store.resource_index {
-            // Check if object matches the type prefix
-            if object.starts_with(&type_prefix) {
-                // Check if this object has any active relationships at the given revision
-                let has_active = indices.iter().any(|&idx| {
-                    let vt = &store.relationships[idx];
-                    vt.created_at <= revision
-                        && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
-                });
+        // Scan all relationships for matching resource type
+        for versioned in &vault_data.relationships {
+            // Skip if not visible at this revision
+            if versioned.created_at > revision
+                || (versioned.deleted_at.is_some() && versioned.deleted_at.unwrap() <= revision)
+            {
+                continue;
+            }
 
-                if has_active {
-                    objects.insert(object.clone());
-                }
+            if versioned.relationship.resource.starts_with(&prefix) {
+                resources.insert(versioned.relationship.resource.clone());
             }
         }
 
-        // Convert to sorted vector for deterministic output
-        let mut result: Vec<String> = objects.into_iter().collect();
-        result.sort();
-
         self.metrics.record_read(timer.elapsed(), false);
-        Ok(result)
+        Ok(resources.into_iter().collect())
     }
 
     async fn list_relationships(
         &self,
+        vault_id: Uuid,
         resource: Option<&str>,
         relation: Option<&str>,
         subject: Option<&str>,
         revision: Revision,
     ) -> Result<Vec<Relationship>> {
         let timer = OpTimer::new();
-        let store = self.data.read().await;
+        let data = self.data.read().await;
 
-        // Map API parameter names to internal relationship field names
-        let object = resource;
-        let user = subject;
-
-        // Collect candidate indices based on available filters
-        let candidate_indices: Vec<usize> = match (object, relation, user) {
-            // All three filters provided - most specific query
-            (Some(obj), Some(rel), Some(usr)) => store
-                .resource_relation_index
-                .get(&(obj.to_string(), rel.to_string()))
-                .map(|v| v.as_slice())
-                .unwrap_or(&[])
-                .iter()
-                .filter(|&&idx| store.relationships[idx].relationship.subject == usr)
-                .copied()
-                .collect(),
-            // Object and relation filters
-            (Some(obj), Some(rel), None) => store
-                .resource_relation_index
-                .get(&(obj.to_string(), rel.to_string()))
-                .cloned()
-                .unwrap_or_default(),
-            // Object filter only
-            (Some(obj), None, None) => store.resource_index.get(obj).cloned().unwrap_or_default(),
-            // User and relation filters
-            (None, Some(rel), Some(usr)) => store
-                .subject_relation_index
-                .get(&(usr.to_string(), rel.to_string()))
-                .cloned()
-                .unwrap_or_default(),
-            // User filter only
-            (None, None, Some(usr)) => {
-                // Need to scan all relationships with this user
-                store
-                    .relationships
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, vt)| vt.relationship.subject == usr)
-                    .map(|(idx, _)| idx)
-                    .collect()
+        let vault_data = match data.vaults_data.get(&vault_id) {
+            Some(vd) => vd,
+            None => {
+                self.metrics.record_read(timer.elapsed(), false);
+                return Ok(Vec::new());
             }
-            // Relation filter only
-            (None, Some(rel), None) => {
-                // Need to scan all relationships with this relation
-                store
-                    .relationships
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, vt)| vt.relationship.relation == rel)
-                    .map(|(idx, _)| idx)
-                    .collect()
-            }
-            // Object and user filters (no relation)
-            (Some(obj), None, Some(usr)) => store
-                .resource_index
-                .get(obj)
-                .map(|v| v.as_slice())
-                .unwrap_or(&[])
-                .iter()
-                .filter(|&&idx| store.relationships[idx].relationship.subject == usr)
-                .copied()
-                .collect(),
-            // No filters - return all relationships
-            (None, None, None) => (0..store.relationships.len()).collect(),
         };
 
-        // Filter by revision and apply any remaining filters
-        let relationships = candidate_indices
+        let relationships: Vec<_> = vault_data
+            .relationships
             .iter()
-            .filter_map(|&idx| {
-                let vt = &store.relationships[idx];
-
-                // Check revision
+            .filter(|vt| {
+                // Check revision visibility
                 if vt.created_at > revision
                     || (vt.deleted_at.is_some() && vt.deleted_at.unwrap() <= revision)
                 {
-                    return None;
+                    return false;
                 }
 
-                // Apply any missing filters (for cases where we couldn't use indexes)
-                if let Some(rel) = relation {
-                    if vt.relationship.relation != rel {
-                        return None;
+                let rel = &vt.relationship;
+
+                // Apply filters
+                if let Some(res) = resource {
+                    if rel.resource != res {
+                        return false;
                     }
                 }
-                if let Some(obj) = object {
-                    if vt.relationship.resource != obj {
-                        return None;
+                if let Some(rel_name) = relation {
+                    if rel.relation != rel_name {
+                        return false;
                     }
                 }
-                if let Some(usr) = user {
-                    if vt.relationship.subject != usr {
-                        return None;
+                if let Some(sub) = subject {
+                    if rel.subject != sub {
+                        return false;
                     }
                 }
 
-                Some(vt.relationship.clone())
+                true
             })
+            .map(|vt| vt.relationship.clone())
             .collect();
 
         self.metrics.record_read(timer.elapsed(), false);
@@ -564,46 +729,53 @@ impl RelationshipStore for MemoryBackend {
         Some(self.metrics.snapshot())
     }
 
-    async fn append_change(&self, event: ChangeEvent) -> Result<()> {
-        let mut store = self.data.write().await;
-        store
+    async fn append_change(&self, vault_id: Uuid, event: ChangeEvent) -> Result<()> {
+        let mut data = self.data.write().await;
+        let vault_data = Self::get_or_create_vault_data(&mut data, vault_id);
+
+        vault_data
             .change_log
             .entry(event.revision)
             .or_insert_with(Vec::new)
             .push(event);
+
         Ok(())
     }
 
     async fn read_changes(
         &self,
+        vault_id: Uuid,
         start_revision: Revision,
         resource_types: &[String],
         limit: Option<usize>,
     ) -> Result<Vec<ChangeEvent>> {
-        let store = self.data.read().await;
+        let data = self.data.read().await;
+
+        let vault_data = match data.vaults_data.get(&vault_id) {
+            Some(vd) => vd,
+            None => return Ok(Vec::new()),
+        };
 
         let mut events = Vec::new();
-        let max_count = limit.unwrap_or(usize::MAX);
 
-        // Iterate through change log starting from start_revision
-        for (_, revision_events) in store.change_log.range(start_revision..) {
-            for event in revision_events {
-                // Filter by resource type if specified
+        for (_, change_events) in vault_data.change_log.range(start_revision..) {
+            for event in change_events {
+                // Filter by resource types if specified
                 if !resource_types.is_empty() {
-                    if let Some(event_type) = event.resource_type() {
-                        if !resource_types.iter().any(|t| t == event_type) {
+                    if let Some(resource_type) = event.resource_type() {
+                        if !resource_types.contains(&resource_type.to_string()) {
                             continue;
                         }
-                    } else {
-                        // Skip events without a valid resource type if filtering is enabled
-                        continue;
                     }
                 }
 
                 events.push(event.clone());
 
-                if events.len() >= max_count {
-                    return Ok(events);
+                // Check limit
+                if let Some(limit) = limit {
+                    if events.len() >= limit {
+                        return Ok(events);
+                    }
                 }
             }
         }
@@ -611,737 +783,166 @@ impl RelationshipStore for MemoryBackend {
         Ok(events)
     }
 
-    async fn get_change_log_revision(&self) -> Result<Revision> {
-        let store = self.data.read().await;
-        Ok(store
+    async fn get_change_log_revision(&self, vault_id: Uuid) -> Result<Revision> {
+        let data = self.data.read().await;
+
+        let vault_data = match data.vaults_data.get(&vault_id) {
+            Some(vd) => vd,
+            None => return Ok(Revision::zero()),
+        };
+
+        Ok(vault_data
             .change_log
             .keys()
-            .next_back()
+            .last()
             .copied()
             .unwrap_or(Revision::zero()))
     }
 }
 
-/// Query patterns for advanced lookups
-impl MemoryBackend {
-    /// Query by user and relation (reverse lookup)
-    pub async fn query_by_user(
-        &self,
-        subject: &str,
-        relation: &str,
-        revision: Revision,
-    ) -> Result<Vec<Relationship>> {
-        let store = self.data.read().await;
-
-        let indices = store
-            .subject_relation_index
-            .get(&(subject.to_string(), relation.to_string()))
-            .cloned()
-            .unwrap_or_default();
-
-        let relationships = indices
-            .iter()
-            .filter_map(|&idx| {
-                let vt = &store.relationships[idx];
-                if vt.created_at <= revision
-                    && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
-                {
-                    Some(vt.relationship.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        Ok(relationships)
-    }
-
-    /// Query all relations for an object
-    pub async fn query_by_object(
-        &self,
-        resource: &str,
-        revision: Revision,
-    ) -> Result<Vec<Relationship>> {
-        let store = self.data.read().await;
-
-        let indices = store
-            .resource_index
-            .get(resource)
-            .cloned()
-            .unwrap_or_default();
-
-        let relationships = indices
-            .iter()
-            .filter_map(|&idx| {
-                let vt = &store.relationships[idx];
-                if vt.created_at <= revision
-                    && (vt.deleted_at.is_none() || vt.deleted_at.unwrap() > revision)
-                {
-                    Some(vt.relationship.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        Ok(relationships)
-    }
-
-    /// Get all unique objects
-    pub async fn get_objects(&self) -> Result<Vec<String>> {
-        let store = self.data.read().await;
-        Ok(store.resource_index.keys().cloned().collect())
-    }
-
-    /// Get statistics about the store
-    pub async fn stats(&self) -> MemoryStats {
-        let store = self.data.read().await;
-
-        let active_relationships = store
-            .relationships
-            .iter()
-            .filter(|vt| vt.deleted_at.is_none())
-            .count();
-
-        MemoryStats {
-            total_relationships: store.relationships.len(),
-            active_relationships,
-            deleted_relationships: store.relationships.len() - active_relationships,
-            current_revision: store.revision,
-            unique_objects: store.resource_index.len(),
-            index_memory: store.resource_relation_index.len()
-                + store.subject_relation_index.len()
-                + store.resource_index.len(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MemoryStats {
-    pub total_relationships: usize,
-    pub active_relationships: usize,
-    pub deleted_relationships: usize,
-    pub current_revision: Revision,
-    pub unique_objects: usize,
-    pub index_memory: usize,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
 
-    #[tokio::test]
-    async fn test_basic_operations() {
-        let store = MemoryBackend::new();
+    async fn create_test_account_and_vault(backend: &MemoryBackend) -> (Account, Vault) {
+        let account = Account::new("Test Account".to_string());
+        let account = backend.create_account(account).await.unwrap();
 
-        let relationship = Relationship {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: "user:alice".to_string(),
-        };
+        let vault = Vault::new(account.id, "Test Vault".to_string());
+        let vault = backend.create_vault(vault).await.unwrap();
 
-        let rev = store.write(vec![relationship.clone()]).await.unwrap();
-        assert_eq!(rev, Revision(1));
-
-        let key = RelationshipKey {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: None,
-        };
-
-        let results = store.read(&key, rev).await.unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0], relationship);
+        (account, vault)
     }
 
     #[tokio::test]
-    async fn test_user_filtering() {
-        let store = MemoryBackend::new();
+    async fn test_vault_isolation() {
+        let backend = MemoryBackend::new();
 
-        let relationships = vec![
-            Relationship {
-                resource: "doc:readme".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:alice".to_string(),
-            },
-            Relationship {
-                resource: "doc:readme".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:bob".to_string(),
-            },
-        ];
+        // Create two accounts with vaults
+        let account1 = Account::new("Account 1".to_string());
+        let account1 = backend.create_account(account1).await.unwrap();
+        let vault1 = Vault::new(account1.id, "Vault 1".to_string());
+        let vault1 = backend.create_vault(vault1).await.unwrap();
 
-        let rev = store.write(relationships).await.unwrap();
+        let account2 = Account::new("Account 2".to_string());
+        let account2 = backend.create_account(account2).await.unwrap();
+        let vault2 = Vault::new(account2.id, "Vault 2".to_string());
+        let vault2 = backend.create_vault(vault2).await.unwrap();
 
-        // Query for all users
-        let key = RelationshipKey {
+        // Write relationships to vault1
+        let rel1 = Relationship {
+            vault_id: vault1.id,
             resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: None,
-        };
-        let results = store.read(&key, rev).await.unwrap();
-        assert_eq!(results.len(), 2);
-
-        // Query for specific user
-        let key = RelationshipKey {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: Some("user:alice".to_string()),
-        };
-        let results = store.read(&key, rev).await.unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].subject, "user:alice");
-    }
-
-    #[tokio::test]
-    async fn test_revision_isolation() {
-        let store = MemoryBackend::new();
-
-        let relationship1 = Relationship {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
+            relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
 
-        let rev1 = store.write(vec![relationship1.clone()]).await.unwrap();
+        backend.write(vault1.id, vec![rel1.clone()]).await.unwrap();
 
-        let relationship2 = Relationship {
+        // Write relationships to vault2
+        let rel2 = Relationship {
+            vault_id: vault2.id,
             resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
+            relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
         };
 
-        let rev2 = store.write(vec![relationship2.clone()]).await.unwrap();
+        backend.write(vault2.id, vec![rel2.clone()]).await.unwrap();
 
+        // Verify vault isolation
         let key = RelationshipKey {
             resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
+            relation: "viewer".to_string(),
             subject: None,
         };
 
-        // Read at rev1 should only see alice
-        let results = store.read(&key, rev1).await.unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].subject, "user:alice");
-
-        // Read at rev2 should see both
-        let results = store.read(&key, rev2).await.unwrap();
-        assert_eq!(results.len(), 2);
-    }
-
-    #[tokio::test]
-    async fn test_delete() {
-        let store = MemoryBackend::new();
-
-        let relationship = Relationship {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: "user:alice".to_string(),
-        };
-
-        let rev1 = store.write(vec![relationship.clone()]).await.unwrap();
-
-        let key = RelationshipKey {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: Some("user:alice".to_string()),
-        };
-
-        let rev2 = store.delete(&key).await.unwrap();
-
-        // Read at rev1 should see the relationship
-        let results = store.read(&key, rev1).await.unwrap();
-        assert_eq!(results.len(), 1);
-
-        // Read at rev2 should not see the relationship
-        let results = store.read(&key, rev2).await.unwrap();
-        assert_eq!(results.len(), 0);
-    }
-
-    #[tokio::test]
-    async fn test_duplicate_prevention() {
-        let store = MemoryBackend::new();
-
-        let relationship = Relationship {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: "user:alice".to_string(),
-        };
-
-        store.write(vec![relationship.clone()]).await.unwrap();
-        let rev = store.write(vec![relationship.clone()]).await.unwrap();
-
-        let key = RelationshipKey {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: None,
-        };
-
-        let results = store.read(&key, rev).await.unwrap();
-        assert_eq!(results.len(), 1); // Should only have one relationship
-    }
-
-    #[tokio::test]
-    async fn test_batch_operations() {
-        let store = MemoryBackend::new();
-
-        let relationships = vec![
-            Relationship {
-                resource: "doc:1".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:alice".to_string(),
-            },
-            Relationship {
-                resource: "doc:2".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:alice".to_string(),
-            },
-            Relationship {
-                resource: "doc:3".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:bob".to_string(),
-            },
-        ];
-
-        let rev = store.write(relationships).await.unwrap();
-
-        // Verify all were written
-        let stats = store.stats().await;
-        assert_eq!(stats.active_relationships, 3);
-        assert_eq!(stats.current_revision, rev);
-    }
-
-    #[tokio::test]
-    async fn test_reverse_lookup() {
-        let store = MemoryBackend::new();
-
-        let relationships = vec![
-            Relationship {
-                resource: "doc:1".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:alice".to_string(),
-            },
-            Relationship {
-                resource: "doc:2".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:alice".to_string(),
-            },
-            Relationship {
-                resource: "doc:3".to_string(),
-                relation: "editor".to_string(),
-                subject: "user:alice".to_string(),
-            },
-        ];
-
-        let rev = store.write(relationships).await.unwrap();
-
-        // Find all documents alice can read
-        let results = store
-            .query_by_user("user:alice", "reader", rev)
+        let vault1_rels = backend
+            .read(vault1.id, &key, Revision(1))
             .await
             .unwrap();
-        assert_eq!(results.len(), 2);
+        assert_eq!(vault1_rels.len(), 1);
+        assert_eq!(vault1_rels[0].subject, "user:alice");
 
-        let objects: HashSet<_> = results.iter().map(|t| &t.resource).collect();
-        assert!(objects.contains(&"doc:1".to_string()));
-        assert!(objects.contains(&"doc:2".to_string()));
+        let vault2_rels = backend
+            .read(vault2.id, &key, Revision(1))
+            .await
+            .unwrap();
+        assert_eq!(vault2_rels.len(), 1);
+        assert_eq!(vault2_rels[0].subject, "user:bob");
+
+        // Verify cross-vault queries return empty
+        let vault1_rels_in_vault2 = backend
+            .read(vault2.id, &key, Revision(1))
+            .await
+            .unwrap();
+        assert!(!vault1_rels_in_vault2.iter().any(|r| r.subject == "user:alice"));
+
+        let vault2_rels_in_vault1 = backend
+            .read(vault1.id, &key, Revision(1))
+            .await
+            .unwrap();
+        assert!(!vault2_rels_in_vault1.iter().any(|r| r.subject == "user:bob"));
     }
 
     #[tokio::test]
-    async fn test_object_query() {
-        let store = MemoryBackend::new();
+    async fn test_account_cascade_delete() {
+        let backend = MemoryBackend::new();
 
-        let relationships = vec![
-            Relationship {
-                resource: "doc:readme".to_string(),
-                relation: "reader".to_string(),
-                subject: "user:alice".to_string(),
-            },
-            Relationship {
-                resource: "doc:readme".to_string(),
-                relation: "editor".to_string(),
-                subject: "user:bob".to_string(),
-            },
-        ];
+        let (account, vault) = create_test_account_and_vault(&backend).await;
 
-        let rev = store.write(relationships).await.unwrap();
-
-        let results = store.query_by_object("doc:readme", rev).await.unwrap();
-        assert_eq!(results.len(), 2);
-    }
-
-    #[tokio::test]
-    async fn test_concurrent_access() {
-        use std::sync::Arc;
-
-        let store = Arc::new(MemoryBackend::new());
-
-        let mut handles = vec![];
-
-        // Spawn multiple writers
-        for i in 0..10 {
-            let store_clone = Arc::clone(&store);
-            let handle = tokio::spawn(async move {
-                let relationship = Relationship {
-                    resource: format!("doc:{}", i),
-                    relation: "reader".to_string(),
-                    subject: "user:alice".to_string(),
-                };
-                store_clone.write(vec![relationship]).await
-            });
-            handles.push(handle);
-        }
-
-        // Wait for all writes
-        for handle in handles {
-            handle.await.unwrap().unwrap();
-        }
-
-        // Verify all writes succeeded
-        let stats = store.stats().await;
-        assert_eq!(stats.active_relationships, 10);
-    }
-
-    #[tokio::test]
-    async fn test_gc() {
-        let store = MemoryBackend::new();
-
-        let relationship = Relationship {
+        // Write some relationships
+        let rel = Relationship {
+            vault_id: vault.id,
             resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
+            relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
 
-        let _rev1 = store.write(vec![relationship.clone()]).await.unwrap();
-        let rev2 = store.write(vec![relationship.clone()]).await.unwrap();
-        let _rev3 = store.write(vec![relationship.clone()]).await.unwrap();
+        backend.write(vault.id, vec![rel]).await.unwrap();
 
-        // GC revisions before rev2
-        let removed = store.gc_before(rev2).await.unwrap();
-        assert!(removed > 0);
+        // Delete account (should cascade)
+        backend.delete_account(account.id).await.unwrap();
+
+        // Verify vault is deleted
+        let vault_result = backend.get_vault(vault.id).await.unwrap();
+        assert!(vault_result.is_none());
+
+        // Verify account is deleted
+        let account_result = backend.get_account(account.id).await.unwrap();
+        assert!(account_result.is_none());
     }
 
     #[tokio::test]
-    async fn test_metrics_tracking() {
-        let store = MemoryBackend::new();
+    async fn test_system_config() {
+        let backend = MemoryBackend::new();
 
-        // Initial metrics should show no operations
-        let metrics = store.metrics().unwrap();
-        assert_eq!(metrics.read_count, 0);
-        assert_eq!(metrics.write_count, 0);
-        assert_eq!(metrics.delete_count, 0);
+        let (account, vault) = create_test_account_and_vault(&backend).await;
 
-        // Write some data
-        let relationship = Relationship {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: "user:alice".to_string(),
-        };
-        let rev = store.write(vec![relationship.clone()]).await.unwrap();
+        // Set system config
+        let config = SystemConfig::new(account.id, vault.id);
+        backend.set_system_config(config.clone()).await.unwrap();
 
-        // Metrics should show 1 write
-        let metrics = store.metrics().unwrap();
-        assert_eq!(metrics.write_count, 1);
-        assert!(metrics.total_keys > 0);
-
-        // Read the data
-        let key = RelationshipKey {
-            resource: "doc:readme".to_string(),
-            relation: "reader".to_string(),
-            subject: None,
-        };
-        let _ = store.read(&key, rev).await.unwrap();
-
-        // Metrics should show 1 read
-        let metrics = store.metrics().unwrap();
-        assert_eq!(metrics.read_count, 1);
-        assert_eq!(metrics.write_count, 1);
-
-        // Delete the data
-        let _ = store.delete(&key).await.unwrap();
-
-        // Metrics should show 1 delete
-        let metrics = store.metrics().unwrap();
-        assert_eq!(metrics.read_count, 1);
-        assert_eq!(metrics.write_count, 1);
-        assert_eq!(metrics.delete_count, 1);
-
-        // All operations should have recorded latency
-        assert!(metrics.read_avg_latency_us > 0 || metrics.read_count == 0);
-        assert!(metrics.write_avg_latency_us > 0 || metrics.write_count == 0);
-        assert!(metrics.delete_avg_latency_us > 0 || metrics.delete_count == 0);
+        // Get system config
+        let retrieved = backend.get_system_config().await.unwrap();
+        assert_eq!(retrieved, Some(config));
     }
 
-    // Property-based tests with proptest
-    mod proptests {
-        use super::*;
-        use proptest::prelude::*;
-        use std::collections::HashSet;
+    #[tokio::test]
+    async fn test_vault_id_mismatch_error() {
+        let backend = MemoryBackend::new();
 
-        // Strategy to generate valid relationships
-        fn relationship_strategy() -> impl Strategy<Value = Relationship> {
-            (
-                "[a-z]+:[a-z0-9]+", // resource
-                "[a-z_]+",          // relation
-                "user:[a-z]+",      // subject
-            )
-                .prop_map(|(resource, relation, subject)| Relationship {
-                    resource,
-                    relation,
-                    subject,
-                })
-        }
+        let (_, vault) = create_test_account_and_vault(&backend).await;
 
-        proptest! {
-            #[test]
-            fn prop_write_then_read_succeeds(relationships in prop::collection::vec(relationship_strategy(), 1..50)) {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    let store = MemoryBackend::new();
+        // Try to write relationship with wrong vault_id
+        let wrong_vault_id = Uuid::new_v4();
+        let rel = Relationship {
+            vault_id: wrong_vault_id, // Wrong vault ID!
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
 
-                    // Write relationships
-                    let rev = store.write(relationships.clone()).await.unwrap();
-
-                    // Read each relationship back
-                    for relationship in &relationships {
-                        let key = RelationshipKey {
-                            resource: relationship.resource.clone(),
-                            relation: relationship.relation.clone(),
-                            subject: None,
-                        };
-                        let results = store.read(&key, rev).await.unwrap();
-
-                        // Should find at least this relationship
-                        let found = results.iter().any(|t| {
-                            t.resource == relationship.resource &&
-                            t.relation == relationship.relation &&
-                            t.subject == relationship.subject
-                        });
-                        prop_assert!(found, "Relationship {:?} not found in results", relationship);
-                    }
-
-                    Ok(())
-                })?;
-            }
-
-            #[test]
-            fn prop_revision_increases_monotonically(
-                batch1 in prop::collection::vec(relationship_strategy(), 1..10),
-                batch2 in prop::collection::vec(relationship_strategy(), 1..10)
-            ) {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    let store = MemoryBackend::new();
-
-                    let rev1 = store.write(batch1).await.unwrap();
-                    let rev2 = store.write(batch2).await.unwrap();
-
-                    // Revisions should always increase
-                    prop_assert!(rev2 > rev1, "Revision did not increase: {:?} <= {:?}", rev2, rev1);
-
-                    Ok(())
-                })?;
-            }
-
-            #[test]
-            fn prop_duplicate_writes_idempotent(relationship in relationship_strategy()) {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    let store = MemoryBackend::new();
-
-                    // Write same relationship twice
-                    let _rev1 = store.write(vec![relationship.clone()]).await.unwrap();
-                    let rev2 = store.write(vec![relationship.clone()]).await.unwrap();
-
-                    // Should still only have 1 relationship (duplicates prevented)
-                    let key = RelationshipKey {
-                        resource: relationship.resource.clone(),
-                        relation: relationship.relation.clone(),
-                        subject: None,
-                    };
-                    let results = store.read(&key, rev2).await.unwrap();
-                    prop_assert_eq!(results.len(), 1);
-
-                    Ok(())
-                })?;
-            }
-
-            #[test]
-            fn prop_delete_removes_relationship(relationship in relationship_strategy()) {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    let store = MemoryBackend::new();
-
-                    // Write relationship
-                    let rev1 = store.write(vec![relationship.clone()]).await.unwrap();
-
-                    // Verify it exists
-                    let key = RelationshipKey {
-                        resource: relationship.resource.clone(),
-                        relation: relationship.relation.clone(),
-                        subject: None,
-                    };
-                    let results = store.read(&key, rev1).await.unwrap();
-                    prop_assert_eq!(results.len(), 1);
-
-                    // Delete it
-                    let rev2 = store.delete(&key).await.unwrap();
-
-                    // Verify it's gone
-                    let results = store.read(&key, rev2).await.unwrap();
-                    prop_assert_eq!(results.len(), 0);
-
-                    Ok(())
-                })?;
-            }
-
-            #[test]
-            fn prop_revision_isolation(
-                relationship1 in relationship_strategy(),
-                relationship2 in relationship_strategy()
-            ) {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    let store = MemoryBackend::new();
-
-                    // Write first relationship
-                    let rev1 = store.write(vec![relationship1.clone()]).await.unwrap();
-
-                    // Write second relationship
-                    let rev2 = store.write(vec![relationship2.clone()]).await.unwrap();
-
-                    // Reading at rev1 should not see relationship2
-                    let key2 = RelationshipKey {
-                        resource: relationship2.resource.clone(),
-                        relation: relationship2.relation.clone(),
-                        subject: None,
-                    };
-                    let results_at_rev1 = store.read(&key2, rev1).await.unwrap();
-
-                    // If relationship1 and relationship2 are different, rev1 should not see relationship2
-                    if relationship1.resource != relationship2.resource ||
-                       relationship1.relation != relationship2.relation ||
-                       relationship1.subject != relationship2.subject {
-                        prop_assert_eq!(results_at_rev1.len(), 0,
-                            "Should not see relationship2 at rev1");
-                    }
-
-                    // Reading at rev2 should see relationship2
-                    let results_at_rev2 = store.read(&key2, rev2).await.unwrap();
-                    prop_assert!(!results_at_rev2.is_empty(),
-                        "Should see relationship2 at rev2");
-
-                    Ok(())
-                })?;
-            }
-
-            #[test]
-            fn prop_user_filtering(
-                object in "[a-z]+:[a-z0-9]+",
-                relation in "[a-z_]+",
-                users in prop::collection::vec("user:[a-z]+", 1..10)
-            ) {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    let store = MemoryBackend::new();
-
-                    // Write relationships with different users but same object/relation
-                    let relationships: Vec<Relationship> = users.iter().map(|user| Relationship {
-                        resource: object.clone(),
-                        relation: relation.clone(),
-                        subject: user.clone(),
-                    }).collect();
-
-                    let rev = store.write(relationships.clone()).await.unwrap();
-
-                    // Count unique users (since duplicates are automatically filtered)
-                    let unique_users: HashSet<_> = users.iter().cloned().collect();
-
-                    // Read without user filter - should get all unique users
-                    let key_all = RelationshipKey {
-                        resource: object.clone(),
-                        relation: relation.clone(),
-                        subject: None,
-                    };
-                    let all_results = store.read(&key_all, rev).await.unwrap();
-                    prop_assert_eq!(all_results.len(), unique_users.len());
-
-                    // Read with specific user filter - should get only one
-                    if let Some(specific_user) = users.first() {
-                        let key_specific = RelationshipKey {
-                            resource: object.clone(),
-                            relation: relation.clone(),
-                            subject: Some(specific_user.clone()),
-                        };
-                        let specific_results = store.read(&key_specific, rev).await.unwrap();
-                        prop_assert_eq!(specific_results.len(), 1);
-                        prop_assert_eq!(&specific_results[0].subject, specific_user);
-                    }
-
-                    Ok(())
-                })?;
-            }
-
-            #[test]
-            fn prop_batch_write_atomicity(relationships in prop::collection::vec(relationship_strategy(), 1..20)) {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    let store = MemoryBackend::new();
-
-                    // Write batch
-                    let rev = store.write(relationships.clone()).await.unwrap();
-
-                    // All relationships should be at the same revision
-                    for relationship in &relationships {
-                        let key = RelationshipKey {
-                            resource: relationship.resource.clone(),
-                            relation: relationship.relation.clone(),
-                            subject: Some(relationship.subject.clone()),
-                        };
-                        let results = store.read(&key, rev).await.unwrap();
-                        prop_assert!(!results.is_empty(), "Relationship not found after batch write");
-                    }
-
-                    Ok(())
-                })?;
-            }
-
-            #[test]
-            fn prop_gc_preserves_current_revision(relationships in prop::collection::vec(relationship_strategy(), 1..10)) {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    let store = MemoryBackend::new();
-
-                    // Write relationships multiple times to create history
-                    let mut revisions = Vec::new();
-                    for _ in 0..3 {
-                        let rev = store.write(relationships.clone()).await.unwrap();
-                        revisions.push(rev);
-                    }
-
-                    let latest_rev = *revisions.last().unwrap();
-
-                    // GC old revisions
-                    if revisions.len() > 1 {
-                        let gc_before = revisions[revisions.len() - 2];
-                        let _ = store.gc_before(gc_before).await.unwrap();
-                    }
-
-                    // Latest revision should still be readable
-                    for relationship in &relationships {
-                        let key = RelationshipKey {
-                            resource: relationship.resource.clone(),
-                            relation: relationship.relation.clone(),
-                            subject: None,
-                        };
-                        let results = store.read(&key, latest_rev).await;
-                        prop_assert!(results.is_ok(), "Should be able to read at latest revision after GC");
-                    }
-
-                    Ok(())
-                })?;
-            }
-        }
+        let result = backend.write(vault.id, vec![rel]).await;
+        assert!(result.is_err());
     }
 }

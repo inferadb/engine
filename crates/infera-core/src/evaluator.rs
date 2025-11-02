@@ -18,6 +18,7 @@ use infera_types::{
     ListSubjectsResponse, Relationship, Revision, UsersetNodeType, UsersetTree,
 };
 use infera_wasm::WasmHost;
+use uuid::Uuid;
 
 /// The main policy evaluator
 pub struct Evaluator {
@@ -25,6 +26,9 @@ pub struct Evaluator {
     wasm_host: Option<Arc<WasmHost>>,
     schema: Arc<Schema>,
     cache: Option<Arc<AuthCache>>,
+    /// The vault ID for multi-tenant isolation
+    /// TODO: In Phase 2, this will be extracted from auth context instead
+    vault_id: Uuid,
 }
 
 impl Evaluator {
@@ -32,12 +36,14 @@ impl Evaluator {
         store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
+        vault_id: Uuid,
     ) -> Self {
         Self {
             store,
             schema,
             wasm_host,
             cache: Some(Arc::new(AuthCache::default())),
+            vault_id,
         }
     }
 
@@ -46,12 +52,14 @@ impl Evaluator {
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
         cache: Option<Arc<AuthCache>>,
+        vault_id: Uuid,
     ) -> Self {
         Self {
             store,
             schema,
             wasm_host,
             cache,
+            vault_id,
         }
     }
 
@@ -68,7 +76,7 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision to ensure consistent read
-        let revision = self.store.get_revision().await?;
+        let revision = self.store.get_revision(self.vault_id).await?;
 
         // Check cache if enabled
         if let Some(cache) = &self.cache {
@@ -94,7 +102,7 @@ impl Evaluator {
 
         // Create graph context for traversal
         let mut ctx =
-            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision);
+            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision, self.vault_id);
 
         // FIRST: Check all forbid rules - if any match, return DENY immediately
         // Forbid rules override all permit rules (explicit deny)
@@ -203,11 +211,11 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision
-        let revision = self.store.get_revision().await?;
+        let revision = self.store.get_revision(self.vault_id).await?;
 
         // Create graph context
         let mut ctx =
-            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision);
+            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision, self.vault_id);
 
         // FIRST: Check all forbid rules - if any match, return DENY immediately
         let type_name = request
@@ -302,7 +310,7 @@ impl Evaluator {
     ) -> Result<EvaluationNode> {
         // Check for direct relationship first
         let has_direct =
-            has_direct_relationship(&*ctx.store, resource, relation, subject, ctx.revision).await?;
+            has_direct_relationship(&*ctx.store, ctx.vault_id, resource,relation, subject, ctx.revision).await?;
 
         if has_direct {
             return Ok(EvaluationNode {
@@ -366,7 +374,7 @@ impl Evaluator {
         match expr {
             RelationExpr::This => {
                 let has_direct =
-                    has_direct_relationship(&*ctx.store, resource, "this", subject, ctx.revision)
+                    has_direct_relationship(&*ctx.store, ctx.vault_id, resource,"this", subject, ctx.revision)
                         .await?;
                 Ok(EvaluationNode {
                     node_type: NodeType::DirectCheck {
@@ -391,6 +399,7 @@ impl Evaluator {
                 // Get objects from relationship and check if any have user in relation
                 let related_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
+                    ctx.vault_id,
                     resource,
                     relationship,
                     ctx.revision,
@@ -427,6 +436,7 @@ impl Evaluator {
                 // Get objects from relationship and evaluate computed relation on each
                 let related_objects = crate::graph::get_users_with_relation(
                     &*ctx.store,
+                    ctx.vault_id,
                     resource,
                     relationship,
                     ctx.revision,
@@ -580,7 +590,7 @@ impl Evaluator {
         // Check for direct relationship first (forbid with no expression or `this`)
         if expr.is_none() {
             let has_direct =
-                has_direct_relationship(&*ctx.store, resource, forbid_name, subject, ctx.revision)
+                has_direct_relationship(&*ctx.store, ctx.vault_id, resource,forbid_name, subject, ctx.revision)
                     .await?;
             return Ok(has_direct);
         }
@@ -604,7 +614,7 @@ impl Evaluator {
         );
 
         // Get current revision
-        let revision = self.store.get_revision().await?;
+        let revision = self.store.get_revision(self.vault_id).await?;
 
         // Get the relation definition
         let type_name = request
@@ -624,7 +634,7 @@ impl Evaluator {
 
         // Create graph context for actual user resolution
         let mut ctx =
-            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision);
+            GraphContext::new(Arc::clone(&self.schema), Arc::clone(&self.store), revision, self.vault_id);
 
         // Build userset tree with actual users
         let tree = if relation_def.expr.is_none() {
@@ -667,7 +677,7 @@ impl Evaluator {
     ) -> Result<UsersetTree> {
         use crate::graph::get_users_with_relation;
 
-        let users = get_users_with_relation(&*ctx.store, resource, relation, ctx.revision).await?;
+        let users = get_users_with_relation(&*ctx.store, ctx.vault_id, resource,relation, ctx.revision).await?;
 
         Ok(UsersetTree {
             node_type: UsersetNodeType::Leaf {
@@ -708,7 +718,7 @@ impl Evaluator {
                             cached_users
                         } else {
                             let users: Vec<String> =
-                                get_users_with_relation(&*ctx.store, resource, "", ctx.revision)
+                                get_users_with_relation(&*ctx.store, ctx.vault_id, resource,"", ctx.revision)
                                     .await?
                                     .into_iter()
                                     .collect();
@@ -716,13 +726,13 @@ impl Evaluator {
                             users
                         }
                     } else {
-                        get_users_with_relation(&*ctx.store, resource, "", ctx.revision)
+                        get_users_with_relation(&*ctx.store, ctx.vault_id, resource,"", ctx.revision)
                             .await?
                             .into_iter()
                             .collect()
                     }
                 } else {
-                    get_users_with_relation(&*ctx.store, resource, "", ctx.revision)
+                    get_users_with_relation(&*ctx.store, ctx.vault_id, resource,"", ctx.revision)
                         .await?
                         .into_iter()
                         .collect()
@@ -740,7 +750,7 @@ impl Evaluator {
             } => {
                 // Get users from computed relation on relationship
                 let related_objects =
-                    get_users_with_relation(&*ctx.store, resource, relationship, ctx.revision)
+                    get_users_with_relation(&*ctx.store, ctx.vault_id, resource,relationship, ctx.revision)
                         .await?;
 
                 // Use prefetching for better performance when we have multiple objects
@@ -749,6 +759,7 @@ impl Evaluator {
                     // Batch prefetch for multiple objects
                     let prefetched = crate::graph::prefetch_users_batch(
                         &*ctx.store,
+                        ctx.vault_id,
                         &related_objects,
                         relation,
                         ctx.revision,
@@ -764,7 +775,7 @@ impl Evaluator {
                     // Single object - use direct fetch
                     for obj in related_objects {
                         let users =
-                            get_users_with_relation(&*ctx.store, &obj, relation, ctx.revision)
+                            get_users_with_relation(&*ctx.store, ctx.vault_id, &obj,relation, ctx.revision)
                                 .await?;
                         all_users.extend(users);
                     }
@@ -784,7 +795,7 @@ impl Evaluator {
             } => {
                 // Get objects from relationship
                 let related_objects =
-                    get_users_with_relation(&*ctx.store, resource, relationship, ctx.revision)
+                    get_users_with_relation(&*ctx.store, ctx.vault_id, resource,relationship, ctx.revision)
                         .await?;
 
                 // Use prefetching for better performance when we have multiple objects
@@ -793,6 +804,7 @@ impl Evaluator {
                     // Batch prefetch for multiple objects
                     let prefetched = crate::graph::prefetch_users_batch(
                         &*ctx.store,
+                        ctx.vault_id,
                         &related_objects,
                         computed,
                         ctx.revision,
@@ -808,7 +820,7 @@ impl Evaluator {
                     // Single object - use direct fetch
                     for obj in related_objects {
                         let users =
-                            get_users_with_relation(&*ctx.store, &obj, computed, ctx.revision)
+                            get_users_with_relation(&*ctx.store, ctx.vault_id, &obj,computed, ctx.revision)
                                 .await?;
                         all_users.extend(users);
                     }
@@ -913,7 +925,7 @@ impl Evaluator {
                 // If the referenced relation has no expression, it's a direct relation
                 let tree = if expr_opt.is_none() {
                     let users: Vec<String> =
-                        get_users_with_relation(&*ctx.store, resource, relation, ctx.revision)
+                        get_users_with_relation(&*ctx.store, ctx.vault_id, resource,relation, ctx.revision)
                             .await?
                             .into_iter()
                             .collect();
@@ -966,6 +978,7 @@ impl Evaluator {
                     Arc::clone(&ctx.schema),
                     Arc::clone(&ctx.store),
                     ctx.revision,
+                    ctx.vault_id,
                 );
                 // Copy the visited set for cycle detection
                 branch_ctx.visited = ctx.visited.clone();
@@ -1124,12 +1137,12 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision to ensure consistent read
-        let revision = self.store.get_revision().await?;
+        let revision = self.store.get_revision(self.vault_id).await?;
 
         // List all resources of the given type
         let all_resources = self
             .store
-            .list_resources_by_type(&request.resource_type, revision)
+            .list_resources_by_type(self.vault_id, &request.resource_type, revision)
             .await?;
 
         debug!(
@@ -1302,12 +1315,13 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision to ensure consistent read
-        let revision = self.store.get_revision().await?;
+        let revision = self.store.get_revision(self.vault_id).await?;
 
         // Query storage with filters (storage uses resource/subject, returns Tuples)
         let all_relationships = self
             .store
             .list_relationships(
+                self.vault_id,
                 request.resource.as_deref(),
                 request.relation.as_deref(),
                 request.subject.as_deref(),
@@ -1339,6 +1353,7 @@ impl Evaluator {
             .skip(offset)
             .take(limit)
             .map(|t| Relationship {
+                vault_id: t.vault_id,
                 resource: t.resource,
                 relation: t.relation,
                 subject: t.subject,
@@ -1389,7 +1404,7 @@ impl Evaluator {
         let start = Instant::now();
 
         // Get current revision to ensure consistent read
-        let revision = self.store.get_revision().await?;
+        let revision = self.store.get_revision(self.vault_id).await?;
 
         // Parse resource to extract type
         let resource_parts: Vec<&str> = request.resource.split(':').collect();
@@ -1505,6 +1520,7 @@ impl Evaluator {
                         let tuples = self
                             .store
                             .list_relationships(
+                                self.vault_id,
                                 Some(resource),
                                 Some(&relation_def.name),
                                 None,
@@ -1525,7 +1541,7 @@ impl Evaluator {
                         // First, find related objects via the relationship
                         let related_tuples = self
                             .store
-                            .list_relationships(Some(resource), Some(relationship), None, revision)
+                            .list_relationships(self.vault_id, Some(resource), Some(relationship), None, revision)
                             .await?;
 
                         // For each related object, find subjects via the computed relation
@@ -1648,7 +1664,7 @@ impl Evaluator {
                         // First, find all related objects via the relationship
                         let related_tuples = self
                             .store
-                            .list_relationships(Some(resource), Some(relationship), None, revision)
+                            .list_relationships(self.vault_id, Some(resource), Some(relationship), None, revision)
                             .await?;
 
                         // For each related object, find subjects via the computed relation
@@ -1718,7 +1734,7 @@ impl Evaluator {
                 // No expression means it's a direct relation (This)
                 let tuples = self
                     .store
-                    .list_relationships(Some(resource), Some(&relation_def.name), None, revision)
+                    .list_relationships(self.vault_id, Some(resource), Some(&relation_def.name), None, revision)
                     .await?;
 
                 for tuple in tuples {
@@ -1748,7 +1764,7 @@ impl Evaluator {
                     // Collect direct relationships for this relation
                     let tuples = self
                         .store
-                        .list_relationships(Some(resource), Some(relation_name), None, revision)
+                        .list_relationships(self.vault_id, Some(resource), Some(relation_name), None, revision)
                         .await?;
                     Ok(tuples.into_iter().map(|t| t.subject).collect())
                 }
@@ -1760,7 +1776,7 @@ impl Evaluator {
                     let mut all_subjects = HashSet::new();
                     let related_tuples = self
                         .store
-                        .list_relationships(Some(resource), Some(relationship), None, revision)
+                        .list_relationships(self.vault_id, Some(resource), Some(relationship), None, revision)
                         .await?;
 
                     for tuple in related_tuples {
@@ -1903,7 +1919,7 @@ impl Evaluator {
                     let mut all_subjects = HashSet::new();
                     let related_tuples = self
                         .store
-                        .list_relationships(Some(resource), Some(relationship), None, revision)
+                        .list_relationships(self.vault_id, Some(resource), Some(relationship), None, revision)
                         .await?;
 
                     for tuple in related_tuples {

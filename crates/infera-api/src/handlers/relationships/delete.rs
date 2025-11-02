@@ -12,8 +12,15 @@ use axum::{
 use crate::ApiError;
 use crate::AppState;
 use infera_types::DeleteFilter;
+use uuid::Uuid;
 
 use super::get::RelationshipPath;
+
+/// Get the vault ID for the current request
+/// TODO(Phase 2): Extract this from authentication context
+fn get_vault_id() -> Uuid {
+    Uuid::nil()
+}
 
 /// Handler for `DELETE /v1/relationships/{resource}/{relation}/{subject}`
 ///
@@ -105,7 +112,7 @@ pub async fn delete_relationship(
 
     let (revision, deleted_count) = state
         .store
-        .delete_by_filter(&delete_filter, Some(1))
+        .delete_by_filter(get_vault_id(), &delete_filter, Some(1))
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to delete relationship: {}", e)))?;
 

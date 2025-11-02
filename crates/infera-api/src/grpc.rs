@@ -68,6 +68,15 @@ use proto::{
     SimulateResponse, WatchRequest, WatchResponse, WriteRequest, WriteResponse,
 };
 
+use uuid::Uuid;
+
+/// Get the vault ID for the current request
+/// TODO(Phase 2): Extract this from authentication context (JWT token)
+/// For Phase 1, we use a nil UUID as a placeholder for the default vault
+fn get_vault_id() -> Uuid {
+    Uuid::nil()
+}
+
 pub struct InferaServiceImpl {
     state: AppState,
 }
@@ -312,7 +321,7 @@ impl InferaService for InferaServiceImpl {
             let (revision, count) = self
                 .state
                 .store
-                .delete_by_filter(&filter, limit)
+                .delete_by_filter(get_vault_id(), &filter, limit)
                 .await
                 .map_err(|e| Status::internal(format!("Failed to delete by filter: {}", e)))?;
 
@@ -340,7 +349,7 @@ impl InferaService for InferaServiceImpl {
             };
 
             last_revision =
-                self.state.store.delete(&key).await.map_err(|e| {
+                self.state.store.delete(get_vault_id(), &key).await.map_err(|e| {
                     Status::internal(format!("Failed to delete relationship: {}", e))
                 })?;
 
@@ -367,6 +376,7 @@ impl InferaService for InferaServiceImpl {
             let write_req = write_req?;
             for relationship in write_req.relationships {
                 all_relationships.push(Relationship {
+                    vault_id: get_vault_id(),
                     resource: relationship.resource,
                     relation: relationship.relation,
                     subject: relationship.subject,
@@ -417,7 +427,7 @@ impl InferaService for InferaServiceImpl {
         let revision = self
             .state
             .store
-            .write(all_relationships.clone())
+            .write(get_vault_id(), all_relationships.clone())
             .await
             .map_err(|e| Status::internal(format!("Write failed: {}", e)))?;
 
@@ -632,7 +642,7 @@ impl InferaService for InferaServiceImpl {
         } else {
             // Start from current revision (won't get historical events)
             store
-                .get_change_log_revision()
+                .get_change_log_revision(get_vault_id())
                 .await
                 .map_err(|e| Status::internal(format!("Failed to get current revision: {}", e)))?
         };
@@ -645,7 +655,7 @@ impl InferaService for InferaServiceImpl {
 
             loop {
                 // Read changes from the change log
-                match store.read_changes(last_revision, &resource_types, Some(100)).await {
+                match store.read_changes(get_vault_id(), last_revision, &resource_types, Some(100)).await {
                     Ok(events) => {
                         for event in &events {
                             // Convert ChangeEvent to WatchResponse
@@ -727,6 +737,7 @@ impl InferaService for InferaServiceImpl {
             .context_relationships
             .into_iter()
             .map(|rel| Relationship {
+                vault_id: get_vault_id(),
                 resource: rel.resource,
                 relation: rel.relation,
                 subject: rel.subject,
@@ -749,7 +760,7 @@ impl InferaService for InferaServiceImpl {
 
         // Write context relationships to ephemeral store
         ephemeral_store
-            .write(context_relationships.clone())
+            .write(get_vault_id(), context_relationships.clone())
             .await
             .map_err(|e| {
                 Status::internal(format!("Failed to write context relationships: {}", e))
@@ -759,7 +770,7 @@ impl InferaService for InferaServiceImpl {
         use infera_core::ipl::Schema;
         use infera_core::Evaluator;
         let temp_schema = Arc::new(Schema { types: Vec::new() });
-        let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None);
+        let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault_id());
 
         // Parse context string to JSON if provided
         let context =

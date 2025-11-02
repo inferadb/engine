@@ -173,7 +173,8 @@ mod tests {
         let store = StorageFactory::create(config).await.unwrap();
 
         // Verify it works
-        let rev = store.get_revision().await.unwrap();
+        let test_vault = uuid::Uuid::new_v4();
+        let rev = store.get_revision(test_vault).await.unwrap();
         assert_eq!(rev, crate::Revision::zero());
     }
 
@@ -182,7 +183,8 @@ mod tests {
         let store = StorageFactory::from_str("memory", None).await.unwrap();
 
         // Verify it works
-        let rev = store.get_revision().await.unwrap();
+        let test_vault = uuid::Uuid::new_v4();
+        let rev = store.get_revision(test_vault).await.unwrap();
         assert_eq!(rev, crate::Revision::zero());
     }
 
@@ -191,7 +193,8 @@ mod tests {
         let store = StorageFactory::memory();
 
         // Verify it works
-        let rev = store.get_revision().await.unwrap();
+        let test_vault = uuid::Uuid::new_v4();
+        let rev = store.get_revision(test_vault).await.unwrap();
         assert_eq!(rev, crate::Revision::zero());
     }
 

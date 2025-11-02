@@ -30,6 +30,7 @@ use infera_types::{
     Decision, DeleteFilter, EvaluateRequest, ExpandRequest, ListRelationshipsRequest,
     ListResourcesRequest, ListSubjectsRequest, Relationship, RelationshipKey,
 };
+use uuid::Uuid;
 
 pub mod adapters;
 pub mod formatters;
@@ -39,6 +40,13 @@ pub mod handlers;
 pub mod health;
 pub mod routes;
 pub mod validation;
+
+/// Get the vault ID for the current request
+/// TODO(Phase 2): Extract this from authentication context (JWT token)
+/// For Phase 1, we use a nil UUID as a placeholder for the default vault
+fn get_vault_id() -> Uuid {
+    Uuid::nil()
+}
 
 #[derive(Debug, Error)]
 pub enum ApiError {
@@ -581,7 +589,7 @@ async fn write_relationships_handler(
     if let Some(expected_rev) = &request.expected_revision {
         let current_rev = state
             .store
-            .get_revision()
+            .get_revision(get_vault_id())
             .await
             .map_err(|e| ApiError::Internal(format!("Failed to get revision: {}", e)))?;
 
@@ -597,7 +605,7 @@ async fn write_relationships_handler(
     // Write relationships to store
     let revision = state
         .store
-        .write(request.relationships.clone())
+        .write(get_vault_id(), request.relationships.clone())
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to write relationships: {}", e)))?;
 
@@ -659,7 +667,7 @@ async fn delete_relationships_handler(
     if let Some(expected_rev) = &request.expected_revision {
         let current_rev = state
             .store
-            .get_revision()
+            .get_revision(get_vault_id())
             .await
             .map_err(|e| ApiError::Internal(format!("Failed to get revision: {}", e)))?;
 
@@ -695,7 +703,7 @@ async fn delete_relationships_handler(
         // Perform batch deletion
         let (revision, count) = state
             .store
-            .delete_by_filter(&filter, limit)
+            .delete_by_filter(get_vault_id(), &filter, limit)
             .await
             .map_err(|e| ApiError::Internal(format!("Failed to delete by filter: {}", e)))?;
 
@@ -747,7 +755,7 @@ async fn delete_relationships_handler(
 
             // Delete relationships from store
             for key in keys {
-                match state.store.delete(&key).await {
+                match state.store.delete(get_vault_id(), &key).await {
                     Ok(revision) => {
                         last_revision = Some(revision);
                         total_deleted += 1;
@@ -843,7 +851,7 @@ async fn simulate_handler(
 
     // Write context relationships to ephemeral store
     ephemeral_store
-        .write(request.context_relationships.clone())
+        .write(get_vault_id(), request.context_relationships.clone())
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to write context relationships: {}", e)))?;
 
@@ -851,7 +859,7 @@ async fn simulate_handler(
     // Create a minimal schema for simulation (empty schema allows all relations)
     use infera_core::ipl::Schema;
     let temp_schema = Arc::new(Schema { types: Vec::new() });
-    let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None);
+    let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault_id());
 
     // Run the evaluation with the ephemeral data
     let evaluate_request = EvaluateRequest {
@@ -1219,7 +1227,7 @@ async fn watch_handler(
     } else {
         // Start from next revision
         let current =
-            state.store.get_revision().await.map_err(|e| {
+            state.store.get_revision(get_vault_id()).await.map_err(|e| {
                 ApiError::Internal(format!("Failed to get current revision: {}", e))
             })?;
         current.next()
@@ -1234,7 +1242,7 @@ async fn watch_handler(
 
         loop {
             // Read changes from the change log
-            match store.read_changes(last_revision, &resource_types, Some(100)).await {
+            match store.read_changes(get_vault_id(), last_revision, &resource_types, Some(100)).await {
                 Ok(events) => {
                     for event in &events {
                         // Format timestamp as ISO 8601
@@ -1486,7 +1494,7 @@ mod tests {
                 ),
             ],
         )]));
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None));
+        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, get_vault_id()));
         let mut config = infera_config::Config::default();
         // Disable auth and rate limiting for tests
         config.auth.enabled = false;
