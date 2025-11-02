@@ -4,11 +4,12 @@ Welcome to InferaDB migration documentation. These guides help you migrate from 
 
 ## Available Migration Guides
 
-### [Migrating from SpiceDB](from-spicedb.md)
+### [Migrating from SpiceDB](SpiceDB.md)
 
 **Best for**: Teams using Google Zanzibar-based authorization with SpiceDB
 
 **Covers**:
+
 - Schema translation (Authzed Schema Language → IPL)
 - API mapping (Check, Expand, LookupResources, etc.)
 - Zookie → Revision token conversion
@@ -16,6 +17,7 @@ Welcome to InferaDB migration documentation. These guides help you migrate from 
 - gRPC client updates
 
 **Key Differences**:
+
 - ✅ InferaDB has unlimited batch check (SpiceDB limits to 30-100)
 - ✅ InferaDB streams results (SpiceDB buffers)
 - ✅ Simpler string format: `type:id` vs nested objects
@@ -25,11 +27,12 @@ Welcome to InferaDB migration documentation. These guides help you migrate from 
 
 ---
 
-### [Migrating from OpenFGA](from-openfga.md)
+### [Migrating from OpenFGA](OpenFGA.md)
 
 **Best for**: Teams using OpenFGA for fine-grained authorization
 
 **Covers**:
+
 - Authorization model translation (JSON → IPL)
 - Store model removal (no more store_id)
 - API field renaming (user→subject, object→resource)
@@ -37,6 +40,7 @@ Welcome to InferaDB migration documentation. These guides help you migrate from 
 - Authentication setup (OpenFGA has none)
 
 **Key Differences**:
+
 - ✅ No store management (simpler deployment)
 - ✅ Built-in authentication (OpenFGA has none)
 - ✅ Streaming APIs (OpenFGA buffers)
@@ -46,11 +50,12 @@ Welcome to InferaDB migration documentation. These guides help you migrate from 
 
 ---
 
-### [Migrating from Oso](from-oso.md)
+### [Migrating from Oso](Oso.md)
 
 **Best for**: Teams using Oso embedded library with Polar policies
 
 **Covers**:
+
 - Paradigm shift (Logic Programming → ReBAC)
 - Policy translation (Polar → IPL)
 - Architecture change (Embedded → Microservice)
@@ -58,6 +63,7 @@ Welcome to InferaDB migration documentation. These guides help you migrate from 
 - ABAC migration (Native → WASM modules)
 
 **Key Differences**:
+
 - ⚠️ Embedded library → Microservice (network latency)
 - ✅ No data layer to manage (InferaDB handles it)
 - ✅ Better list operations (server-side computation)
@@ -83,16 +89,19 @@ Welcome to InferaDB migration documentation. These guides help you migrate from 
 Before starting any migration:
 
 1. **Review Architecture**
+
    - [ ] Read [InferaDB Architecture](../architecture.md)
    - [ ] Understand ReBAC model
    - [ ] Review IPL language syntax
 
 2. **Set Up Environment**
+
    - [ ] Install Docker or Kubernetes
    - [ ] Set up test InferaDB instance
    - [ ] Configure JWT/OAuth provider
 
 3. **Data Preparation**
+
    - [ ] Export current relationships/roles
    - [ ] Map to InferaDB format
    - [ ] Prepare test dataset
@@ -111,12 +120,14 @@ All migrations follow this general process:
 ### Phase 1: Planning (1-2 weeks)
 
 1. **Assessment**
+
    - Review current authorization model
    - Identify all API usage patterns
    - Map features to InferaDB equivalents
    - Estimate complexity
 
 2. **Schema Design**
+
    - Translate policies to IPL
    - Design relationship model
    - Plan computed relations
@@ -131,18 +142,21 @@ All migrations follow this general process:
 ### Phase 2: Development (2-4 weeks)
 
 1. **Environment Setup**
+
    - Deploy InferaDB in staging
    - Configure authentication
    - Set up monitoring
    - Create test data
 
 2. **Code Migration**
+
    - Update API clients
    - Implement new auth flow
    - Handle streaming responses
    - Add error handling
 
 3. **Data Migration**
+
    - Export existing data
    - Transform to InferaDB format
    - Bulk import relationships
@@ -157,12 +171,14 @@ All migrations follow this general process:
 ### Phase 3: Deployment (1-2 weeks)
 
 1. **Staging Deployment**
+
    - Deploy to staging
    - Run full test suite
    - Performance validation
    - Security review
 
 2. **Production Rollout**
+
    - Blue/green deployment
    - Gradual traffic migration
    - Monitor metrics
@@ -341,6 +357,7 @@ Contact: [GitHub Discussions](https://github.com/inferadb/server/discussions)
 **Challenge**: Batch check limits blocking UI features
 **Solution**: Migrated to InferaDB streaming APIs
 **Results**:
+
 - ✅ Removed 100-item batch limit
 - ✅ 40% faster list operations (streaming)
 - ✅ Simplified auth (JWT built-in)
@@ -354,6 +371,7 @@ Contact: [GitHub Discussions](https://github.com/inferadb/server/discussions)
 **Challenge**: Scaling embedded library
 **Solution**: Migrated to InferaDB microservice
 **Results**:
+
 - ✅ Independent scaling
 - ✅ No data layer to manage
 - ✅ Real-time Watch for cache invalidation
@@ -367,6 +385,7 @@ Contact: [GitHub Discussions](https://github.com/inferadb/server/discussions)
 **Challenge**: No built-in authentication
 **Solution**: Migrated to InferaDB
 **Results**:
+
 - ✅ Removed custom auth layer
 - ✅ Simplified deployment (no store management)
 - ✅ Streaming for patient lists
@@ -379,14 +398,17 @@ Contact: [GitHub Discussions](https://github.com/inferadb/server/discussions)
 ## Next Steps
 
 1. **Choose Your Guide**:
+
    - [SpiceDB Migration](from-spicedb.md)
    - [OpenFGA Migration](from-openfga.md)
    - [Oso Migration](from-oso.md)
 
 2. **Review Comparison**:
+
    - [Comparison Matrix](../comparison-matrix.md)
 
 3. **Set Up InferaDB**:
+
    - [Quick Start Guide](../quickstart.md)
    - [Deployment Guide](../guides/deployment.md)
 

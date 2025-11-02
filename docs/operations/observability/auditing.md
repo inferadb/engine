@@ -1,4 +1,4 @@
-# Audit Logging - Developer Guide
+# Auditing
 
 This guide covers integrating InferaDB's audit logging system into your application.
 
@@ -94,6 +94,7 @@ audit_logger.log(event);
 Every audit event has two parts:
 
 1. **Metadata**: Common fields across all events
+
    - `event_id`: Globally unique identifier
    - `timestamp`: RFC3339 timestamp
    - `event_type`: Type of operation
@@ -116,6 +117,7 @@ info!(target: "inferadb_audit", "{}", json);
 ```
 
 This allows you to:
+
 - Route audit logs separately from application logs
 - Ship to dedicated SIEM systems
 - Apply different retention policies
@@ -164,6 +166,7 @@ let details = AuditEventDetails::AuthorizationCheck(
 **When to use**: Every call to Check/Evaluate API
 
 **Fields**:
+
 - `subject`: Who is requesting access
 - `resource`: What they're accessing
 - `permission`: What action they want to perform
@@ -196,6 +199,7 @@ let details = AuditEventDetails::RelationshipWrite(
 **When to use**: Every WriteRelationships API call
 
 **Fields**:
+
 - `count`: Total relationships written
 - `sample`: First 10 relationships (for brevity)
 - `revision`: Storage revision after write
@@ -224,6 +228,7 @@ let details = AuditEventDetails::RelationshipDelete(
 **When to use**: Every DeleteRelationships API call
 
 **Fields**:
+
 - `count`: Total relationships deleted
 - `sample`: Sample deleted relationships
 - `filter`: Delete filter used (if applicable)
@@ -248,6 +253,7 @@ let details = AuditEventDetails::ResourceList(
 **When to use**: Every ListResources API call
 
 **Fields**:
+
 - `subject`: Who is listing resources
 - `resource_type`: Type filter applied
 - `permission`: Permission checked
@@ -272,6 +278,7 @@ let details = AuditEventDetails::SubjectList(
 **When to use**: Every ListSubjects API call
 
 **Fields**:
+
 - `resource`: Resource being queried
 - `relation`: Relation checked
 - `result_count`: Number of subjects returned
@@ -294,6 +301,7 @@ let details = AuditEventDetails::Expand(
 **When to use**: Every Expand API call
 
 **Fields**:
+
 - `resource`: Resource expanded
 - `relation`: Relation expanded
 - `user_count`: Number of users in expanded set
@@ -317,6 +325,7 @@ let details = AuditEventDetails::Simulation(
 **When to use**: Every Simulate API call
 
 **Fields**:
+
 - `subject`: Subject in simulation
 - `resource`: Resource in simulation
 - `permission`: Permission checked
@@ -719,12 +728,12 @@ async fn main() {
 
 Audit logging overhead by operation type:
 
-| Operation | Overhead | Notes |
-|-----------|----------|-------|
-| Event creation | ~10-50 μs | Struct allocation + ID generation |
-| JSON serialization | ~50-200 μs | Depends on event size |
-| Logging call | ~10-50 μs | Async, non-blocking |
-| **Total** | **~100-300 μs** | <1% for typical 5ms operations |
+| Operation          | Overhead        | Notes                             |
+| ------------------ | --------------- | --------------------------------- |
+| Event creation     | ~10-50 μs       | Struct allocation + ID generation |
+| JSON serialization | ~50-200 μs      | Depends on event size             |
+| Logging call       | ~10-50 μs       | Async, non-blocking               |
+| **Total**          | **~100-300 μs** | <1% for typical 5ms operations    |
 
 ### Optimization Tips
 
@@ -921,12 +930,15 @@ async fn test_all_operations_audited() {
 **Problem**: No audit logs in output
 
 **Solution**:
+
 1. Check logger is enabled:
+
    ```rust
    assert!(audit_logger.is_enabled());
    ```
 
 2. Check tracing filter includes `inferadb_audit`:
+
    ```rust
    EnvFilter::new("info,inferadb_audit=info")
    ```
@@ -941,12 +953,15 @@ async fn test_all_operations_audited() {
 **Problem**: Audit logging consuming too much memory
 
 **Solution**:
+
 1. Increase sample rate (reduce logging):
+
    ```rust
    config.sample_rate = 0.1; // 10% sampling
    ```
 
 2. Disable verbose events:
+
    ```rust
    config.log_resource_lists = false;
    config.log_subject_lists = false;
@@ -959,7 +974,9 @@ async fn test_all_operations_audited() {
 **Problem**: Audit events failing to serialize
 
 **Solution**:
+
 1. Check context data is valid JSON:
+
    ```rust
    let context = serde_json::from_str(&context_str)?;
    ```

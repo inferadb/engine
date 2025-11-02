@@ -865,6 +865,6 @@ cache:
 
 - [Authentication Guide](../security/authentication.md) - Detailed authentication setup
 - [Deployment Guide](deployment.md) - Production deployment
-- [Observability Guide](../operations/observability.md) - Metrics and tracing
+- [Observability Guide](../operations/observability/README.md) - Metrics and tracing
 - [Kubernetes Deployment](../k8s/README.md) - K8s manifests
 - [Helm Chart](../../helm/README.md) - Helm deployment

@@ -708,7 +708,7 @@ Key metrics to monitor:
 - **Relations Evaluated**: Average relations evaluated per check
 - **Error Rate**: Percentage of failed checks
 
-See [Observability](../operations/observability.md) for details.
+See [Observability](../operations/observability/README.md) for details.
 
 ## Next Steps
 

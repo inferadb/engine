@@ -770,5 +770,5 @@ kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
 - [Kubernetes Deployment](../../k8s/README.md)
 - [Helm Chart](../../helm/README.md)
 - [Configuration Reference](configuration.md)
-- [Observability Guide](../operations/observability.md)
+- [Observability Guide](../operations/observability/README.md)
 - [Operational Runbooks](../runbooks/)

@@ -1,20 +1,14 @@
-# Observability
+# Metrics
 
-InferaDB provides comprehensive observability through metrics, tracing, and structured logging. This allows you to monitor performance, debug issues, and understand system behavior in production.
+InferaDB exports Prometheus-compatible metrics at the `/metrics` endpoint for comprehensive performance monitoring and alerting.
 
 ## Overview
 
-InferaDB's observability stack includes:
+All metrics follow Prometheus naming conventions and are exposed in OpenMetrics format. Metrics are updated in real-time and can be scraped by Prometheus, Grafana Cloud, Datadog, or any OpenMetrics-compatible monitoring system.
 
-- **Metrics**: Prometheus-compatible metrics for monitoring
-- **Tracing**: OpenTelemetry distributed tracing for request flow
-- **Logging**: Structured logging with contextual information
+## Metrics Endpoint
 
-## Metrics
-
-InferaDB exports Prometheus-compatible metrics at the `/metrics` endpoint.
-
-### Metrics Endpoint
+Access metrics via HTTP:
 
 ```bash
 curl http://localhost:8080/metrics
@@ -43,9 +37,9 @@ inferadb_check_duration_seconds_count 12453
 inferadb_cache_hit_rate 85.3
 ```
 
-### Available Metrics
+## Available Metrics
 
-#### Authentication Metrics
+### Authentication Metrics
 
 InferaDB tracks comprehensive authentication metrics for monitoring security and performance.
 
@@ -77,7 +71,7 @@ sum(rate(inferadb_auth_failure_total[5m])) by (error_type)
 histogram_quantile(0.99, sum(rate(inferadb_auth_duration_seconds_bucket[5m])) by (le))
 ```
 
-#### JWKS Cache Metrics
+### JWKS Cache Metrics
 
 | Metric                                 | Type      | Labels                | Description                             |
 | -------------------------------------- | --------- | --------------------- | --------------------------------------- |
@@ -98,7 +92,7 @@ sum(rate(inferadb_jwks_cache_hits_total[5m])) / (sum(rate(inferadb_jwks_cache_hi
 sum(rate(inferadb_jwks_refresh_errors_total[5m])) by (tenant_id)
 ```
 
-#### OAuth Metrics
+### OAuth Metrics
 
 | Metric                                            | Type      | Labels             | Description                                |
 | ------------------------------------------------- | --------- | ------------------ | ------------------------------------------ |
@@ -119,9 +113,7 @@ sum(rate(inferadb_oauth_jwt_validations_total{result="success"}[5m])) by (issuer
 sum(rate(inferadb_oauth_introspections_total[5m]))
 ```
 
-For comprehensive authentication metrics documentation, see [infera-observe/README.md](../crates/infera-observe/README.md).
-
-#### Authorization Check Metrics
+### Authorization Check Metrics
 
 | Metric                            | Type      | Description                                      |
 | --------------------------------- | --------- | ------------------------------------------------ |
@@ -146,7 +138,7 @@ histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m]))
 histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m]))
 ```
 
-#### Cache Metrics
+### Cache Metrics
 
 | Metric                        | Type    | Description                        |
 | ----------------------------- | ------- | ---------------------------------- |
@@ -168,7 +160,7 @@ sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5
 inferadb_cache_entries
 ```
 
-#### Storage Metrics
+### Storage Metrics
 
 | Metric                                    | Type      | Description                              |
 | ----------------------------------------- | --------- | ---------------------------------------- |
@@ -195,7 +187,7 @@ histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])
 rate(inferadb_storage_tuples_total[1h])
 ```
 
-#### WASM Metrics
+### WASM Metrics
 
 | Metric                            | Type      | Description                             |
 | --------------------------------- | --------- | --------------------------------------- |
@@ -217,13 +209,14 @@ rate(inferadb_wasm_errors_total[5m])
 histogram_quantile(0.99, rate(inferadb_wasm_duration_seconds_bucket[5m]))
 ```
 
-#### Evaluation Metrics
+### Evaluation Metrics
 
-| Metric                         | Type      | Description                            |
-| ------------------------------ | --------- | -------------------------------------- |
-| `inferadb_evaluations_total`   | Counter   | Total number of relation evaluations   |
-| `inferadb_evaluation_depth`    | Histogram | Depth of relation evaluation trees     |
-| `inferadb_evaluation_branches` | Histogram | Number of branches evaluated per check |
+| Metric                                | Type      | Description                            |
+| ------------------------------------- | --------- | -------------------------------------- |
+| `inferadb_evaluations_total`          | Counter   | Total number of relation evaluations   |
+| `inferadb_evaluation_depth`           | Histogram | Depth of relation evaluation trees     |
+| `inferadb_evaluation_branches`        | Histogram | Number of branches evaluated per check |
+| `inferadb_parallel_evaluations_total` | Counter   | Total number of parallel evaluations   |
 
 **Example PromQL Queries**:
 
@@ -238,14 +231,14 @@ avg(rate(inferadb_evaluation_depth_sum[5m]) / rate(inferadb_evaluation_depth_cou
 histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))
 ```
 
-#### Query Optimization Metrics
+### Query Optimization Metrics
 
 | Metric                          | Type      | Description                                   |
 | ------------------------------- | --------- | --------------------------------------------- |
 | `inferadb_optimizations_total`  | Counter   | Total number of query optimizations performed |
 | `inferadb_query_cost_estimated` | Histogram | Estimated cost of queries                     |
 
-#### Replication Metrics
+### Replication Metrics
 
 InferaDB tracks comprehensive replication metrics for monitoring multi-region deployments.
 
@@ -322,10 +315,44 @@ histogram_quantile(0.99, rate(inferadb_replication_duration_seconds_bucket[5m]))
     summary: "High conflict rate (>1% of changes)"
 ```
 
-For detailed replication documentation, see [Multi-Region Replication](replication.md).
-| `inferadb_parallel_evaluations_total` | Counter | Total number of parallel evaluations |
+For detailed replication documentation, see [Multi-Region Replication](../replication.md).
 
-#### API Metrics
+### Audit Logging Metrics
+
+InferaDB tracks audit logging metrics for monitoring compliance and security event coverage.
+
+| Metric                                | Type    | Labels       | Description                                  |
+| ------------------------------------- | ------- | ------------ | -------------------------------------------- |
+| `inferadb_audit_events_total`         | Counter | `event_type` | Total number of audit events logged          |
+| `inferadb_audit_events_sampled_total` | Counter | `event_type` | Total number of audit events sampled/dropped |
+| `inferadb_audit_events_errors_total`  | Counter | `error_type` | Total number of audit logging errors         |
+
+**Event Type Labels**:
+
+- `authorization_check`
+- `relationship_write`
+- `relationship_delete`
+- `resource_list`
+- `subject_list`
+- `expand`
+- `simulation`
+
+**Example PromQL Queries**:
+
+```promql
+# Audit event rate by type
+sum(rate(inferadb_audit_events_total[5m])) by (event_type)
+
+# Audit sampling rate (percentage of events dropped)
+sum(rate(inferadb_audit_events_sampled_total[5m])) / (sum(rate(inferadb_audit_events_total[5m])) + sum(rate(inferadb_audit_events_sampled_total[5m]))) * 100
+
+# Audit error rate
+rate(inferadb_audit_events_errors_total[5m])
+```
+
+For comprehensive audit logging documentation, see [Audit Logging](auditing.md).
+
+### API Metrics
 
 | Metric                                            | Type      | Description                                  |
 | ------------------------------------------------- | --------- | -------------------------------------------- |
@@ -353,7 +380,7 @@ histogram_quantile(0.99, rate(inferadb_api_request_duration_seconds_bucket[5m]))
 inferadb_api_active_connections
 ```
 
-#### System Metrics
+### System Metrics
 
 | Metric                                | Type  | Description                  |
 | ------------------------------------- | ----- | ---------------------------- |
@@ -370,551 +397,9 @@ inferadb_uptime_seconds
 inferadb_uptime_seconds / 3600
 ```
 
----
-
-## Distributed Tracing
-
-InferaDB supports OpenTelemetry distributed tracing for end-to-end request visualization.
-
-### Configuration
-
-**Environment Variables**:
-
-```bash
-# Enable tracing
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
-
-# Configure OTLP endpoint
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-
-# Set service name
-export OTEL_SERVICE_NAME=inferadb
-
-# Set sampling rate (0.0 to 1.0)
-export OTEL_TRACES_SAMPLER=always_on  # Sample all traces
-export OTEL_TRACES_SAMPLER=traceidratio
-export OTEL_TRACES_SAMPLER_ARG=0.1    # Sample 10% of traces
-```
-
-### Trace Context
-
-Every authorization check creates a trace with the following structure:
-
-```
-[Span] POST /check
-  ├─ [Span] evaluate_check
-  │   ├─ [Span] schema_lookup
-  │   ├─ [Span] cache_lookup
-  │   ├─ [Span] relation_evaluation
-  │   │   ├─ [Span] storage_read
-  │   │   ├─ [Span] computed_userset
-  │   │   └─ [Span] tuple_to_userset
-  │   └─ [Span] cache_write
-  └─ [Span] serialize_response
-```
-
-**Span Attributes**:
-
-- `inferadb.subject`: Subject of the check
-- `inferadb.resource`: Resource being accessed
-- `inferadb.permission`: Permission being checked
-- `inferadb.decision`: Final decision (allow/deny)
-- `inferadb.cache_hit`: Whether cache was hit
-- `inferadb.tuples_read`: Number of tuples read
-- `inferadb.relations_evaluated`: Number of relations evaluated
-
-### Jaeger Integration
-
-**Start Jaeger**:
-
-```bash
-docker run -d --name jaeger \
-  -e COLLECTOR_OTLP_ENABLED=true \
-  -p 4317:4317 \
-  -p 16686:16686 \
-  jaegertracing/all-in-one:latest
-```
-
-**Configure InferaDB**:
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
-inferadb
-```
-
-**View Traces**: http://localhost:16686
-
-### Trace Example
-
-**Request**:
-
-```bash
-curl -X POST http://localhost:8080/check \
-  -H "Content-Type: application/json" \
-  -d '{
-    "subject": "user:alice",
-    "resource": "doc:readme",
-    "permission": "viewer"
-  }'
-```
-
-**Trace** (in Jaeger):
-
-```
-inferadb-check [3.2ms]
-  subject: user:alice
-  resource: doc:readme
-  permission: viewer
-  decision: allow
-  cache_hit: false
-  tuples_read: 3
-  relations_evaluated: 2
-
-  ├─ schema-lookup [0.1ms]
-  ├─ cache-lookup [0.2ms]
-  │   cache_key: user:alice/doc:readme/viewer/5
-  │   cache_hit: false
-  ├─ evaluate-relation [2.5ms]
-  │   relation: viewer
-  │   ├─ storage-read [1.0ms]
-  │   │   tuples_read: 3
-  │   └─ computed-userset [1.2ms]
-  │       relation: editor
-  │       └─ storage-read [0.8ms]
-  │           tuples_read: 2
-  └─ cache-write [0.3ms]
-      ttl_seconds: 300
-```
-
----
-
-## Audit Logging
-
-InferaDB provides comprehensive audit logging for all authentication events to support security monitoring, compliance, and incident response.
-
-### Event Types
-
-#### AuthenticationSuccess
-
-Logged at **INFO** level when authentication succeeds:
-
-```json
-{
-  "event_type": "AuthenticationSuccess",
-  "tenant_id": "acme",
-  "method": "tenant_jwt",
-  "timestamp": "2025-01-15T10:30:45Z",
-  "ip_address": "192.168.1.100"
-}
-```
-
-#### AuthenticationFailure
-
-Logged at **WARN** level when authentication fails:
-
-```json
-{
-  "event_type": "AuthenticationFailure",
-  "tenant_id": "unknown",
-  "method": "tenant_jwt",
-  "error": "Token expired",
-  "timestamp": "2025-01-15T10:30:45Z",
-  "ip_address": "192.168.1.100"
-}
-```
-
-#### ScopeViolation
-
-Logged at **WARN** level when a request lacks required scope:
-
-```json
-{
-  "event_type": "ScopeViolation",
-  "tenant_id": "acme",
-  "required_scope": "admin",
-  "timestamp": "2025-01-15T10:30:45Z"
-}
-```
-
-#### TenantIsolationViolation
-
-Logged at **WARN** level when cross-tenant access is attempted:
-
-```json
-{
-  "event_type": "TenantIsolationViolation",
-  "tenant_id": "acme",
-  "attempted_tenant": "bigcorp",
-  "timestamp": "2025-01-15T10:30:45Z"
-}
-```
-
-### Querying Audit Logs
-
-Audit logs are structured JSON and can be queried using log aggregation tools:
-
-```bash
-# Find all failed authentications in the last hour
-jq 'select(.event_type == "AuthenticationFailure" and .timestamp > "2025-01-15T09:00:00Z")'
-
-# Find all authentication attempts from specific IP
-jq 'select(.ip_address == "192.168.1.100")'
-
-# Count failures by error type
-jq 'select(.event_type == "AuthenticationFailure") | .error' | sort | uniq -c
-```
-
-For comprehensive audit logging documentation, see [infera-observe/README.md](../crates/infera-observe/README.md#audit-logging).
-
----
-
-## Structured Logging
-
-InferaDB uses structured logging with contextual fields for debugging and auditing.
-
-### Log Levels
-
-Set log level via configuration:
-
-```bash
-export INFERA__OBSERVABILITY__LOG_LEVEL=info
-# Or via RUST_LOG
-export RUST_LOG=infera=debug,infera_api=info
-```
-
-**Log Levels**:
-
-- `error`: Errors only
-- `warn`: Warnings and errors
-- `info`: Informational, warnings, and errors (default)
-- `debug`: Detailed debugging information
-- `trace`: Very verbose tracing
-
-### Log Formats
-
-**Development** (pretty, human-readable):
-
-```
-2025-01-15T10:30:45.123Z  INFO infera_api::handlers: Authorization check
-  subject: user:alice
-  resource: doc:readme
-  permission: viewer
-  decision: allow
-  duration_ms: 3.2
-```
-
-**Production** (JSON, machine-parseable):
-
-```json
-{
-  "timestamp": "2025-01-15T10:30:45.123Z",
-  "level": "INFO",
-  "target": "infera_api::handlers",
-  "message": "Authorization check",
-  "fields": {
-    "subject": "user:alice",
-    "resource": "doc:readme",
-    "permission": "viewer",
-    "decision": "allow",
-    "duration_ms": 3.2
-  },
-  "span": {
-    "name": "check",
-    "id": "abc123"
-  }
-}
-```
-
-### Contextual Logging
-
-InferaDB automatically adds contextual information to logs:
-
-```rust
-// Example: Check handler logs
-info!(
-    subject = %request.subject,
-    resource = %request.resource,
-    permission = %request.permission,
-    decision = ?decision,
-    duration_ms = duration.as_secs_f64() * 1000.0,
-    "Authorization check completed"
-);
-```
-
-**Log Entry**:
-
-```
-INFO Authorization check completed subject=user:alice resource=doc:readme permission=viewer decision=Allow duration_ms=3.2
-```
-
-### Log Filtering
-
-Filter logs by module:
-
-```bash
-# Show all logs
-export RUST_LOG=debug
-
-# Show only infera-core logs at debug level
-export RUST_LOG=infera_core=debug
-
-# Multiple modules
-export RUST_LOG=infera_core=debug,infera_api=info,infera_store=warn
-
-# Filter by span
-export RUST_LOG=infera[check]=trace
-```
-
----
-
-## Monitoring Setup
-
-### Prometheus Setup
-
-**prometheus.yml**:
-
-```yaml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: "inferadb"
-    static_configs:
-      - targets: ["localhost:8080"]
-    metrics_path: "/metrics"
-```
-
-**Start Prometheus**:
-
-```bash
-docker run -d --name prometheus \
-  -p 9090:9090 \
-  -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
-  prom/prometheus
-```
-
-**Access**: http://localhost:9090
-
-### Grafana Dashboard
-
-**Sample Dashboard JSON**:
-
-```json
-{
-  "dashboard": {
-    "title": "InferaDB Overview",
-    "panels": [
-      {
-        "title": "Request Rate",
-        "targets": [
-          {
-            "expr": "rate(inferadb_checks_total[5m])"
-          }
-        ]
-      },
-      {
-        "title": "p99 Latency",
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m]))"
-          }
-        ]
-      },
-      {
-        "title": "Cache Hit Rate",
-        "targets": [
-          {
-            "expr": "inferadb_cache_hit_rate"
-          }
-        ]
-      },
-      {
-        "title": "Error Rate",
-        "targets": [
-          {
-            "expr": "sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) * 100"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Alert Rules
-
-**alerts.yml**:
-
-```yaml
-groups:
-  - name: inferadb
-    rules:
-      # High error rate
-      - alert: HighErrorRate
-        expr: sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) > 0.05
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High error rate detected"
-          description: "Error rate is {{ $value }}% (threshold: 5%)"
-
-      # High latency
-      - alert: HighLatency
-        expr: histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) > 0.1
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High p99 latency detected"
-          description: "p99 latency is {{ $value }}s (threshold: 100ms)"
-
-      # Low cache hit rate
-      - alert: LowCacheHitRate
-        expr: inferadb_cache_hit_rate < 50
-        for: 10m
-        labels:
-          severity: info
-        annotations:
-          summary: "Low cache hit rate"
-          description: "Cache hit rate is {{ $value }}% (threshold: 50%)"
-
-      # High storage latency
-      - alert: HighStorageLatency
-        expr: histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) > 0.05
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High storage read latency"
-          description: "p99 storage read latency is {{ $value }}s (threshold: 50ms)"
-```
-
----
-
-## Performance Monitoring
-
-### Key Performance Indicators (KPIs)
-
-1. **Request Rate**: `rate(inferadb_checks_total[5m])`
-2. **p99 Latency**: `histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m]))`
-3. **Error Rate**: `sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m]))`
-4. **Cache Hit Rate**: `inferadb_cache_hit_rate`
-5. **Storage Throughput**: `rate(inferadb_storage_reads_total[5m]) + rate(inferadb_storage_writes_total[5m])`
-
-### Performance Thresholds
-
-**Latency**:
-
-- p50 < 5ms (good)
-- p90 < 10ms (acceptable)
-- p99 < 50ms (threshold)
-- p99 > 100ms (investigate)
-
-**Cache Hit Rate**:
-
-- \> 90%: Excellent
-- 70-90%: Good
-- 50-70%: Acceptable
-- < 50%: Poor (investigate)
-
-**Error Rate**:
-
-- < 0.1%: Excellent
-- 0.1-1%: Acceptable
-- 1-5%: Warning
-- \> 5%: Critical (alert)
-
----
-
-## Debugging
-
-### Enable Debug Logging
-
-```bash
-export RUST_LOG=debug
-inferadb
-```
-
-### Trace Specific Requests
-
-Add trace ID to logs:
-
-```bash
-# Set log level to trace for specific module
-export RUST_LOG=infera_core::evaluator=trace
-```
-
-### View Decision Traces
-
-Use `CheckWithTrace` API for detailed evaluation traces:
-
-```bash
-grpcurl -plaintext -d '{
-  "subject": "user:alice",
-  "resource": "doc:readme",
-  "permission": "viewer"
-}' localhost:8081 infera.v1.InferaService/CheckWithTrace
-```
-
----
-
-## Best Practices
-
-### 1. Monitor Key Metrics
-
-Focus on:
-
-- Request rate
-- Latency (p50, p90, p99)
-- Error rate
-- Cache hit rate
-
-### 2. Set Alerts
-
-Alert on:
-
-- High error rate (> 5%)
-- High latency (p99 > 100ms)
-- Low cache hit rate (< 50%)
-
-### 3. Use Structured Logging
-
-Include contextual information in logs:
-
-```rust
-info!(
-    user_id = %user.id,
-    resource_id = %resource.id,
-    decision = ?decision,
-    "Check completed"
-);
-```
-
-### 4. Sample Traces in Production
-
-Use sampling to reduce overhead:
-
-```bash
-export OTEL_TRACES_SAMPLER=traceidratio
-export OTEL_TRACES_SAMPLER_ARG=0.1  # 10% sampling
-```
-
-### 5. Aggregate Logs
-
-Send logs to centralized logging:
-
-- Elasticsearch + Kibana
-- Grafana Loki
-- AWS CloudWatch
-- Datadog
-
----
-
 ## Next Steps
 
-- [Configuration](configuration.md) - Configure observability settings
-- [API Reference](api-rest.md) - Monitor API endpoints
-- [Caching System](caching.md) - Monitor cache performance
-- [Storage Backends](storage-backends.md) - Monitor storage metrics
+- [Distributed Tracing](tracing.md) - OpenTelemetry tracing setup
+- [Structured Logging](logging.md) - Configure logging and log formats
+- [Audit Logging](auditing.md) - Comprehensive audit trail for compliance
+- [Observability Overview](README.md) - Complete observability guide

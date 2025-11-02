@@ -152,11 +152,11 @@ Query: `Check(user:alice, document:readme, viewer)` → **Deny** (forbid overrid
 
 **Important**: Forbid (`forbid blocked`) and Exclusion (`viewer - blocked`) are different concepts:
 
-| Feature | Forbid | Exclusion |
-|---------|--------|-----------|
-| **Scope** | Global deny for all permissions | Local to specific relation |
-| **Precedence** | Checked first, overrides everything | Part of permit evaluation |
-| **Use Case** | User/resource-level blocks | Permission-specific filtering |
+| Feature        | Forbid                              | Exclusion                     |
+| -------------- | ----------------------------------- | ----------------------------- |
+| **Scope**      | Global deny for all permissions     | Local to specific relation    |
+| **Precedence** | Checked first, overrides everything | Part of permit evaluation     |
+| **Use Case**   | User/resource-level blocks          | Permission-specific filtering |
 
 **Example showing the difference**:
 
@@ -174,12 +174,14 @@ type document {
 ```
 
 With tuples:
+
 ```
 document:readme#editor@user:alice
 document:readme#blocked_user@user:alice
 ```
 
 Queries:
+
 - `Check(user:alice, document:readme, viewer)` → **Deny** (exclusion removes from viewer)
 - `Check(user:alice, document:readme, editor)` → **Deny** (forbid blocks all access)
 
@@ -274,6 +276,7 @@ type document {
 ```
 
 With this schema:
+
 - Suspended users are completely blocked (forbid)
 - The `- suspended` in `can_edit` is redundant but harmless (forbid already blocks)
 - Non-suspended editors can edit and view

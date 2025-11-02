@@ -1025,5 +1025,5 @@ For production deployments:
 
 - [Configuration Reference](../guides/configuration.md)
 - [Deployment Guide](../guides/deployment.md)
-- [Observability Guide](../operations/observability.md)
+- [Observability Guide](../operations/observability/README.md)
 - [Security Best Practices](security.md)
