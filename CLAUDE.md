@@ -47,10 +47,10 @@ cargo build -p infera-core
 
 ```bash
 # Format code
-cargo fmt --all
+cargo +nightly fmt --all
 
 # Check formatting (CI mode)
-cargo fmt --check
+cargo +nightly fmt --check
 
 # Run clippy linter
 cargo clippy --workspace --all-targets -- -D warnings
@@ -117,20 +117,23 @@ The codebase follows a layered architecture with clear separation of concerns:
 5. **infera-cache**: Two-layer caching system (authorization results + expand trees). Uses `moka` for async LRU cache.
 
 6. **infera-store**: Storage abstraction layer defining `RelationshipStore`, `VaultStore`, and `AccountStore` traits. Implementations:
-   - `MemoryBackend` - In-memory HashMap (development/testing)
-   - `FoundationDBBackend` - Distributed storage (production)
+
+    - `MemoryBackend` - In-memory HashMap (development/testing)
+    - `FoundationDBBackend` - Distributed storage (production)
 
 7. **infera-core**: Policy evaluation engine:
-   - IPL (Infera Policy Language) parser
-   - Relationship graph traversal
-   - Decision evaluation with caching
-   - Parallel evaluation for complex queries
+
+    - IPL (Infera Policy Language) parser
+    - Relationship graph traversal
+    - Decision evaluation with caching
+    - Parallel evaluation for complex queries
 
 8. **infera-wasm**: WebAssembly policy module runtime using `wasmtime`.
 
 9. **infera-repl**: Multi-region replication with conflict resolution.
 
 10. **infera-auth**: Authentication and authorization:
+
     - JWT validation (EdDSA, RS256 only - no symmetric algorithms)
     - OAuth 2.0 Bearer token support
     - JWKS caching with stale-while-revalidate
@@ -138,6 +141,7 @@ The codebase follows a layered architecture with clear separation of concerns:
     - Replay protection (in-memory or Redis)
 
 11. **infera-api**: HTTP and gRPC API servers:
+
     - REST API via Axum
     - gRPC API via Tonic
     - Rate limiting
@@ -153,19 +157,21 @@ The codebase follows a layered architecture with clear separation of concerns:
 
 **Critical:** All data operations are scoped to a `Vault` (UUID). This provides complete tenant isolation.
 
-- Every `Relationship` has a `vault` field (UUID)
-- All storage operations require a `vault` parameter
-- JWT tokens include `vault` and `account` claims
-- `AuthContext` includes `vault` and `account` fields
-- Middleware validates vault access before allowing operations
+-   Every `Relationship` has a `vault` field (UUID)
+-   All storage operations require a `vault` parameter
+-   JWT tokens include `vault` and `account` claims
+-   `AuthContext` includes `vault` and `account` fields
+-   Middleware validates vault access before allowing operations
 
 **Storage Layer Pattern:**
+
 ```rust
 async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision>
 async fn read(&self, vault: Uuid, key: &RelationshipKey, revision: Revision) -> Result<Vec<Relationship>>
 ```
 
 **Authentication Flow:**
+
 1. Extract JWT from request
 2. Validate token and extract `vault` + `account` claims
 3. Create `AuthContext` with vault/account
@@ -177,10 +183,11 @@ See `MULTI_TENANCY.md` for implementation details and phase tracking.
 #### Revision-Based Consistency
 
 All reads and writes use monotonically increasing `Revision` tokens:
-- Each vault has its own revision counter
-- Writes return the new revision
-- Reads specify a revision for snapshot consistency
-- Enables "Read Your Writes" consistency
+
+-   Each vault has its own revision counter
+-   Writes return the new revision
+-   Reads specify a revision for snapshot consistency
+-   Enables "Read Your Writes" consistency
 
 #### Two-Layer Caching
 
@@ -188,27 +195,31 @@ All reads and writes use monotonically increasing `Revision` tokens:
 2. **Expand Cache**: Caches relationship expansion trees
 
 Both caches:
-- Are vault-scoped (keys include vault UUID)
-- Are revision-aware (invalidated on writes)
-- Support selective invalidation by resource
+
+-   Are vault-scoped (keys include vault UUID)
+-   Are revision-aware (invalidated on writes)
+-   Support selective invalidation by resource
 
 #### Storage Trait Abstraction
 
 The `RelationshipStore` trait enables pluggable backends:
-- Development: `MemoryBackend` (in-memory HashMap)
-- Production: `FoundationDBBackend` (distributed, transactional)
+
+-   Development: `MemoryBackend` (in-memory HashMap)
+-   Production: `FoundationDBBackend` (distributed, transactional)
 
 All implementations must support:
-- Vault-scoped operations
-- Revision-based reads
-- Change log for Watch API
-- Atomic write/delete operations
+
+-   Vault-scoped operations
+-   Revision-based reads
+-   Change log for Watch API
+-   Atomic write/delete operations
 
 #### API Handler Organization
 
 The REST API handlers follow a **resource-based organization pattern** for maximum maintainability and scalability:
 
 **Directory Structure:**
+
 ```
 crates/infera-api/src/handlers/
 ├── mod.rs                 # Module declarations
@@ -272,7 +283,7 @@ crates/infera-api/src/handlers/
 
 **Adding New Handlers:**
 
-```rust
+````rust
 // handlers/myresource/myoperation.rs
 use crate::{ApiError, AppState, Result, handlers::utils::auth::get_vault};
 
@@ -310,7 +321,7 @@ pub async fn my_operation_handler(
     // 4. Execute operation
     // 5. Return response
 }
-```
+````
 
 **Router Registration:**
 
@@ -323,6 +334,141 @@ use handlers::myresource::myoperation::my_operation_handler;
 .route("/v1/myresource", post(my_operation_handler))
 ```
 
+#### gRPC Service Organization
+
+The gRPC API follows the same **resource-based organization pattern** as the REST handlers for consistency and maintainability:
+
+**Directory Structure:**
+
+```
+crates/infera-api/src/grpc/
+├── mod.rs                # Service trait implementation + delegation
+├── evaluate.rs           # Bidirectional streaming: evaluate
+├── expand.rs             # Server streaming: expand
+├── relationships.rs      # Client streaming: write/delete relationships
+├── list.rs               # Server streaming: list operations
+├── watch.rs              # Server streaming: watch changes
+├── simulate.rs           # Unary RPC: simulate evaluation
+└── health.rs             # Unary RPC: health check
+```
+
+**Key Patterns:**
+
+1. **Feature-Based Modules**: Each gRPC method is in its own file grouped by feature
+2. **Delegation Pattern**: `grpc/mod.rs` implements the service trait and delegates to submodules
+3. **Type Safety**: All streaming types properly defined with Pin<Box<dyn Stream>>
+4. **Consistent Signatures**: All methods take `&InferaServiceImpl` and `Request<T>`
+5. **Error Handling**: All methods return `Result<Response<T>, Status>`
+6. **Vault Scoping**: All operations use vault from AuthContext (via request extensions)
+
+**Module Implementation Pattern:**
+
+The `grpc/mod.rs` contains the service trait implementation skeleton that delegates to submodules:
+
+```rust
+pub struct InferaServiceImpl {
+    state: AppState,
+}
+
+#[tonic::async_trait]
+impl InferaService for InferaServiceImpl {
+    type EvaluateStream = std::pin::Pin<
+        Box<dyn futures::Stream<Item = Result<EvaluateResponse, Status>> + Send + 'static>,
+    >;
+
+    async fn evaluate(
+        &self,
+        request: Request<tonic::Streaming<EvaluateRequest>>,
+    ) -> Result<Response<Self::EvaluateStream>, Status> {
+        // Delegate to submodule
+        evaluate::evaluate(self, request).await
+    }
+
+    // ... other method delegations
+}
+```
+
+**Adding New gRPC Methods:**
+
+```rust
+// grpc/mymethod.rs
+use tonic::{Request, Response, Status};
+use crate::grpc::InferaServiceImpl;
+
+pub(super) async fn my_method(
+    service: &InferaServiceImpl,
+    request: Request<MyRequest>,
+) -> Result<Response<MyResponse>, Status> {
+    // 1. Extract AuthContext from request extensions
+    let auth = request.extensions().get::<infera_auth::AuthContext>().cloned();
+
+    // 2. Extract vault
+    let vault = auth.as_ref().map(|ctx| ctx.vault).unwrap_or(service.state.default_vault);
+
+    // 3. Validate and execute
+    // 4. Return response
+    Ok(Response::new(MyResponse { /* ... */ }))
+}
+```
+
+**Streaming Patterns:**
+
+For server streaming (expand, list, watch):
+
+```rust
+type MyStream = std::pin::Pin<
+    Box<dyn futures::Stream<Item = Result<MyResponse, Status>> + Send + 'static>
+>;
+
+pub(super) async fn my_stream_method(
+    service: &InferaServiceImpl,
+    request: Request<MyRequest>,
+) -> Result<Response<MyStream>, Status> {
+    // Create async stream
+    let stream = futures::stream::unfold(state, |state| async move {
+        // Generate items
+        Some((Ok(item), new_state))
+    });
+
+    Ok(Response::new(Box::pin(stream)))
+}
+```
+
+For bidirectional/client streaming (evaluate, relationships):
+
+```rust
+pub(super) async fn my_bidirectional_method(
+    service: &InferaServiceImpl,
+    request: Request<tonic::Streaming<MyRequest>>,
+) -> Result<Response<MyStream>, Status> {
+    let mut request_stream = request.into_inner();
+
+    // Process stream items
+    let stream = async_stream::stream! {
+        while let Some(item) = request_stream.message().await? {
+            // Process item
+            yield Ok(response);
+        }
+    };
+
+    Ok(Response::new(Box::pin(stream)))
+}
+```
+
+**Service Registration:**
+
+The gRPC service is registered in `crates/infera-api/src/lib.rs`:
+
+```rust
+use crate::grpc::InferaServiceImpl;
+
+// In create_grpc_server():
+Server::builder()
+    .add_service(InferaServiceServer::new(InferaServiceImpl::new(state)))
+    .serve(addr)
+    .await
+```
+
 ---
 
 ## Critical Implementation Details
@@ -330,23 +476,27 @@ use handlers::myresource::myoperation::my_operation_handler;
 ### Vault Isolation Enforcement
 
 **Never** skip vault validation. All operations must:
+
 1. Extract vault from `AuthContext`
 2. Pass vault to storage layer
 3. Verify vault exists and account owns it (when using `validate_vault_access_with_store`)
 
 **Files:**
-- `crates/infera-auth/src/middleware.rs` - Vault validation functions
-- `crates/infera-auth/tests/vault_auth_tests.rs` - Comprehensive vault tests
+
+-   `crates/infera-auth/src/middleware.rs` - Vault validation functions
+-   `crates/infera-auth/tests/vault_auth_tests.rs` - Comprehensive vault tests
 
 ### Authentication Security
 
 **Only asymmetric algorithms are allowed:**
-- EdDSA (Ed25519)
-- RS256, RS384, RS512
+
+-   EdDSA (Ed25519)
+-   RS256, RS384, RS512
 
 Symmetric algorithms (HS256, etc.) are explicitly rejected in validation.
 
 **JWT Claims Structure:**
+
 ```rust
 pub struct Claims {
     pub sub: String,      // subject
@@ -361,6 +511,7 @@ pub struct Claims {
 ```
 
 **AuthContext Structure:**
+
 ```rust
 pub struct AuthContext {
     pub tenant_id: String,
@@ -379,18 +530,21 @@ pub struct AuthContext {
 ### Wildcard Support
 
 Subjects can be wildcards (e.g., `user:*`) to model public resources:
-- Only valid in subject position (not resource or relation)
-- Format must be `type:*` (e.g., `user:*`, `group:*`)
-- Matching checks both exact match AND wildcard type match
+
+-   Only valid in subject position (not resource or relation)
+-   Format must be `type:*` (e.g., `user:*`, `group:*`)
+-   Matching checks both exact match AND wildcard type match
 
 **Implementation:**
-- `Relationship::is_wildcard_subject()` - Check if subject is wildcard
-- `Relationship::matches_subject(subject)` - Check if relationship applies to subject
-- `Relationship::validate_wildcard_placement()` - Ensure wildcards only in subject
+
+-   `Relationship::is_wildcard_subject()` - Check if subject is wildcard
+-   `Relationship::matches_subject(subject)` - Check if relationship applies to subject
+-   `Relationship::validate_wildcard_placement()` - Ensure wildcards only in subject
 
 ### IPL (Infera Policy Language)
 
 Policy definitions use IPL syntax:
+
 ```ipl
 type document {
   relation viewer: user
@@ -414,13 +568,14 @@ type document {
 
 ### Test Organization
 
-- **Unit tests:** In `#[cfg(test)] mod tests` within source files
-- **Integration tests:** In `tests/` directory of each crate
-- **Fixtures:** `crates/infera-test-fixtures` for shared test utilities
+-   **Unit tests:** In `#[cfg(test)] mod tests` within source files
+-   **Integration tests:** In `tests/` directory of each crate
+-   **Fixtures:** `crates/infera-test-fixtures` for shared test utilities
 
 ### Writing Multi-Tenant Tests
 
 When writing tests involving vaults:
+
 1. Create test vaults with `Vault::with_id()` or `Vault::new()`
 2. Create test accounts with `Account::new()`
 3. Set `relationship.vault = vault_id` before operations
@@ -428,6 +583,7 @@ When writing tests involving vaults:
 5. Verify isolation between different vaults
 
 **Example:**
+
 ```rust
 #[tokio::test]
 async fn test_vault_isolation() {
@@ -453,9 +609,10 @@ async fn test_vault_isolation() {
 ### Authentication Test Helpers
 
 Use the test helpers in `crates/infera-auth/tests/common/`:
-- `internal_jwt_helpers.rs` - Generate test JWTs
-- `mock_jwks.rs` - Mock JWKS server
-- `mock_oauth.rs` - Mock OAuth provider
+
+-   `internal_jwt_helpers.rs` - Generate test JWTs
+-   `mock_jwks.rs` - Mock JWKS server
+-   `mock_oauth.rs` - Mock OAuth provider
 
 ---
 
@@ -490,15 +647,17 @@ Use the test helpers in `crates/infera-auth/tests/common/`:
 ## Configuration
 
 Configuration precedence (highest to lowest):
+
 1. Command-line arguments (`--port 8080`)
 2. Environment variables (`INFERA__SERVER__PORT=8080`)
 3. Configuration file (`config.yaml`)
 4. Default values
 
 **Environment variable format:**
-- Use double underscore `__` as separator
-- Prefix with `INFERA__`
-- Example: `INFERA__AUTH__ENABLED=true`
+
+-   Use double underscore `__` as separator
+-   Prefix with `INFERA__`
+-   Example: `INFERA__AUTH__ENABLED=true`
 
 ---
 
@@ -507,6 +666,7 @@ Configuration precedence (highest to lowest):
 ### Tests Failing After Vault Changes
 
 If you see "nil UUID" or vault-related errors:
+
 1. Check that all `Relationship` instances have `vault` field set
 2. Ensure `AuthContext` includes vault/account
 3. Verify storage operations receive vault parameter
@@ -515,6 +675,7 @@ If you see "nil UUID" or vault-related errors:
 ### Authentication Errors
 
 If JWT validation fails:
+
 1. Verify algorithm is asymmetric (EdDSA, RS256) - no HS256
 2. Check token includes `vault` and `account` claims
 3. Ensure JWKS URL is accessible
@@ -523,6 +684,7 @@ If JWT validation fails:
 ### Build Errors
 
 If compilation fails:
+
 1. Run `cargo clean` to clear build cache
 2. Check Rust version: `rustc --version` (need 1.83+)
 3. Verify all dependencies in Cargo.toml
@@ -532,12 +694,13 @@ If compilation fails:
 
 ## Performance Considerations
 
-- **Caching:** Enable caching for production (default: on)
-- **Worker Threads:** Set `INFERA__SERVER__WORKER_THREADS` to CPU count
-- **Database:** Use FoundationDB for production, not MemoryBackend
-- **Rate Limiting:** Configure per deployment requirements
+-   **Caching:** Enable caching for production (default: on)
+-   **Worker Threads:** Set `INFERA__SERVER__WORKER_THREADS` to CPU count
+-   **Database:** Use FoundationDB for production, not MemoryBackend
+-   **Rate Limiting:** Configure per deployment requirements
 
 **Benchmarking:**
+
 ```bash
 cargo bench --workspace
 ```
@@ -546,12 +709,12 @@ cargo bench --workspace
 
 ## Security Notes
 
-- Never use symmetric JWT algorithms (HS256) - explicitly rejected
-- Always validate vault ownership before operations
-- Use audit logging for authentication events
-- Enable replay protection in production
-- Follow least-privilege principle for scopes
-- Regularly run security audits: `cargo audit`
+-   Never use symmetric JWT algorithms (HS256) - explicitly rejected
+-   Always validate vault ownership before operations
+-   Use audit logging for authentication events
+-   Enable replay protection in production
+-   Follow least-privilege principle for scopes
+-   Regularly run security audits: `cargo audit`
 
 ---
 
@@ -560,12 +723,14 @@ cargo bench --workspace
 See `MULTI_TENANCY.md` for detailed phase tracking.
 
 **Completed:**
-- ✅ Phase 1: Data Model & Storage (Vault/Account types, storage layer)
-- ✅ Phase 2: Authentication Integration (JWT claims, vault validation)
-- ✅ Phase 3: API Handler Updates (vault-scoped endpoints)
-- ✅ Phase 4: Account & Vault Management APIs (10 REST endpoints with admin/owner authorization)
+
+-   ✅ Phase 1: Data Model & Storage (Vault/Account types, storage layer)
+-   ✅ Phase 2: Authentication Integration (JWT claims, vault validation)
+-   ✅ Phase 3: API Handler Updates (vault-scoped endpoints)
+-   ✅ Phase 4: Account & Vault Management APIs (10 REST endpoints with admin/owner authorization)
 
 **Pending:**
-- Phase 5: Initialization & Migration
-- Phase 6: Cache Isolation
-- Phase 7: Testing & Documentation
+
+-   Phase 5: Initialization & Migration
+-   Phase 6: Cache Isolation
+-   Phase 7: Testing & Documentation

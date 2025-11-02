@@ -72,22 +72,26 @@ pub async fn create_account(
 mod tests {
     use std::sync::Arc;
 
-    use axum::{
-        body::Body,
-        http::{Request, StatusCode},
-    };
+    use axum::{Json, extract::State};
+    use infera_auth::AuthMethod;
     use infera_config::Config;
     use infera_core::{Evaluator, ipl::Schema};
-    use infera_store::{MemoryBackend, RelationshipStore};
-    use tower::ServiceExt;
+    use infera_store::MemoryBackend;
+    use uuid::Uuid;
 
     use super::*;
+    use crate::AppState;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            schema,
+            None,
+            test_vault,
+        ));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -112,9 +116,10 @@ mod tests {
                 .await;
 
         assert!(result.is_err());
-        match result.unwrap_err() {
-            ApiError::Unauthorized(_) => {},
-            e => panic!("Expected Unauthorized, got {:?}", e),
+        match result {
+            Err(ApiError::Unauthorized(_)) => {},
+            Err(e) => panic!("Expected Unauthorized, got {:?}", e),
+            Ok(_) => panic!("Expected error"),
         }
     }
 
@@ -128,7 +133,7 @@ mod tests {
             tenant_id: "test".to_string(),
             client_id: "test".to_string(),
             key_id: "test".to_string(),
-            auth_method: infera_auth::AuthMethod::Jwt,
+            auth_method: AuthMethod::PrivateKeyJwt,
             scopes: vec!["inferadb.admin".to_string()],
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
@@ -145,11 +150,12 @@ mod tests {
         .await;
 
         assert!(result.is_err());
-        match result.unwrap_err() {
-            ApiError::InvalidRequest(msg) => {
+        match result {
+            Err(ApiError::InvalidRequest(msg)) => {
                 assert!(msg.contains("Account name cannot be empty"));
             },
-            e => panic!("Expected InvalidRequest, got {:?}", e),
+            Err(e) => panic!("Expected InvalidRequest, got {:?}", e),
+            Ok(_) => panic!("Expected error"),
         }
     }
 }

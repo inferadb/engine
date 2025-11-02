@@ -11,8 +11,7 @@ use axum::{
 use infera_types::DeleteFilter;
 
 use super::get::RelationshipPath;
-use crate::handlers::utils::auth::get_vault;
-use crate::{ApiError, AppState};
+use crate::{ApiError, AppState, handlers::utils::auth::get_vault};
 
 /// Handler for `DELETE /v1/relationships/{resource}/{relation}/{subject}`
 ///
@@ -158,7 +157,7 @@ mod tests {
     };
     use infera_config::Config;
     use infera_core::Evaluator;
-    use infera_store::{MemoryBackend, RelationshipStore};
+    use infera_store::MemoryBackend;
     use infera_types::Relationship;
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -167,7 +166,7 @@ mod tests {
     use crate::AppState;
 
     async fn create_test_state() -> AppState {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
 
         // Create a minimal schema
         use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
@@ -182,7 +181,12 @@ mod tests {
 
         // Use a test vault ID
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            schema,
+            None,
+            test_vault,
+        ));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 

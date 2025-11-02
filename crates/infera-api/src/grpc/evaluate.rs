@@ -1,0 +1,183 @@
+use infera_core::DecisionTrace;
+use infera_types::{Decision, EvaluateRequest as CoreEvaluateRequest};
+use tonic::{Request, Response, Status};
+
+use super::{
+    InferaServiceImpl,
+    proto::{Decision as ProtoDecision, EvaluateRequest, EvaluateResponse},
+};
+
+pub async fn evaluate(
+    service: &InferaServiceImpl,
+    request: Request<tonic::Streaming<EvaluateRequest>>,
+) -> Result<
+    Response<
+        std::pin::Pin<
+            Box<dyn futures::Stream<Item = Result<EvaluateResponse, Status>> + Send + 'static>,
+        >,
+    >,
+    Status,
+> {
+    use futures::StreamExt;
+
+    let mut stream = request.into_inner();
+    let evaluator = service.state.evaluator.clone();
+
+    // Process each check request in the stream
+    let output_stream = async_stream::stream! {
+        let mut index = 0u32;
+        while let Some(check_req) = stream.next().await {
+            match check_req {
+                Ok(req) => {
+                    // Validate request
+                    if req.subject.is_empty() {
+                        yield Err(Status::invalid_argument("Subject cannot be empty"));
+                        continue;
+                    }
+                    if req.resource.is_empty() {
+                        yield Err(Status::invalid_argument("Resource cannot be empty"));
+                        continue;
+                    }
+                    if req.permission.is_empty() {
+                        yield Err(Status::invalid_argument("Permission cannot be empty"));
+                        continue;
+                    }
+
+                    let evaluate_request = CoreEvaluateRequest {
+                        subject: req.subject.clone(),
+                        resource: req.resource.clone(),
+                        permission: req.permission.clone(),
+                        context: req.context.and_then(|s| serde_json::from_str(&s).ok()),
+                        trace: None,
+                    };
+
+                    // Check if trace is requested
+                    let trace = req.trace.unwrap_or(false);
+
+                    if trace {
+                        // Use check_with_trace for detailed evaluation trace
+                        match evaluator.check_with_trace(evaluate_request).await {
+                            Ok(trace_result) => {
+                                let proto_decision = match trace_result.decision {
+                                    Decision::Allow => ProtoDecision::Allow,
+                                    Decision::Deny => ProtoDecision::Deny,
+                                };
+
+                                let proto_trace = convert_trace_to_proto(trace_result);
+
+                                yield Ok(EvaluateResponse {
+                                    decision: proto_decision as i32,
+                                    index,
+                                    error: None,
+                                    trace: Some(proto_trace),
+                                });
+                            }
+                            Err(e) => {
+                                yield Ok(EvaluateResponse {
+                                    decision: ProtoDecision::Deny as i32,
+                                    index,
+                                    error: Some(format!("Evaluation error: {}", e)),
+                                    trace: None,
+                                });
+                            }
+                        }
+                    } else {
+                        // Regular evaluation without trace
+                        match evaluator.check(evaluate_request).await {
+                            Ok(decision) => {
+                                let proto_decision = match decision {
+                                    Decision::Allow => ProtoDecision::Allow,
+                                    Decision::Deny => ProtoDecision::Deny,
+                                };
+
+                                yield Ok(EvaluateResponse {
+                                    decision: proto_decision as i32,
+                                    index,
+                                    error: None,
+                                    trace: None,
+                                });
+                            }
+                            Err(e) => {
+                                // Return error in response rather than failing the stream
+                                yield Ok(EvaluateResponse {
+                                    decision: ProtoDecision::Deny as i32,
+                                    index,
+                                    error: Some(format!("Evaluation error: {}", e)),
+                                    trace: None,
+                                });
+                            }
+                        }
+                    }
+
+                    index += 1;
+                }
+                Err(status) => {
+                    yield Err(status);
+                    break;
+                }
+            }
+        }
+    };
+
+    Ok(Response::new(Box::pin(output_stream)))
+}
+
+// Helper function to convert DecisionTrace to proto
+fn convert_trace_to_proto(trace: DecisionTrace) -> super::proto::DecisionTrace {
+    use infera_core::{EvaluationNode, NodeType as CoreNodeType};
+
+    fn convert_node(node: EvaluationNode) -> super::proto::EvaluationNode {
+        let node_type = match node.node_type {
+            CoreNodeType::DirectCheck { resource, relation, subject } => {
+                Some(super::proto::node_type::Type::DirectCheck(super::proto::DirectCheck {
+                    resource,
+                    relation,
+                    subject,
+                }))
+            },
+            CoreNodeType::ComputedUserset { relation, relationship } => {
+                Some(super::proto::node_type::Type::ComputedUserset(
+                    super::proto::ComputedUserset { relation, relationship },
+                ))
+            },
+            CoreNodeType::RelatedObjectUserset { relationship, computed } => {
+                Some(super::proto::node_type::Type::RelatedObjectUserset(
+                    super::proto::RelatedObjectUserset { relationship, computed },
+                ))
+            },
+            CoreNodeType::Union => {
+                Some(super::proto::node_type::Type::Union(super::proto::Union {}))
+            },
+            CoreNodeType::Intersection => {
+                Some(super::proto::node_type::Type::Intersection(super::proto::Intersection {}))
+            },
+            CoreNodeType::Exclusion => {
+                Some(super::proto::node_type::Type::Exclusion(super::proto::Exclusion {}))
+            },
+            CoreNodeType::WasmModule { module_name } => {
+                Some(super::proto::node_type::Type::WasmModule(super::proto::WasmModule {
+                    module_name,
+                }))
+            },
+        };
+
+        super::proto::EvaluationNode {
+            node_type: Some(super::proto::NodeType { r#type: node_type }),
+            result: node.result,
+            children: node.children.into_iter().map(convert_node).collect(),
+        }
+    }
+
+    let proto_decision = match trace.decision {
+        Decision::Allow => ProtoDecision::Allow,
+        Decision::Deny => ProtoDecision::Deny,
+    };
+
+    super::proto::DecisionTrace {
+        decision: proto_decision as i32,
+        root: Some(convert_node(trace.root)),
+        duration_micros: trace.duration.as_micros() as u64,
+        relationships_read: trace.relationships_read as u64,
+        relations_evaluated: trace.relations_evaluated as u64,
+    }
+}

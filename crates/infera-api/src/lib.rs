@@ -32,15 +32,18 @@ pub mod validation;
 // Import handlers
 #[cfg(test)]
 use handlers::evaluate::stream::EvaluateRestResponse;
-use handlers::evaluate::stream::evaluate_stream_handler;
-use handlers::expand::stream::expand_handler;
-use handlers::relationships::delete_bulk::delete_relationships_handler;
-use handlers::relationships::list::list_relationships_stream_handler;
-use handlers::relationships::write::write_relationships_handler;
-use handlers::resources::list::list_resources_stream_handler;
-use handlers::simulate::evaluate::simulate_handler;
-use handlers::subjects::list::list_subjects_stream_handler;
-use handlers::watch::stream::watch_handler;
+use handlers::{
+    evaluate::stream::evaluate_stream_handler,
+    expand::stream::expand_handler,
+    relationships::{
+        delete_bulk::delete_relationships_handler, list::list_relationships_stream_handler,
+        write::write_relationships_handler,
+    },
+    resources::list::list_resources_stream_handler,
+    simulate::evaluate::simulate_handler,
+    subjects::list::list_subjects_stream_handler,
+    watch::stream::watch_handler,
+};
 
 #[derive(Debug, Error)]
 pub enum ApiError {
@@ -534,16 +537,18 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
+    use handlers::relationships::{delete_bulk::DeleteResponse, write::WriteResponse};
     use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::MemoryBackend;
     use infera_types::{UsersetNodeType, UsersetTree};
     use serde_json::json;
     use tower::ServiceExt;
+    use uuid::Uuid;
 
     use super::*; // for `oneshot`
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![
@@ -559,7 +564,12 @@ mod tests {
         )]));
         // Use a test vault ID
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            schema,
+            None,
+            test_vault,
+        ));
         let mut config = infera_config::Config::default();
         // Disable auth and rate limiting for tests
         config.auth.enabled = false;

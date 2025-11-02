@@ -317,7 +317,7 @@ mod tests {
     };
     use infera_config::Config;
     use infera_core::Evaluator;
-    use infera_store::{MemoryBackend, RelationshipStore};
+    use infera_store::MemoryBackend;
     use infera_types::Relationship;
     use tower::ServiceExt;
 
@@ -328,7 +328,7 @@ mod tests {
     };
 
     async fn create_test_state() -> AppState {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
 
         // Create a schema with document type and view/delete relations
         use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
@@ -344,7 +344,12 @@ mod tests {
 
         // Use a test vault ID
         let test_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            schema,
+            None,
+            test_vault,
+        ));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 

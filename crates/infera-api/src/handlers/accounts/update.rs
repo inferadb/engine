@@ -91,16 +91,21 @@ mod tests {
 
     use infera_config::Config;
     use infera_core::{Evaluator, ipl::Schema};
-    use infera_store::{MemoryBackend, RelationshipStore};
+    use infera_store::MemoryBackend;
     use infera_types::Account;
 
     use super::*;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, test_vault));
+        let evaluator = Arc::new(Evaluator::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            schema,
+            None,
+            test_vault,
+        ));
         let config = Arc::new(Config::default());
         let health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -119,7 +124,7 @@ mod tests {
             tenant_id: "test".to_string(),
             client_id: "test".to_string(),
             key_id: "test".to_string(),
-            auth_method: infera_auth::AuthMethod::Jwt,
+            auth_method: infera_auth::AuthMethod::PrivateKeyJwt,
             scopes: vec!["inferadb.admin".to_string()],
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
