@@ -5,14 +5,13 @@
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use uuid::Uuid;
 
 use crate::adapters::authzen::{convert_authzen_request_to_native, AuthZENEvaluationRequest};
+use crate::formatters::authzen::{format_denial_with_error, format_evaluation_response};
 use crate::validation::validate_authzen_evaluation_request;
 use crate::ApiError;
 use crate::AppState;
-use infera_types::{Decision, EvaluateRequest};
+use infera_types::EvaluateRequest;
 
 /// Enhanced AuthZEN evaluation response with additional context
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,32 +90,12 @@ pub async fn post_evaluation(
         .await
         .map_err(|e| ApiError::Internal(format!("Evaluation failed: {}", e)))?;
 
-    // Convert decision to boolean
-    let decision_bool = matches!(decision, Decision::Allow);
+    // Format response using centralized formatter
+    let response_value = format_evaluation_response(decision, &subject, &permission, &resource);
 
-    // Generate unique evaluation ID
-    let evaluation_id = Uuid::new_v4();
-
-    // Create human-readable reason
-    let reason = if decision_bool {
-        format!("{} has {} permission on {}", subject, permission, resource)
-    } else {
-        format!(
-            "{} does not have {} permission on {}",
-            subject, permission, resource
-        )
-    };
-
-    // Build response with context
-    let response = EnhancedAuthZENEvaluationResponse {
-        decision: decision_bool,
-        context: Some(json!({
-            "id": evaluation_id.to_string(),
-            "reason_admin": {
-                "en": reason
-            }
-        })),
-    };
+    // Convert to typed response
+    let response: EnhancedAuthZENEvaluationResponse = serde_json::from_value(response_value)
+        .map_err(|e| ApiError::Internal(format!("Failed to format response: {}", e)))?;
 
     // Record API request metric
     let duration = start.elapsed();
@@ -128,8 +107,12 @@ pub async fn post_evaluation(
     );
 
     tracing::info!(
-        decision = decision_bool,
-        evaluation_id = %evaluation_id,
+        decision = response.decision,
+        evaluation_id = response
+            .context
+            .as_ref()
+            .and_then(|c| c.get("id"))
+            .and_then(|id| id.as_str()),
         duration_ms = duration.as_millis(),
         "AuthZEN evaluation completed"
     );
@@ -239,35 +222,22 @@ pub async fn post_evaluations(
         // Validate required fields for this evaluation
         if let Err(e) = validate_authzen_evaluation_request(&eval_request) {
             // On validation error, return a deny decision with error context
-            let evaluation_id = Uuid::new_v4();
-            let error_msg = e.to_string();
-            results.push(EnhancedAuthZENEvaluationResponse {
-                decision: false,
-                context: Some(json!({
-                    "id": evaluation_id.to_string(),
-                    "reason_admin": {
-                        "en": format!("Validation error: {}", error_msg)
-                    },
-                    "error": error_msg
-                })),
-            });
+            let error_msg = format!("Validation error: {}", e);
+            let response_value = format_denial_with_error(&error_msg);
+            let response: EnhancedAuthZENEvaluationResponse =
+                serde_json::from_value(response_value).unwrap();
+            results.push(response);
             continue;
         }
 
         // Convert AuthZEN request to native format
         let conversion_result = convert_authzen_request_to_native(&eval_request);
         if let Err(e) = conversion_result {
-            let evaluation_id = Uuid::new_v4();
-            results.push(EnhancedAuthZENEvaluationResponse {
-                decision: false,
-                context: Some(json!({
-                    "id": evaluation_id.to_string(),
-                    "reason_admin": {
-                        "en": format!("Invalid entity format: {}", e)
-                    },
-                    "error": format!("Invalid entity format: {}", e)
-                })),
-            });
+            let error_msg = format!("Invalid entity format: {}", e);
+            let response_value = format_denial_with_error(&error_msg);
+            let response: EnhancedAuthZENEvaluationResponse =
+                serde_json::from_value(response_value).unwrap();
+            results.push(response);
             continue;
         }
 
@@ -285,51 +255,39 @@ pub async fn post_evaluations(
         // Perform evaluation
         let decision_result = state.evaluator.check(native_request).await;
 
-        let evaluation_id = Uuid::new_v4();
-
         match decision_result {
             Ok(decision) => {
-                let decision_bool = matches!(decision, Decision::Allow);
+                // Format response using centralized formatter
+                let response_value =
+                    format_evaluation_response(decision, &subject, &permission, &resource);
+                let response: EnhancedAuthZENEvaluationResponse =
+                    serde_json::from_value(response_value).unwrap();
 
-                let reason = if decision_bool {
-                    format!("{} has {} permission on {}", subject, permission, resource)
-                } else {
-                    format!(
-                        "{} does not have {} permission on {}",
-                        subject, permission, resource
-                    )
-                };
+                tracing::debug!(
+                    evaluation_index = index,
+                    decision = response.decision,
+                    "Completed evaluation in batch"
+                );
 
-                results.push(EnhancedAuthZENEvaluationResponse {
-                    decision: decision_bool,
-                    context: Some(json!({
-                        "id": evaluation_id.to_string(),
-                        "reason_admin": {
-                            "en": reason
-                        }
-                    })),
-                });
+                results.push(response);
             }
             Err(e) => {
                 // On evaluation error, return deny with error context
-                results.push(EnhancedAuthZENEvaluationResponse {
-                    decision: false,
-                    context: Some(json!({
-                        "id": evaluation_id.to_string(),
-                        "reason_admin": {
-                            "en": format!("Evaluation error: {}", e)
-                        },
-                        "error": format!("Evaluation error: {}", e)
-                    })),
-                });
+                let error_msg = format!("Evaluation error: {}", e);
+                let response_value = format_denial_with_error(&error_msg);
+                let response: EnhancedAuthZENEvaluationResponse =
+                    serde_json::from_value(response_value).unwrap();
+
+                tracing::debug!(
+                    evaluation_index = index,
+                    decision = false,
+                    error = %e,
+                    "Evaluation failed in batch"
+                );
+
+                results.push(response);
             }
         }
-
-        tracing::debug!(
-            evaluation_index = index,
-            evaluation_id = %evaluation_id,
-            "Completed evaluation in batch"
-        );
     }
 
     // Record metrics

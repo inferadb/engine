@@ -7,9 +7,7 @@
 use crate::adapters::authzen::{
     AuthZENAction, AuthZENEntity, AuthZENEvaluationRequest, AuthZENResource, AuthZENSubject,
 };
-use crate::handlers::authzen::search::{
-    AuthZENResourceSearchRequest, AuthZENSubjectSearchRequest,
-};
+use crate::handlers::authzen::search::{AuthZENResourceSearchRequest, AuthZENSubjectSearchRequest};
 use crate::ApiError;
 
 /// Validates an AuthZEN entity (subject or resource)

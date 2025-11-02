@@ -32,6 +32,7 @@ use infera_types::{
 };
 
 pub mod adapters;
+pub mod formatters;
 pub mod grpc;
 pub mod grpc_interceptor;
 pub mod handlers;
