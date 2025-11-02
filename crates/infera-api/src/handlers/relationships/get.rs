@@ -137,7 +137,7 @@ pub async fn get_relationship(
 
     // Create evaluator with correct vault for this request
     let evaluator = infera_core::Evaluator::new(
-        std::sync::Arc::clone(&state.store),
+        std::sync::Arc::clone(&state.store) as std::sync::Arc<dyn infera_store::RelationshipStore>,
         std::sync::Arc::clone(state.evaluator.schema()),
         state.evaluator.wasm_host().cloned(),
         vault,

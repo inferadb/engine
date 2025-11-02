@@ -199,6 +199,44 @@ pub fn validate_authzen_subject_search_request(
     Ok(())
 }
 
+/// Validates an account name
+///
+/// Checks that:
+/// - Name is non-empty
+/// - Name is not longer than 255 characters
+/// - Name does not contain invalid characters
+pub fn validate_account_name(name: &str) -> Result<(), ApiError> {
+    if name.is_empty() {
+        return Err(ApiError::InvalidRequest("Account name cannot be empty".to_string()));
+    }
+    if name.len() > 255 {
+        return Err(ApiError::InvalidRequest(format!(
+            "Account name too long (max 255 characters, got {})",
+            name.len()
+        )));
+    }
+    Ok(())
+}
+
+/// Validates a vault name
+///
+/// Checks that:
+/// - Name is non-empty
+/// - Name is not longer than 255 characters
+/// - Name does not contain invalid characters
+pub fn validate_vault_name(name: &str) -> Result<(), ApiError> {
+    if name.is_empty() {
+        return Err(ApiError::InvalidRequest("Vault name cannot be empty".to_string()));
+    }
+    if name.len() > 255 {
+        return Err(ApiError::InvalidRequest(format!(
+            "Vault name too long (max 255 characters, got {})",
+            name.len()
+        )));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -457,5 +495,53 @@ mod tests {
             cursor: Some("token".to_string()),
         };
         assert!(validate_authzen_subject_search_request(&request).is_ok());
+    }
+
+    // Account name validation tests
+
+    #[test]
+    fn test_validate_account_name_valid() {
+        assert!(validate_account_name("Acme Corp").is_ok());
+        assert!(validate_account_name("A").is_ok());
+        assert!(validate_account_name(&"a".repeat(255)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_account_name_empty() {
+        let result = validate_account_name("");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Account name cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_account_name_too_long() {
+        let long_name = "a".repeat(256);
+        let result = validate_account_name(&long_name);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Account name too long"));
+    }
+
+    // Vault name validation tests
+
+    #[test]
+    fn test_validate_vault_name_valid() {
+        assert!(validate_vault_name("Production").is_ok());
+        assert!(validate_vault_name("V").is_ok());
+        assert!(validate_vault_name(&"v".repeat(255)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_vault_name_empty() {
+        let result = validate_vault_name("");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Vault name cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_vault_name_too_long() {
+        let long_name = "v".repeat(256);
+        let result = validate_vault_name(&long_name);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Vault name too long"));
     }
 }

@@ -26,6 +26,12 @@ pub use vault_store::VaultStore;
 
 type Result<T> = StoreResult<T>;
 
+/// Combined store trait that provides all storage operations
+///
+/// This trait combines RelationshipStore, AccountStore, and VaultStore
+/// to allow use as a single trait object in API handlers.
+pub trait InferaStore: RelationshipStore + AccountStore + VaultStore + Send + Sync {}
+
 /// The abstract relationship store interface
 ///
 /// All operations are scoped to a specific Vault for multi-tenant isolation.

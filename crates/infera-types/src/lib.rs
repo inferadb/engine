@@ -435,6 +435,100 @@ pub struct ListSubjectsResponse {
 }
 
 // ============================================================================
+// Request/Response Types - Account Management
+// ============================================================================
+
+/// Request to create a new account
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateAccountRequest {
+    /// Account name (must be non-empty, max 255 characters)
+    pub name: String,
+}
+
+/// Request to update an existing account
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateAccountRequest {
+    /// New account name (must be non-empty, max 255 characters)
+    pub name: String,
+}
+
+/// Account response with full details
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccountResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Response containing a list of accounts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListAccountsResponse {
+    pub accounts: Vec<AccountResponse>,
+}
+
+// ============================================================================
+// Request/Response Types - Vault Management
+// ============================================================================
+
+/// Request to create a new vault
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateVaultRequest {
+    /// Vault name (must be non-empty, max 255 characters)
+    pub name: String,
+}
+
+/// Request to update an existing vault
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateVaultRequest {
+    /// Optional new vault name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Optional new account owner (admin only)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<Uuid>,
+}
+
+/// Vault response with full details
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VaultResponse {
+    pub id: Uuid,
+    pub account: Uuid,
+    pub name: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Response containing a list of vaults
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListVaultsResponse {
+    pub vaults: Vec<VaultResponse>,
+}
+
+impl From<Account> for AccountResponse {
+    fn from(account: Account) -> Self {
+        Self {
+            id: account.id,
+            name: account.name,
+            created_at: account.created_at,
+            updated_at: account.updated_at,
+        }
+    }
+}
+
+impl From<Vault> for VaultResponse {
+    fn from(vault: Vault) -> Self {
+        Self {
+            id: vault.id,
+            account: vault.account,
+            name: vault.name,
+            created_at: vault.created_at,
+            updated_at: vault.updated_at,
+        }
+    }
+}
+
+// ============================================================================
 // Request/Response Types - Watch
 // ============================================================================
 

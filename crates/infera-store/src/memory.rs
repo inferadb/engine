@@ -905,3 +905,6 @@ mod tests {
         assert!(result.is_err());
     }
 }
+
+// Blanket implementation of InferaStore for MemoryBackend
+impl crate::InferaStore for MemoryBackend {}

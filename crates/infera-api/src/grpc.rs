@@ -602,7 +602,7 @@ impl InferaService for InferaServiceImpl {
         request: Request<WatchRequest>,
     ) -> Result<Response<Self::WatchStream>, Status> {
         let req = request.into_inner();
-        let store = Arc::clone(&self.state.store);
+        let store = Arc::clone(&self.state.store) as Arc<dyn infera_store::RelationshipStore>;
 
         // Parse cursor to get start revision
         let start_revision = if let Some(cursor) = &req.cursor {

@@ -55,6 +55,65 @@ fn get_vault(auth: &Option<infera_auth::AuthContext>, default_vault: Uuid) -> Uu
     auth.as_ref().map(|ctx| ctx.vault).unwrap_or(default_vault)
 }
 
+/// Check if the authenticated user has admin scope
+///
+/// Returns an error if:
+/// - No authentication context present (401)
+/// - User doesn't have the `inferadb.admin` scope (403)
+///
+/// # Arguments
+/// * `auth` - Optional authentication context
+///
+/// # Returns
+/// Ok(()) if user has admin scope, Err otherwise
+fn require_admin_scope(auth: &Option<infera_auth::AuthContext>) -> Result<()> {
+    match auth {
+        None => Err(ApiError::Unauthorized("Authentication required".to_string())),
+        Some(ctx) => {
+            if ctx.scopes.iter().any(|s| s == "inferadb.admin") {
+                Ok(())
+            } else {
+                Err(ApiError::Forbidden(
+                    "Admin scope (inferadb.admin) required for this operation".to_string(),
+                ))
+            }
+        },
+    }
+}
+
+/// Check if user has admin scope OR owns the specified account
+///
+/// This function implements authorization for account-scoped resources:
+/// - Admins can access any account
+/// - Users can only access their own account
+///
+/// # Arguments
+/// * `auth` - Optional authentication context
+/// * `account_id` - The account ID being accessed
+///
+/// # Returns
+/// Ok(()) if authorized, Err otherwise
+fn authorize_account_access(
+    auth: &Option<infera_auth::AuthContext>,
+    account_id: Uuid,
+) -> Result<()> {
+    match auth {
+        None => Err(ApiError::Unauthorized("Authentication required".to_string())),
+        Some(ctx) => {
+            // Admin can access any account
+            if ctx.scopes.iter().any(|s| s == "inferadb.admin") {
+                return Ok(());
+            }
+            // User can access their own account
+            if ctx.account == account_id {
+                return Ok(());
+            }
+            // Otherwise, deny
+            Err(ApiError::Forbidden("Access denied to this account".to_string()))
+        },
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum ApiError {
     #[error("Evaluation error: {0}")]
@@ -145,7 +204,7 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 #[derive(Clone)]
 pub struct AppState {
     pub evaluator: Arc<Evaluator>,
-    pub store: Arc<dyn RelationshipStore>,
+    pub store: Arc<dyn infera_store::InferaStore>,
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
@@ -184,7 +243,30 @@ pub fn create_router(state: AppState) -> Router {
                 .delete(handlers::relationships::delete::delete_relationship),
         )
         .route("/v1/simulate", post(simulate_handler))
-        .route("/v1/watch", post(watch_handler));
+        .route("/v1/watch", post(watch_handler))
+        // Account management routes
+        .route(
+            "/v1/accounts",
+            post(handlers::accounts::create::create_account)
+                .get(handlers::accounts::list::list_accounts),
+        )
+        .route(
+            "/v1/accounts/:id",
+            axum::routing::get(handlers::accounts::get::get_account)
+                .patch(handlers::accounts::update::update_account)
+                .delete(handlers::accounts::delete::delete_account),
+        )
+        // Vault management routes
+        .route(
+            "/v1/accounts/:account_id/vaults",
+            post(handlers::vaults::create::create_vault).get(handlers::vaults::list::list_vaults),
+        )
+        .route(
+            "/v1/vaults/:id",
+            axum::routing::get(handlers::vaults::get::get_vault)
+                .patch(handlers::vaults::update::update_vault)
+                .delete(handlers::vaults::delete::delete_vault),
+        );
 
     // Apply authentication middleware (either with JWT validation or default context)
     let protected_routes = if state.config.auth.enabled {
@@ -417,7 +499,7 @@ async fn evaluate_stream_handler(
 
     // Create evaluator with correct vault for this request
     let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&state.store),
+        Arc::clone(&state.store) as Arc<dyn RelationshipStore>,
         Arc::clone(state.evaluator.schema()),
         state.evaluator.wasm_host().cloned(),
         vault,
@@ -548,7 +630,7 @@ async fn expand_handler(
 
     // Create evaluator with correct vault for this request
     let evaluator = Evaluator::new(
-        Arc::clone(&state.store),
+        Arc::clone(&state.store) as Arc<dyn RelationshipStore>,
         Arc::clone(state.evaluator.schema()),
         state.evaluator.wasm_host().cloned(),
         vault,
@@ -1313,7 +1395,7 @@ async fn watch_handler(
     };
 
     let resource_types = request.resource_types;
-    let store = Arc::clone(&state.store);
+    let store: Arc<dyn RelationshipStore> = Arc::clone(&state.store) as Arc<dyn RelationshipStore>;
 
     // Create a continuous polling stream
     let stream = async_stream::stream! {
@@ -1385,7 +1467,7 @@ async fn watch_handler(
 /// Start the REST API server
 pub async fn serve(
     evaluator: Arc<Evaluator>,
-    store: Arc<dyn RelationshipStore>,
+    store: Arc<dyn infera_store::InferaStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
@@ -1444,7 +1526,7 @@ pub async fn serve(
 /// Start the gRPC server
 pub async fn serve_grpc(
     evaluator: Arc<Evaluator>,
-    store: Arc<dyn RelationshipStore>,
+    store: Arc<dyn infera_store::InferaStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
@@ -1540,7 +1622,7 @@ pub async fn serve_grpc(
 /// Start both REST and gRPC servers concurrently
 pub async fn serve_both(
     evaluator: Arc<Evaluator>,
-    store: Arc<dyn RelationshipStore>,
+    store: Arc<dyn infera_store::InferaStore>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
 ) -> anyhow::Result<()> {
