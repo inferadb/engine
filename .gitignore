@@ -44,3 +44,6 @@ test-results/
 
 # Benchmarks
 /target/criterion/
+
+# Notes
+/reference/
