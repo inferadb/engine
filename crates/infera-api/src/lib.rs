@@ -175,7 +175,8 @@ pub fn create_router(state: AppState) -> Router {
         )
         .route(
             "/v1/relationships/:resource/:relation/:subject",
-            axum::routing::get(handlers::relationships::get::get_relationship),
+            axum::routing::get(handlers::relationships::get::get_relationship)
+                .delete(handlers::relationships::delete::delete_relationship),
         )
         .route("/v1/simulate", post(simulate_handler))
         .route("/v1/watch", post(watch_handler));
