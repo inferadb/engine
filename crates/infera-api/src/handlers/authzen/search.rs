@@ -12,6 +12,7 @@ use crate::{
     adapters::authzen::{
         AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject, parse_entity,
     },
+    handlers::utils::auth::get_vault,
     validation::{
         validate_authzen_resource_search_request, validate_authzen_subject_search_request,
     },
@@ -82,6 +83,10 @@ pub struct AuthZENResourceSearchResponse {
 /// InferaDB's native list_resources format, performs the search, and translates
 /// the response back to AuthZEN format.
 ///
+/// # Authorization
+/// - Requires authentication
+/// - Requires `inferadb.list` scope
+///
 /// # AuthZEN Specification
 ///
 /// Request format:
@@ -105,10 +110,37 @@ pub struct AuthZENResourceSearchResponse {
 /// ```
 #[tracing::instrument(skip(state), fields(authzen_alias = true, search_type = "resource"))]
 pub async fn post_search_resource(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<AuthZENResourceSearchRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
+
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
+    // If auth is enabled, validate scope
+    if state.config.auth.enabled {
+        if let Some(ref auth_ctx) = auth.0 {
+            // Require inferadb.list scope
+            infera_auth::middleware::require_scope(auth_ctx, "inferadb.list")
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!(
+                tenant_id = auth_ctx.tenant_id,
+                vault = %vault,
+                "AuthZEN resource search request with authentication"
+            );
+        } else {
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+        }
+    }
 
     // Validate required fields
     validate_authzen_resource_search_request(&request)?;
@@ -130,6 +162,15 @@ pub async fn post_search_resource(
         "Converted AuthZEN resource search request to native format"
     );
 
+    // Create evaluator with correct vault for this request
+    use std::sync::Arc;
+    let evaluator = Arc::new(infera_core::Evaluator::new(
+        Arc::clone(&state.store) as Arc<dyn infera_store::RelationshipStore>,
+        Arc::clone(state.evaluator.schema()),
+        state.evaluator.wasm_host().cloned(),
+        vault,
+    ));
+
     // Convert to core request
     let list_request = ListResourcesRequest {
         subject,
@@ -140,8 +181,8 @@ pub async fn post_search_resource(
         resource_id_pattern: None,
     };
 
-    // Execute the search operation
-    let response = state.evaluator.list_resources(list_request).await?;
+    // Execute the search operation using vault-scoped evaluator
+    let response = evaluator.list_resources(list_request).await?;
 
     // Convert native response to AuthZEN format
     let authzen_resources: Result<Vec<AuthZENEntity>, ApiError> = response
@@ -242,6 +283,10 @@ pub struct AuthZENSubjectSearchResponse {
 /// InferaDB's native list_subjects format, performs the search, and translates
 /// the response back to AuthZEN format.
 ///
+/// # Authorization
+/// - Requires authentication
+/// - Requires `inferadb.list` scope
+///
 /// # AuthZEN Specification
 ///
 /// Request format:
@@ -265,10 +310,37 @@ pub struct AuthZENSubjectSearchResponse {
 /// ```
 #[tracing::instrument(skip(state), fields(authzen_alias = true, search_type = "subject"))]
 pub async fn post_search_subject(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<AuthZENSubjectSearchRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
+
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
+    // If auth is enabled, validate scope
+    if state.config.auth.enabled {
+        if let Some(ref auth_ctx) = auth.0 {
+            // Require inferadb.list scope
+            infera_auth::middleware::require_scope(auth_ctx, "inferadb.list")
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!(
+                tenant_id = auth_ctx.tenant_id,
+                vault = %vault,
+                "AuthZEN subject search request with authentication"
+            );
+        } else {
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+        }
+    }
 
     // Validate required fields
     validate_authzen_subject_search_request(&request)?;
@@ -289,6 +361,15 @@ pub async fn post_search_subject(
         "Converted AuthZEN subject search request to native format"
     );
 
+    // Create evaluator with correct vault for this request
+    use std::sync::Arc;
+    let evaluator = Arc::new(infera_core::Evaluator::new(
+        Arc::clone(&state.store) as Arc<dyn infera_store::RelationshipStore>,
+        Arc::clone(state.evaluator.schema()),
+        state.evaluator.wasm_host().cloned(),
+        vault,
+    ));
+
     // Convert to core request
     let list_request = ListSubjectsRequest {
         resource,
@@ -298,8 +379,8 @@ pub async fn post_search_subject(
         cursor: request.cursor,
     };
 
-    // Execute the search operation
-    let response = state.evaluator.list_subjects(list_request).await?;
+    // Execute the search operation using vault-scoped evaluator
+    let response = evaluator.list_subjects(list_request).await?;
 
     // Convert native response to AuthZEN format
     let authzen_subjects: Result<Vec<AuthZENEntity>, ApiError> = response

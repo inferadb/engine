@@ -197,7 +197,12 @@ pub fn create_router(state: AppState) -> Router {
             axum::routing::get(handlers::vaults::get::get_vault)
                 .patch(handlers::vaults::update::update_vault)
                 .delete(handlers::vaults::delete::delete_vault),
-        );
+        )
+        // AuthZEN-compliant endpoints (require authentication for vault isolation)
+        .route("/access/v1/evaluation", post(handlers::authzen::evaluation::post_evaluation))
+        .route("/access/v1/evaluations", post(handlers::authzen::evaluation::post_evaluations))
+        .route("/access/v1/search/resource", post(handlers::authzen::search::post_search_resource))
+        .route("/access/v1/search/subject", post(handlers::authzen::search::post_search_subject));
 
     // Apply authentication middleware (either with JWT validation or default context)
     let protected_routes = if state.config.auth.enabled {
@@ -278,20 +283,18 @@ pub fn create_router(state: AppState) -> Router {
         }))
     };
 
-    // Combine health endpoints (unprotected) with protected routes
+    // Combine health endpoints and public discovery with protected routes
+    // Note: AuthZEN /access/v1/* endpoints are now in protected_routes for vault isolation
     let router = Router::new()
         .route("/health", get(health::health_check_handler))
         .route("/health/live", get(health::liveness_handler))
         .route("/health/ready", get(health::readiness_handler))
         .route("/health/startup", get(health::startup_handler))
+        // AuthZEN configuration endpoint (public for service discovery)
         .route(
             "/.well-known/authzen-configuration",
             get(handlers::authzen::well_known::get_authzen_configuration),
         )
-        .route("/access/v1/evaluation", post(handlers::authzen::evaluation::post_evaluation))
-        .route("/access/v1/evaluations", post(handlers::authzen::evaluation::post_evaluations))
-        .route("/access/v1/search/resource", post(handlers::authzen::search::post_search_resource))
-        .route("/access/v1/search/subject", post(handlers::authzen::search::post_search_subject))
         .merge(protected_routes)
         .with_state(state.clone());
 

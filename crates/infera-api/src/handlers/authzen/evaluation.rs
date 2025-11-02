@@ -11,6 +11,7 @@ use crate::{
     ApiError, AppState,
     adapters::authzen::{AuthZENEvaluationRequest, convert_authzen_request_to_native},
     formatters::authzen::{format_denial_with_error, format_evaluation_response},
+    handlers::utils::auth::get_vault,
     validation::validate_authzen_evaluation_request,
 };
 
@@ -30,6 +31,10 @@ pub struct EnhancedAuthZENEvaluationResponse {
 /// This is a thin adapter that translates AuthZEN evaluation requests to
 /// InferaDB's native format, performs the evaluation, and translates the
 /// response back to AuthZEN format.
+///
+/// # Authorization
+/// - Requires authentication
+/// - Requires `inferadb.check` scope
 ///
 /// # AuthZEN Specification
 ///
@@ -56,10 +61,37 @@ pub struct EnhancedAuthZENEvaluationResponse {
 /// ```
 #[tracing::instrument(skip(state), fields(authzen_alias = true))]
 pub async fn post_evaluation(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<AuthZENEvaluationRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
+
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
+    // If auth is enabled, validate scope
+    if state.config.auth.enabled {
+        if let Some(ref auth_ctx) = auth.0 {
+            // Require inferadb.check scope
+            infera_auth::middleware::require_scope(auth_ctx, "inferadb.check")
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!(
+                tenant_id = auth_ctx.tenant_id,
+                vault = %vault,
+                "AuthZEN evaluation request with authentication"
+            );
+        } else {
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+        }
+    }
 
     // Validate required fields
     validate_authzen_evaluation_request(&request)?;
@@ -75,6 +107,15 @@ pub async fn post_evaluation(
         "Converted AuthZEN request to native format"
     );
 
+    // Create evaluator with correct vault for this request
+    use std::sync::Arc;
+    let evaluator = Arc::new(infera_core::Evaluator::new(
+        Arc::clone(&state.store) as Arc<dyn infera_store::RelationshipStore>,
+        Arc::clone(state.evaluator.schema()),
+        state.evaluator.wasm_host().cloned(),
+        vault,
+    ));
+
     // Create native evaluation request
     let native_request = EvaluateRequest {
         subject: subject.clone(),
@@ -84,9 +125,8 @@ pub async fn post_evaluation(
         trace: Some(false),
     };
 
-    // Perform evaluation using native evaluator
-    let decision = state
-        .evaluator
+    // Perform evaluation using vault-scoped evaluator
+    let decision = evaluator
         .check(native_request)
         .await
         .map_err(|e| ApiError::Internal(format!("Evaluation failed: {}", e)))?;
@@ -141,6 +181,10 @@ const MAX_BATCH_SIZE: usize = 100;
 /// checks in a single request. It translates AuthZEN batch requests to native
 /// format, performs evaluations, and returns results in AuthZEN format.
 ///
+/// # Authorization
+/// - Requires authentication
+/// - Requires `inferadb.check` scope
+///
 /// # AuthZEN Specification
 ///
 /// Request format:
@@ -188,11 +232,39 @@ const MAX_BATCH_SIZE: usize = 100;
 /// Requests with more than 100 evaluations will be rejected with HTTP 400.
 #[tracing::instrument(skip(state), fields(authzen_alias = true, batch = true))]
 pub async fn post_evaluations(
+    auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<AuthZENEvaluationsRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
     let batch_size = request.evaluations.len();
+
+    // Extract vault from auth context or use default
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // Validate vault access
+    if let Some(ref auth_ctx) = auth.0 {
+        infera_auth::validate_vault_access(auth_ctx)
+            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
+    }
+
+    // If auth is enabled, validate scope
+    if state.config.auth.enabled {
+        if let Some(ref auth_ctx) = auth.0 {
+            // Require inferadb.check scope
+            infera_auth::middleware::require_scope(auth_ctx, "inferadb.check")
+                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+
+            tracing::debug!(
+                tenant_id = auth_ctx.tenant_id,
+                vault = %vault,
+                batch_size = batch_size,
+                "AuthZEN batch evaluation request with authentication"
+            );
+        } else {
+            return Err(ApiError::Unauthorized("Authentication required".to_string()));
+        }
+    }
 
     // Validate batch size
     if batch_size == 0 {
@@ -208,7 +280,16 @@ pub async fn post_evaluations(
         )));
     }
 
-    tracing::info!(batch_size = batch_size, "Processing AuthZEN batch evaluation request");
+    // Create evaluator with correct vault for this request
+    use std::sync::Arc;
+    let evaluator = Arc::new(infera_core::Evaluator::new(
+        Arc::clone(&state.store) as Arc<dyn infera_store::RelationshipStore>,
+        Arc::clone(state.evaluator.schema()),
+        state.evaluator.wasm_host().cloned(),
+        vault,
+    ));
+
+    tracing::info!(batch_size = batch_size, vault = %vault, "Processing AuthZEN batch evaluation request");
 
     // Process each evaluation in the batch
     let mut results = Vec::with_capacity(batch_size);
@@ -247,8 +328,8 @@ pub async fn post_evaluations(
             trace: Some(false),
         };
 
-        // Perform evaluation
-        let decision_result = state.evaluator.check(native_request).await;
+        // Perform evaluation using vault-scoped evaluator
+        let decision_result = evaluator.check(native_request).await;
 
         match decision_result {
             Ok(decision) => {
