@@ -48,18 +48,18 @@ type document {
 }
 ```
 
-### Step 2: Write Tuples
+### Step 2: Write Relationships
 
 Grant some permissions:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/write \
+curl -X POST http://localhost:8080/v1/relationships/write \
   -H "Content-Type: application/json" \
   -d '{
-    "tuples": [
-      {"object": "document:readme", "relation": "viewer", "user": "user:alice"},
-      {"object": "document:readme", "relation": "editor", "user": "user:bob"},
-      {"object": "document:readme", "relation": "owner", "user": "user:charlie"}
+    "relationships": [
+      {"resource": "document:readme", "relation": "viewer", "subject": "user:alice"},
+      {"resource": "document:readme", "relation": "editor", "subject": "user:bob"},
+      {"resource": "document:readme", "relation": "owner", "subject": "user:charlie"}
     ]
   }'
 ```
@@ -67,7 +67,7 @@ curl -X POST http://localhost:8080/api/v1/write \
 Response:
 
 ```json
-{ "revision": 1 }
+{ "revision": "1", "relationships_written": 3 }
 ```
 
 ### Step 3: Check Permission
@@ -75,37 +75,45 @@ Response:
 Check if Alice can view the document:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "document:readme",
-    "permission": "can_view"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "document:readme",
+        "permission": "can_view"
+      }
+    ]
   }'
 ```
 
 Response:
 
 ```json
-{ "decision": "allow" }
+{ "results": [{"decision": "allow"}] }
 ```
 
 Check if Alice can delete (she can't):
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "document:readme",
-    "permission": "can_delete"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "document:readme",
+        "permission": "can_delete"
+      }
+    ]
   }'
 ```
 
 Response:
 
 ```json
-{ "decision": "deny" }
+{ "results": [{"decision": "deny"}] }
 ```
 
 ## Example: Document Hierarchy
@@ -132,13 +140,13 @@ type document {
 
 ```bash
 # Create folder hierarchy: root -> sub
-curl -X POST http://localhost:8080/api/v1/write \
+curl -X POST http://localhost:8080/v1/relationships/write \
   -H "Content-Type: application/json" \
   -d '{
-    "tuples": [
-      {"object": "folder:root", "relation": "viewer", "user": "user:alice"},
-      {"object": "folder:sub", "relation": "parent", "user": "folder:root"},
-      {"object": "document:readme", "relation": "parent", "user": "folder:sub"}
+    "relationships": [
+      {"resource": "folder:root", "relation": "viewer", "subject": "user:alice"},
+      {"resource": "folder:sub", "relation": "parent", "subject": "folder:root"},
+      {"resource": "document:readme", "relation": "parent", "subject": "folder:sub"}
     ]
   }'
 ```
@@ -148,19 +156,23 @@ curl -X POST http://localhost:8080/api/v1/write \
 Alice is a viewer of root folder, so she can view documents in sub folder:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "document:readme",
-    "permission": "can_view"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "document:readme",
+        "permission": "can_view"
+      }
+    ]
   }'
 ```
 
 Response:
 
 ```json
-{ "decision": "allow" }
+{ "results": [{"decision": "allow"}] }
 ```
 
 ## Common Patterns
@@ -183,24 +195,28 @@ type project {
 
 ```bash
 # Make Alice a member of org1
-curl -X POST http://localhost:8080/api/v1/write \
+curl -X POST http://localhost:8080/v1/relationships/write \
   -H "Content-Type: application/json" \
   -d '{
-    "tuples": [
-      {"object": "organization:org1", "relation": "member", "user": "user:alice"},
-      {"object": "project:proj1", "relation": "org", "user": "organization:org1"}
+    "relationships": [
+      {"resource": "organization:org1", "relation": "member", "subject": "user:alice"},
+      {"resource": "project:proj1", "relation": "org", "subject": "organization:org1"}
     ]
   }'
 
 # Alice can view proj1 (member of org)
-curl -X POST http://localhost:8080/api/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "project:proj1",
-    "permission": "can_view"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "project:proj1",
+        "permission": "can_view"
+      }
+    ]
   }'
-# Returns: {"decision": "allow"}
+# Returns: {"results": [{"decision": "allow"}]}
 ```
 
 ### Pattern 2: Exclusion (Blocking)
@@ -216,24 +232,28 @@ type document {
 
 ```bash
 # Alice is a viewer but also blocked
-curl -X POST http://localhost:8080/api/v1/write \
+curl -X POST http://localhost:8080/v1/relationships/write \
   -H "Content-Type: application/json" \
   -d '{
-    "tuples": [
-      {"object": "document:secret", "relation": "viewer", "user": "user:alice"},
-      {"object": "document:secret", "relation": "blocked", "user": "user:alice"}
+    "relationships": [
+      {"resource": "document:secret", "relation": "viewer", "subject": "user:alice"},
+      {"resource": "document:secret", "relation": "blocked", "subject": "user:alice"}
     ]
   }'
 
 # Alice cannot view (blocked takes precedence)
-curl -X POST http://localhost:8080/api/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "document:secret",
-    "permission": "can_view"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "document:secret",
+        "permission": "can_view"
+      }
+    ]
   }'
-# Returns: {"decision": "deny"}
+# Returns: {"results": [{"decision": "deny"}]}
 ```
 
 ### Pattern 3: Intersection (Multiple Requirements)
@@ -249,55 +269,70 @@ type document {
 
 ```bash
 # Alice has viewer but not clearance
-curl -X POST http://localhost:8080/api/v1/write \
+curl -X POST http://localhost:8080/v1/relationships/write \
   -H "Content-Type: application/json" \
   -d '{
-    "tuples": [
-      {"object": "document:classified", "relation": "viewer", "user": "user:alice"}
+    "relationships": [
+      {"resource": "document:classified", "relation": "viewer", "subject": "user:alice"}
     ]
   }'
 
 # Alice cannot view (needs both)
-curl -X POST http://localhost:8080/api/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "document:classified",
-    "permission": "can_view"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "document:classified",
+        "permission": "can_view"
+      }
+    ]
   }'
-# Returns: {"decision": "deny"}
+# Returns: {"results": [{"decision": "deny"}]}
 
 # Grant clearance
-curl -X POST http://localhost:8080/api/v1/write \
+curl -X POST http://localhost:8080/v1/relationships/write \
   -H "Content-Type: application/json" \
   -d '{
-    "tuples": [
-      {"object": "document:classified", "relation": "clearance", "user": "user:alice"}
+    "relationships": [
+      {"resource": "document:classified", "relation": "clearance", "subject": "user:alice"}
     ]
   }'
 
 # Now Alice can view
-curl -X POST http://localhost:8080/api/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "document:classified",
-    "permission": "can_view"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "document:classified",
+        "permission": "can_view"
+      }
+    ]
   }'
-# Returns: {"decision": "allow"}
+# Returns: {"results": [{"decision": "allow"}]}
 ```
 
 ## Debugging
 
 ### Use Trace to Understand Decisions
 
+Add `"trace": true` to the evaluation request to see the decision tree:
+
 ```bash
-curl -X POST http://localhost:8080/api/v1/check/trace \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "document:readme",
-    "permission": "can_view"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "document:readme",
+        "permission": "can_view"
+      }
+    ],
+    "trace": true
   }' | jq
 ```
 
@@ -305,28 +340,32 @@ Response shows evaluation tree:
 
 ```json
 {
-    "decision": "allow",
-    "trace": {
-        "decision": "allow",
-        "node_type": "union",
-        "children": [
-            {
+    "results": [
+        {
+            "decision": "allow",
+            "trace": {
                 "decision": "allow",
-                "node_type": "direct",
-                "relation": "viewer"
-            },
-            {
-                "decision": "deny",
-                "node_type": "computed_userset",
-                "relation": "editor"
-            },
-            {
-                "decision": "deny",
-                "node_type": "computed_userset",
-                "relation": "owner"
+                "node_type": "union",
+                "children": [
+                    {
+                        "decision": "allow",
+                        "node_type": "direct",
+                        "relation": "viewer"
+                    },
+                    {
+                        "decision": "deny",
+                        "node_type": "computed_userset",
+                        "relation": "editor"
+                    },
+                    {
+                        "decision": "deny",
+                        "node_type": "computed_userset",
+                        "relation": "owner"
+                    }
+                ]
             }
-        ]
-    }
+        }
+    ]
 }
 ```
 
@@ -349,38 +388,36 @@ Ensure the server is running:
 cargo run --release
 ```
 
-### "Invalid tuple format"
+### "Invalid relationship format"
 
-Check that tuples have all required fields:
+Check that relationships have all required fields:
 
 ```json
 {
-    "object": "resource:id", // Required
+    "resource": "resource:id", // Required
     "relation": "relation_name", // Required
-    "user": "user:id" // Required
+    "subject": "subject:id" // Required
 }
 ```
 
 ### "Decision is deny but should be allow"
 
-1. Check tuples are written correctly:
-
-    ```bash
-    # List doesn't exist yet, but you can verify via check
-    ```
+1. Check relationships are written correctly by listing them
 
 2. Use trace to see evaluation:
 
     ```bash
-    curl -X POST http://localhost:8080/api/v1/check/trace ...
+    curl -X POST http://localhost:8080/v1/evaluate \
+      -H "Content-Type: application/json" \
+      -d '{"evaluations": [...], "trace": true}'
     ```
 
 3. Verify schema definition matches expected behavior
 
 ## Performance Tips
 
-1. **Batch writes** - Write multiple tuples in one request
-2. **Cache hits** - Repeated checks are cached (very fast)
+1. **Batch writes** - Write multiple relationships in one request
+2. **Cache hits** - Repeated evaluations are cached (very fast)
 3. **Simple schemas** - Fewer indirections = faster evaluation
 4. **Direct relations** - Use `this` when possible instead of computed relations
 
@@ -392,22 +429,22 @@ Check that tuples have all required fields:
 #!/bin/bash
 set -e
 
-API="http://localhost:8080/api/v1"
+API="http://localhost:8080/v1"
 
-# Write tuples
-echo "Writing tuples..."
-curl -s -X POST $API/write \
+# Write relationships
+echo "Writing relationships..."
+curl -s -X POST $API/relationships/write \
   -H "Content-Type: application/json" \
-  -d '{"tuples": [{"object": "doc:1", "relation": "viewer", "user": "user:alice"}]}' \
+  -d '{"relationships": [{"resource": "doc:1", "relation": "viewer", "subject": "user:alice"}]}' \
   > /dev/null
 
 # Check permission
 echo "Checking permission..."
-RESULT=$(curl -s -X POST $API/check \
+RESULT=$(curl -s -X POST $API/evaluate \
   -H "Content-Type: application/json" \
-  -d '{"subject": "user:alice", "resource": "doc:1", "permission": "viewer"}')
+  -d '{"evaluations": [{"subject": "user:alice", "resource": "doc:1", "permission": "viewer"}]}')
 
-DECISION=$(echo $RESULT | jq -r '.decision')
+DECISION=$(echo $RESULT | jq -r '.results[0].decision')
 
 if [ "$DECISION" = "allow" ]; then
   echo "✓ Test passed"
@@ -423,14 +460,14 @@ fi
 ```python
 import requests
 
-API_BASE = "http://localhost:8080/api/v1"
+API_BASE = "http://localhost:8080/v1"
 
-# Write tuple
+# Write relationship
 response = requests.post(
-    f"{API_BASE}/write",
+    f"{API_BASE}/relationships/write",
     json={
-        "tuples": [
-            {"object": "doc:1", "relation": "viewer", "user": "user:alice"}
+        "relationships": [
+            {"resource": "doc:1", "relation": "viewer", "subject": "user:alice"}
         ]
     }
 )
@@ -438,14 +475,18 @@ print(f"Write: {response.json()}")
 
 # Check permission
 response = requests.post(
-    f"{API_BASE}/check",
+    f"{API_BASE}/evaluate",
     json={
-        "subject": "user:alice",
-        "resource": "doc:1",
-        "permission": "viewer"
+        "evaluations": [
+            {
+                "subject": "user:alice",
+                "resource": "doc:1",
+                "permission": "viewer"
+            }
+        ]
     }
 )
-decision = response.json()["decision"]
+decision = response.json()["results"][0]["decision"]
 print(f"Check: {decision}")
 
 assert decision == "allow", "Expected allow"

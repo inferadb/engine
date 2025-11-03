@@ -117,7 +117,7 @@ grpcurl -plaintext -d '{
 }' localhost:8081 infera.v1.InferaService/Evaluate
 
 # REST API also available
-curl -X POST http://localhost:8080/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "subject": "user:alice",
@@ -228,7 +228,7 @@ grpcurl -plaintext -d '{
 }' localhost:8081 infera.v1.InferaService/ListResources
 
 # REST API with SSE streaming
-curl -X POST http://localhost:8080/v1/list-resources/stream \
+curl -X POST http://localhost:8080/v1/resources/list \
   -H "Content-Type: application/json" \
   -d '{
     "subject": "user:alice",
@@ -269,7 +269,7 @@ grpcurl -plaintext -d '{
 }' localhost:8081 infera.v1.InferaService/ListSubjects
 
 # REST API with SSE streaming
-curl -X POST http://localhost:8080/v1/list-subjects/stream \
+curl -X POST http://localhost:8080/v1/subjects/list \
   -H "Content-Type: application/json" \
   -d '{
     "resource": "document:readme",
@@ -430,7 +430,7 @@ revision=$(echo $response | jq -r '.revision')
 
 # All reads automatically see writes (sequential consistency)
 # Or specify exact revision if needed
-curl -X POST http://localhost:8080/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "X-Revision: $revision" \
   ...
 ```

@@ -27,7 +27,7 @@ InferaDB uses **stateless, cryptographically verifiable JWT (JSON Web Token) aut
 
 ### Key Features
 
--   ✅ **Asymmetric cryptography only** (EdDSA, RS256, ES256)
+-   ✅ **Asymmetric cryptography only** (EdDSA, RS256 only)
 -   ✅ **Symmetric algorithms rejected** (HS256, etc.)
 -   ✅ **JWKS caching** for performance
 -   ✅ **OIDC Discovery** (RFC 8414)
@@ -54,7 +54,7 @@ Tenants sign their own JWTs using Ed25519 or RSA private keys. InferaDB fetches 
     "exp": 1730908800,
     "iat": 1730905200,
     "jti": "550e8400-e29b-41d4-a716-446655440000",
-    "scope": "authz:check authz:write"
+    "scope": "inferadb.check inferadb.write"
 }
 ```
 
@@ -76,12 +76,12 @@ OAuth 2.0 access tokens issued by an identity provider (e.g., Auth0, Okta, Keycl
     "exp": 1730908800,
     "iat": 1730905200,
     "jti": "550e8400-e29b-41d4-a716-446655440000",
-    "scope": "authz:check authz:write",
+    "scope": "inferadb.check inferadb.write",
     "tenant_id": "acme"
 }
 ```
 
-**Algorithm**: RS256, ES256, or EdDSA (depends on IdP)
+**Algorithm**: RS256 or EdDSA (depends on IdP)
 
 ### Method 3: Internal Service JWT
 
@@ -161,7 +161,7 @@ claims = {
     "exp": int(time.time()) + 3600,  # 1 hour expiration
     "iat": int(time.time()),
     "jti": str(uuid.uuid4()),
-    "scope": "authz:check authz:write"
+    "scope": "inferadb.check inferadb.write"
 }
 
 # Create JWT
@@ -198,7 +198,7 @@ async function createJWT() {
         exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
         iat: Math.floor(Date.now() / 1000),
         jti: crypto.randomUUID(),
-        scope: "authz:check authz:write",
+        scope: "inferadb.check inferadb.write",
     };
 
     // Sign JWT
@@ -242,7 +242,7 @@ fn create_jwt(signing_key: &SigningKey) -> Result<String, Box<dyn std::error::Er
         exp: now + 3600, // 1 hour
         iat: now,
         jti: uuid::Uuid::new_v4().to_string(),
-        scope: "authz:check authz:write".to_string(),
+        scope: "inferadb.check inferadb.write".to_string(),
     };
 
     let mut header = Header::new(Algorithm::EdDSA);
@@ -307,7 +307,7 @@ claims = {
     "exp": int(time.time()) + 3600,
     "iat": int(time.time()),
     "jti": str(uuid.uuid4()),
-    "scope": "authz:check authz:write"
+    "scope": "inferadb.check inferadb.write"
 }
 
 token = jwt.JWT(
@@ -324,15 +324,17 @@ Once you have a JWT, include it in the `Authorization` header:
 
 ```bash
 # Using curl
-curl -X POST https://api.inferadb.com/v1/check \
+curl -X POST https://api.inferadb.com/v1/evaluate \
   -H "Authorization: Bearer <your-jwt-token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "tuple": {
-      "object": "doc:1",
-      "relation": "viewer",
-      "subject": "user:alice"
-    }
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "doc:1",
+        "permission": "viewer"
+      }
+    ]
   }'
 ```
 
@@ -344,17 +346,19 @@ import requests
 jwt_token = "eyJ..."  # Your JWT
 
 response = requests.post(
-    "https://api.inferadb.com/v1/check",
+    "https://api.inferadb.com/v1/evaluate",
     headers={
         "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json"
     },
     json={
-        "tuple": {
-            "object": "doc:1",
-            "relation": "viewer",
-            "subject": "user:alice"
-        }
+        "evaluations": [
+            {
+                "subject": "user:alice",
+                "resource": "doc:1",
+                "permission": "viewer"
+            }
+        ]
     }
 )
 
@@ -366,18 +370,20 @@ print(response.json())
 ```javascript
 const jwt = "eyJ..."; // Your JWT
 
-fetch("https://api.inferadb.com/v1/check", {
+fetch("https://api.inferadb.com/v1/evaluate", {
     method: "POST",
     headers: {
         Authorization: `Bearer ${jwt}`,
         "Content-Type": "application/json",
     },
     body: JSON.stringify({
-        tuple: {
-            object: "doc:1",
-            relation: "viewer",
-            subject: "user:alice",
-        },
+        evaluations: [
+            {
+                subject: "user:alice",
+                resource: "doc:1",
+                permission: "viewer",
+            },
+        ],
     }),
 })
     .then((response) => response.json())
@@ -402,7 +408,6 @@ auth:
     accepted_algorithms:
         - EdDSA
         - RS256
-        - ES256
 
     # Audience validation
     enforce_audience: true
@@ -414,8 +419,8 @@ auth:
     # Scope validation
     enforce_scopes: true
     required_scopes:
-        - "authz:check"
-        - "authz:write"
+        - "inferadb.check"
+        - "inferadb.write"
 
     # Replay protection (requires Redis)
     replay_protection: true
@@ -652,8 +657,8 @@ let jti = Uuid::new_v4().to_string();
 
 ### 1. Use Asymmetric Algorithms Only
 
-✅ **Allowed**: EdDSA, RS256, ES256
-❌ **Rejected**: HS256, HS384, HS512 (symmetric)
+✅ **Allowed**: EdDSA, RS256
+❌ **Rejected**: HS256, HS384, HS512 (symmetric), ES256
 
 InferaDB explicitly rejects symmetric algorithms to prevent secret key leakage.
 
@@ -717,8 +722,8 @@ Ensure tokens have required scopes:
 auth:
     enforce_scopes: true
     required_scopes:
-        - "authz:check"
-        - "authz:write"
+        - "inferadb.check"
+        - "inferadb.write"
 ```
 
 ### 8. Configure Clock Skew Tolerance
@@ -740,7 +745,7 @@ InferaDB logs all authentication events:
     "tenant_id": "acme",
     "sub": "tenant:acme",
     "method": "tenant_jwt",
-    "scopes": ["authz:check", "authz:write"]
+    "scopes": ["inferadb.check", "inferadb.write"]
 }
 ```
 
@@ -799,7 +804,7 @@ date +%s
 1. Add required scopes to JWT claims:
     ```json
     {
-        "scope": "authz:check authz:write"
+        "scope": "inferadb.check inferadb.write"
     }
     ```
 2. Update server configuration to accept your scopes
@@ -899,22 +904,24 @@ This will log detailed authentication information:
 
 Different endpoints require different scopes:
 
-| Endpoint          | Required Scopes |
-| ----------------- | --------------- |
-| `POST /v1/check`  | `authz:check`   |
-| `POST /v1/expand` | `authz:check`   |
-| `POST /v1/write`  | `authz:write`   |
-| `POST /v1/delete` | `authz:write`   |
-| `POST /v1/read`   | `authz:check`   |
-| `GET /health`     | None (public)   |
-| `GET /health/*`   | None (public)   |
-| `GET /metrics`    | None (public)   |
+| Endpoint                         | Required Scopes      |
+| -------------------------------- | -------------------- |
+| `POST /v1/evaluate`              | `inferadb.check`     |
+| `POST /v1/expand`                | `inferadb.check`     |
+| `POST /v1/relationships/write`   | `inferadb.write`     |
+| `POST /v1/relationships/delete`  | `inferadb.write`     |
+| `POST /v1/relationships/list`    | `inferadb.check`     |
+| `POST /v1/resources/list`        | `inferadb.check`     |
+| `POST /v1/subjects/list`         | `inferadb.check`     |
+| `GET /health/live`               | None (public)        |
+| `GET /health/ready`              | None (public)        |
+| `GET /health/startup`            | None (public)        |
 
 To access all endpoints, include both scopes:
 
 ```json
 {
-    "scope": "authz:check authz:write"
+    "scope": "inferadb.check inferadb.write"
 }
 ```
 
@@ -977,7 +984,7 @@ claims = {
     "exp": int(time.time()) + 3600,
     "iat": int(time.time()),
     "jti": str(uuid.uuid4()),
-    "scope": "authz:check authz:write"
+    "scope": "inferadb.check inferadb.write"
 }
 
 token = jwt.JWT(header={"alg": "EdDSA", "kid": "acme-key-001"}, claims=claims)
@@ -991,12 +998,12 @@ jwt_string = token.serialize()
 import requests
 
 response = requests.post(
-    "https://api.inferadb.com/v1/check",
+    "https://api.inferadb.com/v1/evaluate",
     headers={"Authorization": f"Bearer {jwt_string}"},
-    json={"tuple": {"object": "doc:1", "relation": "viewer", "subject": "user:alice"}}
+    json={"evaluations": [{"subject": "user:alice", "resource": "doc:1", "permission": "viewer"}]}
 )
 
-print(response.json())  # {"allowed": true}
+print(response.json())  # {"results": [{"decision": "allow"}]}
 ```
 
 ## Summary

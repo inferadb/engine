@@ -111,7 +111,7 @@ curl -X POST http://localhost:8080/stores/{store_id}/check \
 
 ```bash
 # REST API - Simpler, no store_id needed
-curl -X POST http://localhost:8080/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT" \
   -d '{
@@ -238,7 +238,7 @@ grpcurl -plaintext -d '{
 }' localhost:8081 infera.v1.InferaService/ListResources
 
 # REST with SSE streaming
-curl -X POST http://localhost:8080/v1/list-resources/stream \
+curl -X POST http://localhost:8080/v1/resources/list \
   -H "Authorization: Bearer YOUR_JWT" \
   -d '{
     "subject": "user:alice",
@@ -283,7 +283,7 @@ grpcurl -plaintext -d '{
 }' localhost:8081 infera.v1.InferaService/ListSubjects
 
 # REST with SSE streaming
-curl -X POST http://localhost:8080/v1/list-subjects/stream \
+curl -X POST http://localhost:8080/v1/subjects/list \
   -H "Authorization: Bearer YOUR_JWT" \
   -d '{
     "resource": "document:readme",
@@ -378,7 +378,7 @@ grpcurl -plaintext -d '{
 }' localhost:8081 infera.v1.InferaService/ListRelationships
 
 # REST API
-curl -X POST http://localhost:8080/v1/list-relationships \
+curl -X POST http://localhost:8080/v1/relationships/list \
   -H "Authorization: Bearer YOUR_JWT" \
   -d '{
     "resource": "document:readme",
@@ -508,7 +508,7 @@ curl -X POST http://localhost:8080/stores/{store_id}/check \
 docker run -v ./schema.ipl:/schema.ipl inferadb/server
 
 # 2. All API calls work immediately, no store_id needed
-curl -X POST http://localhost:8080/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Authorization: Bearer YOUR_JWT" \
   -d '{...}'
 ```
@@ -550,7 +550,7 @@ auth:
 **Automatic validation**:
 
 ```bash
-curl -X POST http://localhost:8080/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{...}'
 ```

@@ -44,15 +44,19 @@ mise run dev
 ### Make Your First Authorization Check
 
 ```bash
-curl -X POST http://localhost:8080/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "doc:readme",
-    "permission": "viewer"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "doc:readme",
+        "permission": "viewer"
+      }
+    ]
   }'
 
-# Response: {"decision": "allow"}
+# Response: {"results": [{"decision": "allow"}]}
 ```
 
 ### Model Public Resources with Wildcards
@@ -61,7 +65,7 @@ InferaDB supports wildcard subjects to model public access:
 
 ```bash
 # Write a wildcard relationship - all users can view
-curl -X POST http://localhost:8080/v1/write-relationships \
+curl -X POST http://localhost:8080/v1/relationships/write \
   -H "Content-Type: application/json" \
   -d '{
     "relationships": [{
@@ -72,14 +76,18 @@ curl -X POST http://localhost:8080/v1/write-relationships \
   }'
 
 # Any user will be allowed
-curl -X POST http://localhost:8080/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "user:alice",
-    "resource": "doc:announcement",
-    "permission": "viewer"
+    "evaluations": [
+      {
+        "subject": "user:alice",
+        "resource": "doc:announcement",
+        "permission": "viewer"
+      }
+    ]
   }'
-# Response: {"decision": "allow"}
+# Response: {"results": [{"decision": "allow"}]}
 ```
 
 **→ Continue with the [Quick Start Guide](docs/quickstart.md) for a complete walkthrough**
@@ -242,10 +250,9 @@ Comprehensive documentation organized by topic:
 
 ### Operations
 
--   [Observability](docs/operations/observability.md) - Metrics and tracing
+-   [Observability](docs/operations/observability/README.md) - Metrics and tracing
 -   [Performance](docs/operations/performance.md) - Performance baselines
 -   [SLOs](docs/operations/slos.md) - Service level objectives
--   [Runbooks](docs/runbooks/README.md) - Operational procedures
 
 ### Security
 

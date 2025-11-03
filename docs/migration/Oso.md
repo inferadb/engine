@@ -96,7 +96,7 @@ if oso.is_allowed(user, "read", document):
 
 ```bash
 # REST API
-curl -X POST http://localhost:8080/v1/check \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
   -d '{
@@ -115,7 +115,7 @@ import requests
 
 def check_permission(subject, resource, permission):
     response = requests.post(
-        "http://localhost:8080/v1/check",
+        "http://localhost:8080/v1/evaluate",
         headers={
             "Authorization": f"Bearer {jwt_token}",
             "Content-Type": "application/json"
@@ -153,7 +153,7 @@ for doc in authorized_docs:
 
 ```bash
 # REST with SSE streaming
-curl -X POST http://localhost:8080/v1/list-resources/stream \
+curl -X POST http://localhost:8080/v1/resources/list \
   -H "Authorization: Bearer YOUR_JWT" \
   -d '{
     "subject": "user:alice",
@@ -169,7 +169,7 @@ import requests
 
 def list_authorized_resources(subject, resource_type, permission):
     response = requests.post(
-        "http://localhost:8080/v1/list-resources/stream",
+        "http://localhost:8080/v1/resources/list",
         headers={
             "Authorization": f"Bearer {jwt_token}",
             "Content-Type": "application/json"
@@ -215,7 +215,7 @@ for user in all_users:
 
 ```bash
 # Efficient server-side computation with streaming
-curl -X POST http://localhost:8080/v1/list-subjects/stream \
+curl -X POST http://localhost:8080/v1/subjects/list \
   -H "Authorization: Bearer YOUR_JWT" \
   -d '{
     "resource": "document:readme",
@@ -229,7 +229,7 @@ curl -X POST http://localhost:8080/v1/list-subjects/stream \
 ```python
 def list_users_with_access(resource, permission, subject_type="user"):
     response = requests.post(
-        "http://localhost:8080/v1/list-subjects/stream",
+        "http://localhost:8080/v1/subjects/list",
         headers={
             "Authorization": f"Bearer {jwt_token}",
             "Content-Type": "application/json"

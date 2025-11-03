@@ -43,10 +43,10 @@ kubectl get configmap -n inferadb -l app=inferadb -o yaml > backup-all-configmap
 kubectl get secret inferadb-secrets -n inferadb -o yaml > backup-secrets-$(date +%Y%m%d).yaml
 
 # Encrypt backup
-gpg --encrypt --recipient ops@example.com backup-secrets-$(date +%Y%m%d).yaml
+gpg --encrypt --recipient your-ops-team@example.com backup-secrets-$(date +%Y%m%d).yaml
 
 # Store encrypted file securely
-aws s3 cp backup-secrets-$(date +%Y%m%d).yaml.gpg s3://backups/inferadb/secrets/
+aws s3 cp backup-secrets-$(date +%Y%m%d).yaml.gpg s3://YOUR_BUCKET_NAME/inferadb/secrets/
 ```
 
 ### Backup Helm Values
@@ -115,7 +115,7 @@ EOF
 kubectl exec -it -n inferadb deployment/fdb-backup-agent -- fdbcli -C /etc/foundationdb/fdb.cluster
 
 # Start continuous backup (in fdbcli)
-fdb> backup start -d blobstore://s3.amazonaws.com/my-bucket/fdb-backups?bucket=my-bucket&region=us-east-1
+fdb> backup start -d blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups?bucket=YOUR_BUCKET_NAME&region=us-east-1
 
 # Check backup status
 fdb> backup status
@@ -128,7 +128,7 @@ fdb> backup status
 kubectl exec -it -n inferadb deployment/fdb-backup-agent -- fdbcli -C /etc/foundationdb/fdb.cluster
 
 # Take snapshot
-fdb> backup start -d blobstore://s3.amazonaws.com/my-bucket/snapshots/$(date +%Y%m%d) -s
+fdb> backup start -d blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/snapshots/$(date +%Y%m%d) -s
 
 # Wait for completion
 fdb> backup status
@@ -158,7 +158,7 @@ spec:
                               - -c
                               - |
                                   DATE=$(date +%Y%m%d-%H%M%S)
-                                  DEST="blobstore://s3.amazonaws.com/my-bucket/fdb-backups/${DATE}"
+                                  DEST="blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/${DATE}"
 
                                   echo "Starting backup to ${DEST}"
                                   fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup start -d ${DEST} -s"
@@ -255,7 +255,7 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
   fdbcli -C /etc/foundationdb/fdb.cluster
 
 # 3. Start restore (in fdbcli)
-fdb> restore start -r blobstore://s3.amazonaws.com/my-bucket/fdb-backups/20251030-020000
+fdb> restore start -r blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/20251030-020000
 
 # 4. Monitor restore progress
 fdb> restore status
@@ -282,10 +282,10 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
   fdbcli -C /etc/foundationdb/fdb.cluster
 
 # Find available timestamps
-fdb> backup describe -d blobstore://s3.amazonaws.com/my-bucket/fdb-backups/20251030-020000
+fdb> backup describe -d blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/20251030-020000
 
 # Restore to specific time (e.g., 2025-10-30 12:00:00)
-fdb> restore start -r blobstore://s3.amazonaws.com/my-bucket/fdb-backups/20251030-020000 -t "2025-10-30 12:00:00"
+fdb> restore start -r blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/20251030-020000 -t "2025-10-30 12:00:00"
 
 # Monitor
 fdb> restore status
@@ -420,13 +420,13 @@ Before disaster strikes:
 
 ```bash
 # List backups older than 30 days
-aws s3 ls s3://my-bucket/fdb-backups/ --recursive | \
+aws s3 ls s3://YOUR_BUCKET_NAME/fdb-backups/ --recursive | \
   awk '{if (NR>30) print $4}' | \
-  xargs -I {} aws s3 rm s3://my-bucket/fdb-backups/{}
+  xargs -I {} aws s3 rm s3://YOUR_BUCKET_NAME/fdb-backups/{}
 
 # Automated cleanup with lifecycle policy
 aws s3api put-bucket-lifecycle-configuration \
-  --bucket my-bucket \
+  --bucket YOUR_BUCKET_NAME \
   --lifecycle-configuration file://lifecycle.json
 ```
 
@@ -464,7 +464,7 @@ lifecycle.json:
 # monthly-restore-test.sh
 
 NAMESPACE="inferadb-test"
-BACKUP_URL="blobstore://s3.amazonaws.com/my-bucket/fdb-backups/latest"
+BACKUP_URL="blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/latest"
 
 # Create test namespace
 kubectl create namespace $NAMESPACE
@@ -572,7 +572,7 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 **Investigation**:
 
 ```bash
-aws s3 ls s3://my-bucket/fdb-backups/ --recursive --summarize --human-readable
+aws s3 ls s3://YOUR_BUCKET_NAME/fdb-backups/ --recursive --summarize --human-readable
 ```
 
 **Resolution**:
