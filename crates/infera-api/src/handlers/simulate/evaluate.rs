@@ -8,6 +8,8 @@ use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -42,7 +44,7 @@ pub async fn simulate_handler(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.check", "inferadb.simulate"],
+        &[SCOPE_CHECK, SCOPE_SIMULATE],
     )?;
 
     // Log authenticated requests

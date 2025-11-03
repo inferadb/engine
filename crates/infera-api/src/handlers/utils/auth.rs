@@ -1,5 +1,6 @@
 //! Authentication and authorization utility functions
 
+use infera_const::scopes::*;
 use uuid::Uuid;
 
 use crate::{ApiError, Result};
@@ -31,11 +32,11 @@ pub fn require_admin_scope(auth: &Option<infera_types::AuthContext>) -> Result<(
     match auth {
         None => Err(ApiError::Unauthorized("Authentication required".to_string())),
         Some(ctx) => {
-            if ctx.scopes.iter().any(|s| s == "inferadb.admin") {
+            if ctx.scopes.iter().any(|s| s == SCOPE_ADMIN) {
                 Ok(())
             } else {
                 Err(ApiError::Forbidden(
-                    "Admin scope (inferadb.admin) required for this operation".to_string(),
+                    format!("Admin scope ({}) required for this operation", SCOPE_ADMIN),
                 ))
             }
         },
@@ -62,7 +63,7 @@ pub fn authorize_account_access(
         None => Err(ApiError::Unauthorized("Authentication required".to_string())),
         Some(ctx) => {
             // Admin can access any account
-            if ctx.scopes.iter().any(|s| s == "inferadb.admin") {
+            if ctx.scopes.iter().any(|s| s == SCOPE_ADMIN) {
                 return Ok(());
             }
             // User can access their own account
@@ -103,7 +104,7 @@ pub fn authorize_account_access(
 ///     &auth.0,
 ///     state.default_vault,
 ///     state.config.auth.enabled,
-///     &["inferadb.check"]
+///     &[SCOPE_CHECK]
 /// )?;
 /// ```
 ///
@@ -113,7 +114,7 @@ pub fn authorize_account_access(
 ///     &auth.0,
 ///     state.default_vault,
 ///     state.config.auth.enabled,
-///     &["inferadb.expand", "inferadb.check"]
+///     &[SCOPE_EXPAND, SCOPE_CHECK]
 /// )?;
 /// ```
 ///
@@ -190,11 +191,11 @@ mod tests {
 
     #[test]
     fn test_authorize_request_with_auth_and_valid_scope() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.check".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
         let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
 
         let result =
-            authorize_request(&Some(auth_ctx.clone()), default_vault, true, &["inferadb.check"]);
+            authorize_request(&Some(auth_ctx.clone()), default_vault, true, &[SCOPE_CHECK]);
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), auth_ctx.vault);
@@ -205,9 +206,9 @@ mod tests {
         let auth_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
         let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
 
-        let auth_ctx = create_test_auth_context(vec!["inferadb.check".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
 
-        let result = authorize_request(&Some(auth_ctx), default_vault, true, &["inferadb.check"]);
+        let result = authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_CHECK]);
 
         assert!(result.is_ok());
         let vault = result.unwrap();
@@ -217,10 +218,10 @@ mod tests {
 
     #[test]
     fn test_authorize_request_with_auth_and_invalid_scope() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.read".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_READ.to_string()]);
         let default_vault = Uuid::nil();
 
-        let result = authorize_request(&Some(auth_ctx), default_vault, true, &["inferadb.write"]);
+        let result = authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_WRITE]);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Forbidden(_)));
@@ -228,14 +229,14 @@ mod tests {
 
     #[test]
     fn test_authorize_request_with_multiple_scopes_any_match() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.check".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
         let default_vault = Uuid::nil();
 
         let result = authorize_request(
             &Some(auth_ctx),
             default_vault,
             true,
-            &["inferadb.expand", "inferadb.check"],
+            &[SCOPE_EXPAND, SCOPE_CHECK],
         );
 
         assert!(result.is_ok());
@@ -243,14 +244,14 @@ mod tests {
 
     #[test]
     fn test_authorize_request_with_multiple_scopes_none_match() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.admin".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_ADMIN.to_string()]);
         let default_vault = Uuid::nil();
 
         let result = authorize_request(
             &Some(auth_ctx),
             default_vault,
             true,
-            &["inferadb.expand", "inferadb.check"],
+            &[SCOPE_EXPAND, SCOPE_CHECK],
         );
 
         assert!(result.is_err());
@@ -261,7 +262,7 @@ mod tests {
     fn test_authorize_request_no_auth_when_required() {
         let default_vault = Uuid::nil();
 
-        let result = authorize_request(&None, default_vault, true, &["inferadb.check"]);
+        let result = authorize_request(&None, default_vault, true, &[SCOPE_CHECK]);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Unauthorized(_)));
@@ -279,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_authorize_request_empty_scopes() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.check".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
         let default_vault = Uuid::nil();
 
         // Empty scopes = no scope check required
@@ -290,11 +291,11 @@ mod tests {
 
     #[test]
     fn test_authorize_request_nil_vault_rejected() {
-        let mut auth_ctx = create_test_auth_context(vec!["inferadb.check".to_string()]);
+        let mut auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
         auth_ctx.vault = Uuid::nil();
         let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
 
-        let result = authorize_request(&Some(auth_ctx), default_vault, true, &["inferadb.check"]);
+        let result = authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_CHECK]);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Forbidden(_)));
@@ -323,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_require_admin_scope_with_admin() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.admin".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_ADMIN.to_string()]);
 
         let result = require_admin_scope(&Some(auth_ctx));
 
@@ -332,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_require_admin_scope_without_admin() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.check".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
 
         let result = require_admin_scope(&Some(auth_ctx));
 
@@ -350,7 +351,7 @@ mod tests {
 
     #[test]
     fn test_authorize_account_access_as_admin() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.admin".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_ADMIN.to_string()]);
         let account_id = Uuid::new_v4();
 
         let result = authorize_account_access(&Some(auth_ctx), account_id);
@@ -361,7 +362,7 @@ mod tests {
     #[test]
     fn test_authorize_account_access_as_owner() {
         let account_id = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
-        let auth_ctx = create_test_auth_context(vec!["inferadb.check".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
 
         let result = authorize_account_access(&Some(auth_ctx), account_id);
 
@@ -370,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_authorize_account_access_denied() {
-        let auth_ctx = create_test_auth_context(vec!["inferadb.check".to_string()]);
+        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
         let other_account = Uuid::new_v4();
 
         let result = authorize_account_access(&Some(auth_ctx), other_account);

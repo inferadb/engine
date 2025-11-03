@@ -9,6 +9,8 @@ use futures::{Stream, StreamExt, stream};
 use infera_types::ListSubjectsRequest;
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, Result};
 
 /// Request format for the list subjects REST endpoint
@@ -42,7 +44,7 @@ pub async fn list_subjects_stream_handler(
             // Require inferadb.check scope (or list-subjects scope)
             infera_auth::middleware::require_any_scope(
                 &auth_ctx,
-                &["inferadb.check", "inferadb.list-subjects"],
+                &[SCOPE_CHECK, SCOPE_LIST_SUBJECTS],
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 

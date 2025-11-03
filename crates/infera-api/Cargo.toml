@@ -34,6 +34,7 @@ async-stream = "0.3"
 
 # Internal dependencies
 infera-types = { path = "../infera-types" }
+infera-const = { path = "../infera-const" }
 infera-auth = { path = "../infera-auth" }
 infera-cache = { path = "../infera-cache" }
 infera-core = { path = "../infera-core" }

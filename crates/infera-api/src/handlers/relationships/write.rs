@@ -4,6 +4,8 @@ use axum::{Json, extract::State};
 use infera_types::Relationship;
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -32,7 +34,7 @@ pub async fn write_relationships_handler(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.write"],
+        &[SCOPE_WRITE],
     )?;
 
     // Log authenticated requests

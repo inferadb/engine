@@ -7,6 +7,8 @@ use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use infera_types::EvaluateRequest;
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{
     ApiError, AppState,
     adapters::authzen::{AuthZENEvaluationRequest, convert_authzen_request_to_native},
@@ -72,7 +74,7 @@ pub async fn post_evaluation(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.check"],
+        &[SCOPE_CHECK],
     )?;
 
     // Log authenticated requests
@@ -235,7 +237,7 @@ pub async fn post_evaluations(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.check"],
+        &[SCOPE_CHECK],
     )?;
 
     // Log authenticated requests

@@ -13,6 +13,8 @@ use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest};
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
 /// Request for batch authorization evaluation (streaming endpoint)
@@ -94,7 +96,7 @@ pub async fn evaluate_stream_handler(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.check"],
+        &[SCOPE_CHECK],
     )?;
 
     // Log authenticated requests

@@ -7,6 +7,8 @@ use axum::{
 use infera_types::AccountResponse;
 use uuid::Uuid;
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access};
 
 /// Get an account by ID
@@ -101,7 +103,7 @@ mod tests {
             client_id: "test".to_string(),
             key_id: "test".to_string(),
             auth_method: infera_types::AuthMethod::PrivateKeyJwt,
-            scopes: vec!["inferadb.admin".to_string()],
+            scopes: vec![SCOPE_ADMIN.to_string()],
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
@@ -116,7 +118,7 @@ mod tests {
             client_id: "test".to_string(),
             key_id: "test".to_string(),
             auth_method: infera_types::AuthMethod::PrivateKeyJwt,
-            scopes: vec!["inferadb.check".to_string(), "inferadb.write".to_string()],
+            scopes: vec![SCOPE_CHECK.to_string(), SCOPE_WRITE.to_string()],
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,

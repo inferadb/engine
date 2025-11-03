@@ -6,6 +6,8 @@ use axum::{
 };
 use uuid::Uuid;
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, handlers::utils::auth::require_admin_scope};
 
 /// Delete an account
@@ -106,7 +108,7 @@ mod tests {
             client_id: "test".to_string(),
             key_id: "test".to_string(),
             auth_method: infera_types::AuthMethod::PrivateKeyJwt,
-            scopes: vec!["inferadb.admin".to_string()],
+            scopes: vec![SCOPE_ADMIN.to_string()],
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,

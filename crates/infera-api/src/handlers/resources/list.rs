@@ -9,6 +9,8 @@ use futures::{Stream, StreamExt, stream};
 use infera_types::ListResourcesRequest;
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, Result};
 
 /// List resources endpoint - returns all resources accessible by a subject
@@ -45,7 +47,7 @@ pub async fn list_resources_stream_handler(
             // Require inferadb.check scope (or lookup-resources scope)
             infera_auth::middleware::require_any_scope(
                 &auth_ctx,
-                &["inferadb.check", "inferadb.list-resources"],
+                &[SCOPE_CHECK, SCOPE_LIST_RESOURCES],
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 

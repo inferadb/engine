@@ -7,6 +7,8 @@ use axum::{Json, extract::State, response::IntoResponse};
 use infera_types::{ListResourcesRequest, ListSubjectsRequest};
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{
     ApiError, AppState,
     adapters::authzen::{
@@ -121,7 +123,7 @@ pub async fn post_search_resource(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.list"],
+        &[SCOPE_LIST],
     )?;
 
     // Log authenticated requests
@@ -312,7 +314,7 @@ pub async fn post_search_subject(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.list"],
+        &[SCOPE_LIST],
     )?;
 
     // Log authenticated requests

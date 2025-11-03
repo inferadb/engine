@@ -9,6 +9,8 @@ use futures::{Stream, StreamExt, stream};
 use infera_types::ListRelationshipsRequest;
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, Result};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -41,7 +43,7 @@ pub async fn list_relationships_stream_handler(
             // Require inferadb.check scope (or list-relationships scope)
             infera_auth::middleware::require_any_scope(
                 &auth_ctx,
-                &["inferadb.check", "inferadb.list-relationships"],
+                &[SCOPE_CHECK, SCOPE_LIST_RELATIONSHIPS],
             )
             .map_err(|e| ApiError::Forbidden(e.to_string()))?;
 

@@ -12,6 +12,8 @@ use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::ExpandRequest;
 
+use infera_const::scopes::*;
+
 use crate::{AppState, Result, handlers::utils::auth::authorize_request};
 
 /// Expand endpoint - streaming-only for progressive results
@@ -29,7 +31,7 @@ pub async fn expand_handler(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.expand", "inferadb.check"],
+        &[SCOPE_EXPAND, SCOPE_CHECK],
     )?;
 
     // Log authenticated requests

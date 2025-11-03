@@ -11,6 +11,8 @@ use futures::Stream;
 use infera_store::RelationshipStore;
 use serde::{Deserialize, Serialize};
 
+use infera_const::scopes::*;
+
 use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
 /// REST request for Watch endpoint
@@ -40,7 +42,7 @@ pub async fn watch_handler(
         &auth.0,
         state.default_vault,
         state.config.auth.enabled,
-        &["inferadb.watch"],
+        &[SCOPE_WATCH],
     )?;
 
     // Log authenticated requests
