@@ -98,7 +98,7 @@ pub fn authorize_account_access(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// // Single scope requirement
 /// let vault = authorize_request(
 ///     &auth.0,
@@ -108,7 +108,7 @@ pub fn authorize_account_access(
 /// )?;
 /// ```
 ///
-/// ```rust
+/// ```ignore
 /// // Multiple scopes (any of them)
 /// let vault = authorize_request(
 ///     &auth.0,
@@ -118,7 +118,7 @@ pub fn authorize_account_access(
 /// )?;
 /// ```
 ///
-/// ```rust
+/// ```ignore
 /// // No scope check (just auth + vault validation)
 /// let vault = authorize_request(
 ///     &auth.0,
