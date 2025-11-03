@@ -26,6 +26,7 @@ use std::{path::Path, sync::Arc};
 use infera_types::{AuthContext, AuthMethod};
 use jsonwebtoken::{Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 
 use crate::{error::AuthError, jwks_cache::Jwk, jwt::JwtClaims};
 
@@ -158,9 +159,9 @@ impl InternalJwks {
         Ok(jwks)
     }
 
-    /// Get a key by its key ID (kid)
+    /// Get a key by its key ID (kid) using constant-time comparison
     pub fn get_key(&self, kid: &str) -> Option<&Jwk> {
-        self.keys.iter().find(|k| k.kid == kid)
+        self.keys.iter().find(|k| k.kid.as_bytes().ct_eq(kid.as_bytes()).into())
     }
 }
 
@@ -291,12 +292,15 @@ pub async fn validate_internal_jwt(
     // Use tenant_id from claims if present, otherwise default to "internal"
     let tenant_id = claims.tenant_id.unwrap_or_else(|| "internal".to_string());
 
-    // Extract vault and account UUIDs
-    let vault_str = claims.vault.unwrap_or_else(|| uuid::Uuid::nil().to_string());
-    let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
+    // Extract vault and account UUIDs - both required for multi-tenancy
+    let vault_str = claims.vault.ok_or_else(|| AuthError::MissingClaim("vault".to_string()))?;
+    let vault = uuid::Uuid::parse_str(&vault_str)
+        .map_err(|_| AuthError::InvalidTokenFormat("Invalid vault UUID format".to_string()))?;
 
-    let account_str = claims.account.unwrap_or_else(|| uuid::Uuid::nil().to_string());
-    let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
+    let account_str =
+        claims.account.ok_or_else(|| AuthError::MissingClaim("account".to_string()))?;
+    let account = uuid::Uuid::parse_str(&account_str)
+        .map_err(|_| AuthError::InvalidTokenFormat("Invalid account UUID format".to_string()))?;
 
     // Create AuthContext with proper fields
     Ok(AuthContext {

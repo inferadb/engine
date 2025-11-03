@@ -67,6 +67,7 @@ use base64::Engine;
 use jsonwebtoken::{Algorithm, DecodingKey};
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 use tokio::sync::RwLock;
 
 use crate::error::AuthError;
@@ -246,21 +247,27 @@ pub struct JwksCache {
 
 impl JwksCache {
     /// Create a new JWKS cache
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration issues)
     pub fn new(
         base_url: String,
         cache: Arc<Cache<JwksCacheKey, CachedJwks>>,
         ttl: Duration,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, AuthError> {
+        let http_client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| AuthError::JwksError(format!("Failed to create HTTP client: {}", e)))?;
+
+        Ok(Self {
             cache,
-            http_client: reqwest::Client::builder()
-                .timeout(Duration::from_secs(10))
-                .build()
-                .expect("Failed to create HTTP client"),
+            http_client,
             base_url,
             ttl,
             in_flight: Arc::new(RwLock::new(HashMap::new())),
-        }
+        })
     }
 
     /// Get JWKS for a tenant (with caching and thundering-herd protection)
@@ -347,11 +354,11 @@ impl JwksCache {
         Ok(keys)
     }
 
-    /// Get a specific key by ID
+    /// Get a specific key by ID using constant-time comparison
     pub async fn get_key_by_id(&self, tenant_id: &str, kid: &str) -> Result<Jwk, AuthError> {
         let keys = self.get_jwks(tenant_id).await?;
 
-        keys.into_iter().find(|k| k.kid == kid).ok_or_else(|| {
+        keys.into_iter().find(|k| k.kid.as_bytes().ct_eq(kid.as_bytes()).into()).ok_or_else(|| {
             AuthError::JwksError(format!("Key '{}' not found in tenant '{}' JWKS", kid, tenant_id))
         })
     }

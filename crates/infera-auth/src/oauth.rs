@@ -9,6 +9,7 @@ use chrono::Utc;
 use infera_types::{AuthContext, AuthMethod};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 
 use crate::{
     error::AuthError,
@@ -145,20 +146,27 @@ impl OAuthJwksClient {
         kid: Option<&str>,
         alg: &str,
     ) -> Result<&'a Jwk, AuthError> {
-        // If kid is specified, try to find exact match
+        // If kid is specified, try to find exact match using constant-time comparison
         if let Some(kid) = kid {
-            if let Some(key) = jwks.iter().find(|k| k.kid == kid) {
+            if let Some(key) = jwks.iter().find(|k| k.kid.as_bytes().ct_eq(kid.as_bytes()).into()) {
                 return Ok(key);
             }
             return Err(AuthError::JwksError(format!("No key found with kid: {}", kid)));
         }
 
-        // No kid specified - find first key with matching algorithm
+        // No kid specified - find first key with matching algorithm (using constant-time
+        // comparison)
         jwks.iter()
             .find(|k| {
-                k.alg.as_deref() == Some(alg)
-                    || (alg == "EdDSA" && k.kty == "OKP" && k.crv.as_deref() == Some("Ed25519"))
-                    || (alg == "RS256" && k.kty == "RSA")
+                // Use constant-time comparison for algorithm strings
+                k.alg.as_ref().map_or(false, |k_alg| k_alg.as_bytes().ct_eq(alg.as_bytes()).into())
+                    || (alg.as_bytes().ct_eq(b"EdDSA").into()
+                        && k.kty.as_bytes().ct_eq(b"OKP").into()
+                        && k.crv
+                            .as_ref()
+                            .map_or(false, |crv| crv.as_bytes().ct_eq(b"Ed25519").into()))
+                    || (alg.as_bytes().ct_eq(b"RS256").into()
+                        && k.kty.as_bytes().ct_eq(b"RSA").into())
             })
             .ok_or_else(|| AuthError::JwksError(format!("No key found for algorithm: {}", alg)))
     }
@@ -211,13 +219,17 @@ pub struct IntrospectionClient {
 
 impl IntrospectionClient {
     /// Create a new introspection client without caching
-    pub fn new() -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration issues)
+    pub fn new() -> Result<Self, AuthError> {
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .expect("Failed to create HTTP client");
+            .map_err(|e| AuthError::IntrospectionFailed(format!("Failed to create HTTP client: {}", e)))?;
 
-        Self { http_client, cache: None }
+        Ok(Self { http_client, cache: None })
     }
 
     /// Create a new introspection client with caching
@@ -226,11 +238,15 @@ impl IntrospectionClient {
     ///
     /// * `max_capacity` - Maximum number of tokens to cache
     /// * `default_ttl` - Default TTL for cache entries (will use min of this and token exp)
-    pub fn new_with_cache(max_capacity: u64, default_ttl: std::time::Duration) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration issues)
+    pub fn new_with_cache(max_capacity: u64, default_ttl: std::time::Duration) -> Result<Self, AuthError> {
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .expect("Failed to create HTTP client");
+            .map_err(|e| AuthError::IntrospectionFailed(format!("Failed to create HTTP client: {}", e)))?;
 
         let cache = Arc::new(
             moka::future::Cache::builder()
@@ -239,7 +255,7 @@ impl IntrospectionClient {
                 .build(),
         );
 
-        Self { http_client, cache: Some(cache) }
+        Ok(Self { http_client, cache: Some(cache) })
     }
 
     /// Introspect a token using RFC 7662 (with caching if enabled)
@@ -338,12 +354,6 @@ impl IntrospectionClient {
         let mut hasher = Sha256::new();
         hasher.update(token.as_bytes());
         format!("{:x}", hasher.finalize())
-    }
-}
-
-impl Default for IntrospectionClient {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -470,12 +480,16 @@ pub async fn validate_oauth_jwt(
         // Parse scopes
         let scopes: Vec<String> = claims.scope.split_whitespace().map(|s| s.to_string()).collect();
 
-        // Extract vault and account UUIDs
-        let vault_str = claims.vault.unwrap_or_else(|| uuid::Uuid::nil().to_string());
-        let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
+        // Extract vault and account UUIDs - both required for multi-tenancy
+        let vault_str = claims.vault.ok_or_else(|| AuthError::MissingClaim("vault".to_string()))?;
+        let vault = uuid::Uuid::parse_str(&vault_str)
+            .map_err(|_| AuthError::InvalidTokenFormat("Invalid vault UUID format".to_string()))?;
 
-        let account_str = claims.account.unwrap_or_else(|| uuid::Uuid::nil().to_string());
-        let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
+        let account_str =
+            claims.account.ok_or_else(|| AuthError::MissingClaim("account".to_string()))?;
+        let account = uuid::Uuid::parse_str(&account_str).map_err(|_| {
+            AuthError::InvalidTokenFormat("Invalid account UUID format".to_string())
+        })?;
 
         // Create AuthContext
         let auth_context = AuthContext {
@@ -681,16 +695,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_introspection_client_creation() {
-        let _client = IntrospectionClient::new();
-        let _default_client = IntrospectionClient::default();
-        // Just verify they can be created without panicking
+        let _client = IntrospectionClient::new().unwrap();
+        // Just verify it can be created without panicking
     }
 
     #[tokio::test]
     async fn test_introspection_client_with_cache() {
         use std::time::Duration;
 
-        let _client = IntrospectionClient::new_with_cache(100, Duration::from_secs(60));
+        let _client = IntrospectionClient::new_with_cache(100, Duration::from_secs(60)).unwrap();
         // Verify it can be created with caching enabled
     }
 

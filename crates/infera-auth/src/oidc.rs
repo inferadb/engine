@@ -42,7 +42,11 @@ impl OidcDiscoveryClient {
     /// # Arguments
     ///
     /// * `cache_ttl` - How long to cache discovery documents (recommended: 24 hours)
-    pub fn new(cache_ttl: Duration) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration issues)
+    pub fn new(cache_ttl: Duration) -> Result<Self, AuthError> {
         let cache = Arc::new(
             Cache::builder()
                 .max_capacity(100) // Up to 100 different issuers
@@ -53,9 +57,9 @@ impl OidcDiscoveryClient {
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
-            .expect("Failed to create HTTP client");
+            .map_err(|e| AuthError::OidcDiscoveryFailed(format!("Failed to create HTTP client: {}", e)))?;
 
-        Self { http_client, cache }
+        Ok(Self { http_client, cache })
     }
 
     /// Discover OIDC configuration from issuer
@@ -246,7 +250,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cache_operations() {
-        let client = OidcDiscoveryClient::new(Duration::from_secs(300));
+        let client = OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap();
 
         // Initially empty
         assert!(client.get_cached("https://auth.example.com").await.is_none());

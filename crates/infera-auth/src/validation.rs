@@ -18,6 +18,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use infera_config::AuthConfig;
+use subtle::ConstantTimeEq;
 use tracing::warn;
 
 use crate::{error::AuthError, jwt::JwtClaims};
@@ -40,7 +41,9 @@ use crate::{error::AuthError, jwt::JwtClaims};
 pub fn validate_timestamp_claims(claims: &JwtClaims, config: &AuthConfig) -> Result<(), AuthError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("System time before Unix epoch")
+        .map_err(|_| {
+            AuthError::InvalidTokenFormat("System time is before Unix epoch".to_string())
+        })?
         .as_secs();
 
     let clock_skew = config.clock_skew_seconds.unwrap_or(60);
@@ -165,10 +168,10 @@ pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError
 /// - Algorithm is "none"
 /// - Algorithm is not in the accepted algorithms list
 pub fn validate_algorithm(alg: &str, config: &AuthConfig) -> Result<(), AuthError> {
-    // Hardcoded blocklist - never accept these
+    // Hardcoded blocklist - never accept these (using constant-time comparison)
     const FORBIDDEN: &[&str] = &["none", "HS256", "HS384", "HS512"];
 
-    if FORBIDDEN.contains(&alg) {
+    if FORBIDDEN.iter().any(|forbidden| alg.as_bytes().ct_eq(forbidden.as_bytes()).into()) {
         warn!(algorithm = %alg, "Forbidden algorithm rejected");
         return Err(AuthError::UnsupportedAlgorithm(format!(
             "Algorithm '{}' is forbidden for security reasons (symmetric or none)",
@@ -182,7 +185,11 @@ pub fn validate_algorithm(alg: &str, config: &AuthConfig) -> Result<(), AuthErro
         return Err(AuthError::UnsupportedAlgorithm("No accepted algorithms configured".into()));
     }
 
-    if !config.accepted_algorithms.iter().any(|accepted| accepted == alg) {
+    if !config
+        .accepted_algorithms
+        .iter()
+        .any(|accepted| accepted.as_bytes().ct_eq(alg.as_bytes()).into())
+    {
         warn!(algorithm = %alg, "Algorithm not in accepted list");
         return Err(AuthError::UnsupportedAlgorithm(format!(
             "Algorithm '{}' is not in accepted list",

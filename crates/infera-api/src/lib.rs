@@ -76,6 +76,12 @@ pub enum ApiError {
     RevisionMismatch { expected: String, actual: String },
 }
 
+impl From<infera_auth::AuthError> for ApiError {
+    fn from(err: infera_auth::AuthError) -> Self {
+        ApiError::Internal(format!("Authentication system error: {}", err))
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message, headers) = match self {
@@ -146,7 +152,7 @@ pub struct AppState {
 }
 
 /// Create the API router
-pub fn create_router(state: AppState) -> Router {
+pub fn create_router(state: AppState) -> Result<Router> {
     // Configure rate limiting: 1000 requests per minute per IP
     // Based on docs/RATE_LIMITING.md recommendations
     let governor_conf = Arc::new(
@@ -246,7 +252,7 @@ pub fn create_router(state: AppState) -> Router {
             "https://unused.example.com".to_string(),
             Arc::new(moka::future::Cache::new(1)),
             std::time::Duration::from_secs(300),
-        ));
+        )?);
 
         protected_routes.layer(axum::middleware::from_fn(move |req, next| {
             let jwks_cache = Arc::clone(&dummy_jwks_cache);
@@ -288,13 +294,15 @@ pub fn create_router(state: AppState) -> Router {
         .layer(CompressionLayer::new());
 
     // Add rate limiting if enabled
-    if state.config.server.rate_limiting_enabled {
+    let router = if state.config.server.rate_limiting_enabled {
         info!("Rate limiting ENABLED - applying governor layer");
         router.layer(governor_layer)
     } else {
         info!("Rate limiting DISABLED - skipping governor layer");
         router
-    }
+    };
+
+    Ok(router)
 }
 
 // Health check handlers moved to health.rs module
@@ -357,7 +365,7 @@ pub async fn serve(
         default_vault,
         default_account,
     };
-    let app = create_router(state);
+    let app = create_router(state)?;
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
     info!("Starting REST API server on {}", addr);

@@ -82,12 +82,6 @@ impl WasmHost {
     }
 }
 
-impl Default for WasmHost {
-    fn default() -> Self {
-        Self::new().expect("Failed to create default WasmHost")
-    }
-}
-
 /// Value types for WASM function calls
 #[derive(Debug, Clone)]
 pub enum Value {

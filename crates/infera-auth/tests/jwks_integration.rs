@@ -13,7 +13,7 @@ async fn test_jwks_cache_with_mock_server() {
 
     // Create cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Fetch JWKS for tenant
     let keys = jwks_cache.get_jwks("acme").await.expect("Failed to fetch JWKS");
@@ -31,7 +31,7 @@ async fn test_jwks_cache_hit() {
 
     // Create cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache.clone(), Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache.clone(), Duration::from_secs(300)).unwrap();
 
     // First fetch - cache miss
     let keys1 = jwks_cache.get_jwks("acme").await.expect("Failed to fetch JWKS");
@@ -54,7 +54,7 @@ async fn test_jwks_get_key_by_id() {
 
     // Create cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Get specific key by ID
     let key =
@@ -72,7 +72,7 @@ async fn test_jwks_key_not_found() {
 
     // Create cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Try to get non-existent key
     let result = jwks_cache.get_key_by_id("acme", "nonexistent-key").await;
@@ -91,7 +91,7 @@ async fn test_concurrent_requests_deduplication() {
 
     // Create cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = Arc::new(JwksCache::new(base_url, cache, Duration::from_secs(300)));
+    let jwks_cache = Arc::new(JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap());
 
     // Launch 10 concurrent requests for the same tenant
     let mut handles = vec![];
@@ -119,7 +119,7 @@ async fn test_stale_while_revalidate() {
 
     // Create cache with very short TTL (1 second)
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(1));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(1)).unwrap();
 
     // First fetch
     let keys1 = jwks_cache.get_jwks("stale-test").await.expect("Failed to fetch JWKS");
@@ -149,7 +149,7 @@ async fn test_stale_while_revalidate_with_failed_refresh() {
 
     // Create cache with very short TTL (1 second)
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(1));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(1)).unwrap();
 
     // First fetch - populate cache
     let keys1 = jwks_cache.get_jwks("stale-test").await.expect("Failed to fetch JWKS");
@@ -189,7 +189,7 @@ async fn test_multi_tenant_isolation() {
 
     // Create cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Fetch JWKS for multiple tenants
     let keys_acme = jwks_cache.get_jwks("acme").await.expect("Failed to fetch JWKS for acme");
@@ -225,7 +225,7 @@ async fn test_jwt_verification_with_jwks() {
 
     // Create JWKS cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Fetch the key used to sign this JWT
     let key = jwks_cache
@@ -247,7 +247,7 @@ async fn test_verify_with_jwks_success() {
 
     // Create JWKS cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Generate a valid JWT for tenant "acme"
     let jwt = generate_jwt_for_mock_jwks("acme", vec!["inferadb.evaluate".to_string()], 300);
@@ -269,7 +269,7 @@ async fn test_verify_with_jwks_cached_key() {
 
     // Create JWKS cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Generate two JWTs for the same tenant
     let jwt1 = generate_jwt_for_mock_jwks("acme", vec!["inferadb.evaluate".to_string()], 300);
@@ -296,7 +296,7 @@ async fn test_verify_with_jwks_missing_kid() {
 
     // Create JWKS cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Create a JWT without kid (manually constructed)
     let token = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZW5hbnQ6YWNtZSIsInN1YiI6InRlbmFudDphY21lIiwiYXVkIjoiaHR0cHM6Ly9hcGkuaW5mZXJhZGIuY29tL2V2YWx1YXRlIiwiZXhwIjoxNzMwMDAwMDYwLCJpYXQiOjE3MzAwMDAwMDAsInNjb3BlIjoiaW5mZXJhZGIuZXZhbHVhdGUifQ.fake";
@@ -320,7 +320,7 @@ async fn test_verify_with_jwks_key_rotation() {
 
     // Create JWKS cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Generate JWT for tenant "rotation-test"
     let jwt =
@@ -384,7 +384,7 @@ async fn test_jwks_malformed_response() {
 
     // Create cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Try to fetch JWKS - should fail due to malformed JSON
     let result = jwks_cache.get_jwks("test").await;
@@ -427,7 +427,7 @@ async fn test_jwks_empty_keys_array() {
 
     // Create cache
     let cache = Arc::new(Cache::new(100));
-    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300));
+    let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Try to fetch JWKS - should fail due to empty keys
     let result = jwks_cache.get_jwks("test").await;

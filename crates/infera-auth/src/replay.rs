@@ -104,7 +104,9 @@ impl RedisReplayProtection {
     fn calculate_ttl(&self, exp: u64) -> Result<u64, AuthError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("System time before Unix epoch")
+            .map_err(|_| {
+                AuthError::InvalidTokenFormat("System time is before Unix epoch".to_string())
+            })?
             .as_secs();
 
         if exp <= now {
@@ -188,7 +190,9 @@ impl InMemoryReplayProtection {
     fn calculate_ttl(&self, exp: u64) -> Result<Duration, AuthError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("System time before Unix epoch")
+            .map_err(|_| {
+                AuthError::InvalidTokenFormat("System time is before Unix epoch".to_string())
+            })?
             .as_secs();
 
         if exp <= now {

@@ -105,7 +105,7 @@ async fn main() -> Result<()> {
             config.auth.jwks_base_url.clone(),
             cache,
             Duration::from_secs(config.auth.jwks_cache_ttl),
-        );
+        )?;
 
         tracing::info!(
             "JWKS cache initialized with TTL: {}s, base URL: {}",

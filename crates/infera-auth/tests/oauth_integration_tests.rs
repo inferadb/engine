@@ -26,14 +26,14 @@ async fn test_oauth_jwt_validation() {
     let token = generate_oauth_jwt(&base_url, "acme", vec!["read", "write"], 300);
 
     // Create OIDC discovery client
-    let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)));
+    let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
 
     // Create JWKS cache
     let jwks_cache = Arc::new(JwksCache::new(
         base_url.clone(),
         Arc::new(Cache::new(100)),
         Duration::from_secs(300),
-    ));
+    ).unwrap());
 
     // Create OAuth client
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
@@ -70,12 +70,12 @@ async fn test_oauth_jwt_validation_expired() {
     let token = generate_oauth_jwt(&base_url, "acme", vec!["read"], -300);
 
     // Create OAuth client
-    let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)));
+    let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
     let jwks_cache = Arc::new(JwksCache::new(
         base_url.clone(),
         Arc::new(Cache::new(100)),
         Duration::from_secs(300),
-    ));
+    ).unwrap());
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Validate OAuth JWT - should fail with TokenExpired
@@ -243,12 +243,12 @@ async fn test_oauth_jwt_missing_tenant_id() {
     let token = generate_oauth_jwt(&base_url, "acme", vec!["read"], 300);
 
     // Create OAuth client
-    let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)));
+    let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
     let jwks_cache = Arc::new(JwksCache::new(
         base_url.clone(),
         Arc::new(Cache::new(100)),
         Duration::from_secs(300),
-    ));
+    ).unwrap());
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Validate OAuth JWT

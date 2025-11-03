@@ -2,6 +2,7 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
 use jsonwebtoken::{Algorithm, DecodingKey, Header, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 
 use crate::error::AuthError;
 
@@ -159,19 +160,19 @@ pub fn validate_claims(
     Ok(())
 }
 
-/// Validate algorithm is in allowed list and not symmetric
+/// Validate algorithm is in allowed list and not symmetric (using constant-time comparison)
 pub fn validate_algorithm(alg: &str, accepted_algorithms: &[String]) -> Result<(), AuthError> {
-    // Always reject symmetric algorithms
+    // Always reject symmetric algorithms (using constant-time comparison)
     const FORBIDDEN: &[&str] = &["HS256", "HS384", "HS512", "none"];
-    if FORBIDDEN.contains(&alg) {
+    if FORBIDDEN.iter().any(|forbidden| alg.as_bytes().ct_eq(forbidden.as_bytes()).into()) {
         return Err(AuthError::UnsupportedAlgorithm(format!(
             "Algorithm '{}' is not allowed for security reasons",
             alg
         )));
     }
 
-    // Check if in accepted list
-    if !accepted_algorithms.iter().any(|a| a == alg) {
+    // Check if in accepted list (using constant-time comparison)
+    if !accepted_algorithms.iter().any(|a| a.as_bytes().ct_eq(alg.as_bytes()).into()) {
         return Err(AuthError::UnsupportedAlgorithm(format!(
             "Algorithm '{}' is not in accepted list",
             alg
@@ -283,13 +284,15 @@ pub async fn verify_with_jwks(
             // Force a fresh fetch by getting all keys
             let keys = jwks_cache.get_jwks(&tenant_id).await?;
 
-            // Try to find the key again
-            keys.into_iter().find(|k| k.kid == kid).ok_or_else(|| {
-                AuthError::JwksError(format!(
-                    "Key '{}' not found in JWKS for tenant '{}'",
-                    kid, tenant_id
-                ))
-            })?
+            // Try to find the key again (using constant-time comparison)
+            keys.into_iter().find(|k| k.kid.as_bytes().ct_eq(kid.as_bytes()).into()).ok_or_else(
+                || {
+                    AuthError::JwksError(format!(
+                        "Key '{}' not found in JWKS for tenant '{}'",
+                        kid, tenant_id
+                    ))
+                },
+            )?
         },
     };
 
