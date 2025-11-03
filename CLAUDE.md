@@ -707,7 +707,33 @@ If compilation fails:
 **Benchmarking:**
 
 ```bash
+# Run all benchmarks
 cargo bench --workspace
+
+# Run specific benchmark suite
+cargo bench --package infera-core --bench evaluator
+cargo bench --package infera-api --bench api_throughput
+
+# Compare against baseline
+cargo bench --bench evaluator -- --baseline my-baseline
+
+# See BENCHMARKS.md for detailed usage
+```
+
+**Memory Leak Detection:**
+
+```bash
+# Run short memory leak tests (CI-friendly, <5 min)
+cargo test --test memory_leak_tests
+
+# Run 24-hour stress tests (manual execution)
+cargo test --test memory_leak_tests test_24h_authorization_stress -- --ignored --nocapture
+cargo test --test memory_leak_tests test_24h_mixed_workload -- --ignored --nocapture
+
+# Run with valgrind (Linux)
+valgrind --leak-check=full cargo test --test memory_leak_tests
+
+# See MEMORY_PROFILING.md for detailed profiling tools and usage
 ```
 
 ---
