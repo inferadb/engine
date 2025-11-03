@@ -27,6 +27,7 @@ infera-observe = { path = "../infera-observe" }
 tokio-test = "0.4"
 criterion = { workspace = true }
 proptest = { workspace = true }
+infera-test-fixtures = { path = "../infera-test-fixtures" }
 
 [[bench]]
 name = "memory_backend"
@@ -35,3 +36,5 @@ harness = false
 [features]
 default = []
 fdb = ["foundationdb"]
+# Enable integration tests that require a running FoundationDB instance
+fdb-integration-tests = ["fdb"]

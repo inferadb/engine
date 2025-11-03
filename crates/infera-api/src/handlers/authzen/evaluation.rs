@@ -494,7 +494,7 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: EnhancedAuthZENEvaluationResponse = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(response.decision, true);
+        assert!(response.decision);
         assert!(response.context.is_some());
 
         let context = response.context.unwrap();
@@ -546,7 +546,7 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: EnhancedAuthZENEvaluationResponse = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(response.decision, false);
+        assert!(!response.decision);
         assert!(response.context.is_some());
 
         let context = response.context.unwrap();
@@ -738,7 +738,7 @@ mod tests {
         let response: AuthZENEvaluationsResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.evaluations.len(), 1);
-        assert_eq!(response.evaluations[0].decision, true);
+        assert!(response.evaluations[0].decision);
     }
 
     #[tokio::test]
@@ -807,9 +807,9 @@ mod tests {
         let response: AuthZENEvaluationsResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.evaluations.len(), 3);
-        assert_eq!(response.evaluations[0].decision, true); // alice can view
-        assert_eq!(response.evaluations[1].decision, false); // bob cannot delete
-        assert_eq!(response.evaluations[2].decision, false); // alice cannot delete
+        assert!(response.evaluations[0].decision); // alice can view
+        assert!(!response.evaluations[1].decision); // bob cannot delete
+        assert!(!response.evaluations[2].decision); // alice cannot delete
     }
 
     #[tokio::test]
@@ -943,9 +943,9 @@ mod tests {
         let response: AuthZENEvaluationsResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.evaluations.len(), 3);
-        assert_eq!(response.evaluations[0].decision, true); // Valid request
-        assert_eq!(response.evaluations[1].decision, false); // Validation error
-        assert_eq!(response.evaluations[2].decision, false); // Invalid format
+        assert!(response.evaluations[0].decision); // Valid request
+        assert!(!response.evaluations[1].decision); // Validation error
+        assert!(!response.evaluations[2].decision); // Invalid format
 
         // Check that errors are included in context
         let context1 = &response.evaluations[1].context.as_ref().unwrap();
@@ -1019,8 +1019,8 @@ mod tests {
         let response: AuthZENEvaluationsResponse = serde_json::from_slice(&body).unwrap();
 
         // Verify order is preserved
-        assert_eq!(response.evaluations[0].decision, true); // alice view
-        assert_eq!(response.evaluations[1].decision, false); // bob view (no permission)
-        assert_eq!(response.evaluations[2].decision, false); // alice delete
+        assert!(response.evaluations[0].decision); // alice view
+        assert!(!response.evaluations[1].decision); // bob view (no permission)
+        assert!(!response.evaluations[2].decision); // alice delete
     }
 }

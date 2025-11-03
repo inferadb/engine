@@ -210,7 +210,7 @@ async fn test_write_returns_new_revision() {
 //
 
 #[tokio::test]
-async fn test_concurrent_reads() {
+async fn test_evaluator_concurrent_reads() {
     let schema = create_simple_schema();
     let store = Arc::new(MemoryBackend::new());
 
@@ -273,7 +273,7 @@ async fn test_concurrent_reads() {
 }
 
 #[tokio::test]
-async fn test_concurrent_writes() {
+async fn test_evaluator_concurrent_writes() {
     let store = Arc::new(MemoryBackend::new());
 
     // Spawn multiple concurrent writes

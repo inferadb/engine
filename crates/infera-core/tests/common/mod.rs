@@ -98,11 +98,5 @@ impl TestFixture {
 }
 
 /// Helper to create a relationship
-pub fn relationship(resource: &str, relation: &str, subject: &str) -> Relationship {
-    Relationship {
-        resource: resource.to_string(),
-        relation: relation.to_string(),
-        subject: subject.to_string(),
-        vault: Uuid::nil(),
-    }
-}
+// Re-export centralized relationship helper
+pub use infera_test_fixtures::test_relationship as relationship;

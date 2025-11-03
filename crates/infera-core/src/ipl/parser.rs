@@ -381,8 +381,8 @@ mod tests {
         "#;
 
         let result = parse_schema(source);
-        if result.is_err() {
-            eprintln!("Parse error: {:?}", result.as_ref().unwrap_err());
+        if let Err(e) = &result {
+            eprintln!("Parse error: {:?}", e);
         }
         assert!(result.is_ok());
         let schema = result.unwrap();

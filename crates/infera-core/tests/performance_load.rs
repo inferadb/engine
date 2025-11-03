@@ -2,6 +2,44 @@
 //!
 //! This module contains comprehensive load tests that verify the system's performance
 //! under various load patterns without requiring external deployment.
+//!
+//! ## Purpose
+//!
+//! These tests are marked with `#[ignore]` because they are extremely resource-intensive
+//! and can take several minutes to hours to run. They serve specific purposes:
+//! - **Capacity Planning**: Determine system limits and breaking points
+//! - **Performance Regression**: Detect performance degradation over time
+//! - **SLO Validation**: Verify system meets latency and throughput targets
+//! - **Stability Testing**: Ensure system remains stable under sustained load
+//!
+//! ## Running Load Tests
+//!
+//! ```bash
+//! # Run all load tests (WARNING: Can take 10+ minutes)
+//! cargo test --package infera-core --test performance_load -- --ignored --nocapture
+//!
+//! # Run specific test
+//! cargo test --package infera-core --test performance_load test_sustained_throughput_100k_rps -- --ignored --nocapture
+//!
+//! # Run non-ignored performance tests only (faster, suitable for CI)
+//! cargo test --package infera-core --test performance_load
+//! ```
+//!
+//! ## Test Categories
+//!
+//! ### Load Tests (Ignored)
+//! - `test_sustained_throughput_100k_rps`: 10s sustained 100K RPS load
+//! - `test_stress_beyond_capacity`: Gradually increase load to find limits
+//! - `test_soak_24h_simulation`: 60s simulating 24h continuous load
+//!
+//! ### Scale Tests (Ignored)
+//! - `test_large_graph_1m_relationships`: Performance with 1M+ relationships
+//! - `test_wide_expansion_10k_users`: Expansion with 10K+ users per resource
+//!
+//! ### Fast Tests (Not Ignored)
+//! - `test_latency_p99_under_10ms`: SLO validation (10K requests)
+//! - `test_spike_load`: Handle sudden traffic spikes
+//! - `test_deep_nesting_10_levels`: Deep permission hierarchies
 
 use std::{
     sync::{
@@ -122,7 +160,7 @@ fn create_test_schema() -> Schema {
 /// Test: Sustained Throughput (Target: 100k RPS)
 /// This test verifies the system can handle sustained high request rates
 #[tokio::test]
-#[ignore] // Run with: cargo test --package infera-core --test performance_load -- --ignored --nocapture
+#[ignore = "Load test - runs for 10+ seconds with 100 concurrent workers, high CPU/memory usage"]
 async fn test_sustained_throughput_100k_rps() {
     let schema = create_test_schema();
     let store = Arc::new(MemoryBackend::new());
@@ -416,7 +454,7 @@ async fn test_spike_load() {
 /// Test: Stress Test
 /// Pushes system beyond normal capacity to find breaking point
 #[tokio::test]
-#[ignore] // Run with: cargo test --package infera-core --test performance_load test_stress -- --ignored --nocapture
+#[ignore = "Stress test - runs with up to 500 concurrent workers, can take 2+ minutes"]
 async fn test_stress_beyond_capacity() {
     let schema = create_test_schema();
     let store = Arc::new(MemoryBackend::new());
@@ -506,7 +544,7 @@ async fn test_stress_beyond_capacity() {
 /// Simulates 24 hours of continuous moderate load
 /// Note: Actually runs for 60 seconds but simulates 24h patterns
 #[tokio::test]
-#[ignore] // Run with: cargo test --package infera-core --test performance_load test_soak -- --ignored --nocapture
+#[ignore = "Soak test - runs for 60 seconds to detect memory leaks and stability issues"]
 async fn test_soak_24h_simulation() {
     let schema = create_test_schema();
     let store = Arc::new(MemoryBackend::new());
@@ -617,7 +655,7 @@ async fn test_soak_24h_simulation() {
 /// Test: Large Graph (1M+ relationships)
 /// Tests performance with a very large permission graph
 #[tokio::test]
-#[ignore] // Run with: cargo test --package infera-core --test performance_load test_large_graph -- --ignored --nocapture
+#[ignore = "Scale test - populates 1M relationships, requires 2GB+ memory and 3+ minutes"]
 async fn test_large_graph_1m_relationships() {
     let schema = create_test_schema();
     let store = Arc::new(MemoryBackend::new());
@@ -793,7 +831,7 @@ async fn test_deep_nesting_10_levels() {
 /// Test: Wide Expansion (10k+ users)
 /// Tests expansion performance with very large usersets
 #[tokio::test]
-#[ignore] // Run with: cargo test --package infera-core --test performance_load test_wide_expansion -- --ignored --nocapture
+#[ignore = "Scale test - tests expansion with 10K users, takes 30+ seconds"]
 async fn test_wide_expansion_10k_users() {
     let schema = create_test_schema();
     let store = Arc::new(MemoryBackend::new());

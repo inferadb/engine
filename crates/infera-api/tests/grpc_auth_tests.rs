@@ -23,7 +23,7 @@ use infera_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use infera_store::{MemoryBackend, RelationshipStore};
+use infera_store::MemoryBackend;
 // Re-use test helpers from test fixtures
 use infera_test_fixtures::{
     InternalClaims, create_internal_jwks, generate_internal_jwt, generate_internal_keypair,

@@ -1,4 +1,28 @@
-// Performance benchmarks for ListResources API
+//! Performance Benchmarks for ListResources API
+//!
+//! This module contains performance benchmarks for the ListResources functionality.
+//! These tests are marked with `#[ignore]` because they are resource-intensive and
+//! take significant time to run. They are intended for:
+//! - Performance regression testing
+//! - Capacity planning
+//! - Optimization validation
+//!
+//! ## Running Benchmarks
+//!
+//! ```bash
+//! # Run all ignored benchmarks
+//! cargo test --package infera-core --test list_resources_benchmarks -- --ignored --nocapture
+//!
+//! # Run specific benchmark
+//! cargo test --package infera-core --test list_resources_benchmarks bench_list_resources_100k -- --ignored --nocapture
+//! ```
+//!
+//! ## Benchmark Categories
+//!
+//! - **Scale Tests**: Test with increasing dataset sizes (1K, 10K, 100K)
+//! - **Pattern Filtering**: Test filtering performance with glob patterns
+//! - **Load Tests**: Test concurrent request handling (100 QPS, 1000 QPS)
+//! - **Deep Hierarchy**: Test performance with nested permission structures
 
 use std::{sync::Arc, time::Instant};
 
@@ -111,7 +135,7 @@ async fn bench_list_resources_10k() {
 }
 
 #[tokio::test]
-#[ignore] // Expensive test - run with --ignored
+#[ignore = "Expensive benchmark - requires ~500MB memory and 30+ seconds to run"]
 async fn bench_list_resources_100k() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
@@ -317,7 +341,7 @@ async fn bench_concurrent_requests_100qps() {
 }
 
 #[tokio::test]
-#[ignore] // Expensive test - run with --ignored
+#[ignore = "Expensive benchmark - high CPU usage with 1000 concurrent tasks"]
 async fn bench_concurrent_requests_1000qps() {
     use tokio::time::{Duration, sleep};
 

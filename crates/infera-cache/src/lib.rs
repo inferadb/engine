@@ -994,7 +994,7 @@ mod tests {
 
     // Concurrency tests
     #[tokio::test]
-    async fn test_concurrent_reads() {
+    async fn test_cache_concurrent_reads() {
         let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
 
         let key = CheckCacheKey {
@@ -1034,7 +1034,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_concurrent_writes() {
+    async fn test_cache_concurrent_writes() {
         let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
 
         // Spawn 100 concurrent writers

@@ -8,11 +8,7 @@
 
 use std::sync::Arc;
 
-use axum::{
-    body::Body,
-    http::{Request, StatusCode},
-};
-use infera_api::{AppState, create_router};
+use infera_api::AppState;
 use infera_config::Config;
 use infera_core::{
     Evaluator,
@@ -20,8 +16,6 @@ use infera_core::{
 };
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::Relationship;
-use serde_json::json;
-use tower::ServiceExt;
 use uuid::Uuid;
 
 /// Create a test schema for multi-tenant testing
@@ -367,7 +361,7 @@ async fn test_account_can_own_multiple_vaults() {
     // Create three vaults for the same account
     let vault_obj_1 = infera_types::Vault {
         id: vault1,
-        account: account,
+        account,
         name: "Vault 1".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -375,7 +369,7 @@ async fn test_account_can_own_multiple_vaults() {
 
     let vault_obj_2 = infera_types::Vault {
         id: vault2,
-        account: account,
+        account,
         name: "Vault 2".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -383,7 +377,7 @@ async fn test_account_can_own_multiple_vaults() {
 
     let vault_obj_3 = infera_types::Vault {
         id: vault3,
-        account: account,
+        account,
         name: "Vault 3".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),

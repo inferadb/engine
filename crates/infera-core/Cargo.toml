@@ -36,6 +36,7 @@ tokio-test = "0.4"
 proptest = { workspace = true }
 criterion = { workspace = true }
 wat = "1.0"
+infera-test-fixtures = { path = "../infera-test-fixtures" }
 
 [[bench]]
 name = "ipl_parser"

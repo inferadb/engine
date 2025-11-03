@@ -250,7 +250,7 @@ mod tests {
             format_evaluation_response(Decision::Allow, "user:alice", "view", "document:readme");
 
         let obj = response.as_object().unwrap();
-        assert_eq!(obj.get("decision").unwrap().as_bool().unwrap(), true);
+        assert!(obj.get("decision").unwrap().as_bool().unwrap());
 
         let context = obj.get("context").unwrap().as_object().unwrap();
         assert!(context.get("id").is_some());
@@ -269,7 +269,7 @@ mod tests {
             format_evaluation_response(Decision::Deny, "user:bob", "edit", "document:secret");
 
         let obj = response.as_object().unwrap();
-        assert_eq!(obj.get("decision").unwrap().as_bool().unwrap(), false);
+        assert!(!obj.get("decision").unwrap().as_bool().unwrap());
 
         let context = obj.get("context").unwrap().as_object().unwrap();
         assert!(context.get("id").is_some());
@@ -294,7 +294,7 @@ mod tests {
         let response = format_evaluation_response_with_context(true, custom_context);
 
         let obj = response.as_object().unwrap();
-        assert_eq!(obj.get("decision").unwrap().as_bool().unwrap(), true);
+        assert!(obj.get("decision").unwrap().as_bool().unwrap());
 
         let context = obj.get("context").unwrap().as_object().unwrap();
         assert_eq!(context.get("id").unwrap().as_str().unwrap(), "test-123");
@@ -318,7 +318,7 @@ mod tests {
         let response = format_denial_with_error("Validation failed");
 
         let obj = response.as_object().unwrap();
-        assert_eq!(obj.get("decision").unwrap().as_bool().unwrap(), false);
+        assert!(!obj.get("decision").unwrap().as_bool().unwrap());
 
         let context = obj.get("context").unwrap().as_object().unwrap();
         assert!(context.get("id").is_some());

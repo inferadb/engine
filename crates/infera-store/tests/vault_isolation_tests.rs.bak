@@ -10,16 +10,6 @@ use infera_test_fixtures::test_relationship_with_vault;
 use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
 use uuid::Uuid;
 
-// Test constants for concurrent operations
-/// Number of concurrent write operations per vault in basic concurrency tests.
-/// This value is chosen to be large enough to expose race conditions
-/// while remaining fast enough for CI environments (<1s execution time).
-const CONCURRENT_WRITES_BASIC: usize = 100;
-
-/// Number of concurrent read-write operations per vault in load tests.
-/// Higher value to stress-test vault isolation under realistic load.
-const CONCURRENT_OPS_LOAD: usize = 200;
-
 /// Helper to create a relationship for a specific vault
 fn create_relationship(vault: Uuid, resource: &str, relation: &str, subject: &str) -> Relationship {
     test_relationship_with_vault(vault, resource, relation, subject)
@@ -59,7 +49,7 @@ async fn test_relationships_written_to_vault_a_not_visible_in_vault_b() {
         relation: "viewer".to_string(),
         subject: Some("user:alice".to_string()),
     };
-    let results_a = store.read(vault_a, &key_a, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_a = store.read(vault_a, &key_a, Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_a.len(), 1);
 
     // Verify vault A cannot see vault B's data
@@ -68,15 +58,15 @@ async fn test_relationships_written_to_vault_a_not_visible_in_vault_b() {
         relation: "viewer".to_string(),
         subject: Some("user:bob".to_string()),
     };
-    let results_a_tries_b = store.read(vault_a, &key_b, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_a_tries_b = store.read(vault_a, &key_b, Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_a_tries_b.len(), 0, "Vault A should not see vault B's data");
 
     // Verify vault B can see its own data
-    let results_b = store.read(vault_b, &key_b, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_b = store.read(vault_b, &key_b, Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_b.len(), 1);
 
     // Verify vault B cannot see vault A's data
-    let results_b_tries_a = store.read(vault_b, &key_a, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_b_tries_a = store.read(vault_b, &key_a, Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_b_tries_a.len(), 0, "Vault B should not see vault A's data");
 }
 
@@ -90,7 +80,7 @@ async fn test_concurrent_writes_to_different_vaults_dont_interfere() {
     // Spawn concurrent writes
     let store_a = Arc::clone(&store);
     let handle_a = tokio::spawn(async move {
-        for i in 0..CONCURRENT_WRITES_BASIC {
+        for i in 0..100 {
             store_a
                 .write(
                     vault_a,
@@ -108,7 +98,7 @@ async fn test_concurrent_writes_to_different_vaults_dont_interfere() {
 
     let store_b = Arc::clone(&store);
     let handle_b = tokio::spawn(async move {
-        for i in 0..CONCURRENT_WRITES_BASIC {
+        for i in 0..100 {
             store_b
                 .write(
                     vault_b,
@@ -121,7 +111,7 @@ async fn test_concurrent_writes_to_different_vaults_dont_interfere() {
 
     let store_c = Arc::clone(&store);
     let handle_c = tokio::spawn(async move {
-        for i in 0..CONCURRENT_WRITES_BASIC {
+        for i in 0..100 {
             store_c
                 .write(
                     vault_c,
@@ -138,9 +128,9 @@ async fn test_concurrent_writes_to_different_vaults_dont_interfere() {
     });
 
     // Wait for completion
-    handle_a.await.expect("Storage operation should succeed");
-    handle_b.await.expect("Storage operation should succeed");
-    handle_c.await.expect("Storage operation should succeed");
+    handle_a.await.unwrap();
+    handle_b.await.unwrap();
+    handle_c.await.unwrap();
 
     // Verify each vault has exactly 100 relationships
     // List all relationships with the "view" relation for each vault
@@ -202,8 +192,8 @@ async fn test_revision_tokens_are_vault_scoped() {
     assert_eq!(rev_a2, Revision(2), "Vault A's second write should be revision 2");
 
     // Verify we can get vault-specific revisions
-    let current_a = store.get_revision(vault_a).await.expect("Storage operation should succeed");
-    let current_b = store.get_revision(vault_b).await.expect("Storage operation should succeed");
+    let current_a = store.get_revision(vault_a).await.unwrap();
+    let current_b = store.get_revision(vault_b).await.unwrap();
 
     assert_eq!(current_a, rev_a2, "Current revision for vault A should match latest write");
     assert_eq!(current_b, rev_b1, "Current revision for vault B should match its only write");
@@ -241,14 +231,14 @@ async fn test_delete_operations_only_affect_target_vault() {
         subject: Some("user:alice".to_string()),
     };
 
-    store.delete(vault_a, &key).await.expect("Storage operation should succeed");
+    store.delete(vault_a, &key).await.unwrap();
 
     // Verify deleted from vault A
-    let results_a = store.read(vault_a, &key, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_a = store.read(vault_a, &key, Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_a.len(), 0, "Should be deleted from vault A");
 
     // Verify still exists in vault B
-    let results_b = store.read(vault_b, &key, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_b = store.read(vault_b, &key, Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_b.len(), 1, "Should still exist in vault B");
 }
 
@@ -318,7 +308,7 @@ async fn test_filter_based_operations_scoped_to_vault() {
         subject: Some("user:alice".to_string()),
     };
 
-    let (_, deleted) = store.delete_by_filter(vault_a, &filter, None).await.expect("Storage operation should succeed");
+    let (_, deleted) = store.delete_by_filter(vault_a, &filter, None).await.unwrap();
 
     assert_eq!(deleted, 2, "Should delete 2 viewer relationships from vault A");
 
@@ -380,7 +370,7 @@ async fn test_100_vaults_with_concurrent_operations() {
 
     // Wait for all operations
     for handle in handles {
-        handle.await.expect("Storage operation should succeed");
+        handle.await.unwrap();
     }
 
     // Verify each vault has exactly ops_per_vault relationships
@@ -411,7 +401,7 @@ async fn test_vault_isolation_under_load() {
     // Concurrent reads and writes to different vaults
     let store_a = Arc::clone(&store);
     let handle_a = tokio::spawn(async move {
-        for i in 0..CONCURRENT_OPS_LOAD {
+        for i in 0..200 {
             // Write
             store_a
                 .write(
@@ -432,14 +422,14 @@ async fn test_vault_isolation_under_load() {
                 relation: "view".to_string(),
                 subject: Some("user:alice".to_string()),
             };
-            let results = store_a.read(vault_a, &key, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+            let results = store_a.read(vault_a, &key, Revision(u64::MAX)).await.unwrap();
             assert_eq!(results.len(), 1);
         }
     });
 
     let store_b = Arc::clone(&store);
     let handle_b = tokio::spawn(async move {
-        for i in 0..CONCURRENT_OPS_LOAD {
+        for i in 0..200 {
             // Write
             store_b
                 .write(
@@ -455,13 +445,13 @@ async fn test_vault_isolation_under_load() {
                 relation: "view".to_string(),
                 subject: Some("user:bob".to_string()),
             };
-            let results = store_b.read(vault_b, &key, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+            let results = store_b.read(vault_b, &key, Revision(u64::MAX)).await.unwrap();
             assert_eq!(results.len(), 1);
         }
     });
 
-    handle_a.await.expect("Storage operation should succeed");
-    handle_b.await.expect("Storage operation should succeed");
+    handle_a.await.unwrap();
+    handle_b.await.unwrap();
 
     // Final verification: each vault has exactly 200 relationships
     let results_a = store

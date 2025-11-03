@@ -1,11 +1,13 @@
 //! Test fixtures for InferaDB integration tests
 //!
 //! This crate provides shared test utilities for internal JWTs, mock JWKS servers,
-//! and other test fixtures that are used across multiple test suites.
+//! relationships, and other test fixtures that are used across multiple test suites.
 
 pub mod internal_jwt;
+pub mod relationships;
 
 pub use internal_jwt::{
     InternalClaims, InternalKeyPair, create_internal_jwks, generate_internal_jwt,
     generate_internal_keypair,
 };
+pub use relationships::{test_relationship, test_relationship_with_vault};

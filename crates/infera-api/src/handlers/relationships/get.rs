@@ -419,7 +419,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri(&format!(
+                    .uri(format!(
                         "/v1/relationships/{}/view/{}",
                         encoded_resource, encoded_subject
                     ))

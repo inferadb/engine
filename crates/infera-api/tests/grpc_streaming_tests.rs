@@ -24,7 +24,7 @@ use infera_core::{
     Evaluator,
     ipl::{RelationDef, Schema, TypeDef},
 };
-use infera_store::{MemoryBackend, RelationshipStore};
+use infera_store::MemoryBackend;
 use tonic::{
     Request,
     transport::{Channel, Server},

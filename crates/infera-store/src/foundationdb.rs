@@ -968,22 +968,30 @@ impl RelationshipStore for FoundationDBBackend {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "fdb-integration-tests"))]
 mod tests {
     use super::*;
 
-    // Note: These tests require a running FoundationDB instance
-    // They are marked with #[ignore] by default
+    /// FoundationDB Integration Tests
+    ///
+    /// These tests require a running FoundationDB instance.
+    /// To run them, use:
+    ///
+    /// ```bash
+    /// # Start FoundationDB first (e.g., via Docker)
+    /// docker run -p 4500:4500 foundationdb/foundationdb:7.4.5
+    ///
+    /// # Run tests with the feature flag
+    /// cargo test -p infera-store --features fdb-integration-tests
+    /// ```
 
     #[tokio::test]
-    #[ignore]
     async fn test_fdb_connection() {
         let backend = FoundationDBBackend::new().await;
         assert!(backend.is_ok(), "Should connect to FDB");
     }
 
     #[tokio::test]
-    #[ignore]
     async fn test_fdb_basic_operations() {
         let store = FoundationDBBackend::new().await.unwrap();
 

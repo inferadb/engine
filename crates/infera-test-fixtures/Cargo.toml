@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Core types
+infera-types = { path = "../infera-types" }
+
 # Auth types
 infera-auth = { path = "../infera-auth" }
 
