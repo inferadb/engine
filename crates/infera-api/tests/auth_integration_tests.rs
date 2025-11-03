@@ -22,6 +22,7 @@ use infera_core::{
 use infera_store::{MemoryBackend, RelationshipStore};
 use serde_json::json;
 use tower::ServiceExt;
+use uuid::Uuid;
 
 // Re-use the mock JWKS infrastructure from infera-auth tests
 mod common {
@@ -145,7 +146,7 @@ mod common {
 }
 
 fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
-    let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
         vec![
@@ -159,7 +160,12 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
             ),
         ],
     )]));
-    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
+    let evaluator = Arc::new(Evaluator::new(
+        Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+        schema,
+        None,
+        uuid::Uuid::nil(),
+    ));
     let mut config = Config::default();
 
     // Enable auth for these tests but disable rate limiting
@@ -172,7 +178,15 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    AppState { evaluator, store, config, jwks_cache, health_tracker }
+    AppState {
+        evaluator,
+        store,
+        config,
+        jwks_cache,
+        health_tracker,
+        default_vault: Uuid::nil(),
+        default_account: Uuid::nil(),
+    }
 }
 
 #[tokio::test]

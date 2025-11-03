@@ -771,6 +771,9 @@ impl RelationshipStore for MemoryBackend {
     }
 }
 
+// Blanket implementation of InferaStore for MemoryBackend
+impl crate::InferaStore for MemoryBackend {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -905,6 +908,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-
-// Blanket implementation of InferaStore for MemoryBackend
-impl crate::InferaStore for MemoryBackend {}

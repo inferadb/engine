@@ -114,7 +114,7 @@ pub async fn delete_relationship(
 
     // Invalidate cache for the deleted resource in this vault
     if let Some(cache) = state.evaluator.cache() {
-        cache.invalidate_vault_resources(vault, &[resource.clone()]).await;
+        cache.invalidate_vault_resources(vault, std::slice::from_ref(&resource)).await;
         tracing::debug!(
             vault = %vault,
             resource = %resource,
@@ -229,6 +229,7 @@ mod tests {
             jwks_cache: None,
             health_tracker,
             default_vault: test_vault,
+            default_account: Uuid::nil(),
         }
     }
 

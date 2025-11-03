@@ -104,6 +104,7 @@ mod tests {
             jwks_cache: None,
             health_tracker,
             default_vault: test_vault,
+            default_account: Uuid::nil(),
         }
     }
 

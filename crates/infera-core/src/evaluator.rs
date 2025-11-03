@@ -910,7 +910,10 @@ impl Evaluator {
                 let expr_opt = relation_def.expr.clone();
 
                 // If the referenced relation has no expression, it's a direct relation
-                let tree = if expr_opt.is_none() {
+                let tree = if let Some(expr) = expr_opt.as_ref() {
+                    // Recursively expand the referenced relation's expression
+                    self.build_userset_tree_with_users(resource, expr, ctx).await?
+                } else {
                     let users: Vec<String> = get_users_with_relation(
                         &*ctx.store,
                         ctx.vault,
@@ -925,10 +928,6 @@ impl Evaluator {
                         node_type: UsersetNodeType::Leaf { users: users.clone() },
                         children: vec![],
                     }
-                } else {
-                    // Recursively expand the referenced relation's expression
-                    self.build_userset_tree_with_users(resource, expr_opt.as_ref().unwrap(), ctx)
-                        .await?
                 };
 
                 // Cache the result

@@ -26,6 +26,7 @@ use tonic::{
     metadata::MetadataValue,
     transport::{Channel, Server},
 };
+use uuid::Uuid;
 
 fn create_test_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![TypeDef::new(
@@ -35,9 +36,14 @@ fn create_test_schema() -> Arc<Schema> {
 }
 
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
-    let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let evaluator = Arc::new(Evaluator::new(Arc::clone(&store), schema, None, uuid::Uuid::nil()));
+    let evaluator = Arc::new(Evaluator::new(
+        Arc::clone(&store) as Arc<dyn RelationshipStore>,
+        schema,
+        None,
+        uuid::Uuid::nil(),
+    ));
 
     let mut config = Config::default();
     config.auth.enabled = auth_enabled;
@@ -48,7 +54,15 @@ fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> 
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    AppState { evaluator, store, config, jwks_cache, health_tracker }
+    AppState {
+        evaluator,
+        store,
+        config,
+        jwks_cache,
+        health_tracker,
+        default_vault: Uuid::nil(),
+        default_account: Uuid::nil(),
+    }
 }
 
 /// Start a gRPC server with authentication enabled

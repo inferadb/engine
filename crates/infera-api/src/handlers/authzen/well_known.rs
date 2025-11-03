@@ -132,6 +132,7 @@ mod tests {
     use infera_core::Evaluator;
     use infera_store::MemoryBackend;
     use tower::ServiceExt;
+    use uuid::Uuid;
 
     use super::*;
     use crate::AppState;
@@ -157,6 +158,7 @@ mod tests {
             jwks_cache: None,
             health_tracker,
             default_vault: test_vault,
+            default_account: Uuid::nil(),
         }
     }
 

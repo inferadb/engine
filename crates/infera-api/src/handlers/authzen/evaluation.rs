@@ -401,6 +401,7 @@ mod tests {
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
     use tower::ServiceExt;
+    use uuid::Uuid;
 
     use super::*;
     use crate::{
@@ -455,6 +456,7 @@ mod tests {
             jwks_cache: None,
             health_tracker,
             default_vault: test_vault,
+            default_account: Uuid::nil(),
         }
     }
 

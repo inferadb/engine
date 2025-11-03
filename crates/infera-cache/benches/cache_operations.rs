@@ -197,7 +197,8 @@ fn bench_cache_invalidation(c: &mut Criterion) {
                     }
 
                     // Invalidate all
-                    black_box(cache.invalidate_all().await);
+                    let _: () = cache.invalidate_all().await;
+                    black_box(());
                 }
                 start.elapsed()
             });
@@ -234,7 +235,8 @@ fn bench_cache_selective_invalidation(c: &mut Criterion) {
                     }
 
                     // Selectively invalidate only one resource (10% of entries)
-                    black_box(cache.invalidate_resources(&["doc:0".to_string()]).await);
+                    let _: () = cache.invalidate_resources(&["doc:0".to_string()]).await;
+                    black_box(());
                 }
                 start.elapsed()
             });
