@@ -13,6 +13,7 @@
 
 # Use mise exec if available, otherwise use system cargo
 CARGO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- cargo" || echo "cargo")
+PRETTIER := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- prettier" || echo "prettier")
 
 # Default target - show help
 .DEFAULT_GOAL := help
@@ -46,8 +47,10 @@ test-integration: ## Run integration tests only
 	@$(CARGO) nextest run --test '*' --workspace
 
 check: ## Run all checks (fmt, clippy, test, audit)
-	@echo "🔍 Running format check..."
-	@$(CARGO) fmt --check
+	@echo "🔍 Checking documentation and configuration formatting..."
+	@$(PRETTIER) --check "**/*.{md,yml,yaml,json,toml}" || true
+	@echo "🔍 Checking Rust code formatting..."
+	@$(CARGO) +nightly fmt --check
 	@echo "🔍 Running clippy..."
 	@$(CARGO) clippy --workspace --all-targets -- -D warnings
 	@echo "🧪 Running tests..."
@@ -56,8 +59,11 @@ check: ## Run all checks (fmt, clippy, test, audit)
 	@$(CARGO) audit
 	@echo "✅ All checks passed!"
 
-fmt: ## Format code with rustfmt
-	@$(CARGO) fmt --all
+fmt: ## Format code with Prettier and rustfmt
+	@echo "🎨 Formatting documentation and configuration files..."
+	@$(PRETTIER) --write "**/*.{md,yml,yaml,json,toml}" || true
+	@echo "🎨 Formatting Rust code..."
+	@$(CARGO) +nightly fmt --all
 
 lint: ## Run clippy linter
 	@$(CARGO) clippy --workspace --all-targets -- -D warnings

@@ -11,6 +11,7 @@
 
 [tools]
 rust = "nightly"
+node = "lts"                             # Node.js LTS (provides npm for prettier)
 
 # Development tools (installed automatically with `mise install`)
 "cargo:cargo-watch" = "latest"          # Auto-rebuild on file changes
@@ -18,6 +19,9 @@ rust = "nightly"
 "cargo:cargo-audit" = "latest"          # Security vulnerability scanning
 "cargo:cargo-deny" = "latest"           # Lint dependencies
 "cargo:cargo-llvm-cov" = "latest"       # Code coverage
+
+# Code formatting
+"npm:prettier" = "latest"                # Format Markdown, YAML, JSON, TOML
 
 # Protobuf compiler for gRPC
 protobuf = "latest"
