@@ -152,9 +152,10 @@ type document {
 **Info: Test Suggestions**
 
 The analyzer automatically suggests test cases for:
-- Direct relations (tuple grants)
-- Computed relations (expression evaluation)
-- Forbid rules (denial verification)
+
+-   Direct relations (tuple grants)
+-   Computed relations (expression evaluation)
+-   Forbid rules (denial verification)
 
 ### Usage
 
@@ -194,9 +195,9 @@ println!("{}", results.summary());
 
 ### Severity Levels
 
-- **Error** - Blocking issues that prevent deployment
-- **Warning** - Potential problems that should be reviewed
-- **Info** - Suggestions for improvement
+-   **Error** - Blocking issues that prevent deployment
+-   **Warning** - Potential problems that should be reviewed
+-   **Info** - Suggestions for improvement
 
 ## Best Practices
 
@@ -309,41 +310,41 @@ name: Schema Validation
 on: [push, pull_request]
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-      - name: Validate schemas
-        run: cargo test --package infera-core --lib ipl::validation
+    validate:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions-rs/toolchain@v1
+            - name: Validate schemas
+              run: cargo test --package infera-core --lib ipl::validation
 ```
 
 ## Error Reference
 
 ### Type Check Errors
 
-| Error | Description | Fix |
-|-------|-------------|-----|
-| `UndefinedRelation` | Relation reference doesn't exist | Define the relation or fix the typo |
-| `UndefinedType` | Type reference doesn't exist | Define the type or fix the typo |
-| `UndefinedRelationship` | Computed userset references missing relationship | Add the relationship to the type |
-| `CircularDependency` | Relations reference each other in a cycle | Break the cycle by restructuring |
+| Error                   | Description                                      | Fix                                 |
+| ----------------------- | ------------------------------------------------ | ----------------------------------- |
+| `UndefinedRelation`     | Relation reference doesn't exist                 | Define the relation or fix the typo |
+| `UndefinedType`         | Type reference doesn't exist                     | Define the type or fix the typo     |
+| `UndefinedRelationship` | Computed userset references missing relationship | Add the relationship to the type    |
+| `CircularDependency`    | Relations reference each other in a cycle        | Break the cycle by restructuring    |
 
 ### Conflict Warnings
 
-| Warning | Description | Fix |
-|---------|-------------|-----|
-| `PermitForbidConflict` | Same permission has permit and forbid | Use different names or review logic |
-| `UnreachableRelation` | Computed relation never referenced | Remove or add it to a permission |
-| `AmbiguousPermission` | Multiple contradictory evaluation paths | Simplify the permission logic |
+| Warning                | Description                             | Fix                                 |
+| ---------------------- | --------------------------------------- | ----------------------------------- |
+| `PermitForbidConflict` | Same permission has permit and forbid   | Use different names or review logic |
+| `UnreachableRelation`  | Computed relation never referenced      | Remove or add it to a permission    |
+| `AmbiguousPermission`  | Multiple contradictory evaluation paths | Simplify the permission logic       |
 
 ### Coverage Info
 
-| Info | Description | Action |
-|------|-------------|--------|
-| `UnusedRelation` | Relation may not be used | Add to a permission or remove |
-| `UncoveredPermission` | No valid path to grant | Add a grant path or mark as unreachable |
-| `MissingTestCase` | Suggested test case | Add integration test |
+| Info                  | Description              | Action                                  |
+| --------------------- | ------------------------ | --------------------------------------- |
+| `UnusedRelation`      | Relation may not be used | Add to a permission or remove           |
+| `UncoveredPermission` | No valid path to grant   | Add a grant path or mark as unreachable |
+| `MissingTestCase`     | Suggested test case      | Add integration test                    |
 
 ## Advanced Topics
 
@@ -399,10 +400,10 @@ println!("Found {} unreachable relations across {} schemas",
 
 ## Related Documentation
 
-- [IPL Language Reference](../language/ipl.md)
-- [Schema Design Patterns](./schema-patterns.md)
-- [Testing Policies](./policy-testing.md)
-- [Performance Optimization](./performance.md)
+-   [IPL Language Reference](../language/ipl.md)
+-   [Schema Design Patterns](./schema-patterns.md)
+-   [Testing Policies](./policy-testing.md)
+-   [Performance Optimization](./performance.md)
 
 ## FAQ
 

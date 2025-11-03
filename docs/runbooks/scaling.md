@@ -8,17 +8,17 @@ This runbook covers scaling InferaDB horizontally (more replicas) and vertically
 
 ### Indicators for Horizontal Scaling (More Replicas)
 
-- **High CPU usage** across all pods (>70% sustained)
-- **High request rate** with acceptable per-pod latency
-- **Geographic distribution** needs
-- **High availability** requirements
+-   **High CPU usage** across all pods (>70% sustained)
+-   **High request rate** with acceptable per-pod latency
+-   **Geographic distribution** needs
+-   **High availability** requirements
 
 ### Indicators for Vertical Scaling (More Resources)
 
-- **Memory pressure** or OOM kills
-- **Single-request latency** issues
-- **Cache thrashing** due to insufficient memory
-- **Thread pool saturation**
+-   **Memory pressure** or OOM kills
+-   **Single-request latency** issues
+-   **Cache thrashing** due to insufficient memory
+-   **Thread pool saturation**
 
 ## Horizontal Scaling
 
@@ -76,41 +76,41 @@ For scaling based on custom metrics (request rate, queue depth):
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: inferadb
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
     name: inferadb
-  minReplicas: 5
-  maxReplicas: 50
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
-    - type: Pods
-      pods:
-        metric:
-          name: inferadb_requests_per_second
-        target:
-          type: AverageValue
-          averageValue: "1000"
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 50
-          periodSeconds: 60
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 30
+spec:
+    scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: inferadb
+    minReplicas: 5
+    maxReplicas: 50
+    metrics:
+        - type: Resource
+          resource:
+              name: cpu
+              target:
+                  type: Utilization
+                  averageUtilization: 70
+        - type: Pods
+          pods:
+              metric:
+                  name: inferadb_requests_per_second
+              target:
+                  type: AverageValue
+                  averageValue: "1000"
+    behavior:
+        scaleDown:
+            stabilizationWindowSeconds: 300
+            policies:
+                - type: Percent
+                  value: 50
+                  periodSeconds: 60
+        scaleUp:
+            stabilizationWindowSeconds: 60
+            policies:
+                - type: Percent
+                  value: 100
+                  periodSeconds: 30
 ```
 
 ### Scaling Best Practices
@@ -155,12 +155,12 @@ kubectl top pods -n inferadb -l app=inferadb
 ```yaml
 # values-prod.yaml
 resources:
-  requests:
-    cpu: 2000m
-    memory: 4Gi
-  limits:
-    cpu: 4000m
-    memory: 8Gi
+    requests:
+        cpu: 2000m
+        memory: 4Gi
+    limits:
+        cpu: 4000m
+        memory: 8Gi
 ```
 
 ```bash
@@ -212,12 +212,12 @@ Configure conservative scale-down:
 
 ```yaml
 behavior:
-  scaleDown:
-    stabilizationWindowSeconds: 300 # Wait 5 minutes
-    policies:
-      - type: Percent
-        value: 50 # Max 50% reduction per step
-        periodSeconds: 60
+    scaleDown:
+        stabilizationWindowSeconds: 300 # Wait 5 minutes
+        policies:
+            - type: Percent
+              value: 50 # Max 50% reduction per step
+              periodSeconds: 60
 ```
 
 ## Emergency Scaling
@@ -304,15 +304,15 @@ kubectl get events -n inferadb --sort-by='.lastTimestamp'
 
 **Common causes**:
 
-- Insufficient cluster resources
-- Image pull errors
-- PVC provisioning failures
+-   Insufficient cluster resources
+-   Image pull errors
+-   PVC provisioning failures
 
 **Resolution**:
 
-- Scale down replicas or add cluster nodes
-- Check image availability
-- Verify storage provisioner
+-   Scale down replicas or add cluster nodes
+-   Check image availability
+-   Verify storage provisioner
 
 ### Pods Crashing After Scale
 
@@ -327,9 +327,9 @@ kubectl top pods -n inferadb -l app=inferadb
 
 **Resolution**:
 
-- Increase memory limits
-- Reduce cache size
-- Check for memory leaks
+-   Increase memory limits
+-   Reduce cache size
+-   Check for memory leaks
 
 ### HPA Not Scaling
 
@@ -345,9 +345,9 @@ kubectl top pods -n inferadb -l app=inferadb
 
 **Common causes**:
 
-- Metrics server not installed
-- Metric not available
-- Thresholds not met
+-   Metrics server not installed
+-   Metric not available
+-   Thresholds not met
 
 **Resolution**:
 
@@ -378,10 +378,10 @@ kubectl get endpoints inferadb -n inferadb
 
 **Resolution**:
 
-- Verify service selector labels
-- Check pod readiness probes
-- Review load balancer configuration
-- Consider session affinity settings
+-   Verify service selector labels
+-   Check pod readiness probes
+-   Review load balancer configuration
+-   Consider session affinity settings
 
 ## Capacity Planning
 
@@ -444,6 +444,6 @@ kubectl rollout undo deployment/inferadb -n inferadb
 
 ## Related Runbooks
 
-- [High Latency](high-latency.md) - Performance issues requiring scaling
-- [Memory Issues](memory-issues.md) - OOM kills during scaling
-- [Upgrades](upgrades.md) - Scaling during version upgrades
+-   [High Latency](high-latency.md) - Performance issues requiring scaling
+-   [Memory Issues](memory-issues.md) - OOM kills during scaling
+-   [Upgrades](upgrades.md) - Scaling during version upgrades

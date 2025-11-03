@@ -6,11 +6,11 @@ The FoundationDB backend provides a production-ready, distributed storage layer 
 
 FoundationDB is a distributed database designed to handle large volumes of structured data across clusters of commodity servers. InferaDB leverages FDB's strengths to provide:
 
-- **ACID Transactions**: Serializable isolation across the entire database
-- **Horizontal Scalability**: Scale from single node to hundreds of nodes
-- **High Availability**: Automatic failover and self-healing
-- **Multi-Version Concurrency Control**: Point-in-time consistent reads
-- **Low Latency**: Sub-5ms p99 latency for most operations
+-   **ACID Transactions**: Serializable isolation across the entire database
+-   **Horizontal Scalability**: Scale from single node to hundreds of nodes
+-   **High Availability**: Automatic failover and self-healing
+-   **Multi-Version Concurrency Control**: Point-in-time consistent reads
+-   **Low Latency**: Sub-5ms p99 latency for most operations
 
 ## Architecture
 
@@ -29,24 +29,24 @@ InferaDB uses FoundationDB's **subspace** feature to organize data into three lo
 
 **1. Tuples Subspace**
 
-- Stores actual tuple data with revision tracking
-- Key: `(object, relation, user, revision)`
-- Value: `"active"` or `"deleted"` marker
-- Enables MVCC by maintaining version history
+-   Stores actual tuple data with revision tracking
+-   Key: `(object, relation, user, revision)`
+-   Value: `"active"` or `"deleted"` marker
+-   Enables MVCC by maintaining version history
 
 **2. Revisions Subspace**
 
-- Tracks global revision counter
-- Key: `"current"`
-- Value: Latest revision number (JSON-encoded u64)
-- Atomically incremented in transactions
+-   Tracks global revision counter
+-   Key: `"current"`
+-   Value: Latest revision number (JSON-encoded u64)
+-   Atomically incremented in transactions
 
 **3. Indexes Subspace**
 
-- Two index types for efficient queries:
-  - **Object index**: Forward lookup (object+relation → users)
-  - **User index**: Reverse lookup (user+relation → objects)
-- Maintains revision history per index entry
+-   Two index types for efficient queries:
+    -   **Object index**: Forward lookup (object+relation → users)
+    -   **User index**: Reverse lookup (user+relation → objects)
+-   Maintains revision history per index entry
 
 ### Data Model
 
@@ -65,30 +65,30 @@ pub struct FoundationDBBackend {
 
 1. **FoundationDB Cluster**
 
-   - Version 6.3 or higher recommended
-   - Running fdbserver instances
-   - Configured cluster file
+    - Version 6.3 or higher recommended
+    - Running fdbserver instances
+    - Configured cluster file
 
 2. **FoundationDB Client Library**
 
-   ```bash
-   # macOS
-   brew install foundationdb
+    ```bash
+    # macOS
+    brew install foundationdb
 
-   # Ubuntu/Debian
-   wget https://github.com/apple/foundationdb/releases/download/7.1.27/foundationdb-clients_7.1.27-1_amd64.deb
-   sudo dpkg -i foundationdb-clients_7.1.27-1_amd64.deb
+    # Ubuntu/Debian
+    wget https://github.com/apple/foundationdb/releases/download/7.1.27/foundationdb-clients_7.1.27-1_amd64.deb
+    sudo dpkg -i foundationdb-clients_7.1.27-1_amd64.deb
 
-   # Or build from source
-   git clone https://github.com/apple/foundationdb.git
-   ```
+    # Or build from source
+    git clone https://github.com/apple/foundationdb.git
+    ```
 
 3. **Rust with FDB Feature**
-   ```toml
-   # Cargo.toml
-   [dependencies]
-   infera-store = { version = "0.1", features = ["fdb"] }
-   ```
+    ```toml
+    # Cargo.toml
+    [dependencies]
+    infera-store = { version = "0.1", features = ["fdb"] }
+    ```
 
 ### Compilation
 
@@ -173,9 +173,9 @@ let tuples = store.read(&key, revision).await?;
 
 **Performance:**
 
-- Latency: 1-5ms (depends on cluster size and network)
-- Throughput: 10K-100K reads/sec per node
-- Scales horizontally with cluster size
+-   Latency: 1-5ms (depends on cluster size and network)
+-   Throughput: 10K-100K reads/sec per node
+-   Scales horizontally with cluster size
 
 ### Write Operation
 
@@ -184,9 +184,9 @@ let tuples = store.read(&key, revision).await?;
 1. Begin FDB transaction
 2. Read and increment global revision counter
 3. For each tuple:
-   - Write tuple data to tuples subspace
-   - Update object index
-   - Update user index
+    - Write tuple data to tuples subspace
+    - Update object index
+    - Update user index
 4. Commit transaction (automatic retries on conflict)
 
 **Example:**
@@ -210,15 +210,15 @@ let revision = store.write(tuples).await?;
 
 **Atomicity:**
 
-- All tuples in a batch written at same revision
-- Either all succeed or all fail
-- FDB handles automatic retries on conflicts
+-   All tuples in a batch written at same revision
+-   Either all succeed or all fail
+-   FDB handles automatic retries on conflicts
 
 **Performance:**
 
-- Latency: 5-10ms (includes commit time)
-- Throughput: 10K-50K writes/sec per cluster
-- Batch writes are more efficient
+-   Latency: 5-10ms (includes commit time)
+-   Throughput: 10K-50K writes/sec per cluster
+-   Batch writes are more efficient
 
 ### Delete Operation
 
@@ -252,9 +252,9 @@ store.delete(&key).await?;
 
 **Soft Deletes:**
 
-- Deletes are markers, not physical removals
-- Enables MVCC (read old versions)
-- FDB's compaction cleans up old data automatically
+-   Deletes are markers, not physical removals
+-   Enables MVCC (read old versions)
+-   FDB's compaction cleans up old data automatically
 
 ## Features
 
@@ -273,23 +273,23 @@ let tuples = store.read(&key, rev1).await?;  // Sees state at rev1
 
 **Isolation Levels:**
 
-- Serializable isolation by default
-- Snapshot reads at any revision
-- No read-write conflicts (MVCC)
+-   Serializable isolation by default
+-   Snapshot reads at any revision
+-   No read-write conflicts (MVCC)
 
 ### Revision Management
 
 **Global Revision Counter:**
 
-- Monotonically increasing
-- Atomically incremented per transaction
-- Enables point-in-time queries
+-   Monotonically increasing
+-   Atomically incremented per transaction
+-   Enables point-in-time queries
 
 **Revision History:**
 
-- Each tuple stores all versions with revisions
-- Read at any past revision
-- Automatic cleanup via FDB compaction
+-   Each tuple stores all versions with revisions
+-   Read at any past revision
+-   Automatic cleanup via FDB compaction
 
 **Example:**
 
@@ -309,9 +309,9 @@ let data_at_rev2 = store.read(&key, rev2).await?;
 
 **Scale Out:**
 
-- Add more fdbserver processes to increase capacity
-- Data automatically redistributes
-- No application changes needed
+-   Add more fdbserver processes to increase capacity
+-   Data automatically redistributes
+-   No application changes needed
 
 **Performance Scaling:**
 
@@ -324,23 +324,23 @@ let data_at_rev2 = store.read(&key, rev2).await?;
 
 **Storage Scaling:**
 
-- FDB handles petabyte-scale data
-- Automatic sharding and rebalancing
-- No manual partitioning required
+-   FDB handles petabyte-scale data
+-   Automatic sharding and rebalancing
+-   No manual partitioning required
 
 ### High Availability
 
 **Replication:**
 
-- Configurable replication factor (default: 3)
-- Data replicated across failure domains
-- Synchronous replication for consistency
+-   Configurable replication factor (default: 3)
+-   Data replicated across failure domains
+-   Synchronous replication for consistency
 
 **Automatic Failover:**
 
-- Node failures detected in seconds
-- Automatic promotion of replicas
-- No data loss on single node failure
+-   Node failures detected in seconds
+-   Automatic promotion of replicas
+-   No data loss on single node failure
 
 **Recovery:**
 
@@ -398,15 +398,15 @@ let cache = AuthCache::new(10_000, Duration::from_secs(300));
 
 **Limits:**
 
-- Max transaction size: 10MB
-- Max keys per transaction: ~100K
-- Max transaction duration: 5 seconds
+-   Max transaction size: 10MB
+-   Max keys per transaction: ~100K
+-   Max transaction duration: 5 seconds
 
 **Best Practices:**
 
-- Keep transactions small (<1MB)
-- Batch operations when possible
-- Split very large writes across multiple transactions
+-   Keep transactions small (<1MB)
+-   Batch operations when possible
+-   Split very large writes across multiple transactions
 
 ### Cluster Configuration
 
@@ -479,16 +479,16 @@ fdbcli> status
 
 **Critical Alerts:**
 
-- Transaction timeouts > 100ms
-- Replication factor below target
-- Storage capacity > 80%
-- Process failures
+-   Transaction timeouts > 100ms
+-   Replication factor below target
+-   Storage capacity > 80%
+-   Process failures
 
 **Warning Alerts:**
 
-- Latency p99 > 10ms
-- Storage capacity > 60%
-- Network saturation
+-   Latency p99 > 10ms
+-   Storage capacity > 60%
+-   Network saturation
 
 ## Backup and Recovery
 
@@ -544,9 +544,9 @@ for chunk in tuples.chunks(1000) {
 
 **Workaround:**
 
-- Keep object/relation/user names reasonably sized
-- Use IDs instead of long strings
-- InferaDB's design stays well within limits
+-   Keep object/relation/user names reasonably sized
+-   Use IDs instead of long strings
+-   InferaDB's design stays well within limits
 
 ### 3. Operational Complexity
 
@@ -554,9 +554,9 @@ for chunk in tuples.chunks(1000) {
 
 **Mitigation:**
 
-- Use managed FDB service if available
-- Follow FDB operational best practices
-- Start with 3-node cluster for simplicity
+-   Use managed FDB service if available
+-   Follow FDB operational best practices
+-   Start with 3-node cluster for simplicity
 
 ### 4. Network Latency
 
@@ -564,9 +564,9 @@ for chunk in tuples.chunks(1000) {
 
 **Mitigation:**
 
-- Deploy InferaDB close to FDB cluster
-- Use same data center/region
-- Enable caching layer
+-   Deploy InferaDB close to FDB cluster
+-   Use same data center/region
+-   Enable caching layer
 
 ## Troubleshooting
 
@@ -578,20 +578,20 @@ for chunk in tuples.chunks(1000) {
 
 1. Verify FDB cluster is running:
 
-   ```bash
-   fdbcli> status
-   ```
+    ```bash
+    fdbcli> status
+    ```
 
 2. Check cluster file exists:
 
-   ```bash
-   ls -la /etc/foundationdb/fdb.cluster
-   ```
+    ```bash
+    ls -la /etc/foundationdb/fdb.cluster
+    ```
 
 3. Verify client can connect:
-   ```bash
-   fdbcli> status
-   ```
+    ```bash
+    fdbcli> status
+    ```
 
 ### Transaction Timeouts
 
@@ -602,9 +602,9 @@ for chunk in tuples.chunks(1000) {
 1. Reduce transaction size
 2. Check FDB cluster health
 3. Increase timeout (not recommended):
-   ```rust
-   // Requires custom transaction handling
-   ```
+    ```rust
+    // Requires custom transaction handling
+    ```
 
 ### Performance Issues
 
@@ -696,8 +696,8 @@ match store.read(&key, revision).await {
 
 ## See Also
 
-- [Storage Backends Overview](./storage-backends.md)
-- [Memory Backend](./storage-memory.md)
-- [FoundationDB Documentation](https://apple.github.io/foundationdb/)
-- [FDB Best Practices](https://apple.github.io/foundationdb/best-practices.html)
-- [Revision Tokens](./revision-tokens.md)
+-   [Storage Backends Overview](./storage-backends.md)
+-   [Memory Backend](./storage-memory.md)
+-   [FoundationDB Documentation](https://apple.github.io/foundationdb/)
+-   [FDB Best Practices](https://apple.github.io/foundationdb/best-practices.html)
+-   [Revision Tokens](./revision-tokens.md)

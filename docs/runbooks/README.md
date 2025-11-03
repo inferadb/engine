@@ -6,22 +6,22 @@ This directory contains operational runbooks for managing InferaDB in production
 
 ### Incident Response
 
-- [High Latency](high-latency.md) - Diagnosing and resolving slow requests
-- [Service Outage](service-outage.md) - Handling complete service failures
-- [Authentication Failures](auth-failures.md) - Resolving authentication issues
+-   [High Latency](high-latency.md) - Diagnosing and resolving slow requests
+-   [Service Outage](service-outage.md) - Handling complete service failures
+-   [Authentication Failures](auth-failures.md) - Resolving authentication issues
 
 ### Maintenance
 
-- [Scaling](scaling.md) - Horizontal and vertical scaling procedures
-- [Backup and Restore](backup-restore.md) - Data backup and recovery
-- [Upgrades](upgrades.md) - Version upgrade procedures
-- [Configuration Changes](config-changes.md) - Safe configuration updates
+-   [Scaling](scaling.md) - Horizontal and vertical scaling procedures
+-   [Backup and Restore](backup-restore.md) - Data backup and recovery
+-   [Upgrades](upgrades.md) - Version upgrade procedures
+-   [Configuration Changes](config-changes.md) - Safe configuration updates
 
 ### Monitoring and Diagnostics
 
-- [Health Check Failures](health-check-failures.md) - Investigating failed health probes
-- [Memory Issues](memory-issues.md) - OOM kills and memory leaks
-- [Storage Backend](storage-backend.md) - FoundationDB troubleshooting
+-   [Health Check Failures](health-check-failures.md) - Investigating failed health probes
+-   [Memory Issues](memory-issues.md) - OOM kills and memory leaks
+-   [Storage Backend](storage-backend.md) - FoundationDB troubleshooting
 
 ## Runbook Structure
 

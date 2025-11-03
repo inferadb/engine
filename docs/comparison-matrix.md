@@ -50,10 +50,10 @@ This document provides a comprehensive comparison of InferaDB against major auth
 
 **Legend**:
 
-- ✅ Full support
-- ⚠️ Partial/limited support
-- ❌ Not supported
-- DIY: You must implement yourself
+-   ✅ Full support
+-   ⚠️ Partial/limited support
+-   ❌ Not supported
+-   DIY: You must implement yourself
 
 ### Protocol Support
 
@@ -146,11 +146,11 @@ This document provides a comprehensive comparison of InferaDB against major auth
 
 **Benefits**:
 
-- ✅ **Memory Efficient**: Handle millions of results without buffering
-- ✅ **Progressive Results**: Start processing before query completes
-- ✅ **Better UX**: Show results as they arrive
-- ✅ **Lower Latency**: TTFB (Time To First Byte) is faster
-- ✅ **Web-friendly**: SSE works in browsers without WebSocket
+-   ✅ **Memory Efficient**: Handle millions of results without buffering
+-   ✅ **Progressive Results**: Start processing before query completes
+-   ✅ **Better UX**: Show results as they arrive
+-   ✅ **Lower Latency**: TTFB (Time To First Byte) is faster
+-   ✅ **Web-friendly**: SSE works in browsers without WebSocket
 
 ### 2. Batch Check with Trace
 
@@ -173,11 +173,11 @@ grpcurl -d '{
 
 **Comparison**:
 
-- **SpiceDB**: Batch limited to 30-100, no trace on batch
-- **OpenFGA**: Batch limited, no trace on batch
-- **Oso**: In-process, can trace individual checks
-- **WorkOS FGA**: Unknown batch limits, basic trace
-- **Amazon VP**: Batch limited to 30, basic trace
+-   **SpiceDB**: Batch limited to 30-100, no trace on batch
+-   **OpenFGA**: Batch limited, no trace on batch
+-   **Oso**: In-process, can trace individual checks
+-   **WorkOS FGA**: Unknown batch limits, basic trace
+-   **Amazon VP**: Batch limited to 30, basic trace
 
 ### 3. Built-in Authentication
 
@@ -194,26 +194,26 @@ grpcurl -d '{
 
 **Others require**:
 
-- API gateway for JWT validation
-- Manual tenant extraction
-- DIY scope/permission checking
+-   API gateway for JWT validation
+-   Manual tenant extraction
+-   DIY scope/permission checking
 
 ### 4. No Artificial Limits
 
 **Batch Check Limits**:
 
-- **InferaDB**: ✅ Unlimited (streaming)
-- **SpiceDB**: ⚠️ 30-100 items
-- **OpenFGA**: ⚠️ ~50 items
-- **Amazon VP**: ⚠️ 30 items
-- **Oso**: ✅ Unlimited (in-process)
-- **WorkOS FGA**: ⚠️ Unknown
+-   **InferaDB**: ✅ Unlimited (streaming)
+-   **SpiceDB**: ⚠️ 30-100 items
+-   **OpenFGA**: ⚠️ ~50 items
+-   **Amazon VP**: ⚠️ 30 items
+-   **Oso**: ✅ Unlimited (in-process)
+-   **WorkOS FGA**: ⚠️ Unknown
 
 **Why it matters**:
 
-- Authorization decisions often needed for hundreds of items
-- UI pages showing 100+ documents need batch checks
-- Pagination requires checking all items
+-   Authorization decisions often needed for hundreds of items
+-   UI pages showing 100+ documents need batch checks
+-   Pagination requires checking all items
 
 ### 5. Wildcard Support
 
@@ -221,9 +221,9 @@ All ReBAC platforms support wildcards for public access:
 
 ```json
 {
-  "resource": "document:announcement",
-  "relation": "viewer",
-  "subject": "user:*"
+    "resource": "document:announcement",
+    "relation": "viewer",
+    "subject": "user:*"
 }
 ```
 
@@ -243,10 +243,10 @@ All ReBAC platforms support wildcards for public access:
 
 **InferaDB Advantages**:
 
-- ✅ Both gRPC and REST/SSE (web-friendly)
-- ✅ Multiple resource type filters
-- ✅ Base64-encoded cursor for resumption
-- ✅ Proper backpressure handling
+-   ✅ Both gRPC and REST/SSE (web-friendly)
+-   ✅ Multiple resource type filters
+-   ✅ Base64-encoded cursor for resumption
+-   ✅ Proper backpressure handling
 
 ---
 
@@ -262,16 +262,16 @@ Client → gRPC → SpiceDB → CockroachDB/Postgres/MySQL/Spanner
 
 **Pros**:
 
-- Mature, battle-tested (Google Zanzibar paper)
-- Multiple storage backends
-- Strong consistency guarantees
+-   Mature, battle-tested (Google Zanzibar paper)
+-   Multiple storage backends
+-   Strong consistency guarantees
 
 **Cons**:
 
-- No streaming APIs (memory issues with large result sets)
-- Batch limits (30-100 checks)
-- Pre-shared key auth only
-- Complex Zookie management
+-   No streaming APIs (memory issues with large result sets)
+-   Batch limits (30-100 checks)
+-   Pre-shared key auth only
+-   Complex Zookie management
 
 ### OpenFGA Architecture
 
@@ -283,16 +283,16 @@ Client → gRPC/REST → OpenFGA → Postgres/MySQL
 
 **Pros**:
 
-- Cloud-native design
-- Good REST API
-- Active development
+-   Cloud-native design
+-   Good REST API
+-   Active development
 
 **Cons**:
 
-- Store model management overhead
-- No built-in authentication
-- Limited streaming
-- Batch limits
+-   Store model management overhead
+-   No built-in authentication
+-   Limited streaming
+-   Batch limits
 
 ### Oso Architecture
 
@@ -306,18 +306,18 @@ Your Database (you manage schema)
 
 **Pros**:
 
-- Ultra-low latency (no network)
-- Flexible Polar language
-- Native ABAC support
+-   Ultra-low latency (no network)
+-   Flexible Polar language
+-   Native ABAC support
 
 **Cons**:
 
-- Not a service (embedded only)
-- DIY data layer
-- DIY caching
-- DIY multi-tenancy
-- DIY observability
-- Scales with application (not independently)
+-   Not a service (embedded only)
+-   DIY data layer
+-   DIY caching
+-   DIY multi-tenancy
+-   DIY observability
+-   Scales with application (not independently)
 
 ### InferaDB Architecture
 
@@ -332,17 +332,17 @@ Client → gRPC/REST (streaming) → InferaDB → FoundationDB/Memory
 
 **Pros**:
 
-- ✅ Comprehensive streaming APIs
-- ✅ Built-in JWT/OAuth authentication
-- ✅ No batch limits
-- ✅ Both gRPC and REST
-- ✅ SSE for web clients
-- ✅ Sequential consistency by default
+-   ✅ Comprehensive streaming APIs
+-   ✅ Built-in JWT/OAuth authentication
+-   ✅ No batch limits
+-   ✅ Both gRPC and REST
+-   ✅ SSE for web clients
+-   ✅ Sequential consistency by default
 
 **Cons**:
 
-- ⏳ Fewer storage backend options (PostgreSQL planned)
-- ⏳ Newer platform (less battle-tested)
+-   ⏳ Fewer storage backend options (PostgreSQL planned)
+-   ⏳ Newer platform (less battle-tested)
 
 ---
 
@@ -352,61 +352,61 @@ Client → gRPC/REST (streaming) → InferaDB → FoundationDB/Memory
 
 ✅ **Best fit**:
 
-- Need streaming for large result sets (millions of users/resources)
-- Want built-in JWT/OAuth authentication
-- Require batch check with detailed trace
-- Building web applications (REST/SSE support)
-- Need both gRPC and REST APIs
-- Want comprehensive observability out of the box
+-   Need streaming for large result sets (millions of users/resources)
+-   Want built-in JWT/OAuth authentication
+-   Require batch check with detailed trace
+-   Building web applications (REST/SSE support)
+-   Need both gRPC and REST APIs
+-   Want comprehensive observability out of the box
 
 ### When to Choose SpiceDB
 
 ✅ **Best fit**:
 
-- Need battle-tested Google Zanzibar implementation
-- Require CockroachDB or Spanner storage
-- Have existing investment in gRPC
-- Don't need large batch operations
-- Can build your own auth layer
+-   Need battle-tested Google Zanzibar implementation
+-   Require CockroachDB or Spanner storage
+-   Have existing investment in gRPC
+-   Don't need large batch operations
+-   Can build your own auth layer
 
 ### When to Choose OpenFGA
 
 ✅ **Best fit**:
 
-- Need multi-tenant store isolation
-- Prefer REST over gRPC
-- Want active open-source community
-- Can build your own auth layer
-- Working with CNCF ecosystem
+-   Need multi-tenant store isolation
+-   Prefer REST over gRPC
+-   Want active open-source community
+-   Can build your own auth layer
+-   Working with CNCF ecosystem
 
 ### When to Choose Oso
 
 ✅ **Best fit**:
 
-- Embedded library is acceptable
-- Ultra-low latency required (<1ms)
-- Already have data layer
-- Need flexible policy language
-- Complex ABAC requirements
-- Can manage own infrastructure
+-   Embedded library is acceptable
+-   Ultra-low latency required (<1ms)
+-   Already have data layer
+-   Need flexible policy language
+-   Complex ABAC requirements
+-   Can manage own infrastructure
 
 ### When to Choose WorkOS FGA
 
 ✅ **Best fit**:
 
-- Want fully managed service
-- Don't want to run infrastructure
-- Have budget for SaaS
-- Trust third-party data hosting
+-   Want fully managed service
+-   Don't want to run infrastructure
+-   Have budget for SaaS
+-   Trust third-party data hosting
 
 ### When to Choose Amazon Verified Permissions
 
 ✅ **Best fit**:
 
-- Deep AWS integration required
-- Using Cedar language
-- Want AWS-managed service
-- Primarily ABAC (not ReBAC)
+-   Deep AWS integration required
+-   Using Cedar language
+-   Want AWS-managed service
+-   Primarily ABAC (not ReBAC)
 
 ---
 
@@ -414,9 +414,9 @@ Client → gRPC/REST (streaming) → InferaDB → FoundationDB/Memory
 
 We provide comprehensive migration guides:
 
-- **[From SpiceDB](migration/from-spicedb.md)**: API mapping, Zookie → Revision, schema translation
-- **[From OpenFGA](migration/from-openfga.md)**: Store model removal, REST API updates, auth setup
-- **[From Oso](migration/from-oso.md)**: Polar → IPL, embedded → service, data layer migration
+-   **[From SpiceDB](migration/from-spicedb.md)**: API mapping, Zookie → Revision, schema translation
+-   **[From OpenFGA](migration/from-openfga.md)**: Store model removal, REST API updates, auth setup
+-   **[From Oso](migration/from-oso.md)**: Polar → IPL, embedded → service, data layer migration
 
 ---
 
@@ -454,26 +454,26 @@ We provide comprehensive migration guides:
 
 **Choose InferaDB if you want**:
 
-- Modern streaming APIs
-- Built-in production features (auth, metrics, multi-region)
-- No batch size limits
-- Both gRPC and REST support
-- Active development and responsive maintainers
+-   Modern streaming APIs
+-   Built-in production features (auth, metrics, multi-region)
+-   No batch size limits
+-   Both gRPC and REST support
+-   Active development and responsive maintainers
 
 ---
 
 ## Additional Resources
 
-- **Full Competitor Analysis**: [COMPARISON.md](../COMPARISON.md)
-- **Individual Comparisons**: [SPICEDB.md](../SPICEDB.md), [OPENFGA.md](../OPENFGA.md), [OSO.md](../OSO.md)
-- **Migration Guides**: [migration/](migration/)
-- **API Documentation**: [api/](../api/README.md)
-- **Architecture**: [docs/architecture.md](architecture.md)
+-   **Full Competitor Analysis**: [COMPARISON.md](../COMPARISON.md)
+-   **Individual Comparisons**: [SPICEDB.md](../SPICEDB.md), [OPENFGA.md](../OPENFGA.md), [OSO.md](../OSO.md)
+-   **Migration Guides**: [migration/](migration/)
+-   **API Documentation**: [api/](../api/README.md)
+-   **Architecture**: [docs/architecture.md](architecture.md)
 
 ---
 
 **Questions? Feedback?**
 
-- [GitHub Issues](https://github.com/inferadb/server/issues)
-- [Discussions](https://github.com/inferadb/server/discussions)
-- [Documentation](README.md)
+-   [GitHub Issues](https://github.com/inferadb/server/issues)
+-   [Discussions](https://github.com/inferadb/server/discussions)
+-   [Documentation](README.md)

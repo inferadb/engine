@@ -12,11 +12,11 @@ AuthZEN (Authorization API) is an OpenID Foundation standard that defines a comm
 
 **Key Findings**:
 
-- AuthZEN uses versioned paths: `/access/v1/`
-- All operations use POST method with JSON payloads
-- Standard data model: Subject + Resource + Action → Decision
-- Extensible through properties, context, and registered capabilities
-- InferaDB's ReBAC features extend beyond AuthZEN's core scope
+-   AuthZEN uses versioned paths: `/access/v1/`
+-   All operations use POST method with JSON payloads
+-   Standard data model: Subject + Resource + Action → Decision
+-   Extensible through properties, context, and registered capabilities
+-   InferaDB's ReBAC features extend beyond AuthZEN's core scope
 
 ---
 
@@ -32,15 +32,15 @@ The AuthZEN specification mandates the following capabilities for compliant impl
 
 **Required Fields**:
 
-- `subject` (object, required): Principal making the request
-- `resource` (object, required): Target entity
-- `action` (object, required): Intended operation
-- `context` (object, optional): Environmental attributes
+-   `subject` (object, required): Principal making the request
+-   `resource` (object, required): Target entity
+-   `action` (object, required): Intended operation
+-   `context` (object, optional): Environmental attributes
 
 **Response**:
 
-- HTTP 200 with `{"decision": boolean, "context": object}`
-- Decision `false` does NOT return error status; it returns 200 with decision=false
+-   HTTP 200 with `{"decision": boolean, "context": object}`
+-   Decision `false` does NOT return error status; it returns 200 with decision=false
 
 **Compliance**: ✅ REQUIRED for all implementations
 
@@ -85,9 +85,9 @@ AuthZEN defines several optional features that implementations MAY provide:
 
 **Options**:
 
-- `execute_all`: Evaluate all requests regardless of individual results
-- `deny_on_first_deny`: Stop on first denial
-- `permit_on_first_permit`: Stop on first permit
+-   `execute_all`: Evaluate all requests regardless of individual results
+-   `deny_on_first_deny`: Stop on first denial
+-   `permit_on_first_permit`: Stop on first permit
 
 **Response**:
 
@@ -119,18 +119,18 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "resource": {
-    "type": "string",
-    "id": "string"
-  },
-  "action": {
-    "name": "string"
-  },
-  "subject_type": "string (optional)",
-  "page": {
-    "size": "integer (optional)",
-    "token": "string (optional)"
-  }
+    "resource": {
+        "type": "string",
+        "id": "string"
+    },
+    "action": {
+        "name": "string"
+    },
+    "subject_type": "string (optional)",
+    "page": {
+        "size": "integer (optional)",
+        "token": "string (optional)"
+    }
 }
 ```
 
@@ -138,16 +138,16 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "subjects": [
-    {
-      "type": "string",
-      "id": "string",
-      "properties": {}
+    "subjects": [
+        {
+            "type": "string",
+            "id": "string",
+            "properties": {}
+        }
+    ],
+    "page": {
+        "next_token": "string (optional)"
     }
-  ],
-  "page": {
-    "next_token": "string (optional)"
-  }
 }
 ```
 
@@ -163,18 +163,18 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "subject": {
-    "type": "string",
-    "id": "string"
-  },
-  "action": {
-    "name": "string"
-  },
-  "resource_type": "string (optional)",
-  "page": {
-    "size": "integer (optional)",
-    "token": "string (optional)"
-  }
+    "subject": {
+        "type": "string",
+        "id": "string"
+    },
+    "action": {
+        "name": "string"
+    },
+    "resource_type": "string (optional)",
+    "page": {
+        "size": "integer (optional)",
+        "token": "string (optional)"
+    }
 }
 ```
 
@@ -182,16 +182,16 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "resources": [
-    {
-      "type": "string",
-      "id": "string",
-      "properties": {}
+    "resources": [
+        {
+            "type": "string",
+            "id": "string",
+            "properties": {}
+        }
+    ],
+    "page": {
+        "next_token": "string (optional)"
     }
-  ],
-  "page": {
-    "next_token": "string (optional)"
-  }
 }
 ```
 
@@ -207,18 +207,18 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "subject": {
-    "type": "string",
-    "id": "string"
-  },
-  "resource": {
-    "type": "string",
-    "id": "string"
-  },
-  "page": {
-    "size": "integer (optional)",
-    "token": "string (optional)"
-  }
+    "subject": {
+        "type": "string",
+        "id": "string"
+    },
+    "resource": {
+        "type": "string",
+        "id": "string"
+    },
+    "page": {
+        "size": "integer (optional)",
+        "token": "string (optional)"
+    }
 }
 ```
 
@@ -226,15 +226,15 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "actions": [
-    {
-      "name": "string",
-      "properties": {}
+    "actions": [
+        {
+            "name": "string",
+            "properties": {}
+        }
+    ],
+    "page": {
+        "next_token": "string (optional)"
     }
-  ],
-  "page": {
-    "next_token": "string (optional)"
-  }
 }
 ```
 
@@ -250,21 +250,21 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "issuer": "string (REQUIRED)",
-  "access_evaluation_endpoint": "string (optional)",
-  "access_evaluations_endpoint": "string (optional)",
-  "search_subject_endpoint": "string (optional)",
-  "search_resource_endpoint": "string (optional)",
-  "search_action_endpoint": "string (optional)",
-  "capabilities": ["string (URN format)"],
-  "signed_metadata": "string (JWT, optional)"
+    "issuer": "string (REQUIRED)",
+    "access_evaluation_endpoint": "string (optional)",
+    "access_evaluations_endpoint": "string (optional)",
+    "search_subject_endpoint": "string (optional)",
+    "search_resource_endpoint": "string (optional)",
+    "search_action_endpoint": "string (optional)",
+    "capabilities": ["string (URN format)"],
+    "signed_metadata": "string (JWT, optional)"
 }
 ```
 
 **Placement**: Between host and path per RFC 8615
 
-- ✅ Correct: `https://pdp.example.com/.well-known/authzen-configuration`
-- ❌ Incorrect: `https://pdp.example.com/api/.well-known/authzen-configuration`
+-   ✅ Correct: `https://pdp.example.com/.well-known/authzen-configuration`
+-   ❌ Incorrect: `https://pdp.example.com/api/.well-known/authzen-configuration`
 
 **Compliance**: ⚠️ OPTIONAL (strongly recommended for discovery)
 
@@ -276,11 +276,11 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "page": {
-    "size": 100,
-    "token": "opaque_cursor_string",
-    "properties": {}
-  }
+    "page": {
+        "size": 100,
+        "token": "opaque_cursor_string",
+        "properties": {}
+    }
 }
 ```
 
@@ -288,19 +288,19 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-  "page": {
-    "next_token": "next_cursor_string",
-    "prev_token": "prev_cursor_string",
-    "properties": {}
-  }
+    "page": {
+        "next_token": "next_cursor_string",
+        "prev_token": "prev_cursor_string",
+        "properties": {}
+    }
 }
 ```
 
 **Notes**:
 
-- Tokens are opaque and implementation-specific
-- `page.properties` allows custom pagination parameters
-- Size limits are implementation-defined
+-   Tokens are opaque and implementation-specific
+-   `page.properties` allows custom pagination parameters
+-   Size limits are implementation-defined
 
 **Compliance**: ⚠️ OPTIONAL
 
@@ -324,8 +324,8 @@ AuthZEN uses standard HTTP status codes with JSON error bodies:
 
 ⚠️ **Authorization Denial vs Request Error**:
 
-- Authorization denial (decision=false): Returns **200 OK** with `{"decision": false}`
-- Request error (malformed): Returns **400 Bad Request** with error message
+-   Authorization denial (decision=false): Returns **200 OK** with `{"decision": false}`
+-   Request error (malformed): Returns **400 Bad Request** with error message
 
 This is a critical distinction. A successful evaluation that denies access is NOT an error.
 
@@ -335,8 +335,8 @@ Error responses include a descriptive message:
 
 ```json
 {
-  "error": "string",
-  "error_description": "string (optional)"
+    "error": "string",
+    "error_description": "string (optional)"
 }
 ```
 
@@ -378,11 +378,11 @@ Error responses include a descriptive message:
 
 ```json
 {
-  "type": "string (REQUIRED)",
-  "id": "string (REQUIRED)",
-  "properties": {
-    "key": "value (OPTIONAL)"
-  }
+    "type": "string (REQUIRED)",
+    "id": "string (REQUIRED)",
+    "properties": {
+        "key": "value (OPTIONAL)"
+    }
 }
 ```
 
@@ -411,11 +411,11 @@ Error responses include a descriptive message:
 
 ```json
 {
-  "type": "string (REQUIRED)",
-  "id": "string (REQUIRED)",
-  "properties": {
-    "key": "value (OPTIONAL)"
-  }
+    "type": "string (REQUIRED)",
+    "id": "string (REQUIRED)",
+    "properties": {
+        "key": "value (OPTIONAL)"
+    }
 }
 ```
 
@@ -444,10 +444,10 @@ Error responses include a descriptive message:
 
 ```json
 {
-  "name": "string (REQUIRED)",
-  "properties": {
-    "key": "value (OPTIONAL)"
-  }
+    "name": "string (REQUIRED)",
+    "properties": {
+        "key": "value (OPTIONAL)"
+    }
 }
 ```
 
@@ -476,9 +476,9 @@ Error responses include a descriptive message:
 
 ```json
 {
-  "time": "2025-11-02T10:00:00Z",
-  "ip_address": "192.168.1.1",
-  "user_agent": "Mozilla/5.0..."
+    "time": "2025-11-02T10:00:00Z",
+    "ip_address": "192.168.1.1",
+    "user_agent": "Mozilla/5.0..."
 }
 ```
 
@@ -490,26 +490,26 @@ Error responses include a descriptive message:
 
 ```json
 {
-  "decision": "boolean (REQUIRED)",
-  "context": {
-    "id": "string (optional)",
-    "reason_admin": {
-      "en": "string (optional)"
-    },
-    "reason_user": {
-      "en": "string (optional)"
+    "decision": "boolean (REQUIRED)",
+    "context": {
+        "id": "string (optional)",
+        "reason_admin": {
+            "en": "string (optional)"
+        },
+        "reason_user": {
+            "en": "string (optional)"
+        }
     }
-  }
 }
 ```
 
 **Fields**:
 
-- `decision`: `true` (permit) or `false` (deny)
-- `context.id`: Unique evaluation identifier
-- `context.reason_admin`: Admin-facing explanation (localized)
-- `context.reason_user`: User-facing explanation (localized)
-- `context` may include custom fields for obligations, advice, etc.
+-   `decision`: `true` (permit) or `false` (deny)
+-   `context.id`: Unique evaluation identifier
+-   `context.reason_admin`: Admin-facing explanation (localized)
+-   `context.reason_user`: User-facing explanation (localized)
+-   `context` may include custom fields for obligations, advice, etc.
 
 ---
 
@@ -525,22 +525,22 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Use Cases**:
 
-- Subject properties: roles, groups, department
-- Resource properties: owner, classification, tags
-- Action properties: method, protocol, parameters
+-   Subject properties: roles, groups, department
+-   Resource properties: owner, classification, tags
+-   Action properties: method, protocol, parameters
 
 **Example**:
 
 ```json
 {
-  "subject": {
-    "type": "user",
-    "id": "alice",
-    "properties": {
-      "department": "engineering",
-      "clearance_level": 3
+    "subject": {
+        "type": "user",
+        "id": "alice",
+        "properties": {
+            "department": "engineering",
+            "clearance_level": 3
+        }
     }
-  }
 }
 ```
 
@@ -552,16 +552,16 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Request Context Use Cases**:
 
-- IP address, geolocation
-- Time of day, date
-- Client metadata
+-   IP address, geolocation
+-   Time of day, date
+-   Client metadata
 
 **Response Context Use Cases**:
 
-- Evaluation ID for auditing
-- Reasons for decision (admin/user-facing)
-- Obligations (e.g., "must audit this access")
-- Step-up authentication requirements
+-   Evaluation ID for auditing
+-   Reasons for decision (admin/user-facing)
+-   Obligations (e.g., "must audit this access")
+-   Step-up authentication requirements
 
 ### 6.3 Decision Context
 
@@ -571,24 +571,24 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Common Uses**:
 
-- `reason_admin`: Detailed explanation for admins
-- `reason_user`: User-friendly explanation
-- `obligations`: Actions that must be taken if decision is permit
-- `advice`: Optional recommendations
-- `step_up_required`: Additional authentication needed
+-   `reason_admin`: Detailed explanation for admins
+-   `reason_user`: User-friendly explanation
+-   `obligations`: Actions that must be taken if decision is permit
+-   `advice`: Optional recommendations
+-   `step_up_required`: Additional authentication needed
 
 **Example**:
 
 ```json
 {
-  "decision": true,
-  "context": {
-    "id": "eval_abc123",
-    "reason_admin": {
-      "en": "User alice has view permission via group membership"
-    },
-    "obligations": [{ "type": "audit", "level": "high" }]
-  }
+    "decision": true,
+    "context": {
+        "id": "eval_abc123",
+        "reason_admin": {
+            "en": "User alice has view permission via group membership"
+        },
+        "obligations": [{ "type": "audit", "level": "high" }]
+    }
 }
 ```
 
@@ -604,10 +604,10 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 ```json
 {
-  "capabilities": [
-    "urn:ietf:params:authzen:capability:relationship-management",
-    "urn:ietf:params:authzen:capability:relation-expansion"
-  ]
+    "capabilities": [
+        "urn:ietf:params:authzen:capability:relationship-management",
+        "urn:ietf:params:authzen:capability:relation-expansion"
+    ]
 }
 ```
 
@@ -619,9 +619,9 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Use Cases**:
 
-- Custom sorting: `{"sort_by": "name", "order": "asc"}`
-- Filtering: `{"filter": "active_only"}`
-- Performance hints: `{"consistency": "eventual"}`
+-   Custom sorting: `{"sort_by": "name", "order": "asc"}`
+-   Filtering: `{"filter": "active_only"}`
+-   Performance hints: `{"consistency": "eventual"}`
 
 ### 6.6 Batch Evaluation Options
 
@@ -629,9 +629,9 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Defined Options**:
 
-- `execute_all`
-- `deny_on_first_deny`
-- `permit_on_first_permit`
+-   `execute_all`
+-   `deny_on_first_deny`
+-   `permit_on_first_permit`
 
 **Extensibility**: New options can be defined in registered specifications
 
@@ -657,11 +657,11 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 **Endpoints**:
 
-- `POST /v1/relationships:write` - Create relationships
-- `POST /v1/relationships:list` - Query relationships
-- `POST /v1/relationships:delete` - Delete relationships
-- `GET /v1/relationships/{resource}/{relation}/{subject}` - Exact match query
-- `DELETE /v1/relationships/{resource}/{relation}/{subject}` - Exact match deletion
+-   `POST /v1/relationships:write` - Create relationships
+-   `POST /v1/relationships:list` - Query relationships
+-   `POST /v1/relationships:delete` - Delete relationships
+-   `GET /v1/relationships/{resource}/{relation}/{subject}` - Exact match query
+-   `DELETE /v1/relationships/{resource}/{relation}/{subject}` - Exact match deletion
 
 **Purpose**: Direct ReBAC relationship management
 
@@ -679,8 +679,8 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 ```json
 {
-  "resource": "document:readme",
-  "relation": "viewer"
+    "resource": "document:readme",
+    "relation": "viewer"
 }
 ```
 
@@ -733,9 +733,9 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 **InferaDB Approach**: Support both formats
 
-- AuthZEN endpoints: Structured format
-- Native endpoints: String format or structured
-- Internal storage: String format (more compact)
+-   AuthZEN endpoints: Structured format
+-   Native endpoints: String format or structured
+-   Internal storage: String format (more compact)
 
 **AuthZEN Status**: ⚠️ Partial alignment (different serialization)
 
@@ -762,9 +762,9 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 **Legend**:
 
-- ✅ Required/Supported: Full compliance or support
-- ⚠️ Optional: Recommended but not required
-- ❌ Not in spec/Not planned: Not part of AuthZEN or not implementing
+-   ✅ Required/Supported: Full compliance or support
+-   ⚠️ Optional: Recommended but not required
+-   ❌ Not in spec/Not planned: Not part of AuthZEN or not implementing
 
 ---
 
@@ -791,8 +791,8 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 Create bidirectional adapter:
 
-- **AuthZEN → InferaDB**: Parse `{"type": "user", "id": "alice"}` → `"user:alice"`
-- **InferaDB → AuthZEN**: Format `"user:alice"` → `{"type": "user", "id": "alice"}`
+-   **AuthZEN → InferaDB**: Parse `{"type": "user", "id": "alice"}` → `"user:alice"`
+-   **InferaDB → AuthZEN**: Format `"user:alice"` → `{"type": "user", "id": "alice"}`
 
 ### 9.3 Extension Declaration
 
@@ -800,29 +800,29 @@ In `/.well-known/authzen-configuration`:
 
 ```json
 {
-  "issuer": "https://inferadb.example.com",
-  "access_evaluation_endpoint": "https://inferadb.example.com/access/v1/evaluation",
-  "access_evaluations_endpoint": "https://inferadb.example.com/access/v1/evaluations",
-  "search_subject_endpoint": "https://inferadb.example.com/access/v1/search/subject",
-  "search_resource_endpoint": "https://inferadb.example.com/access/v1/search/resource",
-  "capabilities": [
-    "urn:ietf:params:authzen:capability:relationship-management",
-    "urn:ietf:params:authzen:capability:relation-expansion",
-    "urn:ietf:params:authzen:capability:simulation",
-    "urn:ietf:params:authzen:capability:realtime-streaming"
-  ],
-  "extensions": {
-    "inferadb_relationship_management": true,
-    "inferadb_relation_expansion": true,
-    "inferadb_simulation": true,
-    "inferadb_realtime_streaming": true,
-    "relationship_write_endpoint": "https://inferadb.example.com/v1/relationships:write",
-    "relationship_list_endpoint": "https://inferadb.example.com/v1/relationships:list",
-    "relationship_delete_endpoint": "https://inferadb.example.com/v1/relationships:delete",
-    "expand_endpoint": "https://inferadb.example.com/v1/expand",
-    "simulate_endpoint": "https://inferadb.example.com/v1/simulate",
-    "watch_endpoint": "https://inferadb.example.com/v1/watch"
-  }
+    "issuer": "https://inferadb.example.com",
+    "access_evaluation_endpoint": "https://inferadb.example.com/access/v1/evaluation",
+    "access_evaluations_endpoint": "https://inferadb.example.com/access/v1/evaluations",
+    "search_subject_endpoint": "https://inferadb.example.com/access/v1/search/subject",
+    "search_resource_endpoint": "https://inferadb.example.com/access/v1/search/resource",
+    "capabilities": [
+        "urn:ietf:params:authzen:capability:relationship-management",
+        "urn:ietf:params:authzen:capability:relation-expansion",
+        "urn:ietf:params:authzen:capability:simulation",
+        "urn:ietf:params:authzen:capability:realtime-streaming"
+    ],
+    "extensions": {
+        "inferadb_relationship_management": true,
+        "inferadb_relation_expansion": true,
+        "inferadb_simulation": true,
+        "inferadb_realtime_streaming": true,
+        "relationship_write_endpoint": "https://inferadb.example.com/v1/relationships:write",
+        "relationship_list_endpoint": "https://inferadb.example.com/v1/relationships:list",
+        "relationship_delete_endpoint": "https://inferadb.example.com/v1/relationships:delete",
+        "expand_endpoint": "https://inferadb.example.com/v1/expand",
+        "simulate_endpoint": "https://inferadb.example.com/v1/simulate",
+        "watch_endpoint": "https://inferadb.example.com/v1/watch"
+    }
 }
 ```
 
@@ -830,15 +830,15 @@ In `/.well-known/authzen-configuration`:
 
 **Chosen Approach**: URL versioning
 
-- AuthZEN endpoints: `/access/v1/*` (per spec)
-- Native endpoints: `/v1/*` (InferaDB versioning)
-- Future evolution: `/access/v2/*`, `/v2/*` as needed
+-   AuthZEN endpoints: `/access/v1/*` (per spec)
+-   Native endpoints: `/v1/*` (InferaDB versioning)
+-   Future evolution: `/access/v2/*`, `/v2/*` as needed
 
 **Benefits**:
 
-- Clear separation of API versions
-- Follows AuthZEN spec exactly
-- Allows independent evolution of native API
+-   Clear separation of API versions
+-   Follows AuthZEN spec exactly
+-   Allows independent evolution of native API
 
 ---
 
@@ -864,10 +864,10 @@ In `/.well-known/authzen-configuration`:
 
 ## 11. References
 
-- [AuthZEN Specification](https://openid.github.io/authzen/)
-- [RFC 8615 - Well-Known URIs](https://www.rfc-editor.org/rfc/rfc8615.html)
-- [OpenID Foundation AuthZEN Working Group](https://openid.net/wg/authzen/)
-- InferaDB RELATIONSHIPS.md (implementation plan)
+-   [AuthZEN Specification](https://openid.github.io/authzen/)
+-   [RFC 8615 - Well-Known URIs](https://www.rfc-editor.org/rfc/rfc8615.html)
+-   [OpenID Foundation AuthZEN Working Group](https://openid.net/wg/authzen/)
+-   InferaDB RELATIONSHIPS.md (implementation plan)
 
 ---
 

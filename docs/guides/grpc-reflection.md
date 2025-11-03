@@ -5,15 +5,17 @@ InferaDB's gRPC server includes support for [gRPC Server Reflection](https://git
 ## What is gRPC Reflection?
 
 gRPC Server Reflection is a protocol that allows gRPC clients to:
-- Discover available services and methods
-- Retrieve service definitions dynamically
-- Interact with the API without pre-compiled protobuf files
+
+-   Discover available services and methods
+-   Retrieve service definitions dynamically
+-   Interact with the API without pre-compiled protobuf files
 
 This is particularly useful for:
-- **Development and debugging** - Quickly test APIs without client code
-- **Interactive exploration** - Use GUI tools like grpcui to browse services
-- **Dynamic clients** - Build clients that adapt to API changes
-- **Documentation** - Auto-generate API documentation from live services
+
+-   **Development and debugging** - Quickly test APIs without client code
+-   **Interactive exploration** - Use GUI tools like grpcui to browse services
+-   **Dynamic clients** - Build clients that adapt to API changes
+-   **Documentation** - Auto-generate API documentation from live services
 
 ## Enabling Reflection
 
@@ -33,11 +35,13 @@ The reflection service is automatically registered alongside the InferaService a
 ### Installation
 
 **macOS (via Homebrew):**
+
 ```bash
 brew install grpcurl
 ```
 
 **Linux/macOS (via Go):**
+
 ```bash
 go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 ```
@@ -48,22 +52,26 @@ Visit https://github.com/fullstorydev/grpcurl/releases
 ### Basic Usage
 
 **List all services:**
+
 ```bash
 grpcurl -plaintext localhost:8081 list
 ```
 
 Output:
+
 ```
 grpc.reflection.v1.ServerReflection
 infera.v1.InferaService
 ```
 
 **List methods for a service:**
+
 ```bash
 grpcurl -plaintext localhost:8081 list infera.v1.InferaService
 ```
 
 Output:
+
 ```
 infera.v1.InferaService.DeleteRelationships
 infera.v1.InferaService.Evaluate
@@ -77,22 +85,26 @@ infera.v1.InferaService.WriteRelationships
 ```
 
 **Describe a method:**
+
 ```bash
 grpcurl -plaintext localhost:8081 describe infera.v1.InferaService.Evaluate
 ```
 
 Output:
+
 ```
 infera.v1.InferaService.Evaluate is a method:
 rpc Evaluate ( stream .infera.v1.EvaluateRequest ) returns ( stream .infera.v1.EvaluateResponse );
 ```
 
 **Describe a message type:**
+
 ```bash
 grpcurl -plaintext localhost:8081 describe infera.v1.EvaluateRequest
 ```
 
 Output:
+
 ```
 infera.v1.EvaluateRequest is a message:
 message EvaluateRequest {
@@ -107,11 +119,13 @@ message EvaluateRequest {
 ### Example Requests
 
 **Health check:**
+
 ```bash
 grpcurl -plaintext localhost:8081 infera.v1.InferaService/Health
 ```
 
 **Write relationships:**
+
 ```bash
 grpcurl -plaintext \
   -d '{
@@ -127,6 +141,7 @@ grpcurl -plaintext \
 ```
 
 **Check permission (streaming):**
+
 ```bash
 grpcurl -plaintext \
   -d @ \
@@ -136,6 +151,7 @@ EOF
 ```
 
 **List resources (streaming):**
+
 ```bash
 grpcurl -plaintext \
   -d '{
@@ -164,11 +180,13 @@ grpcurl -plaintext \
 ### Installation
 
 **macOS (via Homebrew):**
+
 ```bash
 brew install grpcui
 ```
 
 **Linux/macOS (via Go):**
+
 ```bash
 go install github.com/fullstorydev/grpcui/cmd/grpcui@latest
 ```
@@ -179,11 +197,13 @@ Visit https://github.com/fullstorydev/grpcui/releases
 ### Basic Usage
 
 **Start grpcui:**
+
 ```bash
 grpcui -plaintext localhost:8081
 ```
 
 This will:
+
 1. Connect to the gRPC server
 2. Use reflection to discover services
 3. Start a web server (typically on http://127.0.0.1:60551)
@@ -202,37 +222,42 @@ The grpcui interface provides:
 ### Example Workflow
 
 1. **Start grpcui:**
-   ```bash
-   grpcui -plaintext localhost:8081
-   ```
+
+    ```bash
+    grpcui -plaintext localhost:8081
+    ```
 
 2. **Select a service:**
-   - Choose `infera.v1.InferaService` from the service dropdown
+
+    - Choose `infera.v1.InferaService` from the service dropdown
 
 3. **Select a method:**
-   - Choose `WriteRelationships` from the method list
+
+    - Choose `WriteRelationships` from the method list
 
 4. **Compose request:**
-   ```json
-   {
-     "relationships": [
-       {
-         "resource": "document:readme",
-         "relation": "viewer",
-         "subject": "user:alice"
-       }
-     ]
-   }
-   ```
+
+    ```json
+    {
+        "relationships": [
+            {
+                "resource": "document:readme",
+                "relation": "viewer",
+                "subject": "user:alice"
+            }
+        ]
+    }
+    ```
 
 5. **Invoke and view response:**
-   - Click "Invoke" to send the request
-   - View the response with revision and count
+
+    - Click "Invoke" to send the request
+    - View the response with revision and count
 
 6. **Test streaming methods:**
-   - Select `Evaluate` (bidirectional streaming)
-   - Enter multiple evaluate requests
-   - See responses stream back in real-time
+    - Select `Evaluate` (bidirectional streaming)
+    - Enter multiple evaluate requests
+    - See responses stream back in real-time
 
 ### Authentication with grpcui
 
@@ -245,6 +270,7 @@ grpcui -plaintext \
 ```
 
 Or set metadata in the GUI:
+
 1. Click "Metadata" tab
 2. Add header: `authorization: Bearer YOUR_JWT_TOKEN`
 3. Invoke requests normally
@@ -254,6 +280,7 @@ Or set metadata in the GUI:
 For production deployments with TLS:
 
 **grpcurl:**
+
 ```bash
 # With system CA certificates
 grpcurl localhost:8081 list
@@ -266,6 +293,7 @@ grpcurl -insecure localhost:8081 list
 ```
 
 **grpcui:**
+
 ```bash
 # With system CA certificates
 grpcui localhost:8081
@@ -284,53 +312,59 @@ grpcui -insecure localhost:8081
 **Problem:** `Error invoking method: Failed to dial target host`
 
 **Solution:**
-- Verify the gRPC server is running
-- Check the port (default: 8081)
-- Ensure no firewall is blocking the port
+
+-   Verify the gRPC server is running
+-   Check the port (default: 8081)
+-   Ensure no firewall is blocking the port
 
 ### Reflection Not Available
 
 **Problem:** `Server does not support the reflection API`
 
 **Solution:**
-- Verify you're using InferaDB v0.1.0 or later
-- Check server logs for `gRPC reflection enabled`
-- Ensure you're connecting to the gRPC port (not REST port)
+
+-   Verify you're using InferaDB v0.1.0 or later
+-   Check server logs for `gRPC reflection enabled`
+-   Ensure you're connecting to the gRPC port (not REST port)
 
 ### Authentication Errors
 
 **Problem:** `Unauthenticated` or `Permission denied`
 
 **Solution:**
-- Include valid JWT token in Authorization header
-- Check token has required scopes (e.g., `inferadb.check`)
-- Verify token hasn't expired
+
+-   Include valid JWT token in Authorization header
+-   Check token has required scopes (e.g., `inferadb.check`)
+-   Verify token hasn't expired
 
 ### TLS Errors
 
 **Problem:** `x509: certificate signed by unknown authority`
 
 **Solution:**
-- Use `-plaintext` for development (no TLS)
-- Provide CA certificate with `-cacert`
-- Use `-insecure` to skip verification (dev only!)
+
+-   Use `-plaintext` for development (no TLS)
+-   Provide CA certificate with `-cacert`
+-   Use `-insecure` to skip verification (dev only!)
 
 ## Security Considerations
 
 1. **Production Deployment:**
-   - Reflection is safe to enable in production
-   - Reflection only exposes service definitions, not data
-   - Authentication still applies to all RPC calls
+
+    - Reflection is safe to enable in production
+    - Reflection only exposes service definitions, not data
+    - Authentication still applies to all RPC calls
 
 2. **Firewall:**
-   - Ensure gRPC port is properly firewalled
-   - Only expose to authorized networks
-   - Use TLS for encrypted communication
+
+    - Ensure gRPC port is properly firewalled
+    - Only expose to authorized networks
+    - Use TLS for encrypted communication
 
 3. **Monitoring:**
-   - Reflection requests are logged
-   - Monitor for unusual reflection usage patterns
-   - Use observability tools to track gRPC metrics
+    - Reflection requests are logged
+    - Monitor for unusual reflection usage patterns
+    - Use observability tools to track gRPC metrics
 
 ## Advanced Usage
 
@@ -384,14 +418,14 @@ fi
 
 ## Related Documentation
 
-- [gRPC Server Documentation](https://docs.inferadb.com/grpc)
-- [Authentication Guide](../security/authentication.md)
-- [Deployment Guide](deployment.md)
-- [API Reference](https://docs.inferadb.com/api)
+-   [gRPC Server Documentation](https://docs.inferadb.com/grpc)
+-   [Authentication Guide](../security/authentication.md)
+-   [Deployment Guide](deployment.md)
+-   [API Reference](https://docs.inferadb.com/api)
 
 ## References
 
-- [gRPC Server Reflection Spec](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)
-- [grpcurl Documentation](https://github.com/fullstorydev/grpcurl)
-- [grpcui Documentation](https://github.com/fullstorydev/grpcui)
-- [tonic-reflection](https://docs.rs/tonic-reflection/)
+-   [gRPC Server Reflection Spec](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)
+-   [grpcurl Documentation](https://github.com/fullstorydev/grpcurl)
+-   [grpcui Documentation](https://github.com/fullstorydev/grpcui)
+-   [tonic-reflection](https://docs.rs/tonic-reflection/)

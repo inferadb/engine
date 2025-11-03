@@ -54,9 +54,9 @@ InferaDB tracks comprehensive authentication metrics for monitoring security and
 
 **Label Values**:
 
-- **method**: `tenant_jwt`, `oauth_jwt`, `internal_jwt`
-- **error_type**: `invalid_format`, `expired`, `not_yet_valid`, `invalid_signature`, `invalid_issuer`, `invalid_audience`, `missing_claim`, `unsupported_algorithm`, `jwks_error`
-- **algorithm**: `EdDSA`, `RS256`
+-   **method**: `tenant_jwt`, `oauth_jwt`, `internal_jwt`
+-   **error_type**: `invalid_format`, `expired`, `not_yet_valid`, `invalid_signature`, `invalid_issuer`, `invalid_audience`, `missing_claim`, `unsupported_algorithm`, `jwks_error`
+-   **algorithm**: `EdDSA`, `RS256`
 
 **Example PromQL Queries**:
 
@@ -291,28 +291,28 @@ histogram_quantile(0.99, rate(inferadb_replication_duration_seconds_bucket[5m]))
   expr: inferadb_replication_lag_milliseconds > 100
   for: 5m
   annotations:
-    summary: "High replication lag ({{ $value }}ms)"
+      summary: "High replication lag ({{ $value }}ms)"
 
 # Alert when target health drops below 100%
 - alert: ReplicationTargetUnhealthy
   expr: (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
   for: 2m
   annotations:
-    summary: "Replication target unhealthy"
+      summary: "Replication target unhealthy"
 
 # Alert on high failure rate
 - alert: HighReplicationFailureRate
   expr: rate(inferadb_replication_failures_total[5m]) > 0.01
   for: 5m
   annotations:
-    summary: "High replication failure rate"
+      summary: "High replication failure rate"
 
 # Alert on high conflict rate
 - alert: HighConflictRate
   expr: rate(inferadb_replication_conflicts_total[5m]) / rate(inferadb_replication_changes_total[5m]) > 0.01
   for: 10m
   annotations:
-    summary: "High conflict rate (>1% of changes)"
+      summary: "High conflict rate (>1% of changes)"
 ```
 
 For detailed replication documentation, see [Multi-Region Replication](../replication.md).
@@ -329,13 +329,13 @@ InferaDB tracks audit logging metrics for monitoring compliance and security eve
 
 **Event Type Labels**:
 
-- `authorization_check`
-- `relationship_write`
-- `relationship_delete`
-- `resource_list`
-- `subject_list`
-- `expand`
-- `simulation`
+-   `authorization_check`
+-   `relationship_write`
+-   `relationship_delete`
+-   `resource_list`
+-   `subject_list`
+-   `expand`
+-   `simulation`
 
 **Example PromQL Queries**:
 
@@ -399,7 +399,7 @@ inferadb_uptime_seconds / 3600
 
 ## Next Steps
 
-- [Distributed Tracing](tracing.md) - OpenTelemetry tracing setup
-- [Structured Logging](logging.md) - Configure logging and log formats
-- [Audit Logging](auditing.md) - Comprehensive audit trail for compliance
-- [Observability Overview](README.md) - Complete observability guide
+-   [Distributed Tracing](tracing.md) - OpenTelemetry tracing setup
+-   [Structured Logging](logging.md) - Configure logging and log formats
+-   [Audit Logging](auditing.md) - Comprehensive audit trail for compliance
+-   [Observability Overview](README.md) - Complete observability guide

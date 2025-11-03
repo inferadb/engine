@@ -6,12 +6,12 @@ InferaDB supports OpenTelemetry distributed tracing for end-to-end request visua
 
 Distributed tracing allows you to:
 
-- Visualize the complete flow of authorization requests
-- Identify performance bottlenecks in relation evaluation
-- Debug complex permission hierarchies
-- Understand cache hit/miss patterns
-- Track storage access patterns
-- Correlate requests across services
+-   Visualize the complete flow of authorization requests
+-   Identify performance bottlenecks in relation evaluation
+-   Debug complex permission hierarchies
+-   Understand cache hit/miss patterns
+-   Track storage access patterns
+-   Correlate requests across services
 
 ## Configuration
 
@@ -37,16 +37,16 @@ export OTEL_TRACES_SAMPLER_ARG=0.1    # Sample 10% of traces
 
 ```yaml
 observability:
-  tracing:
-    enabled: true
-    exporter:
-      otlp:
-        endpoint: "http://localhost:4317"
-        protocol: grpc
-    sampling:
-      type: "traceidratio" # or "always_on", "always_off"
-      ratio: 0.1 # 10% sampling
-    service_name: "inferadb"
+    tracing:
+        enabled: true
+        exporter:
+            otlp:
+                endpoint: "http://localhost:4317"
+                protocol: grpc
+        sampling:
+            type: "traceidratio" # or "always_on", "always_off"
+            ratio: 0.1 # 10% sampling
+        service_name: "inferadb"
 ```
 
 ## Trace Structure
@@ -74,27 +74,27 @@ InferaDB enriches traces with contextual attributes:
 
 **Request Attributes**:
 
-- `inferadb.subject`: Subject of the check (e.g., "user:alice")
-- `inferadb.resource`: Resource being accessed (e.g., "doc:readme")
-- `inferadb.permission`: Permission being checked (e.g., "viewer")
-- `inferadb.decision`: Final decision ("allow" or "deny")
+-   `inferadb.subject`: Subject of the check (e.g., "user:alice")
+-   `inferadb.resource`: Resource being accessed (e.g., "doc:readme")
+-   `inferadb.permission`: Permission being checked (e.g., "viewer")
+-   `inferadb.decision`: Final decision ("allow" or "deny")
 
 **Performance Attributes**:
 
-- `inferadb.cache_hit`: Whether cache was hit (boolean)
-- `inferadb.tuples_read`: Number of tuples read from storage
-- `inferadb.relations_evaluated`: Number of relations evaluated
-- `inferadb.evaluation_depth`: Depth of relation tree evaluation
+-   `inferadb.cache_hit`: Whether cache was hit (boolean)
+-   `inferadb.tuples_read`: Number of tuples read from storage
+-   `inferadb.relations_evaluated`: Number of relations evaluated
+-   `inferadb.evaluation_depth`: Depth of relation tree evaluation
 
 **Storage Attributes**:
 
-- `inferadb.storage.backend`: Storage backend type ("memory", "foundationdb")
-- `inferadb.storage.revision`: Storage revision used for the check
+-   `inferadb.storage.backend`: Storage backend type ("memory", "foundationdb")
+-   `inferadb.storage.revision`: Storage revision used for the check
 
 **Authentication Attributes**:
 
-- `inferadb.tenant_id`: Tenant ID (multi-tenant deployments)
-- `inferadb.auth.method`: Authentication method used
+-   `inferadb.tenant_id`: Tenant ID (multi-tenant deployments)
+-   `inferadb.auth.method`: Authentication method used
 
 ## Jaeger Integration
 
@@ -124,10 +124,10 @@ inferadb
 
 ### Jaeger UI Features
 
-- **Search**: Find traces by service, operation, tags, duration
-- **Timeline**: Visualize request flow and timing
-- **Dependencies**: View service dependency graph
-- **Comparison**: Compare traces side-by-side
+-   **Search**: Find traces by service, operation, tags, duration
+-   **Timeline**: Visualize request flow and timing
+-   **Dependencies**: View service dependency graph
+-   **Comparison**: Compare traces side-by-side
 
 ## Trace Examples
 
@@ -236,46 +236,46 @@ For production deployments, use the OpenTelemetry Collector for advanced routing
 
 ```yaml
 receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
+    otlp:
+        protocols:
+            grpc:
+                endpoint: 0.0.0.0:4317
+            http:
+                endpoint: 0.0.0.0:4318
 
 processors:
-  batch:
-    timeout: 10s
-    send_batch_size: 1024
+    batch:
+        timeout: 10s
+        send_batch_size: 1024
 
-  filter/drop_health_checks:
-    traces:
-      span:
-        - 'attributes["http.target"] == "/health"'
+    filter/drop_health_checks:
+        traces:
+            span:
+                - 'attributes["http.target"] == "/health"'
 
-  attributes:
-    actions:
-      - key: deployment.environment
-        value: production
-        action: insert
+    attributes:
+        actions:
+            - key: deployment.environment
+              value: production
+              action: insert
 
 exporters:
-  jaeger:
-    endpoint: jaeger:14250
-    tls:
-      insecure: true
+    jaeger:
+        endpoint: jaeger:14250
+        tls:
+            insecure: true
 
-  otlp/datadog:
-    endpoint: https://trace.agent.datadoghq.com
-    headers:
-      DD-API-KEY: ${DD_API_KEY}
+    otlp/datadog:
+        endpoint: https://trace.agent.datadoghq.com
+        headers:
+            DD-API-KEY: ${DD_API_KEY}
 
 service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [filter/drop_health_checks, batch, attributes]
-      exporters: [jaeger, otlp/datadog]
+    pipelines:
+        traces:
+            receivers: [otlp]
+            processors: [filter/drop_health_checks, batch, attributes]
+            exporters: [jaeger, otlp/datadog]
 ```
 
 **Start Collector**:
@@ -369,11 +369,11 @@ Tracing overhead depends on sampling rate and export method:
 
 **Recommendations**:
 
-- Development: 100% sampling
-- Staging: 100% sampling
-- Production (low traffic): 100% sampling
-- Production (high traffic): 10% sampling
-- Production (very high traffic): 1% sampling
+-   Development: 100% sampling
+-   Staging: 100% sampling
+-   Production (low traffic): 100% sampling
+-   Production (high traffic): 10% sampling
+-   Production (very high traffic): 1% sampling
 
 ## Debugging with Traces
 
@@ -453,17 +453,17 @@ Use trace IDs in logs for correlation:
 
 ```json
 {
-  "timestamp": "2025-01-15T10:30:45Z",
-  "level": "INFO",
-  "message": "Authorization check",
-  "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
-  "span_id": "e457b5a2e4d86bd1"
+    "timestamp": "2025-01-15T10:30:45Z",
+    "level": "INFO",
+    "message": "Authorization check",
+    "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
+    "span_id": "e457b5a2e4d86bd1"
 }
 ```
 
 ## Next Steps
 
-- [Structured Logging](logging.md) - Configure logging with trace correlation
-- [Metrics](metrics.md) - Complement traces with metrics
-- [Audit Logging](auditing.md) - Comprehensive audit trail
-- [Observability Overview](README.md) - Complete observability guide
+-   [Structured Logging](logging.md) - Configure logging with trace correlation
+-   [Metrics](metrics.md) - Complement traces with metrics
+-   [Audit Logging](auditing.md) - Comprehensive audit trail
+-   [Observability Overview](README.md) - Complete observability guide

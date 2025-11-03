@@ -4,13 +4,13 @@ This guide covers integrating InferaDB's audit logging system into your applicat
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Core Concepts](#core-concepts)
-- [Event Types](#event-types)
-- [Configuration](#configuration)
-- [API Integration](#api-integration)
-- [Testing](#testing)
-- [Performance Considerations](#performance-considerations)
+-   [Quick Start](#quick-start)
+-   [Core Concepts](#core-concepts)
+-   [Event Types](#event-types)
+-   [Configuration](#configuration)
+-   [API Integration](#api-integration)
+-   [Testing](#testing)
+-   [Performance Considerations](#performance-considerations)
 
 ---
 
@@ -95,18 +95,18 @@ Every audit event has two parts:
 
 1. **Metadata**: Common fields across all events
 
-   - `event_id`: Globally unique identifier
-   - `timestamp`: RFC3339 timestamp
-   - `event_type`: Type of operation
-   - `actor`: User performing the action
-   - `client_ip`: Source IP (optional)
-   - `user_agent`: Client identifier (optional)
-   - `request_id`: For correlation (optional)
-   - `tenant_id`: For multi-tenancy (optional)
+    - `event_id`: Globally unique identifier
+    - `timestamp`: RFC3339 timestamp
+    - `event_type`: Type of operation
+    - `actor`: User performing the action
+    - `client_ip`: Source IP (optional)
+    - `user_agent`: Client identifier (optional)
+    - `request_id`: For correlation (optional)
+    - `tenant_id`: For multi-tenancy (optional)
 
 2. **Details**: Event-specific information
-   - Tagged union based on event type
-   - Contains operation parameters and results
+    - Tagged union based on event type
+    - Contains operation parameters and results
 
 ### Logging Target
 
@@ -118,9 +118,9 @@ info!(target: "inferadb_audit", "{}", json);
 
 This allows you to:
 
-- Route audit logs separately from application logs
-- Ship to dedicated SIEM systems
-- Apply different retention policies
+-   Route audit logs separately from application logs
+-   Ship to dedicated SIEM systems
+-   Apply different retention policies
 
 ### Metrics
 
@@ -167,14 +167,14 @@ let details = AuditEventDetails::AuthorizationCheck(
 
 **Fields**:
 
-- `subject`: Who is requesting access
-- `resource`: What they're accessing
-- `permission`: What action they want to perform
-- `decision`: Allow or Deny
-- `duration_ms`: How long evaluation took
-- `context`: Optional context data (for WASM/ABAC)
-- `relationships_evaluated`: Number of relationships checked
-- `traced`: Whether detailed trace was enabled
+-   `subject`: Who is requesting access
+-   `resource`: What they're accessing
+-   `permission`: What action they want to perform
+-   `decision`: Allow or Deny
+-   `duration_ms`: How long evaluation took
+-   `context`: Optional context data (for WASM/ABAC)
+-   `relationships_evaluated`: Number of relationships checked
+-   `traced`: Whether detailed trace was enabled
 
 ### 2. Relationship Write
 
@@ -200,9 +200,9 @@ let details = AuditEventDetails::RelationshipWrite(
 
 **Fields**:
 
-- `count`: Total relationships written
-- `sample`: First 10 relationships (for brevity)
-- `revision`: Storage revision after write
+-   `count`: Total relationships written
+-   `sample`: First 10 relationships (for brevity)
+-   `revision`: Storage revision after write
 
 **Note**: Only logs first 10 relationships to avoid huge audit logs. Full details are in storage.
 
@@ -229,10 +229,10 @@ let details = AuditEventDetails::RelationshipDelete(
 
 **Fields**:
 
-- `count`: Total relationships deleted
-- `sample`: Sample deleted relationships
-- `filter`: Delete filter used (if applicable)
-- `revision`: Storage revision after delete
+-   `count`: Total relationships deleted
+-   `sample`: Sample deleted relationships
+-   `filter`: Delete filter used (if applicable)
+-   `revision`: Storage revision after delete
 
 ### 4. Resource List
 
@@ -254,11 +254,11 @@ let details = AuditEventDetails::ResourceList(
 
 **Fields**:
 
-- `subject`: Who is listing resources
-- `resource_type`: Type filter applied
-- `permission`: Permission checked
-- `result_count`: How many resources returned
-- `paginated`: Whether results were paginated
+-   `subject`: Who is listing resources
+-   `resource_type`: Type filter applied
+-   `permission`: Permission checked
+-   `result_count`: How many resources returned
+-   `paginated`: Whether results were paginated
 
 ### 5. Subject List
 
@@ -279,10 +279,10 @@ let details = AuditEventDetails::SubjectList(
 
 **Fields**:
 
-- `resource`: Resource being queried
-- `relation`: Relation checked
-- `result_count`: Number of subjects returned
-- `subject_type`: Type filter (optional)
+-   `resource`: Resource being queried
+-   `relation`: Relation checked
+-   `result_count`: Number of subjects returned
+-   `subject_type`: Type filter (optional)
 
 ### 6. Expand
 
@@ -302,9 +302,9 @@ let details = AuditEventDetails::Expand(
 
 **Fields**:
 
-- `resource`: Resource expanded
-- `relation`: Relation expanded
-- `user_count`: Number of users in expanded set
+-   `resource`: Resource expanded
+-   `relation`: Relation expanded
+-   `user_count`: Number of users in expanded set
 
 ### 7. Simulation
 
@@ -326,11 +326,11 @@ let details = AuditEventDetails::Simulation(
 
 **Fields**:
 
-- `subject`: Subject in simulation
-- `resource`: Resource in simulation
-- `permission`: Permission checked
-- `decision`: Simulated decision
-- `context_relationship_count`: Ephemeral relationships used
+-   `subject`: Subject in simulation
+-   `resource`: Resource in simulation
+-   `permission`: Permission checked
+-   `decision`: Simulated decision
+-   `context_relationship_count`: Ephemeral relationships used
 
 ---
 
@@ -933,20 +933,20 @@ async fn test_all_operations_audited() {
 
 1. Check logger is enabled:
 
-   ```rust
-   assert!(audit_logger.is_enabled());
-   ```
+    ```rust
+    assert!(audit_logger.is_enabled());
+    ```
 
 2. Check tracing filter includes `inferadb_audit`:
 
-   ```rust
-   EnvFilter::new("info,inferadb_audit=info")
-   ```
+    ```rust
+    EnvFilter::new("info,inferadb_audit=info")
+    ```
 
 3. Check sampling rate:
-   ```rust
-   config.sample_rate = 1.0; // Temporarily set to 100%
-   ```
+    ```rust
+    config.sample_rate = 1.0; // Temporarily set to 100%
+    ```
 
 ### High Memory Usage
 
@@ -956,16 +956,16 @@ async fn test_all_operations_audited() {
 
 1. Increase sample rate (reduce logging):
 
-   ```rust
-   config.sample_rate = 0.1; // 10% sampling
-   ```
+    ```rust
+    config.sample_rate = 0.1; // 10% sampling
+    ```
 
 2. Disable verbose events:
 
-   ```rust
-   config.log_resource_lists = false;
-   config.log_subject_lists = false;
-   ```
+    ```rust
+    config.log_resource_lists = false;
+    config.log_subject_lists = false;
+    ```
 
 3. Use async log shipping with batching
 
@@ -977,25 +977,25 @@ async fn test_all_operations_audited() {
 
 1. Check context data is valid JSON:
 
-   ```rust
-   let context = serde_json::from_str(&context_str)?;
-   ```
+    ```rust
+    let context = serde_json::from_str(&context_str)?;
+    ```
 
 2. Verify all strings are valid UTF-8
 
 3. Check metrics for serialization errors:
-   ```promql
-   inferadb_audit_events_errors_total{error_type="serialization_error"}
-   ```
+    ```promql
+    inferadb_audit_events_errors_total{error_type="serialization_error"}
+    ```
 
 ---
 
 ## References
 
-- [Audit Module Source](../crates/infera-observe/src/audit.rs)
-- [SIEM Integration Guide](../AUDIT_LOGGING.md)
-- [Metrics Reference](../grafana/METRICS_REFERENCE.md)
-- [API Examples](../examples/audit-integration/)
+-   [Audit Module Source](../crates/infera-observe/src/audit.rs)
+-   [SIEM Integration Guide](../AUDIT_LOGGING.md)
+-   [Metrics Reference](../grafana/METRICS_REFERENCE.md)
+-   [API Examples](../examples/audit-integration/)
 
 ---
 

@@ -6,11 +6,11 @@ InferaDB uses structured logging with contextual fields for debugging, monitorin
 
 InferaDB's logging system provides:
 
-- **Structured Fields**: Rich contextual information in every log entry
-- **Multiple Formats**: Human-readable (compact) or JSON for log aggregation
-- **Span Correlation**: Automatic correlation with distributed traces
-- **Module Filtering**: Fine-grained control over log verbosity
-- **Performance**: Minimal overhead with async logging
+-   **Structured Fields**: Rich contextual information in every log entry
+-   **Multiple Formats**: Human-readable (compact) or JSON for log aggregation
+-   **Span Correlation**: Automatic correlation with distributed traces
+-   **Module Filtering**: Fine-grained control over log verbosity
+-   **Performance**: Minimal overhead with async logging
 
 ## Configuration
 
@@ -28,11 +28,11 @@ export RUST_LOG=infera=debug,infera_api=info
 
 **Available Log Levels**:
 
-- `error`: Critical errors only
-- `warn`: Warnings and errors
-- `info`: Informational messages, warnings, and errors (default)
-- `debug`: Detailed debugging information
-- `trace`: Very verbose tracing (includes all function calls)
+-   `error`: Critical errors only
+-   `warn`: Warnings and errors
+-   `info`: Informational messages, warnings, and errors (default)
+-   `debug`: Detailed debugging information
+-   `trace`: Very verbose tracing (includes all function calls)
 
 ### Log Format
 
@@ -50,12 +50,12 @@ export INFERA__OBSERVABILITY__LOG_FORMAT=json
 
 ```yaml
 observability:
-  log_level: info
-  log_format: json
-  log_spans: true
-  include_location: true # Include file:line in logs
-  include_target: true # Include module path
-  include_thread_id: false # Include thread ID
+    log_level: info
+    log_format: json
+    log_spans: true
+    include_location: true # Include file:line in logs
+    include_target: true # Include module path
+    include_thread_id: false # Include thread ID
 ```
 
 ## Log Formats
@@ -75,10 +75,10 @@ Human-readable format for local development:
 
 **Features**:
 
-- Color-coded log levels (when terminal supports it)
-- Indented structured fields
-- Compact timestamps
-- Module paths shown
+-   Color-coded log levels (when terminal supports it)
+-   Indented structured fields
+-   Compact timestamps
+-   Module paths shown
 
 ### JSON Format (Production)
 
@@ -86,36 +86,36 @@ Machine-parseable JSON for log aggregation systems:
 
 ```json
 {
-  "timestamp": "2025-01-15T10:30:45.123456Z",
-  "level": "INFO",
-  "target": "infera_api::handlers",
-  "message": "Authorization check",
-  "fields": {
-    "subject": "user:alice",
-    "resource": "doc:readme",
-    "permission": "viewer",
-    "decision": "allow",
-    "duration_ms": 3.2
-  },
-  "span": {
-    "name": "check",
-    "id": "abc123",
-    "parent_id": "xyz789"
-  },
-  "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
-  "location": {
-    "file": "crates/infera-api/src/handlers/check.rs",
-    "line": 142
-  }
+    "timestamp": "2025-01-15T10:30:45.123456Z",
+    "level": "INFO",
+    "target": "infera_api::handlers",
+    "message": "Authorization check",
+    "fields": {
+        "subject": "user:alice",
+        "resource": "doc:readme",
+        "permission": "viewer",
+        "decision": "allow",
+        "duration_ms": 3.2
+    },
+    "span": {
+        "name": "check",
+        "id": "abc123",
+        "parent_id": "xyz789"
+    },
+    "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
+    "location": {
+        "file": "crates/infera-api/src/handlers/check.rs",
+        "line": 142
+    }
 }
 ```
 
 **Features**:
 
-- ISO 8601 timestamps with microsecond precision
-- Trace and span IDs for correlation
-- Source code location
-- Structured fields for easy querying
+-   ISO 8601 timestamps with microsecond precision
+-   Trace and span IDs for correlation
+-   Source code location
+-   Structured fields for easy querying
 
 ## Contextual Logging
 
@@ -279,16 +279,16 @@ Ship JSON logs to Elasticsearch using Filebeat:
 
 ```yaml
 filebeat.inputs:
-  - type: log
-    enabled: true
-    paths:
-      - /var/log/inferadb/*.json
-    json.keys_under_root: true
-    json.add_error_key: true
+    - type: log
+      enabled: true
+      paths:
+          - /var/log/inferadb/*.json
+      json.keys_under_root: true
+      json.add_error_key: true
 
 output.elasticsearch:
-  hosts: ["elasticsearch:9200"]
-  index: "inferadb-%{+yyyy.MM.dd}"
+    hosts: ["elasticsearch:9200"]
+    index: "inferadb-%{+yyyy.MM.dd}"
 
 setup.ilm.enabled: false
 setup.template.name: "inferadb"
@@ -316,28 +316,28 @@ Ship logs to Loki using Promtail:
 
 ```yaml
 server:
-  http_listen_port: 9080
+    http_listen_port: 9080
 
 clients:
-  - url: http://loki:3100/loki/api/v1/push
+    - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: inferadb
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: inferadb
-          __path__: /var/log/inferadb/*.json
-    pipeline_stages:
-      - json:
-          expressions:
-            level: level
-            target: target
-            trace_id: trace_id
-      - labels:
-          level:
-          target:
+    - job_name: inferadb
+      static_configs:
+          - targets:
+                - localhost
+            labels:
+                job: inferadb
+                __path__: /var/log/inferadb/*.json
+      pipeline_stages:
+          - json:
+                expressions:
+                    level: level
+                    target: target
+                    trace_id: trace_id
+          - labels:
+                level:
+                target:
 ```
 
 **LogQL Queries**:
@@ -363,18 +363,18 @@ Send logs to Datadog:
 logs_enabled: true
 
 logs_config:
-  logs_dd_url: intake.logs.datadoghq.com:10516
+    logs_dd_url: intake.logs.datadoghq.com:10516
 
-  container_collect_all: false
+    container_collect_all: false
 
-  logs:
-    - type: file
-      path: /var/log/inferadb/*.json
-      service: inferadb
-      source: rust
-      sourcecategory: inferadb
-      tags:
-        - env:production
+    logs:
+        - type: file
+          path: /var/log/inferadb/*.json
+          service: inferadb
+          source: rust
+          sourcecategory: inferadb
+          tags:
+              - env:production
 ```
 
 ### AWS CloudWatch
@@ -385,20 +385,20 @@ Use the CloudWatch agent:
 
 ```json
 {
-  "logs": {
-    "logs_collected": {
-      "files": {
-        "collect_list": [
-          {
-            "file_path": "/var/log/inferadb/*.json",
-            "log_group_name": "/inferadb/application",
-            "log_stream_name": "{instance_id}",
-            "timezone": "UTC"
-          }
-        ]
-      }
+    "logs": {
+        "logs_collected": {
+            "files": {
+                "collect_list": [
+                    {
+                        "file_path": "/var/log/inferadb/*.json",
+                        "log_group_name": "/inferadb/application",
+                        "log_stream_name": "{instance_id}",
+                        "timezone": "UTC"
+                    }
+                ]
+            }
+        }
     }
-  }
 }
 ```
 
@@ -443,25 +443,25 @@ grpcurl -plaintext -d '{
 
 ```json
 {
-  "decision": "ALLOWED",
-  "trace": {
-    "resource": "doc:readme",
-    "permission": "viewer",
-    "steps": [
-      {
-        "relation": "viewer",
-        "type": "UNION",
-        "children": [
-          {
-            "relation": "editor",
-            "type": "COMPUTED_USERSET",
-            "result": "ALLOWED"
-          }
-        ],
-        "result": "ALLOWED"
-      }
-    ]
-  }
+    "decision": "ALLOWED",
+    "trace": {
+        "resource": "doc:readme",
+        "permission": "viewer",
+        "steps": [
+            {
+                "relation": "viewer",
+                "type": "UNION",
+                "children": [
+                    {
+                        "relation": "editor",
+                        "type": "COMPUTED_USERSET",
+                        "result": "ALLOWED"
+                    }
+                ],
+                "result": "ALLOWED"
+            }
+        ]
+    }
 }
 ```
 
@@ -471,11 +471,11 @@ Every log entry includes trace and span IDs when tracing is enabled:
 
 ```json
 {
-  "timestamp": "2025-01-15T10:30:45.123Z",
-  "level": "DEBUG",
-  "message": "Evaluating relation",
-  "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
-  "span_id": "e457b5a2e4d86bd1"
+    "timestamp": "2025-01-15T10:30:45.123Z",
+    "level": "DEBUG",
+    "message": "Evaluating relation",
+    "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
+    "span_id": "e457b5a2e4d86bd1"
 }
 ```
 
@@ -547,9 +547,9 @@ export RUST_LOG=info,infera_store=debug
 
 InferaDB uses async logging by default:
 
-- Log messages are buffered and written asynchronously
-- Minimal impact on request latency
-- Flush on process shutdown to prevent log loss
+-   Log messages are buffered and written asynchronously
+-   Minimal impact on request latency
+-   Flush on process shutdown to prevent log loss
 
 ### Sampling
 
@@ -633,7 +633,7 @@ Use logrotate or similar:
 
 ## Next Steps
 
-- [Distributed Tracing](tracing.md) - Correlate logs with traces
-- [Metrics](metrics.md) - Complement logs with metrics
-- [Audit Logging](auditing.md) - Compliance and security audit trail
-- [Observability Overview](README.md) - Complete observability guide
+-   [Distributed Tracing](tracing.md) - Correlate logs with traces
+-   [Metrics](metrics.md) - Complement logs with metrics
+-   [Audit Logging](auditing.md) - Compliance and security audit trail
+-   [Observability Overview](README.md) - Complete observability guide

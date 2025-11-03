@@ -10,17 +10,17 @@ This runbook covers backup and restoration procedures for InferaDB data and conf
 
 **Important**: Memory backend does **not persist data**. All data is lost on pod restart.
 
-- **Use case**: Development/testing only
-- **Backup**: Not applicable
-- **Restore**: Reload from source of truth
+-   **Use case**: Development/testing only
+-   **Backup**: Not applicable
+-   **Restore**: Reload from source of truth
 
 ### FoundationDB Backend
 
 **Recommended**: Production deployments use FoundationDB for persistence.
 
-- **Use case**: Production
-- **Backup**: Automated backups via FDB tools
-- **Restore**: Point-in-time recovery available
+-   **Use case**: Production
+-   **Backup**: Automated backups via FDB tools
+-   **Restore**: Point-in-time recovery available
 
 ## Configuration Backup
 
@@ -63,9 +63,9 @@ helm get all inferadb -n inferadb > backup-helm-full-$(date +%Y%m%d).yaml
 
 ### Prerequisites
 
-- FoundationDB cluster running
-- Backup agent configured
-- Blob storage available (S3, GCS, Azure Blob)
+-   FoundationDB cluster running
+-   Backup agent configured
+-   Blob storage available (S3, GCS, Azure Blob)
 
 ### Configure FDB Backup
 
@@ -142,56 +142,56 @@ fdb> backup status
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: fdb-backup
-  namespace: inferadb
+    name: fdb-backup
+    namespace: inferadb
 spec:
-  schedule: "0 2 * * *" # Daily at 2 AM
-  jobTemplate:
-    spec:
-      template:
+    schedule: "0 2 * * *" # Daily at 2 AM
+    jobTemplate:
         spec:
-          containers:
-            - name: backup
-              image: foundationdb/foundationdb:7.1.38
-              command:
-                - /bin/bash
-                - -c
-                - |
-                  DATE=$(date +%Y%m%d-%H%M%S)
-                  DEST="blobstore://s3.amazonaws.com/my-bucket/fdb-backups/${DATE}"
+            template:
+                spec:
+                    containers:
+                        - name: backup
+                          image: foundationdb/foundationdb:7.1.38
+                          command:
+                              - /bin/bash
+                              - -c
+                              - |
+                                  DATE=$(date +%Y%m%d-%H%M%S)
+                                  DEST="blobstore://s3.amazonaws.com/my-bucket/fdb-backups/${DATE}"
 
-                  echo "Starting backup to ${DEST}"
-                  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup start -d ${DEST} -s"
+                                  echo "Starting backup to ${DEST}"
+                                  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup start -d ${DEST} -s"
 
-                  echo "Waiting for backup to complete"
-                  while true; do
-                    STATUS=$(fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup status")
-                    if echo "$STATUS" | grep -q "Backup complete"; then
-                      echo "Backup completed successfully"
-                      break
-                    fi
-                    sleep 30
-                  done
-              volumeMounts:
-                - name: fdb-cluster-file
-                  mountPath: /etc/foundationdb
-                  readOnly: true
-              env:
-                - name: AWS_ACCESS_KEY_ID
-                  valueFrom:
-                    secretKeyRef:
-                      name: aws-credentials
-                      key: access_key_id
-                - name: AWS_SECRET_ACCESS_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: aws-credentials
-                      key: secret_access_key
-          volumes:
-            - name: fdb-cluster-file
-              secret:
-                secretName: fdb-cluster-file
-          restartPolicy: OnFailure
+                                  echo "Waiting for backup to complete"
+                                  while true; do
+                                    STATUS=$(fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup status")
+                                    if echo "$STATUS" | grep -q "Backup complete"; then
+                                      echo "Backup completed successfully"
+                                      break
+                                    fi
+                                    sleep 30
+                                  done
+                          volumeMounts:
+                              - name: fdb-cluster-file
+                                mountPath: /etc/foundationdb
+                                readOnly: true
+                          env:
+                              - name: AWS_ACCESS_KEY_ID
+                                valueFrom:
+                                    secretKeyRef:
+                                        name: aws-credentials
+                                        key: access_key_id
+                              - name: AWS_SECRET_ACCESS_KEY
+                                valueFrom:
+                                    secretKeyRef:
+                                        name: aws-credentials
+                                        key: secret_access_key
+                    volumes:
+                        - name: fdb-cluster-file
+                          secret:
+                              secretName: fdb-cluster-file
+                    restartPolicy: OnFailure
 ```
 
 ### Backup Verification
@@ -354,14 +354,14 @@ echo "Verify functionality and monitor logs"
 
 Before disaster strikes:
 
-- [ ] Regular automated backups configured
-- [ ] Backups stored in separate region/zone
-- [ ] Backup encryption enabled
-- [ ] Restore procedures tested quarterly
-- [ ] Recovery Time Objective (RTO) defined
-- [ ] Recovery Point Objective (RPO) defined
-- [ ] Runbooks accessible offline
-- [ ] Contact information current
+-   [ ] Regular automated backups configured
+-   [ ] Backups stored in separate region/zone
+-   [ ] Backup encryption enabled
+-   [ ] Restore procedures tested quarterly
+-   [ ] Recovery Time Objective (RTO) defined
+-   [ ] Recovery Point Objective (RPO) defined
+-   [ ] Runbooks accessible offline
+-   [ ] Contact information current
 
 ### DR Scenarios
 
@@ -434,24 +434,24 @@ lifecycle.json:
 
 ```json
 {
-  "Rules": [
-    {
-      "Id": "DeleteOldBackups",
-      "Status": "Enabled",
-      "Prefix": "fdb-backups/daily/",
-      "Expiration": {
-        "Days": 30
-      }
-    },
-    {
-      "Id": "DeleteOldSnapshots",
-      "Status": "Enabled",
-      "Prefix": "fdb-backups/monthly/",
-      "Expiration": {
-        "Days": 365
-      }
-    }
-  ]
+    "Rules": [
+        {
+            "Id": "DeleteOldBackups",
+            "Status": "Enabled",
+            "Prefix": "fdb-backups/daily/",
+            "Expiration": {
+                "Days": 30
+            }
+        },
+        {
+            "Id": "DeleteOldSnapshots",
+            "Status": "Enabled",
+            "Prefix": "fdb-backups/monthly/",
+            "Expiration": {
+                "Days": 365
+            }
+        }
+    ]
 }
 ```
 
@@ -496,36 +496,36 @@ kubectl delete namespace $NAMESPACE
 ```yaml
 # Alert on backup failures
 groups:
-  - name: fdb-backup
-    rules:
-      - alert: FDBBackupFailed
-        expr: fdb_backup_status != 1
-        for: 15m
-        labels:
-          severity: critical
-        annotations:
-          summary: "FDB backup failed"
-          description: "Backup has been failing for 15 minutes"
+    - name: fdb-backup
+      rules:
+          - alert: FDBBackupFailed
+            expr: fdb_backup_status != 1
+            for: 15m
+            labels:
+                severity: critical
+            annotations:
+                summary: "FDB backup failed"
+                description: "Backup has been failing for 15 minutes"
 
-      - alert: FDBBackupStale
-        expr: time() - fdb_backup_last_success_timestamp > 86400
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          summary: "FDB backup is stale"
-          description: "No successful backup in 24 hours"
+          - alert: FDBBackupStale
+            expr: time() - fdb_backup_last_success_timestamp > 86400
+            for: 1h
+            labels:
+                severity: warning
+            annotations:
+                summary: "FDB backup is stale"
+                description: "No successful backup in 24 hours"
 ```
 
 ### Backup Status Dashboard
 
 Track in monitoring dashboard:
 
-- Last successful backup timestamp
-- Backup size
-- Backup duration
-- Restore test results
-- Storage usage
+-   Last successful backup timestamp
+-   Backup size
+-   Backup duration
+-   Restore test results
+-   Storage usage
 
 ## Troubleshooting
 
@@ -543,9 +543,9 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 
 **Resolution**:
 
-- Verify cluster file is correct
-- Check network connectivity
-- Ensure backup agent has proper permissions
+-   Verify cluster file is correct
+-   Check network connectivity
+-   Ensure backup agent has proper permissions
 
 ### Restore Hangs
 
@@ -560,10 +560,10 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 
 **Resolution**:
 
-- Check FDB cluster health
-- Verify backup files are accessible
-- Check storage credentials
-- Increase restore timeout
+-   Check FDB cluster health
+-   Verify backup files are accessible
+-   Check storage credentials
+-   Increase restore timeout
 
 ### Backup Storage Full
 
@@ -577,13 +577,13 @@ aws s3 ls s3://my-bucket/fdb-backups/ --recursive --summarize --human-readable
 
 **Resolution**:
 
-- Implement retention policy
-- Delete old backups
-- Increase storage quota
-- Archive old backups to glacier
+-   Implement retention policy
+-   Delete old backups
+-   Increase storage quota
+-   Archive old backups to glacier
 
 ## Related Runbooks
 
-- [Service Outage](service-outage.md) - Recovery procedures
-- [Storage Backend](storage-backend.md) - FDB troubleshooting
-- [Upgrades](upgrades.md) - Backup before upgrades
+-   [Service Outage](service-outage.md) - Recovery procedures
+-   [Storage Backend](storage-backend.md) - FDB troubleshooting
+-   [Upgrades](upgrades.md) - Backup before upgrades

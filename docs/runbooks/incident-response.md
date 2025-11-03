@@ -12,10 +12,10 @@ This runbook provides a framework for responding to production incidents affecti
 **Response Time**: Immediate
 **Examples**:
 
-- All pods down
-- Authentication system failure
-- Data corruption
-- Security breach
+-   All pods down
+-   Authentication system failure
+-   Data corruption
+-   Security breach
 
 ### SEV-2: High
 
@@ -23,10 +23,10 @@ This runbook provides a framework for responding to production incidents affecti
 **Response Time**: 15 minutes
 **Examples**:
 
-- High error rate (>5%)
-- Severe latency (p99 >1s)
-- Partial outage (some regions/features down)
-- Critical dependencies down
+-   High error rate (>5%)
+-   Severe latency (p99 >1s)
+-   Partial outage (some regions/features down)
+-   Critical dependencies down
 
 ### SEV-3: Medium
 
@@ -34,10 +34,10 @@ This runbook provides a framework for responding to production incidents affecti
 **Response Time**: 1 hour
 **Examples**:
 
-- Elevated error rate (1-5%)
-- Moderate latency (p99 >500ms)
-- Non-critical feature degradation
-- Resource exhaustion warnings
+-   Elevated error rate (1-5%)
+-   Moderate latency (p99 >500ms)
+-   Non-critical feature degradation
+-   Resource exhaustion warnings
 
 ### SEV-4: Low
 
@@ -45,9 +45,9 @@ This runbook provides a framework for responding to production incidents affecti
 **Response Time**: 4 hours
 **Examples**:
 
-- Isolated errors
-- Minor performance degradation
-- Non-user-facing issues
+-   Isolated errors
+-   Minor performance degradation
+-   Non-user-facing issues
 
 ## Incident Response Process
 
@@ -64,9 +64,9 @@ This runbook provides a framework for responding to production incidents affecti
 
 **Manual Detection**:
 
-- User reports
-- Monitoring dashboard review
-- Health check failures
+-   User reports
+-   Monitoring dashboard review
+-   Health check failures
 
 ### 2. Initial Response (First 5 minutes)
 
@@ -98,10 +98,10 @@ curl http://inferadb:8080/metrics | grep -E "(error|latency|requests)"
 
 #### Determine Severity
 
-- Is service completely down? → SEV-1
-- Are users significantly impacted? → SEV-2
-- Is it a degradation with workarounds? → SEV-3
-- Is it minor/isolated? → SEV-4
+-   Is service completely down? → SEV-1
+-   Are users significantly impacted? → SEV-2
+-   Is it a degradation with workarounds? → SEV-3
+-   Is it minor/isolated? → SEV-4
 
 ### 3. Escalation (if needed)
 
@@ -286,16 +286,16 @@ kubectl set env deployment/inferadb \
 
 **SEV-1/SEV-2**:
 
-- Update every 15-30 minutes
-- Use #incidents channel
-- Email stakeholders
-- Update status page
+-   Update every 15-30 minutes
+-   Use #incidents channel
+-   Email stakeholders
+-   Update status page
 
 **SEV-3/SEV-4**:
 
-- Update every 1-2 hours
-- Use #incidents channel
-- Update status page
+-   Update every 1-2 hours
+-   Use #incidents channel
+-   Update status page
 
 ### 7. Resolution
 
@@ -354,10 +354,10 @@ Document in post-mortem:
 
 ## Incident Summary
 
-- **Date**: 2025-10-30
-- **Duration**: 45 minutes
-- **Severity**: SEV-2
-- **Impacted Users**: ~10,000
+-   **Date**: 2025-10-30
+-   **Duration**: 45 minutes
+-   **Severity**: SEV-2
+-   **Impacted Users**: ~10,000
 
 ## Root Cause
 
@@ -365,26 +365,26 @@ Document in post-mortem:
 
 ## Detection
 
-- **How detected**: Automated alert / User report
-- **Time to detect**: 2 minutes
+-   **How detected**: Automated alert / User report
+-   **Time to detect**: 2 minutes
 
 ## Response
 
-- **Time to acknowledge**: 1 minute
-- **Time to mitigate**: 15 minutes
-- **Time to resolve**: 45 minutes
+-   **Time to acknowledge**: 1 minute
+-   **Time to mitigate**: 15 minutes
+-   **Time to resolve**: 45 minutes
 
 ## What Went Well
 
-- Quick detection via monitoring
-- Effective escalation
-- Clear communication
+-   Quick detection via monitoring
+-   Effective escalation
+-   Clear communication
 
 ## What Went Wrong
 
-- Inadequate testing before deployment
-- Missing alert for [metric]
-- Unclear runbook steps
+-   Inadequate testing before deployment
+-   Missing alert for [metric]
+-   Unclear runbook steps
 
 ## Action Items
 
@@ -402,39 +402,39 @@ Document in post-mortem:
 
 ### Detection & Initial Response (0-5 min)
 
-- [ ] Acknowledge alert
-- [ ] Post in #incidents channel
-- [ ] Determine severity
-- [ ] Begin investigation
+-   [ ] Acknowledge alert
+-   [ ] Post in #incidents channel
+-   [ ] Determine severity
+-   [ ] Begin investigation
 
 ### Investigation (5-15 min)
 
-- [ ] Check pod status
-- [ ] Review logs
-- [ ] Check metrics
-- [ ] Identify recent changes
-- [ ] Check dependencies
+-   [ ] Check pod status
+-   [ ] Review logs
+-   [ ] Check metrics
+-   [ ] Identify recent changes
+-   [ ] Check dependencies
 
 ### Mitigation (15-30 min)
 
-- [ ] Deploy fix or workaround
-- [ ] Verify mitigation working
-- [ ] Update stakeholders
-- [ ] Monitor for improvement
+-   [ ] Deploy fix or workaround
+-   [ ] Verify mitigation working
+-   [ ] Update stakeholders
+-   [ ] Monitor for improvement
 
 ### Resolution (30+ min)
 
-- [ ] Verify service restored
-- [ ] Run smoke tests
-- [ ] Declare resolution
-- [ ] Update status page
+-   [ ] Verify service restored
+-   [ ] Run smoke tests
+-   [ ] Declare resolution
+-   [ ] Update status page
 
 ### Post-Incident (24-48 hours)
 
-- [ ] Schedule post-mortem
-- [ ] Write incident report
-- [ ] Create action items
-- [ ] Update runbooks
+-   [ ] Schedule post-mortem
+-   [ ] Write incident report
+-   [ ] Create action items
+-   [ ] Update runbooks
 
 ## Common Incident Scenarios
 
@@ -449,10 +449,10 @@ kubectl get pods -n inferadb
 
 **Likely Causes**:
 
-- Recent deployment breaking change
-- Configuration error
-- Resource exhaustion
-- Dependency failure
+-   Recent deployment breaking change
+-   Configuration error
+-   Resource exhaustion
+-   Dependency failure
 
 **Quick Fix**:
 
@@ -474,10 +474,10 @@ curl http://inferadb:8080/metrics | grep inferadb_errors_total
 
 **Likely Causes**:
 
-- Authentication failures
-- Storage backend issues
-- Invalid requests
-- Bug in recent deployment
+-   Authentication failures
+-   Storage backend issues
+-   Invalid requests
+-   Bug in recent deployment
 
 **Quick Fix**:
 
@@ -502,10 +502,10 @@ curl http://inferadb:8080/metrics | grep inferadb_request_duration_seconds
 
 **Likely Causes**:
 
-- Resource saturation
-- Storage backend slow
-- Cache disabled
-- High request volume
+-   Resource saturation
+-   Storage backend slow
+-   Cache disabled
+-   High request volume
 
 **Quick Fix**:
 
@@ -535,8 +535,8 @@ When handing off incident to next responder:
 
 ## Related Runbooks
 
-- [High Latency](high-latency.md)
-- [Service Outage](service-outage.md)
-- [Authentication Failures](auth-failures.md)
-- [Memory Issues](memory-issues.md)
-- [Scaling](scaling.md)
+-   [High Latency](high-latency.md)
+-   [Service Outage](service-outage.md)
+-   [Authentication Failures](auth-failures.md)
+-   [Memory Issues](memory-issues.md)
+-   [Scaling](scaling.md)

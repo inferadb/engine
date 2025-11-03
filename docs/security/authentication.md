@@ -4,15 +4,15 @@ This guide explains how authentication works in InferaDB and how developers can 
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Authentication Methods](#authentication-methods)
-- [How to Create JWTs](#how-to-create-jwts)
-- [Configuration](#configuration)
-- [Token Validation](#token-validation)
-- [OAuth 2.0 Support](#oauth-20-support)
-- [Replay Protection](#replay-protection)
-- [Security Best Practices](#security-best-practices)
-- [Troubleshooting](#troubleshooting)
+-   [Overview](#overview)
+-   [Authentication Methods](#authentication-methods)
+-   [How to Create JWTs](#how-to-create-jwts)
+-   [Configuration](#configuration)
+-   [Token Validation](#token-validation)
+-   [OAuth 2.0 Support](#oauth-20-support)
+-   [Replay Protection](#replay-protection)
+-   [Security Best Practices](#security-best-practices)
+-   [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -27,14 +27,14 @@ InferaDB uses **stateless, cryptographically verifiable JWT (JSON Web Token) aut
 
 ### Key Features
 
-- ✅ **Asymmetric cryptography only** (EdDSA, RS256, ES256)
-- ✅ **Symmetric algorithms rejected** (HS256, etc.)
-- ✅ **JWKS caching** for performance
-- ✅ **OIDC Discovery** (RFC 8414)
-- ✅ **Replay protection** with Redis
-- ✅ **Scope validation** for authorization
-- ✅ **Audience enforcement** for security
-- ✅ **Tenant isolation** via claims
+-   ✅ **Asymmetric cryptography only** (EdDSA, RS256, ES256)
+-   ✅ **Symmetric algorithms rejected** (HS256, etc.)
+-   ✅ **JWKS caching** for performance
+-   ✅ **OIDC Discovery** (RFC 8414)
+-   ✅ **Replay protection** with Redis
+-   ✅ **Scope validation** for authorization
+-   ✅ **Audience enforcement** for security
+-   ✅ **Tenant isolation** via claims
 
 ## Authentication Methods
 
@@ -48,13 +48,13 @@ Tenants sign their own JWTs using Ed25519 or RSA private keys. InferaDB fetches 
 
 ```json
 {
-  "iss": "tenant:acme",
-  "sub": "tenant:acme",
-  "aud": "https://api.inferadb.com/evaluate",
-  "exp": 1730908800,
-  "iat": 1730905200,
-  "jti": "550e8400-e29b-41d4-a716-446655440000",
-  "scope": "authz:check authz:write"
+    "iss": "tenant:acme",
+    "sub": "tenant:acme",
+    "aud": "https://api.inferadb.com/evaluate",
+    "exp": 1730908800,
+    "iat": 1730905200,
+    "jti": "550e8400-e29b-41d4-a716-446655440000",
+    "scope": "authz:check authz:write"
 }
 ```
 
@@ -70,14 +70,14 @@ OAuth 2.0 access tokens issued by an identity provider (e.g., Auth0, Okta, Keycl
 
 ```json
 {
-  "iss": "https://auth.example.com",
-  "sub": "user@example.com",
-  "aud": "https://api.inferadb.com/evaluate",
-  "exp": 1730908800,
-  "iat": 1730905200,
-  "jti": "550e8400-e29b-41d4-a716-446655440000",
-  "scope": "authz:check authz:write",
-  "tenant_id": "acme"
+    "iss": "https://auth.example.com",
+    "sub": "user@example.com",
+    "aud": "https://api.inferadb.com/evaluate",
+    "exp": 1730908800,
+    "iat": 1730905200,
+    "jti": "550e8400-e29b-41d4-a716-446655440000",
+    "scope": "authz:check authz:write",
+    "tenant_id": "acme"
 }
 ```
 
@@ -93,12 +93,12 @@ Internal JWTs signed by the control plane for service-to-service authentication.
 
 ```json
 {
-  "iss": "inferadb-control-plane",
-  "sub": "service:control-plane",
-  "aud": "inferadb-pdp",
-  "exp": 1730908800,
-  "iat": 1730905200,
-  "scope": "internal:admin"
+    "iss": "inferadb-control-plane",
+    "sub": "service:control-plane",
+    "aud": "inferadb-pdp",
+    "exp": 1730908800,
+    "iat": 1730905200,
+    "scope": "internal:admin"
 }
 ```
 
@@ -124,16 +124,16 @@ Convert your public key to JWK format and host it at a JWKS endpoint:
 
 ```json
 {
-  "keys": [
-    {
-      "kty": "OKP",
-      "use": "sig",
-      "kid": "acme-key-001",
-      "alg": "EdDSA",
-      "crv": "Ed25519",
-      "x": "<base64url-encoded-public-key>"
-    }
-  ]
+    "keys": [
+        {
+            "kty": "OKP",
+            "use": "sig",
+            "kid": "acme-key-001",
+            "alg": "EdDSA",
+            "crv": "Ed25519",
+            "x": "<base64url-encoded-public-key>"
+        }
+    ]
 }
 ```
 
@@ -184,30 +184,30 @@ const fs = require("fs");
 const crypto = require("crypto");
 
 async function createJWT() {
-  // Load private key
-  const privateKey = await jose.importPKCS8(
-    fs.readFileSync("private_key.pem", "utf8"),
-    "EdDSA"
-  );
+    // Load private key
+    const privateKey = await jose.importPKCS8(
+        fs.readFileSync("private_key.pem", "utf8"),
+        "EdDSA"
+    );
 
-  // Create claims
-  const claims = {
-    iss: "tenant:acme",
-    sub: "tenant:acme",
-    aud: "https://api.inferadb.com/evaluate",
-    exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
-    iat: Math.floor(Date.now() / 1000),
-    jti: crypto.randomUUID(),
-    scope: "authz:check authz:write",
-  };
+    // Create claims
+    const claims = {
+        iss: "tenant:acme",
+        sub: "tenant:acme",
+        aud: "https://api.inferadb.com/evaluate",
+        exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+        iat: Math.floor(Date.now() / 1000),
+        jti: crypto.randomUUID(),
+        scope: "authz:check authz:write",
+    };
 
-  // Sign JWT
-  const jwt = await new jose.SignJWT(claims)
-    .setProtectedHeader({ alg: "EdDSA", kid: "acme-key-001" })
-    .sign(privateKey);
+    // Sign JWT
+    const jwt = await new jose.SignJWT(claims)
+        .setProtectedHeader({ alg: "EdDSA", kid: "acme-key-001" })
+        .sign(privateKey);
 
-  console.log(`JWT: ${jwt}`);
-  return jwt;
+    console.log(`JWT: ${jwt}`);
+    return jwt;
 }
 
 createJWT();
@@ -273,16 +273,16 @@ openssl rsa -in private_key.pem -pubout -out public_key.pem
 
 ```json
 {
-  "keys": [
-    {
-      "kty": "RSA",
-      "use": "sig",
-      "kid": "acme-key-001",
-      "alg": "RS256",
-      "n": "<base64url-encoded-modulus>",
-      "e": "<base64url-encoded-exponent>"
-    }
-  ]
+    "keys": [
+        {
+            "kty": "RSA",
+            "use": "sig",
+            "kid": "acme-key-001",
+            "alg": "RS256",
+            "n": "<base64url-encoded-modulus>",
+            "e": "<base64url-encoded-exponent>"
+        }
+    ]
 }
 ```
 
@@ -367,21 +367,21 @@ print(response.json())
 const jwt = "eyJ..."; // Your JWT
 
 fetch("https://api.inferadb.com/v1/check", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${jwt}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    tuple: {
-      object: "doc:1",
-      relation: "viewer",
-      subject: "user:alice",
+    method: "POST",
+    headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
     },
-  }),
+    body: JSON.stringify({
+        tuple: {
+            object: "doc:1",
+            relation: "viewer",
+            subject: "user:alice",
+        },
+    }),
 })
-  .then((response) => response.json())
-  .then((data) => console.log(data));
+    .then((response) => response.json())
+    .then((data) => console.log(data));
 ```
 
 ## Configuration
@@ -392,59 +392,59 @@ Configure authentication in your `config.yaml` or via environment variables:
 
 ```yaml
 auth:
-  # Enable/disable authentication
-  enabled: true
+    # Enable/disable authentication
+    enabled: true
 
-  # JWKS cache TTL (seconds)
-  jwks_cache_ttl: 300
+    # JWKS cache TTL (seconds)
+    jwks_cache_ttl: 300
 
-  # Accepted signature algorithms
-  accepted_algorithms:
-    - EdDSA
-    - RS256
-    - ES256
+    # Accepted signature algorithms
+    accepted_algorithms:
+        - EdDSA
+        - RS256
+        - ES256
 
-  # Audience validation
-  enforce_audience: true
-  audience: "https://api.inferadb.com/evaluate"
-  allowed_audiences:
-    - "https://api.inferadb.com/evaluate"
-    - "https://api.inferadb.com/*"
+    # Audience validation
+    enforce_audience: true
+    audience: "https://api.inferadb.com/evaluate"
+    allowed_audiences:
+        - "https://api.inferadb.com/evaluate"
+        - "https://api.inferadb.com/*"
 
-  # Scope validation
-  enforce_scopes: true
-  required_scopes:
-    - "authz:check"
-    - "authz:write"
+    # Scope validation
+    enforce_scopes: true
+    required_scopes:
+        - "authz:check"
+        - "authz:write"
 
-  # Replay protection (requires Redis)
-  replay_protection: true
-  redis_url: "redis://localhost:6379"
+    # Replay protection (requires Redis)
+    replay_protection: true
+    redis_url: "redis://localhost:6379"
 
-  # JWKS base URL for tenant keys
-  jwks_base_url: "https://your-domain.com/jwks"
+    # JWKS base URL for tenant keys
+    jwks_base_url: "https://your-domain.com/jwks"
 
-  # Clock skew tolerance (seconds)
-  clock_skew_seconds: 30
+    # Clock skew tolerance (seconds)
+    clock_skew_seconds: 30
 
-  # Maximum token age (seconds from iat)
-  max_token_age_seconds: 3600
+    # Maximum token age (seconds from iat)
+    max_token_age_seconds: 3600
 
-  # Issuer validation
-  issuer_allowlist:
-    - "tenant:*"
-    - "https://auth.example.com"
+    # Issuer validation
+    issuer_allowlist:
+        - "tenant:*"
+        - "https://auth.example.com"
 
-  # OAuth configuration (optional)
-  oauth_introspection_endpoint: "https://auth.example.com/oauth/introspect"
-  oauth_introspection_client_id: "inferadb-server"
-  oauth_introspection_client_secret: "<secret>"
+    # OAuth configuration (optional)
+    oauth_introspection_endpoint: "https://auth.example.com/oauth/introspect"
+    oauth_introspection_client_id: "inferadb-server"
+    oauth_introspection_client_secret: "<secret>"
 
-  # OIDC discovery cache (seconds)
-  oidc_discovery_cache_ttl: 86400 # 24 hours
+    # OIDC discovery cache (seconds)
+    oidc_discovery_cache_ttl: 86400 # 24 hours
 
-  # Introspection result cache (seconds)
-  introspection_cache_ttl: 300 # 5 minutes
+    # Introspection result cache (seconds)
+    introspection_cache_ttl: 300 # 5 minutes
 ```
 
 ### Environment Variables
@@ -497,12 +497,12 @@ When a request arrives, InferaDB performs the following validation steps:
 3. **Fetch JWKS** from cache or fetch from issuer
 4. **Verify Signature** using public key from JWKS
 5. **Validate Claims**:
-   - `exp` - Token not expired
-   - `iat` - Token issued time reasonable
-   - `nbf` - Token not used before this time (if present)
-   - `iss` - Issuer is allowed
-   - `aud` - Audience matches configuration
-   - `scope` - Required scopes present
+    - `exp` - Token not expired
+    - `iat` - Token issued time reasonable
+    - `nbf` - Token not used before this time (if present)
+    - `iss` - Issuer is allowed
+    - `aud` - Audience matches configuration
+    - `scope` - Required scopes present
 6. **Replay Protection** (if enabled) - Check JTI not seen before
 7. **Extract Tenant ID** from claims
 8. **Create Auth Context** for request
@@ -537,9 +537,9 @@ Path: /etc/inferadb/internal-jwks.json
 
 ### Caching
 
-- **JWKS Cache**: 5 minutes (default)
-- **OIDC Discovery Cache**: 24 hours (default)
-- **Introspection Cache**: 5 minutes (default)
+-   **JWKS Cache**: 5 minutes (default)
+-   **OIDC Discovery Cache**: 24 hours (default)
+-   **Introspection Cache**: 5 minutes (default)
 
 Caching reduces latency and load on authentication servers.
 
@@ -565,9 +565,9 @@ For opaque OAuth tokens (non-JWT), InferaDB supports OAuth 2.0 Token Introspecti
 
 ```yaml
 auth:
-  oauth_introspection_endpoint: "https://auth.example.com/oauth/introspect"
-  oauth_introspection_client_id: "inferadb-server"
-  oauth_introspection_client_secret: "<secret>"
+    oauth_introspection_endpoint: "https://auth.example.com/oauth/introspect"
+    oauth_introspection_client_id: "inferadb-server"
+    oauth_introspection_client_secret: "<secret>"
 ```
 
 When introspection is configured:
@@ -598,16 +598,16 @@ Replay protection prevents attackers from reusing captured JWTs. Each JWT must b
 
 ```yaml
 auth:
-  replay_protection: true
-  redis_url: "redis://localhost:6379"
+    replay_protection: true
+    redis_url: "redis://localhost:6379"
 ```
 
 Features:
 
-- ✅ Atomic SET NX operations
-- ✅ Automatic TTL based on token expiration
-- ✅ Shared across all InferaDB nodes
-- ✅ Survives pod restarts
+-   ✅ Atomic SET NX operations
+-   ✅ Automatic TTL based on token expiration
+-   ✅ Shared across all InferaDB nodes
+-   ✅ Survives pod restarts
 
 #### In-Memory (Development)
 
@@ -615,15 +615,15 @@ Features:
 
 ```yaml
 auth:
-  replay_protection: true
-  # No redis_url = falls back to in-memory
+    replay_protection: true
+    # No redis_url = falls back to in-memory
 ```
 
 Limitations:
 
-- ❌ Not shared across nodes
-- ❌ Lost on restart
-- ❌ Only for single-node development
+-   ❌ Not shared across nodes
+-   ❌ Lost on restart
+-   ❌ Only for single-node development
 
 ### Generating Unique JTIs
 
@@ -659,11 +659,11 @@ InferaDB explicitly rejects symmetric algorithms to prevent secret key leakage.
 
 ### 2. Keep Private Keys Secure
 
-- **Never** commit private keys to version control
-- **Never** share private keys between tenants
-- **Never** include private keys in client applications
-- Use **key management systems** (AWS KMS, HashiCorp Vault, etc.)
-- Rotate keys regularly
+-   **Never** commit private keys to version control
+-   **Never** share private keys between tenants
+-   **Never** include private keys in client applications
+-   Use **key management systems** (AWS KMS, HashiCorp Vault, etc.)
+-   Rotate keys regularly
 
 ### 3. Set Short Expiration Times
 
@@ -682,8 +682,8 @@ Always enable replay protection in production:
 
 ```yaml
 auth:
-  replay_protection: true
-  redis_url: "redis://localhost:6379"
+    replay_protection: true
+    redis_url: "redis://localhost:6379"
 ```
 
 ### 5. Validate Audience
@@ -692,8 +692,8 @@ Always enforce audience validation:
 
 ```yaml
 auth:
-  enforce_audience: true
-  audience: "https://api.inferadb.com/evaluate"
+    enforce_audience: true
+    audience: "https://api.inferadb.com/evaluate"
 ```
 
 This prevents tokens intended for other services from being accepted.
@@ -704,9 +704,9 @@ Restrict which issuers are accepted:
 
 ```yaml
 auth:
-  issuer_allowlist:
-    - "tenant:*"
-    - "https://auth.example.com"
+    issuer_allowlist:
+        - "tenant:*"
+        - "https://auth.example.com"
 ```
 
 ### 7. Enable Scope Validation
@@ -715,10 +715,10 @@ Ensure tokens have required scopes:
 
 ```yaml
 auth:
-  enforce_scopes: true
-  required_scopes:
-    - "authz:check"
-    - "authz:write"
+    enforce_scopes: true
+    required_scopes:
+        - "authz:check"
+        - "authz:write"
 ```
 
 ### 8. Configure Clock Skew Tolerance
@@ -727,7 +727,7 @@ Account for clock drift between systems:
 
 ```yaml
 auth:
-  clock_skew_seconds: 30 # 30 seconds tolerance
+    clock_skew_seconds: 30 # 30 seconds tolerance
 ```
 
 ### 9. Monitor Authentication Events
@@ -736,20 +736,20 @@ InferaDB logs all authentication events:
 
 ```json
 {
-  "event": "auth_success",
-  "tenant_id": "acme",
-  "sub": "tenant:acme",
-  "method": "tenant_jwt",
-  "scopes": ["authz:check", "authz:write"]
+    "event": "auth_success",
+    "tenant_id": "acme",
+    "sub": "tenant:acme",
+    "method": "tenant_jwt",
+    "scopes": ["authz:check", "authz:write"]
 }
 ```
 
 Set up alerts for:
 
-- Repeated authentication failures
-- Token expiration errors
-- Replay attack attempts
-- Invalid signature errors
+-   Repeated authentication failures
+-   Token expiration errors
+-   Replay attack attempts
+-   Invalid signature errors
 
 ## Troubleshooting
 
@@ -797,11 +797,11 @@ date +%s
 **Solutions**:
 
 1. Add required scopes to JWT claims:
-   ```json
-   {
-     "scope": "authz:check authz:write"
-   }
-   ```
+    ```json
+    {
+        "scope": "authz:check authz:write"
+    }
+    ```
 2. Update server configuration to accept your scopes
 3. Check scope validation is correctly configured
 
@@ -812,11 +812,11 @@ date +%s
 **Solutions**:
 
 1. Ensure JWT `aud` matches server `audience`:
-   ```json
-   {
-     "aud": "https://api.inferadb.com/evaluate"
-   }
-   ```
+    ```json
+    {
+        "aud": "https://api.inferadb.com/evaluate"
+    }
+    ```
 2. Add audience to `allowed_audiences` list
 3. Disable audience validation (NOT recommended for production)
 
@@ -860,11 +860,11 @@ kubectl exec -it <inferadb-pod> -- curl https://your-domain.com/jwks/tenant.json
 **Solutions**:
 
 1. Add `jti` claim to JWT:
-   ```json
-   {
-     "jti": "550e8400-e29b-41d4-a716-446655440000"
-   }
-   ```
+    ```json
+    {
+        "jti": "550e8400-e29b-41d4-a716-446655440000"
+    }
+    ```
 2. Disable replay protection (NOT recommended)
 
 ### Debugging Authentication
@@ -873,7 +873,7 @@ Enable debug logging:
 
 ```yaml
 observability:
-  log_level: "debug"
+    log_level: "debug"
 ```
 
 Or via environment variable:
@@ -886,12 +886,12 @@ This will log detailed authentication information:
 
 ```json
 {
-  "level": "DEBUG",
-  "message": "JWT validation starting",
-  "issuer": "tenant:acme",
-  "subject": "tenant:acme",
-  "algorithm": "EdDSA",
-  "kid": "acme-key-001"
+    "level": "DEBUG",
+    "message": "JWT validation starting",
+    "issuer": "tenant:acme",
+    "subject": "tenant:acme",
+    "algorithm": "EdDSA",
+    "kid": "acme-key-001"
 }
 ```
 
@@ -914,7 +914,7 @@ To access all endpoints, include both scopes:
 
 ```json
 {
-  "scope": "authz:check authz:write"
+    "scope": "authz:check authz:write"
 }
 ```
 
@@ -931,16 +931,16 @@ openssl pkey -in private_key.pem -pubout -out public_key.pem
 
 ```json
 {
-  "keys": [
-    {
-      "kty": "OKP",
-      "use": "sig",
-      "kid": "acme-key-001",
-      "alg": "EdDSA",
-      "crv": "Ed25519",
-      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
-    }
-  ]
+    "keys": [
+        {
+            "kty": "OKP",
+            "use": "sig",
+            "kid": "acme-key-001",
+            "alg": "EdDSA",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+        }
+    ]
 }
 ```
 
@@ -950,12 +950,12 @@ Host at: `https://your-domain.com/jwks/acme.json`
 
 ```yaml
 auth:
-  enabled: true
-  jwks_base_url: "https://your-domain.com/jwks"
-  enforce_audience: true
-  audience: "https://api.inferadb.com/evaluate"
-  replay_protection: true
-  redis_url: "redis://localhost:6379"
+    enabled: true
+    jwks_base_url: "https://your-domain.com/jwks"
+    enforce_audience: true
+    audience: "https://api.inferadb.com/evaluate"
+    replay_protection: true
+    redis_url: "redis://localhost:6379"
 ```
 
 ### 4. Create JWT in Application
@@ -1003,13 +1003,13 @@ print(response.json())  # {"allowed": true}
 
 InferaDB authentication provides:
 
-- ✅ **Stateless verification** - No database lookups for auth
-- ✅ **Cryptographic security** - Asymmetric key validation
-- ✅ **Tenant isolation** - Each tenant has unique keys
-- ✅ **Standard protocols** - JWT, OAuth 2.0, OIDC
-- ✅ **Replay protection** - Prevent token reuse attacks
-- ✅ **Flexible configuration** - Environment-based config
-- ✅ **High performance** - JWKS caching, minimal overhead
+-   ✅ **Stateless verification** - No database lookups for auth
+-   ✅ **Cryptographic security** - Asymmetric key validation
+-   ✅ **Tenant isolation** - Each tenant has unique keys
+-   ✅ **Standard protocols** - JWT, OAuth 2.0, OIDC
+-   ✅ **Replay protection** - Prevent token reuse attacks
+-   ✅ **Flexible configuration** - Environment-based config
+-   ✅ **High performance** - JWKS caching, minimal overhead
 
 For production deployments:
 
@@ -1023,7 +1023,7 @@ For production deployments:
 
 ## See Also
 
-- [Configuration Reference](../guides/configuration.md)
-- [Deployment Guide](../guides/deployment.md)
-- [Observability Guide](../operations/observability/README.md)
-- [Security Best Practices](security.md)
+-   [Configuration Reference](../guides/configuration.md)
+-   [Deployment Guide](../guides/deployment.md)
+-   [Observability Guide](../operations/observability/README.md)
+-   [Security Best Practices](security.md)

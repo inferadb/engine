@@ -4,8 +4,8 @@ Get InferaDB up and running in 5 minutes.
 
 ## Prerequisites
 
-- Rust 1.75 or later ([install](https://rustup.rs/))
-- Git
+-   Rust 1.75 or later ([install](https://rustup.rs/))
+-   Git
 
 ## Installation
 
@@ -305,28 +305,28 @@ Response shows evaluation tree:
 
 ```json
 {
-  "decision": "allow",
-  "trace": {
     "decision": "allow",
-    "node_type": "union",
-    "children": [
-      {
+    "trace": {
         "decision": "allow",
-        "node_type": "direct",
-        "relation": "viewer"
-      },
-      {
-        "decision": "deny",
-        "node_type": "computed_userset",
-        "relation": "editor"
-      },
-      {
-        "decision": "deny",
-        "node_type": "computed_userset",
-        "relation": "owner"
-      }
-    ]
-  }
+        "node_type": "union",
+        "children": [
+            {
+                "decision": "allow",
+                "node_type": "direct",
+                "relation": "viewer"
+            },
+            {
+                "decision": "deny",
+                "node_type": "computed_userset",
+                "relation": "editor"
+            },
+            {
+                "decision": "deny",
+                "node_type": "computed_userset",
+                "relation": "owner"
+            }
+        ]
+    }
 }
 ```
 
@@ -355,9 +355,9 @@ Check that tuples have all required fields:
 
 ```json
 {
-  "object": "resource:id", // Required
-  "relation": "relation_name", // Required
-  "user": "user:id" // Required
+    "object": "resource:id", // Required
+    "relation": "relation_name", // Required
+    "user": "user:id" // Required
 }
 ```
 
@@ -365,15 +365,15 @@ Check that tuples have all required fields:
 
 1. Check tuples are written correctly:
 
-   ```bash
-   # List doesn't exist yet, but you can verify via check
-   ```
+    ```bash
+    # List doesn't exist yet, but you can verify via check
+    ```
 
 2. Use trace to see evaluation:
 
-   ```bash
-   curl -X POST http://localhost:8080/api/v1/check/trace ...
-   ```
+    ```bash
+    curl -X POST http://localhost:8080/api/v1/check/trace ...
+    ```
 
 3. Verify schema definition matches expected behavior
 
@@ -474,7 +474,7 @@ Response:
 
 ```json
 {
-  "decision": true
+    "decision": true
 }
 ```
 
@@ -505,10 +505,7 @@ Response:
 
 ```json
 {
-  "evaluations": [
-    {"decision": true},
-    {"decision": false}
-  ]
+    "evaluations": [{ "decision": true }, { "decision": false }]
 }
 ```
 
@@ -530,10 +527,10 @@ Response:
 
 ```json
 {
-  "resources": [
-    {"type": "document", "id": "readme"},
-    {"type": "document", "id": "guide"}
-  ]
+    "resources": [
+        { "type": "document", "id": "readme" },
+        { "type": "document", "id": "guide" }
+    ]
 }
 ```
 
@@ -549,26 +546,26 @@ Response shows available endpoints and extensions:
 
 ```json
 {
-  "issuer": "http://127.0.0.1:8080",
-  "access_evaluation_endpoint": "http://127.0.0.1:8080/access/v1/evaluation",
-  "access_evaluations_endpoint": "http://127.0.0.1:8080/access/v1/evaluations",
-  "search_resource_endpoint": "http://127.0.0.1:8080/access/v1/search/resource",
-  "search_subject_endpoint": "http://127.0.0.1:8080/access/v1/search/subject",
-  "extensions": {
-    "inferadb_relationship_management": true,
-    "inferadb_relation_expansion": true,
-    "inferadb_simulation": true,
-    "inferadb_realtime_streaming": true
-  }
+    "issuer": "http://127.0.0.1:8080",
+    "access_evaluation_endpoint": "http://127.0.0.1:8080/access/v1/evaluation",
+    "access_evaluations_endpoint": "http://127.0.0.1:8080/access/v1/evaluations",
+    "search_resource_endpoint": "http://127.0.0.1:8080/access/v1/search/resource",
+    "search_subject_endpoint": "http://127.0.0.1:8080/access/v1/search/subject",
+    "extensions": {
+        "inferadb_relationship_management": true,
+        "inferadb_relation_expansion": true,
+        "inferadb_simulation": true,
+        "inferadb_realtime_streaming": true
+    }
 }
 ```
 
 ## Explore Further
 
-- [Complete API Reference](api-rest.md)
-- [AuthZEN Extensions Documentation](../docs/api/authzen-extensions.md)
-- [AuthZEN Data Model Mapping](../docs/api/authzen-mapping.md)
-- [IPL Language Guide](core/ipl.md)
-- [gRPC API](api-grpc.md)
-- [WASM Integration](wasm-integration.md)
-- [Caching System](caching.md)
+-   [Complete API Reference](api-rest.md)
+-   [AuthZEN Extensions Documentation](../docs/api/authzen-extensions.md)
+-   [AuthZEN Data Model Mapping](../docs/api/authzen-mapping.md)
+-   [IPL Language Guide](core/ipl.md)
+-   [gRPC API](api-grpc.md)
+-   [WASM Integration](wasm-integration.md)
+-   [Caching System](caching.md)

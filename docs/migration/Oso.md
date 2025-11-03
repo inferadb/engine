@@ -5,13 +5,14 @@ This guide helps you migrate from Oso (Polar-based authorization) to InferaDB's 
 ## Why Migrate to InferaDB?
 
 **InferaDB Advantages**:
-- ✅ **Production-Ready**: Built for distributed, high-throughput deployments
-- ✅ **Streaming APIs**: All list operations stream for better performance
-- ✅ **Real-time Watch**: Stream relationship changes for cache invalidation
-- ✅ **Built-in Graph Traversal**: ReBAC model handles complex hierarchies natively
-- ✅ **Multi-tenant**: Built-in JWT/OAuth with tenant isolation
-- ✅ **Performance**: Sub-10ms checks with intelligent caching
-- ✅ **Observability**: Prometheus metrics, OpenTelemetry tracing out of the box
+
+-   ✅ **Production-Ready**: Built for distributed, high-throughput deployments
+-   ✅ **Streaming APIs**: All list operations stream for better performance
+-   ✅ **Real-time Watch**: Stream relationship changes for cache invalidation
+-   ✅ **Built-in Graph Traversal**: ReBAC model handles complex hierarchies natively
+-   ✅ **Multi-tenant**: Built-in JWT/OAuth with tenant isolation
+-   ✅ **Performance**: Sub-10ms checks with intelligent caching
+-   ✅ **Observability**: Prometheus metrics, OpenTelemetry tracing out of the box
 
 ## Paradigm Shift: Logic Programming → ReBAC
 
@@ -61,13 +62,13 @@ type document {
 
 ### Key Conceptual Differences
 
-| Concept | Oso | InferaDB |
-|---------|-----|----------|
-| **Model** | Logic programming rules | Relationship graph |
-| **Permissions** | Predicates/rules | Computed relations |
-| **Roles** | Facts/assertions | Direct relations |
-| **Hierarchy** | Logic rules | Relation expressions (`\|`, `->`) |
-| **Query** | Prolog-style resolution | Graph traversal |
+| Concept         | Oso                     | InferaDB                          |
+| --------------- | ----------------------- | --------------------------------- |
+| **Model**       | Logic programming rules | Relationship graph                |
+| **Permissions** | Predicates/rules        | Computed relations                |
+| **Roles**       | Facts/assertions        | Direct relations                  |
+| **Hierarchy**   | Logic rules             | Relation expressions (`\|`, `->`) |
+| **Query**       | Prolog-style resolution | Graph traversal                   |
 
 ---
 
@@ -76,6 +77,7 @@ type document {
 ### 1. Authorization Check
 
 **Oso (Python)**:
+
 ```python
 from oso import Oso
 
@@ -91,6 +93,7 @@ if oso.is_allowed(user, "read", document):
 ```
 
 **InferaDB**:
+
 ```bash
 # REST API
 curl -X POST http://localhost:8080/v1/check \
@@ -106,6 +109,7 @@ curl -X POST http://localhost:8080/v1/check \
 ```
 
 **InferaDB (Python client)**:
+
 ```python
 import requests
 
@@ -132,6 +136,7 @@ if check_permission("user:alice", "document:readme", "read"):
 ### 2. List Authorized Resources
 
 **Oso**:
+
 ```python
 from oso import Oso
 
@@ -145,6 +150,7 @@ for doc in authorized_docs:
 ```
 
 **InferaDB**:
+
 ```bash
 # REST with SSE streaming
 curl -X POST http://localhost:8080/v1/list-resources/stream \
@@ -157,6 +163,7 @@ curl -X POST http://localhost:8080/v1/list-resources/stream \
 ```
 
 **InferaDB (Python client with streaming)**:
+
 ```python
 import requests
 
@@ -192,6 +199,7 @@ for doc in docs:
 ### 3. List Users with Access
 
 **Oso**:
+
 ```python
 # Oso doesn't have built-in "list users" functionality
 # You'd need to query all users and check each one
@@ -204,6 +212,7 @@ for user in all_users:
 ```
 
 **InferaDB**:
+
 ```bash
 # Efficient server-side computation with streaming
 curl -X POST http://localhost:8080/v1/list-subjects/stream \
@@ -216,6 +225,7 @@ curl -X POST http://localhost:8080/v1/list-subjects/stream \
 ```
 
 **InferaDB (Python client)**:
+
 ```python
 def list_users_with_access(resource, permission, subject_type="user"):
     response = requests.post(
@@ -247,6 +257,7 @@ users = list_users_with_access("document:readme", "read")
 ### 4. Assign Roles/Permissions
 
 **Oso**:
+
 ```python
 # Oso requires you to manage data layer
 # Typically with database calls
@@ -260,6 +271,7 @@ oso.tell("role", user, "reader", document)
 ```
 
 **InferaDB**:
+
 ```bash
 # Single API call, database managed internally
 curl -X POST http://localhost:8080/v1/write-relationships \
@@ -276,6 +288,7 @@ curl -X POST http://localhost:8080/v1/write-relationships \
 ```
 
 **InferaDB (Python client)**:
+
 ```python
 def assign_role(subject, role, resource):
     response = requests.post(
@@ -301,6 +314,7 @@ assign_role("user:alice", "reader", "document:readme")
 ### 5. Remove Roles/Permissions
 
 **Oso**:
+
 ```python
 # Manual database deletion
 db.execute("""
@@ -310,6 +324,7 @@ db.execute("""
 ```
 
 **InferaDB**:
+
 ```bash
 curl -X POST http://localhost:8080/v1/delete-relationships \
   -H "Authorization: Bearer YOUR_JWT" \
@@ -325,6 +340,7 @@ curl -X POST http://localhost:8080/v1/delete-relationships \
 ```
 
 **InferaDB (Python client)**:
+
 ```python
 def remove_role(subject, role, resource):
     response = requests.post(
@@ -354,6 +370,7 @@ remove_role("user:alice", "reader", "document:readme")
 ### Example 1: Basic RBAC
 
 **Oso (Polar)**:
+
 ```polar
 resource Document {
   permissions = ["read", "write", "delete"];
@@ -375,6 +392,7 @@ resource Document {
 ```
 
 **InferaDB (IPL)**:
+
 ```ipl
 type document {
     # Roles (direct relations)
@@ -392,6 +410,7 @@ type document {
 ### Example 2: Hierarchical Organizations
 
 **Oso (Polar)**:
+
 ```polar
 resource Organization {
   roles = ["member", "admin"];
@@ -414,6 +433,7 @@ has_role(user: User, role: String, org: Organization) if
 ```
 
 **InferaDB (IPL)**:
+
 ```ipl
 type organization {
     relation parent: organization
@@ -429,6 +449,7 @@ type organization {
 ### Example 3: Folder Hierarchies
 
 **Oso (Polar)**:
+
 ```polar
 resource Folder {
   permissions = ["view"];
@@ -443,6 +464,7 @@ resource Folder {
 ```
 
 **InferaDB (IPL)**:
+
 ```ipl
 type folder {
     relation parent: folder
@@ -456,6 +478,7 @@ type folder {
 ### Example 4: Document with Folder Inheritance
 
 **Oso (Polar)**:
+
 ```polar
 resource Document {
   permissions = ["view", "edit"];
@@ -474,6 +497,7 @@ resource Document {
 ```
 
 **InferaDB (IPL)**:
+
 ```ipl
 type document {
     relation parent: folder
@@ -495,6 +519,7 @@ type document {
 ### Oso (Built-in ABAC)
 
 **Oso**:
+
 ```polar
 allow(user: User, "read", document: Document) if
   document.public = true;
@@ -520,6 +545,7 @@ type document {
 ```
 
 **WASM Module** (Rust):
+
 ```rust
 use infera_wasm_sdk::*;
 
@@ -548,10 +574,11 @@ fn document_access(subject: &Subject, resource: &Resource, context: &Context) ->
 ```
 
 **Trade-offs**:
-- ⚠️ More complex setup (WASM compilation required)
-- ✅ Better performance (compiled code)
-- ✅ Type safety
-- ✅ Separation of logic and data
+
+-   ⚠️ More complex setup (WASM compilation required)
+-   ✅ Better performance (compiled code)
+-   ✅ Type safety
+-   ✅ Separation of logic and data
 
 ---
 
@@ -560,6 +587,7 @@ fn document_access(subject: &Subject, resource: &Resource, context: &Context) ->
 ### Oso Data Storage
 
 **Oso requires you to manage data**:
+
 ```python
 # You maintain your own database schema
 class Role(Model):
@@ -581,10 +609,11 @@ def has_role(user, role, resource):
 ### InferaDB Data Storage
 
 **InferaDB manages data internally**:
-- ✅ No database schema needed
-- ✅ No SQL queries to write
-- ✅ Optimized indexes automatically created
-- ✅ Built-in replication and consistency
+
+-   ✅ No database schema needed
+-   ✅ No SQL queries to write
+-   ✅ Optimized indexes automatically created
+-   ✅ Built-in replication and consistency
 
 ```python
 # Just call the API
@@ -648,101 +677,113 @@ response = requests.post(
 
 **Trade-offs**:
 
-| Aspect | Oso (Embedded) | InferaDB (Service) |
-|--------|----------------|-------------------|
-| Deployment | In-process library | Separate microservice |
-| Latency | No network (<1ms) | Network call (~5ms) |
-| Scaling | Scales with app | Independent scaling |
-| Data Management | You manage it | Managed for you |
-| Multi-tenant | DIY | Built-in |
-| Observability | DIY | Built-in metrics/traces |
-| Caching | DIY | Built-in |
-| Updates | Redeploy app | Deploy service only |
+| Aspect          | Oso (Embedded)     | InferaDB (Service)      |
+| --------------- | ------------------ | ----------------------- |
+| Deployment      | In-process library | Separate microservice   |
+| Latency         | No network (<1ms)  | Network call (~5ms)     |
+| Scaling         | Scales with app    | Independent scaling     |
+| Data Management | You manage it      | Managed for you         |
+| Multi-tenant    | DIY                | Built-in                |
+| Observability   | DIY                | Built-in metrics/traces |
+| Caching         | DIY                | Built-in                |
+| Updates         | Redeploy app       | Deploy service only     |
 
 ---
 
 ## Migration Checklist
 
 ### 1. Policy Translation
-- [ ] Identify all Polar policy files
-- [ ] Map `resource` types to InferaDB `type`
-- [ ] Convert `permissions` to computed `relation`
-- [ ] Convert `roles` to direct `relation`
-- [ ] Map hierarchies to `->` operator
-- [ ] Test schema with sample data
+
+-   [ ] Identify all Polar policy files
+-   [ ] Map `resource` types to InferaDB `type`
+-   [ ] Convert `permissions` to computed `relation`
+-   [ ] Convert `roles` to direct `relation`
+-   [ ] Map hierarchies to `->` operator
+-   [ ] Test schema with sample data
 
 ### 2. ABAC Migration
-- [ ] Identify attribute-based rules in Polar
-- [ ] Decide: Convert to ReBAC or use WASM
-- [ ] If WASM: Write WASM modules
-- [ ] If ReBAC: Model attributes as relations
-- [ ] Test attribute checking
+
+-   [ ] Identify attribute-based rules in Polar
+-   [ ] Decide: Convert to ReBAC or use WASM
+-   [ ] If WASM: Write WASM modules
+-   [ ] If ReBAC: Model attributes as relations
+-   [ ] Test attribute checking
 
 ### 3. Data Migration
-- [ ] Export role/permission data from your database
-- [ ] Convert to InferaDB relationship format
-- [ ] Bulk import via WriteRelationships API
-- [ ] Verify data integrity
+
+-   [ ] Export role/permission data from your database
+-   [ ] Convert to InferaDB relationship format
+-   [ ] Bulk import via WriteRelationships API
+-   [ ] Verify data integrity
 
 ### 4. Application Code Updates
-- [ ] Replace `oso.is_allowed()` with Check API calls
-- [ ] Replace `authorized_resources()` with ListResources
-- [ ] Replace database role queries with ListRelationships
-- [ ] Add JWT tokens to API calls
-- [ ] Handle streaming responses
-- [ ] Update error handling
+
+-   [ ] Replace `oso.is_allowed()` with Check API calls
+-   [ ] Replace `authorized_resources()` with ListResources
+-   [ ] Replace database role queries with ListRelationships
+-   [ ] Add JWT tokens to API calls
+-   [ ] Handle streaming responses
+-   [ ] Update error handling
 
 ### 5. Remove Oso Dependencies
-- [ ] Remove Oso library dependency
-- [ ] Remove .polar policy files
-- [ ] Remove role/permission database tables
-- [ ] Remove manual data layer code
-- [ ] Clean up imports
+
+-   [ ] Remove Oso library dependency
+-   [ ] Remove .polar policy files
+-   [ ] Remove role/permission database tables
+-   [ ] Remove manual data layer code
+-   [ ] Clean up imports
 
 ### 6. Deployment
-- [ ] Deploy InferaDB service (Docker/K8s)
-- [ ] Configure storage backend
-- [ ] Deploy IPL schema
-- [ ] Set up JWT/OAuth authentication
-- [ ] Configure monitoring
-- [ ] Set up alerts
+
+-   [ ] Deploy InferaDB service (Docker/K8s)
+-   [ ] Configure storage backend
+-   [ ] Deploy IPL schema
+-   [ ] Set up JWT/OAuth authentication
+-   [ ] Configure monitoring
+-   [ ] Set up alerts
 
 ### 7. Testing
-- [ ] Port authorization tests
-- [ ] Test with production data sample
-- [ ] Performance testing
-- [ ] Load testing
-- [ ] Verify consistency
+
+-   [ ] Port authorization tests
+-   [ ] Test with production data sample
+-   [ ] Performance testing
+-   [ ] Load testing
+-   [ ] Verify consistency
 
 ---
 
 ## Common Gotchas
 
 ### 1. Logic Programming vs Graph Traversal
+
 **Oso**: Prolog-style logic resolution
 **InferaDB**: Graph traversal
 
 **Solution**: Think in terms of relationships and paths, not predicates and rules.
 
 ### 2. Embedded vs Service
+
 **Oso**: In-process, no network overhead
 **InferaDB**: Microservice, network calls
 
 **Solution**: Cache frequently-checked permissions, use batch check for multiple items.
 
 ### 3. Data Management
+
 **Oso**: You manage data layer
 **InferaDB**: Data managed for you
 
 **Solution**: Remove your custom data layer, use InferaDB APIs.
 
 ### 4. ABAC Complexity
+
 **Oso**: Built-in attribute checking
 **InferaDB**: WASM modules required
 
 **Solution**: Evaluate if you really need ABAC, or if ReBAC can model your use case.
 
 ### 5. Schema Changes
+
 **Oso**: Edit .polar file, reload
 **InferaDB**: Deploy new schema
 
@@ -752,33 +793,35 @@ response = requests.post(
 
 ## Performance Comparison
 
-| Operation | Oso (In-process) | InferaDB (Network) | Notes |
-|-----------|------------------|-------------------|-------|
-| Simple Check | <1ms | ~5ms | Network overhead |
-| Complex Check | 1-10ms | 5-20ms | Graph traversal |
-| List Resources | N * check_time | Streaming | InferaDB more efficient |
-| List Users | N * check_time | Streaming | InferaDB far better |
-| Data Updates | Database write | API call | Similar |
+| Operation      | Oso (In-process) | InferaDB (Network) | Notes                   |
+| -------------- | ---------------- | ------------------ | ----------------------- |
+| Simple Check   | <1ms             | ~5ms               | Network overhead        |
+| Complex Check  | 1-10ms           | 5-20ms             | Graph traversal         |
+| List Resources | N \* check_time  | Streaming          | InferaDB more efficient |
+| List Users     | N \* check_time  | Streaming          | InferaDB far better     |
+| Data Updates   | Database write   | API call           | Similar                 |
 
 **When InferaDB is Faster**:
-- ✅ List operations (server-side computation)
-- ✅ Complex hierarchies (optimized graph traversal)
-- ✅ Multi-tenant scenarios (data isolation)
+
+-   ✅ List operations (server-side computation)
+-   ✅ Complex hierarchies (optimized graph traversal)
+-   ✅ Multi-tenant scenarios (data isolation)
 
 **When Oso is Faster**:
-- ⚠️ Single, simple checks (no network)
-- ⚠️ Read-heavy, write-rare workloads (in-memory)
+
+-   ⚠️ Single, simple checks (no network)
+-   ⚠️ Read-heavy, write-rare workloads (in-memory)
 
 ---
 
 ## Support Resources
 
-- **InferaDB Documentation**: [docs/](../README.md)
-- **API Reference**: [api/](../../api/README.md)
-- **Oso Comparison**: [OSO.md](../../OSO.md)
-- **WASM Guide**: [docs/advanced/wasm.md](../advanced/wasm.md)
-- **GitHub Issues**: [Issues](https://github.com/inferadb/server/issues)
-- **Community**: [Discussions](https://github.com/inferadb/server/discussions)
+-   **InferaDB Documentation**: [docs/](../README.md)
+-   **API Reference**: [api/](../../api/README.md)
+-   **Oso Comparison**: [OSO.md](../../OSO.md)
+-   **WASM Guide**: [docs/advanced/wasm.md](../advanced/wasm.md)
+-   **GitHub Issues**: [Issues](https://github.com/inferadb/server/issues)
+-   **Community**: [Discussions](https://github.com/inferadb/server/discussions)
 
 ---
 

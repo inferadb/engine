@@ -4,17 +4,17 @@ Complete guide for configuring InferaDB using configuration files and environmen
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Configuration Methods](#configuration-methods)
-- [Server Configuration](#server-configuration)
-- [Storage Configuration](#storage-configuration)
-- [Cache Configuration](#cache-configuration)
-- [Observability Configuration](#observability-configuration)
-- [Authentication Configuration](#authentication-configuration)
-- [Configuration Profiles](#configuration-profiles)
-- [Secrets Management](#secrets-management)
-- [Validation](#validation)
-- [Best Practices](#best-practices)
+-   [Overview](#overview)
+-   [Configuration Methods](#configuration-methods)
+-   [Server Configuration](#server-configuration)
+-   [Storage Configuration](#storage-configuration)
+-   [Cache Configuration](#cache-configuration)
+-   [Observability Configuration](#observability-configuration)
+-   [Authentication Configuration](#authentication-configuration)
+-   [Configuration Profiles](#configuration-profiles)
+-   [Secrets Management](#secrets-management)
+-   [Validation](#validation)
+-   [Best Practices](#best-practices)
 
 ## Overview
 
@@ -36,56 +36,56 @@ Create a `config.yaml` or `config.json` file:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  worker_threads: 4
-  rate_limiting_enabled: true
+    host: "0.0.0.0"
+    port: 8080
+    worker_threads: 4
+    rate_limiting_enabled: true
 
 store:
-  backend: "memory"
-  connection_string: null
+    backend: "memory"
+    connection_string: null
 
 cache:
-  enabled: true
-  max_capacity: 10000
-  ttl_seconds: 300
+    enabled: true
+    max_capacity: 10000
+    ttl_seconds: 300
 
 observability:
-  log_level: "info"
-  metrics_enabled: true
-  tracing_enabled: true
+    log_level: "info"
+    metrics_enabled: true
+    tracing_enabled: true
 
 auth:
-  enabled: false
+    enabled: false
 ```
 
 **JSON format**:
 
 ```json
 {
-  "server": {
-    "host": "0.0.0.0",
-    "port": 8080,
-    "worker_threads": 4,
-    "rate_limiting_enabled": true
-  },
-  "store": {
-    "backend": "memory",
-    "connection_string": null
-  },
-  "cache": {
-    "enabled": true,
-    "max_capacity": 10000,
-    "ttl_seconds": 300
-  },
-  "observability": {
-    "log_level": "info",
-    "metrics_enabled": true,
-    "tracing_enabled": true
-  },
-  "auth": {
-    "enabled": false
-  }
+    "server": {
+        "host": "0.0.0.0",
+        "port": 8080,
+        "worker_threads": 4,
+        "rate_limiting_enabled": true
+    },
+    "store": {
+        "backend": "memory",
+        "connection_string": null
+    },
+    "cache": {
+        "enabled": true,
+        "max_capacity": 10000,
+        "ttl_seconds": 300
+    },
+    "observability": {
+        "log_level": "info",
+        "metrics_enabled": true,
+        "tracing_enabled": true
+    },
+    "auth": {
+        "enabled": false
+    }
 }
 ```
 
@@ -141,12 +141,12 @@ Controls HTTP/gRPC server behavior.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `host` | string | `"127.0.0.1"` | Server bind address |
-| `port` | integer | `8080` | HTTP server port (gRPC uses port+1) |
-| `worker_threads` | integer | CPU count | Number of Tokio worker threads |
-| `rate_limiting_enabled` | boolean | `true` | Enable rate limiting middleware |
+| Option                  | Type    | Default       | Description                         |
+| ----------------------- | ------- | ------------- | ----------------------------------- |
+| `host`                  | string  | `"127.0.0.1"` | Server bind address                 |
+| `port`                  | integer | `8080`        | HTTP server port (gRPC uses port+1) |
+| `worker_threads`        | integer | CPU count     | Number of Tokio worker threads      |
+| `rate_limiting_enabled` | boolean | `true`        | Enable rate limiting middleware     |
 
 ### Examples
 
@@ -154,20 +154,20 @@ Controls HTTP/gRPC server behavior.
 
 ```yaml
 server:
-  host: "127.0.0.1"
-  port: 8080
-  worker_threads: 2
-  rate_limiting_enabled: false
+    host: "127.0.0.1"
+    port: 8080
+    worker_threads: 2
+    rate_limiting_enabled: false
 ```
 
 **Production** (all interfaces):
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  worker_threads: 8
-  rate_limiting_enabled: true
+    host: "0.0.0.0"
+    port: 8080
+    worker_threads: 8
+    rate_limiting_enabled: true
 ```
 
 ### Environment Variables
@@ -181,9 +181,9 @@ export INFERA__SERVER__RATE_LIMITING_ENABLED=true
 
 ### Recommendations
 
-- **Development**: `host: "127.0.0.1"`, `worker_threads: 2-4`
-- **Production**: `host: "0.0.0.0"`, `worker_threads: 1-2x CPU cores`
-- **High-load**: `worker_threads: 2-4x CPU cores`
+-   **Development**: `host: "127.0.0.1"`, `worker_threads: 2-4`
+-   **Production**: `host: "0.0.0.0"`, `worker_threads: 1-2x CPU cores`
+-   **High-load**: `worker_threads: 2-4x CPU cores`
 
 ## Storage Configuration
 
@@ -191,36 +191,36 @@ Controls the tuple storage backend.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `backend` | string | `"memory"` | Storage backend: `"memory"` or `"foundationdb"` |
-| `connection_string` | string (optional) | `null` | Connection string for storage backend |
+| Option              | Type              | Default    | Description                                     |
+| ------------------- | ----------------- | ---------- | ----------------------------------------------- |
+| `backend`           | string            | `"memory"` | Storage backend: `"memory"` or `"foundationdb"` |
+| `connection_string` | string (optional) | `null`     | Connection string for storage backend           |
 
 ### Backend Options
 
 #### Memory Backend (Development)
 
-- **Use case**: Local development, testing
-- **Persistence**: None (data lost on restart)
-- **Performance**: Fastest
-- **Configuration**: No connection string needed
+-   **Use case**: Local development, testing
+-   **Persistence**: None (data lost on restart)
+-   **Performance**: Fastest
+-   **Configuration**: No connection string needed
 
 ```yaml
 store:
-  backend: "memory"
+    backend: "memory"
 ```
 
 #### FoundationDB Backend (Production)
 
-- **Use case**: Production deployments
-- **Persistence**: ACID transactions, replication
-- **Performance**: High throughput, low latency
-- **Configuration**: Requires FDB cluster file path
+-   **Use case**: Production deployments
+-   **Persistence**: ACID transactions, replication
+-   **Performance**: High throughput, low latency
+-   **Configuration**: Requires FDB cluster file path
 
 ```yaml
 store:
-  backend: "foundationdb"
-  connection_string: "/etc/foundationdb/fdb.cluster"
+    backend: "foundationdb"
+    connection_string: "/etc/foundationdb/fdb.cluster"
 ```
 
 ### Environment Variables
@@ -232,8 +232,8 @@ export INFERA__STORE__CONNECTION_STRING="/etc/foundationdb/fdb.cluster"
 
 ### Recommendations
 
-- **Development/Testing**: Use `memory` backend
-- **Staging/Production**: Use `foundationdb` backend
+-   **Development/Testing**: Use `memory` backend
+-   **Staging/Production**: Use `foundationdb` backend
 
 ## Cache Configuration
 
@@ -241,11 +241,11 @@ Controls the in-memory check result cache.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `true` | Enable result caching |
+| Option         | Type    | Default | Description                      |
+| -------------- | ------- | ------- | -------------------------------- |
+| `enabled`      | boolean | `true`  | Enable result caching            |
 | `max_capacity` | integer | `10000` | Maximum number of cached entries |
-| `ttl_seconds` | integer | `300` | Cache entry TTL (5 minutes) |
+| `ttl_seconds`  | integer | `300`   | Cache entry TTL (5 minutes)      |
 
 ### Examples
 
@@ -253,25 +253,25 @@ Controls the in-memory check result cache.
 
 ```yaml
 cache:
-  enabled: true
-  max_capacity: 10000
-  ttl_seconds: 300
+    enabled: true
+    max_capacity: 10000
+    ttl_seconds: 300
 ```
 
 **Large deployment**:
 
 ```yaml
 cache:
-  enabled: true
-  max_capacity: 1000000
-  ttl_seconds: 600
+    enabled: true
+    max_capacity: 1000000
+    ttl_seconds: 600
 ```
 
 **Testing** (disable for predictability):
 
 ```yaml
 cache:
-  enabled: false
+    enabled: false
 ```
 
 ### Environment Variables
@@ -286,17 +286,17 @@ export INFERA__CACHE__TTL_SECONDS=600
 
 Approximate memory usage per entry: 200-500 bytes
 
-- 10,000 entries ≈ 2-5 MB
-- 100,000 entries ≈ 20-50 MB
-- 1,000,000 entries ≈ 200-500 MB
+-   10,000 entries ≈ 2-5 MB
+-   100,000 entries ≈ 20-50 MB
+-   1,000,000 entries ≈ 200-500 MB
 
 ### Recommendations
 
-- **Development**: `max_capacity: 1,000-10,000`
-- **Production**: `max_capacity: 100,000-1,000,000`
-- **Low-latency workloads**: `ttl_seconds: 60-300`
-- **Standard workloads**: `ttl_seconds: 300-600`
-- **Static data**: `ttl_seconds: 3600+`
+-   **Development**: `max_capacity: 1,000-10,000`
+-   **Production**: `max_capacity: 100,000-1,000,000`
+-   **Low-latency workloads**: `ttl_seconds: 60-300`
+-   **Standard workloads**: `ttl_seconds: 300-600`
+-   **Static data**: `ttl_seconds: 3600+`
 
 ## Observability Configuration
 
@@ -304,11 +304,11 @@ Controls logging, metrics, and tracing.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `log_level` | string | `"info"` | Log level: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"` |
-| `metrics_enabled` | boolean | `true` | Enable Prometheus metrics at `/metrics` |
-| `tracing_enabled` | boolean | `true` | Enable OpenTelemetry distributed tracing |
+| Option            | Type    | Default  | Description                                                    |
+| ----------------- | ------- | -------- | -------------------------------------------------------------- |
+| `log_level`       | string  | `"info"` | Log level: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"` |
+| `metrics_enabled` | boolean | `true`   | Enable Prometheus metrics at `/metrics`                        |
+| `tracing_enabled` | boolean | `true`   | Enable OpenTelemetry distributed tracing                       |
 
 ### Examples
 
@@ -316,18 +316,18 @@ Controls logging, metrics, and tracing.
 
 ```yaml
 observability:
-  log_level: "debug"
-  metrics_enabled: true
-  tracing_enabled: false
+    log_level: "debug"
+    metrics_enabled: true
+    tracing_enabled: false
 ```
 
 **Production**:
 
 ```yaml
 observability:
-  log_level: "info"
-  metrics_enabled: true
-  tracing_enabled: true
+    log_level: "info"
+    metrics_enabled: true
+    tracing_enabled: true
 ```
 
 ### Environment Variables
@@ -356,10 +356,10 @@ export OTEL_SERVICE_NAME="inferadb"
 
 ### Recommendations
 
-- **Development**: `log_level: "debug"`, `tracing_enabled: false`
-- **Production**: `log_level: "info"`, `tracing_enabled: true`
-- **Troubleshooting**: `log_level: "debug"` temporarily
-- **Low disk space**: `log_level: "warn"` or `"error"`
+-   **Development**: `log_level: "debug"`, `tracing_enabled: false`
+-   **Production**: `log_level: "info"`, `tracing_enabled: true`
+-   **Troubleshooting**: `log_level: "debug"` temporarily
+-   **Low disk space**: `log_level: "warn"` or `"error"`
 
 ## Authentication Configuration
 
@@ -369,58 +369,58 @@ For detailed authentication setup, see [Authentication Guide](../security/authen
 
 ### Core Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable authentication |
-| `jwks_cache_ttl` | integer | `300` | JWKS cache TTL (seconds) |
-| `accepted_algorithms` | array | `["EdDSA", "RS256"]` | Accepted JWT algorithms |
-| `enforce_audience` | boolean | `true` | Enforce audience validation |
-| `audience` | string | `"https://api.inferadb.com/evaluate"` | Expected audience value |
-| `allowed_audiences` | array | `["https://api.inferadb.com/evaluate"]` | Allowed audiences |
-| `enforce_scopes` | boolean | `true` | Enforce scope validation |
-| `required_scopes` | array | `[]` | Required scopes for access |
-| `replay_protection` | boolean | `false` | Enable replay protection (requires Redis) |
-| `require_jti` | boolean | `false` | Require JTI claim in tokens |
+| Option                | Type    | Default                                 | Description                               |
+| --------------------- | ------- | --------------------------------------- | ----------------------------------------- |
+| `enabled`             | boolean | `false`                                 | Enable authentication                     |
+| `jwks_cache_ttl`      | integer | `300`                                   | JWKS cache TTL (seconds)                  |
+| `accepted_algorithms` | array   | `["EdDSA", "RS256"]`                    | Accepted JWT algorithms                   |
+| `enforce_audience`    | boolean | `true`                                  | Enforce audience validation               |
+| `audience`            | string  | `"https://api.inferadb.com/evaluate"`   | Expected audience value                   |
+| `allowed_audiences`   | array   | `["https://api.inferadb.com/evaluate"]` | Allowed audiences                         |
+| `enforce_scopes`      | boolean | `true`                                  | Enforce scope validation                  |
+| `required_scopes`     | array   | `[]`                                    | Required scopes for access                |
+| `replay_protection`   | boolean | `false`                                 | Enable replay protection (requires Redis) |
+| `require_jti`         | boolean | `false`                                 | Require JTI claim in tokens               |
 
 ### JWKS Configuration
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `jwks_base_url` | string | `"https://auth.inferadb.com/.well-known"` | Base URL for JWKS |
-| `jwks_url` | string | `""` | Direct JWKS URL (alternative) |
+| Option          | Type   | Default                                   | Description                   |
+| --------------- | ------ | ----------------------------------------- | ----------------------------- |
+| `jwks_base_url` | string | `"https://auth.inferadb.com/.well-known"` | Base URL for JWKS             |
+| `jwks_url`      | string | `""`                                      | Direct JWKS URL (alternative) |
 
 ### OAuth/OIDC Configuration
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `oauth_enabled` | boolean | `false` | Enable OAuth validation |
-| `oidc_discovery_url` | string (optional) | `null` | OIDC discovery endpoint |
-| `oidc_client_id` | string (optional) | `null` | OIDC client ID |
-| `oidc_client_secret` | string (optional) | `null` | OIDC client secret |
-| `oidc_discovery_cache_ttl` | integer | `86400` | OIDC cache TTL (24 hours) |
-| `oauth_introspection_endpoint` | string (optional) | `null` | OAuth introspection URL |
-| `oauth_introspection_client_id` | string (optional) | `null` | Introspection client ID |
-| `oauth_introspection_client_secret` | string (optional) | `null` | Introspection client secret |
-| `introspection_cache_ttl` | integer | `300` | Introspection cache TTL (5 minutes) |
+| Option                              | Type              | Default | Description                         |
+| ----------------------------------- | ----------------- | ------- | ----------------------------------- |
+| `oauth_enabled`                     | boolean           | `false` | Enable OAuth validation             |
+| `oidc_discovery_url`                | string (optional) | `null`  | OIDC discovery endpoint             |
+| `oidc_client_id`                    | string (optional) | `null`  | OIDC client ID                      |
+| `oidc_client_secret`                | string (optional) | `null`  | OIDC client secret                  |
+| `oidc_discovery_cache_ttl`          | integer           | `86400` | OIDC cache TTL (24 hours)           |
+| `oauth_introspection_endpoint`      | string (optional) | `null`  | OAuth introspection URL             |
+| `oauth_introspection_client_id`     | string (optional) | `null`  | Introspection client ID             |
+| `oauth_introspection_client_secret` | string (optional) | `null`  | Introspection client secret         |
+| `introspection_cache_ttl`           | integer           | `300`   | Introspection cache TTL (5 minutes) |
 
 ### Internal Service JWT
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `internal_jwks_path` | path (optional) | `null` | Path to internal JWKS file |
-| `internal_jwks_env` | string (optional) | `null` | Env var with internal JWKS |
-| `internal_issuer` | string | `"inferadb-control-plane"` | Internal JWT issuer |
-| `internal_audience` | string | `"inferadb-pdp"` | Internal JWT audience |
+| Option               | Type              | Default                    | Description                |
+| -------------------- | ----------------- | -------------------------- | -------------------------- |
+| `internal_jwks_path` | path (optional)   | `null`                     | Path to internal JWKS file |
+| `internal_jwks_env`  | string (optional) | `null`                     | Env var with internal JWKS |
+| `internal_issuer`    | string            | `"inferadb-control-plane"` | Internal JWT issuer        |
+| `internal_audience`  | string            | `"inferadb-pdp"`           | Internal JWT audience      |
 
 ### Security Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `clock_skew_seconds` | integer (optional) | `60` | Clock skew tolerance |
-| `max_token_age_seconds` | integer (optional) | `86400` | Max token age (24 hours) |
-| `issuer_allowlist` | array (optional) | `null` | Allowed issuers |
-| `issuer_blocklist` | array (optional) | `null` | Blocked issuers |
-| `redis_url` | string (optional) | `null` | Redis URL for replay protection |
+| Option                  | Type               | Default | Description                     |
+| ----------------------- | ------------------ | ------- | ------------------------------- |
+| `clock_skew_seconds`    | integer (optional) | `60`    | Clock skew tolerance            |
+| `max_token_age_seconds` | integer (optional) | `86400` | Max token age (24 hours)        |
+| `issuer_allowlist`      | array (optional)   | `null`  | Allowed issuers                 |
+| `issuer_blocklist`      | array (optional)   | `null`  | Blocked issuers                 |
+| `redis_url`             | string (optional)  | `null`  | Redis URL for replay protection |
 
 ### Examples
 
@@ -428,49 +428,49 @@ For detailed authentication setup, see [Authentication Guide](../security/authen
 
 ```yaml
 auth:
-  enabled: false
+    enabled: false
 ```
 
 **Production** (Private-Key JWT):
 
 ```yaml
 auth:
-  enabled: true
-  jwks_base_url: "https://your-domain.com/jwks"
-  accepted_algorithms:
-    - "EdDSA"
-    - "RS256"
-    - "ES256"
-  enforce_audience: true
-  allowed_audiences:
-    - "https://api.inferadb.com/evaluate"
-  enforce_scopes: true
-  required_scopes:
-    - "authz:check"
-    - "authz:write"
-  replay_protection: true
-  require_jti: true
-  redis_url: "redis://localhost:6379"
-  clock_skew_seconds: 30
-  max_token_age_seconds: 3600
+    enabled: true
+    jwks_base_url: "https://your-domain.com/jwks"
+    accepted_algorithms:
+        - "EdDSA"
+        - "RS256"
+        - "ES256"
+    enforce_audience: true
+    allowed_audiences:
+        - "https://api.inferadb.com/evaluate"
+    enforce_scopes: true
+    required_scopes:
+        - "authz:check"
+        - "authz:write"
+    replay_protection: true
+    require_jti: true
+    redis_url: "redis://localhost:6379"
+    clock_skew_seconds: 30
+    max_token_age_seconds: 3600
 ```
 
 **Production** (OAuth/OIDC):
 
 ```yaml
 auth:
-  enabled: true
-  oauth_enabled: true
-  oidc_discovery_url: "https://auth.example.com/.well-known/openid-configuration"
-  oidc_client_id: "inferadb-server"
-  oidc_client_secret: "${OAUTH_CLIENT_SECRET}"
-  enforce_audience: true
-  allowed_audiences:
-    - "inferadb-api"
-  enforce_scopes: true
-  required_scopes:
-    - "authz:check"
-    - "authz:write"
+    enabled: true
+    oauth_enabled: true
+    oidc_discovery_url: "https://auth.example.com/.well-known/openid-configuration"
+    oidc_client_id: "inferadb-server"
+    oidc_client_secret: "${OAUTH_CLIENT_SECRET}"
+    enforce_audience: true
+    allowed_audiences:
+        - "inferadb-api"
+    enforce_scopes: true
+    required_scopes:
+        - "authz:check"
+        - "authz:write"
 ```
 
 ### Environment Variables
@@ -499,26 +499,26 @@ Optimized for local development:
 
 ```yaml
 server:
-  host: "127.0.0.1"
-  port: 8080
-  worker_threads: 2
-  rate_limiting_enabled: false
+    host: "127.0.0.1"
+    port: 8080
+    worker_threads: 2
+    rate_limiting_enabled: false
 
 store:
-  backend: "memory"
+    backend: "memory"
 
 cache:
-  enabled: true
-  max_capacity: 1000
-  ttl_seconds: 60
+    enabled: true
+    max_capacity: 1000
+    ttl_seconds: 60
 
 observability:
-  log_level: "debug"
-  metrics_enabled: true
-  tracing_enabled: false
+    log_level: "debug"
+    metrics_enabled: true
+    tracing_enabled: false
 
 auth:
-  enabled: false
+    enabled: false
 ```
 
 ### Production Profile
@@ -527,30 +527,30 @@ Optimized for production deployment:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  worker_threads: 8
-  rate_limiting_enabled: true
+    host: "0.0.0.0"
+    port: 8080
+    worker_threads: 8
+    rate_limiting_enabled: true
 
 store:
-  backend: "foundationdb"
-  connection_string: "/etc/foundationdb/fdb.cluster"
+    backend: "foundationdb"
+    connection_string: "/etc/foundationdb/fdb.cluster"
 
 cache:
-  enabled: true
-  max_capacity: 100000
-  ttl_seconds: 300
+    enabled: true
+    max_capacity: 100000
+    ttl_seconds: 300
 
 observability:
-  log_level: "info"
-  metrics_enabled: true
-  tracing_enabled: true
+    log_level: "info"
+    metrics_enabled: true
+    tracing_enabled: true
 
 auth:
-  enabled: true
-  jwks_base_url: "https://your-domain.com/jwks"
-  replay_protection: true
-  redis_url: "redis://redis:6379"
+    enabled: true
+    jwks_base_url: "https://your-domain.com/jwks"
+    replay_protection: true
+    redis_url: "redis://redis:6379"
 ```
 
 ### Testing Profile
@@ -559,24 +559,24 @@ Optimized for predictable testing:
 
 ```yaml
 server:
-  host: "127.0.0.1"
-  port: 8080
-  worker_threads: 1
-  rate_limiting_enabled: false
+    host: "127.0.0.1"
+    port: 8080
+    worker_threads: 1
+    rate_limiting_enabled: false
 
 store:
-  backend: "memory"
+    backend: "memory"
 
 cache:
-  enabled: false  # Disable for predictable tests
+    enabled: false # Disable for predictable tests
 
 observability:
-  log_level: "warn"
-  metrics_enabled: false
-  tracing_enabled: false
+    log_level: "warn"
+    metrics_enabled: false
+    tracing_enabled: false
 
 auth:
-  enabled: false
+    enabled: false
 ```
 
 ## Secrets Management
@@ -612,26 +612,26 @@ docker service create \
 apiVersion: v1
 kind: Secret
 metadata:
-  name: inferadb-secrets
+    name: inferadb-secrets
 type: Opaque
 stringData:
-  oauth-client-secret: "your-secret-here"
-  redis-url: "redis://:password@redis:6379"
+    oauth-client-secret: "your-secret-here"
+    redis-url: "redis://:password@redis:6379"
 ```
 
 ```yaml
 # In deployment
 env:
-  - name: INFERA__AUTH__OIDC_CLIENT_SECRET
-    valueFrom:
-      secretKeyRef:
-        name: inferadb-secrets
-        key: oauth-client-secret
-  - name: INFERA__AUTH__REDIS_URL
-    valueFrom:
-      secretKeyRef:
-        name: inferadb-secrets
-        key: redis-url
+    - name: INFERA__AUTH__OIDC_CLIENT_SECRET
+      valueFrom:
+          secretKeyRef:
+              name: inferadb-secrets
+              key: oauth-client-secret
+    - name: INFERA__AUTH__REDIS_URL
+      valueFrom:
+          secretKeyRef:
+              name: inferadb-secrets
+              key: redis-url
 ```
 
 ### External Secret Managers
@@ -665,27 +665,32 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 ### Validation Rules
 
 **Server**:
-- `port` must be 1-65535
-- `worker_threads` must be > 0
-- `host` must be a valid IP or hostname
+
+-   `port` must be 1-65535
+-   `worker_threads` must be > 0
+-   `host` must be a valid IP or hostname
 
 **Store**:
-- `backend` must be `"memory"` or `"foundationdb"`
-- `connection_string` required when `backend = "foundationdb"`
+
+-   `backend` must be `"memory"` or `"foundationdb"`
+-   `connection_string` required when `backend = "foundationdb"`
 
 **Cache**:
-- `max_capacity` must be > 0 when enabled
-- `ttl_seconds` must be > 0
+
+-   `max_capacity` must be > 0 when enabled
+-   `ttl_seconds` must be > 0
 
 **Observability**:
-- `log_level` must be valid: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`
+
+-   `log_level` must be valid: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`
 
 **Authentication**:
-- `accepted_algorithms` cannot be empty
-- Cannot accept symmetric algorithms (HS256, HS384, HS512)
-- `replay_protection = true` requires `redis_url`
-- `enforce_audience = true` should have non-empty `allowed_audiences`
-- `clock_skew_seconds > 300` generates warning
+
+-   `accepted_algorithms` cannot be empty
+-   Cannot accept symmetric algorithms (HS256, HS384, HS512)
+-   `replay_protection = true` requires `redis_url`
+-   `enforce_audience = true` should have non-empty `allowed_audiences`
+-   `clock_skew_seconds > 300` generates warning
 
 ### Example Validation Errors
 
@@ -710,93 +715,104 @@ Error: Replay protection enabled but redis_url not configured
 ### Security
 
 1. **Enable authentication in production**
-   ```yaml
-   auth:
-     enabled: true
-   ```
+
+    ```yaml
+    auth:
+        enabled: true
+    ```
 
 2. **Use asymmetric algorithms only**
-   ```yaml
-   auth:
-     accepted_algorithms: ["EdDSA", "RS256", "ES256"]
-   ```
+
+    ```yaml
+    auth:
+        accepted_algorithms: ["EdDSA", "RS256", "ES256"]
+    ```
 
 3. **Enable replay protection**
-   ```yaml
-   auth:
-     replay_protection: true
-     redis_url: "redis://redis:6379"
-   ```
+
+    ```yaml
+    auth:
+        replay_protection: true
+        redis_url: "redis://redis:6379"
+    ```
 
 4. **Validate audiences**
-   ```yaml
-   auth:
-     enforce_audience: true
-     allowed_audiences:
-       - "https://api.inferadb.com/evaluate"
-   ```
+
+    ```yaml
+    auth:
+        enforce_audience: true
+        allowed_audiences:
+            - "https://api.inferadb.com/evaluate"
+    ```
 
 5. **Never commit secrets**
-   - Use environment variables
-   - Use secret managers
-   - Use `.gitignore` for config files with secrets
+    - Use environment variables
+    - Use secret managers
+    - Use `.gitignore` for config files with secrets
 
 ### Performance
 
 1. **Tune worker threads**
-   - CPU-bound: 2x CPU cores
-   - I/O-bound: 4-8x CPU cores
-   - Benchmark and adjust
+
+    - CPU-bound: 2x CPU cores
+    - I/O-bound: 4-8x CPU cores
+    - Benchmark and adjust
 
 2. **Optimize cache settings**
-   - Increase `max_capacity` for large datasets
-   - Adjust `ttl_seconds` based on update frequency
-   - Monitor cache hit rate (target >80%)
+
+    - Increase `max_capacity` for large datasets
+    - Adjust `ttl_seconds` based on update frequency
+    - Monitor cache hit rate (target >80%)
 
 3. **Use FoundationDB in production**
-   - Memory backend doesn't persist
-   - FoundationDB provides ACID + replication
+    - Memory backend doesn't persist
+    - FoundationDB provides ACID + replication
 
 ### Observability
 
 1. **Enable metrics and tracing**
-   ```yaml
-   observability:
-     metrics_enabled: true
-     tracing_enabled: true
-   ```
+
+    ```yaml
+    observability:
+        metrics_enabled: true
+        tracing_enabled: true
+    ```
 
 2. **Choose appropriate log level**
-   - Production: `"info"`
-   - Development: `"debug"`
-   - Troubleshooting: `"debug"` temporarily
+
+    - Production: `"info"`
+    - Development: `"debug"`
+    - Troubleshooting: `"debug"` temporarily
 
 3. **Monitor key metrics**
-   - Request latency (p50, p90, p99)
-   - Error rate
-   - Cache hit rate
-   - Active connections
+    - Request latency (p50, p90, p99)
+    - Error rate
+    - Cache hit rate
+    - Active connections
 
 ### Operations
 
 1. **Use configuration files for defaults**
-   - Non-sensitive configuration
-   - Version control tracked
+
+    - Non-sensitive configuration
+    - Version control tracked
 
 2. **Use environment variables for overrides**
-   - Secrets
-   - Environment-specific values
-   - Dynamic configuration
+
+    - Secrets
+    - Environment-specific values
+    - Dynamic configuration
 
 3. **Validate before deploying**
-   ```bash
-   inferadb --config config.yaml --validate
-   ```
+
+    ```bash
+    inferadb --config config.yaml --validate
+    ```
 
 4. **Document configuration changes**
-   - Comment config files
-   - Track in version control
-   - Document non-obvious values
+    - Comment config files
+    - Track in version control
+    - Document non-obvious values
 
 ## Deployment Examples
 
@@ -805,20 +821,20 @@ Error: Replay protection enabled but redis_url not configured
 ```yaml
 version: "3.8"
 services:
-  inferadb:
-    image: inferadb:latest
-    ports:
-      - "8080:8080"
-      - "8081:8081"
-    environment:
-      INFERA__SERVER__HOST: "0.0.0.0"
-      INFERA__SERVER__PORT: "8080"
-      INFERA__STORE__BACKEND: "foundationdb"
-      INFERA__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
-      INFERA__AUTH__ENABLED: "true"
-      INFERA__AUTH__JWKS_BASE_URL: "https://your-domain.com/jwks"
-    volumes:
-      - /etc/foundationdb:/etc/foundationdb:ro
+    inferadb:
+        image: inferadb:latest
+        ports:
+            - "8080:8080"
+            - "8081:8081"
+        environment:
+            INFERA__SERVER__HOST: "0.0.0.0"
+            INFERA__SERVER__PORT: "8080"
+            INFERA__STORE__BACKEND: "foundationdb"
+            INFERA__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
+            INFERA__AUTH__ENABLED: "true"
+            INFERA__AUTH__JWKS_BASE_URL: "https://your-domain.com/jwks"
+        volumes:
+            - /etc/foundationdb:/etc/foundationdb:ro
 ```
 
 ### Kubernetes
@@ -852,7 +868,7 @@ Reduce cache size:
 
 ```yaml
 cache:
-  max_capacity: 10000  # Reduce from larger value
+    max_capacity: 10000 # Reduce from larger value
 ```
 
 ### Slow Performance
@@ -863,8 +879,8 @@ cache:
 
 ## See Also
 
-- [Authentication Guide](../security/authentication.md) - Detailed authentication setup
-- [Deployment Guide](deployment.md) - Production deployment
-- [Observability Guide](../operations/observability/README.md) - Metrics and tracing
-- [Kubernetes Deployment](../k8s/README.md) - K8s manifests
-- [Helm Chart](../../helm/README.md) - Helm deployment
+-   [Authentication Guide](../security/authentication.md) - Detailed authentication setup
+-   [Deployment Guide](deployment.md) - Production deployment
+-   [Observability Guide](../operations/observability/README.md) - Metrics and tracing
+-   [Kubernetes Deployment](../k8s/README.md) - K8s manifests
+-   [Helm Chart](../../helm/README.md) - Helm deployment

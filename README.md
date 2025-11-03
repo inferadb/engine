@@ -6,23 +6,24 @@ InferaDB delivers millisecond-scale authorization decisions at global scale thro
 
 ## What Makes InferaDB Special?
 
-- **Blazing Fast**: Sub-10ms authorization checks with intelligent caching
-- **Complete API Surface**: Check, Expand, ListResources, ListSubjects, ListRelationships, Watch
-- **Wildcard Support**: Model public resources with `user:*` pattern (Phase 3.1)
-- **Real-time Updates**: Watch API streams relationship changes via gRPC/SSE (Phase 2.2)
-- **Global Scale**: Multi-region replication with active-active deployment
-- **Production Ready**: JWT/OAuth authentication, graceful shutdown, health checks
-- **Observable**: Prometheus metrics, OpenTelemetry tracing, structured logging
-- **ReBAC Native**: First-class relationship traversal and computed usersets
-- **Flexible Storage**: Memory backend for dev, FoundationDB for production
-- **Extensible**: WASM modules for custom authorization logic
+-   **Blazing Fast**: Sub-10ms authorization checks with intelligent caching
+-   **Complete API Surface**: Check, Expand, ListResources, ListSubjects, ListRelationships, Watch
+-   **Multi-Tenant**: Complete data isolation using Accounts and Vaults
+-   **Wildcard Support**: Model public resources with `user:*` pattern (Phase 3.1)
+-   **Real-time Updates**: Watch API streams relationship changes via gRPC/SSE (Phase 2.2)
+-   **Global Scale**: Multi-region replication with active-active deployment
+-   **Production Ready**: JWT/OAuth authentication, graceful shutdown, health checks
+-   **Observable**: Prometheus metrics, OpenTelemetry tracing, structured logging
+-   **ReBAC Native**: First-class relationship traversal and computed usersets
+-   **Flexible Storage**: Memory backend for dev, FoundationDB for production
+-   **Extensible**: WASM modules for custom authorization logic
 
 ## Quick Start
 
 ### Prerequisites
 
-- [Mise](https://mise.jdx.dev/)
-- Rust 1.83+
+-   [Mise](https://mise.jdx.dev/)
+-   Rust 1.83+
 
 ### Get Running in 60 Seconds
 
@@ -105,15 +106,15 @@ InferaDB is built as a modular Rust workspace:
 
 **Core Crates:**
 
-- **infera-core** - Policy evaluation engine and IPL interpreter
-- **infera-store** - Storage abstraction (Memory, FoundationDB)
-- **infera-api** - REST and gRPC APIs with authentication
-- **infera-auth** - JWT/OAuth validation, JWKS caching
-- **infera-cache** - Intelligent authorization result caching
-- **infera-repl** - Multi-region replication with conflict resolution
-- **infera-wasm** - WebAssembly policy module runtime
-- **infera-observe** - Metrics, tracing, and logging
-- **infera-config** - Configuration management
+-   **infera-core** - Policy evaluation engine and IPL interpreter
+-   **infera-store** - Storage abstraction (Memory, FoundationDB)
+-   **infera-api** - REST and gRPC APIs with authentication
+-   **infera-auth** - JWT/OAuth validation, JWKS caching
+-   **infera-cache** - Intelligent authorization result caching
+-   **infera-repl** - Multi-region replication with conflict resolution
+-   **infera-wasm** - WebAssembly policy module runtime
+-   **infera-observe** - Metrics, tracing, and logging
+-   **infera-config** - Configuration management
 
 **→ Learn more in the [Architecture Overview](docs/architecture.md)**
 
@@ -152,24 +153,24 @@ Configure InferaDB using any combination of:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  worker_threads: 8
+    host: "0.0.0.0"
+    port: 8080
+    worker_threads: 8
 
 store:
-  backend: "foundationdb"
-  connection_string: "/etc/foundationdb/fdb.cluster"
+    backend: "foundationdb"
+    connection_string: "/etc/foundationdb/fdb.cluster"
 
 cache:
-  enabled: true
-  max_capacity: 100000
-  ttl_seconds: 300
+    enabled: true
+    max_capacity: 100000
+    ttl_seconds: 300
 
 auth:
-  enabled: true
-  jwks_base_url: "https://your-domain.com/jwks"
-  replay_protection: true
-  redis_url: "redis://redis:6379"
+    enabled: true
+    jwks_base_url: "https://your-domain.com/jwks"
+    replay_protection: true
+    redis_url: "redis://redis:6379"
 ```
 
 **→ Complete reference: [Configuration Guide](docs/guides/configuration.md)**
@@ -178,12 +179,12 @@ auth:
 
 InferaDB is production-ready with multiple deployment options:
 
-- **Docker**: Multi-stage builds with distroless base images
-- **Kubernetes**: Manifests with security contexts and health probes
-- **Helm**: Comprehensive chart with autoscaling and monitoring
-- **Terraform**: One-command cloud deployment on AWS and GCP
-- **Health Checks**: Liveness, readiness, and startup endpoints
-- **Graceful Shutdown**: Connection draining and clean termination
+-   **Docker**: Multi-stage builds with distroless base images
+-   **Kubernetes**: Manifests with security contexts and health probes
+-   **Helm**: Comprehensive chart with autoscaling and monitoring
+-   **Terraform**: One-command cloud deployment on AWS and GCP
+-   **Health Checks**: Liveness, readiness, and startup endpoints
+-   **Graceful Shutdown**: Connection draining and clean termination
 
 ```bash
 # Docker
@@ -211,44 +212,46 @@ Comprehensive documentation organized by topic:
 
 ### Getting Started
 
-- [Quick Start Guide](docs/quickstart.md) - Get running in 5 minutes
-- [Architecture Overview](docs/architecture.md) - System design and components
+-   [Quick Start Guide](docs/quickstart.md) - Get running in 5 minutes
+-   [Architecture Overview](docs/architecture.md) - System design and components
+-   [Multi-Tenancy Architecture](docs/architecture/multi-tenancy.md) - Accounts, Vaults, and data isolation
+-   [Multi-Tenant Deployment Guide](docs/deployment/multi-tenant.md) - Production deployment for multi-tenancy
 
 ### User Guides
 
-- [Building from Source](docs/guides/building.md) - Development setup
-- [Configuration](docs/guides/configuration.md) - Configuration reference
-- [Deployment](docs/guides/deployment.md) - Production deployment
-- [Testing](docs/guides/testing.md) - Testing guide
+-   [Building from Source](docs/guides/building.md) - Development setup
+-   [Configuration](docs/guides/configuration.md) - Configuration reference
+-   [Deployment](docs/guides/deployment.md) - Production deployment
+-   [Testing](docs/guides/testing.md) - Testing guide
 
 ### API Reference
 
-- [API Documentation Hub](api/README.md) - Complete API portal
-- [REST API Explorer (Swagger UI)](api/swagger-ui.html) - Interactive testing
-- [gRPC API Explorer](api/grpc-explorer.html) - Interactive gRPC testing
-- [REST API](api/rest.md) - HTTP/JSON endpoints
-- [gRPC API](api/grpc.md) - High-performance gRPC
-- [OpenAPI Spec](api/openapi.yaml) - OpenAPI 3.1 specification
+-   [API Documentation Hub](api/README.md) - Complete API portal
+-   [REST API Explorer (Swagger UI)](api/swagger-ui.html) - Interactive testing
+-   [gRPC API Explorer](api/grpc-explorer.html) - Interactive gRPC testing
+-   [REST API](api/rest.md) - HTTP/JSON endpoints
+-   [gRPC API](api/grpc.md) - High-performance gRPC
+-   [OpenAPI Spec](api/openapi.yaml) - OpenAPI 3.1 specification
 
 ### Core Concepts
 
-- [Evaluation Engine](docs/core/evaluation.md) - How decisions are made
-- [IPL Language](docs/core/ipl.md) - Policy definition language
-- [Caching](docs/core/caching.md) - Caching system
-- [Revision Tokens](docs/core/revisions.md) - Snapshot consistency
+-   [Evaluation Engine](docs/core/evaluation.md) - How decisions are made
+-   [IPL Language](docs/core/ipl.md) - Policy definition language
+-   [Caching](docs/core/caching.md) - Caching system
+-   [Revision Tokens](docs/core/revisions.md) - Snapshot consistency
 
 ### Operations
 
-- [Observability](docs/operations/observability.md) - Metrics and tracing
-- [Performance](docs/operations/performance.md) - Performance baselines
-- [SLOs](docs/operations/slos.md) - Service level objectives
-- [Runbooks](docs/runbooks/README.md) - Operational procedures
+-   [Observability](docs/operations/observability.md) - Metrics and tracing
+-   [Performance](docs/operations/performance.md) - Performance baselines
+-   [SLOs](docs/operations/slos.md) - Service level objectives
+-   [Runbooks](docs/runbooks/README.md) - Operational procedures
 
 ### Security
 
-- [Authentication](docs/security/authentication.md) - JWT/OAuth setup
-- [Production Hardening](docs/security/hardening.md) - Security checklist
-- [Rate Limiting](docs/security/ratelimiting.md) - Rate limiting guide
+-   [Authentication](docs/security/authentication.md) - JWT/OAuth setup
+-   [Production Hardening](docs/security/hardening.md) - Security checklist
+-   [Rate Limiting](docs/security/ratelimiting.md) - Rate limiting guide
 
 **→ Browse all documentation: [docs/README.md](docs/README.md)**
 
@@ -271,10 +274,10 @@ _Benchmarks: 8-core CPU, memory backend, single region_
 
 We welcome contributions! Please see:
 
-- [Contributing Guide](CONTRIBUTING.md) - Contribution process and guidelines
-- [Developer Documentation](docs/developers/README.md) - Codebase structure and development guide
-- [Code Style Guidelines](AGENTS.md) - Code quality standards
-- [Issue Tracker](https://github.com/inferadb/server/issues) - Report bugs or request features
+-   [Contributing Guide](CONTRIBUTING.md) - Contribution process and guidelines
+-   [Developer Documentation](docs/developers/README.md) - Codebase structure and development guide
+-   [Code Style Guidelines](AGENTS.md) - Code quality standards
+-   [Issue Tracker](https://github.com/inferadb/server/issues) - Report bugs or request features
 
 ## License
 

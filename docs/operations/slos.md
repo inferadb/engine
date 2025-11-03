@@ -28,10 +28,10 @@ sum(rate(inferadb_checks_total[30d])) - sum(rate(inferadb_api_errors_total{code=
 
 **Exclusions**:
 
-- Scheduled maintenance (with 48h notice)
-- Client errors (4xx status codes)
-- DDoS attacks
-- Third-party service failures (OAuth provider, JWKS endpoint)
+-   Scheduled maintenance (with 48h notice)
+-   Client errors (4xx status codes)
+-   DDoS attacks
+-   Third-party service failures (OAuth provider, JWKS endpoint)
 
 **Rationale**: 99.9% provides a balance between reliability and operational flexibility for an authorization service. Higher availability (99.99%) requires significantly more infrastructure investment.
 
@@ -52,24 +52,24 @@ histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 100
 
 **Additional Targets**:
 
-- **p50 < 2ms**: Median latency for typical requests
-- **p90 < 5ms**: 90th percentile latency
-- **p99.9 < 50ms**: Tail latency for complex evaluations
+-   **p50 < 2ms**: Median latency for typical requests
+-   **p90 < 5ms**: 90th percentile latency
+-   **p99.9 < 50ms**: Tail latency for complex evaluations
 
 **Measurement Window**: 5-minute rolling window
 
 **Exclusions**:
 
-- Requests with WASM policy execution (tracked separately)
-- First request after cold start
-- Requests during cache warming
+-   Requests with WASM policy execution (tracked separately)
+-   First request after cold start
+-   Requests during cache warming
 
 **Rationale**: Authorization is on the critical path for user requests. 10ms p99 allows for authorization checks without significantly impacting user-perceived latency (typical web requests: 100-200ms).
 
 **WASM Latency SLO**:
 
-- **Target**: p99 < 50ms for WASM-enhanced checks
-- WASM execution adds overhead but enables custom policies
+-   **Target**: p99 < 50ms for WASM-enhanced checks
+-   WASM execution adds overhead but enables custom policies
 
 ---
 
@@ -93,9 +93,9 @@ sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
 
 **Exclusions**:
 
-- Client errors (4xx): validation errors, auth failures, not found
-- Rate limit errors (429)
-- Upstream service failures (if properly handled)
+-   Client errors (4xx): validation errors, auth failures, not found
+-   Rate limit errors (429)
+-   Upstream service failures (if properly handled)
 
 **Rationale**: Authorization services must be highly reliable. 0.1% error rate ensures that authorization doesn't become a common source of application failures.
 
@@ -202,9 +202,9 @@ histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))
 
 ### Monitoring Frequency
 
-- **Real-time**: Dashboard updates every 30 seconds
-- **Alerting**: 1-minute evaluation windows for fast response
-- **Reporting**: Daily SLO reports, weekly trends, monthly compliance
+-   **Real-time**: Dashboard updates every 30 seconds
+-   **Alerting**: 1-minute evaluation windows for fast response
+-   **Reporting**: Daily SLO reports, weekly trends, monthly compliance
 
 ### SLO Compliance Dashboard
 
@@ -242,9 +242,9 @@ sum(rate(inferadb_cache_hits_total[5m]))
 
 **When error budget is healthy (>50% remaining)**:
 
-- Normal feature development continues
-- May take calculated risks on performance optimizations
-- Can deploy more frequently
+-   Normal feature development continues
+-   May take calculated risks on performance optimizations
+-   Can deploy more frequently
 
 ---
 
@@ -269,26 +269,26 @@ Use **multi-window, multi-burn-rate alerts** to catch SLO violations early while
 # Fast burn (1h window): 14.4x burn rate = 0.1% error budget in 1h
 - alert: AvailabilitySLOFastBurn
   expr: |
-    sum(rate(inferadb_api_errors_total{code=~"5.."}[1h]))
-    / sum(rate(inferadb_checks_total[1h])) > 0.0144
+      sum(rate(inferadb_api_errors_total{code=~"5.."}[1h]))
+      / sum(rate(inferadb_checks_total[1h])) > 0.0144
   for: 5m
   labels:
-    severity: P0
+      severity: P0
   annotations:
-    summary: "Fast availability SLO burn"
-    description: "Error rate {{ $value }} exceeds 1.44% (14.4x burn rate)"
+      summary: "Fast availability SLO burn"
+      description: "Error rate {{ $value }} exceeds 1.44% (14.4x burn rate)"
 
 # Slow burn (24h window): 3x burn rate = 0.1% error budget in 24h
 - alert: AvailabilitySLOSlowBurn
   expr: |
-    sum(rate(inferadb_api_errors_total{code=~"5.."}[24h]))
-    / sum(rate(inferadb_checks_total[24h])) > 0.003
+      sum(rate(inferadb_api_errors_total{code=~"5.."}[24h]))
+      / sum(rate(inferadb_checks_total[24h])) > 0.003
   for: 1h
   labels:
-    severity: P1
+      severity: P1
   annotations:
-    summary: "Slow availability SLO burn"
-    description: "Error rate {{ $value }} exceeds 0.3% (3x burn rate)"
+      summary: "Slow availability SLO burn"
+      description: "Error rate {{ $value }} exceeds 0.3% (3x burn rate)"
 ```
 
 ---
@@ -297,22 +297,22 @@ Use **multi-window, multi-burn-rate alerts** to catch SLO violations early while
 
 ### Production
 
-- Availability: 99.9%
-- Latency p99: <10ms
-- Error rate: <0.1%
-- Cache hit rate: >80%
+-   Availability: 99.9%
+-   Latency p99: <10ms
+-   Error rate: <0.1%
+-   Cache hit rate: >80%
 
 ### Staging
 
-- Availability: 99.5%
-- Latency p99: <20ms
-- Error rate: <0.5%
-- Cache hit rate: >70%
+-   Availability: 99.5%
+-   Latency p99: <20ms
+-   Error rate: <0.5%
+-   Cache hit rate: >70%
 
 ### Development
 
-- No strict SLOs (best effort)
-- Used for testing and experimentation
+-   No strict SLOs (best effort)
+-   Used for testing and experimentation
 
 ---
 
@@ -336,10 +336,10 @@ Use **multi-window, multi-burn-rate alerts** to catch SLO violations early while
 
 SLOs should evolve with the system:
 
-- **Too easy** (always met with 90%+ error budget): Tighten targets
-- **Too strict** (rarely met): Relax targets or invest in reliability
-- **New features**: Define SLOs for new capabilities
-- **Workload changes**: Adjust based on actual usage patterns
+-   **Too easy** (always met with 90%+ error budget): Tighten targets
+-   **Too strict** (rarely met): Relax targets or invest in reliability
+-   **New features**: Define SLOs for new capabilities
+-   **Workload changes**: Adjust based on actual usage patterns
 
 ---
 
@@ -347,9 +347,9 @@ SLOs should evolve with the system:
 
 ### Traffic Growth Assumptions
 
-- **Linear growth**: 20% quarter-over-quarter
-- **Seasonal peaks**: 2x normal traffic during peaks
-- **Provision for**: 3x current peak capacity
+-   **Linear growth**: 20% quarter-over-quarter
+-   **Seasonal peaks**: 2x normal traffic during peaks
+-   **Provision for**: 3x current peak capacity
 
 ### Scaling Triggers
 
@@ -363,9 +363,9 @@ SLOs should evolve with the system:
 
 ### Cost vs. Reliability Trade-offs
 
-- **99.9% → 99.99%**: ~3-5x infrastructure cost
-- **Cache size doubling**: ~10% cost increase, +5-10% hit rate
-- **Additional regions**: +50% cost per region, -50ms latency for users
+-   **99.9% → 99.99%**: ~3-5x infrastructure cost
+-   **Cache size doubling**: ~10% cost increase, +5-10% hit rate
+-   **Additional regions**: +50% cost per region, -50ms latency for users
 
 ---
 
@@ -384,10 +384,10 @@ SLOs should evolve with the system:
 
 **Response**:
 
-- If cache-related: Increase cache size or TTL
-- If storage-related: Optimize queries or scale storage
-- If evaluation-related: Optimize policy or add caching
-- If deployment-related: Rollback and investigate
+-   If cache-related: Increase cache size or TTL
+-   If storage-related: Optimize queries or scale storage
+-   If evaluation-related: Optimize policy or add caching
+-   If deployment-related: Rollback and investigate
 
 **Postmortem**: Document findings and preventive measures
 
@@ -409,9 +409,9 @@ SLOs should evolve with the system:
 
 ## References
 
-- [Google SRE Book - Service Level Objectives](https://sre.google/sre-book/service-level-objectives/)
-- [Prometheus Alerting Best Practices](https://prometheus.io/docs/practices/alerting/)
-- [Multi-window, Multi-burn-rate Alerts](https://sre.google/workbook/alerting-on-slos/)
+-   [Google SRE Book - Service Level Objectives](https://sre.google/sre-book/service-level-objectives/)
+-   [Prometheus Alerting Best Practices](https://prometheus.io/docs/practices/alerting/)
+-   [Multi-window, Multi-burn-rate Alerts](https://sre.google/workbook/alerting-on-slos/)
 
 ---
 
