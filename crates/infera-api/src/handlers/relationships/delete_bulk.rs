@@ -4,7 +4,7 @@ use axum::{Json, extract::State};
 use infera_types::{DeleteFilter, Relationship, RelationshipKey};
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::get_vault};
+use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DeleteRequest {
@@ -36,30 +36,21 @@ pub async fn delete_relationships_handler(
     State(state): State<AppState>,
     Json(request): Json<DeleteRequest>,
 ) -> Result<Json<DeleteResponse>> {
-    // Extract vault from auth context or use default
-    let vault = get_vault(&auth.0, state.default_vault);
+    // Authorize request and extract vault
+    let vault = authorize_request(
+        &auth.0,
+        state.default_vault,
+        state.config.auth.enabled,
+        &["inferadb.write"],
+    )?;
 
-    // Validate vault access (basic nil check)
+    // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        infera_auth::validate_vault_access(auth_ctx)
-            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
-    }
-
-    // If auth is enabled and present, validate scope
-    if state.config.auth.enabled {
-        if let Some(ref auth_ctx) = auth.0 {
-            // Require inferadb.write scope (delete is a write operation)
-            infera_auth::middleware::require_scope(auth_ctx, "inferadb.write")
-                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!(
-                vault = %vault,
-                tenant_id = %auth_ctx.tenant_id,
-                "Delete request from tenant"
-            );
-        } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
-        }
+        tracing::debug!(
+            vault = %vault,
+            tenant_id = %auth_ctx.tenant_id,
+            "Delete request from tenant"
+        );
     }
 
     // Validate that at least one deletion method is specified

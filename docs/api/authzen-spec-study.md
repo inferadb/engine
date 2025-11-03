@@ -12,11 +12,11 @@ AuthZEN (Authorization API) is an OpenID Foundation standard that defines a comm
 
 **Key Findings**:
 
--   AuthZEN uses versioned paths: `/access/v1/`
--   All operations use POST method with JSON payloads
--   Standard data model: Subject + Resource + Action → Decision
--   Extensible through properties, context, and registered capabilities
--   InferaDB's ReBAC features extend beyond AuthZEN's core scope
+- AuthZEN uses versioned paths: `/access/v1/`
+- All operations use POST method with JSON payloads
+- Standard data model: Subject + Resource + Action → Decision
+- Extensible through properties, context, and registered capabilities
+- InferaDB's ReBAC features extend beyond AuthZEN's core scope
 
 ---
 
@@ -32,15 +32,15 @@ The AuthZEN specification mandates the following capabilities for compliant impl
 
 **Required Fields**:
 
--   `subject` (object, required): Principal making the request
--   `resource` (object, required): Target entity
--   `action` (object, required): Intended operation
--   `context` (object, optional): Environmental attributes
+- `subject` (object, required): Principal making the request
+- `resource` (object, required): Target entity
+- `action` (object, required): Intended operation
+- `context` (object, optional): Environmental attributes
 
 **Response**:
 
--   HTTP 200 with `{"decision": boolean, "context": object}`
--   Decision `false` does NOT return error status; it returns 200 with decision=false
+- HTTP 200 with `{"decision": boolean, "context": object}`
+- Decision `false` does NOT return error status; it returns 200 with decision=false
 
 **Compliance**: ✅ REQUIRED for all implementations
 
@@ -85,9 +85,9 @@ AuthZEN defines several optional features that implementations MAY provide:
 
 **Options**:
 
--   `execute_all`: Evaluate all requests regardless of individual results
--   `deny_on_first_deny`: Stop on first denial
--   `permit_on_first_permit`: Stop on first permit
+- `execute_all`: Evaluate all requests regardless of individual results
+- `deny_on_first_deny`: Stop on first denial
+- `permit_on_first_permit`: Stop on first permit
 
 **Response**:
 
@@ -263,8 +263,8 @@ AuthZEN defines three search endpoints:
 
 **Placement**: Between host and path per RFC 8615
 
--   ✅ Correct: `https://pdp.example.com/.well-known/authzen-configuration`
--   ❌ Incorrect: `https://pdp.example.com/api/.well-known/authzen-configuration`
+- ✅ Correct: `https://pdp.example.com/.well-known/authzen-configuration`
+- ❌ Incorrect: `https://pdp.example.com/api/.well-known/authzen-configuration`
 
 **Compliance**: ⚠️ OPTIONAL (strongly recommended for discovery)
 
@@ -298,9 +298,9 @@ AuthZEN defines three search endpoints:
 
 **Notes**:
 
--   Tokens are opaque and implementation-specific
--   `page.properties` allows custom pagination parameters
--   Size limits are implementation-defined
+- Tokens are opaque and implementation-specific
+- `page.properties` allows custom pagination parameters
+- Size limits are implementation-defined
 
 **Compliance**: ⚠️ OPTIONAL
 
@@ -324,8 +324,8 @@ AuthZEN uses standard HTTP status codes with JSON error bodies:
 
 ⚠️ **Authorization Denial vs Request Error**:
 
--   Authorization denial (decision=false): Returns **200 OK** with `{"decision": false}`
--   Request error (malformed): Returns **400 Bad Request** with error message
+- Authorization denial (decision=false): Returns **200 OK** with `{"decision": false}`
+- Request error (malformed): Returns **400 Bad Request** with error message
 
 This is a critical distinction. A successful evaluation that denies access is NOT an error.
 
@@ -505,11 +505,11 @@ Error responses include a descriptive message:
 
 **Fields**:
 
--   `decision`: `true` (permit) or `false` (deny)
--   `context.id`: Unique evaluation identifier
--   `context.reason_admin`: Admin-facing explanation (localized)
--   `context.reason_user`: User-facing explanation (localized)
--   `context` may include custom fields for obligations, advice, etc.
+- `decision`: `true` (permit) or `false` (deny)
+- `context.id`: Unique evaluation identifier
+- `context.reason_admin`: Admin-facing explanation (localized)
+- `context.reason_user`: User-facing explanation (localized)
+- `context` may include custom fields for obligations, advice, etc.
 
 ---
 
@@ -525,9 +525,9 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Use Cases**:
 
--   Subject properties: roles, groups, department
--   Resource properties: owner, classification, tags
--   Action properties: method, protocol, parameters
+- Subject properties: roles, groups, department
+- Resource properties: owner, classification, tags
+- Action properties: method, protocol, parameters
 
 **Example**:
 
@@ -552,16 +552,16 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Request Context Use Cases**:
 
--   IP address, geolocation
--   Time of day, date
--   Client metadata
+- IP address, geolocation
+- Time of day, date
+- Client metadata
 
 **Response Context Use Cases**:
 
--   Evaluation ID for auditing
--   Reasons for decision (admin/user-facing)
--   Obligations (e.g., "must audit this access")
--   Step-up authentication requirements
+- Evaluation ID for auditing
+- Reasons for decision (admin/user-facing)
+- Obligations (e.g., "must audit this access")
+- Step-up authentication requirements
 
 ### 6.3 Decision Context
 
@@ -571,11 +571,11 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Common Uses**:
 
--   `reason_admin`: Detailed explanation for admins
--   `reason_user`: User-friendly explanation
--   `obligations`: Actions that must be taken if decision is permit
--   `advice`: Optional recommendations
--   `step_up_required`: Additional authentication needed
+- `reason_admin`: Detailed explanation for admins
+- `reason_user`: User-friendly explanation
+- `obligations`: Actions that must be taken if decision is permit
+- `advice`: Optional recommendations
+- `step_up_required`: Additional authentication needed
 
 **Example**:
 
@@ -619,9 +619,9 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Use Cases**:
 
--   Custom sorting: `{"sort_by": "name", "order": "asc"}`
--   Filtering: `{"filter": "active_only"}`
--   Performance hints: `{"consistency": "eventual"}`
+- Custom sorting: `{"sort_by": "name", "order": "asc"}`
+- Filtering: `{"filter": "active_only"}`
+- Performance hints: `{"consistency": "eventual"}`
 
 ### 6.6 Batch Evaluation Options
 
@@ -629,9 +629,9 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 **Defined Options**:
 
--   `execute_all`
--   `deny_on_first_deny`
--   `permit_on_first_permit`
+- `execute_all`
+- `deny_on_first_deny`
+- `permit_on_first_permit`
 
 **Extensibility**: New options can be defined in registered specifications
 
@@ -657,11 +657,11 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 **Endpoints**:
 
--   `POST /v1/relationships:write` - Create relationships
--   `POST /v1/relationships:list` - Query relationships
--   `POST /v1/relationships:delete` - Delete relationships
--   `GET /v1/relationships/{resource}/{relation}/{subject}` - Exact match query
--   `DELETE /v1/relationships/{resource}/{relation}/{subject}` - Exact match deletion
+- `POST /v1/relationships:write` - Create relationships
+- `POST /v1/relationships:list` - Query relationships
+- `POST /v1/relationships:delete` - Delete relationships
+- `GET /v1/relationships/{resource}/{relation}/{subject}` - Exact match query
+- `DELETE /v1/relationships/{resource}/{relation}/{subject}` - Exact match deletion
 
 **Purpose**: Direct ReBAC relationship management
 
@@ -733,9 +733,9 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 **InferaDB Approach**: Support both formats
 
--   AuthZEN endpoints: Structured format
--   Native endpoints: String format or structured
--   Internal storage: String format (more compact)
+- AuthZEN endpoints: Structured format
+- Native endpoints: String format or structured
+- Internal storage: String format (more compact)
 
 **AuthZEN Status**: ⚠️ Partial alignment (different serialization)
 
@@ -762,9 +762,9 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 **Legend**:
 
--   ✅ Required/Supported: Full compliance or support
--   ⚠️ Optional: Recommended but not required
--   ❌ Not in spec/Not planned: Not part of AuthZEN or not implementing
+- ✅ Required/Supported: Full compliance or support
+- ⚠️ Optional: Recommended but not required
+- ❌ Not in spec/Not planned: Not part of AuthZEN or not implementing
 
 ---
 
@@ -791,8 +791,8 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 Create bidirectional adapter:
 
--   **AuthZEN → InferaDB**: Parse `{"type": "user", "id": "alice"}` → `"user:alice"`
--   **InferaDB → AuthZEN**: Format `"user:alice"` → `{"type": "user", "id": "alice"}`
+- **AuthZEN → InferaDB**: Parse `{"type": "user", "id": "alice"}` → `"user:alice"`
+- **InferaDB → AuthZEN**: Format `"user:alice"` → `{"type": "user", "id": "alice"}`
 
 ### 9.3 Extension Declaration
 
@@ -830,15 +830,15 @@ In `/.well-known/authzen-configuration`:
 
 **Chosen Approach**: URL versioning
 
--   AuthZEN endpoints: `/access/v1/*` (per spec)
--   Native endpoints: `/v1/*` (InferaDB versioning)
--   Future evolution: `/access/v2/*`, `/v2/*` as needed
+- AuthZEN endpoints: `/access/v1/*` (per spec)
+- Native endpoints: `/v1/*` (InferaDB versioning)
+- Future evolution: `/access/v2/*`, `/v2/*` as needed
 
 **Benefits**:
 
--   Clear separation of API versions
--   Follows AuthZEN spec exactly
--   Allows independent evolution of native API
+- Clear separation of API versions
+- Follows AuthZEN spec exactly
+- Allows independent evolution of native API
 
 ---
 
@@ -864,10 +864,10 @@ In `/.well-known/authzen-configuration`:
 
 ## 11. References
 
--   [AuthZEN Specification](https://openid.github.io/authzen/)
--   [RFC 8615 - Well-Known URIs](https://www.rfc-editor.org/rfc/rfc8615.html)
--   [OpenID Foundation AuthZEN Working Group](https://openid.net/wg/authzen/)
--   InferaDB RELATIONSHIPS.md (implementation plan)
+- [AuthZEN Specification](https://openid.github.io/authzen/)
+- [RFC 8615 - Well-Known URIs](https://www.rfc-editor.org/rfc/rfc8615.html)
+- [OpenID Foundation AuthZEN Working Group](https://openid.net/wg/authzen/)
+- InferaDB RELATIONSHIPS.md (implementation plan)
 
 ---
 

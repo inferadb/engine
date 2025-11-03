@@ -30,6 +30,7 @@ This document provides a comprehensive reference for all Prometheus metrics expo
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_checks_total[5m])
 ```
@@ -43,6 +44,7 @@ rate(inferadb_checks_total[5m])
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m]))
 ```
@@ -56,6 +58,7 @@ sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_checks_denied_total[5m])
 ```
@@ -71,6 +74,7 @@ rate(inferadb_checks_denied_total[5m])
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000
 ```
@@ -86,9 +90,11 @@ histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 100
 **Description**: Total number of API operations by query type
 
 **Labels**:
+
 - `operation`: Query operation type (e.g., "Evaluate", "ListResources", "ListSubjects", "Expand", "WriteRelationships", "DeleteRelationships", "Watch", "Simulate")
 
 **Usage Example**:
+
 ```promql
 sum by (operation) (rate(inferadb_query_operations_total[5m]))
 ```
@@ -100,11 +106,13 @@ sum by (operation) (rate(inferadb_query_operations_total[5m]))
 **Description**: Duration of API operations by query type in seconds
 
 **Labels**:
+
 - `operation`: Query operation type
 
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) * 1000
 ```
@@ -120,9 +128,11 @@ histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_d
 **Description**: Total number of authorization checks per resource
 
 **Labels**:
+
 - `resource`: Resource identifier (e.g., "document:readme", "folder:reports")
 
 **Usage Example**:
+
 ```promql
 topk(10, sum by (resource) (rate(inferadb_resource_checks_total[5m])))
 ```
@@ -136,9 +146,11 @@ topk(10, sum by (resource) (rate(inferadb_resource_checks_total[5m])))
 **Description**: Total number of authorization checks per subject
 
 **Labels**:
+
 - `subject`: Subject identifier (e.g., "user:alice", "group:engineers")
 
 **Usage Example**:
+
 ```promql
 topk(10, sum by (subject) (rate(inferadb_subject_checks_total[5m])))
 ```
@@ -152,9 +164,11 @@ topk(10, sum by (subject) (rate(inferadb_subject_checks_total[5m])))
 **Description**: Total number of authorization checks per permission type
 
 **Labels**:
+
 - `permission`: Permission name (e.g., "viewer", "editor", "admin")
 
 **Usage Example**:
+
 ```promql
 sum by (permission) (rate(inferadb_permission_checks_total[5m]))
 ```
@@ -166,9 +180,11 @@ sum by (permission) (rate(inferadb_permission_checks_total[5m]))
 **Description**: Total number of authorization checks per resource type
 
 **Labels**:
+
 - `resource_type`: Resource type extracted from resource identifier (e.g., "document", "folder", "organization")
 
 **Usage Example**:
+
 ```promql
 sum by (resource_type) (rate(inferadb_resource_type_checks_total[5m]))
 ```
@@ -184,9 +200,11 @@ sum by (resource_type) (rate(inferadb_resource_type_checks_total[5m]))
 **Description**: Total number of condition evaluations (WASM, contextual)
 
 **Labels**:
+
 - `condition_type`: Type of condition being evaluated (e.g., "wasm", "contextual", "temporal")
 
 **Usage Example**:
+
 ```promql
 sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m]))
 ```
@@ -198,11 +216,13 @@ sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m]))
 **Description**: Duration of condition evaluations in seconds
 
 **Labels**:
+
 - `condition_type`: Type of condition
 
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, sum by (condition_type, le) (rate(inferadb_condition_evaluation_duration_seconds_bucket[5m]))) * 1000
 ```
@@ -214,9 +234,11 @@ histogram_quantile(0.99, sum by (condition_type, le) (rate(inferadb_condition_ev
 **Description**: Total number of successful condition evaluations
 
 **Labels**:
+
 - `condition_type`: Type of condition
 
 **Usage Example**:
+
 ```promql
 sum by (condition_type) (rate(inferadb_condition_evaluation_success_total[5m]))
 ```
@@ -228,9 +250,11 @@ sum by (condition_type) (rate(inferadb_condition_evaluation_success_total[5m]))
 **Description**: Total number of failed condition evaluations
 
 **Labels**:
+
 - `condition_type`: Type of condition
 
 **Usage Example**:
+
 ```promql
 sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m]))
 ```
@@ -248,6 +272,7 @@ sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m]))
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_cache_hits_total[5m])
 ```
@@ -261,6 +286,7 @@ rate(inferadb_cache_hits_total[5m])
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m]))) * 100
 ```
@@ -274,6 +300,7 @@ sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_cache_entries
 ```
@@ -287,6 +314,7 @@ inferadb_cache_entries
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_cache_hit_rate
 ```
@@ -304,6 +332,7 @@ inferadb_cache_hit_rate
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_storage_reads_total[5m])
 ```
@@ -317,6 +346,7 @@ rate(inferadb_storage_reads_total[5m])
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_storage_writes_total[5m])
 ```
@@ -332,6 +362,7 @@ rate(inferadb_storage_writes_total[5m])
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000
 ```
@@ -347,6 +378,7 @@ histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000
 ```
@@ -360,6 +392,7 @@ histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m]
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_storage_relationships_total
 ```
@@ -373,6 +406,7 @@ inferadb_storage_relationships_total
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_storage_revision
 ```
@@ -388,9 +422,11 @@ inferadb_storage_revision
 **Description**: Total number of WASM module invocations
 
 **Labels**:
+
 - `module`: WASM module name
 
 **Usage Example**:
+
 ```promql
 sum by (module) (rate(inferadb_wasm_invocations_total[5m]))
 ```
@@ -402,9 +438,11 @@ sum by (module) (rate(inferadb_wasm_invocations_total[5m]))
 **Description**: Total number of WASM execution errors
 
 **Labels**:
+
 - `module`: WASM module name
 
 **Usage Example**:
+
 ```promql
 sum by (module) (rate(inferadb_wasm_errors_total[5m]))
 ```
@@ -416,11 +454,13 @@ sum by (module) (rate(inferadb_wasm_errors_total[5m]))
 **Description**: Duration of WASM module executions in seconds
 
 **Labels**:
+
 - `module`: WASM module name
 
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000
 ```
@@ -432,11 +472,13 @@ histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_duration_second
 **Description**: Amount of fuel consumed by WASM executions
 
 **Labels**:
+
 - `module`: WASM module name
 
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))
 ```
@@ -454,6 +496,7 @@ histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_b
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_evaluations_total[5m])
 ```
@@ -469,6 +512,7 @@ rate(inferadb_evaluations_total[5m])
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))
 ```
@@ -484,6 +528,7 @@ histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, rate(inferadb_evaluation_branches_bucket[5m]))
 ```
@@ -499,11 +544,13 @@ histogram_quantile(0.99, rate(inferadb_evaluation_branches_bucket[5m]))
 **Description**: Total number of API requests by endpoint and method
 
 **Labels**:
+
 - `endpoint`: API endpoint path
 - `method`: HTTP method (GET, POST, etc.)
 - `status`: HTTP status code
 
 **Usage Example**:
+
 ```promql
 sum by (endpoint, method) (rate(inferadb_api_requests_total[5m]))
 ```
@@ -515,10 +562,12 @@ sum by (endpoint, method) (rate(inferadb_api_requests_total[5m]))
 **Description**: Total number of API errors by endpoint and status code
 
 **Labels**:
+
 - `endpoint`: API endpoint path
 - `status`: HTTP status code
 
 **Usage Example**:
+
 ```promql
 sum by (endpoint) (rate(inferadb_api_errors_total{status=~"5.."}[5m]))
 ```
@@ -530,12 +579,14 @@ sum by (endpoint) (rate(inferadb_api_errors_total{status=~"5.."}[5m]))
 **Description**: Duration of API requests in seconds
 
 **Labels**:
+
 - `endpoint`: API endpoint path
 - `method`: HTTP method
 
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, sum by (endpoint, le) (rate(inferadb_api_request_duration_seconds_bucket[5m]))) * 1000
 ```
@@ -549,6 +600,7 @@ histogram_quantile(0.99, sum by (endpoint, le) (rate(inferadb_api_request_durati
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_api_active_connections
 ```
@@ -564,10 +616,12 @@ inferadb_api_active_connections
 **Description**: Total number of authentication attempts
 
 **Labels**:
+
 - `method`: Authentication method (e.g., "tenant_jwt", "oauth_jwt", "internal_jwt")
 - `tenant_id`: Tenant identifier
 
 **Usage Example**:
+
 ```promql
 sum by (method) (rate(inferadb_auth_attempts_total[5m]))
 ```
@@ -579,10 +633,12 @@ sum by (method) (rate(inferadb_auth_attempts_total[5m]))
 **Description**: Total number of successful authentications
 
 **Labels**:
+
 - `method`: Authentication method
 - `tenant_id`: Tenant identifier
 
 **Usage Example**:
+
 ```promql
 sum by (method) (rate(inferadb_auth_success_total[5m]))
 ```
@@ -594,11 +650,13 @@ sum by (method) (rate(inferadb_auth_success_total[5m]))
 **Description**: Total number of failed authentications
 
 **Labels**:
+
 - `method`: Authentication method
 - `error_type`: Type of authentication error
 - `tenant_id`: Tenant identifier
 
 **Usage Example**:
+
 ```promql
 sum by (error_type) (rate(inferadb_auth_failure_total[5m]))
 ```
@@ -610,12 +668,14 @@ sum by (error_type) (rate(inferadb_auth_failure_total[5m]))
 **Description**: Duration of authentication operations in seconds
 
 **Labels**:
+
 - `method`: Authentication method
 - `tenant_id`: Tenant identifier
 
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
+
 ```promql
 histogram_quantile(0.99, sum by (method, le) (rate(inferadb_auth_duration_seconds_bucket[5m]))) * 1000
 ```
@@ -633,6 +693,7 @@ histogram_quantile(0.99, sum by (method, le) (rate(inferadb_auth_duration_second
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_replication_changes_total[5m])
 ```
@@ -646,6 +707,7 @@ rate(inferadb_replication_changes_total[5m])
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_replication_failures_total[5m])
 ```
@@ -659,6 +721,7 @@ rate(inferadb_replication_failures_total[5m])
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 rate(inferadb_replication_conflicts_total[5m])
 ```
@@ -672,6 +735,7 @@ rate(inferadb_replication_conflicts_total[5m])
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_replication_lag_milliseconds
 ```
@@ -685,6 +749,7 @@ inferadb_replication_lag_milliseconds
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_replication_targets_connected
 ```
@@ -698,6 +763,7 @@ inferadb_replication_targets_connected
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_replication_targets_total
 ```
@@ -713,12 +779,14 @@ inferadb_replication_targets_total
 **Description**: Build information (version, commit, etc.)
 
 **Labels**:
+
 - `version`: InferaDB version
 - `commit`: Git commit hash
 
 **Value**: Always 1
 
 **Usage Example**:
+
 ```promql
 inferadb_build_info
 ```
@@ -732,6 +800,7 @@ inferadb_build_info
 **Labels**: None
 
 **Usage Example**:
+
 ```promql
 inferadb_uptime_seconds
 ```
@@ -750,20 +819,22 @@ inferadb_uptime_seconds
 **Recommendations**:
 
 1. Use `topk()` or `bottomk()` to limit results:
-   ```promql
-   topk(20, sum by (resource) (rate(inferadb_resource_checks_total[5m])))
-   ```
+
+    ```promql
+    topk(20, sum by (resource) (rate(inferadb_resource_checks_total[5m])))
+    ```
 
 2. Set up recording rules for frequently-used queries:
-   ```yaml
-   - record: job:inferadb_resource_checks:rate5m
-     expr: sum by (resource) (rate(inferadb_resource_checks_total[5m]))
-   ```
+
+    ```yaml
+    - record: job:inferadb_resource_checks:rate5m
+      expr: sum by (resource) (rate(inferadb_resource_checks_total[5m]))
+    ```
 
 3. Monitor cardinality with Prometheus:
-   ```promql
-   count({__name__=~"inferadb_.*"}) by (__name__)
-   ```
+    ```promql
+    count({__name__=~"inferadb_.*"}) by (__name__)
+    ```
 
 ### Recording Rules
 
@@ -771,24 +842,24 @@ Create recording rules for expensive queries that are used in multiple dashboard
 
 ```yaml
 groups:
-  - name: inferadb_recording_rules
-    interval: 30s
-    rules:
-      # Query operation rates
-      - record: job:inferadb_query_operations:rate5m
-        expr: sum by (operation) (rate(inferadb_query_operations_total[5m]))
+    - name: inferadb_recording_rules
+      interval: 30s
+      rules:
+          # Query operation rates
+          - record: job:inferadb_query_operations:rate5m
+            expr: sum by (operation) (rate(inferadb_query_operations_total[5m]))
 
-      # Authorization decision ratio
-      - record: job:inferadb_checks:allow_ratio
-        expr: sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m]))
+          # Authorization decision ratio
+          - record: job:inferadb_checks:allow_ratio
+            expr: sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m]))
 
-      # Cache hit rate
-      - record: job:inferadb_cache:hit_rate
-        expr: sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))
+          # Cache hit rate
+          - record: job:inferadb_cache:hit_rate
+            expr: sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))
 
-      # p99 latency by operation
-      - record: job:inferadb_query_operation:p99_latency_ms
-        expr: histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) * 1000
+          # p99 latency by operation
+          - record: job:inferadb_query_operation:p99_latency_ms
+            expr: histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) * 1000
 ```
 
 ### Alert Examples
@@ -797,37 +868,37 @@ Example alert rules based on these metrics:
 
 ```yaml
 groups:
-  - name: inferadb_alerts
-    rules:
-      # High error rate
-      - alert: HighAuthorizationErrorRate
-        expr: sum(rate(inferadb_api_errors_total{status=~"5.."}[5m])) / sum(rate(inferadb_checks_total[5m])) > 0.01
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High authorization error rate"
-          description: "Authorization error rate is {{ $value | humanizePercentage }}"
+    - name: inferadb_alerts
+      rules:
+          # High error rate
+          - alert: HighAuthorizationErrorRate
+            expr: sum(rate(inferadb_api_errors_total{status=~"5.."}[5m])) / sum(rate(inferadb_checks_total[5m])) > 0.01
+            for: 5m
+            labels:
+                severity: warning
+            annotations:
+                summary: "High authorization error rate"
+                description: "Authorization error rate is {{ $value | humanizePercentage }}"
 
-      # Slow queries
-      - alert: SlowQueryPerformance
-        expr: histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) > 0.1
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Slow query performance for {{ $labels.operation }}"
-          description: "p99 latency is {{ $value }}s for operation {{ $labels.operation }}"
+          # Slow queries
+          - alert: SlowQueryPerformance
+            expr: histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) > 0.1
+            for: 5m
+            labels:
+                severity: warning
+            annotations:
+                summary: "Slow query performance for {{ $labels.operation }}"
+                description: "p99 latency is {{ $value }}s for operation {{ $labels.operation }}"
 
-      # Condition evaluation failures
-      - alert: HighConditionFailureRate
-        expr: sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m])) / sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m])) > 0.05
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High condition evaluation failure rate"
-          description: "Condition type {{ $labels.condition_type }} has {{ $value | humanizePercentage }} failure rate"
+          # Condition evaluation failures
+          - alert: HighConditionFailureRate
+            expr: sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m])) / sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m])) > 0.05
+            for: 5m
+            labels:
+                severity: warning
+            annotations:
+                summary: "High condition evaluation failure rate"
+                description: "Condition type {{ $labels.condition_type }} has {{ $value | humanizePercentage }} failure rate"
 ```
 
 ---
@@ -844,13 +915,13 @@ Configure retention in Prometheus:
 
 ```yaml
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+    scrape_interval: 15s
+    evaluation_interval: 15s
 
 storage:
-  tsdb:
-    retention.time: 60d
-    retention.size: 50GB
+    tsdb:
+        retention.time: 60d
+        retention.size: 50GB
 ```
 
 ---
@@ -860,14 +931,16 @@ storage:
 ### Metric Not Appearing
 
 1. Check if InferaDB is exporting the metric:
-   ```bash
-   curl http://localhost:9090/metrics | grep inferadb_query_operations_total
-   ```
+
+    ```bash
+    curl http://localhost:9090/metrics | grep inferadb_query_operations_total
+    ```
 
 2. Check Prometheus targets are up:
-   ```
-   http://prometheus:9090/targets
-   ```
+
+    ```
+    http://prometheus:9090/targets
+    ```
 
 3. Verify scrape configuration includes InferaDB
 
@@ -876,14 +949,16 @@ storage:
 If Prometheus is slow due to high cardinality:
 
 1. Identify high-cardinality metrics:
-   ```promql
-   topk(10, count by (__name__) ({__name__=~"inferadb_.*"}))
-   ```
+
+    ```promql
+    topk(10, count by (__name__) ({__name__=~"inferadb_.*"}))
+    ```
 
 2. Check label cardinality:
-   ```promql
-   count by (resource) (inferadb_resource_checks_total)
-   ```
+
+    ```promql
+    count by (resource) (inferadb_resource_checks_total)
+    ```
 
 3. Consider using relabeling to drop or aggregate high-cardinality labels
 

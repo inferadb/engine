@@ -1,1339 +1,1339 @@
 openapi: 3.1.0
 info:
-  title: InferaDB API
-  version: 0.1.0
-  description: |
-    InferaDB is a high-performance authorization engine implementing Relationship-Based Access Control (ReBAC) in Rust.
+    title: InferaDB API
+    version: 0.1.0
+    description: |
+        InferaDB is a high-performance authorization engine implementing Relationship-Based Access Control (ReBAC) in Rust.
 
-    ## AuthZEN Compliance
+        ## AuthZEN Compliance
 
-    InferaDB is **AuthZEN-compliant**, following the [OpenID AuthZEN specification](https://openid.github.io/authzen/) for authorization APIs.
+        InferaDB is **AuthZEN-compliant**, following the [OpenID AuthZEN specification](https://openid.github.io/authzen/) for authorization APIs.
 
-    - **AuthZEN Core Endpoints** (`/access/v1/*`): Standard authorization evaluation endpoints
-    - **InferaDB Extensions** (`/v1/*`): Relationship management and ReBAC-specific features
+        - **AuthZEN Core Endpoints** (`/access/v1/*`): Standard authorization evaluation endpoints
+        - **InferaDB Extensions** (`/v1/*`): Relationship management and ReBAC-specific features
 
-    Use `/.well-known/authzen-configuration` for metadata discovery and capability detection.
+        Use `/.well-known/authzen-configuration` for metadata discovery and capability detection.
 
-    ## Authentication
+        ## Authentication
 
-    InferaDB uses JWT (JSON Web Token) authentication. Include your JWT in the `Authorization` header:
+        InferaDB uses JWT (JSON Web Token) authentication. Include your JWT in the `Authorization` header:
 
-    ```
-    Authorization: Bearer <your-jwt-token>
-    ```
-
-    Supported authentication methods:
-    - **Private-Key JWT (RFC 7523)** - For tenant SDKs and CLIs
-    - **OAuth 2.0 Bearer Tokens (RFC 6749)** - For dashboards and enterprise authentication
-    - **OpenID Connect (OIDC)** - Automatic JWKS discovery
-
-    See [Authentication Guide](../docs/security/authentication.md) for details on creating JWTs.
-
-    ## Rate Limiting
-
-    Rate limiting is configured per deployment. Default limits:
-    - 1000 requests per minute per IP
-    - 10000 requests per minute per tenant
-
-    Rate limit headers are included in responses:
-    ```
-    X-RateLimit-Limit: 1000
-    X-RateLimit-Remaining: 999
-    X-RateLimit-Reset: 1730905200
-    ```
-
-    ## Consistency Guarantees
-
-    - **Read-Your-Writes**: After a write, subsequent reads from the same client will see that write
-    - **Snapshot Isolation**: All operations within a request see a consistent snapshot
-    - **Eventual Consistency**: Multi-region deployments may have slight replication lag
-
-  contact:
-    name: InferaDB Support
-    url: https://github.com/inferadb/server/issues
-  license:
-    name: Business Source License 1.1
-    url: https://github.com/inferadb/server/blob/main/LICENSE
-
-servers:
-  - url: http://localhost:8080/api/v1
-    description: Local development server
-  - url: https://api.inferadb.com/v1
-    description: Production API
-
-tags:
-  - name: health
-    description: Health and status endpoints
-  - name: AuthZEN Core
-    description: AuthZEN-compliant authorization evaluation endpoints
-  - name: InferaDB Extensions
-    description: InferaDB-specific relationship management and ReBAC features
-  - name: authorization
-    description: Authorization check and expansion endpoints
-  - name: relationships
-    description: Relationship management endpoints
-
-paths:
-  /.well-known/authzen-configuration:
-    get:
-      tags:
-        - AuthZEN Core
-      summary: AuthZEN metadata discovery
-      description: |
-        AuthZEN metadata discovery endpoint per OpenID specification.
-
-        Returns PDP capabilities, supported endpoints, and extension information.
-        This endpoint follows RFC 8615 for well-known URI placement.
-      operationId: getAuthZENConfiguration
-      responses:
-        "200":
-          description: AuthZEN configuration metadata
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-                example: "public, max-age=3600"
-              description: Metadata can be cached for 1 hour
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthZENConfiguration"
-              examples:
-                full_config:
-                  value:
-                    issuer: "https://inferadb.example.com"
-                    access_evaluation_endpoint: "https://inferadb.example.com/access/v1/evaluation"
-                    access_evaluations_endpoint: "https://inferadb.example.com/access/v1/evaluations"
-                    search_resource_endpoint: "https://inferadb.example.com/access/v1/search/resource"
-                    search_subject_endpoint: "https://inferadb.example.com/access/v1/search/subject"
-                    supported_subject_types:
-                      - user
-                      - group
-                      - service
-                    supported_resource_types:
-                      - document
-                      - folder
-                      - organization
-                    extensions:
-                      inferadb_relationship_management: true
-                      inferadb_relation_expansion: true
-                      inferadb_simulation: true
-                      inferadb_realtime_streaming: true
-
-  /access/v1/evaluation:
-    post:
-      tags:
-        - AuthZEN Core
-      summary: Single authorization check (AuthZEN)
-      description: |
-        AuthZEN-compliant single authorization evaluation.
-
-        Check if a subject can perform an action on a resource.
-        Returns a boolean decision with optional context.
-
-        **AuthZEN Compliance**: This endpoint follows the AuthZEN specification exactly.
-      operationId: authzenEvaluate
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AuthZENEvaluationRequest"
-            examples:
-              simple_check:
-                summary: Simple permission check
-                value:
-                  subject:
-                    type: user
-                    id: alice
-                  resource:
-                    type: document
-                    id: readme
-                  action:
-                    name: view
-              with_context:
-                summary: Check with additional context
-                value:
-                  subject:
-                    type: user
-                    id: alice
-                  resource:
-                    type: document
-                    id: readme
-                  action:
-                    name: view
-                  context:
-                    ip_address: "192.168.1.1"
-                    time: "2024-01-15T10:30:00Z"
-      responses:
-        "200":
-          description: Evaluation completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthZENEvaluationResponse"
-              examples:
-                allow:
-                  value:
-                    decision: true
-                    context:
-                      id: "eval_abc123"
-                      reason_admin:
-                        en: "User alice has view permission on document readme"
-                deny:
-                  value:
-                    decision: false
-                    context:
-                      id: "eval_abc124"
-                      reason_admin:
-                        en: "User alice does not have view permission on document readme"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /access/v1/evaluations:
-    post:
-      tags:
-        - AuthZEN Core
-      summary: Batch authorization checks (AuthZEN)
-      description: |
-        AuthZEN-compliant batch authorization evaluations (boxcarring).
-
-        Evaluate multiple authorization requests in a single call for better performance.
-
-        **AuthZEN Compliance**: This endpoint follows the AuthZEN specification exactly.
-      operationId: authzenEvaluateBatch
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - evaluations
-              properties:
-                evaluations:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/AuthZENEvaluationRequest"
-                  minItems: 1
-                  maxItems: 100
-            examples:
-              batch_check:
-                summary: Batch of authorization checks
-                value:
-                  evaluations:
-                    - subject:
-                        type: user
-                        id: alice
-                      resource:
-                        type: document
-                        id: readme
-                      action:
-                        name: view
-                    - subject:
-                        type: user
-                        id: bob
-                      resource:
-                        type: document
-                        id: readme
-                      action:
-                        name: edit
-      responses:
-        "200":
-          description: All evaluations completed
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - evaluations
-                properties:
-                  evaluations:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/AuthZENEvaluationResponse"
-              examples:
-                batch_results:
-                  value:
-                    evaluations:
-                      - decision: true
-                        context:
-                          id: "eval_1"
-                      - decision: false
-                        context:
-                          id: "eval_2"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /access/v1/search/resource:
-    post:
-      tags:
-        - AuthZEN Core
-      summary: Find authorized resources (AuthZEN)
-      description: |
-        AuthZEN-compliant resource search.
-
-        Find all resources of a given type that a subject can access with a specific action.
-
-        **AuthZEN Compliance**: This endpoint follows the AuthZEN specification exactly.
-      operationId: authzenSearchResources
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AuthZENResourceSearchRequest"
-            examples:
-              search_documents:
-                summary: Find documents user can view
-                value:
-                  subject:
-                    type: user
-                    id: alice
-                  action:
-                    name: view
-                  resource_type: document
-      responses:
-        "200":
-          description: Search completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthZENResourceSearchResponse"
-              examples:
-                found_resources:
-                  value:
-                    resources:
-                      - type: document
-                        id: readme
-                      - type: document
-                        id: guide
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /access/v1/search/subject:
-    post:
-      tags:
-        - AuthZEN Core
-      summary: Find authorized subjects (AuthZEN)
-      description: |
-        AuthZEN-compliant subject search.
-
-        Find all subjects that can perform an action on a resource.
-
-        **AuthZEN Compliance**: This endpoint follows the AuthZEN specification exactly.
-      operationId: authzenSearchSubjects
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AuthZENSubjectSearchRequest"
-            examples:
-              search_viewers:
-                summary: Find who can view a document
-                value:
-                  resource:
-                    type: document
-                    id: readme
-                  action:
-                    name: view
-                  subject_type: user
-      responses:
-        "200":
-          description: Search completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthZENSubjectSearchResponse"
-              examples:
-                found_subjects:
-                  value:
-                    subjects:
-                      - type: user
-                        id: alice
-                      - type: user
-                        id: bob
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/evaluate:
-    post:
-      tags:
-        - InferaDB Extensions
-      summary: Evaluate permission (native format)
-      description: |
-        InferaDB native evaluation endpoint with extended features.
-
-        Supports SSE streaming, batch evaluation, and detailed tracing.
-        Uses InferaDB's native string format (e.g., "user:alice").
-
-        For AuthZEN-compliant format, use `/access/v1/evaluation`.
-      operationId: evaluatePermission
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EvaluateRequest"
-      responses:
-        "200":
-          description: Check completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EvaluateResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/expand:
-    post:
-      tags:
-        - InferaDB Extensions
-      summary: Expand relation tree (extension)
-      description: |
-        Expand a relation into a tree showing all users and how they have access.
-
-        **Extension**: `inferadb_relation_expansion`
-
-        This is an InferaDB extension not defined in AuthZEN.
-        Useful for debugging and visualization of authorization relationships.
-      operationId: expandRelation
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ExpandRequest"
-      responses:
-        "200":
-          description: Expansion completed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ExpandResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/relationships:write:
-    post:
-      tags:
-        - InferaDB Extensions
-      summary: Write relationships (extension)
-      description: |
-        Create authorization relationships.
-
-        **Extension**: `inferadb_relationship_management`
-
-        This is an InferaDB extension for ReBAC relationship management.
-      operationId: writeRelationships
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/WriteRequest"
-      responses:
-        "200":
-          description: Relationships written successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WriteResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/relationships:list:
-    post:
-      tags:
-        - InferaDB Extensions
-      summary: Query relationships (extension)
-      description: |
-        Query authorization relationships with filtering and pagination.
-
-        **Extension**: `inferadb_relationship_management`
-
-        This is an InferaDB extension for ReBAC relationship management.
-      operationId: listRelationships
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ListRelationshipsRequest"
-      responses:
-        "200":
-          description: List of matching relationships
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ListRelationshipsResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/relationships:delete:
-    post:
-      tags:
-        - InferaDB Extensions
-      summary: Delete relationships (extension)
-      description: |
-        Delete authorization relationships using exact matches or filters.
-
-        **Extension**: `inferadb_relationship_management`
-
-        This is an InferaDB extension for ReBAC relationship management.
-      operationId: deleteRelationships
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeleteRequest"
-      responses:
-        "200":
-          description: Relationships deleted successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeleteResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/resources:list:
-    post:
-      tags:
-        - InferaDB Extensions
-      summary: List accessible resources (native format)
-      description: |
-        Find all resources a subject can access with a specific permission.
-        Uses InferaDB's native string format.
-
-        For AuthZEN-compliant format, use `/access/v1/search/resource`.
-      operationId: listResources
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ListResourcesRequest"
-      responses:
-        "200":
-          description: Lookup completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ListResourcesResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/subjects:list:
-    post:
-      tags:
-        - InferaDB Extensions
-      summary: List subjects with access (native format)
-      description: |
-        Find all subjects that have a specific relation to a resource.
-        Uses InferaDB's native string format.
-
-        For AuthZEN-compliant format, use `/access/v1/search/subject`.
-      operationId: listSubjects
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ListSubjectsRequest"
-      responses:
-        "200":
-          description: Lookup completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ListSubjectsResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/watch:
-    post:
-      tags:
-        - InferaDB Extensions
-      summary: Watch for relationship changes (extension)
-      description: |
-        Stream real-time relationship changes using Server-Sent Events.
-
-        **Extension**: `inferadb_realtime_streaming`
-
-        This is an InferaDB extension for real-time synchronization.
-      operationId: watch
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/WatchRequest"
-      responses:
-        "200":
-          description: Event stream established
-          content:
-            text/event-stream:
-              schema:
-                type: string
-                format: binary
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /health:
-    get:
-      tags:
-        - health
-      summary: Health check
-      description: Check if the service is running and healthy
-      operationId: healthCheck
-      responses:
-        "200":
-          description: Service is healthy
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
-        "503":
-          description: Service unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: |
-        JWT authentication token.
-
-        Include your JWT in the Authorization header:
         ```
         Authorization: Bearer <your-jwt-token>
         ```
 
-        See [Authentication Guide](../docs/security/authentication.md) for details.
+        Supported authentication methods:
+        - **Private-Key JWT (RFC 7523)** - For tenant SDKs and CLIs
+        - **OAuth 2.0 Bearer Tokens (RFC 6749)** - For dashboards and enterprise authentication
+        - **OpenID Connect (OIDC)** - Automatic JWKS discovery
 
-  schemas:
-    # AuthZEN Core Schemas
-    AuthZENConfiguration:
-      type: object
-      required:
-        - issuer
-      properties:
-        issuer:
-          type: string
-          description: Issuer identifier for this PDP
-          example: "https://inferadb.example.com"
-        access_evaluation_endpoint:
-          type: string
-          description: URL for single authorization evaluation
-          example: "https://inferadb.example.com/access/v1/evaluation"
-        access_evaluations_endpoint:
-          type: string
-          description: URL for batch authorization evaluations
-          example: "https://inferadb.example.com/access/v1/evaluations"
-        search_resource_endpoint:
-          type: string
-          description: URL for resource search
-          example: "https://inferadb.example.com/access/v1/search/resource"
-        search_subject_endpoint:
-          type: string
-          description: URL for subject search
-          example: "https://inferadb.example.com/access/v1/search/subject"
-        supported_subject_types:
-          type: array
-          items:
-            type: string
-          description: List of supported subject types
-          example:
-            - user
-            - group
-            - service
-        supported_resource_types:
-          type: array
-          items:
-            type: string
-          description: List of supported resource types
-          example:
-            - document
-            - folder
-            - organization
-        extensions:
-          type: object
-          additionalProperties: true
-          description: |
-            InferaDB-specific extensions to the AuthZEN specification.
+        See [Authentication Guide](../docs/security/authentication.md) for details on creating JWTs.
 
-            Available extensions:
-            - `inferadb_relationship_management`: Create, query, and delete relationships
-            - `inferadb_relation_expansion`: Expand relation trees to visualize authorization graphs
-            - `inferadb_simulation`: Simulate authorization changes before committing
-            - `inferadb_realtime_streaming`: Watch for relationship changes in real-time
+        ## Rate Limiting
 
-            See [Extension Documentation](../../docs/api/authzen-extensions.md) for details.
-          example:
-            inferadb_relationship_management: true
-            inferadb_relation_expansion: true
-            inferadb_simulation: true
-            inferadb_realtime_streaming: true
+        Rate limiting is configured per deployment. Default limits:
+        - 1000 requests per minute per IP
+        - 10000 requests per minute per tenant
 
-    AuthZENEntity:
-      type: object
-      required:
-        - type
-        - id
-      properties:
-        type:
-          type: string
-          description: Entity type (e.g., "user", "group", "document")
-          example: user
-          pattern: "^[a-z_][a-z0-9_]*$"
-        id:
-          type: string
-          description: Entity identifier
-          example: alice
-          pattern: "^[a-z0-9_-]+$"
-        properties:
-          type: object
-          additionalProperties: true
-          description: Optional additional properties
+        Rate limit headers are included in responses:
+        ```
+        X-RateLimit-Limit: 1000
+        X-RateLimit-Remaining: 999
+        X-RateLimit-Reset: 1730905200
+        ```
 
-    AuthZENAction:
-      type: object
-      required:
-        - name
-      properties:
-        name:
-          type: string
-          description: Action name (e.g., "view", "edit", "delete")
-          example: view
-          pattern: "^[a-z_][a-z0-9_]*$"
-        properties:
-          type: object
-          additionalProperties: true
-          description: Optional additional properties
+        ## Consistency Guarantees
 
-    AuthZENEvaluationRequest:
-      type: object
-      required:
-        - subject
-        - resource
-        - action
-      properties:
-        subject:
-          $ref: "#/components/schemas/AuthZENEntity"
-        resource:
-          $ref: "#/components/schemas/AuthZENEntity"
-        action:
-          $ref: "#/components/schemas/AuthZENAction"
-        context:
-          type: object
-          additionalProperties: true
-          description: Optional environmental context
+        - **Read-Your-Writes**: After a write, subsequent reads from the same client will see that write
+        - **Snapshot Isolation**: All operations within a request see a consistent snapshot
+        - **Eventual Consistency**: Multi-region deployments may have slight replication lag
 
-    AuthZENEvaluationResponse:
-      type: object
-      required:
-        - decision
-      properties:
-        decision:
-          type: boolean
-          description: Authorization decision (true = allow, false = deny)
-        context:
-          type: object
-          description: Optional decision context
-          properties:
-            id:
-              type: string
-              description: Unique evaluation identifier
-            reason_admin:
-              type: object
-              additionalProperties:
-                type: string
-              description: Admin-facing reason (localized)
-            reason_user:
-              type: object
-              additionalProperties:
-                type: string
-              description: User-facing reason (localized)
+    contact:
+        name: InferaDB Support
+        url: https://github.com/inferadb/server/issues
+    license:
+        name: Business Source License 1.1
+        url: https://github.com/inferadb/server/blob/main/LICENSE
 
-    AuthZENResourceSearchRequest:
-      type: object
-      required:
-        - subject
-        - action
-      properties:
-        subject:
-          $ref: "#/components/schemas/AuthZENEntity"
-        action:
-          $ref: "#/components/schemas/AuthZENAction"
-        resource_type:
-          type: string
-          description: Filter by resource type
-          example: document
-          pattern: "^[a-z_][a-z0-9_]*$"
-        page:
-          type: object
-          properties:
-            size:
-              type: integer
-              description: Page size
-              example: 100
-            token:
-              type: string
-              description: Pagination token
+servers:
+    - url: http://localhost:8080/api/v1
+      description: Local development server
+    - url: https://api.inferadb.com/v1
+      description: Production API
 
-    AuthZENResourceSearchResponse:
-      type: object
-      required:
-        - resources
-      properties:
-        resources:
-          type: array
-          items:
-            $ref: "#/components/schemas/AuthZENEntity"
-          description: List of resources the subject can access
-        page:
-          type: object
-          properties:
-            next_token:
-              type: string
-              description: Token for next page
-            prev_token:
-              type: string
-              description: Token for previous page
+tags:
+    - name: health
+      description: Health and status endpoints
+    - name: AuthZEN Core
+      description: AuthZEN-compliant authorization evaluation endpoints
+    - name: InferaDB Extensions
+      description: InferaDB-specific relationship management and ReBAC features
+    - name: authorization
+      description: Authorization check and expansion endpoints
+    - name: relationships
+      description: Relationship management endpoints
 
-    AuthZENSubjectSearchRequest:
-      type: object
-      required:
-        - resource
-        - action
-      properties:
-        resource:
-          $ref: "#/components/schemas/AuthZENEntity"
-        action:
-          $ref: "#/components/schemas/AuthZENAction"
-        subject_type:
-          type: string
-          description: Filter by subject type
-          example: user
-          pattern: "^[a-z_][a-z0-9_]*$"
-        page:
-          type: object
-          properties:
-            size:
-              type: integer
-              description: Page size
-              example: 100
-            token:
-              type: string
-              description: Pagination token
+paths:
+    /.well-known/authzen-configuration:
+        get:
+            tags:
+                - AuthZEN Core
+            summary: AuthZEN metadata discovery
+            description: |
+                AuthZEN metadata discovery endpoint per OpenID specification.
 
-    AuthZENSubjectSearchResponse:
-      type: object
-      required:
-        - subjects
-      properties:
-        subjects:
-          type: array
-          items:
-            $ref: "#/components/schemas/AuthZENEntity"
-          description: List of subjects with access
-        page:
-          type: object
-          properties:
-            next_token:
-              type: string
-              description: Token for next page
-            prev_token:
-              type: string
-              description: Token for previous page
+                Returns PDP capabilities, supported endpoints, and extension information.
+                This endpoint follows RFC 8615 for well-known URI placement.
+            operationId: getAuthZENConfiguration
+            responses:
+                "200":
+                    description: AuthZEN configuration metadata
+                    headers:
+                        Cache-Control:
+                            schema:
+                                type: string
+                                example: "public, max-age=3600"
+                            description: Metadata can be cached for 1 hour
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AuthZENConfiguration"
+                            examples:
+                                full_config:
+                                    value:
+                                        issuer: "https://inferadb.example.com"
+                                        access_evaluation_endpoint: "https://inferadb.example.com/access/v1/evaluation"
+                                        access_evaluations_endpoint: "https://inferadb.example.com/access/v1/evaluations"
+                                        search_resource_endpoint: "https://inferadb.example.com/access/v1/search/resource"
+                                        search_subject_endpoint: "https://inferadb.example.com/access/v1/search/subject"
+                                        supported_subject_types:
+                                            - user
+                                            - group
+                                            - service
+                                        supported_resource_types:
+                                            - document
+                                            - folder
+                                            - organization
+                                        extensions:
+                                            inferadb_relationship_management: true
+                                            inferadb_relation_expansion: true
+                                            inferadb_simulation: true
+                                            inferadb_realtime_streaming: true
 
-    # InferaDB Native Schemas
-    HealthResponse:
-      type: object
-      required:
-        - status
-        - version
-      properties:
-        status:
-          type: string
-          enum: [healthy, unhealthy]
-          description: Health status of the service
-        version:
-          type: string
-          description: Version of the InferaDB server
-          example: 0.1.0
+    /access/v1/evaluation:
+        post:
+            tags:
+                - AuthZEN Core
+            summary: Single authorization check (AuthZEN)
+            description: |
+                AuthZEN-compliant single authorization evaluation.
 
-    EvaluateRequest:
-      type: object
-      required:
-        - subject
-        - resource
-        - permission
-      properties:
-        subject:
-          type: string
-          description: The user or entity requesting access
-          example: user:alice
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-        resource:
-          type: string
-          description: The resource being accessed
-          example: document:readme
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-        permission:
-          type: string
-          description: The permission being checked
-          example: can_view
-          pattern: "^[a-z_][a-z0-9_]*$"
-        context:
-          type: object
-          description: Additional context for WASM modules (optional)
-          additionalProperties: true
-        trace:
-          type: boolean
-          description: Enable detailed evaluation trace for debugging
-          example: false
+                Check if a subject can perform an action on a resource.
+                Returns a boolean decision with optional context.
 
-    EvaluateResponse:
-      type: object
-      required:
-        - decision
-      properties:
-        decision:
-          type: string
-          enum: [allow, deny]
-          description: The authorization decision
-        trace:
-          type: object
-          description: Detailed evaluation trace (only included when trace=true)
+                **AuthZEN Compliance**: This endpoint follows the AuthZEN specification exactly.
+            operationId: authzenEvaluate
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/AuthZENEvaluationRequest"
+                        examples:
+                            simple_check:
+                                summary: Simple permission check
+                                value:
+                                    subject:
+                                        type: user
+                                        id: alice
+                                    resource:
+                                        type: document
+                                        id: readme
+                                    action:
+                                        name: view
+                            with_context:
+                                summary: Check with additional context
+                                value:
+                                    subject:
+                                        type: user
+                                        id: alice
+                                    resource:
+                                        type: document
+                                        id: readme
+                                    action:
+                                        name: view
+                                    context:
+                                        ip_address: "192.168.1.1"
+                                        time: "2024-01-15T10:30:00Z"
+            responses:
+                "200":
+                    description: Evaluation completed successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AuthZENEvaluationResponse"
+                            examples:
+                                allow:
+                                    value:
+                                        decision: true
+                                        context:
+                                            id: "eval_abc123"
+                                            reason_admin:
+                                                en: "User alice has view permission on document readme"
+                                deny:
+                                    value:
+                                        decision: false
+                                        context:
+                                            id: "eval_abc124"
+                                            reason_admin:
+                                                en: "User alice does not have view permission on document readme"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
 
-    ExpandRequest:
-      type: object
-      required:
-        - resource
-        - relation
-      properties:
-        resource:
-          type: string
-          description: The resource to expand
-          example: document:readme
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-        relation:
-          type: string
-          description: The relation to expand
-          example: can_view
-          pattern: "^[a-z_][a-z0-9_]*$"
+    /access/v1/evaluations:
+        post:
+            tags:
+                - AuthZEN Core
+            summary: Batch authorization checks (AuthZEN)
+            description: |
+                AuthZEN-compliant batch authorization evaluations (boxcarring).
 
-    ExpandResponse:
-      type: object
-      required:
-        - tree
-      properties:
-        tree:
-          type: object
-          description: Relation expansion tree
+                Evaluate multiple authorization requests in a single call for better performance.
 
-    ListResourcesRequest:
-      type: object
-      required:
-        - subject
-        - resource_type
-        - permission
-      properties:
-        subject:
-          type: string
-          description: The user or entity requesting access
-          example: user:alice
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-        resource_type:
-          type: string
-          description: The type of resources to lookup
-          example: document
-          pattern: "^[a-z_][a-z0-9_]*$"
-        permission:
-          type: string
-          description: The permission to check for each resource
-          example: can_view
-          pattern: "^[a-z_][a-z0-9_]*$"
-        limit:
-          type: integer
-          format: int32
-          description: Maximum number of resources to return
-          example: 100
-          minimum: 1
-          maximum: 10000
-        cursor:
-          type: string
-          description: Continuation token from a previous response
-          example: eyJvZmZzZXQiOjEwMH0=
+                **AuthZEN Compliance**: This endpoint follows the AuthZEN specification exactly.
+            operationId: authzenEvaluateBatch
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - evaluations
+                            properties:
+                                evaluations:
+                                    type: array
+                                    items:
+                                        $ref: "#/components/schemas/AuthZENEvaluationRequest"
+                                    minItems: 1
+                                    maxItems: 100
+                        examples:
+                            batch_check:
+                                summary: Batch of authorization checks
+                                value:
+                                    evaluations:
+                                        - subject:
+                                              type: user
+                                              id: alice
+                                          resource:
+                                              type: document
+                                              id: readme
+                                          action:
+                                              name: view
+                                        - subject:
+                                              type: user
+                                              id: bob
+                                          resource:
+                                              type: document
+                                              id: readme
+                                          action:
+                                              name: edit
+            responses:
+                "200":
+                    description: All evaluations completed
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                required:
+                                    - evaluations
+                                properties:
+                                    evaluations:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/AuthZENEvaluationResponse"
+                            examples:
+                                batch_results:
+                                    value:
+                                        evaluations:
+                                            - decision: true
+                                              context:
+                                                  id: "eval_1"
+                                            - decision: false
+                                              context:
+                                                  id: "eval_2"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
 
-    ListResourcesResponse:
-      type: object
-      required:
-        - resources
-      properties:
-        resources:
-          type: array
-          items:
-            type: string
-            pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-          description: List of resource identifiers
-          example:
-            - document:readme
-            - document:guide
-        cursor:
-          type: string
-          description: Continuation token for next page
-          nullable: true
-        total_count:
-          type: integer
-          format: int64
-          description: Total number of resources checked
-          nullable: true
+    /access/v1/search/resource:
+        post:
+            tags:
+                - AuthZEN Core
+            summary: Find authorized resources (AuthZEN)
+            description: |
+                AuthZEN-compliant resource search.
 
-    ListRelationshipsRequest:
-      type: object
-      properties:
-        resource:
-          type: string
-          description: Optional filter by exact resource
-          example: doc:readme
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-          nullable: true
-        relation:
-          type: string
-          description: Optional filter by relation type
-          example: viewer
-          pattern: "^[a-z_][a-z0-9_]*$"
-          nullable: true
-        subject:
-          type: string
-          description: Optional filter by exact subject
-          example: user:alice
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-          nullable: true
-        limit:
-          type: integer
-          format: int32
-          description: Maximum number of relationships to return
-          example: 100
-          minimum: 1
-          maximum: 1000
-          default: 100
-        cursor:
-          type: string
-          description: Continuation token from a previous response
-          nullable: true
+                Find all resources of a given type that a subject can access with a specific action.
 
-    ListRelationshipsResponse:
-      type: object
-      required:
-        - relationships
-      properties:
-        relationships:
-          type: array
-          items:
-            $ref: "#/components/schemas/Relationship"
-          description: List of relationships matching the filter
-        cursor:
-          type: string
-          description: Continuation token for next page
-          nullable: true
-        total_count:
-          type: integer
-          format: int64
-          description: Total number of relationships returned
-          nullable: true
+                **AuthZEN Compliance**: This endpoint follows the AuthZEN specification exactly.
+            operationId: authzenSearchResources
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/AuthZENResourceSearchRequest"
+                        examples:
+                            search_documents:
+                                summary: Find documents user can view
+                                value:
+                                    subject:
+                                        type: user
+                                        id: alice
+                                    action:
+                                        name: view
+                                    resource_type: document
+            responses:
+                "200":
+                    description: Search completed successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AuthZENResourceSearchResponse"
+                            examples:
+                                found_resources:
+                                    value:
+                                        resources:
+                                            - type: document
+                                              id: readme
+                                            - type: document
+                                              id: guide
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
 
-    ListSubjectsRequest:
-      type: object
-      required:
-        - resource
-        - relation
-      properties:
-        resource:
-          type: string
-          description: The resource to check access for
-          example: document:readme
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-        relation:
-          type: string
-          description: The relation to check
-          example: viewer
-          pattern: "^[a-z_][a-z0-9_]*$"
-        subject_type:
-          type: string
-          description: Optional filter by subject type
-          example: user
-          pattern: "^[a-z_][a-z0-9_]*$"
-          nullable: true
-        limit:
-          type: integer
-          format: int32
-          description: Maximum number of subjects to return
-          example: 100
-          minimum: 1
-          maximum: 10000
-        cursor:
-          type: string
-          description: Continuation token from a previous response
-          nullable: true
+    /access/v1/search/subject:
+        post:
+            tags:
+                - AuthZEN Core
+            summary: Find authorized subjects (AuthZEN)
+            description: |
+                AuthZEN-compliant subject search.
 
-    ListSubjectsResponse:
-      type: object
-      required:
-        - subjects
-      properties:
-        subjects:
-          type: array
-          items:
-            type: string
-            pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-          description: List of subject identifiers
-          example:
-            - user:alice
-            - user:bob
-        cursor:
-          type: string
-          description: Continuation token for next page
-          nullable: true
-        total_count:
-          type: integer
-          format: int64
-          description: Total number of subjects returned
-          nullable: true
+                Find all subjects that can perform an action on a resource.
 
-    WatchRequest:
-      type: object
-      properties:
-        resource_types:
-          type: array
-          items:
-            type: string
-            pattern: "^[a-z_][a-z0-9_]*$"
-          description: Optional filter by resource types
-          default: []
-        cursor:
-          type: string
-          description: Optional start cursor/revision to resume from
-          nullable: true
+                **AuthZEN Compliance**: This endpoint follows the AuthZEN specification exactly.
+            operationId: authzenSearchSubjects
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/AuthZENSubjectSearchRequest"
+                        examples:
+                            search_viewers:
+                                summary: Find who can view a document
+                                value:
+                                    resource:
+                                        type: document
+                                        id: readme
+                                    action:
+                                        name: view
+                                    subject_type: user
+            responses:
+                "200":
+                    description: Search completed successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AuthZENSubjectSearchResponse"
+                            examples:
+                                found_subjects:
+                                    value:
+                                        subjects:
+                                            - type: user
+                                              id: alice
+                                            - type: user
+                                              id: bob
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
 
-    Relationship:
-      type: object
-      required:
-        - resource
-        - relation
-        - subject
-      properties:
-        resource:
-          type: string
-          description: The resource being accessed
-          example: document:readme
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-        relation:
-          type: string
-          description: The relation type
-          example: viewer
-          pattern: "^[a-z_][a-z0-9_]*$"
-        subject:
-          type: string
-          description: The subject (supports wildcards like "user:*")
-          example: user:alice
-          pattern: "^[a-z_][a-z0-9_]*:([a-z0-9_-]+|\\*)$"
+    /v1/evaluate:
+        post:
+            tags:
+                - InferaDB Extensions
+            summary: Evaluate permission (native format)
+            description: |
+                InferaDB native evaluation endpoint with extended features.
 
-    WriteRequest:
-      type: object
-      required:
-        - relationships
-      properties:
-        relationships:
-          type: array
-          items:
-            $ref: "#/components/schemas/Relationship"
-          description: Array of relationships to write
-          minItems: 1
-          maxItems: 1000
+                Supports SSE streaming, batch evaluation, and detailed tracing.
+                Uses InferaDB's native string format (e.g., "user:alice").
 
-    WriteResponse:
-      type: object
-      required:
-        - revision
-      properties:
-        revision:
-          type: integer
-          format: int64
-          description: New revision number after write
-          example: 42
+                For AuthZEN-compliant format, use `/access/v1/evaluation`.
+            operationId: evaluatePermission
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/EvaluateRequest"
+            responses:
+                "200":
+                    description: Check completed successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/EvaluateResponse"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
 
-    DeleteFilter:
-      type: object
-      description: Filter for bulk deletion of relationships
-      properties:
-        resource:
-          type: string
-          description: Filter by exact resource match
-          example: "doc:readme"
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-        relation:
-          type: string
-          description: Filter by relation
-          example: "viewer"
-          pattern: "^[a-z_][a-z0-9_]*$"
-        subject:
-          type: string
-          description: Filter by exact subject match
-          example: "user:alice"
-          pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
-      minProperties: 1
+    /v1/expand:
+        post:
+            tags:
+                - InferaDB Extensions
+            summary: Expand relation tree (extension)
+            description: |
+                Expand a relation into a tree showing all users and how they have access.
 
-    DeleteRequest:
-      type: object
-      description: Request to delete relationships
-      properties:
-        filter:
-          $ref: "#/components/schemas/DeleteFilter"
-          description: Optional filter for bulk deletion
-        relationships:
-          type: array
-          items:
-            $ref: "#/components/schemas/Relationship"
-          description: Optional exact relationships to delete
-          maxItems: 1000
-        limit:
-          type: integer
-          format: int32
-          description: Maximum number of relationships to delete
-          minimum: 0
-      anyOf:
-        - required: [filter]
-        - required: [relationships]
+                **Extension**: `inferadb_relation_expansion`
 
-    DeleteResponse:
-      type: object
-      required:
-        - revision
-        - relationships_deleted
-      properties:
-        revision:
-          type: string
-          description: New revision number after delete
-          example: "42"
-        relationships_deleted:
-          type: integer
-          format: int32
-          description: Number of relationships deleted
-          example: 15
+                This is an InferaDB extension not defined in AuthZEN.
+                Useful for debugging and visualization of authorization relationships.
+            operationId: expandRelation
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/ExpandRequest"
+            responses:
+                "200":
+                    description: Expansion completed
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ExpandResponse"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
 
-    ErrorResponse:
-      type: object
-      required:
-        - error
-      properties:
-        error:
-          type: string
-          description: Error type or category
-          example: Invalid request
-        message:
-          type: string
-          description: Detailed error message
-          example: Missing required field 'subject'
-        details:
-          type: object
-          description: Additional error details (optional)
-          additionalProperties: true
+    /v1/relationships:write:
+        post:
+            tags:
+                - InferaDB Extensions
+            summary: Write relationships (extension)
+            description: |
+                Create authorization relationships.
 
-  responses:
-    BadRequest:
-      description: Invalid request format or parameters
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
+                **Extension**: `inferadb_relationship_management`
 
-    Unauthorized:
-      description: Authentication required or invalid token
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
+                This is an InferaDB extension for ReBAC relationship management.
+            operationId: writeRelationships
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/WriteRequest"
+            responses:
+                "200":
+                    description: Relationships written successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/WriteResponse"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
 
-    TooManyRequests:
-      description: Rate limit exceeded
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
+    /v1/relationships:list:
+        post:
+            tags:
+                - InferaDB Extensions
+            summary: Query relationships (extension)
+            description: |
+                Query authorization relationships with filtering and pagination.
 
-    InternalServerError:
-      description: Internal server error
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
+                **Extension**: `inferadb_relationship_management`
+
+                This is an InferaDB extension for ReBAC relationship management.
+            operationId: listRelationships
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/ListRelationshipsRequest"
+            responses:
+                "200":
+                    description: List of matching relationships
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ListRelationshipsResponse"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+    /v1/relationships:delete:
+        post:
+            tags:
+                - InferaDB Extensions
+            summary: Delete relationships (extension)
+            description: |
+                Delete authorization relationships using exact matches or filters.
+
+                **Extension**: `inferadb_relationship_management`
+
+                This is an InferaDB extension for ReBAC relationship management.
+            operationId: deleteRelationships
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/DeleteRequest"
+            responses:
+                "200":
+                    description: Relationships deleted successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/DeleteResponse"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+    /v1/resources:list:
+        post:
+            tags:
+                - InferaDB Extensions
+            summary: List accessible resources (native format)
+            description: |
+                Find all resources a subject can access with a specific permission.
+                Uses InferaDB's native string format.
+
+                For AuthZEN-compliant format, use `/access/v1/search/resource`.
+            operationId: listResources
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/ListResourcesRequest"
+            responses:
+                "200":
+                    description: Lookup completed successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ListResourcesResponse"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+    /v1/subjects:list:
+        post:
+            tags:
+                - InferaDB Extensions
+            summary: List subjects with access (native format)
+            description: |
+                Find all subjects that have a specific relation to a resource.
+                Uses InferaDB's native string format.
+
+                For AuthZEN-compliant format, use `/access/v1/search/subject`.
+            operationId: listSubjects
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/ListSubjectsRequest"
+            responses:
+                "200":
+                    description: Lookup completed successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ListSubjectsResponse"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+    /v1/watch:
+        post:
+            tags:
+                - InferaDB Extensions
+            summary: Watch for relationship changes (extension)
+            description: |
+                Stream real-time relationship changes using Server-Sent Events.
+
+                **Extension**: `inferadb_realtime_streaming`
+
+                This is an InferaDB extension for real-time synchronization.
+            operationId: watch
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/WatchRequest"
+            responses:
+                "200":
+                    description: Event stream established
+                    content:
+                        text/event-stream:
+                            schema:
+                                type: string
+                                format: binary
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+    /health:
+        get:
+            tags:
+                - health
+            summary: Health check
+            description: Check if the service is running and healthy
+            operationId: healthCheck
+            responses:
+                "200":
+                    description: Service is healthy
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/HealthResponse"
+                "503":
+                    description: Service unavailable
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+            description: |
+                JWT authentication token.
+
+                Include your JWT in the Authorization header:
+                ```
+                Authorization: Bearer <your-jwt-token>
+                ```
+
+                See [Authentication Guide](../docs/security/authentication.md) for details.
+
+    schemas:
+        # AuthZEN Core Schemas
+        AuthZENConfiguration:
+            type: object
+            required:
+                - issuer
+            properties:
+                issuer:
+                    type: string
+                    description: Issuer identifier for this PDP
+                    example: "https://inferadb.example.com"
+                access_evaluation_endpoint:
+                    type: string
+                    description: URL for single authorization evaluation
+                    example: "https://inferadb.example.com/access/v1/evaluation"
+                access_evaluations_endpoint:
+                    type: string
+                    description: URL for batch authorization evaluations
+                    example: "https://inferadb.example.com/access/v1/evaluations"
+                search_resource_endpoint:
+                    type: string
+                    description: URL for resource search
+                    example: "https://inferadb.example.com/access/v1/search/resource"
+                search_subject_endpoint:
+                    type: string
+                    description: URL for subject search
+                    example: "https://inferadb.example.com/access/v1/search/subject"
+                supported_subject_types:
+                    type: array
+                    items:
+                        type: string
+                    description: List of supported subject types
+                    example:
+                        - user
+                        - group
+                        - service
+                supported_resource_types:
+                    type: array
+                    items:
+                        type: string
+                    description: List of supported resource types
+                    example:
+                        - document
+                        - folder
+                        - organization
+                extensions:
+                    type: object
+                    additionalProperties: true
+                    description: |
+                        InferaDB-specific extensions to the AuthZEN specification.
+
+                        Available extensions:
+                        - `inferadb_relationship_management`: Create, query, and delete relationships
+                        - `inferadb_relation_expansion`: Expand relation trees to visualize authorization graphs
+                        - `inferadb_simulation`: Simulate authorization changes before committing
+                        - `inferadb_realtime_streaming`: Watch for relationship changes in real-time
+
+                        See [Extension Documentation](../../docs/api/authzen-extensions.md) for details.
+                    example:
+                        inferadb_relationship_management: true
+                        inferadb_relation_expansion: true
+                        inferadb_simulation: true
+                        inferadb_realtime_streaming: true
+
+        AuthZENEntity:
+            type: object
+            required:
+                - type
+                - id
+            properties:
+                type:
+                    type: string
+                    description: Entity type (e.g., "user", "group", "document")
+                    example: user
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                id:
+                    type: string
+                    description: Entity identifier
+                    example: alice
+                    pattern: "^[a-z0-9_-]+$"
+                properties:
+                    type: object
+                    additionalProperties: true
+                    description: Optional additional properties
+
+        AuthZENAction:
+            type: object
+            required:
+                - name
+            properties:
+                name:
+                    type: string
+                    description: Action name (e.g., "view", "edit", "delete")
+                    example: view
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                properties:
+                    type: object
+                    additionalProperties: true
+                    description: Optional additional properties
+
+        AuthZENEvaluationRequest:
+            type: object
+            required:
+                - subject
+                - resource
+                - action
+            properties:
+                subject:
+                    $ref: "#/components/schemas/AuthZENEntity"
+                resource:
+                    $ref: "#/components/schemas/AuthZENEntity"
+                action:
+                    $ref: "#/components/schemas/AuthZENAction"
+                context:
+                    type: object
+                    additionalProperties: true
+                    description: Optional environmental context
+
+        AuthZENEvaluationResponse:
+            type: object
+            required:
+                - decision
+            properties:
+                decision:
+                    type: boolean
+                    description: Authorization decision (true = allow, false = deny)
+                context:
+                    type: object
+                    description: Optional decision context
+                    properties:
+                        id:
+                            type: string
+                            description: Unique evaluation identifier
+                        reason_admin:
+                            type: object
+                            additionalProperties:
+                                type: string
+                            description: Admin-facing reason (localized)
+                        reason_user:
+                            type: object
+                            additionalProperties:
+                                type: string
+                            description: User-facing reason (localized)
+
+        AuthZENResourceSearchRequest:
+            type: object
+            required:
+                - subject
+                - action
+            properties:
+                subject:
+                    $ref: "#/components/schemas/AuthZENEntity"
+                action:
+                    $ref: "#/components/schemas/AuthZENAction"
+                resource_type:
+                    type: string
+                    description: Filter by resource type
+                    example: document
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                page:
+                    type: object
+                    properties:
+                        size:
+                            type: integer
+                            description: Page size
+                            example: 100
+                        token:
+                            type: string
+                            description: Pagination token
+
+        AuthZENResourceSearchResponse:
+            type: object
+            required:
+                - resources
+            properties:
+                resources:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/AuthZENEntity"
+                    description: List of resources the subject can access
+                page:
+                    type: object
+                    properties:
+                        next_token:
+                            type: string
+                            description: Token for next page
+                        prev_token:
+                            type: string
+                            description: Token for previous page
+
+        AuthZENSubjectSearchRequest:
+            type: object
+            required:
+                - resource
+                - action
+            properties:
+                resource:
+                    $ref: "#/components/schemas/AuthZENEntity"
+                action:
+                    $ref: "#/components/schemas/AuthZENAction"
+                subject_type:
+                    type: string
+                    description: Filter by subject type
+                    example: user
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                page:
+                    type: object
+                    properties:
+                        size:
+                            type: integer
+                            description: Page size
+                            example: 100
+                        token:
+                            type: string
+                            description: Pagination token
+
+        AuthZENSubjectSearchResponse:
+            type: object
+            required:
+                - subjects
+            properties:
+                subjects:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/AuthZENEntity"
+                    description: List of subjects with access
+                page:
+                    type: object
+                    properties:
+                        next_token:
+                            type: string
+                            description: Token for next page
+                        prev_token:
+                            type: string
+                            description: Token for previous page
+
+        # InferaDB Native Schemas
+        HealthResponse:
+            type: object
+            required:
+                - status
+                - version
+            properties:
+                status:
+                    type: string
+                    enum: [healthy, unhealthy]
+                    description: Health status of the service
+                version:
+                    type: string
+                    description: Version of the InferaDB server
+                    example: 0.1.0
+
+        EvaluateRequest:
+            type: object
+            required:
+                - subject
+                - resource
+                - permission
+            properties:
+                subject:
+                    type: string
+                    description: The user or entity requesting access
+                    example: user:alice
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                resource:
+                    type: string
+                    description: The resource being accessed
+                    example: document:readme
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                permission:
+                    type: string
+                    description: The permission being checked
+                    example: can_view
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                context:
+                    type: object
+                    description: Additional context for WASM modules (optional)
+                    additionalProperties: true
+                trace:
+                    type: boolean
+                    description: Enable detailed evaluation trace for debugging
+                    example: false
+
+        EvaluateResponse:
+            type: object
+            required:
+                - decision
+            properties:
+                decision:
+                    type: string
+                    enum: [allow, deny]
+                    description: The authorization decision
+                trace:
+                    type: object
+                    description: Detailed evaluation trace (only included when trace=true)
+
+        ExpandRequest:
+            type: object
+            required:
+                - resource
+                - relation
+            properties:
+                resource:
+                    type: string
+                    description: The resource to expand
+                    example: document:readme
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                relation:
+                    type: string
+                    description: The relation to expand
+                    example: can_view
+                    pattern: "^[a-z_][a-z0-9_]*$"
+
+        ExpandResponse:
+            type: object
+            required:
+                - tree
+            properties:
+                tree:
+                    type: object
+                    description: Relation expansion tree
+
+        ListResourcesRequest:
+            type: object
+            required:
+                - subject
+                - resource_type
+                - permission
+            properties:
+                subject:
+                    type: string
+                    description: The user or entity requesting access
+                    example: user:alice
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                resource_type:
+                    type: string
+                    description: The type of resources to lookup
+                    example: document
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                permission:
+                    type: string
+                    description: The permission to check for each resource
+                    example: can_view
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                limit:
+                    type: integer
+                    format: int32
+                    description: Maximum number of resources to return
+                    example: 100
+                    minimum: 1
+                    maximum: 10000
+                cursor:
+                    type: string
+                    description: Continuation token from a previous response
+                    example: eyJvZmZzZXQiOjEwMH0=
+
+        ListResourcesResponse:
+            type: object
+            required:
+                - resources
+            properties:
+                resources:
+                    type: array
+                    items:
+                        type: string
+                        pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                    description: List of resource identifiers
+                    example:
+                        - document:readme
+                        - document:guide
+                cursor:
+                    type: string
+                    description: Continuation token for next page
+                    nullable: true
+                total_count:
+                    type: integer
+                    format: int64
+                    description: Total number of resources checked
+                    nullable: true
+
+        ListRelationshipsRequest:
+            type: object
+            properties:
+                resource:
+                    type: string
+                    description: Optional filter by exact resource
+                    example: doc:readme
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                    nullable: true
+                relation:
+                    type: string
+                    description: Optional filter by relation type
+                    example: viewer
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                    nullable: true
+                subject:
+                    type: string
+                    description: Optional filter by exact subject
+                    example: user:alice
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                    nullable: true
+                limit:
+                    type: integer
+                    format: int32
+                    description: Maximum number of relationships to return
+                    example: 100
+                    minimum: 1
+                    maximum: 1000
+                    default: 100
+                cursor:
+                    type: string
+                    description: Continuation token from a previous response
+                    nullable: true
+
+        ListRelationshipsResponse:
+            type: object
+            required:
+                - relationships
+            properties:
+                relationships:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Relationship"
+                    description: List of relationships matching the filter
+                cursor:
+                    type: string
+                    description: Continuation token for next page
+                    nullable: true
+                total_count:
+                    type: integer
+                    format: int64
+                    description: Total number of relationships returned
+                    nullable: true
+
+        ListSubjectsRequest:
+            type: object
+            required:
+                - resource
+                - relation
+            properties:
+                resource:
+                    type: string
+                    description: The resource to check access for
+                    example: document:readme
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                relation:
+                    type: string
+                    description: The relation to check
+                    example: viewer
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                subject_type:
+                    type: string
+                    description: Optional filter by subject type
+                    example: user
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                    nullable: true
+                limit:
+                    type: integer
+                    format: int32
+                    description: Maximum number of subjects to return
+                    example: 100
+                    minimum: 1
+                    maximum: 10000
+                cursor:
+                    type: string
+                    description: Continuation token from a previous response
+                    nullable: true
+
+        ListSubjectsResponse:
+            type: object
+            required:
+                - subjects
+            properties:
+                subjects:
+                    type: array
+                    items:
+                        type: string
+                        pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                    description: List of subject identifiers
+                    example:
+                        - user:alice
+                        - user:bob
+                cursor:
+                    type: string
+                    description: Continuation token for next page
+                    nullable: true
+                total_count:
+                    type: integer
+                    format: int64
+                    description: Total number of subjects returned
+                    nullable: true
+
+        WatchRequest:
+            type: object
+            properties:
+                resource_types:
+                    type: array
+                    items:
+                        type: string
+                        pattern: "^[a-z_][a-z0-9_]*$"
+                    description: Optional filter by resource types
+                    default: []
+                cursor:
+                    type: string
+                    description: Optional start cursor/revision to resume from
+                    nullable: true
+
+        Relationship:
+            type: object
+            required:
+                - resource
+                - relation
+                - subject
+            properties:
+                resource:
+                    type: string
+                    description: The resource being accessed
+                    example: document:readme
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                relation:
+                    type: string
+                    description: The relation type
+                    example: viewer
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                subject:
+                    type: string
+                    description: The subject (supports wildcards like "user:*")
+                    example: user:alice
+                    pattern: "^[a-z_][a-z0-9_]*:([a-z0-9_-]+|\\*)$"
+
+        WriteRequest:
+            type: object
+            required:
+                - relationships
+            properties:
+                relationships:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Relationship"
+                    description: Array of relationships to write
+                    minItems: 1
+                    maxItems: 1000
+
+        WriteResponse:
+            type: object
+            required:
+                - revision
+            properties:
+                revision:
+                    type: integer
+                    format: int64
+                    description: New revision number after write
+                    example: 42
+
+        DeleteFilter:
+            type: object
+            description: Filter for bulk deletion of relationships
+            properties:
+                resource:
+                    type: string
+                    description: Filter by exact resource match
+                    example: "doc:readme"
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+                relation:
+                    type: string
+                    description: Filter by relation
+                    example: "viewer"
+                    pattern: "^[a-z_][a-z0-9_]*$"
+                subject:
+                    type: string
+                    description: Filter by exact subject match
+                    example: "user:alice"
+                    pattern: "^[a-z_][a-z0-9_]*:[a-z0-9_-]+$"
+            minProperties: 1
+
+        DeleteRequest:
+            type: object
+            description: Request to delete relationships
+            properties:
+                filter:
+                    $ref: "#/components/schemas/DeleteFilter"
+                    description: Optional filter for bulk deletion
+                relationships:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Relationship"
+                    description: Optional exact relationships to delete
+                    maxItems: 1000
+                limit:
+                    type: integer
+                    format: int32
+                    description: Maximum number of relationships to delete
+                    minimum: 0
+            anyOf:
+                - required: [filter]
+                - required: [relationships]
+
+        DeleteResponse:
+            type: object
+            required:
+                - revision
+                - relationships_deleted
+            properties:
+                revision:
+                    type: string
+                    description: New revision number after delete
+                    example: "42"
+                relationships_deleted:
+                    type: integer
+                    format: int32
+                    description: Number of relationships deleted
+                    example: 15
+
+        ErrorResponse:
+            type: object
+            required:
+                - error
+            properties:
+                error:
+                    type: string
+                    description: Error type or category
+                    example: Invalid request
+                message:
+                    type: string
+                    description: Detailed error message
+                    example: Missing required field 'subject'
+                details:
+                    type: object
+                    description: Additional error details (optional)
+                    additionalProperties: true
+
+    responses:
+        BadRequest:
+            description: Invalid request format or parameters
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+        Unauthorized:
+            description: Authentication required or invalid token
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+        TooManyRequests:
+            description: Rate limit exceeded
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+
+        InternalServerError:
+            description: Internal server error
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
 
 x-tagGroups:
-  - name: AuthZEN Specification
-    tags:
-      - AuthZEN Core
-  - name: InferaDB Extensions
-    tags:
-      - InferaDB Extensions
-  - name: System
-    tags:
-      - health
+    - name: AuthZEN Specification
+      tags:
+          - AuthZEN Core
+    - name: InferaDB Extensions
+      tags:
+          - InferaDB Extensions
+    - name: System
+      tags:
+          - health

@@ -22,80 +22,68 @@ InferaDB uses **multi-window, multi-burn-rate alerts** to catch SLO violations e
 Alerts that directly track SLO compliance:
 
 - **Availability SLO** (`slo: availability`)
-
-  - Fast burn: 14.4x burn rate over 1 hour
-  - Slow burn: 3x burn rate over 24 hours
-  - Violation: 30-day error rate exceeds 0.1%
-  - Budget warning: Error budget 50% consumed
+    - Fast burn: 14.4x burn rate over 1 hour
+    - Slow burn: 3x burn rate over 24 hours
+    - Violation: 30-day error rate exceeds 0.1%
+    - Budget warning: Error budget 50% consumed
 
 - **Latency SLO** (`slo: latency`)
-
-  - p99 > 10ms (critical)
-  - p99 > 8ms (warning)
-  - p50 > 2ms, p90 > 5ms (degradation)
-  - WASM p99 > 50ms
+    - p99 > 10ms (critical)
+    - p99 > 8ms (warning)
+    - p50 > 2ms, p90 > 5ms (degradation)
+    - WASM p99 > 50ms
 
 - **Error Rate SLO** (`slo: error_rate`)
-
-  - Error rate > 0.1%
-  - Error rate > 0.05% (warning)
+    - Error rate > 0.1%
+    - Error rate > 0.05% (warning)
 
 - **Cache Hit Rate SLO** (`slo: cache`)
-
-  - Hit rate < 80% (target)
-  - Hit rate < 60% (critical)
+    - Hit rate < 80% (target)
+    - Hit rate < 60% (critical)
 
 - **Storage Latency SLO** (`slo: storage_latency`)
-
-  - Read/write p99 > 5ms
-  - Read/write p99 > 4ms (warning)
+    - Read/write p99 > 5ms
+    - Read/write p99 > 4ms (warning)
 
 - **Replication Lag SLO** (`slo: replication`)
-
-  - Lag > 100ms (target)
-  - Lag > 500ms (critical)
+    - Lag > 100ms (target)
+    - Lag > 500ms (critical)
 
 - **JWKS Freshness SLO** (`slo: jwks`)
-
-  - Stale serving > 1/sec
+    - Stale serving > 1/sec
 
 - **Evaluation Depth SLO** (`slo: evaluation`)
-  - p99 > 10 levels
-  - p99 > 20 levels (critical)
+    - p99 > 10 levels
+    - p99 > 20 levels (critical)
 
 ### Component-Specific Alerts
 
 Alerts for specific system components:
 
 - **Errors** (`category: errors`)
-
-  - Storage errors
-  - Evaluation errors
+    - Storage errors
+    - Evaluation errors
 
 - **Cache** (`category: cache`)
-
-  - High eviction rate
+    - High eviction rate
 
 - **Replication** (`category: replication`)
-
-  - Target unhealthy
-  - High error rate
-  - High conflict rate
+    - Target unhealthy
+    - High error rate
+    - High conflict rate
 
 - **Auth** (`category: auth`)
-
-  - JWKS refresh failures
+    - JWKS refresh failures
 
 - **Capacity** (`category: capacity`)
-
-  - CPU utilization > 70%
-  - Memory utilization > 80%
-  - Rapidly increasing request rate
+    - CPU utilization > 70%
+    - Memory utilization > 80%
+    - Rapidly increasing request rate
 
 - **Health** (`category: health`)
-  - Service down
-  - Goroutine leak suspected
-  - File descriptor usage high
+    - Service down
+    - Goroutine leak suspected
+    - File descriptor usage high
 
 ## Deployment
 
@@ -111,13 +99,13 @@ Add InferaDB as a scrape target in `prometheus.yml`:
 
 ```yaml
 scrape_configs:
-  - job_name: "inferadb"
-    scrape_interval: 15s
-    static_configs:
-      - targets: ["localhost:9090"] # Adjust to your InferaDB metrics endpoint
-        labels:
-          environment: "production"
-          region: "us-west-1"
+    - job_name: "inferadb"
+      scrape_interval: 15s
+      static_configs:
+          - targets: ["localhost:9090"] # Adjust to your InferaDB metrics endpoint
+            labels:
+                environment: "production"
+                region: "us-west-1"
 ```
 
 ### Step 2: Load Alerting Rules
@@ -127,7 +115,7 @@ Add the alerting rules to your Prometheus configuration:
 ```yaml
 # prometheus.yml
 rule_files:
-  - "alerting-rules.yml"
+    - "alerting-rules.yml"
 ```
 
 Or if using Prometheus Operator (Kubernetes):
@@ -136,11 +124,11 @@ Or if using Prometheus Operator (Kubernetes):
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: inferadb-alerts
-  namespace: monitoring
+    name: inferadb-alerts
+    namespace: monitoring
 spec:
-  groups:
-    # Copy groups from alerting-rules.yml here
+    groups:
+        # Copy groups from alerting-rules.yml here
 ```
 
 ### Step 3: Configure AlertManager
@@ -150,57 +138,57 @@ Configure AlertManager to route InferaDB alerts appropriately:
 ```yaml
 # alertmanager.yml
 route:
-  receiver: "default"
-  group_by: ["alertname", "category", "severity"]
-  group_wait: 10s
-  group_interval: 5m
-  repeat_interval: 4h
+    receiver: "default"
+    group_by: ["alertname", "category", "severity"]
+    group_wait: 10s
+    group_interval: 5m
+    repeat_interval: 4h
 
-  routes:
-    # P0 alerts - page immediately
-    - match:
-        severity: P0
-      receiver: "pagerduty-critical"
-      continue: true
+    routes:
+        # P0 alerts - page immediately
+        - match:
+              severity: P0
+          receiver: "pagerduty-critical"
+          continue: true
 
-    # P1 alerts - notify on-call
-    - match:
-        severity: P1
-      receiver: "slack-oncall"
-      continue: true
+        # P1 alerts - notify on-call
+        - match:
+              severity: P1
+          receiver: "slack-oncall"
+          continue: true
 
-    # P2 alerts - create ticket
-    - match:
-        severity: P2
-      receiver: "jira-tickets"
+        # P2 alerts - create ticket
+        - match:
+              severity: P2
+          receiver: "jira-tickets"
 
-    # P3 alerts - log only
-    - match:
-        severity: P3
-      receiver: "null"
+        # P3 alerts - log only
+        - match:
+              severity: P3
+          receiver: "null"
 
 receivers:
-  - name: "default"
-    # Default catch-all
+    - name: "default"
+      # Default catch-all
 
-  - name: "pagerduty-critical"
-    pagerduty_configs:
-      - service_key: "<your-pagerduty-key>"
-        severity: "critical"
+    - name: "pagerduty-critical"
+      pagerduty_configs:
+          - service_key: "<your-pagerduty-key>"
+            severity: "critical"
 
-  - name: "slack-oncall"
-    slack_configs:
-      - api_url: "<your-slack-webhook>"
-        channel: "#inferadb-alerts"
-        title: "{{ .GroupLabels.alertname }}"
-        text: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+    - name: "slack-oncall"
+      slack_configs:
+          - api_url: "<your-slack-webhook>"
+            channel: "#inferadb-alerts"
+            title: "{{ .GroupLabels.alertname }}"
+            text: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
 
-  - name: "jira-tickets"
-    webhook_configs:
-      - url: "<your-jira-webhook>"
+    - name: "jira-tickets"
+      webhook_configs:
+          - url: "<your-jira-webhook>"
 
-  - name: "null"
-    # Discard P3 alerts
+    - name: "null"
+      # Discard P3 alerts
 ```
 
 ### Step 4: Verify Alerts
@@ -415,49 +403,49 @@ histogram_quantile(0.99, rate(alertmanager_notification_latency_seconds_bucket[5
 
 ```yaml
 receivers:
-  - name: "slack-alerts"
-    slack_configs:
-      - api_url: "<webhook-url>"
-        channel: "#inferadb-alerts"
-        title: ":fire: {{ .GroupLabels.alertname }}"
-        text: |
-          {{ range .Alerts }}
-          *Severity*: {{ .Labels.severity }}
-          *Summary*: {{ .Annotations.summary }}
-          *Description*: {{ .Annotations.description }}
-          {{ if .Annotations.runbook_url }}*Runbook*: {{ .Annotations.runbook_url }}{{ end }}
-          {{ if .Annotations.dashboard_url }}*Dashboard*: {{ .Annotations.dashboard_url }}{{ end }}
-          {{ end }}
-        send_resolved: true
+    - name: "slack-alerts"
+      slack_configs:
+          - api_url: "<webhook-url>"
+            channel: "#inferadb-alerts"
+            title: ":fire: {{ .GroupLabels.alertname }}"
+            text: |
+                {{ range .Alerts }}
+                *Severity*: {{ .Labels.severity }}
+                *Summary*: {{ .Annotations.summary }}
+                *Description*: {{ .Annotations.description }}
+                {{ if .Annotations.runbook_url }}*Runbook*: {{ .Annotations.runbook_url }}{{ end }}
+                {{ if .Annotations.dashboard_url }}*Dashboard*: {{ .Annotations.dashboard_url }}{{ end }}
+                {{ end }}
+            send_resolved: true
 ```
 
 ### PagerDuty Integration
 
 ```yaml
 receivers:
-  - name: "pagerduty-critical"
-    pagerduty_configs:
-      - service_key: "<integration-key>"
-        severity: "{{ .Labels.severity }}"
-        description: "{{ .Annotations.summary }}"
-        details:
-          firing: "{{ range .Alerts }}{{ .Annotations.description }}{{ end }}"
-          dashboard: "{{ .Annotations.dashboard_url }}"
-          runbook: "{{ .Annotations.runbook_url }}"
+    - name: "pagerduty-critical"
+      pagerduty_configs:
+          - service_key: "<integration-key>"
+            severity: "{{ .Labels.severity }}"
+            description: "{{ .Annotations.summary }}"
+            details:
+                firing: "{{ range .Alerts }}{{ .Annotations.description }}{{ end }}"
+                dashboard: "{{ .Annotations.dashboard_url }}"
+                runbook: "{{ .Annotations.runbook_url }}"
 ```
 
 ### Jira Integration
 
 ```yaml
 receivers:
-  - name: "jira-tickets"
-    webhook_configs:
-      - url: "https://your-jira-instance/rest/api/2/issue"
-        http_config:
-          basic_auth:
-            username: "<jira-user>"
-            password: "<jira-token>"
-        send_resolved: false
+    - name: "jira-tickets"
+      webhook_configs:
+          - url: "https://your-jira-instance/rest/api/2/issue"
+            http_config:
+                basic_auth:
+                    username: "<jira-user>"
+                    password: "<jira-token>"
+            send_resolved: false
 ```
 
 ## References

@@ -1,364 +1,376 @@
 {
-  "dashboard": {
-    "title": "InferaDB - Replication",
-    "tags": ["inferadb", "replication", "multi-region"],
-    "timezone": "browser",
-    "refresh": "30s",
-    "time": {
-      "from": "now-1h",
-      "to": "now"
-    },
-    "panels": [
-      {
-        "id": 1,
-        "title": "Replication Lag by Region",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-        "targets": [
-          {
-            "expr": "inferadb_replication_lag_milliseconds",
-            "legendFormat": "{{source_region}} → {{target_region}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          { "format": "ms", "label": "Lag (ms)", "logBase": 1 },
-          { "format": "short" }
-        ],
-        "alert": {
-          "conditions": [
+    "dashboard": {
+        "title": "InferaDB - Replication",
+        "tags": ["inferadb", "replication", "multi-region"],
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+            "from": "now-1h",
+            "to": "now"
+        },
+        "panels": [
             {
-              "evaluator": { "params": [100], "type": "gt" },
-              "operator": { "type": "and" },
-              "query": { "params": ["A", "5m", "now"] },
-              "reducer": { "params": [], "type": "avg" },
-              "type": "query"
-            }
-          ],
-          "executionErrorState": "alerting",
-          "frequency": "60s",
-          "handler": 1,
-          "name": "Replication Lag SLO",
-          "noDataState": "no_data",
-          "notifications": []
-        },
-        "thresholds": [
-          {
-            "value": 100,
-            "colorMode": "critical",
-            "op": "gt",
-            "fill": true,
-            "line": true
-          }
-        ]
-      },
-      {
-        "id": 2,
-        "title": "Replication Target Health",
-        "type": "stat",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-        "targets": [
-          {
-            "expr": "inferadb_replication_targets_connected / inferadb_replication_targets_total",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "graphMode": "area",
-          "colorMode": "background",
-          "textMode": "value_and_name"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "value": null, "color": "red" },
-                { "value": 0.8, "color": "yellow" },
-                { "value": 1.0, "color": "green" }
-              ]
+                "id": 1,
+                "title": "Replication Lag by Region",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+                "targets": [
+                    {
+                        "expr": "inferadb_replication_lag_milliseconds",
+                        "legendFormat": "{{source_region}} → {{target_region}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "ms", "label": "Lag (ms)", "logBase": 1 },
+                    { "format": "short" }
+                ],
+                "alert": {
+                    "conditions": [
+                        {
+                            "evaluator": { "params": [100], "type": "gt" },
+                            "operator": { "type": "and" },
+                            "query": { "params": ["A", "5m", "now"] },
+                            "reducer": { "params": [], "type": "avg" },
+                            "type": "query"
+                        }
+                    ],
+                    "executionErrorState": "alerting",
+                    "frequency": "60s",
+                    "handler": 1,
+                    "name": "Replication Lag SLO",
+                    "noDataState": "no_data",
+                    "notifications": []
+                },
+                "thresholds": [
+                    {
+                        "value": 100,
+                        "colorMode": "critical",
+                        "op": "gt",
+                        "fill": true,
+                        "line": true
+                    }
+                ]
             },
-            "unit": "percentunit"
-          }
-        }
-      },
-      {
-        "id": 3,
-        "title": "Changes Replicated/sec by Region",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-        "targets": [
-          {
-            "expr": "sum by (target_region) (rate(inferadb_replication_changes_replicated_total[5m]))",
-            "legendFormat": "→ {{target_region}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          { "format": "ops", "label": "Changes/sec" },
-          { "format": "short" }
-        ]
-      },
-      {
-        "id": 4,
-        "title": "Replication Batch Size",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.50, rate(inferadb_replication_batch_size_bucket[5m]))",
-            "legendFormat": "p50",
-            "refId": "A"
-          },
-          {
-            "expr": "histogram_quantile(0.90, rate(inferadb_replication_batch_size_bucket[5m]))",
-            "legendFormat": "p90",
-            "refId": "B"
-          },
-          {
-            "expr": "histogram_quantile(0.99, rate(inferadb_replication_batch_size_bucket[5m]))",
-            "legendFormat": "p99",
-            "refId": "C"
-          }
-        ],
-        "yaxes": [
-          { "format": "short", "label": "Batch Size (changes)" },
-          { "format": "short" }
-        ]
-      },
-      {
-        "id": 5,
-        "title": "Replication Errors by Region",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
-        "targets": [
-          {
-            "expr": "sum by (target_region, error_type) (rate(inferadb_replication_errors_total[5m]))",
-            "legendFormat": "{{target_region}} - {{error_type}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          { "format": "ops", "label": "Errors/sec" },
-          { "format": "short" }
-        ]
-      },
-      {
-        "id": 6,
-        "title": "Replication Retries",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
-        "targets": [
-          {
-            "expr": "sum by (target_region) (rate(inferadb_replication_retries_total[5m]))",
-            "legendFormat": "{{target_region}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          { "format": "ops", "label": "Retries/sec" },
-          { "format": "short" }
-        ]
-      },
-      {
-        "id": 7,
-        "title": "Conflict Rate",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
-        "targets": [
-          {
-            "expr": "sum by (resolution_strategy) (rate(inferadb_replication_conflicts_total[5m]))",
-            "legendFormat": "{{resolution_strategy}}",
-            "refId": "A"
-          },
-          {
-            "expr": "(sum(rate(inferadb_replication_conflicts_total[5m])) / sum(rate(inferadb_replication_changes_replicated_total[5m]))) * 100",
-            "legendFormat": "Conflict Rate %",
-            "refId": "B",
-            "yaxis": 2
-          }
-        ],
-        "yaxes": [
-          { "format": "ops", "label": "Conflicts/sec" },
-          { "format": "percent", "label": "Conflict Rate %" }
-        ]
-      },
-      {
-        "id": 8,
-        "title": "Conflict Resolution Distribution",
-        "type": "piechart",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
-        "targets": [
-          {
-            "expr": "sum by (resolution_strategy) (increase(inferadb_replication_conflicts_total[1h]))",
-            "legendFormat": "{{resolution_strategy}}",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "legend": {
-            "displayMode": "list",
-            "placement": "right",
-            "values": ["value", "percent"]
-          },
-          "pieType": "pie",
-          "displayLabels": ["name", "percent"]
-        }
-      },
-      {
-        "id": 9,
-        "title": "Queue Depth by Region",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
-        "targets": [
-          {
-            "expr": "inferadb_replication_queue_depth",
-            "legendFormat": "{{target_region}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          { "format": "short", "label": "Queue Depth (changes)" },
-          { "format": "short" }
-        ]
-      },
-      {
-        "id": 10,
-        "title": "Bytes Replicated/sec",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
-        "targets": [
-          {
-            "expr": "sum by (target_region) (rate(inferadb_replication_bytes_sent_total[5m]))",
-            "legendFormat": "{{target_region}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          { "format": "Bps", "label": "Bytes/sec" },
-          { "format": "short" }
-        ]
-      },
-      {
-        "id": 11,
-        "title": "Topology View",
-        "type": "table",
-        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 40 },
-        "targets": [
-          {
-            "expr": "inferadb_replication_targets_total",
-            "format": "table",
-            "instant": true,
-            "refId": "A"
-          },
-          {
-            "expr": "inferadb_replication_targets_connected",
-            "format": "table",
-            "instant": true,
-            "refId": "B"
-          },
-          {
-            "expr": "inferadb_replication_lag_milliseconds",
-            "format": "table",
-            "instant": true,
-            "refId": "C"
-          }
-        ],
-        "transformations": [
-          {
-            "id": "merge",
-            "options": {}
-          },
-          {
-            "id": "organize",
-            "options": {
-              "excludeByName": { "Time": true, "__name__": true },
-              "renameByName": {
-                "source_region": "Source Region",
-                "target_region": "Target Region",
-                "Value #A": "Total Targets",
-                "Value #B": "Connected",
-                "Value #C": "Lag (ms)"
-              }
+            {
+                "id": 2,
+                "title": "Replication Target Health",
+                "type": "stat",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+                "targets": [
+                    {
+                        "expr": "inferadb_replication_targets_connected / inferadb_replication_targets_total",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "graphMode": "area",
+                    "colorMode": "background",
+                    "textMode": "value_and_name"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                { "value": null, "color": "red" },
+                                { "value": 0.8, "color": "yellow" },
+                                { "value": 1.0, "color": "green" }
+                            ]
+                        },
+                        "unit": "percentunit"
+                    }
+                }
+            },
+            {
+                "id": 3,
+                "title": "Changes Replicated/sec by Region",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+                "targets": [
+                    {
+                        "expr": "sum by (target_region) (rate(inferadb_replication_changes_replicated_total[5m]))",
+                        "legendFormat": "→ {{target_region}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "ops", "label": "Changes/sec" },
+                    { "format": "short" }
+                ]
+            },
+            {
+                "id": 4,
+                "title": "Replication Batch Size",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+                "targets": [
+                    {
+                        "expr": "histogram_quantile(0.50, rate(inferadb_replication_batch_size_bucket[5m]))",
+                        "legendFormat": "p50",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.90, rate(inferadb_replication_batch_size_bucket[5m]))",
+                        "legendFormat": "p90",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.99, rate(inferadb_replication_batch_size_bucket[5m]))",
+                        "legendFormat": "p99",
+                        "refId": "C"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "short", "label": "Batch Size (changes)" },
+                    { "format": "short" }
+                ]
+            },
+            {
+                "id": 5,
+                "title": "Replication Errors by Region",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+                "targets": [
+                    {
+                        "expr": "sum by (target_region, error_type) (rate(inferadb_replication_errors_total[5m]))",
+                        "legendFormat": "{{target_region}} - {{error_type}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "ops", "label": "Errors/sec" },
+                    { "format": "short" }
+                ]
+            },
+            {
+                "id": 6,
+                "title": "Replication Retries",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+                "targets": [
+                    {
+                        "expr": "sum by (target_region) (rate(inferadb_replication_retries_total[5m]))",
+                        "legendFormat": "{{target_region}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "ops", "label": "Retries/sec" },
+                    { "format": "short" }
+                ]
+            },
+            {
+                "id": 7,
+                "title": "Conflict Rate",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+                "targets": [
+                    {
+                        "expr": "sum by (resolution_strategy) (rate(inferadb_replication_conflicts_total[5m]))",
+                        "legendFormat": "{{resolution_strategy}}",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "(sum(rate(inferadb_replication_conflicts_total[5m])) / sum(rate(inferadb_replication_changes_replicated_total[5m]))) * 100",
+                        "legendFormat": "Conflict Rate %",
+                        "refId": "B",
+                        "yaxis": 2
+                    }
+                ],
+                "yaxes": [
+                    { "format": "ops", "label": "Conflicts/sec" },
+                    { "format": "percent", "label": "Conflict Rate %" }
+                ]
+            },
+            {
+                "id": 8,
+                "title": "Conflict Resolution Distribution",
+                "type": "piechart",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+                "targets": [
+                    {
+                        "expr": "sum by (resolution_strategy) (increase(inferadb_replication_conflicts_total[1h]))",
+                        "legendFormat": "{{resolution_strategy}}",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "legend": {
+                        "displayMode": "list",
+                        "placement": "right",
+                        "values": ["value", "percent"]
+                    },
+                    "pieType": "pie",
+                    "displayLabels": ["name", "percent"]
+                }
+            },
+            {
+                "id": 9,
+                "title": "Queue Depth by Region",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+                "targets": [
+                    {
+                        "expr": "inferadb_replication_queue_depth",
+                        "legendFormat": "{{target_region}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "short", "label": "Queue Depth (changes)" },
+                    { "format": "short" }
+                ]
+            },
+            {
+                "id": 10,
+                "title": "Bytes Replicated/sec",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+                "targets": [
+                    {
+                        "expr": "sum by (target_region) (rate(inferadb_replication_bytes_sent_total[5m]))",
+                        "legendFormat": "{{target_region}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "Bps", "label": "Bytes/sec" },
+                    { "format": "short" }
+                ]
+            },
+            {
+                "id": 11,
+                "title": "Topology View",
+                "type": "table",
+                "gridPos": { "h": 8, "w": 24, "x": 0, "y": 40 },
+                "targets": [
+                    {
+                        "expr": "inferadb_replication_targets_total",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "inferadb_replication_targets_connected",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "inferadb_replication_lag_milliseconds",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "C"
+                    }
+                ],
+                "transformations": [
+                    {
+                        "id": "merge",
+                        "options": {}
+                    },
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": { "Time": true, "__name__": true },
+                            "renameByName": {
+                                "source_region": "Source Region",
+                                "target_region": "Target Region",
+                                "Value #A": "Total Targets",
+                                "Value #B": "Connected",
+                                "Value #C": "Lag (ms)"
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "id": 12,
+                "title": "Replication Strategy",
+                "type": "stat",
+                "gridPos": { "h": 4, "w": 8, "x": 0, "y": 48 },
+                "targets": [
+                    {
+                        "expr": "inferadb_replication_strategy_info",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "textMode": "name",
+                    "colorMode": "background"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "mappings": [
+                            {
+                                "value": 0,
+                                "text": "ActiveActive",
+                                "color": "green"
+                            },
+                            {
+                                "value": 1,
+                                "text": "PrimaryReplica",
+                                "color": "blue"
+                            },
+                            {
+                                "value": 2,
+                                "text": "MultiMaster",
+                                "color": "purple"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "id": 13,
+                "title": "Total Changes Replicated (1h)",
+                "type": "stat",
+                "gridPos": { "h": 4, "w": 8, "x": 8, "y": 48 },
+                "targets": [
+                    {
+                        "expr": "sum(increase(inferadb_replication_changes_replicated_total[1h]))",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "graphMode": "area",
+                    "colorMode": "background"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short"
+                    }
+                }
+            },
+            {
+                "id": 14,
+                "title": "Total Conflicts (1h)",
+                "type": "stat",
+                "gridPos": { "h": 4, "w": 8, "x": 16, "y": 48 },
+                "targets": [
+                    {
+                        "expr": "sum(increase(inferadb_replication_conflicts_total[1h]))",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "graphMode": "area",
+                    "colorMode": "background"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short",
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                { "value": null, "color": "green" },
+                                { "value": 100, "color": "yellow" },
+                                { "value": 1000, "color": "red" }
+                            ]
+                        }
+                    }
+                }
             }
-          }
         ]
-      },
-      {
-        "id": 12,
-        "title": "Replication Strategy",
-        "type": "stat",
-        "gridPos": { "h": 4, "w": 8, "x": 0, "y": 48 },
-        "targets": [
-          {
-            "expr": "inferadb_replication_strategy_info",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "textMode": "name",
-          "colorMode": "background"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "mappings": [
-              { "value": 0, "text": "ActiveActive", "color": "green" },
-              { "value": 1, "text": "PrimaryReplica", "color": "blue" },
-              { "value": 2, "text": "MultiMaster", "color": "purple" }
-            ]
-          }
-        }
-      },
-      {
-        "id": 13,
-        "title": "Total Changes Replicated (1h)",
-        "type": "stat",
-        "gridPos": { "h": 4, "w": 8, "x": 8, "y": 48 },
-        "targets": [
-          {
-            "expr": "sum(increase(inferadb_replication_changes_replicated_total[1h]))",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "graphMode": "area",
-          "colorMode": "background"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short"
-          }
-        }
-      },
-      {
-        "id": 14,
-        "title": "Total Conflicts (1h)",
-        "type": "stat",
-        "gridPos": { "h": 4, "w": 8, "x": 16, "y": 48 },
-        "targets": [
-          {
-            "expr": "sum(increase(inferadb_replication_conflicts_total[1h]))",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "graphMode": "area",
-          "colorMode": "background"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short",
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "value": null, "color": "green" },
-                { "value": 100, "color": "yellow" },
-                { "value": 1000, "color": "red" }
-              ]
-            }
-          }
-        }
-      }
-    ]
-  }
+    }
 }

@@ -3,6 +3,7 @@
 **For development and testing only - NOT for production use**
 
 This example deploys InferaDB with minimal resources for development and testing:
+
 - Single-AZ EKS cluster
 - 1 small node (t3.medium)
 - Memory-only storage (no FoundationDB)
@@ -13,6 +14,7 @@ This example deploys InferaDB with minimal resources for development and testing
 ## Cost
 
 Approximately **$50-70/month** for:
+
 - EKS control plane: $73/month
 - 1x t3.medium EC2: ~$30/month
 - Minimal data transfer
@@ -56,6 +58,7 @@ terraform destroy -auto-approve
 ## Upgrading to Production
 
 See [aws-complete](../aws-complete/) example for production deployment with:
+
 - Multi-AZ for HA
 - ElastiCache Redis
 - Authentication enabled

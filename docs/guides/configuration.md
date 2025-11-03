@@ -4,17 +4,17 @@ Complete guide for configuring InferaDB using configuration files and environmen
 
 ## Table of Contents
 
--   [Overview](#overview)
--   [Configuration Methods](#configuration-methods)
--   [Server Configuration](#server-configuration)
--   [Storage Configuration](#storage-configuration)
--   [Cache Configuration](#cache-configuration)
--   [Observability Configuration](#observability-configuration)
--   [Authentication Configuration](#authentication-configuration)
--   [Configuration Profiles](#configuration-profiles)
--   [Secrets Management](#secrets-management)
--   [Validation](#validation)
--   [Best Practices](#best-practices)
+- [Overview](#overview)
+- [Configuration Methods](#configuration-methods)
+- [Server Configuration](#server-configuration)
+- [Storage Configuration](#storage-configuration)
+- [Cache Configuration](#cache-configuration)
+- [Observability Configuration](#observability-configuration)
+- [Authentication Configuration](#authentication-configuration)
+- [Configuration Profiles](#configuration-profiles)
+- [Secrets Management](#secrets-management)
+- [Validation](#validation)
+- [Best Practices](#best-practices)
 
 ## Overview
 
@@ -181,9 +181,9 @@ export INFERA__SERVER__RATE_LIMITING_ENABLED=true
 
 ### Recommendations
 
--   **Development**: `host: "127.0.0.1"`, `worker_threads: 2-4`
--   **Production**: `host: "0.0.0.0"`, `worker_threads: 1-2x CPU cores`
--   **High-load**: `worker_threads: 2-4x CPU cores`
+- **Development**: `host: "127.0.0.1"`, `worker_threads: 2-4`
+- **Production**: `host: "0.0.0.0"`, `worker_threads: 1-2x CPU cores`
+- **High-load**: `worker_threads: 2-4x CPU cores`
 
 ## Storage Configuration
 
@@ -200,10 +200,10 @@ Controls the tuple storage backend.
 
 #### Memory Backend (Development)
 
--   **Use case**: Local development, testing
--   **Persistence**: None (data lost on restart)
--   **Performance**: Fastest
--   **Configuration**: No connection string needed
+- **Use case**: Local development, testing
+- **Persistence**: None (data lost on restart)
+- **Performance**: Fastest
+- **Configuration**: No connection string needed
 
 ```yaml
 store:
@@ -212,10 +212,10 @@ store:
 
 #### FoundationDB Backend (Production)
 
--   **Use case**: Production deployments
--   **Persistence**: ACID transactions, replication
--   **Performance**: High throughput, low latency
--   **Configuration**: Requires FDB cluster file path
+- **Use case**: Production deployments
+- **Persistence**: ACID transactions, replication
+- **Performance**: High throughput, low latency
+- **Configuration**: Requires FDB cluster file path
 
 ```yaml
 store:
@@ -232,8 +232,8 @@ export INFERA__STORE__CONNECTION_STRING="/etc/foundationdb/fdb.cluster"
 
 ### Recommendations
 
--   **Development/Testing**: Use `memory` backend
--   **Staging/Production**: Use `foundationdb` backend
+- **Development/Testing**: Use `memory` backend
+- **Staging/Production**: Use `foundationdb` backend
 
 ## Cache Configuration
 
@@ -286,17 +286,17 @@ export INFERA__CACHE__TTL_SECONDS=600
 
 Approximate memory usage per entry: 200-500 bytes
 
--   10,000 entries ≈ 2-5 MB
--   100,000 entries ≈ 20-50 MB
--   1,000,000 entries ≈ 200-500 MB
+- 10,000 entries ≈ 2-5 MB
+- 100,000 entries ≈ 20-50 MB
+- 1,000,000 entries ≈ 200-500 MB
 
 ### Recommendations
 
--   **Development**: `max_capacity: 1,000-10,000`
--   **Production**: `max_capacity: 100,000-1,000,000`
--   **Low-latency workloads**: `ttl_seconds: 60-300`
--   **Standard workloads**: `ttl_seconds: 300-600`
--   **Static data**: `ttl_seconds: 3600+`
+- **Development**: `max_capacity: 1,000-10,000`
+- **Production**: `max_capacity: 100,000-1,000,000`
+- **Low-latency workloads**: `ttl_seconds: 60-300`
+- **Standard workloads**: `ttl_seconds: 300-600`
+- **Static data**: `ttl_seconds: 3600+`
 
 ## Observability Configuration
 
@@ -356,10 +356,10 @@ export OTEL_SERVICE_NAME="inferadb"
 
 ### Recommendations
 
--   **Development**: `log_level: "debug"`, `tracing_enabled: false`
--   **Production**: `log_level: "info"`, `tracing_enabled: true`
--   **Troubleshooting**: `log_level: "debug"` temporarily
--   **Low disk space**: `log_level: "warn"` or `"error"`
+- **Development**: `log_level: "debug"`, `tracing_enabled: false`
+- **Production**: `log_level: "info"`, `tracing_enabled: true`
+- **Troubleshooting**: `log_level: "debug"` temporarily
+- **Low disk space**: `log_level: "warn"` or `"error"`
 
 ## Authentication Configuration
 
@@ -666,31 +666,31 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 
 **Server**:
 
--   `port` must be 1-65535
--   `worker_threads` must be > 0
--   `host` must be a valid IP or hostname
+- `port` must be 1-65535
+- `worker_threads` must be > 0
+- `host` must be a valid IP or hostname
 
 **Store**:
 
--   `backend` must be `"memory"` or `"foundationdb"`
--   `connection_string` required when `backend = "foundationdb"`
+- `backend` must be `"memory"` or `"foundationdb"`
+- `connection_string` required when `backend = "foundationdb"`
 
 **Cache**:
 
--   `max_capacity` must be > 0 when enabled
--   `ttl_seconds` must be > 0
+- `max_capacity` must be > 0 when enabled
+- `ttl_seconds` must be > 0
 
 **Observability**:
 
--   `log_level` must be valid: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`
+- `log_level` must be valid: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`
 
 **Authentication**:
 
--   `accepted_algorithms` cannot be empty
--   Cannot accept symmetric algorithms (HS256, HS384, HS512)
--   `replay_protection = true` requires `redis_url`
--   `enforce_audience = true` should have non-empty `allowed_audiences`
--   `clock_skew_seconds > 300` generates warning
+- `accepted_algorithms` cannot be empty
+- Cannot accept symmetric algorithms (HS256, HS384, HS512)
+- `replay_protection = true` requires `redis_url`
+- `enforce_audience = true` should have non-empty `allowed_audiences`
+- `clock_skew_seconds > 300` generates warning
 
 ### Example Validation Errors
 
@@ -753,13 +753,11 @@ Error: Replay protection enabled but redis_url not configured
 ### Performance
 
 1. **Tune worker threads**
-
     - CPU-bound: 2x CPU cores
     - I/O-bound: 4-8x CPU cores
     - Benchmark and adjust
 
 2. **Optimize cache settings**
-
     - Increase `max_capacity` for large datasets
     - Adjust `ttl_seconds` based on update frequency
     - Monitor cache hit rate (target >80%)
@@ -779,7 +777,6 @@ Error: Replay protection enabled but redis_url not configured
     ```
 
 2. **Choose appropriate log level**
-
     - Production: `"info"`
     - Development: `"debug"`
     - Troubleshooting: `"debug"` temporarily
@@ -793,12 +790,10 @@ Error: Replay protection enabled but redis_url not configured
 ### Operations
 
 1. **Use configuration files for defaults**
-
     - Non-sensitive configuration
     - Version control tracked
 
 2. **Use environment variables for overrides**
-
     - Secrets
     - Environment-specific values
     - Dynamic configuration
@@ -879,8 +874,8 @@ cache:
 
 ## See Also
 
--   [Authentication Guide](../security/authentication.md) - Detailed authentication setup
--   [Deployment Guide](deployment.md) - Production deployment
--   [Observability Guide](../operations/observability/README.md) - Metrics and tracing
--   [Kubernetes Deployment](../k8s/README.md) - K8s manifests
--   [Helm Chart](../../helm/README.md) - Helm deployment
+- [Authentication Guide](../security/authentication.md) - Detailed authentication setup
+- [Deployment Guide](deployment.md) - Production deployment
+- [Observability Guide](../operations/observability/README.md) - Metrics and tracing
+- [Kubernetes Deployment](../k8s/README.md) - K8s manifests
+- [Helm Chart](../../helm/README.md) - Helm deployment

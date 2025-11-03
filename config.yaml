@@ -1,20 +1,20 @@
 # InferaDB Server Configuration
 
 server:
-  host: "127.0.0.1"
-  port: 8080
-  worker_threads: 4
+    host: "127.0.0.1"
+    port: 8080
+    worker_threads: 4
 
 store:
-  backend: "memory"
-  # connection_string: "fdb:cluster_file=/path/to/fdb.cluster"
+    backend: "memory"
+    # connection_string: "fdb:cluster_file=/path/to/fdb.cluster"
 
 cache:
-  enabled: true
-  max_capacity: 10000
-  ttl_seconds: 300
+    enabled: true
+    max_capacity: 10000
+    ttl_seconds: 300
 
 observability:
-  log_level: "info"
-  metrics_enabled: true
-  tracing_enabled: true
+    log_level: "info"
+    metrics_enabled: true
+    tracing_enabled: true

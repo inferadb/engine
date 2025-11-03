@@ -14,11 +14,11 @@ Performance baselines are established through:
 
 All baseline measurements are performed on the following test environment:
 
--   **CPU**: Development machine (varies, typically 4-8 cores)
--   **Memory**: 16GB+ RAM
--   **Storage**: In-memory backend (MemoryBackend)
--   **Concurrency**: Tokio async runtime
--   **Build**: `cargo test --release` (optimized builds)
+- **CPU**: Development machine (varies, typically 4-8 cores)
+- **Memory**: 16GB+ RAM
+- **Storage**: In-memory backend (MemoryBackend)
+- **Concurrency**: Tokio async runtime
+- **Build**: `cargo test --release` (optimized builds)
 
 **Note**: Production performance may differ based on hardware, storage backend (FoundationDB vs Memory), and network latency.
 
@@ -34,19 +34,19 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **p50 latency**: < 1ms (typical: 0.2-0.5ms)
--   **p90 latency**: < 2ms (typical: 0.5-1ms)
--   **p95 latency**: < 3ms (typical: 1-2ms)
--   **p99 latency**: < 5ms (typical: 2-4ms)
--   **p99.9 latency**: < 10ms (typical: 5-8ms)
+- **p50 latency**: < 1ms (typical: 0.2-0.5ms)
+- **p90 latency**: < 2ms (typical: 0.5-1ms)
+- **p95 latency**: < 3ms (typical: 1-2ms)
+- **p99 latency**: < 5ms (typical: 2-4ms)
+- **p99.9 latency**: < 10ms (typical: 5-8ms)
 
 **Sample Size**: 10,000 requests
 
 **Interpretation**:
 
--   In-memory backend performs well under SLO targets
--   Real-world latency with FoundationDB will be higher (add 2-5ms per storage operation)
--   WASM policies add overhead (see WASM section below)
+- In-memory backend performs well under SLO targets
+- Real-world latency with FoundationDB will be higher (add 2-5ms per storage operation)
+- WASM policies add overhead (see WASM section below)
 
 ---
 
@@ -58,16 +58,16 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **Target**: 100,000 RPS for 10 seconds
--   **Achieved**: 50,000+ RPS (typical: 60,000-80,000 RPS on dev hardware)
--   **Concurrency**: 100 workers
--   **p99 latency at load**: < 50ms
+- **Target**: 100,000 RPS for 10 seconds
+- **Achieved**: 50,000+ RPS (typical: 60,000-80,000 RPS on dev hardware)
+- **Concurrency**: 100 workers
+- **p99 latency at load**: < 50ms
 
 **Interpretation**:
 
--   Single-instance throughput is sufficient for most deployments
--   Production deployments use horizontal scaling for higher throughput
--   Bottleneck is typically CPU-bound evaluation, not I/O
+- Single-instance throughput is sufficient for most deployments
+- Production deployments use horizontal scaling for higher throughput
+- Bottleneck is typically CPU-bound evaluation, not I/O
 
 ---
 
@@ -79,18 +79,18 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **Normal load**: 100 RPS (2 workers, 100 requests each)
--   **Spike load**: 10,000 RPS (100 workers, 100 requests each)
--   **Latency degradation**: p99 increases by <10x during spike
-    -   Normal: p99 < 5ms
-    -   Spike: p99 < 50ms
--   **Error rate**: 0% (no failures during spike)
+- **Normal load**: 100 RPS (2 workers, 100 requests each)
+- **Spike load**: 10,000 RPS (100 workers, 100 requests each)
+- **Latency degradation**: p99 increases by <10x during spike
+    - Normal: p99 < 5ms
+    - Spike: p99 < 50ms
+- **Error rate**: 0% (no failures during spike)
 
 **Interpretation**:
 
--   System handles sudden traffic increases gracefully
--   Latency degrades proportionally to load increase (expected behavior)
--   No request failures or timeouts during spike
+- System handles sudden traffic increases gracefully
+- Latency degrades proportionally to load increase (expected behavior)
+- No request failures or timeouts during spike
 
 ---
 
@@ -102,18 +102,18 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **Concurrency levels tested**: 10, 50, 100, 200, 500 workers
--   **Breaking point**: Varies by hardware, typically 200-500 workers
--   **Behavior at capacity**:
-    -   Latency increases linearly with concurrency
-    -   No request failures (system queues requests)
-    -   CPU utilization approaches 100%
+- **Concurrency levels tested**: 10, 50, 100, 200, 500 workers
+- **Breaking point**: Varies by hardware, typically 200-500 workers
+- **Behavior at capacity**:
+    - Latency increases linearly with concurrency
+    - No request failures (system queues requests)
+    - CPU utilization approaches 100%
 
 **Interpretation**:
 
--   System degrades gracefully under extreme load
--   No crashes or panics observed
--   Production deployments should target <70% CPU utilization for headroom
+- System degrades gracefully under extreme load
+- No crashes or panics observed
+- Production deployments should target <70% CPU utilization for headroom
 
 ---
 
@@ -125,17 +125,17 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **Duration**: 60 seconds (simulating 24h load pattern)
--   **Total requests**: Varies based on load pattern
--   **Error rate**: < 0.01% (typical: 0%)
--   **Memory growth**: None observed (no memory leaks)
--   **Latency drift**: None (latency remains stable)
+- **Duration**: 60 seconds (simulating 24h load pattern)
+- **Total requests**: Varies based on load pattern
+- **Error rate**: < 0.01% (typical: 0%)
+- **Memory growth**: None observed (no memory leaks)
+- **Latency drift**: None (latency remains stable)
 
 **Interpretation**:
 
--   System is stable over extended periods
--   No memory leaks or resource exhaustion
--   Suitable for long-running production deployments
+- System is stable over extended periods
+- No memory leaks or resource exhaustion
+- Suitable for long-running production deployments
 
 ---
 
@@ -147,16 +147,16 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **Dataset size**: 1,000,000 tuples
--   **Batch write performance**: ~10,000-50,000 tuples/second
--   **Check latency on large graph**: p99 < 50ms
--   **Memory footprint**: ~100-200MB for 1M tuples (in-memory backend)
+- **Dataset size**: 1,000,000 tuples
+- **Batch write performance**: ~10,000-50,000 tuples/second
+- **Check latency on large graph**: p99 < 50ms
+- **Memory footprint**: ~100-200MB for 1M tuples (in-memory backend)
 
 **Interpretation**:
 
--   System handles large datasets (millions of tuples)
--   Check latency remains acceptable even with large graphs
--   FoundationDB backend scales beyond in-memory limits
+- System handles large datasets (millions of tuples)
+- Check latency remains acceptable even with large graphs
+- FoundationDB backend scales beyond in-memory limits
 
 ---
 
@@ -168,16 +168,16 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **Nesting depth**: 15 levels
--   **Max latency**: < 100ms for deepest level
--   **Average latency**: ~5-10ms per level
--   **Behavior**: Latency increases linearly with depth
+- **Nesting depth**: 15 levels
+- **Max latency**: < 100ms for deepest level
+- **Average latency**: ~5-10ms per level
+- **Behavior**: Latency increases linearly with depth
 
 **Interpretation**:
 
--   System handles deep hierarchies (10+ levels)
--   Performance degrades linearly, not exponentially
--   Caching mitigates repeated traversals
+- System handles deep hierarchies (10+ levels)
+- Performance degrades linearly, not exponentially
+- Caching mitigates repeated traversals
 
 ---
 
@@ -187,15 +187,15 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **Expansion size**: 10,000 users on single resource
--   **Expansion duration**: < 500ms
--   **Memory overhead**: ~1-2MB for 10k user result set
+- **Expansion size**: 10,000 users on single resource
+- **Expansion duration**: < 500ms
+- **Memory overhead**: ~1-2MB for 10k user result set
 
 **Interpretation**:
 
--   System efficiently expands large usersets
--   Suitable for resources with many viewers (e.g., public documents)
--   Consider pagination for very large expansions (>100k users)
+- System efficiently expands large usersets
+- Suitable for resources with many viewers (e.g., public documents)
+- Consider pagination for very large expansions (>100k users)
 
 ---
 
@@ -207,16 +207,16 @@ All baseline measurements are performed on the following test environment:
 
 **Baseline Results**:
 
--   **WASM module load time**: <1ms (cached after first use)
--   **WASM execution overhead**: +5-10ms per check (typical simple policies)
--   **Complex WASM policies**: +10-50ms (depending on policy complexity)
--   **p99 latency with WASM**: < 20ms (simple policies)
+- **WASM module load time**: <1ms (cached after first use)
+- **WASM execution overhead**: +5-10ms per check (typical simple policies)
+- **Complex WASM policies**: +10-50ms (depending on policy complexity)
+- **p99 latency with WASM**: < 20ms (simple policies)
 
 **Interpretation**:
 
--   WASM adds measurable overhead but remains within SLO
--   Module caching is essential for performance
--   Complex policies (parsing context, evaluating rules) increase latency
+- WASM adds measurable overhead but remains within SLO
+- Module caching is essential for performance
+- Complex policies (parsing context, evaluating rules) increase latency
 
 ---
 
@@ -226,26 +226,26 @@ All baseline measurements are performed on the following test environment:
 
 **Characteristics**:
 
--   **Read latency**: < 0.1ms
--   **Write latency**: < 0.1ms
--   **Throughput**: CPU-bound, 100k+ ops/sec
--   **Persistence**: None (in-memory only)
--   **Use cases**: Testing, development, ephemeral deployments
+- **Read latency**: < 0.1ms
+- **Write latency**: < 0.1ms
+- **Throughput**: CPU-bound, 100k+ ops/sec
+- **Persistence**: None (in-memory only)
+- **Use cases**: Testing, development, ephemeral deployments
 
 ### FoundationDB Backend (Future)
 
 **Expected Characteristics**:
 
--   **Read latency**: 2-5ms (including network)
--   **Write latency**: 5-10ms (including network + commit)
--   **Throughput**: Network and disk-bound, 10k-50k ops/sec per node
--   **Persistence**: Durable, replicated
--   **Use cases**: Production, multi-region deployments
+- **Read latency**: 2-5ms (including network)
+- **Write latency**: 5-10ms (including network + commit)
+- **Throughput**: Network and disk-bound, 10k-50k ops/sec per node
+- **Persistence**: Durable, replicated
+- **Use cases**: Production, multi-region deployments
 
 **Impact on Authorization Latency**:
 
--   Add ~2-5ms to authorization check latency for cache misses
--   Cache hit rate becomes critical for meeting SLOs
+- Add ~2-5ms to authorization check latency for cache misses
+- Cache hit rate becomes critical for meeting SLOs
 
 ---
 
@@ -273,10 +273,10 @@ To detect performance regressions, compare current test results against these ba
 
 Update baselines when:
 
--   **Hardware changes**: New test environment requires new baselines
--   **Intentional optimizations**: Performance improvements should update baselines downward
--   **Architecture changes**: Major refactors may justify baseline adjustments
--   **Storage backend changes**: Different backends have different characteristics
+- **Hardware changes**: New test environment requires new baselines
+- **Intentional optimizations**: Performance improvements should update baselines downward
+- **Architecture changes**: Major refactors may justify baseline adjustments
+- **Storage backend changes**: Different backends have different characteristics
 
 **Process**:
 
@@ -343,10 +343,10 @@ Alert when production performance deviates significantly from baselines:
 
 **Results** (typical):
 
--   **Simple direct check**: ~100-200 ns
--   **Union relation check**: ~500 ns - 1 µs
--   **Nested relation check (3 levels)**: ~2-5 µs
--   **Complex graph traversal (10 nodes)**: ~10-50 µs
+- **Simple direct check**: ~100-200 ns
+- **Union relation check**: ~500 ns - 1 µs
+- **Nested relation check (3 levels)**: ~2-5 µs
+- **Complex graph traversal (10 nodes)**: ~10-50 µs
 
 **Interpretation**: Evaluation logic is highly efficient, storage access dominates latency.
 
@@ -354,10 +354,10 @@ Alert when production performance deviates significantly from baselines:
 
 ## References
 
--   [Service Level Objectives (SLOs)](slos.md)
--   [Load Testing Suite](../crates/infera-core/tests/performance_load.rs)
--   [ABAC Testing](../crates/infera-core/tests/attribute_based_access.rs)
--   [Criterion Benchmarks](../crates/infera-core/benches/)
+- [Service Level Objectives (SLOs)](slos.md)
+- [Load Testing Suite](../crates/infera-core/tests/performance_load.rs)
+- [ABAC Testing](../crates/infera-core/tests/attribute_based_access.rs)
+- [Criterion Benchmarks](../crates/infera-core/benches/)
 
 ---
 

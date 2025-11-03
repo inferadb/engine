@@ -6,10 +6,10 @@ InferaDB provides a flexible storage abstraction layer that allows you to choose
 
 The storage layer is responsible for:
 
--   **Persistent tuple storage** - Storing authorization relationship tuples
--   **Revision management** - MVCC (Multi-Version Concurrency Control) for consistent reads
--   **Indexing** - Efficient lookups by object, relation, and user
--   **Transactions** - ACID guarantees for write operations
+- **Persistent tuple storage** - Storing authorization relationship tuples
+- **Revision management** - MVCC (Multi-Version Concurrency Control) for consistent reads
+- **Indexing** - Efficient lookups by object, relation, and user
+- **Transactions** - ACID guarantees for write operations
 
 ## Available Backends
 
@@ -21,24 +21,24 @@ The in-memory backend stores all data in RAM using Rust's standard collections. 
 
 **Features:**
 
--   Zero configuration required
--   Perfect for development and testing
--   Fast performance (sub-microsecond latency)
--   Full MVCC support with revision isolation
--   Garbage collection for old revisions
+- Zero configuration required
+- Perfect for development and testing
+- Fast performance (sub-microsecond latency)
+- Full MVCC support with revision isolation
+- Garbage collection for old revisions
 
 **Limitations:**
 
--   Data is not persisted to disk
--   Limited to single-node deployment
--   Memory-bound (suitable for datasets up to ~1M tuples)
+- Data is not persisted to disk
+- Limited to single-node deployment
+- Memory-bound (suitable for datasets up to ~1M tuples)
 
 **Best for:**
 
--   Local development
--   Unit and integration testing
--   Small-scale deployments
--   Proof-of-concept implementations
+- Local development
+- Unit and integration testing
+- Small-scale deployments
+- Proof-of-concept implementations
 
 See [Memory Backend Documentation](./storage-memory.md) for details.
 
@@ -50,26 +50,26 @@ The FoundationDB backend provides distributed, ACID transactions with horizontal
 
 **Features:**
 
--   Full ACID transactions across nodes
--   Horizontal scalability (petabyte scale)
--   High availability with automatic failover
--   Point-in-time reads with MVCC
--   Sub-5ms p99 latency
--   Automatic data replication
+- Full ACID transactions across nodes
+- Horizontal scalability (petabyte scale)
+- High availability with automatic failover
+- Point-in-time reads with MVCC
+- Sub-5ms p99 latency
+- Automatic data replication
 
 **Requirements:**
 
--   FoundationDB cluster (6.3+)
--   Compile with `--features fdb`
--   FoundationDB client library
+- FoundationDB cluster (6.3+)
+- Compile with `--features fdb`
+- FoundationDB client library
 
 **Best for:**
 
--   Production deployments
--   Multi-region setups
--   Large datasets (millions+ tuples)
--   High availability requirements
--   Distributed systems
+- Production deployments
+- Multi-region setups
+- Large datasets (millions+ tuples)
+- High availability requirements
+- Distributed systems
 
 See [FoundationDB Backend Documentation](./storage-foundationdb.md) for details.
 
@@ -160,9 +160,9 @@ pub trait TupleStore: Send + Sync {
 
 This abstraction ensures:
 
--   **Backend agnostic code** - Write once, run on any backend
--   **Easy testing** - Use memory backend in tests, production backend in deployment
--   **Zero-cost abstraction** - No runtime overhead beyond the storage layer
+- **Backend agnostic code** - Write once, run on any backend
+- **Easy testing** - Use memory backend in tests, production backend in deployment
+- **Zero-cost abstraction** - No runtime overhead beyond the storage layer
 
 ## Choosing a Backend
 
@@ -178,11 +178,11 @@ This abstraction ensures:
 
 **Quick Decision Guide:**
 
--   **Development/Testing**: Use Memory backend
--   **Small production (<10k tuples)**: Memory backend is fine
--   **Production (>10k tuples)**: Use FoundationDB backend
--   **Multi-region**: Use FoundationDB backend
--   **High availability required**: Use FoundationDB backend
+- **Development/Testing**: Use Memory backend
+- **Small production (<10k tuples)**: Memory backend is fine
+- **Production (>10k tuples)**: Use FoundationDB backend
+- **Multi-region**: Use FoundationDB backend
+- **High availability required**: Use FoundationDB backend
 
 ## Adding Custom Backends
 
@@ -248,15 +248,15 @@ impl StorageFactory {
 
 ### Memory Backend
 
--   **Reads**: O(log n) for indexed lookups
--   **Writes**: O(log n) for insertion + index updates
--   **Space**: O(n × revisions) - grows with data and history
+- **Reads**: O(log n) for indexed lookups
+- **Writes**: O(log n) for insertion + index updates
+- **Space**: O(n × revisions) - grows with data and history
 
 ### FoundationDB Backend
 
--   **Reads**: Network latency + FDB key lookup (typically <5ms)
--   **Writes**: Network latency + FDB transaction commit (typically <10ms)
--   **Space**: Efficient storage with FDB's built-in compaction
+- **Reads**: Network latency + FDB key lookup (typically <5ms)
+- **Writes**: Network latency + FDB transaction commit (typically <10ms)
+- **Space**: Efficient storage with FDB's built-in compaction
 
 ### Optimization Tips
 
@@ -295,30 +295,30 @@ target.write(all_tuples).await?;
 
 **Problem**: Out of memory errors
 
--   **Solution**: Use FoundationDB backend or implement periodic GC
+- **Solution**: Use FoundationDB backend or implement periodic GC
 
 **Problem**: Data lost on restart
 
--   **Solution**: Memory backend is not persistent by design. Use FoundationDB for persistence.
+- **Solution**: Memory backend is not persistent by design. Use FoundationDB for persistence.
 
 ### FoundationDB Backend Issues
 
 **Problem**: Connection errors
 
--   **Solution**: Verify FDB cluster is running and cluster file path is correct
+- **Solution**: Verify FDB cluster is running and cluster file path is correct
 
 **Problem**: Transaction timeouts
 
--   **Solution**: Check FDB cluster health, increase transaction timeout if needed
+- **Solution**: Check FDB cluster health, increase transaction timeout if needed
 
 **Problem**: Slow performance
 
--   **Solution**: Check FDB cluster capacity, optimize batch sizes, enable caching
+- **Solution**: Check FDB cluster capacity, optimize batch sizes, enable caching
 
 ## See Also
 
--   [Memory Backend Details](./storage-memory.md)
--   [FoundationDB Backend Details](./storage-foundationdb.md)
--   [Architecture Overview](./architecture.md)
--   [Caching Layer](./caching.md)
--   [Revision Tokens](./revision-tokens.md)
+- [Memory Backend Details](./storage-memory.md)
+- [FoundationDB Backend Details](./storage-foundationdb.md)
+- [Architecture Overview](./architecture.md)
+- [Caching Layer](./caching.md)
+- [Revision Tokens](./revision-tokens.md)

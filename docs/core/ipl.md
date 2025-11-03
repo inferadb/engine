@@ -6,9 +6,9 @@ IPL is InferaDB's domain-specific language for defining authorization policies. 
 
 IPL schemas define **types** and their **relations**. Relations can be:
 
--   Direct (stored as tuples)
--   Computed (derived from other relations)
--   Combined using set operations (union, intersection, exclusion)
+- Direct (stored as tuples)
+- Computed (derived from other relations)
+- Combined using set operations (union, intersection, exclusion)
 
 ## Basic Syntax
 
@@ -121,8 +121,8 @@ document:readme#blocked@user:bob
 
 Queries:
 
--   `Check(user:alice, document:readme, can_view)` → **Allow**
--   `Check(user:bob, document:readme, can_view)` → **Deny** (blocked)
+- `Check(user:alice, document:readme, can_view)` → **Allow**
+- `Check(user:bob, document:readme, can_view)` → **Deny** (blocked)
 
 ## Forbid Policies (Explicit Deny)
 
@@ -182,8 +182,8 @@ document:readme#blocked_user@user:alice
 
 Queries:
 
--   `Check(user:alice, document:readme, viewer)` → **Deny** (exclusion removes from viewer)
--   `Check(user:alice, document:readme, editor)` → **Deny** (forbid blocks all access)
+- `Check(user:alice, document:readme, viewer)` → **Deny** (exclusion removes from viewer)
+- `Check(user:alice, document:readme, editor)` → **Deny** (forbid blocks all access)
 
 **Forbid is checked first** and denies access to ALL permissions on the resource, while exclusion only affects the specific relation it's part of.
 
@@ -277,10 +277,10 @@ type document {
 
 With this schema:
 
--   Suspended users are completely blocked (forbid)
--   The `- suspended` in `can_edit` is redundant but harmless (forbid already blocks)
--   Non-suspended editors can edit and view
--   Non-suspended viewers can only view
+- Suspended users are completely blocked (forbid)
+- The `- suspended` in `can_edit` is redundant but harmless (forbid already blocks)
+- Non-suspended editors can edit and view
+- Non-suspended viewers can only view
 
 ## Relation References
 
@@ -382,9 +382,9 @@ type approval_request {
 
 **Semantics**:
 
--   `pending`: Has requested but not yet approved
--   `approved`: Both requested and approved
--   `can_approve`: Can approve requests (approvers or admins)
+- `pending`: Has requested but not yet approved
+- `approved`: Both requested and approved
+- `can_approve`: Can approve requests (approvers or admins)
 
 ## WASM Module Invocations
 
@@ -567,10 +567,10 @@ The IPL parser enforces several validation rules:
 
 The query optimizer assigns costs to different relation types:
 
--   **Direct lookup** (`this`): Cost 1
--   **Relation reference**: Cost 5 (requires recursion)
--   **Tuple-to-userset**: Cost 10 (requires multiple lookups)
--   **WASM module**: Cost 8 (requires module execution)
+- **Direct lookup** (`this`): Cost 1
+- **Relation reference**: Cost 5 (requires recursion)
+- **Tuple-to-userset**: Cost 10 (requires multiple lookups)
+- **WASM module**: Cost 8 (requires module execution)
 
 Union of expensive operations suggests caching:
 
@@ -597,9 +597,9 @@ The parallel evaluator spawns tasks for each branch and aggregates results.
 
 IPL parsing errors include:
 
--   **Syntax errors**: Invalid grammar
--   **Semantic errors**: Undefined type/relation references
--   **Circular references**: Detected at evaluation time
+- **Syntax errors**: Invalid grammar
+- **Semantic errors**: Undefined type/relation references
+- **Circular references**: Detected at evaluation time
 
 Example error:
 
@@ -621,7 +621,7 @@ When updating IPL schemas:
 
 See the [examples](../examples/) directory for complete IPL schemas:
 
--   `document-management.ipl` - Document/folder hierarchy
--   `organization-hierarchy.ipl` - Multi-tenant organizations
--   `github-like.ipl` - GitHub-style repository permissions
--   `google-drive.ipl` - Google Drive-like sharing
+- `document-management.ipl` - Document/folder hierarchy
+- `organization-hierarchy.ipl` - Multi-tenant organizations
+- `github-like.ipl` - GitHub-style repository permissions
+- `google-drive.ipl` - Google Drive-like sharing

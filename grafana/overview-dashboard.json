@@ -1,285 +1,294 @@
 {
-  "dashboard": {
-    "title": "InferaDB - Overview",
-    "tags": ["inferadb", "overview", "slo"],
-    "timezone": "browser",
-    "refresh": "30s",
-    "time": {
-      "from": "now-1h",
-      "to": "now"
-    },
-    "panels": [
-      {
-        "id": 1,
-        "title": "SLO Compliance Summary",
-        "type": "stat",
-        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
-        "targets": [
-          {
-            "expr": "1 - (sum(rate(inferadb_api_errors_total{code=~\"5..\"}[30d])) / sum(rate(inferadb_checks_total[30d])))",
-            "legendFormat": "Availability (Target: 99.9%)",
-            "refId": "A"
-          },
-          {
-            "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-            "legendFormat": "p99 Latency (Target: <10ms)",
-            "refId": "B"
-          },
-          {
-            "expr": "sum(rate(inferadb_api_errors_total{code=~\"5..\"}[5m])) / sum(rate(inferadb_checks_total[5m]))",
-            "legendFormat": "Error Rate (Target: <0.1%)",
-            "refId": "C"
-          },
-          {
-            "expr": "sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))",
-            "legendFormat": "Cache Hit Rate (Target: >80%)",
-            "refId": "D"
-          }
-        ],
-        "options": {
-          "reduceOptions": {
-            "calcs": ["lastNotNull"]
-          },
-          "orientation": "horizontal",
-          "textMode": "value_and_name",
-          "colorMode": "background",
-          "graphMode": "area"
+    "dashboard": {
+        "title": "InferaDB - Overview",
+        "tags": ["inferadb", "overview", "slo"],
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+            "from": "now-1h",
+            "to": "now"
         },
-        "fieldConfig": {
-          "defaults": {
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "value": null, "color": "red" },
-                { "value": 0.999, "color": "green" }
-              ]
-            },
-            "unit": "percentunit"
-          },
-          "overrides": [
+        "panels": [
             {
-              "matcher": { "id": "byName", "options": "p99 Latency (Target: <10ms)" },
-              "properties": [
-                {
-                  "id": "unit",
-                  "value": "ms"
+                "id": 1,
+                "title": "SLO Compliance Summary",
+                "type": "stat",
+                "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+                "targets": [
+                    {
+                        "expr": "1 - (sum(rate(inferadb_api_errors_total{code=~\"5..\"}[30d])) / sum(rate(inferadb_checks_total[30d])))",
+                        "legendFormat": "Availability (Target: 99.9%)",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+                        "legendFormat": "p99 Latency (Target: <10ms)",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "sum(rate(inferadb_api_errors_total{code=~\"5..\"}[5m])) / sum(rate(inferadb_checks_total[5m]))",
+                        "legendFormat": "Error Rate (Target: <0.1%)",
+                        "refId": "C"
+                    },
+                    {
+                        "expr": "sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))",
+                        "legendFormat": "Cache Hit Rate (Target: >80%)",
+                        "refId": "D"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": ["lastNotNull"]
+                    },
+                    "orientation": "horizontal",
+                    "textMode": "value_and_name",
+                    "colorMode": "background",
+                    "graphMode": "area"
                 },
-                {
-                  "id": "thresholds",
-                  "value": {
-                    "mode": "absolute",
-                    "steps": [
-                      { "value": null, "color": "green" },
-                      { "value": 8, "color": "yellow" },
-                      { "value": 10, "color": "red" }
+                "fieldConfig": {
+                    "defaults": {
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                { "value": null, "color": "red" },
+                                { "value": 0.999, "color": "green" }
+                            ]
+                        },
+                        "unit": "percentunit"
+                    },
+                    "overrides": [
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "p99 Latency (Target: <10ms)"
+                            },
+                            "properties": [
+                                {
+                                    "id": "unit",
+                                    "value": "ms"
+                                },
+                                {
+                                    "id": "thresholds",
+                                    "value": {
+                                        "mode": "absolute",
+                                        "steps": [
+                                            { "value": null, "color": "green" },
+                                            { "value": 8, "color": "yellow" },
+                                            { "value": 10, "color": "red" }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
                     ]
-                  }
                 }
-              ]
-            }
-          ]
-        }
-      },
-      {
-        "id": 2,
-        "title": "Request Rate",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-        "targets": [
-          {
-            "expr": "rate(inferadb_checks_total[5m])",
-            "legendFormat": "Total Checks/sec",
-            "refId": "A"
-          },
-          {
-            "expr": "rate(inferadb_api_errors_total{code=~\"5..\"}[5m])",
-            "legendFormat": "5xx Errors/sec",
-            "refId": "B"
-          }
-        ],
-        "yaxes": [
-          { "format": "reqps", "label": "Requests/sec" },
-          { "format": "short" }
-        ]
-      },
-      {
-        "id": 3,
-        "title": "Latency Percentiles",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-            "legendFormat": "p50",
-            "refId": "A"
-          },
-          {
-            "expr": "histogram_quantile(0.90, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-            "legendFormat": "p90",
-            "refId": "B"
-          },
-          {
-            "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-            "legendFormat": "p99",
-            "refId": "C"
-          },
-          {
-            "expr": "histogram_quantile(0.999, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-            "legendFormat": "p99.9",
-            "refId": "D"
-          }
-        ],
-        "yaxes": [
-          { "format": "ms", "label": "Latency" },
-          { "format": "short" }
-        ],
-        "alert": {
-          "conditions": [
-            {
-              "evaluator": { "params": [10], "type": "gt" },
-              "operator": { "type": "and" },
-              "query": { "params": ["C", "5m", "now"] },
-              "reducer": { "params": [], "type": "avg" },
-              "type": "query"
-            }
-          ],
-          "executionErrorState": "alerting",
-          "frequency": "60s",
-          "handler": 1,
-          "name": "p99 Latency SLO",
-          "noDataState": "no_data",
-          "notifications": []
-        }
-      },
-      {
-        "id": 4,
-        "title": "Error Budget Remaining (30d)",
-        "type": "gauge",
-        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
-        "targets": [
-          {
-            "expr": "(0.001 - (sum(rate(inferadb_api_errors_total{code=~\"5..\"}[30d])) / sum(rate(inferadb_checks_total[30d])))) / 0.001 * 100",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "showThresholdLabels": true,
-          "showThresholdMarkers": true
-        },
-        "fieldConfig": {
-          "defaults": {
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "value": 0, "color": "red" },
-                { "value": 25, "color": "orange" },
-                { "value": 50, "color": "yellow" },
-                { "value": 75, "color": "green" }
-              ]
             },
-            "unit": "percent",
-            "min": 0,
-            "max": 100
-          }
-        }
-      },
-      {
-        "id": 5,
-        "title": "Cache Performance",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
-        "targets": [
-          {
-            "expr": "sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m]))) * 100",
-            "legendFormat": "Hit Rate %",
-            "refId": "A"
-          },
-          {
-            "expr": "rate(inferadb_cache_evictions_total[5m])",
-            "legendFormat": "Evictions/sec",
-            "refId": "B",
-            "yaxis": 2
-          }
-        ],
-        "yaxes": [
-          { "format": "percent", "label": "Hit Rate" },
-          { "format": "ops", "label": "Evictions/sec" }
-        ]
-      },
-      {
-        "id": 6,
-        "title": "Active Connections",
-        "type": "stat",
-        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
-        "targets": [
-          {
-            "expr": "inferadb_active_connections",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "graphMode": "area",
-          "colorMode": "background"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "value": null, "color": "green" },
-                { "value": 100, "color": "yellow" },
-                { "value": 500, "color": "red" }
-              ]
+            {
+                "id": 2,
+                "title": "Request Rate",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+                "targets": [
+                    {
+                        "expr": "rate(inferadb_checks_total[5m])",
+                        "legendFormat": "Total Checks/sec",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "rate(inferadb_api_errors_total{code=~\"5..\"}[5m])",
+                        "legendFormat": "5xx Errors/sec",
+                        "refId": "B"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "reqps", "label": "Requests/sec" },
+                    { "format": "short" }
+                ]
+            },
+            {
+                "id": 3,
+                "title": "Latency Percentiles",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+                "targets": [
+                    {
+                        "expr": "histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+                        "legendFormat": "p50",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.90, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+                        "legendFormat": "p90",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+                        "legendFormat": "p99",
+                        "refId": "C"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.999, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+                        "legendFormat": "p99.9",
+                        "refId": "D"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "ms", "label": "Latency" },
+                    { "format": "short" }
+                ],
+                "alert": {
+                    "conditions": [
+                        {
+                            "evaluator": { "params": [10], "type": "gt" },
+                            "operator": { "type": "and" },
+                            "query": { "params": ["C", "5m", "now"] },
+                            "reducer": { "params": [], "type": "avg" },
+                            "type": "query"
+                        }
+                    ],
+                    "executionErrorState": "alerting",
+                    "frequency": "60s",
+                    "handler": 1,
+                    "name": "p99 Latency SLO",
+                    "noDataState": "no_data",
+                    "notifications": []
+                }
+            },
+            {
+                "id": 4,
+                "title": "Error Budget Remaining (30d)",
+                "type": "gauge",
+                "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+                "targets": [
+                    {
+                        "expr": "(0.001 - (sum(rate(inferadb_api_errors_total{code=~\"5..\"}[30d])) / sum(rate(inferadb_checks_total[30d])))) / 0.001 * 100",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "showThresholdLabels": true,
+                    "showThresholdMarkers": true
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                { "value": 0, "color": "red" },
+                                { "value": 25, "color": "orange" },
+                                { "value": 50, "color": "yellow" },
+                                { "value": 75, "color": "green" }
+                            ]
+                        },
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100
+                    }
+                }
+            },
+            {
+                "id": 5,
+                "title": "Cache Performance",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+                "targets": [
+                    {
+                        "expr": "sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m]))) * 100",
+                        "legendFormat": "Hit Rate %",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "rate(inferadb_cache_evictions_total[5m])",
+                        "legendFormat": "Evictions/sec",
+                        "refId": "B",
+                        "yaxis": 2
+                    }
+                ],
+                "yaxes": [
+                    { "format": "percent", "label": "Hit Rate" },
+                    { "format": "ops", "label": "Evictions/sec" }
+                ]
+            },
+            {
+                "id": 6,
+                "title": "Active Connections",
+                "type": "stat",
+                "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+                "targets": [
+                    {
+                        "expr": "inferadb_active_connections",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "graphMode": "area",
+                    "colorMode": "background"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                { "value": null, "color": "green" },
+                                { "value": 100, "color": "yellow" },
+                                { "value": 500, "color": "red" }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 7,
+                "title": "Top Operations by Volume",
+                "type": "table",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+                "targets": [
+                    {
+                        "expr": "topk(10, sum by (method) (rate(inferadb_checks_total[5m])))",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "A"
+                    }
+                ],
+                "transformations": [
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": { "Time": true },
+                            "renameByName": {
+                                "method": "Operation",
+                                "Value": "Requests/sec"
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "id": 8,
+                "title": "Top Errors by Type",
+                "type": "table",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+                "targets": [
+                    {
+                        "expr": "topk(10, sum by (error_type) (rate(inferadb_api_errors_total[5m])))",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "A"
+                    }
+                ],
+                "transformations": [
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": { "Time": true },
+                            "renameByName": {
+                                "error_type": "Error Type",
+                                "Value": "Errors/sec"
+                            }
+                        }
+                    }
+                ]
             }
-          }
-        }
-      },
-      {
-        "id": 7,
-        "title": "Top Operations by Volume",
-        "type": "table",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
-        "targets": [
-          {
-            "expr": "topk(10, sum by (method) (rate(inferadb_checks_total[5m])))",
-            "format": "table",
-            "instant": true,
-            "refId": "A"
-          }
-        ],
-        "transformations": [
-          {
-            "id": "organize",
-            "options": {
-              "excludeByName": { "Time": true },
-              "renameByName": { "method": "Operation", "Value": "Requests/sec" }
-            }
-          }
         ]
-      },
-      {
-        "id": 8,
-        "title": "Top Errors by Type",
-        "type": "table",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
-        "targets": [
-          {
-            "expr": "topk(10, sum by (error_type) (rate(inferadb_api_errors_total[5m])))",
-            "format": "table",
-            "instant": true,
-            "refId": "A"
-          }
-        ],
-        "transformations": [
-          {
-            "id": "organize",
-            "options": {
-              "excludeByName": { "Time": true },
-              "renameByName": { "error_type": "Error Type", "Value": "Errors/sec" }
-            }
-          }
-        ]
-      }
-    ]
-  }
+    }
 }

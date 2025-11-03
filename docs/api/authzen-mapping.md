@@ -39,12 +39,12 @@ AuthZEN subjects are structured objects with a `type` and `id`. InferaDB convert
 
 **Conversion Rules:**
 
--   **Parsing**: Extract `type` and `id` from structured object
--   **Generation**: Combine as `{type}:{id}`
--   **Validation**:
-    -   Type must match `^[a-z_][a-z0-9_]*$`
-    -   ID must match `^[a-z0-9_-]+$`
-    -   Colon `:` is reserved as separator
+- **Parsing**: Extract `type` and `id` from structured object
+- **Generation**: Combine as `{type}:{id}`
+- **Validation**:
+    - Type must match `^[a-z_][a-z0-9_]*$`
+    - ID must match `^[a-z0-9_-]+$`
+    - Colon `:` is reserved as separator
 
 **Subject Types:**
 
@@ -92,9 +92,9 @@ Resources follow the same structured to string conversion as subjects.
 
 **Conversion Rules:**
 
--   Same parsing and generation rules as subjects
--   Type and ID validation identical to subjects
--   Properties are not stored in the type:id format (handled separately in InferaDB)
+- Same parsing and generation rules as subjects
+- Type and ID validation identical to subjects
+- Properties are not stored in the type:id format (handled separately in InferaDB)
 
 **Resource Types:**
 
@@ -117,15 +117,15 @@ This is the most complex mapping as AuthZEN actions map to InferaDB relations, b
 
 **AuthZEN Action:**
 
--   Represents an operation (e.g., "can_view", "can_edit", "can_delete")
--   Used in evaluation requests only
--   Not directly stored
+- Represents an operation (e.g., "can_view", "can_edit", "can_delete")
+- Used in evaluation requests only
+- Not directly stored
 
 **InferaDB Relation:**
 
--   Represents a relationship type (e.g., "viewer", "editor", "owner")
--   Stored in the relationship graph
--   Can be composed using set operations
+- Represents a relationship type (e.g., "viewer", "editor", "owner")
+- Stored in the relationship graph
+- Can be composed using set operations
 
 **Mapping Strategy:**
 
@@ -159,11 +159,11 @@ type document {
 
 InferaDB automatically strips common prefixes and converts action names:
 
--   `can_view` → `viewer` (strip `can_`, add `er`)
--   `view` → `viewer` (add `er`)
--   `edit` → `editor` (add `or`)
--   `admin` → `admin` (unchanged)
--   `owner` → `owner` (unchanged)
+- `can_view` → `viewer` (strip `can_`, add `er`)
+- `view` → `viewer` (add `er`)
+- `edit` → `editor` (add `or`)
+- `admin` → `admin` (unchanged)
+- `owner` → `owner` (unchanged)
 
 **Default Mapping Table:**
 
@@ -251,8 +251,8 @@ function parseSubjectReference(ref: string): {
 
 **Example:**
 
--   InferaDB: `"team:engineering#member"`
--   Parsed: `{resource: "team:engineering", relation: "member"}`
+- InferaDB: `"team:engineering#member"`
+- Parsed: `{resource: "team:engineering", relation: "member"}`
 
 ## Backward Compatibility
 
@@ -261,13 +261,11 @@ InferaDB maintains backward compatibility by accepting both AuthZEN structured f
 ### Compatibility Rules
 
 1. **Input Acceptance:**
-
     - All endpoints accept BOTH AuthZEN objects AND InferaDB strings
     - Automatic detection and conversion
     - No breaking changes for existing clients
 
 2. **Output Format:**
-
     - Core AuthZEN endpoints (`/access/v1/*`) return AuthZEN format
     - Extension endpoints (`/v1/*`) return InferaDB native format
     - Can be controlled via `Accept` header or query parameter (future)
@@ -281,22 +279,22 @@ InferaDB maintains backward compatibility by accepting both AuthZEN structured f
 
 **Phase 1: Dual Support (Current)**
 
--   All endpoints accept both formats
--   Native clients use InferaDB format
--   AuthZEN clients use structured format
--   No changes required for existing code
+- All endpoints accept both formats
+- Native clients use InferaDB format
+- AuthZEN clients use structured format
+- No changes required for existing code
 
 **Phase 2: Recommended Format (Future)**
 
--   Documentation recommends AuthZEN format for new integrations
--   SDKs default to AuthZEN format
--   InferaDB format remains fully supported
+- Documentation recommends AuthZEN format for new integrations
+- SDKs default to AuthZEN format
+- InferaDB format remains fully supported
 
 **Phase 3: Deprecation (If needed)**
 
--   Clear deprecation timeline (minimum 12 months)
--   Migration tools provided
--   Both formats continue to work during transition
+- Clear deprecation timeline (minimum 12 months)
+- Migration tools provided
+- Both formats continue to work during transition
 
 ### Handling Legacy Data
 
@@ -671,10 +669,10 @@ POST /v1/relationships:write
 
 InferaDB optimizes for the native string format internally:
 
--   **Storage**: All relationships stored as `type:id` strings
--   **Indexes**: Optimized for string-based lookups
--   **Conversion Overhead**: Minimal (single string split or concat)
--   **Memory**: String format more compact than structured objects
+- **Storage**: All relationships stored as `type:id` strings
+- **Indexes**: Optimized for string-based lookups
+- **Conversion Overhead**: Minimal (single string split or concat)
+- **Memory**: String format more compact than structured objects
 
 ### Validation Order
 
@@ -845,8 +843,8 @@ const response = await fetch("/v1/evaluate", {
 
 ## See Also
 
--   [AuthZEN Specification](https://openid.github.io/authzen/)
--   [AuthZEN Extensions](./authzen-extensions.md)
--   [AuthZEN Spec Study](./authzen-spec-study.md)
--   [InferaDB API Reference](../api/openapi.yaml)
--   [InferaDB IPL Schema Language](../ipl/README.md)
+- [AuthZEN Specification](https://openid.github.io/authzen/)
+- [AuthZEN Extensions](./authzen-extensions.md)
+- [AuthZEN Spec Study](./authzen-spec-study.md)
+- [InferaDB API Reference](../api/openapi.yaml)
+- [InferaDB IPL Schema Language](../ipl/README.md)

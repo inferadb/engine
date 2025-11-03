@@ -1,235 +1,256 @@
 {
-  "dashboard": {
-    "title": "InferaDB - Authorization Overview",
-    "tags": ["inferadb", "authorization", "overview"],
-    "timezone": "browser",
-    "refresh": "30s",
-    "time": {
-      "from": "now-1h",
-      "to": "now"
-    },
-    "panels": [
-      {
-        "id": 1,
-        "title": "Query Operations Distribution",
-        "type": "piechart",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-        "targets": [
-          {
-            "expr": "sum by (operation) (rate(inferadb_query_operations_total[5m]))",
-            "legendFormat": "{{operation}}",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "reduceOptions": {
-            "values": false,
-            "calcs": ["lastNotNull"]
-          },
-          "displayLabels": ["name", "percent"],
-          "legend": {
-            "displayMode": "table",
-            "placement": "right",
-            "values": ["value", "percent"]
-          }
-        }
-      },
-      {
-        "id": 2,
-        "title": "Authorization Decision Rates",
-        "type": "stat",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-        "targets": [
-          {
-            "expr": "sum(rate(inferadb_checks_allowed_total[5m]))",
-            "legendFormat": "Allow Decisions/sec",
-            "refId": "A"
-          },
-          {
-            "expr": "sum(rate(inferadb_checks_denied_total[5m]))",
-            "legendFormat": "Deny Decisions/sec",
-            "refId": "B"
-          },
-          {
-            "expr": "sum(rate(inferadb_checks_total[5m]))",
-            "legendFormat": "Total Decisions/sec",
-            "refId": "C"
-          }
-        ],
-        "options": {
-          "reduceOptions": {
-            "calcs": ["lastNotNull"]
-          },
-          "orientation": "horizontal",
-          "textMode": "value_and_name",
-          "colorMode": "background",
-          "graphMode": "area"
+    "dashboard": {
+        "title": "InferaDB - Authorization Overview",
+        "tags": ["inferadb", "authorization", "overview"],
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+            "from": "now-1h",
+            "to": "now"
         },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "reqps",
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "value": null, "color": "green" },
-                { "value": 100, "color": "yellow" },
-                { "value": 1000, "color": "red" }
-              ]
-            }
-          },
-          "overrides": [
+        "panels": [
             {
-              "matcher": { "id": "byName", "options": "Allow Decisions/sec" },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": { "mode": "fixed", "fixedColor": "green" }
+                "id": 1,
+                "title": "Query Operations Distribution",
+                "type": "piechart",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+                "targets": [
+                    {
+                        "expr": "sum by (operation) (rate(inferadb_query_operations_total[5m]))",
+                        "legendFormat": "{{operation}}",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "values": false,
+                        "calcs": ["lastNotNull"]
+                    },
+                    "displayLabels": ["name", "percent"],
+                    "legend": {
+                        "displayMode": "table",
+                        "placement": "right",
+                        "values": ["value", "percent"]
+                    }
                 }
-              ]
             },
             {
-              "matcher": { "id": "byName", "options": "Deny Decisions/sec" },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": { "mode": "fixed", "fixedColor": "red" }
+                "id": 2,
+                "title": "Authorization Decision Rates",
+                "type": "stat",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+                "targets": [
+                    {
+                        "expr": "sum(rate(inferadb_checks_allowed_total[5m]))",
+                        "legendFormat": "Allow Decisions/sec",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "sum(rate(inferadb_checks_denied_total[5m]))",
+                        "legendFormat": "Deny Decisions/sec",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "sum(rate(inferadb_checks_total[5m]))",
+                        "legendFormat": "Total Decisions/sec",
+                        "refId": "C"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": ["lastNotNull"]
+                    },
+                    "orientation": "horizontal",
+                    "textMode": "value_and_name",
+                    "colorMode": "background",
+                    "graphMode": "area"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "reqps",
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                { "value": null, "color": "green" },
+                                { "value": 100, "color": "yellow" },
+                                { "value": 1000, "color": "red" }
+                            ]
+                        }
+                    },
+                    "overrides": [
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "Allow Decisions/sec"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "mode": "fixed",
+                                        "fixedColor": "green"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "Deny Decisions/sec"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "mode": "fixed",
+                                        "fixedColor": "red"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
                 }
-              ]
+            },
+            {
+                "id": 3,
+                "title": "Query Operation Trends",
+                "type": "graph",
+                "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+                "targets": [
+                    {
+                        "expr": "sum by (operation) (rate(inferadb_query_operations_total[5m]))",
+                        "legendFormat": "{{operation}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    { "format": "reqps", "label": "Operations/sec" },
+                    { "format": "short" }
+                ],
+                "legend": {
+                    "show": true,
+                    "alignAsTable": true,
+                    "rightSide": true,
+                    "avg": true,
+                    "max": true,
+                    "current": true
+                }
+            },
+            {
+                "id": 4,
+                "title": "Top Operations by Volume (Last 5m)",
+                "type": "table",
+                "gridPos": { "h": 10, "w": 12, "x": 0, "y": 18 },
+                "targets": [
+                    {
+                        "expr": "topk(10, sum by (operation) (rate(inferadb_query_operations_total[5m])))",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "A"
+                    }
+                ],
+                "transformations": [
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": { "Time": true },
+                            "renameByName": {
+                                "operation": "Operation",
+                                "Value": "Requests/sec"
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "id": 5,
+                "title": "Average Latency by Operation",
+                "type": "table",
+                "gridPos": { "h": 10, "w": 12, "x": 12, "y": 18 },
+                "targets": [
+                    {
+                        "expr": "topk(10, avg by (operation) (rate(inferadb_query_operation_duration_seconds_sum[5m]) / rate(inferadb_query_operation_duration_seconds_count[5m])) * 1000)",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "A"
+                    }
+                ],
+                "transformations": [
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": { "Time": true },
+                            "renameByName": {
+                                "operation": "Operation",
+                                "Value": "Avg Latency (ms)"
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "id": 6,
+                "title": "Decision Allow/Deny Ratio",
+                "type": "graph",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+                "targets": [
+                    {
+                        "expr": "sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m])) * 100",
+                        "legendFormat": "Allow %",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "sum(rate(inferadb_checks_denied_total[5m])) / sum(rate(inferadb_checks_total[5m])) * 100",
+                        "legendFormat": "Deny %",
+                        "refId": "B"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "percent",
+                        "label": "Percentage",
+                        "min": 0,
+                        "max": 100
+                    },
+                    { "format": "short" }
+                ]
+            },
+            {
+                "id": 7,
+                "title": "Total Authorization Checks",
+                "type": "stat",
+                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+                "targets": [
+                    {
+                        "expr": "sum(increase(inferadb_checks_total[1h]))",
+                        "legendFormat": "Total Checks (1h)",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "sum(increase(inferadb_checks_total[24h]))",
+                        "legendFormat": "Total Checks (24h)",
+                        "refId": "B"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": ["lastNotNull"]
+                    },
+                    "orientation": "horizontal",
+                    "textMode": "value_and_name",
+                    "colorMode": "value",
+                    "graphMode": "area"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short",
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [{ "value": null, "color": "green" }]
+                        }
+                    }
+                }
             }
-          ]
-        }
-      },
-      {
-        "id": 3,
-        "title": "Query Operation Trends",
-        "type": "graph",
-        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
-        "targets": [
-          {
-            "expr": "sum by (operation) (rate(inferadb_query_operations_total[5m]))",
-            "legendFormat": "{{operation}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          { "format": "reqps", "label": "Operations/sec" },
-          { "format": "short" }
-        ],
-        "legend": {
-          "show": true,
-          "alignAsTable": true,
-          "rightSide": true,
-          "avg": true,
-          "max": true,
-          "current": true
-        }
-      },
-      {
-        "id": 4,
-        "title": "Top Operations by Volume (Last 5m)",
-        "type": "table",
-        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 18 },
-        "targets": [
-          {
-            "expr": "topk(10, sum by (operation) (rate(inferadb_query_operations_total[5m])))",
-            "format": "table",
-            "instant": true,
-            "refId": "A"
-          }
-        ],
-        "transformations": [
-          {
-            "id": "organize",
-            "options": {
-              "excludeByName": { "Time": true },
-              "renameByName": { "operation": "Operation", "Value": "Requests/sec" }
-            }
-          }
         ]
-      },
-      {
-        "id": 5,
-        "title": "Average Latency by Operation",
-        "type": "table",
-        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 18 },
-        "targets": [
-          {
-            "expr": "topk(10, avg by (operation) (rate(inferadb_query_operation_duration_seconds_sum[5m]) / rate(inferadb_query_operation_duration_seconds_count[5m])) * 1000)",
-            "format": "table",
-            "instant": true,
-            "refId": "A"
-          }
-        ],
-        "transformations": [
-          {
-            "id": "organize",
-            "options": {
-              "excludeByName": { "Time": true },
-              "renameByName": { "operation": "Operation", "Value": "Avg Latency (ms)" }
-            }
-          }
-        ]
-      },
-      {
-        "id": 6,
-        "title": "Decision Allow/Deny Ratio",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
-        "targets": [
-          {
-            "expr": "sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m])) * 100",
-            "legendFormat": "Allow %",
-            "refId": "A"
-          },
-          {
-            "expr": "sum(rate(inferadb_checks_denied_total[5m])) / sum(rate(inferadb_checks_total[5m])) * 100",
-            "legendFormat": "Deny %",
-            "refId": "B"
-          }
-        ],
-        "yaxes": [
-          { "format": "percent", "label": "Percentage", "min": 0, "max": 100 },
-          { "format": "short" }
-        ]
-      },
-      {
-        "id": 7,
-        "title": "Total Authorization Checks",
-        "type": "stat",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
-        "targets": [
-          {
-            "expr": "sum(increase(inferadb_checks_total[1h]))",
-            "legendFormat": "Total Checks (1h)",
-            "refId": "A"
-          },
-          {
-            "expr": "sum(increase(inferadb_checks_total[24h]))",
-            "legendFormat": "Total Checks (24h)",
-            "refId": "B"
-          }
-        ],
-        "options": {
-          "reduceOptions": {
-            "calcs": ["lastNotNull"]
-          },
-          "orientation": "horizontal",
-          "textMode": "value_and_name",
-          "colorMode": "value",
-          "graphMode": "area"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short",
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "value": null, "color": "green" }
-              ]
-            }
-          }
-        }
-      }
-    ]
-  }
+    }
 }

@@ -79,10 +79,10 @@ The graph traversal engine evaluates relation expressions by walking the relatio
 
 **Key Concepts**:
 
--   **Direct Lookup**: Check if a tuple exists directly in the store
--   **Computed Userset**: Evaluate another relation on the same resource
--   **Tuple-to-Userset**: Follow a relation to find intermediate resources, then evaluate another relation on those
--   **Cycle Detection**: Prevent infinite loops in circular relationship graphs
+- **Direct Lookup**: Check if a tuple exists directly in the store
+- **Computed Userset**: Evaluate another relation on the same resource
+- **Tuple-to-Userset**: Follow a relation to find intermediate resources, then evaluate another relation on those
+- **Cycle Detection**: Prevent infinite loops in circular relationship graphs
 
 ### 3. Relation Expressions
 
@@ -127,9 +127,9 @@ check("user:anyone", "doc:readme", "public_viewer") # Allow
 
 **Use Cases**:
 
--   Public documents accessible to everyone
--   Organization-wide resources
--   Default permissions for all authenticated users
+- Public documents accessible to everyone
+- Organization-wide resources
+- Default permissions for all authenticated users
 
 **Note**: The wildcard applies to any subject starting with `user:`. For type-specific wildcards, use separate relations (e.g., `group:*` for all groups).
 
@@ -372,10 +372,10 @@ For debugging and auditing, the evaluator can produce a detailed trace of the ev
 
 **Trace Information**:
 
--   **Decision Path**: Tree showing which relations were evaluated
--   **Intermediate Results**: Allow/deny at each node
--   **Performance Metrics**: Duration, tuples read, relations evaluated
--   **Debugging**: Understand why access was granted or denied
+- **Decision Path**: Tree showing which relations were evaluated
+- **Intermediate Results**: Allow/deny at each node
+- **Performance Metrics**: Duration, tuples read, relations evaluated
+- **Debugging**: Understand why access was granted or denied
 
 ## Performance Optimizations
 
@@ -401,21 +401,21 @@ decision
 
 **Benefits**:
 
--   Repeated checks are <1ms (cache hit)
--   Reduces database load
--   Scales horizontally
+- Repeated checks are <1ms (cache hit)
+- Reduces database load
+- Scales horizontally
 
 ### 2. Short-Circuit Evaluation
 
 **Union** (OR):
 
--   Stop at first Allow
--   Don't evaluate remaining branches
+- Stop at first Allow
+- Don't evaluate remaining branches
 
 **Intersection** (AND):
 
--   Stop at first Deny
--   Don't evaluate remaining branches
+- Stop at first Deny
+- Don't evaluate remaining branches
 
 **Example**:
 
@@ -558,24 +558,24 @@ The evaluation engine has comprehensive test coverage:
 
 **Unit Tests** ([`crates/infera-core/src/evaluator.rs`](../crates/infera-core/src/evaluator.rs)):
 
--   Direct tuple checks
--   Union/intersection/exclusion operations
--   Computed usersets
--   Tuple-to-userset resolution
--   Cycle detection
--   Max depth limits
+- Direct tuple checks
+- Union/intersection/exclusion operations
+- Computed usersets
+- Tuple-to-userset resolution
+- Cycle detection
+- Max depth limits
 
 **Integration Tests** ([`crates/infera-core/tests/`](../crates/infera-core/tests/)):
 
--   Document management scenario
--   Organization hierarchy scenario
--   Role-based access control scenario
+- Document management scenario
+- Organization hierarchy scenario
+- Role-based access control scenario
 
 **Benchmarks** ([`crates/infera-core/benches/evaluator.rs`](../crates/infera-core/benches/evaluator.rs)):
 
--   Simple checks: <10μs
--   Complex nested checks: <100μs
--   Deep hierarchies: <1ms
+- Simple checks: <10μs
+- Complex nested checks: <100μs
+- Deep hierarchies: <1ms
 
 ## Configuration
 
@@ -702,18 +702,18 @@ let config = EvaluatorConfig {
 
 Key metrics to monitor:
 
--   **Check Latency**: p50, p90, p99 latencies
--   **Cache Hit Rate**: Percentage of cached results
--   **Tuples Read**: Average tuples read per check
--   **Relations Evaluated**: Average relations evaluated per check
--   **Error Rate**: Percentage of failed checks
+- **Check Latency**: p50, p90, p99 latencies
+- **Cache Hit Rate**: Percentage of cached results
+- **Tuples Read**: Average tuples read per check
+- **Relations Evaluated**: Average relations evaluated per check
+- **Error Rate**: Percentage of failed checks
 
 See [Observability](../operations/observability/README.md) for details.
 
 ## Next Steps
 
--   [IPL Language Guide](ipl.md) - Learn the policy definition language
--   [Query Optimization](query-optimization.md) - Optimize complex queries
--   [WASM Integration](../advanced/wasm.md) - Add custom logic with WebAssembly
--   [Caching System](caching.md) - Configure caching for performance
--   [API Reference](../api/rest.md) - Use the evaluation engine via REST/gRPC
+- [IPL Language Guide](ipl.md) - Learn the policy definition language
+- [Query Optimization](query-optimization.md) - Optimize complex queries
+- [WASM Integration](../advanced/wasm.md) - Add custom logic with WebAssembly
+- [Caching System](caching.md) - Configure caching for performance
+- [API Reference](../api/rest.md) - Use the evaluation engine via REST/gRPC

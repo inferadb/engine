@@ -6,16 +6,16 @@ InferaDB's gRPC server includes support for [gRPC Server Reflection](https://git
 
 gRPC Server Reflection is a protocol that allows gRPC clients to:
 
--   Discover available services and methods
--   Retrieve service definitions dynamically
--   Interact with the API without pre-compiled protobuf files
+- Discover available services and methods
+- Retrieve service definitions dynamically
+- Interact with the API without pre-compiled protobuf files
 
 This is particularly useful for:
 
--   **Development and debugging** - Quickly test APIs without client code
--   **Interactive exploration** - Use GUI tools like grpcui to browse services
--   **Dynamic clients** - Build clients that adapt to API changes
--   **Documentation** - Auto-generate API documentation from live services
+- **Development and debugging** - Quickly test APIs without client code
+- **Interactive exploration** - Use GUI tools like grpcui to browse services
+- **Dynamic clients** - Build clients that adapt to API changes
+- **Documentation** - Auto-generate API documentation from live services
 
 ## Enabling Reflection
 
@@ -228,11 +228,9 @@ The grpcui interface provides:
     ```
 
 2. **Select a service:**
-
     - Choose `infera.v1.InferaService` from the service dropdown
 
 3. **Select a method:**
-
     - Choose `WriteRelationships` from the method list
 
 4. **Compose request:**
@@ -250,7 +248,6 @@ The grpcui interface provides:
     ```
 
 5. **Invoke and view response:**
-
     - Click "Invoke" to send the request
     - View the response with revision and count
 
@@ -313,9 +310,9 @@ grpcui -insecure localhost:8081
 
 **Solution:**
 
--   Verify the gRPC server is running
--   Check the port (default: 8081)
--   Ensure no firewall is blocking the port
+- Verify the gRPC server is running
+- Check the port (default: 8081)
+- Ensure no firewall is blocking the port
 
 ### Reflection Not Available
 
@@ -323,9 +320,9 @@ grpcui -insecure localhost:8081
 
 **Solution:**
 
--   Verify you're using InferaDB v0.1.0 or later
--   Check server logs for `gRPC reflection enabled`
--   Ensure you're connecting to the gRPC port (not REST port)
+- Verify you're using InferaDB v0.1.0 or later
+- Check server logs for `gRPC reflection enabled`
+- Ensure you're connecting to the gRPC port (not REST port)
 
 ### Authentication Errors
 
@@ -333,9 +330,9 @@ grpcui -insecure localhost:8081
 
 **Solution:**
 
--   Include valid JWT token in Authorization header
--   Check token has required scopes (e.g., `inferadb.check`)
--   Verify token hasn't expired
+- Include valid JWT token in Authorization header
+- Check token has required scopes (e.g., `inferadb.check`)
+- Verify token hasn't expired
 
 ### TLS Errors
 
@@ -343,20 +340,18 @@ grpcui -insecure localhost:8081
 
 **Solution:**
 
--   Use `-plaintext` for development (no TLS)
--   Provide CA certificate with `-cacert`
--   Use `-insecure` to skip verification (dev only!)
+- Use `-plaintext` for development (no TLS)
+- Provide CA certificate with `-cacert`
+- Use `-insecure` to skip verification (dev only!)
 
 ## Security Considerations
 
 1. **Production Deployment:**
-
     - Reflection is safe to enable in production
     - Reflection only exposes service definitions, not data
     - Authentication still applies to all RPC calls
 
 2. **Firewall:**
-
     - Ensure gRPC port is properly firewalled
     - Only expose to authorized networks
     - Use TLS for encrypted communication
@@ -418,14 +413,14 @@ fi
 
 ## Related Documentation
 
--   [gRPC Server Documentation](https://docs.inferadb.com/grpc)
--   [Authentication Guide](../security/authentication.md)
--   [Deployment Guide](deployment.md)
--   [API Reference](https://docs.inferadb.com/api)
+- [gRPC Server Documentation](https://docs.inferadb.com/grpc)
+- [Authentication Guide](../security/authentication.md)
+- [Deployment Guide](deployment.md)
+- [API Reference](https://docs.inferadb.com/api)
 
 ## References
 
--   [gRPC Server Reflection Spec](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)
--   [grpcurl Documentation](https://github.com/fullstorydev/grpcurl)
--   [grpcui Documentation](https://github.com/fullstorydev/grpcui)
--   [tonic-reflection](https://docs.rs/tonic-reflection/)
+- [gRPC Server Reflection Spec](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md)
+- [grpcurl Documentation](https://github.com/fullstorydev/grpcurl)
+- [grpcui Documentation](https://github.com/fullstorydev/grpcui)
+- [tonic-reflection](https://docs.rs/tonic-reflection/)

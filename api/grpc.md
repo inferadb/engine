@@ -90,8 +90,8 @@ grpcurl -plaintext localhost:8081 infera.v1.InferaService/Health
 
 ```json
 {
-  "status": "healthy",
-  "service": "inferadb"
+    "status": "healthy",
+    "service": "inferadb"
 }
 ```
 
@@ -141,7 +141,7 @@ grpcurl -plaintext -d '{
 
 ```json
 {
-  "decision": "DECISION_ALLOW"
+    "decision": "DECISION_ALLOW"
 }
 ```
 
@@ -257,32 +257,32 @@ grpcurl -plaintext -d '{
 
 ```json
 {
-  "decision": "DECISION_ALLOW",
-  "trace": {
     "decision": "DECISION_ALLOW",
-    "root": {
-      "nodeType": {
-        "union": {}
-      },
-      "result": true,
-      "children": [
-        {
-          "nodeType": {
-            "directCheck": {
-              "resource": "doc:readme",
-              "relation": "editor",
-              "subject": "user:alice"
-            }
-          },
-          "result": true,
-          "children": []
-        }
-      ]
-    },
-    "durationMicros": "1234",
-    "relationshipsRead": "5",
-    "relationsEvaluated": "2"
-  }
+    "trace": {
+        "decision": "DECISION_ALLOW",
+        "root": {
+            "nodeType": {
+                "union": {}
+            },
+            "result": true,
+            "children": [
+                {
+                    "nodeType": {
+                        "directCheck": {
+                            "resource": "doc:readme",
+                            "relation": "editor",
+                            "subject": "user:alice"
+                        }
+                    },
+                    "result": true,
+                    "children": []
+                }
+            ]
+        },
+        "durationMicros": "1234",
+        "relationshipsRead": "5",
+        "relationsEvaluated": "2"
+    }
 }
 ```
 
@@ -346,27 +346,27 @@ grpcurl -plaintext -d '{
 
 ```json
 {
-  "tree": {
-    "nodeType": {
-      "union": {}
-    },
-    "children": [
-      {
+    "tree": {
         "nodeType": {
-          "this": {}
+            "union": {}
         },
-        "children": []
-      },
-      {
-        "nodeType": {
-          "computedUserset": {
-            "relation": "reader"
-          }
-        },
-        "children": []
-      }
-    ]
-  }
+        "children": [
+            {
+                "nodeType": {
+                    "this": {}
+                },
+                "children": []
+            },
+            {
+                "nodeType": {
+                    "computedUserset": {
+                        "relation": "reader"
+                    }
+                },
+                "children": []
+            }
+        ]
+    }
 }
 ```
 

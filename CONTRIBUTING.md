@@ -8,12 +8,12 @@ We are committed to providing a welcoming and inclusive environment for all cont
 
 ## Ways to Contribute
 
--   **Report bugs** - File issues for bugs you encounter
--   **Suggest features** - Propose new features or improvements
--   **Write documentation** - Improve or add documentation
--   **Submit code** - Fix bugs or implement features
--   **Review PRs** - Help review pull requests
--   **Answer questions** - Help others in discussions
+- **Report bugs** - File issues for bugs you encounter
+- **Suggest features** - Propose new features or improvements
+- **Write documentation** - Improve or add documentation
+- **Submit code** - Fix bugs or implement features
+- **Review PRs** - Help review pull requests
+- **Answer questions** - Help others in discussions
 
 ## Getting Started
 
@@ -98,13 +98,13 @@ Format: `type: subject`
 
 **Types**:
 
--   `feat` - New feature
--   `fix` - Bug fix
--   `docs` - Documentation changes
--   `test` - Adding or updating tests
--   `refactor` - Code refactoring
--   `perf` - Performance improvement
--   `chore` - Maintenance tasks
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation changes
+- `test` - Adding or updating tests
+- `refactor` - Code refactoring
+- `perf` - Performance improvement
+- `chore` - Maintenance tasks
 
 ### Submitting a Pull Request
 
@@ -117,7 +117,6 @@ Format: `type: subject`
 2. **Open a pull request** on GitHub
 
 3. **Describe your changes**:
-
     - What does this PR do?
     - Why is this change needed?
     - How has it been tested?
@@ -135,20 +134,20 @@ Format: `type: subject`
 
 We follow the official Rust style guide and enforce it with automated tools:
 
--   Use `mise run fmt` (or `cargo fmt`) to format code
--   Use `mise run lint` (or `cargo clippy`) to catch common mistakes
--   Write idiomatic Rust code
--   Follow guidelines in [AGENTS.md](AGENTS.md) for code quality standards
+- Use `mise run fmt` (or `cargo fmt`) to format code
+- Use `mise run lint` (or `cargo clippy`) to catch common mistakes
+- Write idiomatic Rust code
+- Follow guidelines in [AGENTS.md](AGENTS.md) for code quality standards
 
 ### Complete Developer Guide
 
 See [Developer Documentation](docs/developers/README.md) for comprehensive guidelines on:
 
--   Codebase structure and architecture
--   Development workflow and best practices
--   Internal APIs and extension points
--   Debugging tips and performance optimization
--   Rustdoc generation and documentation standards
+- Codebase structure and architecture
+- Development workflow and best practices
+- Internal APIs and extension points
+- Debugging tips and performance optimization
+- Rustdoc generation and documentation standards
 
 ### Naming Conventions
 
@@ -206,9 +205,9 @@ pub async fn check(&self, request: CheckRequest) -> Result<Decision> {
 
 ### Error Handling
 
--   Use `Result` for fallible operations
--   Use custom error types with `thiserror`
--   Provide context in error messages
+- Use `Result` for fallible operations
+- Use custom error types with `thiserror`
+- Provide context in error messages
 
 ```rust
 use thiserror::Error;
@@ -225,9 +224,9 @@ pub enum EvalError {
 
 ### Async Code
 
--   Use `async/await` for asynchronous operations
--   Prefer `tokio` for async runtime
--   Document if a function blocks or is CPU-intensive
+- Use `async/await` for asynchronous operations
+- Prefer `tokio` for async runtime
+- Document if a function blocks or is CPU-intensive
 
 ```rust
 /// Evaluates a check request asynchronously.
@@ -279,9 +278,9 @@ async fn test_end_to_end() {
 
 ### Test Coverage
 
--   Aim for >80% code coverage
--   Test happy paths and error cases
--   Include edge cases and boundary conditions
+- Aim for >80% code coverage
+- Test happy paths and error cases
+- Include edge cases and boundary conditions
 
 ### Benchmarks
 
@@ -307,23 +306,23 @@ criterion_main!(benches);
 
 ### Code Documentation
 
--   Document all public APIs
--   Include examples in doc comments
--   Explain non-obvious behavior
--   Document invariants and assumptions
+- Document all public APIs
+- Include examples in doc comments
+- Explain non-obvious behavior
+- Document invariants and assumptions
 
 ### User Documentation
 
--   Place user-facing docs in `docs/`
--   Use Markdown format
--   Include code examples
--   Keep docs up to date with code changes
+- Place user-facing docs in `docs/`
+- Use Markdown format
+- Include code examples
+- Keep docs up to date with code changes
 
 ### API Documentation
 
--   Update API docs when changing endpoints
--   Include request/response examples
--   Document error codes and meanings
+- Update API docs when changing endpoints
+- Include request/response examples
+- Document error codes and meanings
 
 ## Review Process
 
@@ -338,10 +337,10 @@ criterion_main!(benches);
 
 ### Responding to Feedback
 
--   Be open to suggestions
--   Ask questions if feedback is unclear
--   Make requested changes promptly
--   Explain your reasoning when disagreeing
+- Be open to suggestions
+- Ask questions if feedback is unclear
+- Make requested changes promptly
+- Explain your reasoning when disagreeing
 
 ## Release Process
 
@@ -376,10 +375,10 @@ server/
 
 ## Getting Help
 
--   **Documentation**: See `docs/` directory
--   **Issues**: https://github.com/inferadb/server/issues
--   **Discussions**: https://github.com/inferadb/server/discussions
--   **Discord**: Join our community server (link TBD)
+- **Documentation**: See `docs/` directory
+- **Issues**: https://github.com/inferadb/server/issues
+- **Discussions**: https://github.com/inferadb/server/discussions
+- **Discord**: Join our community server (link TBD)
 
 ## Feature Requests
 
@@ -470,16 +469,16 @@ By making a contribution, you certify that you have the right to submit it under
 
 Contributors will be:
 
--   Listed in `CONTRIBUTORS.md`
--   Credited in release notes
--   Mentioned in documentation (where appropriate)
+- Listed in `CONTRIBUTORS.md`
+- Credited in release notes
+- Mentioned in documentation (where appropriate)
 
 ## Questions?
 
 Don't hesitate to ask questions:
 
--   Open a discussion on GitHub
--   Ask in pull request comments
--   Join our Discord community
+- Open a discussion on GitHub
+- Ask in pull request comments
+- Join our Discord community
 
 Thank you for contributing to InferaDB! 🎉

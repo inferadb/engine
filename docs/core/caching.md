@@ -6,10 +6,10 @@ InferaDB includes an intelligent caching layer that dramatically improves author
 
 The caching system uses:
 
--   **LRU eviction** with time-based expiration (Moka async cache)
--   **Revision-based keys** for correctness guarantees
--   **Automatic invalidation** on writes
--   **Hit/miss tracking** for observability
+- **LRU eviction** with time-based expiration (Moka async cache)
+- **Revision-based keys** for correctness guarantees
+- **Automatic invalidation** on writes
+- **Hit/miss tracking** for observability
 
 ## Architecture
 
@@ -190,22 +190,22 @@ cache.invalidate_before(revision).await;
 
 **Revision-based (Default)**:
 
--   Cache keys include revision number
--   Old entries become unreachable automatically
--   Memory is reclaimed by LRU eviction
+- Cache keys include revision number
+- Old entries become unreachable automatically
+- Memory is reclaimed by LRU eviction
 
 **Selective invalidation (Recommended)**:
 
--   Only invalidates entries for modified resources
--   Uses secondary index to track resource -> cache key mappings
--   More efficient than invalidating all entries
--   Maintains high hit rates during writes
+- Only invalidates entries for modified resources
+- Uses secondary index to track resource -> cache key mappings
+- More efficient than invalidating all entries
+- Maintains high hit rates during writes
 
 **Eager invalidation (Optional)**:
 
--   Call `invalidate_all()` after writes
--   Frees memory immediately
--   May cause cache thrashing under high write load
+- Call `invalidate_all()` after writes
+- Frees memory immediately
+- May cause cache thrashing under high write load
 
 ### How Selective Invalidation Works
 
@@ -230,9 +230,9 @@ cache.invalidate_resources(&resources).await;
 
 This is significantly more efficient than invalidating all entries, especially when:
 
--   You have a large cache
--   Writes affect only a small subset of resources
--   You want to maintain high hit rates during write operations
+- You have a large cache
+- Writes affect only a small subset of resources
+- You want to maintain high hit rates during write operations
 
 ## Performance Characteristics
 
@@ -303,18 +303,18 @@ Set up alerts for:
 
 **Low hit rate**: `cache_hit_rate < 50%`
 
--   May indicate cache is too small
--   Or workload has changed
+- May indicate cache is too small
+- Or workload has changed
 
 **High memory usage**: `cache_size_bytes > threshold`
 
--   Reduce max_capacity
--   Decrease TTL
+- Reduce max_capacity
+- Decrease TTL
 
 **High miss rate**: `cache_misses > threshold`
 
--   Cache warming may be needed
--   Consider increasing capacity
+- Cache warming may be needed
+- Consider increasing capacity
 
 ## Optimization Strategies
 
@@ -401,15 +401,15 @@ if stats.hit_rate < 0.5 {
 
 **Short TTL** (30-60s):
 
--   High write rate
--   Strong consistency requirements
--   Lower memory usage
+- High write rate
+- Strong consistency requirements
+- Lower memory usage
 
 **Long TTL** (5-10m):
 
--   Read-heavy workload
--   Eventual consistency acceptable
--   Better hit rates
+- Read-heavy workload
+- Eventual consistency acceptable
+- Better hit rates
 
 ### 3. Use Revision-Based Keys
 
@@ -445,9 +445,9 @@ result
 
 Rule of thumb:
 
--   1% of total tuple count for typical workloads
--   10% for read-heavy workloads
--   Monitor memory usage and adjust
+- 1% of total tuple count for typical workloads
+- 10% for read-heavy workloads
+- Monitor memory usage and adjust
 
 ## Troubleshooting
 
@@ -464,10 +464,10 @@ Rule of thumb:
 
 **Solutions**:
 
--   Increase `max_capacity`
--   Increase `ttl_seconds`
--   Analyze query patterns
--   Consider cache warming
+- Increase `max_capacity`
+- Increase `ttl_seconds`
+- Analyze query patterns
+- Consider cache warming
 
 ### High Memory Usage
 
@@ -481,10 +481,10 @@ Rule of thumb:
 
 **Solutions**:
 
--   Reduce `max_capacity`
--   Reduce `ttl_seconds`
--   Implement cache entry size limits
--   Use shorter identifiers
+- Reduce `max_capacity`
+- Reduce `ttl_seconds`
+- Implement cache entry size limits
+- Use shorter identifiers
 
 ### Stale Data
 
@@ -498,9 +498,9 @@ Rule of thumb:
 
 **Solutions**:
 
--   Always use revision-based keys
--   Synchronize clocks (NTP)
--   Call `invalidate_all()` after writes in critical paths
+- Always use revision-based keys
+- Synchronize clocks (NTP)
+- Call `invalidate_all()` after writes in critical paths
 
 ### Cache Thrashing
 
@@ -514,10 +514,10 @@ Rule of thumb:
 
 **Solutions**:
 
--   Increase cache size
--   Review invalidation strategy
--   Partition cache by tenant/resource
--   Analyze access patterns
+- Increase cache size
+- Review invalidation strategy
+- Partition cache by tenant/resource
+- Analyze access patterns
 
 ## Advanced Features
 
@@ -587,6 +587,6 @@ let cache = if rand::random::<f64>() < 0.1 {
 
 ## References
 
--   [Moka Cache Documentation](https://github.com/moka-rs/moka)
--   [Caching Strategies](https://aws.amazon.com/caching/best-practices/)
--   [Cache Invalidation](https://martinfowler.com/bliki/TwoHardThings.html)
+- [Moka Cache Documentation](https://github.com/moka-rs/moka)
+- [Caching Strategies](https://aws.amazon.com/caching/best-practices/)
+- [Cache Invalidation](https://martinfowler.com/bliki/TwoHardThings.html)

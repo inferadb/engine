@@ -117,14 +117,12 @@ cargo test --test '*'
 **Example Tests**:
 
 1. **Document Management** ([`tests/document_management.rs`](../crates/infera-core/tests/document_management.rs))
-
     - Direct document permissions
     - Editor and viewer permissions
     - Hierarchical folder permissions
     - Permission revocation
 
 2. **Organization Hierarchy** ([`tests/organization_hierarchy.rs`](../crates/infera-core/tests/organization_hierarchy.rs))
-
     - Organization admin permissions
     - Team member permissions
     - Hierarchical org-to-team-to-project permissions
@@ -224,14 +222,14 @@ proptest! {
 
 **Coverage**: 8 property tests in memory backend covering:
 
--   Write-then-read roundtrip
--   Monotonic revision increases
--   Duplicate prevention
--   Deletion
--   MVCC isolation
--   User filtering
--   Batch atomicity
--   GC correctness
+- Write-then-read roundtrip
+- Monotonic revision increases
+- Duplicate prevention
+- Deletion
+- MVCC isolation
+- User filtering
+- Batch atomicity
+- GC correctness
 
 ---
 
@@ -270,12 +268,12 @@ proptest! {
 
 **Coverage**: 22 fuzz tests covering:
 
--   Type names
--   Relation names
--   Expressions
--   Random inputs
--   Malformed syntax
--   Edge cases
+- Type names
+- Relation names
+- Expressions
+- Random inputs
+- Malformed syntax
+- Edge cases
 
 ---
 
@@ -294,22 +292,18 @@ cargo test --package infera-wasm --test sandbox_security
 **Example Tests**:
 
 1. **Memory Limit Enforcement**
-
     - Modules cannot exceed memory limits
     - Out-of-bounds access detected
 
 2. **Fuel Limit Enforcement**
-
     - Infinite loops are terminated
     - CPU limits prevent DoS
 
 3. **Filesystem/Network Isolation**
-
     - WASI disabled (no filesystem access)
     - No network access possible
 
 4. **Module Isolation**
-
     - Modules from different tenants isolated
     - No shared state between modules
 
@@ -398,10 +392,10 @@ criterion_main!(benches);
 
 **Benchmarks**:
 
--   IPL parser: <1ms for typical schemas
--   Memory backend: <1μs reads, 1M+ ops/sec
--   Evaluator: <10μs simple checks, <100μs complex checks
--   Cache operations: <100ns hits
+- IPL parser: <1ms for typical schemas
+- Memory backend: <1μs reads, 1M+ ops/sec
+- Evaluator: <10μs simple checks, <100μs complex checks
+- Cache operations: <100ns hits
 
 ---
 
@@ -711,10 +705,10 @@ proptest! {
 
 ### 6. Keep Tests Fast
 
--   Use in-memory backends for tests
--   Avoid network I/O
--   Use fixtures to share setup
--   Run expensive tests only when needed
+- Use in-memory backends for tests
+- Avoid network I/O
+- Use fixtures to share setup
+- Run expensive tests only when needed
 
 ```rust
 #[test]
@@ -800,20 +794,20 @@ lldb target/debug/deps/my_test-<hash>
 
 Current test statistics:
 
--   **Total tests**: 239
-    -   Unit tests: 204
-    -   Integration tests: 25
-    -   Property tests: 8
-    -   Fuzz tests: 22
-    -   Security tests: 13
--   **Test coverage**: >80%
--   **Test execution time**: <10 seconds
+- **Total tests**: 239
+    - Unit tests: 204
+    - Integration tests: 25
+    - Property tests: 8
+    - Fuzz tests: 22
+    - Security tests: 13
+- **Test coverage**: >80%
+- **Test execution time**: <10 seconds
 
 ---
 
 ## Next Steps
 
--   [Building from Source](building.md) - Set up development environment
--   [Contributing Guidelines](../CONTRIBUTING.md) - Contribute tests
--   [API Reference](api-rest.md) - Test API endpoints
--   [Architecture Overview](architecture.md) - Understand system design
+- [Building from Source](building.md) - Set up development environment
+- [Contributing Guidelines](../CONTRIBUTING.md) - Contribute tests
+- [API Reference](api-rest.md) - Test API endpoints
+- [Architecture Overview](architecture.md) - Understand system design

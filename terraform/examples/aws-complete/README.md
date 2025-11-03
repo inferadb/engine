@@ -1,6 +1,7 @@
 # Complete AWS Deployment for InferaDB
 
 This example deploys a production-ready InferaDB installation on AWS using:
+
 - **Amazon EKS** for Kubernetes
 - **ElastiCache Redis** for replay protection
 - **Network Load Balancer** for external access
@@ -100,6 +101,7 @@ terraform apply
 ```
 
 This will take approximately 15-20 minutes to:
+
 - Create VPC with public/private subnets across 3 AZs
 - Deploy EKS cluster with managed node group
 - Create ElastiCache Redis cluster
@@ -150,12 +152,12 @@ curl -X POST http://$LB_URL:8080/v1/check \
 
 ### Instance Sizing
 
-| Workload | Node Type | Node Count | Redis Type |
-|----------|-----------|------------|------------|
-| Development | t3.large | 2 | cache.t4g.medium |
-| Staging | m5.large | 2-3 | cache.r7g.large |
-| Production | m5.xlarge | 3-10 | cache.r7g.large |
-| High-Scale | m5.2xlarge | 5-20 | cache.r7g.xlarge |
+| Workload    | Node Type  | Node Count | Redis Type       |
+| ----------- | ---------- | ---------- | ---------------- |
+| Development | t3.large   | 2          | cache.t4g.medium |
+| Staging     | m5.large   | 2-3        | cache.r7g.large  |
+| Production  | m5.xlarge  | 3-10       | cache.r7g.large  |
+| High-Scale  | m5.2xlarge | 5-20       | cache.r7g.xlarge |
 
 ### Cost Optimization
 
@@ -182,6 +184,7 @@ inferadb_internal_lb = true
 ### CloudWatch Metrics
 
 The deployment automatically creates CloudWatch alarms for:
+
 - Redis CPU utilization (> 75%)
 - Redis memory usage (> 80%)
 - Redis evictions (> 100/5min)
@@ -228,6 +231,7 @@ aws eks update-nodegroup-config \
 ### Auto-Scaling
 
 The deployment includes:
+
 - **Horizontal Pod Autoscaler (HPA)**: Scales pods based on CPU/memory
 - **Cluster Autoscaler**: Can be added to scale nodes automatically
 
@@ -279,6 +283,7 @@ terraform destroy
 ```
 
 **Warning**: This will delete:
+
 - EKS cluster and all workloads
 - ElastiCache Redis cluster
 - VPC and all networking resources
@@ -322,16 +327,16 @@ kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controll
 
 Approximate monthly costs for production deployment (us-west-2):
 
-| Resource | Configuration | Monthly Cost |
-|----------|--------------|--------------|
-| EKS Cluster | Control plane | $73 |
-| EC2 Nodes | 3x m5.xlarge | ~$367 |
-| ElastiCache | 2x cache.r7g.large | ~$224 |
-| Network Load Balancer | 1 NLB | ~$22 |
-| Data Transfer | 100GB/month | ~$9 |
-| **Total** | | **~$695/month** |
+| Resource              | Configuration      | Monthly Cost    |
+| --------------------- | ------------------ | --------------- |
+| EKS Cluster           | Control plane      | $73             |
+| EC2 Nodes             | 3x m5.xlarge       | ~$367           |
+| ElastiCache           | 2x cache.r7g.large | ~$224           |
+| Network Load Balancer | 1 NLB              | ~$22            |
+| Data Transfer         | 100GB/month        | ~$9             |
+| **Total**             |                    | **~$695/month** |
 
-*Prices are approximate and vary by region. Use AWS Cost Calculator for accurate estimates.*
+_Prices are approximate and vary by region. Use AWS Cost Calculator for accurate estimates._
 
 ## Support
 

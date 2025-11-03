@@ -6,11 +6,11 @@ InferaDB supports active-active multi-region replication for globally distribute
 
 The replication system provides:
 
--   **Multiple Replication Strategies**: ActiveActive, PrimaryReplica, and MultiMaster topologies
--   **Conflict Resolution**: Four deterministic strategies including Last-Write-Wins (LWW)
--   **Region-Aware Routing**: Intelligent request routing based on operation type and strategy
--   **Failure Handling**: Automatic failover, retry logic with exponential backoff
--   **Comprehensive Monitoring**: Prometheus metrics for lag, conflicts, and health
+- **Multiple Replication Strategies**: ActiveActive, PrimaryReplica, and MultiMaster topologies
+- **Conflict Resolution**: Four deterministic strategies including Last-Write-Wins (LWW)
+- **Region-Aware Routing**: Intelligent request routing based on operation type and strategy
+- **Failure Handling**: Automatic failover, retry logic with exponential backoff
+- **Comprehensive Monitoring**: Prometheus metrics for lag, conflicts, and health
 
 ## Architecture
 
@@ -28,10 +28,10 @@ Region (e.g., "us-west-1")
 
 **Key Types:**
 
--   `RegionId` - Unique identifier for a geographic region
--   `ZoneId` - Availability zone within a region
--   `NodeId` - Individual server instance
--   `ReplicationStrategy` - Topology pattern (ActiveActive, PrimaryReplica, MultiMaster)
+- `RegionId` - Unique identifier for a geographic region
+- `ZoneId` - Availability zone within a region
+- `NodeId` - Individual server instance
+- `ReplicationStrategy` - Topology pattern (ActiveActive, PrimaryReplica, MultiMaster)
 
 **Example:**
 
@@ -137,10 +137,10 @@ Subscribes to local changes and replicates them to remote regions.
 
 **Features:**
 
--   **Batched Replication**: Groups changes for efficient transmission
--   **Retry Logic**: Exponential backoff with configurable max retries
--   **Failure Tracking**: Monitors consecutive failures per target
--   **Metrics Integration**: Records replication lag, conflicts, failures
+- **Batched Replication**: Groups changes for efficient transmission
+- **Retry Logic**: Exponential backoff with configurable max retries
+- **Failure Tracking**: Monitors consecutive failures per target
+- **Metrics Integration**: Records replication lag, conflicts, failures
 
 **Configuration:**
 
@@ -223,15 +223,15 @@ All regions can accept both reads and writes. Changes are replicated bi-directio
 
 **Pros:**
 
--   Lowest write latency (write locally)
--   Highest availability (any region can handle requests)
--   Best user experience globally
+- Lowest write latency (write locally)
+- Highest availability (any region can handle requests)
+- Best user experience globally
 
 **Cons:**
 
--   Must handle conflicts
--   More complex than primary-replica
--   Requires careful conflict resolution strategy
+- Must handle conflicts
+- More complex than primary-replica
+- Requires careful conflict resolution strategy
 
 **Best for:** Global applications requiring low latency everywhere
 
@@ -252,15 +252,15 @@ One primary region accepts writes; replicas serve reads only.
 
 **Pros:**
 
--   No conflicts (single write source)
--   Simpler to reason about
--   Strong consistency guarantees
+- No conflicts (single write source)
+- Simpler to reason about
+- Strong consistency guarantees
 
 **Cons:**
 
--   Higher write latency for remote clients
--   Primary is single point of failure for writes
--   Read-only replicas during primary outage
+- Higher write latency for remote clients
+- Primary is single point of failure for writes
+- Read-only replicas during primary outage
 
 **Best for:** Applications with strong consistency requirements
 
@@ -282,15 +282,15 @@ Different regions can accept writes for different tenants/namespaces.
 
 **Pros:**
 
--   Data locality (tenant data stays in region)
--   Compliance friendly (GDPR, data residency)
--   Scalable (partitioned by tenant)
+- Data locality (tenant data stays in region)
+- Compliance friendly (GDPR, data residency)
+- Scalable (partitioned by tenant)
 
 **Cons:**
 
--   Requires partitioning strategy
--   More complex routing
--   Cross-tenant queries may be slower
+- Requires partitioning strategy
+- More complex routing
+- Cross-tenant queries may be slower
 
 **Best for:** Multi-tenant SaaS with data residency requirements
 
@@ -464,9 +464,9 @@ replication:
 
 **Benefits:**
 
--   Low latency for US and EU users
--   High availability (either region can fail)
--   Simple conflict resolution
+- Low latency for US and EU users
+- High availability (either region can fail)
+- Simple conflict resolution
 
 **Configuration:**
 
@@ -490,9 +490,9 @@ replication:
 
 **Benefits:**
 
--   Strong consistency (single write source)
--   Global read performance
--   No conflicts
+- Strong consistency (single write source)
+- Global read performance
+- No conflicts
 
 **Configuration:**
 
@@ -522,9 +522,9 @@ replication:
 
 **Benefits:**
 
--   Data locality per region
--   Compliance friendly
--   Scalable by tenant
+- Data locality per region
+- Compliance friendly
+- Scalable by tenant
 
 **Configuration:**
 
@@ -547,9 +547,9 @@ replication:
 
 **Causes:**
 
--   Network latency between regions
--   Target region overloaded
--   Large batch sizes
+- Network latency between regions
+- Target region overloaded
+- Large batch sizes
 
 **Solutions:**
 
@@ -564,9 +564,9 @@ replication:
 
 **Causes:**
 
--   Concurrent writes to same tuples
--   Clock skew between regions
--   High write volume
+- Concurrent writes to same tuples
+- Clock skew between regions
+- High write volume
 
 **Solutions:**
 
@@ -581,10 +581,10 @@ replication:
 
 **Causes:**
 
--   Target region down
--   Network partitions
--   Authentication failures
--   Resource exhaustion
+- Target region down
+- Network partitions
+- Authentication failures
+- Resource exhaustion
 
 **Solutions:**
 
@@ -599,9 +599,9 @@ replication:
 
 **Causes:**
 
--   Node crashed
--   Network partition
--   Deployment in progress
+- Node crashed
+- Network partition
+- Deployment in progress
 
 **Solutions:**
 
@@ -655,58 +655,58 @@ agent:
 
 Set up alerts for:
 
--   Replication lag > 100ms
--   Conflict rate > 1% of writes
--   Target health < 100%
--   Failure rate > 0.1%
+- Replication lag > 100ms
+- Conflict rate > 1% of writes
+- Target health < 100%
+- Failure rate > 0.1%
 
 ### 2. Test Failover Scenarios
 
 Regularly test:
 
--   Region failures
--   Network partitions
--   Conflict resolution
--   Recovery time
+- Region failures
+- Network partitions
+- Conflict resolution
+- Recovery time
 
 ### 3. Choose the Right Strategy
 
--   **Active-Active**: Global apps, low latency requirement
--   **Primary-Replica**: Strong consistency requirement
--   **Multi-Master**: Data sovereignty, multi-tenant
+- **Active-Active**: Global apps, low latency requirement
+- **Primary-Replica**: Strong consistency requirement
+- **Multi-Master**: Data sovereignty, multi-tenant
 
 ### 4. Plan for Conflicts
 
--   Understand your conflict resolution strategy
--   Monitor conflict rate
--   Design data model to minimize conflicts
--   Use application-level conflict resolution if needed
+- Understand your conflict resolution strategy
+- Monitor conflict rate
+- Design data model to minimize conflicts
+- Use application-level conflict resolution if needed
 
 ### 5. Capacity Planning
 
--   Replication adds ~20-30% overhead
--   Plan for peak write load × (1 + number of replicas)
--   Network bandwidth for replication stream
--   Monitor `inferadb_replication_batch_size` histogram
+- Replication adds ~20-30% overhead
+- Plan for peak write load × (1 + number of replicas)
+- Network bandwidth for replication stream
+- Monitor `inferadb_replication_batch_size` histogram
 
 ## API Reference
 
 ### Complete API documentation:
 
--   **Topology API**: See [`infera-repl/src/topology.rs`](../crates/infera-repl/src/topology.rs)
--   **Conflict Resolution API**: See [`infera-repl/src/conflict.rs`](../crates/infera-repl/src/conflict.rs)
--   **Replication Agent API**: See [`infera-repl/src/agent.rs`](../crates/infera-repl/src/agent.rs)
--   **Router API**: See [`infera-repl/src/router.rs`](../crates/infera-repl/src/router.rs)
+- **Topology API**: See [`infera-repl/src/topology.rs`](../crates/infera-repl/src/topology.rs)
+- **Conflict Resolution API**: See [`infera-repl/src/conflict.rs`](../crates/infera-repl/src/conflict.rs)
+- **Replication Agent API**: See [`infera-repl/src/agent.rs`](../crates/infera-repl/src/agent.rs)
+- **Router API**: See [`infera-repl/src/router.rs`](../crates/infera-repl/src/router.rs)
 
 ## Related Documentation
 
--   [Architecture Overview](architecture.md) - System design
--   [Revision Tokens](revision-tokens.md) - Snapshot consistency
--   [Observability](observability.md) - Metrics and tracing
--   [Configuration](configuration.md) - Configuration reference
+- [Architecture Overview](architecture.md) - System design
+- [Revision Tokens](revision-tokens.md) - Snapshot consistency
+- [Observability](observability.md) - Metrics and tracing
+- [Configuration](configuration.md) - Configuration reference
 
 ## Examples
 
 Complete examples are available in the integration tests:
 
--   [`crates/infera-repl/tests/replication_integration.rs`](../crates/infera-repl/tests/replication_integration.rs)
+- [`crates/infera-repl/tests/replication_integration.rs`](../crates/infera-repl/tests/replication_integration.rs)

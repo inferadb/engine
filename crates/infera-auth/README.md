@@ -157,24 +157,26 @@ if !auth_ctx.has_scope("inferadb.admin") {
 ### Private-Key JWT (Tenant SDK)
 
 **Header:**
+
 ```json
 {
-  "alg": "EdDSA",
-  "kid": "tenant-key-2025-01",
-  "typ": "JWT"
+    "alg": "EdDSA",
+    "kid": "tenant-key-2025-01",
+    "typ": "JWT"
 }
 ```
 
 **Payload:**
+
 ```json
 {
-  "iss": "tenant:acme",
-  "sub": "tenant:acme",
-  "aud": "https://api.inferadb.com/evaluate",
-  "exp": 1730000060,
-  "iat": 1730000000,
-  "jti": "b2df428b9929d3ace7c598bbf4e496b2",
-  "scope": "inferadb.check inferadb.write"
+    "iss": "tenant:acme",
+    "sub": "tenant:acme",
+    "aud": "https://api.inferadb.com/evaluate",
+    "exp": 1730000060,
+    "iat": 1730000000,
+    "jti": "b2df428b9929d3ace7c598bbf4e496b2",
+    "scope": "inferadb.check inferadb.write"
 }
 ```
 
@@ -199,14 +201,14 @@ The JWKS cache provides:
 
 ```yaml
 auth:
-  enabled: true
-  jwks_base_url: "https://auth.inferadb.com/tenants"
-  jwks_cache_ttl: 300  # 5 minutes
-  accepted_algorithms:
-    - "EdDSA"
-    - "RS256"
-  enforce_audience: true
-  audience: "https://api.inferadb.com/evaluate"
+    enabled: true
+    jwks_base_url: "https://auth.inferadb.com/tenants"
+    jwks_cache_ttl: 300 # 5 minutes
+    accepted_algorithms:
+        - "EdDSA"
+        - "RS256"
+    enforce_audience: true
+    audience: "https://api.inferadb.com/evaluate"
 ```
 
 ### Development Mode
@@ -215,7 +217,7 @@ Disable authentication for local development:
 
 ```yaml
 auth:
-  enabled: false
+    enabled: false
 ```
 
 ⚠️ **Warning**: Only use `enabled: false` in development environments. Production systems must always have authentication enabled.
@@ -225,6 +227,7 @@ auth:
 Authentication errors return proper HTTP status codes with `WWW-Authenticate` headers:
 
 ### 401 Unauthorized
+
 - Missing Authorization header
 - Malformed bearer token
 - Invalid JWT format
@@ -232,6 +235,7 @@ Authentication errors return proper HTTP status codes with `WWW-Authenticate` he
 - Invalid signature
 
 **Response:**
+
 ```http
 HTTP/1.1 401 Unauthorized
 WWW-Authenticate: Bearer realm="InferaDB", error="invalid_token"
@@ -241,11 +245,13 @@ Content-Type: application/json
 ```
 
 ### 403 Forbidden
+
 - Invalid scope
 - Invalid audience
 - Cross-tenant access
 
 **Response:**
+
 ```http
 HTTP/1.1 403 Forbidden
 Content-Type: application/json
@@ -262,6 +268,7 @@ cargo test -p infera-auth
 ```
 
 **Coverage:**
+
 - 36 unit tests for core functionality
 - 18 integration tests for JWKS caching and JWT verification
 
@@ -272,6 +279,7 @@ cargo test -p infera-api --test auth_integration_tests
 ```
 
 **Coverage:**
+
 - Missing token handling
 - Malformed headers
 - Auth disabled mode
@@ -343,6 +351,7 @@ cargo test -p infera-api --test auth_integration_tests
 ## Examples
 
 See the [integration tests](tests/auth_integration_tests.rs) in `infera-api` for complete examples of:
+
 - Setting up authentication
 - Making authenticated requests
 - Handling auth errors

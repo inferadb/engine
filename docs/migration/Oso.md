@@ -6,13 +6,13 @@ This guide helps you migrate from Oso (Polar-based authorization) to InferaDB's 
 
 **InferaDB Advantages**:
 
--   ✅ **Production-Ready**: Built for distributed, high-throughput deployments
--   ✅ **Streaming APIs**: All list operations stream for better performance
--   ✅ **Real-time Watch**: Stream relationship changes for cache invalidation
--   ✅ **Built-in Graph Traversal**: ReBAC model handles complex hierarchies natively
--   ✅ **Multi-tenant**: Built-in JWT/OAuth with tenant isolation
--   ✅ **Performance**: Sub-10ms checks with intelligent caching
--   ✅ **Observability**: Prometheus metrics, OpenTelemetry tracing out of the box
+- ✅ **Production-Ready**: Built for distributed, high-throughput deployments
+- ✅ **Streaming APIs**: All list operations stream for better performance
+- ✅ **Real-time Watch**: Stream relationship changes for cache invalidation
+- ✅ **Built-in Graph Traversal**: ReBAC model handles complex hierarchies natively
+- ✅ **Multi-tenant**: Built-in JWT/OAuth with tenant isolation
+- ✅ **Performance**: Sub-10ms checks with intelligent caching
+- ✅ **Observability**: Prometheus metrics, OpenTelemetry tracing out of the box
 
 ## Paradigm Shift: Logic Programming → ReBAC
 
@@ -575,10 +575,10 @@ fn document_access(subject: &Subject, resource: &Resource, context: &Context) ->
 
 **Trade-offs**:
 
--   ⚠️ More complex setup (WASM compilation required)
--   ✅ Better performance (compiled code)
--   ✅ Type safety
--   ✅ Separation of logic and data
+- ⚠️ More complex setup (WASM compilation required)
+- ✅ Better performance (compiled code)
+- ✅ Type safety
+- ✅ Separation of logic and data
 
 ---
 
@@ -610,10 +610,10 @@ def has_role(user, role, resource):
 
 **InferaDB manages data internally**:
 
--   ✅ No database schema needed
--   ✅ No SQL queries to write
--   ✅ Optimized indexes automatically created
--   ✅ Built-in replication and consistency
+- ✅ No database schema needed
+- ✅ No SQL queries to write
+- ✅ Optimized indexes automatically created
+- ✅ Built-in replication and consistency
 
 ```python
 # Just call the API
@@ -694,61 +694,61 @@ response = requests.post(
 
 ### 1. Policy Translation
 
--   [ ] Identify all Polar policy files
--   [ ] Map `resource` types to InferaDB `type`
--   [ ] Convert `permissions` to computed `relation`
--   [ ] Convert `roles` to direct `relation`
--   [ ] Map hierarchies to `->` operator
--   [ ] Test schema with sample data
+- [ ] Identify all Polar policy files
+- [ ] Map `resource` types to InferaDB `type`
+- [ ] Convert `permissions` to computed `relation`
+- [ ] Convert `roles` to direct `relation`
+- [ ] Map hierarchies to `->` operator
+- [ ] Test schema with sample data
 
 ### 2. ABAC Migration
 
--   [ ] Identify attribute-based rules in Polar
--   [ ] Decide: Convert to ReBAC or use WASM
--   [ ] If WASM: Write WASM modules
--   [ ] If ReBAC: Model attributes as relations
--   [ ] Test attribute checking
+- [ ] Identify attribute-based rules in Polar
+- [ ] Decide: Convert to ReBAC or use WASM
+- [ ] If WASM: Write WASM modules
+- [ ] If ReBAC: Model attributes as relations
+- [ ] Test attribute checking
 
 ### 3. Data Migration
 
--   [ ] Export role/permission data from your database
--   [ ] Convert to InferaDB relationship format
--   [ ] Bulk import via WriteRelationships API
--   [ ] Verify data integrity
+- [ ] Export role/permission data from your database
+- [ ] Convert to InferaDB relationship format
+- [ ] Bulk import via WriteRelationships API
+- [ ] Verify data integrity
 
 ### 4. Application Code Updates
 
--   [ ] Replace `oso.is_allowed()` with Check API calls
--   [ ] Replace `authorized_resources()` with ListResources
--   [ ] Replace database role queries with ListRelationships
--   [ ] Add JWT tokens to API calls
--   [ ] Handle streaming responses
--   [ ] Update error handling
+- [ ] Replace `oso.is_allowed()` with Check API calls
+- [ ] Replace `authorized_resources()` with ListResources
+- [ ] Replace database role queries with ListRelationships
+- [ ] Add JWT tokens to API calls
+- [ ] Handle streaming responses
+- [ ] Update error handling
 
 ### 5. Remove Oso Dependencies
 
--   [ ] Remove Oso library dependency
--   [ ] Remove .polar policy files
--   [ ] Remove role/permission database tables
--   [ ] Remove manual data layer code
--   [ ] Clean up imports
+- [ ] Remove Oso library dependency
+- [ ] Remove .polar policy files
+- [ ] Remove role/permission database tables
+- [ ] Remove manual data layer code
+- [ ] Clean up imports
 
 ### 6. Deployment
 
--   [ ] Deploy InferaDB service (Docker/K8s)
--   [ ] Configure storage backend
--   [ ] Deploy IPL schema
--   [ ] Set up JWT/OAuth authentication
--   [ ] Configure monitoring
--   [ ] Set up alerts
+- [ ] Deploy InferaDB service (Docker/K8s)
+- [ ] Configure storage backend
+- [ ] Deploy IPL schema
+- [ ] Set up JWT/OAuth authentication
+- [ ] Configure monitoring
+- [ ] Set up alerts
 
 ### 7. Testing
 
--   [ ] Port authorization tests
--   [ ] Test with production data sample
--   [ ] Performance testing
--   [ ] Load testing
--   [ ] Verify consistency
+- [ ] Port authorization tests
+- [ ] Test with production data sample
+- [ ] Performance testing
+- [ ] Load testing
+- [ ] Verify consistency
 
 ---
 
@@ -803,25 +803,25 @@ response = requests.post(
 
 **When InferaDB is Faster**:
 
--   ✅ List operations (server-side computation)
--   ✅ Complex hierarchies (optimized graph traversal)
--   ✅ Multi-tenant scenarios (data isolation)
+- ✅ List operations (server-side computation)
+- ✅ Complex hierarchies (optimized graph traversal)
+- ✅ Multi-tenant scenarios (data isolation)
 
 **When Oso is Faster**:
 
--   ⚠️ Single, simple checks (no network)
--   ⚠️ Read-heavy, write-rare workloads (in-memory)
+- ⚠️ Single, simple checks (no network)
+- ⚠️ Read-heavy, write-rare workloads (in-memory)
 
 ---
 
 ## Support Resources
 
--   **InferaDB Documentation**: [docs/](../README.md)
--   **API Reference**: [api/](../../api/README.md)
--   **Oso Comparison**: [OSO.md](../../OSO.md)
--   **WASM Guide**: [docs/advanced/wasm.md](../advanced/wasm.md)
--   **GitHub Issues**: [Issues](https://github.com/inferadb/server/issues)
--   **Community**: [Discussions](https://github.com/inferadb/server/discussions)
+- **InferaDB Documentation**: [docs/](../README.md)
+- **API Reference**: [api/](../../api/README.md)
+- **Oso Comparison**: [OSO.md](../../OSO.md)
+- **WASM Guide**: [docs/advanced/wasm.md](../advanced/wasm.md)
+- **GitHub Issues**: [Issues](https://github.com/inferadb/server/issues)
+- **Community**: [Discussions](https://github.com/inferadb/server/discussions)
 
 ---
 

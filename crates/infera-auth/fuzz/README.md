@@ -122,43 +122,44 @@ Add to `.github/workflows/fuzz.yml`:
 name: Fuzz Tests
 
 on:
-  schedule:
-    - cron: '0 2 * * *'  # Run daily at 2 AM
-  workflow_dispatch:
+    schedule:
+        - cron: "0 2 * * *" # Run daily at 2 AM
+    workflow_dispatch:
 
 jobs:
-  fuzz:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+    fuzz:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
 
-      - name: Install Rust nightly
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+            - name: Install Rust nightly
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: nightly
+                  override: true
 
-      - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz
+            - name: Install cargo-fuzz
+              run: cargo install cargo-fuzz
 
-      - name: Run fuzz tests
-        run: |
-          cd crates/infera-auth
-          cargo +nightly fuzz run jwt_decode -- -max_total_time=600 -rss_limit_mb=2048
-          cargo +nightly fuzz run jwt_validation -- -max_total_time=600 -rss_limit_mb=2048
-          cargo +nightly fuzz run bearer_extraction -- -max_total_time=600 -rss_limit_mb=2048
+            - name: Run fuzz tests
+              run: |
+                  cd crates/infera-auth
+                  cargo +nightly fuzz run jwt_decode -- -max_total_time=600 -rss_limit_mb=2048
+                  cargo +nightly fuzz run jwt_validation -- -max_total_time=600 -rss_limit_mb=2048
+                  cargo +nightly fuzz run bearer_extraction -- -max_total_time=600 -rss_limit_mb=2048
 
-      - name: Upload artifacts
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: fuzz-artifacts
-          path: crates/infera-auth/fuzz/artifacts/
+            - name: Upload artifacts
+              if: failure()
+              uses: actions/upload-artifact@v3
+              with:
+                  name: fuzz-artifacts
+                  path: crates/infera-auth/fuzz/artifacts/
 ```
 
 ## Expected Behavior
 
 All fuzzers should:
+
 - ✅ **Never panic**: All code paths return `Result`, never panic
 - ✅ **Handle malformed input gracefully**: Return appropriate errors
 - ✅ **Not leak memory**: No memory leaks on invalid input
@@ -183,33 +184,36 @@ All fuzzers should:
 If a fuzzer discovers a crash:
 
 1. **Reproduce locally**:
-   ```bash
-   cargo +nightly fuzz run jwt_decode fuzz/artifacts/jwt_decode/crash-abc123
-   ```
+
+    ```bash
+    cargo +nightly fuzz run jwt_decode fuzz/artifacts/jwt_decode/crash-abc123
+    ```
 
 2. **Debug with lldb/gdb**:
-   ```bash
-   rust-lldb target/x86_64-unknown-linux-gnu/release/jwt_decode fuzz/artifacts/jwt_decode/crash-abc123
-   ```
+
+    ```bash
+    rust-lldb target/x86_64-unknown-linux-gnu/release/jwt_decode fuzz/artifacts/jwt_decode/crash-abc123
+    ```
 
 3. **Analyze the input**:
-   ```bash
-   # View raw bytes
-   hexdump -C fuzz/artifacts/jwt_decode/crash-abc123
 
-   # View as string (if valid UTF-8)
-   cat fuzz/artifacts/jwt_decode/crash-abc123
-   ```
+    ```bash
+    # View raw bytes
+    hexdump -C fuzz/artifacts/jwt_decode/crash-abc123
+
+    # View as string (if valid UTF-8)
+    cat fuzz/artifacts/jwt_decode/crash-abc123
+    ```
 
 4. **Write a regression test**:
-   ```rust
-   #[test]
-   fn test_crash_abc123() {
-       let input = include_bytes!("../fuzz/artifacts/jwt_decode/crash-abc123");
-       let result = decode_jwt_header(std::str::from_utf8(input).unwrap());
-       assert!(result.is_err());  // Should return error, not panic
-   }
-   ```
+    ```rust
+    #[test]
+    fn test_crash_abc123() {
+        let input = include_bytes!("../fuzz/artifacts/jwt_decode/crash-abc123");
+        let result = decode_jwt_header(std::str::from_utf8(input).unwrap());
+        assert!(result.is_err());  // Should return error, not panic
+    }
+    ```
 
 ## Performance Tips
 

@@ -30,6 +30,7 @@ Machine-readable API definitions:
 ### REST API
 
 The REST API is perfect for:
+
 - Quick prototyping
 - Web applications
 - Simple integrations
@@ -38,6 +39,7 @@ The REST API is perfect for:
 **Base URL**: `http://localhost:8080/api/v1`
 
 **Quick example**:
+
 ```bash
 # Check if user:alice can view document:readme
 curl -X POST http://localhost:8080/api/v1/check \
@@ -54,6 +56,7 @@ curl -X POST http://localhost:8080/api/v1/check \
 ### gRPC API
 
 The gRPC API is ideal for:
+
 - Production deployments
 - High-performance requirements
 - Low-latency applications
@@ -62,6 +65,7 @@ The gRPC API is ideal for:
 **Server Address**: `localhost:8081`
 
 **Quick example**:
+
 ```bash
 # Check permission (using grpcurl)
 grpcurl -plaintext -d '{
@@ -80,6 +84,7 @@ grpcurl -plaintext -d '{
 InferaDB implements the [OpenID Foundation's AuthZEN specification](https://openid.github.io/authzen/) for authorization API interoperability:
 
 **Core AuthZEN Operations**:
+
 - **Single Evaluation** (`POST /access/v1/evaluation`) - Single authorization decision
 - **Batch Evaluations** (`POST /access/v1/evaluations`) - Multiple authorization decisions
 - **Resource Search** (`POST /access/v1/search/resource`) - Find resources accessible by subject
@@ -87,6 +92,7 @@ InferaDB implements the [OpenID Foundation's AuthZEN specification](https://open
 - **Service Discovery** (`GET /.well-known/authzen-configuration`) - Capability discovery
 
 **InferaDB Extensions** (advertised via well-known endpoint):
+
 - `inferadb_relationship_management` - Direct relationship CRUD operations
 - `inferadb_relation_expansion` - Relation tree expansion for debugging
 - `inferadb_simulation` - What-if testing with ephemeral relationships
@@ -99,28 +105,34 @@ See [AuthZEN Extensions Documentation](../docs/api/authzen-extensions.md) for de
 In addition to AuthZEN compliance, InferaDB's native API supports:
 
 **Authorization Checks**:
+
 - **Check** - Check if a subject has permission on a resource (streaming for batch)
 - **CheckWithTrace** - Check with detailed evaluation trace for debugging
 
 **Query Operations**:
+
 - **Expand** - Expand a relation to see all users who have access (streaming)
 - **ListResources** - List all resources a subject can access (streaming)
 - **ListSubjects** - List all subjects that have access to a resource (streaming)
 - **ListRelationships** - List relationships with optional filtering (streaming)
 
 **Data Operations**:
+
 - **Write** - Write authorization relationships (streaming for batch)
 - **Delete** - Delete authorization relationships (streaming for batch)
 
 **Real-time**:
+
 - **Watch** - Stream real-time relationship change events (SSE/gRPC streaming)
 
 **System**:
+
 - **Health** - Check service health
 
 ### Performance
 
 Typical latencies (REST API):
+
 - Health check: <1ms
 - Permission check (cached): <1ms
 - Permission check (simple): <5ms
@@ -133,12 +145,14 @@ The gRPC API is typically 20-30% faster due to binary protocol overhead.
 ### Authentication
 
 InferaDB uses JWT (JSON Web Token) authentication. See the [Authentication Guide](../docs/security/authentication.md) for details on:
+
 - Creating JWTs
 - Supported algorithms (EdDSA, RS256, ES256)
 - OIDC Discovery
 - OAuth 2.0 integration
 
 **Quick auth example**:
+
 ```bash
 # Include JWT in Authorization header
 curl -X POST http://localhost:8080/api/v1/check \
@@ -172,6 +186,7 @@ See [gRPC API Reference](./grpc.md) for complete client generation examples.
 ### REST Client Examples
 
 Simple REST clients are available in the [REST API Reference](./rest.md) for:
+
 - JavaScript/TypeScript
 - Python
 - Go
@@ -194,6 +209,7 @@ Simple REST clients are available in the [REST API Reference](./rest.md) for:
 - **Postman** - Now supports gRPC natively
 
 Install grpcui:
+
 ```bash
 # macOS
 brew install grpcui
@@ -278,12 +294,13 @@ Both APIs return consistent error responses:
 
 ```json
 {
-  "error": "Invalid request",
-  "message": "Missing required field 'subject'"
+    "error": "Invalid request",
+    "message": "Missing required field 'subject'"
 }
 ```
 
 Common HTTP status codes:
+
 - `200 OK` - Success
 - `400 Bad Request` - Invalid request
 - `401 Unauthorized` - Authentication required
@@ -294,6 +311,7 @@ Common HTTP status codes:
 ### gRPC API Errors
 
 gRPC uses standard status codes:
+
 - `OK` - Success
 - `INVALID_ARGUMENT` - Invalid request parameters
 - `UNAUTHENTICATED` - Authentication required
@@ -320,15 +338,23 @@ const resource = "readme";
 ```javascript
 // Good - single request
 await write({
-  relationships: [
-    { resource: "doc:1", relation: "viewer", subject: "user:alice" },
-    { resource: "doc:1", relation: "editor", subject: "user:bob" },
-  ],
+    relationships: [
+        { resource: "doc:1", relation: "viewer", subject: "user:alice" },
+        { resource: "doc:1", relation: "editor", subject: "user:bob" },
+    ],
 });
 
 // Avoid - multiple requests
-await write({ relationships: [{ resource: "doc:1", relation: "viewer", subject: "user:alice" }] });
-await write({ relationships: [{ resource: "doc:1", relation: "editor", subject: "user:bob" }] });
+await write({
+    relationships: [
+        { resource: "doc:1", relation: "viewer", subject: "user:alice" },
+    ],
+});
+await write({
+    relationships: [
+        { resource: "doc:1", relation: "editor", subject: "user:bob" },
+    ],
+});
 ```
 
 ### 3. Leverage Caching

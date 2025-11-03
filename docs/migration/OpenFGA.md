@@ -6,13 +6,13 @@ This guide helps you migrate from OpenFGA to InferaDB, covering authorization mo
 
 **InferaDB Advantages**:
 
--   ✅ **Streaming APIs**: All operations use streaming for better performance and scalability
--   ✅ **Batch Check with Trace**: Industry's only detailed trace on batch operations
--   ✅ **No Artificial Limits**: OpenFGA limits batch operations, InferaDB doesn't
--   ✅ **Simpler Deployment**: Single binary, no separate store model management
--   ✅ **Built-in Auth**: JWT/OAuth with EdDSA/RS256/ES256 (OpenFGA has no built-in auth)
--   ✅ **Real-time Watch**: Both gRPC and REST/SSE streaming
--   ✅ **WASM Extensibility**: Custom policy logic without changing core
+- ✅ **Streaming APIs**: All operations use streaming for better performance and scalability
+- ✅ **Batch Check with Trace**: Industry's only detailed trace on batch operations
+- ✅ **No Artificial Limits**: OpenFGA limits batch operations, InferaDB doesn't
+- ✅ **Simpler Deployment**: Single binary, no separate store model management
+- ✅ **Built-in Auth**: JWT/OAuth with EdDSA/RS256/ES256 (OpenFGA has no built-in auth)
+- ✅ **Real-time Watch**: Both gRPC and REST/SSE streaming
+- ✅ **WASM Extensibility**: Custom policy logic without changing core
 
 ## Quick Comparison
 
@@ -130,10 +130,10 @@ grpcurl -plaintext -d '{
 
 **Key Differences**:
 
--   ✅ No `store_id` parameter (single schema per deployment)
--   ✅ Built-in authentication (JWT required)
--   ✅ Streaming support for unlimited batch checks
--   ✅ Field names: `user→subject`, `object→resource`, `relation→permission`
+- ✅ No `store_id` parameter (single schema per deployment)
+- ✅ Built-in authentication (JWT required)
+- ✅ Streaming support for unlimited batch checks
+- ✅ Field names: `user→subject`, `object→resource`, `relation→permission`
 
 ### 2. Batch Check
 
@@ -172,9 +172,9 @@ grpcurl -plaintext -d '{
 
 **Key Differences**:
 
--   ✅ No batch size limits
--   ✅ Streaming handles any number of checks
--   ✅ Optional trace for debugging
+- ✅ No batch size limits
+- ✅ Streaming handles any number of checks
+- ✅ Optional trace for debugging
 
 ### 3. Expand Permission Tree
 
@@ -210,9 +210,9 @@ curl -X POST http://localhost:8080/v1/expand \
 
 **Key Differences**:
 
--   ✅ Streaming prevents memory issues with large usersets
--   ✅ Progressive results as they're computed
--   ✅ Better performance for deep hierarchies
+- ✅ Streaming prevents memory issues with large usersets
+- ✅ Progressive results as they're computed
+- ✅ Better performance for deep hierarchies
 
 ### 4. List Objects (ListObjects)
 
@@ -249,10 +249,10 @@ curl -X POST http://localhost:8080/v1/resources/list \
 
 **Key Differences**:
 
--   ✅ Renamed to `ListResources` for consistency
--   ✅ Streaming handles millions of results
--   ✅ REST/SSE option for web clients
--   ✅ Optional resource ID pattern filtering
+- ✅ Renamed to `ListResources` for consistency
+- ✅ Streaming handles millions of results
+- ✅ REST/SSE option for web clients
+- ✅ Optional resource ID pattern filtering
 
 ### 5. List Users (New in OpenFGA 1.5+)
 
@@ -294,9 +294,9 @@ curl -X POST http://localhost:8080/v1/subjects/list \
 
 **Key Differences**:
 
--   ✅ Renamed to `ListSubjects` for clarity
--   ✅ Streaming for large subject lists
--   ✅ Simpler request format
+- ✅ Renamed to `ListSubjects` for clarity
+- ✅ Streaming for large subject lists
+- ✅ Simpler request format
 
 ### 6. Write Tuples
 
@@ -347,10 +347,10 @@ curl -X POST http://localhost:8080/v1/write-relationships \
 
 **Key Differences**:
 
--   ✅ No separate `writes`/`deletes` wrapper
--   ✅ Simpler field names: `tuple_keys→relationships`
--   ✅ Streaming for efficient large batches
--   ✅ Wildcard support: `"subject": "user:*"`
+- ✅ No separate `writes`/`deletes` wrapper
+- ✅ Simpler field names: `tuple_keys→relationships`
+- ✅ Streaming for efficient large batches
+- ✅ Wildcard support: `"subject": "user:*"`
 
 ### 7. Read Tuples
 
@@ -389,9 +389,9 @@ curl -X POST http://localhost:8080/v1/relationships/list \
 
 **Key Differences**:
 
--   ✅ Renamed to `ListRelationships` for clarity
--   ✅ Streaming for large result sets
--   ✅ All filter fields optional (can query broadly)
+- ✅ Renamed to `ListRelationships` for clarity
+- ✅ Streaming for large result sets
+- ✅ All filter fields optional (can query broadly)
 
 ### 8. Delete Tuples
 
@@ -440,9 +440,9 @@ curl -X POST http://localhost:8080/v1/delete-relationships \
 
 **Key Differences**:
 
--   ✅ Separate delete endpoint (not part of write)
--   ✅ Filter-based bulk deletion
--   ✅ Safety limits (default 1000, configurable)
+- ✅ Separate delete endpoint (not part of write)
+- ✅ Filter-based bulk deletion
+- ✅ Safety limits (default 1000, configurable)
 
 ### 9. Watch Changes
 
@@ -473,9 +473,9 @@ curl -X POST http://localhost:8080/v1/watch \
 
 **Key Differences**:
 
--   ✅ REST/SSE option for web applications
--   ✅ Cursor-based resumption after disconnection
--   ✅ Multiple resource type filters
+- ✅ REST/SSE option for web applications
+- ✅ Cursor-based resumption after disconnection
+- ✅ Multiple resource type filters
 
 ---
 
@@ -515,10 +515,10 @@ curl -X POST http://localhost:8080/v1/evaluate \
 
 **Advantages**:
 
--   ✅ Simpler deployment (one schema per service)
--   ✅ No store management overhead
--   ✅ Schema versioning via deployment
--   ✅ Cleaner API (no store_id everywhere)
+- ✅ Simpler deployment (one schema per service)
+- ✅ No store management overhead
+- ✅ Schema versioning via deployment
+- ✅ Cleaner API (no store_id everywhere)
 
 ---
 
@@ -528,9 +528,9 @@ curl -X POST http://localhost:8080/v1/evaluate \
 
 **No built-in authentication** - You must implement:
 
--   Pre-shared key authentication
--   Separate API gateway for JWT validation
--   Custom middleware for authorization
+- Pre-shared key authentication
+- Separate API gateway for JWT validation
+- Custom middleware for authorization
 
 ### InferaDB
 
@@ -598,9 +598,9 @@ curl -X POST .../check \
 
 **Key Differences**:
 
--   ✅ Sequential consistency by default (no token needed)
--   ✅ Simpler integer revisions (not opaque tokens)
--   ✅ Optional revision specification via header
+- ✅ Sequential consistency by default (no token needed)
+- ✅ Simpler integer revisions (not opaque tokens)
+- ✅ Optional revision specification via header
 
 ---
 
@@ -630,8 +630,8 @@ Both OpenFGA and InferaDB support wildcards.
 
 **Both support**:
 
--   Public resources (all users can access)
--   Type-scoped wildcards (`user:*` matches any user)
+- Public resources (all users can access)
+- Type-scoped wildcards (`user:*` matches any user)
 
 ---
 
@@ -639,57 +639,57 @@ Both OpenFGA and InferaDB support wildcards.
 
 ### 1. Schema Translation
 
--   [ ] Convert OpenFGA JSON model to IPL text format
--   [ ] Map `type_definitions` to `type` blocks
--   [ ] Convert computed relations format
--   [ ] Test schema with sample data
+- [ ] Convert OpenFGA JSON model to IPL text format
+- [ ] Map `type_definitions` to `type` blocks
+- [ ] Convert computed relations format
+- [ ] Test schema with sample data
 
 ### 2. API Client Updates
 
--   [ ] Remove `store_id` from all API calls
--   [ ] Add JWT authentication headers
--   [ ] Rename fields: `user→subject`, `object→resource`
--   [ ] Update Check to use Evaluate (streaming)
--   [ ] Update ListObjects to ListResources
--   [ ] Update ListUsers to ListSubjects
--   [ ] Update Read to ListRelationships
--   [ ] Handle streaming responses
+- [ ] Remove `store_id` from all API calls
+- [ ] Add JWT authentication headers
+- [ ] Rename fields: `user→subject`, `object→resource`
+- [ ] Update Check to use Evaluate (streaming)
+- [ ] Update ListObjects to ListResources
+- [ ] Update ListUsers to ListSubjects
+- [ ] Update Read to ListRelationships
+- [ ] Handle streaming responses
 
 ### 3. Store Management Removal
 
--   [ ] Remove store creation logic
--   [ ] Remove authorization model write logic
--   [ ] Embed schema in deployment configuration
--   [ ] Update CI/CD for schema deployment
+- [ ] Remove store creation logic
+- [ ] Remove authorization model write logic
+- [ ] Embed schema in deployment configuration
+- [ ] Update CI/CD for schema deployment
 
 ### 4. Authentication Setup
 
--   [ ] Configure JWT/OAuth provider
--   [ ] Set up JWKS endpoint
--   [ ] Define required scopes
--   [ ] Update client code to include JWT tokens
--   [ ] Test authentication flow
+- [ ] Configure JWT/OAuth provider
+- [ ] Set up JWKS endpoint
+- [ ] Define required scopes
+- [ ] Update client code to include JWT tokens
+- [ ] Test authentication flow
 
 ### 5. Consistency Model
 
--   [ ] Replace consistency tokens with revisions
--   [ ] Update read-after-write logic (simpler now)
--   [ ] Test consistency guarantees
+- [ ] Replace consistency tokens with revisions
+- [ ] Update read-after-write logic (simpler now)
+- [ ] Test consistency guarantees
 
 ### 6. Testing
 
--   [ ] Port integration tests
--   [ ] Test with production data sample
--   [ ] Performance benchmarking
--   [ ] Load testing with streaming APIs
+- [ ] Port integration tests
+- [ ] Test with production data sample
+- [ ] Performance benchmarking
+- [ ] Load testing with streaming APIs
 
 ### 7. Deployment
 
--   [ ] Set up InferaDB server (Docker/K8s)
--   [ ] Configure storage backend
--   [ ] Deploy schema file
--   [ ] Set up monitoring
--   [ ] Configure multi-region (if needed)
+- [ ] Set up InferaDB server (Docker/K8s)
+- [ ] Configure storage backend
+- [ ] Deploy schema file
+- [ ] Set up monitoring
+- [ ] Configure multi-region (if needed)
 
 ---
 
@@ -747,11 +747,11 @@ Both OpenFGA and InferaDB support wildcards.
 
 ## Support Resources
 
--   **InferaDB Documentation**: [docs/](../README.md)
--   **API Reference**: [api/](../../api/README.md)
--   **OpenFGA Comparison**: [OPENFGA.md](../../OPENFGA.md)
--   **GitHub Issues**: [Issues](https://github.com/inferadb/server/issues)
--   **Community**: [Discussions](https://github.com/inferadb/server/discussions)
+- **InferaDB Documentation**: [docs/](../README.md)
+- **API Reference**: [api/](../../api/README.md)
+- **OpenFGA Comparison**: [OPENFGA.md](../../OPENFGA.md)
+- **GitHub Issues**: [Issues](https://github.com/inferadb/server/issues)
+- **Community**: [Discussions](https://github.com/inferadb/server/discussions)
 
 ---
 

@@ -13,7 +13,7 @@ use infera_types::ListRelationshipsRequest;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{ApiError, AppState, handlers::utils::auth::get_vault};
+use crate::{ApiError, AppState, handlers::utils::auth::authorize_request};
 
 /// Path parameters for exact relationship match
 #[derive(Debug, Clone, Deserialize)]
@@ -94,14 +94,8 @@ pub async fn get_relationship(
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
 
-    // Extract vault from auth context or use default
-    let vault = get_vault(&auth.0, state.default_vault);
-
-    // Validate vault access (basic nil check)
-    if let Some(ref auth_ctx) = auth.0 {
-        infera_auth::validate_vault_access(auth_ctx)
-            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
-    }
+    // Authorize request and extract vault (no auth enforcement for GET)
+    let vault = authorize_request(&auth.0, state.default_vault, false, &[])?;
 
     // URL-decode path parameters (they come URL-encoded from the router)
     let resource = urlencoding::decode(&params.resource)

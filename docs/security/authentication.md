@@ -4,15 +4,15 @@ This guide explains how authentication works in InferaDB and how developers can 
 
 ## Table of Contents
 
--   [Overview](#overview)
--   [Authentication Methods](#authentication-methods)
--   [How to Create JWTs](#how-to-create-jwts)
--   [Configuration](#configuration)
--   [Token Validation](#token-validation)
--   [OAuth 2.0 Support](#oauth-20-support)
--   [Replay Protection](#replay-protection)
--   [Security Best Practices](#security-best-practices)
--   [Troubleshooting](#troubleshooting)
+- [Overview](#overview)
+- [Authentication Methods](#authentication-methods)
+- [How to Create JWTs](#how-to-create-jwts)
+- [Configuration](#configuration)
+- [Token Validation](#token-validation)
+- [OAuth 2.0 Support](#oauth-20-support)
+- [Replay Protection](#replay-protection)
+- [Security Best Practices](#security-best-practices)
+- [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -27,14 +27,14 @@ InferaDB uses **stateless, cryptographically verifiable JWT (JSON Web Token) aut
 
 ### Key Features
 
--   ✅ **Asymmetric cryptography only** (EdDSA, RS256 only)
--   ✅ **Symmetric algorithms rejected** (HS256, etc.)
--   ✅ **JWKS caching** for performance
--   ✅ **OIDC Discovery** (RFC 8414)
--   ✅ **Replay protection** with Redis
--   ✅ **Scope validation** for authorization
--   ✅ **Audience enforcement** for security
--   ✅ **Tenant isolation** via claims
+- ✅ **Asymmetric cryptography only** (EdDSA, RS256 only)
+- ✅ **Symmetric algorithms rejected** (HS256, etc.)
+- ✅ **JWKS caching** for performance
+- ✅ **OIDC Discovery** (RFC 8414)
+- ✅ **Replay protection** with Redis
+- ✅ **Scope validation** for authorization
+- ✅ **Audience enforcement** for security
+- ✅ **Tenant isolation** via claims
 
 ## Authentication Methods
 
@@ -187,7 +187,7 @@ async function createJWT() {
     // Load private key
     const privateKey = await jose.importPKCS8(
         fs.readFileSync("private_key.pem", "utf8"),
-        "EdDSA"
+        "EdDSA",
     );
 
     // Create claims
@@ -542,9 +542,9 @@ Path: /etc/inferadb/internal-jwks.json
 
 ### Caching
 
--   **JWKS Cache**: 5 minutes (default)
--   **OIDC Discovery Cache**: 24 hours (default)
--   **Introspection Cache**: 5 minutes (default)
+- **JWKS Cache**: 5 minutes (default)
+- **OIDC Discovery Cache**: 24 hours (default)
+- **Introspection Cache**: 5 minutes (default)
 
 Caching reduces latency and load on authentication servers.
 
@@ -609,10 +609,10 @@ auth:
 
 Features:
 
--   ✅ Atomic SET NX operations
--   ✅ Automatic TTL based on token expiration
--   ✅ Shared across all InferaDB nodes
--   ✅ Survives pod restarts
+- ✅ Atomic SET NX operations
+- ✅ Automatic TTL based on token expiration
+- ✅ Shared across all InferaDB nodes
+- ✅ Survives pod restarts
 
 #### In-Memory (Development)
 
@@ -626,9 +626,9 @@ auth:
 
 Limitations:
 
--   ❌ Not shared across nodes
--   ❌ Lost on restart
--   ❌ Only for single-node development
+- ❌ Not shared across nodes
+- ❌ Lost on restart
+- ❌ Only for single-node development
 
 ### Generating Unique JTIs
 
@@ -664,11 +664,11 @@ InferaDB explicitly rejects symmetric algorithms to prevent secret key leakage.
 
 ### 2. Keep Private Keys Secure
 
--   **Never** commit private keys to version control
--   **Never** share private keys between tenants
--   **Never** include private keys in client applications
--   Use **key management systems** (AWS KMS, HashiCorp Vault, etc.)
--   Rotate keys regularly
+- **Never** commit private keys to version control
+- **Never** share private keys between tenants
+- **Never** include private keys in client applications
+- Use **key management systems** (AWS KMS, HashiCorp Vault, etc.)
+- Rotate keys regularly
 
 ### 3. Set Short Expiration Times
 
@@ -751,10 +751,10 @@ InferaDB logs all authentication events:
 
 Set up alerts for:
 
--   Repeated authentication failures
--   Token expiration errors
--   Replay attack attempts
--   Invalid signature errors
+- Repeated authentication failures
+- Token expiration errors
+- Replay attack attempts
+- Invalid signature errors
 
 ## Troubleshooting
 
@@ -904,18 +904,18 @@ This will log detailed authentication information:
 
 Different endpoints require different scopes:
 
-| Endpoint                         | Required Scopes      |
-| -------------------------------- | -------------------- |
-| `POST /v1/evaluate`              | `inferadb.check`     |
-| `POST /v1/expand`                | `inferadb.check`     |
-| `POST /v1/relationships/write`   | `inferadb.write`     |
-| `POST /v1/relationships/delete`  | `inferadb.write`     |
-| `POST /v1/relationships/list`    | `inferadb.check`     |
-| `POST /v1/resources/list`        | `inferadb.check`     |
-| `POST /v1/subjects/list`         | `inferadb.check`     |
-| `GET /health/live`               | None (public)        |
-| `GET /health/ready`              | None (public)        |
-| `GET /health/startup`            | None (public)        |
+| Endpoint                        | Required Scopes  |
+| ------------------------------- | ---------------- |
+| `POST /v1/evaluate`             | `inferadb.check` |
+| `POST /v1/expand`               | `inferadb.check` |
+| `POST /v1/relationships/write`  | `inferadb.write` |
+| `POST /v1/relationships/delete` | `inferadb.write` |
+| `POST /v1/relationships/list`   | `inferadb.check` |
+| `POST /v1/resources/list`       | `inferadb.check` |
+| `POST /v1/subjects/list`        | `inferadb.check` |
+| `GET /health/live`              | None (public)    |
+| `GET /health/ready`             | None (public)    |
+| `GET /health/startup`           | None (public)    |
 
 To access all endpoints, include both scopes:
 
@@ -1010,13 +1010,13 @@ print(response.json())  # {"results": [{"decision": "allow"}]}
 
 InferaDB authentication provides:
 
--   ✅ **Stateless verification** - No database lookups for auth
--   ✅ **Cryptographic security** - Asymmetric key validation
--   ✅ **Tenant isolation** - Each tenant has unique keys
--   ✅ **Standard protocols** - JWT, OAuth 2.0, OIDC
--   ✅ **Replay protection** - Prevent token reuse attacks
--   ✅ **Flexible configuration** - Environment-based config
--   ✅ **High performance** - JWKS caching, minimal overhead
+- ✅ **Stateless verification** - No database lookups for auth
+- ✅ **Cryptographic security** - Asymmetric key validation
+- ✅ **Tenant isolation** - Each tenant has unique keys
+- ✅ **Standard protocols** - JWT, OAuth 2.0, OIDC
+- ✅ **Replay protection** - Prevent token reuse attacks
+- ✅ **Flexible configuration** - Environment-based config
+- ✅ **High performance** - JWKS caching, minimal overhead
 
 For production deployments:
 
@@ -1030,7 +1030,7 @@ For production deployments:
 
 ## See Also
 
--   [Configuration Reference](../guides/configuration.md)
--   [Deployment Guide](../guides/deployment.md)
--   [Observability Guide](../operations/observability/README.md)
--   [Security Best Practices](security.md)
+- [Configuration Reference](../guides/configuration.md)
+- [Deployment Guide](../guides/deployment.md)
+- [Observability Guide](../operations/observability/README.md)
+- [Security Best Practices](security.md)

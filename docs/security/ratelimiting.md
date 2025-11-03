@@ -34,9 +34,9 @@ Limit requests from a single IP address to prevent single-source attacks.
 
 **Recommended Limits**:
 
--   **Normal operations**: 100 requests/minute per IP
--   **Burst allowance**: 200 requests/minute for 10 seconds
--   **Blocked period**: 60 seconds after limit exceeded
+- **Normal operations**: 100 requests/minute per IP
+- **Burst allowance**: 200 requests/minute for 10 seconds
+- **Blocked period**: 60 seconds after limit exceeded
 
 **Configuration Example (Nginx)**:
 
@@ -55,9 +55,9 @@ Limit requests per tenant to ensure fair resource distribution.
 
 **Recommended Limits**:
 
--   **Standard tier**: 1,000 requests/minute per tenant
--   **Premium tier**: 10,000 requests/minute per tenant
--   **Enterprise tier**: Unlimited (or very high limit)
+- **Standard tier**: 1,000 requests/minute per tenant
+- **Premium tier**: 10,000 requests/minute per tenant
+- **Enterprise tier**: Unlimited (or very high limit)
 
 **Configuration Example (Nginx)**:
 
@@ -83,8 +83,8 @@ Limit requests per authenticated user.
 
 **Recommended Limits**:
 
--   **Per user**: 500 requests/minute
--   **Burst**: 1000 requests/minute for 10 seconds
+- **Per user**: 500 requests/minute
+- **Burst**: 1000 requests/minute for 10 seconds
 
 **Rationale**: Prevents compromised credentials from causing excessive load.
 
@@ -94,8 +94,8 @@ Limit total requests to the system to prevent resource exhaustion.
 
 **Recommended Limits**:
 
--   **Total requests**: Based on capacity testing
--   **Example**: If server can handle 100,000 req/min, set limit to 80,000 req/min (80% capacity)
+- **Total requests**: Based on capacity testing
+- **Example**: If server can handle 100,000 req/min, set limit to 80,000 req/min (80% capacity)
 
 ## Implementation Approaches
 
@@ -105,15 +105,15 @@ Implement rate limiting at the reverse proxy layer (Nginx, HAProxy, Envoy).
 
 **Advantages**:
 
--   ✅ Low latency (no application involvement)
--   ✅ Mature, battle-tested implementations
--   ✅ Offloads work from application servers
--   ✅ Protects application from reaching rate limited endpoints
+- ✅ Low latency (no application involvement)
+- ✅ Mature, battle-tested implementations
+- ✅ Offloads work from application servers
+- ✅ Protects application from reaching rate limited endpoints
 
 **Disadvantages**:
 
--   ❌ Limited context (can't rate limit based on token claims)
--   ❌ Configuration can be complex for multi-tier limits
+- ❌ Limited context (can't rate limit based on token claims)
+- ❌ Configuration can be complex for multi-tier limits
 
 #### Nginx Example
 
@@ -168,16 +168,16 @@ Use cloud-native API gateways (AWS API Gateway, Google Cloud API Gateway, Kong).
 
 **Advantages**:
 
--   ✅ Managed service (less operational burden)
--   ✅ Built-in rate limiting features
--   ✅ Integration with other cloud services
--   ✅ Analytics and monitoring included
+- ✅ Managed service (less operational burden)
+- ✅ Built-in rate limiting features
+- ✅ Integration with other cloud services
+- ✅ Analytics and monitoring included
 
 **Disadvantages**:
 
--   ❌ Vendor lock-in
--   ❌ Additional cost
--   ❌ Less control over implementation details
+- ❌ Vendor lock-in
+- ❌ Additional cost
+- ❌ Less control over implementation details
 
 #### AWS API Gateway Example
 
@@ -229,15 +229,15 @@ Implement rate limiting in Rust using Tower middleware.
 
 **Advantages**:
 
--   ✅ Full context (can rate limit based on any request property)
--   ✅ Fine-grained control
--   ✅ Can customize response format
+- ✅ Full context (can rate limit based on any request property)
+- ✅ Fine-grained control
+- ✅ Can customize response format
 
 **Disadvantages**:
 
--   ❌ Adds latency to every request
--   ❌ Consumes application resources
--   ❌ More complex to implement correctly
+- ❌ Adds latency to every request
+- ❌ Consumes application resources
+- ❌ More complex to implement correctly
 
 #### Tower-Governor Example
 
@@ -308,14 +308,14 @@ X-RateLimit-Reset: 1699564800
 
 ### Alert Conditions
 
--   **Alert**: Rate limit hit rate > 5% for any endpoint
--   **Action**: Investigate if legitimate traffic increase or attack
+- **Alert**: Rate limit hit rate > 5% for any endpoint
+- **Action**: Investigate if legitimate traffic increase or attack
 
--   **Alert**: Single IP hitting rate limit repeatedly (> 10 times/hour)
--   **Action**: Consider blocking IP at firewall level
+- **Alert**: Single IP hitting rate limit repeatedly (> 10 times/hour)
+- **Action**: Consider blocking IP at firewall level
 
--   **Alert**: Tenant hitting rate limit consistently (> 90% of limit)
--   **Action**: Contact tenant about tier upgrade or optimization
+- **Alert**: Tenant hitting rate limit consistently (> 90% of limit)
+- **Action**: Contact tenant about tier upgrade or optimization
 
 ## Best Practices
 
@@ -332,8 +332,8 @@ Retry-After: 45
 
 ### 2. Use Token Bucket or Leaky Bucket Algorithm
 
--   **Token Bucket**: Allows bursts, tokens regenerate at fixed rate
--   **Leaky Bucket**: Smooths out bursts, processes at constant rate
+- **Token Bucket**: Allows bursts, tokens regenerate at fixed rate
+- **Leaky Bucket**: Smooths out bursts, processes at constant rate
 
 Recommendation: **Token Bucket** for InferaDB (allows short bursts)
 
@@ -341,8 +341,8 @@ Recommendation: **Token Bucket** for InferaDB (allows short bursts)
 
 When approaching rate limit:
 
--   Return `X-RateLimit-Remaining` header with low value
--   Log warning for tenant to review usage
+- Return `X-RateLimit-Remaining` header with low value
+- Log warning for tenant to review usage
 
 ### 4. Whitelist Internal IPs
 
@@ -409,20 +409,20 @@ Expected: First ~100 requests return `200 OK`, remaining return `429 Too Many Re
 
 ### Phase 8 (Future Work)
 
--   [ ] Application-level rate limiting middleware
--   [ ] Per-user rate limits based on subscription tier
--   [ ] Dynamic rate limits based on system load
--   [ ] Rate limit bypass for trusted IPs
--   [ ] Machine learning-based anomaly detection
--   [ ] Distributed rate limiting with Redis Cluster
+- [ ] Application-level rate limiting middleware
+- [ ] Per-user rate limits based on subscription tier
+- [ ] Dynamic rate limits based on system load
+- [ ] Rate limit bypass for trusted IPs
+- [ ] Machine learning-based anomaly detection
+- [ ] Distributed rate limiting with Redis Cluster
 
 ## References
 
--   [IETF RFC 6585 - HTTP Status Code 429](https://tools.ietf.org/html/rfc6585)
--   [OWASP Rate Limiting Guide](https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html)
--   [Nginx Rate Limiting](https://www.nginx.com/blog/rate-limiting-nginx/)
--   [Token Bucket Algorithm](https://en.wikipedia.org/wiki/Token_bucket)
--   [Leaky Bucket Algorithm](https://en.wikipedia.org/wiki/Leaky_bucket)
+- [IETF RFC 6585 - HTTP Status Code 429](https://tools.ietf.org/html/rfc6585)
+- [OWASP Rate Limiting Guide](https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html)
+- [Nginx Rate Limiting](https://www.nginx.com/blog/rate-limiting-nginx/)
+- [Token Bucket Algorithm](https://en.wikipedia.org/wiki/Token_bucket)
+- [Leaky Bucket Algorithm](https://en.wikipedia.org/wiki/Leaky_bucket)
 
 ---
 

@@ -153,9 +153,9 @@ type document {
 
 The analyzer automatically suggests test cases for:
 
--   Direct relations (tuple grants)
--   Computed relations (expression evaluation)
--   Forbid rules (denial verification)
+- Direct relations (tuple grants)
+- Computed relations (expression evaluation)
+- Forbid rules (denial verification)
 
 ### Usage
 
@@ -195,9 +195,9 @@ println!("{}", results.summary());
 
 ### Severity Levels
 
--   **Error** - Blocking issues that prevent deployment
--   **Warning** - Potential problems that should be reviewed
--   **Info** - Suggestions for improvement
+- **Error** - Blocking issues that prevent deployment
+- **Warning** - Potential problems that should be reviewed
+- **Info** - Suggestions for improvement
 
 ## Best Practices
 
@@ -400,10 +400,10 @@ println!("Found {} unreachable relations across {} schemas",
 
 ## Related Documentation
 
--   [IPL Language Reference](../language/ipl.md)
--   [Schema Design Patterns](./schema-patterns.md)
--   [Testing Policies](./policy-testing.md)
--   [Performance Optimization](./performance.md)
+- [IPL Language Reference](../language/ipl.md)
+- [Schema Design Patterns](./schema-patterns.md)
+- [Testing Policies](./policy-testing.md)
+- [Performance Optimization](./performance.md)
 
 ## FAQ
 

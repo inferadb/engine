@@ -8,7 +8,7 @@ use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::get_vault};
+use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SimulateRequest {
@@ -37,33 +37,17 @@ pub async fn simulate_handler(
     State(state): State<AppState>,
     Json(request): Json<SimulateRequest>,
 ) -> Result<Json<SimulateResponse>> {
-    // Extract vault from auth context or use default
-    let vault = get_vault(&auth.0, state.default_vault);
+    // Authorize request and extract vault
+    let vault = authorize_request(
+        &auth.0,
+        state.default_vault,
+        state.config.auth.enabled,
+        &["inferadb.check", "inferadb.simulate"],
+    )?;
 
-    // Validate vault access (basic nil check)
+    // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        infera_auth::validate_vault_access(auth_ctx)
-            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
-    }
-
-    // If auth is enabled and present, validate scope
-    if state.config.auth.enabled {
-        if let Some(ref auth_ctx) = auth.0 {
-            // Require inferadb.check scope for simulation
-            infera_auth::middleware::require_any_scope(
-                auth_ctx,
-                &["inferadb.check", "inferadb.simulate"],
-            )
-            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!(
-                "Simulate request from tenant: {} (vault: {})",
-                auth_ctx.tenant_id,
-                vault
-            );
-        } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
-        }
+        tracing::debug!("Simulate request from tenant: {} (vault: {})", auth_ctx.tenant_id, vault);
     }
 
     // Validate context relationships

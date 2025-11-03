@@ -11,7 +11,7 @@ use futures::Stream;
 use infera_store::RelationshipStore;
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::get_vault};
+use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
 /// REST request for Watch endpoint
 #[derive(Debug, Deserialize, Serialize)]
@@ -35,26 +35,17 @@ pub async fn watch_handler(
     State(state): State<AppState>,
     Json(request): Json<WatchRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
-    // Extract vault from auth context or use default
-    let vault = get_vault(&auth.0, state.default_vault);
+    // Authorize request and extract vault
+    let vault = authorize_request(
+        &auth.0,
+        state.default_vault,
+        state.config.auth.enabled,
+        &["inferadb.watch"],
+    )?;
 
-    // Validate vault access (basic nil check)
+    // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        infera_auth::validate_vault_access(auth_ctx)
-            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
-    }
-
-    // If auth is enabled and present, validate scope
-    if state.config.auth.enabled {
-        if let Some(ref auth_ctx) = auth.0 {
-            // Require inferadb.watch scope
-            infera_auth::middleware::require_any_scope(auth_ctx, &["inferadb.watch"])
-                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!("Watch request from tenant: {} (vault: {})", auth_ctx.tenant_id, vault);
-        } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
-        }
+        tracing::debug!("Watch request from tenant: {} (vault: {})", auth_ctx.tenant_id, vault);
     }
 
     // Parse cursor (base64 decode to revision)

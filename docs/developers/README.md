@@ -4,32 +4,32 @@ Welcome to the InferaDB developer documentation! This guide will help you unders
 
 ## Quick Links
 
--   [Building from Source](../guides/building.md) - Development setup and build instructions
--   [Testing Guide](../guides/testing.md) - Comprehensive testing documentation
--   [Architecture Overview](../architecture.md) - System design and components
--   [Contributing Guide](../../CONTRIBUTING.md) - How to contribute to InferaDB
--   [API Documentation (Rustdoc)](#rustdoc-documentation) - Generated code documentation
+- [Building from Source](../guides/building.md) - Development setup and build instructions
+- [Testing Guide](../guides/testing.md) - Comprehensive testing documentation
+- [Architecture Overview](../architecture.md) - System design and components
+- [Contributing Guide](../../CONTRIBUTING.md) - How to contribute to InferaDB
+- [API Documentation (Rustdoc)](#rustdoc-documentation) - Generated code documentation
 
 ## Table of Contents
 
--   [Getting Started](#getting-started)
--   [Codebase Structure](#codebase-structure)
--   [Development Workflow](#development-workflow)
--   [Code Style and Standards](#code-style-and-standards)
--   [Rustdoc Documentation](#rustdoc-documentation)
--   [Internal APIs](#internal-apis)
--   [Extension Points](#extension-points)
--   [Common Tasks](#common-tasks)
--   [Debugging Tips](#debugging-tips)
--   [Performance Optimization](#performance-optimization)
+- [Getting Started](#getting-started)
+- [Codebase Structure](#codebase-structure)
+- [Development Workflow](#development-workflow)
+- [Code Style and Standards](#code-style-and-standards)
+- [Rustdoc Documentation](#rustdoc-documentation)
+- [Internal APIs](#internal-apis)
+- [Extension Points](#extension-points)
+- [Common Tasks](#common-tasks)
+- [Debugging Tips](#debugging-tips)
+- [Performance Optimization](#performance-optimization)
 
 ## Getting Started
 
 ### Prerequisites
 
--   Rust 1.83+ (via rustup)
--   [Mise](https://mise.jdx.dev/) for task automation
--   Git for version control
+- Rust 1.83+ (via rustup)
+- [Mise](https://mise.jdx.dev/) for task automation
+- Git for version control
 
 ### Initial Setup
 
@@ -103,38 +103,38 @@ infera-bin
 
 The evaluation engine - the heart of InferaDB:
 
--   `evaluator.rs` - Main policy evaluation logic
--   `graph.rs` - Graph traversal for authorization checks
--   `ipl.rs` - IPL (Infera Policy Language) parser
--   `types.rs` - Core data structures (Tuple, Schema, etc.)
--   `trace.rs` - Decision tracing for debugging
+- `evaluator.rs` - Main policy evaluation logic
+- `graph.rs` - Graph traversal for authorization checks
+- `ipl.rs` - IPL (Infera Policy Language) parser
+- `types.rs` - Core data structures (Tuple, Schema, etc.)
+- `trace.rs` - Decision tracing for debugging
 
 #### infera-store
 
 Storage abstraction with multiple backends:
 
--   `lib.rs` - TupleStore trait definition
--   `memory.rs` - In-memory backend (development)
--   `foundationdb.rs` - FoundationDB backend (production)
--   `factory.rs` - Backend selection and initialization
+- `lib.rs` - TupleStore trait definition
+- `memory.rs` - In-memory backend (development)
+- `foundationdb.rs` - FoundationDB backend (production)
+- `factory.rs` - Backend selection and initialization
 
 #### infera-auth
 
 Authentication and authorization:
 
--   `jwt.rs` - JWT validation (Private-Key, OAuth, Internal)
--   `jwks_cache.rs` - JWKS caching with stale-while-revalidate
--   `oauth.rs` - OAuth 2.0 integration
--   `middleware.rs` - gRPC/REST authentication middleware
--   `replay.rs` - Replay attack protection
+- `jwt.rs` - JWT validation (Private-Key, OAuth, Internal)
+- `jwks_cache.rs` - JWKS caching with stale-while-revalidate
+- `oauth.rs` - OAuth 2.0 integration
+- `middleware.rs` - gRPC/REST authentication middleware
+- `replay.rs` - Replay attack protection
 
 #### infera-api
 
 API layer with REST and gRPC:
 
--   `lib.rs` - REST API endpoints (Axum)
--   `grpc.rs` - gRPC service implementation (Tonic)
--   `proto/infera.proto` - Protocol buffer definitions
+- `lib.rs` - REST API endpoints (Axum)
+- `grpc.rs` - gRPC service implementation (Tonic)
+- `proto/infera.proto` - Protocol buffer definitions
 
 ## Development Workflow
 
@@ -174,13 +174,13 @@ cargo deny check
 
 ### Code Quality Checklist
 
--   [ ] Code compiles without warnings
--   [ ] All tests pass (`cargo test --all`)
--   [ ] `cargo fmt` has been run
--   [ ] `cargo clippy` passes with no warnings
--   [ ] New features have tests
--   [ ] Public APIs have Rustdoc comments
--   [ ] CHANGELOG.md updated (if applicable)
+- [ ] Code compiles without warnings
+- [ ] All tests pass (`cargo test --all`)
+- [ ] `cargo fmt` has been run
+- [ ] `cargo clippy` passes with no warnings
+- [ ] New features have tests
+- [ ] Public APIs have Rustdoc comments
+- [ ] CHANGELOG.md updated (if applicable)
 
 ## Code Style and Standards
 
@@ -235,11 +235,11 @@ async fn test_async_operation() {
 
 ### Performance Considerations
 
--   Avoid unnecessary allocations
--   Use `&str` instead of `String` when possible
--   Prefer `Vec` over `LinkedList`
--   Use `Arc` for shared ownership, avoid `Rc` in async code
--   Profile before optimizing
+- Avoid unnecessary allocations
+- Use `&str` instead of `String` when possible
+- Prefer `Vec` over `LinkedList`
+- Use `Arc` for shared ownership, avoid `Rc` in async code
+- Profile before optimizing
 
 ## Rustdoc Documentation
 
@@ -303,14 +303,14 @@ pub async fn check_permission(
 
 ### Documentation Best Practices
 
--   Start with a one-line summary
--   Explain **what** the function does, not **how**
--   Document all parameters with `# Arguments`
--   Document return values with `# Returns`
--   Document errors with `# Errors`
--   Include examples with `# Examples`
--   Use code blocks with the `rust` language tag
--   Link to related items using `[ItemName]` syntax
+- Start with a one-line summary
+- Explain **what** the function does, not **how**
+- Document all parameters with `# Arguments`
+- Document return values with `# Returns`
+- Document errors with `# Errors`
+- Include examples with `# Examples`
+- Use code blocks with the `rust` language tag
+- Link to related items using `[ItemName]` syntax
 
 ## Internal APIs
 
@@ -593,10 +593,10 @@ cargo bench -- --baseline before
 
 ### Profiling Tools
 
--   **cargo-flamegraph**: CPU profiling with flame graphs
--   **criterion**: Statistical benchmarking
--   **valgrind**: Memory profiling
--   **perf**: Linux performance analysis
+- **cargo-flamegraph**: CPU profiling with flame graphs
+- **criterion**: Statistical benchmarking
+- **valgrind**: Memory profiling
+- **perf**: Linux performance analysis
 
 ### Optimization Guidelines
 
@@ -608,28 +608,28 @@ cargo bench -- --baseline before
 
 ### Common Optimizations
 
--   Use `&str` instead of `String` for read-only data
--   Batch operations instead of single operations
--   Cache expensive computations
--   Use `Arc` for shared data instead of cloning
--   Avoid unnecessary allocations
--   Use `Vec::with_capacity` when size is known
+- Use `&str` instead of `String` for read-only data
+- Batch operations instead of single operations
+- Cache expensive computations
+- Use `Arc` for shared data instead of cloning
+- Avoid unnecessary allocations
+- Use `Vec::with_capacity` when size is known
 
 ## Additional Resources
 
--   [Rust Book](https://doc.rust-lang.org/book/) - Learn Rust
--   [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) - API design
--   [Rust Performance Book](https://nnethercote.github.io/perf-book/) - Performance optimization
--   [Async Book](https://rust-lang.github.io/async-book/) - Async programming in Rust
--   [InferaDB Architecture](../architecture.md) - System architecture
--   [InferaDB Testing Guide](../guides/testing.md) - Testing best practices
+- [Rust Book](https://doc.rust-lang.org/book/) - Learn Rust
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) - API design
+- [Rust Performance Book](https://nnethercote.github.io/perf-book/) - Performance optimization
+- [Async Book](https://rust-lang.github.io/async-book/) - Async programming in Rust
+- [InferaDB Architecture](../architecture.md) - System architecture
+- [InferaDB Testing Guide](../guides/testing.md) - Testing best practices
 
 ## Getting Help
 
--   **Documentation**: Browse [docs/](../)
--   **Code Documentation**: Run `./scripts/generate-docs.sh`
--   **Issues**: [GitHub Issues](https://github.com/inferadb/server/issues)
--   **Discussions**: [GitHub Discussions](https://github.com/inferadb/server/discussions)
+- **Documentation**: Browse [docs/](../)
+- **Code Documentation**: Run `./scripts/generate-docs.sh`
+- **Issues**: [GitHub Issues](https://github.com/inferadb/server/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/inferadb/server/discussions)
 
 ---
 

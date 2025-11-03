@@ -6,11 +6,11 @@ InferaDB uses structured logging with contextual fields for debugging, monitorin
 
 InferaDB's logging system provides:
 
--   **Structured Fields**: Rich contextual information in every log entry
--   **Multiple Formats**: Human-readable (compact) or JSON for log aggregation
--   **Span Correlation**: Automatic correlation with distributed traces
--   **Module Filtering**: Fine-grained control over log verbosity
--   **Performance**: Minimal overhead with async logging
+- **Structured Fields**: Rich contextual information in every log entry
+- **Multiple Formats**: Human-readable (compact) or JSON for log aggregation
+- **Span Correlation**: Automatic correlation with distributed traces
+- **Module Filtering**: Fine-grained control over log verbosity
+- **Performance**: Minimal overhead with async logging
 
 ## Configuration
 
@@ -28,11 +28,11 @@ export RUST_LOG=infera=debug,infera_api=info
 
 **Available Log Levels**:
 
--   `error`: Critical errors only
--   `warn`: Warnings and errors
--   `info`: Informational messages, warnings, and errors (default)
--   `debug`: Detailed debugging information
--   `trace`: Very verbose tracing (includes all function calls)
+- `error`: Critical errors only
+- `warn`: Warnings and errors
+- `info`: Informational messages, warnings, and errors (default)
+- `debug`: Detailed debugging information
+- `trace`: Very verbose tracing (includes all function calls)
 
 ### Log Format
 
@@ -75,10 +75,10 @@ Human-readable format for local development:
 
 **Features**:
 
--   Color-coded log levels (when terminal supports it)
--   Indented structured fields
--   Compact timestamps
--   Module paths shown
+- Color-coded log levels (when terminal supports it)
+- Indented structured fields
+- Compact timestamps
+- Module paths shown
 
 ### JSON Format (Production)
 
@@ -112,10 +112,10 @@ Machine-parseable JSON for log aggregation systems:
 
 **Features**:
 
--   ISO 8601 timestamps with microsecond precision
--   Trace and span IDs for correlation
--   Source code location
--   Structured fields for easy querying
+- ISO 8601 timestamps with microsecond precision
+- Trace and span IDs for correlation
+- Source code location
+- Structured fields for easy querying
 
 ## Contextual Logging
 
@@ -547,9 +547,9 @@ export RUST_LOG=info,infera_store=debug
 
 InferaDB uses async logging by default:
 
--   Log messages are buffered and written asynchronously
--   Minimal impact on request latency
--   Flush on process shutdown to prevent log loss
+- Log messages are buffered and written asynchronously
+- Minimal impact on request latency
+- Flush on process shutdown to prevent log loss
 
 ### Sampling
 
@@ -633,7 +633,7 @@ Use logrotate or similar:
 
 ## Next Steps
 
--   [Distributed Tracing](tracing.md) - Correlate logs with traces
--   [Metrics](metrics.md) - Complement logs with metrics
--   [Audit Logging](auditing.md) - Compliance and security audit trail
--   [Observability Overview](README.md) - Complete observability guide
+- [Distributed Tracing](tracing.md) - Correlate logs with traces
+- [Metrics](metrics.md) - Complement logs with metrics
+- [Audit Logging](auditing.md) - Compliance and security audit trail
+- [Observability Overview](README.md) - Complete observability guide

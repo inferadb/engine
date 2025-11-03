@@ -4,8 +4,8 @@ Get InferaDB up and running in 5 minutes.
 
 ## Prerequisites
 
--   Rust 1.75 or later ([install](https://rustup.rs/))
--   Git
+- Rust 1.75 or later ([install](https://rustup.rs/))
+- Git
 
 ## Installation
 
@@ -91,7 +91,7 @@ curl -X POST http://localhost:8080/v1/evaluate \
 Response:
 
 ```json
-{ "results": [{"decision": "allow"}] }
+{ "results": [{ "decision": "allow" }] }
 ```
 
 Check if Alice can delete (she can't):
@@ -113,7 +113,7 @@ curl -X POST http://localhost:8080/v1/evaluate \
 Response:
 
 ```json
-{ "results": [{"decision": "deny"}] }
+{ "results": [{ "decision": "deny" }] }
 ```
 
 ## Example: Document Hierarchy
@@ -172,7 +172,7 @@ curl -X POST http://localhost:8080/v1/evaluate \
 Response:
 
 ```json
-{ "results": [{"decision": "allow"}] }
+{ "results": [{ "decision": "allow" }] }
 ```
 
 ## Common Patterns
@@ -603,10 +603,10 @@ Response shows available endpoints and extensions:
 
 ## Explore Further
 
--   [Complete API Reference](api-rest.md)
--   [AuthZEN Extensions Documentation](../docs/api/authzen-extensions.md)
--   [AuthZEN Data Model Mapping](../docs/api/authzen-mapping.md)
--   [IPL Language Guide](core/ipl.md)
--   [gRPC API](api-grpc.md)
--   [WASM Integration](wasm-integration.md)
--   [Caching System](caching.md)
+- [Complete API Reference](api-rest.md)
+- [AuthZEN Extensions Documentation](../docs/api/authzen-extensions.md)
+- [AuthZEN Data Model Mapping](../docs/api/authzen-mapping.md)
+- [IPL Language Guide](core/ipl.md)
+- [gRPC API](api-grpc.md)
+- [WASM Integration](wasm-integration.md)
+- [Caching System](caching.md)

@@ -6,23 +6,23 @@ This guide covers how to build, test, and develop InferaDB from source.
 
 ### Required
 
--   **Rust** 1.75 or later
+- **Rust** 1.75 or later
 
     ```bash
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     ```
 
--   **Cargo** (comes with Rust)
+- **Cargo** (comes with Rust)
 
 ### Optional
 
--   **Mise** - Task runner and development tool manager
+- **Mise** - Task runner and development tool manager
 
     ```bash
     curl https://mise.run | sh
     ```
 
--   **Docker** - For containerized builds and testing
+- **Docker** - For containerized builds and testing
 
 ## Quick Start
 
@@ -137,10 +137,10 @@ server/
 cargo build
 ```
 
--   Faster compilation
--   Includes debug symbols
--   No optimizations
--   Use for development
+- Faster compilation
+- Includes debug symbols
+- No optimizations
+- Use for development
 
 Binary location: `target/debug/inferadb`
 
@@ -150,10 +150,10 @@ Binary location: `target/debug/inferadb`
 cargo build --release
 ```
 
--   Slower compilation
--   Optimized for performance
--   Smaller binary size
--   Use for production
+- Slower compilation
+- Optimized for performance
+- Smaller binary size
+- Use for production
 
 Binary location: `target/release/inferadb`
 
@@ -496,14 +496,14 @@ brew install openssl
 
 **Tests hang or timeout**:
 
--   Check for deadlocks in async code
--   Increase test timeout: `cargo test -- --test-threads=1`
+- Check for deadlocks in async code
+- Increase test timeout: `cargo test -- --test-threads=1`
 
 **Tests fail intermittently**:
 
--   Race condition in tests
--   Non-deterministic behavior
--   Run with `RUST_TEST_SHUFFLE=1` to detect
+- Race condition in tests
+- Non-deterministic behavior
+- Run with `RUST_TEST_SHUFFLE=1` to detect
 
 ### Memory Issues During Build
 
@@ -547,10 +547,10 @@ rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 Install extensions:
 
--   rust-analyzer
--   CodeLLDB (debugging)
--   Even Better TOML
--   crates
+- rust-analyzer
+- CodeLLDB (debugging)
+- Even Better TOML
+- crates
 
 Settings:
 
@@ -565,8 +565,8 @@ Settings:
 
 Install plugins:
 
--   Rust
--   TOML
+- Rust
+- TOML
 
 Enable Rust support in settings.
 
@@ -618,7 +618,7 @@ jobs:
 
 ## Getting Help
 
--   **Documentation**: See `docs/` directory
--   **Issues**: https://github.com/inferadb/server/issues
--   **Discussions**: https://github.com/inferadb/server/discussions
--   **Discord**: [Community Discord](https://discord.gg/inferadb)
+- **Documentation**: See `docs/` directory
+- **Issues**: https://github.com/inferadb/server/issues
+- **Discussions**: https://github.com/inferadb/server/discussions
+- **Discord**: [Community Discord](https://discord.gg/inferadb)

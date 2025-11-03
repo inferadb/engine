@@ -6,10 +6,10 @@ InferaDB supports custom policy logic through WebAssembly (WASM) modules. This a
 
 WASM modules in InferaDB:
 
--   **Sandboxed**: Run in isolated environments with strict resource limits
--   **Deterministic**: Same inputs always produce same outputs
--   **High-Performance**: Near-native execution speed with wasmtime
--   **Language-Agnostic**: Write in Rust, C, C++, AssemblyScript, or any WASM-compatible language
+- **Sandboxed**: Run in isolated environments with strict resource limits
+- **Deterministic**: Same inputs always produce same outputs
+- **High-Performance**: Near-native execution speed with wasmtime
+- **Language-Agnostic**: Write in Rust, C, C++, AssemblyScript, or any WASM-compatible language
 
 ## Use Cases
 
@@ -99,8 +99,8 @@ All policy functions must have this signature:
 
 **Return Value**:
 
--   `0` = Deny
--   Non-zero (typically `1`) = Allow
+- `0` = Deny
+- Non-zero (typically `1`) = Allow
 
 ### Execution Context
 
@@ -321,10 +321,10 @@ let host = WasmHost::new_with_config(config)?;
 
 **Configuration Options**:
 
--   `max_execution_time`: Maximum time a module can run
--   `max_memory_bytes`: Maximum memory allocation
--   `max_table_elements`: Maximum table elements
--   `enable_wasi`: Allow/deny WASI system calls (filesystem, network)
+- `max_execution_time`: Maximum time a module can run
+- `max_memory_bytes`: Maximum memory allocation
+- `max_table_elements`: Maximum table elements
+- `enable_wasi`: Allow/deny WASI system calls (filesystem, network)
 
 ## Security
 
@@ -332,11 +332,11 @@ let host = WasmHost::new_with_config(config)?;
 
 All WASM modules run in isolated sandboxes:
 
--   **Memory Isolation**: Modules cannot access host memory
--   **CPU Limits**: Execution time limited by fuel mechanism
--   **No File Access**: WASI disabled by default
--   **No Network Access**: Modules cannot make network requests
--   **Resource Limits**: Memory, tables, instances limited
+- **Memory Isolation**: Modules cannot access host memory
+- **CPU Limits**: Execution time limited by fuel mechanism
+- **No File Access**: WASI disabled by default
+- **No Network Access**: Modules cannot make network requests
+- **Resource Limits**: Memory, tables, instances limited
 
 ### Fuel-Based Execution
 
@@ -352,17 +352,17 @@ InferaDB uses wasmtime's "fuel" mechanism to limit CPU usage:
 
 **Typical Usage**:
 
--   Simple policy: ~100-1,000 fuel
--   Complex policy: ~10,000-100,000 fuel
+- Simple policy: ~100-1,000 fuel
+- Complex policy: ~10,000-100,000 fuel
 
 ### Determinism
 
 WASM modules must be deterministic:
 
--   **Same inputs → same outputs** (always)
--   No randomness (no `Math.random()`)
--   No time-based non-determinism (use context for time)
--   No external state (no global variables with side effects)
+- **Same inputs → same outputs** (always)
+- No randomness (no `Math.random()`)
+- No time-based non-determinism (use context for time)
+- No external state (no global variables with side effects)
 
 **Good** (Deterministic):
 
@@ -409,10 +409,10 @@ When the evaluator encounters a WASM relation:
 
 **Typical Latencies**:
 
--   Module loading: <10ms (one-time cost)
--   Module compilation: <50ms (one-time cost, JIT)
--   Function execution: <1ms for simple policies
--   Function execution: <10ms for complex policies
+- Module loading: <10ms (one-time cost)
+- Module compilation: <50ms (one-time cost, JIT)
+- Function execution: <1ms for simple policies
+- Function execution: <10ms for complex policies
 
 ### Optimization Tips
 
@@ -629,9 +629,9 @@ pub extern "C" fn check() -> i32 {
 
 Simple modules are:
 
--   Faster to compile
--   Easier to test
--   More maintainable
+- Faster to compile
+- Easier to test
+- More maintainable
 
 **Good**:
 
@@ -741,11 +741,11 @@ mod tests {
 
 ### Future Enhancements
 
--   Context passing to modules
--   More host functions (tuple reads, etc.)
--   IPL syntax for WASM invocation
--   Async WASM execution
--   WASI support (optional)
+- Context passing to modules
+- More host functions (tuple reads, etc.)
+- IPL syntax for WASM invocation
+- Async WASM execution
+- WASI support (optional)
 
 ## Troubleshooting
 
@@ -811,6 +811,6 @@ let config = SandboxConfig {
 
 ## Next Steps
 
--   [Evaluation Engine](../core/evaluation.md) - How policies are evaluated
--   [IPL Language Guide](../core/ipl.md) - Policy definition language
--   [API Reference](../api/rest.md) - Use WASM policies via API
+- [Evaluation Engine](../core/evaluation.md) - How policies are evaluated
+- [IPL Language Guide](../core/ipl.md) - Policy definition language
+- [API Reference](../api/rest.md) - Use WASM policies via API

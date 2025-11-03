@@ -47,9 +47,9 @@ test-integration: ## Run integration tests only
 	@$(CARGO) nextest run --test '*' --workspace
 
 check: ## Run all checks (fmt, clippy, test, audit)
-	@echo "🔍 Checking documentation and configuration formatting..."
-	@$(PRETTIER) --check "**/*.{md,yml,yaml,json,toml}" || true
-	@echo "🔍 Checking Rust code formatting..."
+	@echo "🔍 Checking code and documentation formatting..."
+	@$(PRETTIER) --check "**/*.{rs,md,yml,yaml,json,toml}" || true
+	@echo "🔍 Checking Rust code formatting (rustfmt)..."
 	@$(CARGO) +nightly fmt --check
 	@echo "🔍 Running clippy..."
 	@$(CARGO) clippy --workspace --all-targets -- -D warnings
@@ -60,9 +60,9 @@ check: ## Run all checks (fmt, clippy, test, audit)
 	@echo "✅ All checks passed!"
 
 fmt: ## Format code with Prettier and rustfmt
-	@echo "🎨 Formatting documentation and configuration files..."
-	@$(PRETTIER) --write "**/*.{md,yml,yaml,json,toml}" || true
-	@echo "🎨 Formatting Rust code..."
+	@echo "🎨 Formatting all files with Prettier..."
+	@$(PRETTIER) --write "**/*.{rs,md,yml,yaml,json,toml}" || true
+	@echo "🎨 Formatting Rust code with rustfmt..."
 	@$(CARGO) +nightly fmt --all
 
 lint: ## Run clippy linter

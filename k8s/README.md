@@ -18,16 +18,16 @@ This directory contains Kubernetes manifests for deploying InferaDB to a Kuberne
 **IMPORTANT:** Before deploying, update these files with your environment-specific values:
 
 1. **configmap.yaml** (line 63-66):
-   - Replace `https://your-domain.com/api/evaluate` with your actual JWT audience
-   - Update any other configuration values as needed
+    - Replace `https://your-domain.com/api/evaluate` with your actual JWT audience
+    - Update any other configuration values as needed
 
 2. **secret.yaml**:
-   - Replace all placeholder values marked with `change-me-in-production`
-   - **DO NOT** commit real secrets to version control
-   - Use Kubernetes secrets, External Secrets Operator, or sealed-secrets instead
+    - Replace all placeholder values marked with `change-me-in-production`
+    - **DO NOT** commit real secrets to version control
+    - Use Kubernetes secrets, External Secrets Operator, or sealed-secrets instead
 
 3. **kustomization.yaml** (line 37):
-   - Replace `v1.0.0` with your desired InferaDB version
+    - Replace `v1.0.0` with your desired InferaDB version
 
 ### 2. Create Namespace
 
@@ -153,8 +153,8 @@ The deployment includes three health probes:
 
 ```yaml
 env:
-  - name: INFERA__STORE__BACKEND
-    value: "memory"
+    - name: INFERA__STORE__BACKEND
+      value: "memory"
 ```
 
 ### FoundationDB (Production)
@@ -172,13 +172,13 @@ kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-o
 apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
-  name: inferadb-fdb
+    name: inferadb-fdb
 spec:
-  version: 7.1.38
-  processCounts:
-    storage: 3
-    log: 3
-    stateless: 3
+    version: 7.1.38
+    processCounts:
+        storage: 3
+        log: 3
+        stateless: 3
 ```
 
 3. Update ConfigMap with cluster file location:
@@ -195,9 +195,9 @@ The deployment includes Prometheus annotations:
 
 ```yaml
 annotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "8080"
-  prometheus.io/path: "/metrics"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
 ```
 
 ### ServiceMonitor
@@ -208,14 +208,14 @@ For Prometheus Operator:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: inferadb
+    name: inferadb
 spec:
-  selector:
-    matchLabels:
-      app: inferadb
-  endpoints:
-    - port: metrics
-      interval: 30s
+    selector:
+        matchLabels:
+            app: inferadb
+    endpoints:
+        - port: metrics
+          interval: 30s
 ```
 
 ### Grafana Dashboards
@@ -246,33 +246,33 @@ Create NetworkPolicy to restrict traffic:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: inferadb
+    name: inferadb
 spec:
-  podSelector:
-    matchLabels:
-      app: inferadb
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - podSelector: {}
-      ports:
-        - port: 8080
-        - port: 8081
-  egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              app: foundationdb
-      ports:
-        - port: 4500
-    - to:
-        - podSelector:
-            matchLabels:
-              app: redis
-      ports:
-        - port: 6379
+    podSelector:
+        matchLabels:
+            app: inferadb
+    policyTypes:
+        - Ingress
+        - Egress
+    ingress:
+        - from:
+              - podSelector: {}
+          ports:
+              - port: 8080
+              - port: 8081
+    egress:
+        - to:
+              - podSelector:
+                    matchLabels:
+                        app: foundationdb
+          ports:
+              - port: 4500
+        - to:
+              - podSelector:
+                    matchLabels:
+                        app: redis
+          ports:
+              - port: 6379
 ```
 
 ## Troubleshooting

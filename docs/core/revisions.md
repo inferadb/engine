@@ -46,10 +46,10 @@ eyJub2RlX2lkIjoibm9kZS11cy13ZXN0LTEiLCJyZXZpc2lvbiI6NDIsInZlY3Rvcl9jbG9jayI6eyJu
 
 This format allows tokens to be:
 
--   Included in HTTP headers
--   Passed as query parameters
--   Stored in cookies
--   Used in gRPC metadata
+- Included in HTTP headers
+- Passed as query parameters
+- Stored in cookies
+- Used in gRPC metadata
 
 ## Usage Patterns
 
@@ -215,28 +215,28 @@ let merged = token1.merge(&token2);
 
 This is useful for:
 
--   **Replication acknowledgment** - Track when all replicas have seen a write
--   **Distributed transactions** - Coordinate across multiple nodes
--   **Cache invalidation** - Ensure all caches are up to date
+- **Replication acknowledgment** - Track when all replicas have seen a write
+- **Distributed transactions** - Coordinate across multiple nodes
+- **Cache invalidation** - Ensure all caches are up to date
 
 ## Performance Characteristics
 
 ### Token Operations
 
--   **Creation**: O(1) for single node, O(n) for vector clock with n nodes
--   **Validation**: O(n) where n is vector clock size
--   **Causality check**: O(n) where n is vector clock size
--   **Encoding**: O(n) for JSON serialization
--   **Decoding**: O(n) for JSON deserialization
+- **Creation**: O(1) for single node, O(n) for vector clock with n nodes
+- **Validation**: O(n) where n is vector clock size
+- **Causality check**: O(n) where n is vector clock size
+- **Encoding**: O(n) for JSON serialization
+- **Decoding**: O(n) for JSON deserialization
 
 All operations typically complete in **<1ms** for typical vector clock sizes (<10 nodes).
 
 ### Snapshot Reads
 
--   **Cache hit**: ~100μs
--   **Available revision**: ~1ms
--   **Unavailable revision**: Blocks until available or timeout
--   **Polling overhead**: 10ms intervals
+- **Cache hit**: ~100μs
+- **Available revision**: ~1ms
+- **Unavailable revision**: Blocks until available or timeout
+- **Polling overhead**: 10ms intervals
 
 ## Advanced Usage
 
@@ -293,21 +293,21 @@ let tuples = reader.read_at_token(&key, &token).await?;
 
 ### Spanner TrueTime
 
--   **Spanner**: Uses hardware clock synchronization
--   **InferaDB**: Uses logical revision numbers and vector clocks
--   **Trade-off**: Spanner provides bounded staleness, InferaDB provides causal consistency
+- **Spanner**: Uses hardware clock synchronization
+- **InferaDB**: Uses logical revision numbers and vector clocks
+- **Trade-off**: Spanner provides bounded staleness, InferaDB provides causal consistency
 
 ### DynamoDB Consistent Reads
 
--   **DynamoDB**: Strongly consistent reads go to leader
--   **InferaDB**: Snapshot reads can go to any replica with sufficient revision
--   **Trade-off**: DynamoDB has higher latency, InferaDB has better read scalability
+- **DynamoDB**: Strongly consistent reads go to leader
+- **InferaDB**: Snapshot reads can go to any replica with sufficient revision
+- **Trade-off**: DynamoDB has higher latency, InferaDB has better read scalability
 
 ### MongoDB Read Concerns
 
--   **MongoDB**: Read concern "snapshot" provides point-in-time consistency
--   **InferaDB**: Revision tokens provide similar guarantees with explicit control
--   **Trade-off**: Similar models, InferaDB tokens are more explicit
+- **MongoDB**: Read concern "snapshot" provides point-in-time consistency
+- **InferaDB**: Revision tokens provide similar guarantees with explicit control
+- **Trade-off**: Similar models, InferaDB tokens are more explicit
 
 ## Best Practices
 
@@ -373,11 +373,11 @@ Error: Invalid revision token
 
 **Causes**:
 
--   Malformed base64 encoding
--   Invalid JSON structure
--   Empty node ID
--   Zero revision number
--   Missing vector clock entries
+- Malformed base64 encoding
+- Invalid JSON structure
+- Empty node ID
+- Zero revision number
+- Missing vector clock entries
 
 **Solution**: Ensure token was generated correctly and not corrupted.
 
@@ -389,17 +389,17 @@ Error: Timeout waiting for revision to become available
 
 **Causes**:
 
--   Replication lag
--   Network partition
--   Node failure
--   Client has token from future
+- Replication lag
+- Network partition
+- Node failure
+- Client has token from future
 
 **Solutions**:
 
--   Increase timeout duration
--   Check replication health
--   Verify network connectivity
--   Ensure client clock is synchronized
+- Increase timeout duration
+- Check replication health
+- Verify network connectivity
+- Ensure client clock is synchronized
 
 ### Concurrent Token Conflicts
 
@@ -425,7 +425,7 @@ if token_a.is_concurrent_with(&token_b) {
 
 ## References
 
--   [Vector Clocks Paper](https://en.wikipedia.org/wiki/Vector_clock)
--   [Lamport Timestamps](https://en.wikipedia.org/wiki/Lamport_timestamp)
--   [Google Spanner](https://research.google/pubs/pub39966/)
--   [Zanzibar Paper](https://research.google/pubs/pub48190/) - Original zookie concept
+- [Vector Clocks Paper](https://en.wikipedia.org/wiki/Vector_clock)
+- [Lamport Timestamps](https://en.wikipedia.org/wiki/Lamport_timestamp)
+- [Google Spanner](https://research.google/pubs/pub39966/)
+- [Zanzibar Paper](https://research.google/pubs/pub48190/) - Original zookie concept

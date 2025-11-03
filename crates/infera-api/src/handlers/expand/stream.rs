@@ -12,7 +12,7 @@ use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::ExpandRequest;
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::get_vault};
+use crate::{AppState, Result, handlers::utils::auth::authorize_request};
 
 /// Expand endpoint - streaming-only for progressive results
 ///
@@ -24,33 +24,21 @@ pub async fn expand_handler(
     State(state): State<AppState>,
     Json(request): Json<ExpandRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
-    // Extract vault from auth context or use default
-    let vault = get_vault(&auth.0, state.default_vault);
+    // Authorize request and extract vault
+    let vault = authorize_request(
+        &auth.0,
+        state.default_vault,
+        state.config.auth.enabled,
+        &["inferadb.expand", "inferadb.check"],
+    )?;
 
-    // Validate vault access (basic nil check)
+    // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        infera_auth::validate_vault_access(auth_ctx)
-            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
-    }
-
-    // If auth is enabled and present, validate scope
-    if state.config.auth.enabled {
-        if let Some(ref auth_ctx) = auth.0 {
-            // Require inferadb.expand scope (or check scope as fallback)
-            infera_auth::middleware::require_any_scope(
-                auth_ctx,
-                &["inferadb.expand", "inferadb.check"],
-            )
-            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!(
-                "Streaming expand request from tenant: {} (vault: {})",
-                auth_ctx.tenant_id,
-                vault
-            );
-        } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
-        }
+        tracing::debug!(
+            "Streaming expand request from tenant: {} (vault: {})",
+            auth_ctx.tenant_id,
+            vault
+        );
     }
 
     // Create evaluator with correct vault for this request

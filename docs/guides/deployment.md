@@ -4,26 +4,26 @@ This guide covers deploying InferaDB to production environments.
 
 ## Table of Contents
 
--   [Overview](#overview)
--   [Prerequisites](#prerequisites)
--   [Deployment Options](#deployment-options)
--   [Docker Deployment](#docker-deployment)
--   [Kubernetes Deployment](#kubernetes-deployment)
--   [Helm Deployment](#helm-deployment)
--   [Cloud Deployment with Terraform](#cloud-deployment-with-terraform)
--   [Configuration](#configuration)
--   [Security](#security)
--   [Monitoring](#monitoring)
--   [Upgrading](#upgrading)
--   [Troubleshooting](#troubleshooting)
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Deployment Options](#deployment-options)
+- [Docker Deployment](#docker-deployment)
+- [Kubernetes Deployment](#kubernetes-deployment)
+- [Helm Deployment](#helm-deployment)
+- [Cloud Deployment with Terraform](#cloud-deployment-with-terraform)
+- [Configuration](#configuration)
+- [Security](#security)
+- [Monitoring](#monitoring)
+- [Upgrading](#upgrading)
+- [Troubleshooting](#troubleshooting)
 
 ## Overview
 
 InferaDB is a high-performance authorization database designed for cloud-native deployments. It supports multiple deployment models:
 
--   **Standalone**: Single instance for development/testing
--   **Replicated**: Multiple instances with load balancing
--   **Distributed**: FoundationDB backend for production scale
+- **Standalone**: Single instance for development/testing
+- **Replicated**: Multiple instances with load balancing
+- **Distributed**: FoundationDB backend for production scale
 
 ### Architecture
 
@@ -45,30 +45,30 @@ InferaDB is a high-performance authorization database designed for cloud-native 
 
 ### General Requirements
 
--   Linux/macOS/Windows with x86_64 or ARM64
--   2+ CPU cores
--   512MB+ RAM (2GB+ for production)
--   Network connectivity for dependencies
+- Linux/macOS/Windows with x86_64 or ARM64
+- 2+ CPU cores
+- 512MB+ RAM (2GB+ for production)
+- Network connectivity for dependencies
 
 ### Storage Backend Requirements
 
 #### Memory Backend (Development)
 
--   No additional requirements
--   Data lost on restart
--   Fast performance for testing
+- No additional requirements
+- Data lost on restart
+- Fast performance for testing
 
 #### FoundationDB Backend (Production)
 
--   FoundationDB 7.1+ cluster
--   Network access to FDB cluster
--   Cluster file (`fdb.cluster`)
+- FoundationDB 7.1+ cluster
+- Network access to FDB cluster
+- Cluster file (`fdb.cluster`)
 
 ### Authentication Requirements
 
--   JWKS endpoint URL (for JWT validation)
--   Redis instance (for replay protection)
--   OAuth/OIDC provider (optional)
+- JWKS endpoint URL (for JWT validation)
+- Redis instance (for replay protection)
+- OAuth/OIDC provider (optional)
 
 ## Deployment Options
 
@@ -292,15 +292,15 @@ gcloud container clusters get-credentials inferadb-prod --region us-central1
 
 **What Terraform Creates:**
 
--   **AWS**: EKS cluster, VPC, subnets, NAT gateways, ElastiCache Redis, Load Balancer, InferaDB deployment
--   **GCP**: GKE cluster, VPC, Cloud NAT, Memorystore Redis, Load Balancer, InferaDB deployment
+- **AWS**: EKS cluster, VPC, subnets, NAT gateways, ElastiCache Redis, Load Balancer, InferaDB deployment
+- **GCP**: GKE cluster, VPC, Cloud NAT, Memorystore Redis, Load Balancer, InferaDB deployment
 
 **Cost Estimates:**
 
--   AWS Complete: ~$695/month
--   AWS Minimal (dev): ~$60/month
--   GCP Complete: ~$650/month
--   GCP Minimal (dev): ~$75/month
+- AWS Complete: ~$695/month
+- AWS Minimal (dev): ~$60/month
+- GCP Complete: ~$650/month
+- GCP Minimal (dev): ~$75/month
 
 See [terraform/README.md](../../terraform/README.md) for detailed documentation.
 
@@ -445,11 +445,11 @@ server {
 
 Our Docker image follows security best practices:
 
--   **Non-root user**: Runs as UID 65532 (nonroot)
--   **Read-only filesystem**: No write access to container filesystem
--   **Distroless base**: Minimal attack surface
--   **No shell**: Prevents shell-based attacks
--   **Dropped capabilities**: All Linux capabilities dropped
+- **Non-root user**: Runs as UID 65532 (nonroot)
+- **Read-only filesystem**: No write access to container filesystem
+- **Distroless base**: Minimal attack surface
+- **No shell**: Prevents shell-based attacks
+- **Dropped capabilities**: All Linux capabilities dropped
 
 ### Authentication Security
 
@@ -465,10 +465,10 @@ Our Docker image follows security best practices:
 
 InferaDB exposes multiple health endpoints:
 
--   **`/health`**: Legacy health check (backward compatible)
--   **`/health/live`**: Liveness probe (for Kubernetes)
--   **`/health/ready`**: Readiness probe (for load balancers)
--   **`/health/startup`**: Startup probe (initialization status)
+- **`/health`**: Legacy health check (backward compatible)
+- **`/health/live`**: Liveness probe (for Kubernetes)
+- **`/health/ready`**: Readiness probe (for load balancers)
+- **`/health/startup`**: Startup probe (initialization status)
 
 **Example responses:**
 
@@ -496,12 +496,12 @@ curl http://localhost:8080/metrics
 
 **Key metrics:**
 
--   `inferadb_requests_total` - Total requests
--   `inferadb_request_duration_seconds` - Request latency
--   `inferadb_cache_hits_total` - Cache hit count
--   `inferadb_cache_misses_total` - Cache miss count
--   `inferadb_auth_validations_total` - Authentication attempts
--   `inferadb_tuples_stored` - Number of stored tuples
+- `inferadb_requests_total` - Total requests
+- `inferadb_request_duration_seconds` - Request latency
+- `inferadb_cache_hits_total` - Cache hit count
+- `inferadb_cache_misses_total` - Cache miss count
+- `inferadb_auth_validations_total` - Authentication attempts
+- `inferadb_tuples_stored` - Number of stored tuples
 
 ### Distributed Tracing
 
@@ -715,21 +715,21 @@ kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
 
 ### Production Checklist
 
--   [ ] Use FoundationDB backend (not memory)
--   [ ] Enable authentication
--   [ ] Enable replay protection
--   [ ] Use external secret manager
--   [ ] Configure resource limits
--   [ ] Enable autoscaling (HPA)
--   [ ] Set PodDisruptionBudget
--   [ ] Configure health checks
--   [ ] Enable monitoring (Prometheus)
--   [ ] Enable distributed tracing
--   [ ] Use structured logging (JSON)
--   [ ] Configure TLS termination
--   [ ] Set up backup/restore procedures
--   [ ] Document runbooks
--   [ ] Test disaster recovery
+- [ ] Use FoundationDB backend (not memory)
+- [ ] Enable authentication
+- [ ] Enable replay protection
+- [ ] Use external secret manager
+- [ ] Configure resource limits
+- [ ] Enable autoscaling (HPA)
+- [ ] Set PodDisruptionBudget
+- [ ] Configure health checks
+- [ ] Enable monitoring (Prometheus)
+- [ ] Enable distributed tracing
+- [ ] Use structured logging (JSON)
+- [ ] Configure TLS termination
+- [ ] Set up backup/restore procedures
+- [ ] Document runbooks
+- [ ] Test disaster recovery
 
 ### Scaling Guidelines
 
@@ -744,32 +744,32 @@ kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
 
 **CPU:**
 
--   Worker threads = CPU cores
--   Over-provision for burst traffic
--   Monitor CPU throttling
+- Worker threads = CPU cores
+- Over-provision for burst traffic
+- Monitor CPU throttling
 
 **Memory:**
 
--   Cache size ≈ 50% of memory
--   Account for request buffers
--   Monitor OOM kills
+- Cache size ≈ 50% of memory
+- Account for request buffers
+- Monitor OOM kills
 
 **Storage:**
 
--   FoundationDB for persistence
--   Size based on tuple count
--   Plan for growth
+- FoundationDB for persistence
+- Size based on tuple count
+- Plan for growth
 
 ## Support
 
--   **Documentation**: [https://docs.inferadb.com](https://docs.inferadb.com)
--   **Issues**: [https://github.com/inferadb/inferadb/issues](https://github.com/inferadb/inferadb/issues)
--   **Community**: [https://community.inferadb.com](https://community.inferadb.com)
+- **Documentation**: [https://docs.inferadb.com](https://docs.inferadb.com)
+- **Issues**: [https://github.com/inferadb/inferadb/issues](https://github.com/inferadb/inferadb/issues)
+- **Community**: [https://community.inferadb.com](https://community.inferadb.com)
 
 ## See Also
 
--   [Kubernetes Deployment](../../k8s/README.md)
--   [Helm Chart](../../helm/README.md)
--   [Configuration Reference](configuration.md)
--   [Observability Guide](../operations/observability/README.md)
--   [Operational Runbooks](../runbooks/)
+- [Kubernetes Deployment](../../k8s/README.md)
+- [Helm Chart](../../helm/README.md)
+- [Configuration Reference](configuration.md)
+- [Observability Guide](../operations/observability/README.md)
+- [Operational Runbooks](../runbooks/)

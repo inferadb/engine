@@ -54,9 +54,9 @@ InferaDB tracks comprehensive authentication metrics for monitoring security and
 
 **Label Values**:
 
--   **method**: `tenant_jwt`, `oauth_jwt`, `internal_jwt`
--   **error_type**: `invalid_format`, `expired`, `not_yet_valid`, `invalid_signature`, `invalid_issuer`, `invalid_audience`, `missing_claim`, `unsupported_algorithm`, `jwks_error`
--   **algorithm**: `EdDSA`, `RS256`
+- **method**: `tenant_jwt`, `oauth_jwt`, `internal_jwt`
+- **error_type**: `invalid_format`, `expired`, `not_yet_valid`, `invalid_signature`, `invalid_issuer`, `invalid_audience`, `missing_claim`, `unsupported_algorithm`, `jwks_error`
+- **algorithm**: `EdDSA`, `RS256`
 
 **Example PromQL Queries**:
 
@@ -329,13 +329,13 @@ InferaDB tracks audit logging metrics for monitoring compliance and security eve
 
 **Event Type Labels**:
 
--   `authorization_check`
--   `relationship_write`
--   `relationship_delete`
--   `resource_list`
--   `subject_list`
--   `expand`
--   `simulation`
+- `authorization_check`
+- `relationship_write`
+- `relationship_delete`
+- `resource_list`
+- `subject_list`
+- `expand`
+- `simulation`
 
 **Example PromQL Queries**:
 
@@ -399,7 +399,7 @@ inferadb_uptime_seconds / 3600
 
 ## Next Steps
 
--   [Distributed Tracing](tracing.md) - OpenTelemetry tracing setup
--   [Structured Logging](logging.md) - Configure logging and log formats
--   [Audit Logging](auditing.md) - Comprehensive audit trail for compliance
--   [Observability Overview](README.md) - Complete observability guide
+- [Distributed Tracing](tracing.md) - OpenTelemetry tracing setup
+- [Structured Logging](logging.md) - Configure logging and log formats
+- [Audit Logging](auditing.md) - Comprehensive audit trail for compliance
+- [Observability Overview](README.md) - Complete observability guide

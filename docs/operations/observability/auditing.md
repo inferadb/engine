@@ -4,13 +4,13 @@ This guide covers integrating InferaDB's audit logging system into your applicat
 
 ## Table of Contents
 
--   [Quick Start](#quick-start)
--   [Core Concepts](#core-concepts)
--   [Event Types](#event-types)
--   [Configuration](#configuration)
--   [API Integration](#api-integration)
--   [Testing](#testing)
--   [Performance Considerations](#performance-considerations)
+- [Quick Start](#quick-start)
+- [Core Concepts](#core-concepts)
+- [Event Types](#event-types)
+- [Configuration](#configuration)
+- [API Integration](#api-integration)
+- [Testing](#testing)
+- [Performance Considerations](#performance-considerations)
 
 ---
 
@@ -94,7 +94,6 @@ audit_logger.log(event);
 Every audit event has two parts:
 
 1. **Metadata**: Common fields across all events
-
     - `event_id`: Globally unique identifier
     - `timestamp`: RFC3339 timestamp
     - `event_type`: Type of operation
@@ -118,9 +117,9 @@ info!(target: "inferadb_audit", "{}", json);
 
 This allows you to:
 
--   Route audit logs separately from application logs
--   Ship to dedicated SIEM systems
--   Apply different retention policies
+- Route audit logs separately from application logs
+- Ship to dedicated SIEM systems
+- Apply different retention policies
 
 ### Metrics
 
@@ -167,14 +166,14 @@ let details = AuditEventDetails::AuthorizationCheck(
 
 **Fields**:
 
--   `subject`: Who is requesting access
--   `resource`: What they're accessing
--   `permission`: What action they want to perform
--   `decision`: Allow or Deny
--   `duration_ms`: How long evaluation took
--   `context`: Optional context data (for WASM/ABAC)
--   `relationships_evaluated`: Number of relationships checked
--   `traced`: Whether detailed trace was enabled
+- `subject`: Who is requesting access
+- `resource`: What they're accessing
+- `permission`: What action they want to perform
+- `decision`: Allow or Deny
+- `duration_ms`: How long evaluation took
+- `context`: Optional context data (for WASM/ABAC)
+- `relationships_evaluated`: Number of relationships checked
+- `traced`: Whether detailed trace was enabled
 
 ### 2. Relationship Write
 
@@ -200,9 +199,9 @@ let details = AuditEventDetails::RelationshipWrite(
 
 **Fields**:
 
--   `count`: Total relationships written
--   `sample`: First 10 relationships (for brevity)
--   `revision`: Storage revision after write
+- `count`: Total relationships written
+- `sample`: First 10 relationships (for brevity)
+- `revision`: Storage revision after write
 
 **Note**: Only logs first 10 relationships to avoid huge audit logs. Full details are in storage.
 
@@ -229,10 +228,10 @@ let details = AuditEventDetails::RelationshipDelete(
 
 **Fields**:
 
--   `count`: Total relationships deleted
--   `sample`: Sample deleted relationships
--   `filter`: Delete filter used (if applicable)
--   `revision`: Storage revision after delete
+- `count`: Total relationships deleted
+- `sample`: Sample deleted relationships
+- `filter`: Delete filter used (if applicable)
+- `revision`: Storage revision after delete
 
 ### 4. Resource List
 
@@ -254,11 +253,11 @@ let details = AuditEventDetails::ResourceList(
 
 **Fields**:
 
--   `subject`: Who is listing resources
--   `resource_type`: Type filter applied
--   `permission`: Permission checked
--   `result_count`: How many resources returned
--   `paginated`: Whether results were paginated
+- `subject`: Who is listing resources
+- `resource_type`: Type filter applied
+- `permission`: Permission checked
+- `result_count`: How many resources returned
+- `paginated`: Whether results were paginated
 
 ### 5. Subject List
 
@@ -279,10 +278,10 @@ let details = AuditEventDetails::SubjectList(
 
 **Fields**:
 
--   `resource`: Resource being queried
--   `relation`: Relation checked
--   `result_count`: Number of subjects returned
--   `subject_type`: Type filter (optional)
+- `resource`: Resource being queried
+- `relation`: Relation checked
+- `result_count`: Number of subjects returned
+- `subject_type`: Type filter (optional)
 
 ### 6. Expand
 
@@ -302,9 +301,9 @@ let details = AuditEventDetails::Expand(
 
 **Fields**:
 
--   `resource`: Resource expanded
--   `relation`: Relation expanded
--   `user_count`: Number of users in expanded set
+- `resource`: Resource expanded
+- `relation`: Relation expanded
+- `user_count`: Number of users in expanded set
 
 ### 7. Simulation
 
@@ -326,11 +325,11 @@ let details = AuditEventDetails::Simulation(
 
 **Fields**:
 
--   `subject`: Subject in simulation
--   `resource`: Resource in simulation
--   `permission`: Permission checked
--   `decision`: Simulated decision
--   `context_relationship_count`: Ephemeral relationships used
+- `subject`: Subject in simulation
+- `resource`: Resource in simulation
+- `permission`: Permission checked
+- `decision`: Simulated decision
+- `context_relationship_count`: Ephemeral relationships used
 
 ---
 
@@ -992,10 +991,10 @@ async fn test_all_operations_audited() {
 
 ## References
 
--   [Audit Module Source](../crates/infera-observe/src/audit.rs)
--   [SIEM Integration Guide](../AUDIT_LOGGING.md)
--   [Metrics Reference](../grafana/METRICS_REFERENCE.md)
--   [API Examples](../examples/audit-integration/)
+- [Audit Module Source](../crates/infera-observe/src/audit.rs)
+- [SIEM Integration Guide](../AUDIT_LOGGING.md)
+- [Metrics Reference](../grafana/METRICS_REFERENCE.md)
+- [API Examples](../examples/audit-integration/)
 
 ---
 

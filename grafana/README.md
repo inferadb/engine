@@ -241,15 +241,15 @@ Create a provisioning file:
 apiVersion: 1
 
 providers:
-  - name: "InferaDB"
-    orgId: 1
-    folder: "InferaDB"
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 30
-    allowUiUpdates: true
-    options:
-      path: /var/lib/grafana/dashboards/inferadb
+    - name: "InferaDB"
+      orgId: 1
+      folder: "InferaDB"
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 30
+      allowUiUpdates: true
+      options:
+          path: /var/lib/grafana/dashboards/inferadb
 ```
 
 Copy dashboard files to the provisioning directory:
@@ -270,26 +270,26 @@ systemctl restart grafana-server
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: inferadb-dashboards
-  namespace: monitoring
+    name: inferadb-dashboards
+    namespace: monitoring
 data:
-  overview-dashboard.json: |
-    # Paste overview-dashboard.json contents here
-  performance-dashboard.json: |
-    # Paste performance-dashboard.json contents here
-  # ... repeat for other dashboards
+    overview-dashboard.json: |
+        # Paste overview-dashboard.json contents here
+    performance-dashboard.json: |
+        # Paste performance-dashboard.json contents here
+    # ... repeat for other dashboards
 ```
 
 Mount the ConfigMap in Grafana deployment:
 
 ```yaml
 volumeMounts:
-  - name: dashboards
-    mountPath: /var/lib/grafana/dashboards/inferadb
+    - name: dashboards
+      mountPath: /var/lib/grafana/dashboards/inferadb
 volumes:
-  - name: dashboards
-    configMap:
-      name: inferadb-dashboards
+    - name: dashboards
+      configMap:
+          name: inferadb-dashboards
 ```
 
 ---
@@ -413,25 +413,22 @@ Update thresholds in panel field config:
 We recommend organizing dashboards in folders:
 
 - **Folder**: `InferaDB - Production`
-
-  - Overview Dashboard
-  - Authorization Overview Dashboard
-  - Errors Dashboard
-  - Replication Dashboard (if multi-region)
+    - Overview Dashboard
+    - Authorization Overview Dashboard
+    - Errors Dashboard
+    - Replication Dashboard (if multi-region)
 
 - **Folder**: `InferaDB - Performance`
-
-  - Performance Dashboard
-  - Query Performance Dashboard
-  - Cache Dashboard
-  - Condition Performance Dashboard
+    - Performance Dashboard
+    - Query Performance Dashboard
+    - Cache Dashboard
+    - Condition Performance Dashboard
 
 - **Folder**: `InferaDB - Security & Access`
-
-  - Access Patterns Dashboard
+    - Access Patterns Dashboard
 
 - **Folder**: `InferaDB - Development`
-  - Custom/experimental dashboards
+    - Custom/experimental dashboards
 
 ---
 
@@ -544,10 +541,10 @@ Link panels to related dashboards:
 **Fix**:
 
 1. Enable alerting in `grafana.ini`:
-   ```ini
-   [alerting]
-   enabled = true
-   ```
+    ```ini
+    [alerting]
+    enabled = true
+    ```
 2. Configure notification channels
 3. Check alert rules are enabled on panels
 

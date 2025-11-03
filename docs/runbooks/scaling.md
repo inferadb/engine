@@ -8,17 +8,17 @@ This runbook covers scaling InferaDB horizontally (more replicas) and vertically
 
 ### Indicators for Horizontal Scaling (More Replicas)
 
--   **High CPU usage** across all pods (>70% sustained)
--   **High request rate** with acceptable per-pod latency
--   **Geographic distribution** needs
--   **High availability** requirements
+- **High CPU usage** across all pods (>70% sustained)
+- **High request rate** with acceptable per-pod latency
+- **Geographic distribution** needs
+- **High availability** requirements
 
 ### Indicators for Vertical Scaling (More Resources)
 
--   **Memory pressure** or OOM kills
--   **Single-request latency** issues
--   **Cache thrashing** due to insufficient memory
--   **Thread pool saturation**
+- **Memory pressure** or OOM kills
+- **Single-request latency** issues
+- **Cache thrashing** due to insufficient memory
+- **Thread pool saturation**
 
 ## Horizontal Scaling
 
@@ -304,15 +304,15 @@ kubectl get events -n inferadb --sort-by='.lastTimestamp'
 
 **Common causes**:
 
--   Insufficient cluster resources
--   Image pull errors
--   PVC provisioning failures
+- Insufficient cluster resources
+- Image pull errors
+- PVC provisioning failures
 
 **Resolution**:
 
--   Scale down replicas or add cluster nodes
--   Check image availability
--   Verify storage provisioner
+- Scale down replicas or add cluster nodes
+- Check image availability
+- Verify storage provisioner
 
 ### Pods Crashing After Scale
 
@@ -327,9 +327,9 @@ kubectl top pods -n inferadb -l app=inferadb
 
 **Resolution**:
 
--   Increase memory limits
--   Reduce cache size
--   Check for memory leaks
+- Increase memory limits
+- Reduce cache size
+- Check for memory leaks
 
 ### HPA Not Scaling
 
@@ -345,9 +345,9 @@ kubectl top pods -n inferadb -l app=inferadb
 
 **Common causes**:
 
--   Metrics server not installed
--   Metric not available
--   Thresholds not met
+- Metrics server not installed
+- Metric not available
+- Thresholds not met
 
 **Resolution**:
 
@@ -378,10 +378,10 @@ kubectl get endpoints inferadb -n inferadb
 
 **Resolution**:
 
--   Verify service selector labels
--   Check pod readiness probes
--   Review load balancer configuration
--   Consider session affinity settings
+- Verify service selector labels
+- Check pod readiness probes
+- Review load balancer configuration
+- Consider session affinity settings
 
 ## Capacity Planning
 
@@ -444,6 +444,6 @@ kubectl rollout undo deployment/inferadb -n inferadb
 
 ## Related Runbooks
 
--   [High Latency](high-latency.md) - Performance issues requiring scaling
--   [Memory Issues](memory-issues.md) - OOM kills during scaling
--   [Upgrades](upgrades.md) - Scaling during version upgrades
+- [High Latency](high-latency.md) - Performance issues requiring scaling
+- [Memory Issues](memory-issues.md) - OOM kills during scaling
+- [Upgrades](upgrades.md) - Scaling during version upgrades

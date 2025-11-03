@@ -26,13 +26,11 @@ pub struct MemoryBackend {
 ### Key Components
 
 1. **Tuple Storage**
-
     - HashMap for O(1) lookup by (object, relation, user)
     - Each key stores a vector of versions (MVCC)
     - Versions are ordered by revision
 
 2. **User Index**
-
     - Enables reverse lookups (find all objects for a user+relation)
     - BTreeMap for ordered iteration
     - Maintains revision history per entry
@@ -58,9 +56,9 @@ struct TupleVersion {
 
 **Benefits:**
 
--   Point-in-time reads without blocking writes
--   No read/write contention
--   Isolation between transactions
+- Point-in-time reads without blocking writes
+- No read/write contention
+- Isolation between transactions
 
 **Example:**
 
@@ -261,16 +259,16 @@ Index overhead: ~100 bytes per tuple
 
 **Example:**
 
--   10,000 tuples with 10 versions each
--   Memory usage: ~200MB
--   With GC (keep 2 versions): ~20MB
+- 10,000 tuples with 10 versions each
+- Memory usage: ~200MB
+- With GC (keep 2 versions): ~20MB
 
 ### Concurrency
 
--   **Thread-safe**: Uses RwLock for safe concurrent access
--   **Read scaling**: Multiple readers can access simultaneously
--   **Write contention**: Single writer at a time (per lock)
--   **Lock-free reads at known revision**: No locking needed for immutable snapshots
+- **Thread-safe**: Uses RwLock for safe concurrent access
+- **Read scaling**: Multiple readers can access simultaneously
+- **Write contention**: Single writer at a time (per lock)
+- **Lock-free reads at known revision**: No locking needed for immutable snapshots
 
 ## Testing Support
 
@@ -330,9 +328,9 @@ proptest! {
 
 **Workaround:**
 
--   Use FoundationDB backend for production
--   Implement export/import if needed
--   Use for development/testing only
+- Use FoundationDB backend for production
+- Implement export/import if needed
+- Use for development/testing only
 
 ### 2. Memory Bounded
 
@@ -340,14 +338,14 @@ proptest! {
 
 **Guideline:**
 
--   Suitable for up to ~1M tuples
--   With GC: can handle more with older history removed
--   Monitor memory usage in production
+- Suitable for up to ~1M tuples
+- With GC: can handle more with older history removed
+- Monitor memory usage in production
 
 **Workaround:**
 
--   Aggressive GC policy
--   Migrate to FoundationDB for large datasets
+- Aggressive GC policy
+- Migrate to FoundationDB for large datasets
 
 ### 3. Single Node
 
@@ -355,8 +353,8 @@ proptest! {
 
 **Workaround:**
 
--   Use FoundationDB for multi-node setups
--   Memory backend is development/testing only
+- Use FoundationDB for multi-node setups
+- Memory backend is development/testing only
 
 ### 4. No Durable Transactions
 
@@ -364,8 +362,8 @@ proptest! {
 
 **Workaround:**
 
--   Use FoundationDB for durability
--   Memory backend has atomic in-memory operations
+- Use FoundationDB for durability
+- Memory backend has atomic in-memory operations
 
 ## Best Practices
 
@@ -427,7 +425,7 @@ println!("Memory estimate: {}MB", stats.memory_estimate_mb());
 
 ## See Also
 
--   [Storage Backends Overview](./storage-backends.md)
--   [FoundationDB Backend](./storage-foundationdb.md)
--   [Revision Tokens](./revision-tokens.md)
--   [Caching Layer](./caching.md)
+- [Storage Backends Overview](./storage-backends.md)
+- [FoundationDB Backend](./storage-foundationdb.md)
+- [Revision Tokens](./revision-tokens.md)
+- [Caching Layer](./caching.md)

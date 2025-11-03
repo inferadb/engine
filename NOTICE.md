@@ -12,9 +12,9 @@ See the [`LICENSE`](./LICENSE) file for full details.
 
 Under the terms of this license:
 
--   The source code is available for **non-commercial** and **internal business** use.
--   Use of the Licensed Work as part of a **commercial offering** (including managed hosting or reselling) requires a separate commercial license from the InferaDB team.
--   On **January 1, 2029**, this software will automatically transition to the **Apache License, Version 2.0**.
+- The source code is available for **non-commercial** and **internal business** use.
+- Use of the Licensed Work as part of a **commercial offering** (including managed hosting or reselling) requires a separate commercial license from the InferaDB team.
+- On **January 1, 2029**, this software will automatically transition to the **Apache License, Version 2.0**.
 
 ---
 

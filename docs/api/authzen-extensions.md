@@ -30,20 +30,20 @@ InferaDB extends the AuthZEN specification with four custom extensions that prov
 
 ### Use Core AuthZEN Endpoints When:
 
--   **Portability is critical**: You need to integrate with any AuthZEN-compliant system
--   **Simple authorization checks**: You only need to answer "can subject perform action on resource?"
--   **Batch evaluations**: You need to check multiple permissions at once
--   **Search operations**: You need to find authorized resources or subjects
--   **Standardized integration**: You're building a generic authorization layer
+- **Portability is critical**: You need to integrate with any AuthZEN-compliant system
+- **Simple authorization checks**: You only need to answer "can subject perform action on resource?"
+- **Batch evaluations**: You need to check multiple permissions at once
+- **Search operations**: You need to find authorized resources or subjects
+- **Standardized integration**: You're building a generic authorization layer
 
 ### Use InferaDB Extensions When:
 
--   **Relationship management**: You need to create, modify, or delete the underlying authorization graph
--   **Debugging authorization**: You need to understand why a decision was made
--   **Authorization visualization**: You need to see the complete relationship tree
--   **Testing authorization changes**: You want to simulate changes before applying them
--   **Real-time updates**: You need to react to authorization changes immediately
--   **Advanced tracing**: You need detailed evaluation traces with timing information
+- **Relationship management**: You need to create, modify, or delete the underlying authorization graph
+- **Debugging authorization**: You need to understand why a decision was made
+- **Authorization visualization**: You need to see the complete relationship tree
+- **Testing authorization changes**: You want to simulate changes before applying them
+- **Real-time updates**: You need to react to authorization changes immediately
+- **Advanced tracing**: You need detailed evaluation traces with timing information
 
 ## Extension: `inferadb_relationship_management`
 
@@ -87,10 +87,10 @@ Create new relationships in the authorization graph.
 
 **Use Cases:**
 
--   User joins a team
--   Document is shared with a group
--   Role assignments
--   Organizational hierarchy updates
+- User joins a team
+- Document is shared with a group
+- Role assignments
+- Organizational hierarchy updates
 
 #### `POST /v1/relationships:list`
 
@@ -130,10 +130,10 @@ Query existing relationships with flexible filtering.
 
 **Use Cases:**
 
--   List all teams a user belongs to
--   Find all members of a resource
--   Audit relationship data
--   Export authorization state
+- List all teams a user belongs to
+- Find all members of a resource
+- Audit relationship data
+- Export authorization state
 
 #### `POST /v1/relationships:delete`
 
@@ -164,17 +164,17 @@ Remove relationships from the authorization graph.
 
 **Use Cases:**
 
--   User leaves a team
--   Revoke access to a resource
--   Remove expired permissions
--   Clean up stale relationships
+- User leaves a team
+- Revoke access to a resource
+- Remove expired permissions
+- Clean up stale relationships
 
 ### Migration from Core AuthZEN
 
 Core AuthZEN assumes relationships exist but doesn't provide APIs to manage them. If you're using:
 
--   **External data source**: Continue using your existing system and only use AuthZEN for evaluation
--   **InferaDB as source of truth**: Use this extension to manage relationships directly
+- **External data source**: Continue using your existing system and only use AuthZEN for evaluation
+- **InferaDB as source of truth**: Use this extension to manage relationships directly
 
 ## Extension: `inferadb_relation_expansion`
 
@@ -231,11 +231,11 @@ Expand a relation tree from a starting point.
 
 **Use Cases:**
 
--   Debug "why does this user have access?"
--   Visualize authorization graph
--   Generate access control lists
--   Audit who has access to sensitive resources
--   Understand computed permissions from groups
+- Debug "why does this user have access?"
+- Visualize authorization graph
+- Generate access control lists
+- Audit who has access to sensitive resources
+- Understand computed permissions from groups
 
 ### Comparison to AuthZEN Search
 
@@ -248,8 +248,8 @@ Expand a relation tree from a starting point.
 
 **When to use which:**
 
--   **AuthZEN Search** (`/access/v1/search/resource`): "Give me all documents user:alice can view" (production queries)
--   **InferaDB Expansion** (`/v1/expand`): "Show me why user:alice can view doc:X" (debugging, auditing)
+- **AuthZEN Search** (`/access/v1/search/resource`): "Give me all documents user:alice can view" (production queries)
+- **InferaDB Expansion** (`/v1/expand`): "Show me why user:alice can view doc:X" (debugging, auditing)
 
 ## Extension: `inferadb_simulation`
 
@@ -304,11 +304,11 @@ Evaluate a check with simulated relationship changes.
 
 **Use Cases:**
 
--   Preview access changes before applying them
--   Test authorization schema changes
--   Implement "Request Access" workflows with preview
--   Validate authorization policies
--   Generate access change impact reports
+- Preview access changes before applying them
+- Test authorization schema changes
+- Implement "Request Access" workflows with preview
+- Validate authorization policies
+- Generate access change impact reports
 
 ### No AuthZEN Equivalent
 
@@ -348,11 +348,11 @@ data: {"subject":"user:bob","relation":"editor","resource":"doc:design-doc","tim
 
 **Use Cases:**
 
--   Invalidate authorization caches when relationships change
--   Update UI in real-time when access is granted/revoked
--   Trigger workflows on permission changes
--   Audit log streaming
--   Real-time compliance monitoring
+- Invalidate authorization caches when relationships change
+- Update UI in real-time when access is granted/revoked
+- Trigger workflows on permission changes
+- Audit log streaming
+- Real-time compliance monitoring
 
 ### Comparison to Polling
 
@@ -363,8 +363,8 @@ data: {"subject":"user:bob","relation":"editor","resource":"doc:design-doc","tim
 
 **When to use:**
 
--   **Watch**: Real-time applications, cache invalidation, live dashboards
--   **Polling**: Batch processing, scheduled jobs, offline sync
+- **Watch**: Real-time applications, cache invalidation, live dashboards
+- **Polling**: Batch processing, scheduled jobs, offline sync
 
 ### No AuthZEN Equivalent
 
@@ -418,11 +418,11 @@ Future API versions will increment the version number (e.g., `/v2/`, `/access/v2
 
 Extension endpoints follow the same error handling conventions as core AuthZEN:
 
--   **200 OK**: Successful operation (even for denials or empty results)
--   **400 Bad Request**: Invalid request format or parameters
--   **401 Unauthorized**: Missing or invalid authentication
--   **403 Forbidden**: Authenticated but not authorized for this operation
--   **500 Internal Server Error**: Server-side error
+- **200 OK**: Successful operation (even for denials or empty results)
+- **400 Bad Request**: Invalid request format or parameters
+- **401 Unauthorized**: Missing or invalid authentication
+- **403 Forbidden**: Authenticated but not authorized for this operation
+- **500 Internal Server Error**: Server-side error
 
 Error response format:
 
@@ -443,28 +443,28 @@ Error response format:
 
 ### Relationship Management
 
--   **Write operations**: Must be authenticated and authorized
--   **Bulk operations**: May have rate limits to prevent abuse
--   **Validation**: Subjects, relations, and resources must conform to schema
+- **Write operations**: Must be authenticated and authorized
+- **Bulk operations**: May have rate limits to prevent abuse
+- **Validation**: Subjects, relations, and resources must conform to schema
 
 ### Relation Expansion
 
--   **Depth limits**: Prevent infinite recursion or DoS attacks
--   **Result size limits**: Prevent memory exhaustion
--   **Authorization**: May require permission to view the expansion
+- **Depth limits**: Prevent infinite recursion or DoS attacks
+- **Result size limits**: Prevent memory exhaustion
+- **Authorization**: May require permission to view the expansion
 
 ### Simulation
 
--   **Resource limits**: Simulations are isolated and time-limited
--   **Side effects**: Simulations MUST NOT persist any changes
--   **Audit logging**: Simulations should be logged for security auditing
+- **Resource limits**: Simulations are isolated and time-limited
+- **Side effects**: Simulations MUST NOT persist any changes
+- **Audit logging**: Simulations should be logged for security auditing
 
 ### Real-time Streaming
 
--   **Connection limits**: Prevent resource exhaustion
--   **Authentication**: Must authenticate before establishing watch
--   **Filter restrictions**: May restrict filters to prevent broad watches
--   **Rate limiting**: May limit event delivery rate
+- **Connection limits**: Prevent resource exhaustion
+- **Authentication**: Must authenticate before establishing watch
+- **Filter restrictions**: May restrict filters to prevent broad watches
+- **Rate limiting**: May limit event delivery rate
 
 ## Implementation Status
 
@@ -479,10 +479,10 @@ See `RELATIONSHIPS.md` for implementation roadmap.
 
 ## References
 
--   [AuthZEN Specification](https://openid.github.io/authzen/)
--   [InferaDB API Reference](../api/openapi.yaml)
--   [AuthZEN Spec Study](./authzen-spec-study.md)
--   [RFC 8615 - Well-Known URIs](https://www.rfc-editor.org/rfc/rfc8615.html)
+- [AuthZEN Specification](https://openid.github.io/authzen/)
+- [InferaDB API Reference](../api/openapi.yaml)
+- [AuthZEN Spec Study](./authzen-spec-study.md)
+- [RFC 8615 - Well-Known URIs](https://www.rfc-editor.org/rfc/rfc8615.html)
 
 ## Examples
 
@@ -537,7 +537,7 @@ class AuthorizationService {
     async checkAccess(
         subject: string,
         action: string,
-        resource: string
+        resource: string,
     ): Promise<boolean> {
         // Use core AuthZEN for evaluation
         const response = await fetch(
@@ -549,7 +549,7 @@ class AuthorizationService {
                     action: { name: action },
                     resource: { type: "document", id: resource },
                 }),
-            }
+            },
         );
         const result = await response.json();
         return result.decision;
@@ -558,7 +558,7 @@ class AuthorizationService {
     async grantAccess(
         subject: string,
         relation: string,
-        resource: string
+        resource: string,
     ): Promise<void> {
         // Use extension for relationship management
         await fetch("https://inferadb.example.com/v1/relationships:write", {

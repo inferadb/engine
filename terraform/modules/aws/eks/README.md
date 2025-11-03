@@ -44,60 +44,62 @@ module "eks" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.5 |
-| aws | ~> 5.0 |
+| Name       | Version |
+| ---------- | ------- |
+| terraform  | >= 1.5  |
+| aws        | ~> 5.0  |
 | kubernetes | ~> 2.23 |
-| helm | ~> 2.11 |
+| helm       | ~> 2.11 |
 
 ## Inputs
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| cluster_name | Name of the EKS cluster | `string` | n/a | yes |
-| kubernetes_version | Kubernetes version | `string` | `"1.28"` | no |
-| vpc_cidr | CIDR block for VPC | `string` | `"10.0.0.0/16"` | no |
-| availability_zones_count | Number of AZs | `number` | `3` | no |
-| node_instance_types | EC2 instance types for nodes | `list(string)` | `["m5.xlarge"]` | no |
-| node_desired_size | Desired number of nodes | `number` | `3` | no |
-| node_min_size | Minimum number of nodes | `number` | `3` | no |
-| node_max_size | Maximum number of nodes | `number` | `10` | no |
-| enable_ebs_csi_driver | Enable EBS CSI driver | `bool` | `true` | no |
-| tags | Tags to apply to resources | `map(string)` | `{}` | no |
+| Name                     | Description                  | Type           | Default         | Required |
+| ------------------------ | ---------------------------- | -------------- | --------------- | :------: |
+| cluster_name             | Name of the EKS cluster      | `string`       | n/a             |   yes    |
+| kubernetes_version       | Kubernetes version           | `string`       | `"1.28"`        |    no    |
+| vpc_cidr                 | CIDR block for VPC           | `string`       | `"10.0.0.0/16"` |    no    |
+| availability_zones_count | Number of AZs                | `number`       | `3`             |    no    |
+| node_instance_types      | EC2 instance types for nodes | `list(string)` | `["m5.xlarge"]` |    no    |
+| node_desired_size        | Desired number of nodes      | `number`       | `3`             |    no    |
+| node_min_size            | Minimum number of nodes      | `number`       | `3`             |    no    |
+| node_max_size            | Maximum number of nodes      | `number`       | `10`            |    no    |
+| enable_ebs_csi_driver    | Enable EBS CSI driver        | `bool`         | `true`          |    no    |
+| tags                     | Tags to apply to resources   | `map(string)`  | `{}`            |    no    |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| cluster_id | EKS cluster ID |
-| cluster_name | EKS cluster name |
-| cluster_endpoint | EKS API endpoint |
-| cluster_certificate_authority_data | CA certificate for kubectl |
-| oidc_provider_arn | OIDC provider ARN for IRSA |
-| vpc_id | VPC ID |
-| private_subnet_ids | Private subnet IDs |
-| configure_kubectl | Command to configure kubectl |
+| Name                               | Description                  |
+| ---------------------------------- | ---------------------------- |
+| cluster_id                         | EKS cluster ID               |
+| cluster_name                       | EKS cluster name             |
+| cluster_endpoint                   | EKS API endpoint             |
+| cluster_certificate_authority_data | CA certificate for kubectl   |
+| oidc_provider_arn                  | OIDC provider ARN for IRSA   |
+| vpc_id                             | VPC ID                       |
+| private_subnet_ids                 | Private subnet IDs           |
+| configure_kubectl                  | Command to configure kubectl |
 
 ## Post-Deployment
 
 After the cluster is created:
 
 1. **Configure kubectl**:
-   ```bash
-   aws eks update-kubeconfig --region <region> --name <cluster-name>
-   ```
+
+    ```bash
+    aws eks update-kubeconfig --region <region> --name <cluster-name>
+    ```
 
 2. **Verify cluster**:
-   ```bash
-   kubectl get nodes
-   kubectl get pods -A
-   ```
+
+    ```bash
+    kubectl get nodes
+    kubectl get pods -A
+    ```
 
 3. **Deploy InferaDB**:
-   ```bash
-   helm install inferadb ./helm --namespace inferadb --create-namespace
-   ```
+    ```bash
+    helm install inferadb ./helm --namespace inferadb --create-namespace
+    ```
 
 ## Architecture
 
@@ -149,6 +151,7 @@ After the cluster is created:
 ## Monitoring
 
 The module enables EKS control plane logging for:
+
 - API server logs
 - Audit logs
 - Authenticator logs

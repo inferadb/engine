@@ -25,11 +25,11 @@ InferaDB implements a comprehensive multi-tenancy system using **Accounts** and 
 
 ### Key Benefits
 
--   **Complete Data Isolation**: No data leakage between vaults
--   **Scalable Multi-Tenancy**: Support for unlimited tenants
--   **Flexible Organization**: Accounts can manage multiple vaults
--   **Security by Design**: Vault boundaries enforced at every layer
--   **Performance Isolation**: Cache and query performance isolated per vault
+- **Complete Data Isolation**: No data leakage between vaults
+- **Scalable Multi-Tenancy**: Support for unlimited tenants
+- **Flexible Organization**: Accounts can manage multiple vaults
+- **Security by Design**: Vault boundaries enforced at every layer
+- **Performance Isolation**: Cache and query performance isolated per vault
 
 ### Architecture Diagram
 
@@ -60,35 +60,35 @@ InferaDB implements a comprehensive multi-tenancy system using **Accounts** and 
 
 An **Account** represents a tenant organization or top-level entity in InferaDB. Each account:
 
--   Has a unique UUID identifier
--   Has a human-readable name
--   Owns zero, one, or many Vaults
--   Is the billing/administrative entity
--   Cannot access other Accounts' Vaults
+- Has a unique UUID identifier
+- Has a human-readable name
+- Owns zero, one, or many Vaults
+- Is the billing/administrative entity
+- Cannot access other Accounts' Vaults
 
 **Example Use Cases**:
 
--   One account per company in a B2B SaaS
--   One account per department in an enterprise
--   One account per team in a multi-team organization
+- One account per company in a B2B SaaS
+- One account per department in an enterprise
+- One account per team in a multi-team organization
 
 ### Vault
 
 A **Vault** is an isolated namespace for authorization data. Each vault:
 
--   Has a unique UUID identifier
--   Belongs to exactly one Account
--   Contains its own set of Relationships
--   Has its own cache namespace
--   Maintains independent revision history
--   Provides complete data isolation
+- Has a unique UUID identifier
+- Belongs to exactly one Account
+- Contains its own set of Relationships
+- Has its own cache namespace
+- Maintains independent revision history
+- Provides complete data isolation
 
 **Example Use Cases**:
 
--   Production vs. staging environments
--   Separate data per customer/client
--   Compliance-driven data segregation
--   Geographic data residency requirements
+- Production vs. staging environments
+- Separate data per customer/client
+- Compliance-driven data segregation
+- Geographic data residency requirements
 
 ### Relationship
 
@@ -417,21 +417,21 @@ Every access token **must** include vault and account claims:
 
 **Storage Layer**:
 
--   All queries include `WHERE vault = ?` clause
--   Impossible to query across vaults in single operation
--   Database indexes enforce separation
+- All queries include `WHERE vault = ?` clause
+- Impossible to query across vaults in single operation
+- Database indexes enforce separation
 
 **Cache Layer**:
 
--   Cache keys include vault UUID
--   No way to retrieve another vault's cached data
--   Invalidation operations are vault-scoped
+- Cache keys include vault UUID
+- No way to retrieve another vault's cached data
+- Invalidation operations are vault-scoped
 
 **API Layer**:
 
--   Vault extracted from authenticated user's token
--   No way to specify vault in request body/query params
--   Admin operations require special scope + ownership check
+- Vault extracted from authenticated user's token
+- No way to specify vault in request body/query params
+- Admin operations require special scope + ownership check
 
 ---
 
@@ -445,56 +445,56 @@ Every access token **must** include vault and account claims:
 
 **Recommendation**: Design your vault strategy based on query patterns:
 
--   **Many small vaults**: Better isolation, slightly higher overhead
--   **Few large vaults**: Lower overhead, but less isolation granularity
+- **Many small vaults**: Better isolation, slightly higher overhead
+- **Few large vaults**: Lower overhead, but less isolation granularity
 
 ### Cache Isolation Overhead
 
 **Memory Impact**:
 
--   Each vault has its own cache namespace
--   100 vaults × 10MB cache = 1GB total
--   Monitor memory usage and adjust cache size per deployment
+- Each vault has its own cache namespace
+- 100 vaults × 10MB cache = 1GB total
+- Monitor memory usage and adjust cache size per deployment
 
 **Cache Hit Rates**:
 
--   Vault-scoped caching means no cache sharing between vaults
--   Each vault "warms up" its own cache independently
--   Consider pre-warming caches for frequently accessed vaults
+- Vault-scoped caching means no cache sharing between vaults
+- Each vault "warms up" its own cache independently
+- Consider pre-warming caches for frequently accessed vaults
 
 ### Query Performance with Vault Filtering
 
 **FoundationDB Storage**:
 
--   Vault filtering adds minimal overhead (~1-2%)
--   Indexes are vault-prefixed for optimal performance
--   Revision tracking is per-vault (better locality)
+- Vault filtering adds minimal overhead (~1-2%)
+- Indexes are vault-prefixed for optimal performance
+- Revision tracking is per-vault (better locality)
 
 **Benchmarks** (1M relationships, 100 vaults):
 
--   Single-vault query: ~1.2ms avg
--   Cross-vault query: Not supported (by design)
--   List all vaults: ~15ms (admin operation)
+- Single-vault query: ~1.2ms avg
+- Cross-vault query: Not supported (by design)
+- List all vaults: ~15ms (admin operation)
 
 ### Scaling Multi-Tenant Deployments
 
 **Horizontal Scaling**:
 
--   Stateless API servers can handle any vault
--   FoundationDB provides distributed storage
--   Cache isolation prevents cross-tenant interference
+- Stateless API servers can handle any vault
+- FoundationDB provides distributed storage
+- Cache isolation prevents cross-tenant interference
 
 **Vertical Scaling**:
 
--   More RAM = larger per-vault caches
--   More CPU cores = higher concurrent vault operations
--   Recommend: 4GB RAM per 100 vaults (with 10MB cache each)
+- More RAM = larger per-vault caches
+- More CPU cores = higher concurrent vault operations
+- Recommend: 4GB RAM per 100 vaults (with 10MB cache each)
 
 **Sharding Strategy** (if needed):
 
--   Shard by Account ID for admin operations
--   Shard by Vault ID for data operations
--   No cross-shard queries required (vault boundaries align with shards)
+- Shard by Account ID for admin operations
+- Shard by Vault ID for data operations
+- No cross-shard queries required (vault boundaries align with shards)
 
 ---
 
@@ -590,64 +590,64 @@ const token = await auth0.getAccessToken({
 
 **✅ Do**:
 
--   Create separate vaults for production, staging, and development
--   Use one vault per customer in B2B SaaS scenarios
--   Name vaults descriptively (e.g., "Acme Corp - Production")
--   Document vault ownership and purpose
+- Create separate vaults for production, staging, and development
+- Use one vault per customer in B2B SaaS scenarios
+- Name vaults descriptively (e.g., "Acme Corp - Production")
+- Document vault ownership and purpose
 
 **❌ Don't**:
 
--   Share a single vault across multiple customers
--   Create too many vaults (>1000 per account) without good reason
--   Use vault IDs directly in application logic (use names/metadata)
+- Share a single vault across multiple customers
+- Create too many vaults (>1000 per account) without good reason
+- Use vault IDs directly in application logic (use names/metadata)
 
 ### 2. Token Management
 
 **✅ Do**:
 
--   Always include both `vault` and `account` claims in JWTs
--   Use short-lived tokens (1 hour recommended)
--   Implement token refresh mechanisms
--   Validate vault ownership on every request
+- Always include both `vault` and `account` claims in JWTs
+- Use short-lived tokens (1 hour recommended)
+- Implement token refresh mechanisms
+- Validate vault ownership on every request
 
 **❌ Don't**:
 
--   Use Uuid::nil() for vault/account in production
--   Hardcode vault IDs in application code
--   Skip vault validation for "internal" requests
--   Allow users to specify vault in request body
+- Use Uuid::nil() for vault/account in production
+- Hardcode vault IDs in application code
+- Skip vault validation for "internal" requests
+- Allow users to specify vault in request body
 
 ### 3. Performance Optimization
 
 **✅ Do**:
 
--   Enable caching for frequently accessed data
--   Monitor cache hit rates per vault
--   Use batch operations when possible
--   Pre-warm caches for critical vaults
+- Enable caching for frequently accessed data
+- Monitor cache hit rates per vault
+- Use batch operations when possible
+- Pre-warm caches for critical vaults
 
 **❌ Don't**:
 
--   Disable vault filtering for "performance"
--   Query all vaults in a loop (use proper account-level APIs)
--   Set cache TTL too high (recommend: 5 minutes)
--   Ignore memory usage of vault-scoped caches
+- Disable vault filtering for "performance"
+- Query all vaults in a loop (use proper account-level APIs)
+- Set cache TTL too high (recommend: 5 minutes)
+- Ignore memory usage of vault-scoped caches
 
 ### 4. Security
 
 **✅ Do**:
 
--   Always validate vault ownership before operations
--   Audit vault access patterns
--   Implement rate limiting per vault
--   Log vault ID in all access logs
+- Always validate vault ownership before operations
+- Audit vault access patterns
+- Implement rate limiting per vault
+- Log vault ID in all access logs
 
 **❌ Don't**:
 
--   Allow vault switching via API parameters
--   Trust client-provided vault IDs
--   Skip validation for "admin" requests without proper scoping
--   Store sensitive data in vault names
+- Allow vault switching via API parameters
+- Trust client-provided vault IDs
+- Skip validation for "admin" requests without proper scoping
+- Store sensitive data in vault names
 
 ---
 
@@ -661,10 +661,10 @@ const token = await auth0.getAccessToken({
 
 **Causes**:
 
--   JWT missing `vault` claim
--   JWT has `vault` set to Uuid::nil()
--   Vault doesn't exist in database
--   Vault doesn't belong to the account in JWT
+- JWT missing `vault` claim
+- JWT has `vault` set to Uuid::nil()
+- Vault doesn't exist in database
+- Vault doesn't belong to the account in JWT
 
 **Solutions**:
 
@@ -687,9 +687,9 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 **Causes**:
 
--   Reading from wrong vault
--   JWT vault claim differs between write and read requests
--   Cache not invalidated properly
+- Reading from wrong vault
+- JWT vault claim differs between write and read requests
+- Cache not invalidated properly
 
 **Solutions**:
 
@@ -709,9 +709,9 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 **Causes**:
 
--   Too many vaults sharing limited cache memory
--   Cache TTL too short
--   Frequent writes causing invalidation
+- Too many vaults sharing limited cache memory
+- Cache TTL too short
+- Frequent writes causing invalidation
 
 **Solutions**:
 
@@ -731,9 +731,9 @@ cache:
 
 **Causes**:
 
--   Memory pressure from vault-scoped caches
--   Too many concurrent connections
--   Inefficient vault organization
+- Memory pressure from vault-scoped caches
+- Too many concurrent connections
+- Inefficient vault organization
 
 **Solutions**:
 
@@ -752,11 +752,11 @@ curl https://api.example.com/metrics | grep cache_memory
 
 ## Additional Resources
 
--   [API Reference](/api/rest.md) - Complete REST API documentation
--   [gRPC Reference](/api/grpc.md) - gRPC service definitions
--   [Deployment Guide](/docs/deployment/multi-tenant.md) - Production deployment
--   [Configuration](/docs/configuration.md) - Multi-tenancy config options
--   [Security](/SECURITY.md) - Security best practices
+- [API Reference](/api/rest.md) - Complete REST API documentation
+- [gRPC Reference](/api/grpc.md) - gRPC service definitions
+- [Deployment Guide](/docs/deployment/multi-tenant.md) - Production deployment
+- [Configuration](/docs/configuration.md) - Multi-tenancy config options
+- [Security](/SECURITY.md) - Security best practices
 
 ---
 
@@ -764,6 +764,6 @@ curl https://api.example.com/metrics | grep cache_memory
 
 For questions or issues:
 
--   GitHub Issues: https://github.com/anthropics/inferadb/issues
--   Documentation: https://docs.infera.dev
--   Email: support@infera.dev
+- GitHub Issues: https://github.com/anthropics/inferadb/issues
+- Documentation: https://docs.infera.dev
+- Email: support@infera.dev

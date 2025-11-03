@@ -53,35 +53,35 @@ This guide walks you through deploying InferaDB in a multi-tenant configuration 
 
 ✅ **You have multiple isolated customers/clients**
 
--   B2B SaaS with per-customer data isolation
--   Multi-organization platforms
--   Compliance requirements for data separation
+- B2B SaaS with per-customer data isolation
+- Multi-organization platforms
+- Compliance requirements for data separation
 
 ✅ **You need environment separation**
 
--   Production vs. staging vs. development
--   Multiple deployment regions
--   Testing isolation from production
+- Production vs. staging vs. development
+- Multiple deployment regions
+- Testing isolation from production
 
 ✅ **You have hierarchical organization structures**
 
--   Departments within an enterprise
--   Teams within an organization
--   Projects within teams
+- Departments within an enterprise
+- Teams within an organization
+- Projects within teams
 
 ### Use Single Vault When
 
 ❌ **You have a single application with one data space**
 
--   Single-tenant SaaS
--   Internal tools with unified access control
--   Simple authorization scenarios
+- Single-tenant SaaS
+- Internal tools with unified access control
+- Simple authorization scenarios
 
 ❌ **You need cross-tenant queries**
 
--   Shared resources across all tenants
--   Global analytics
--   Cross-tenant collaboration (use alternative patterns)
+- Shared resources across all tenants
+- Global analytics
+- Cross-tenant collaboration (use alternative patterns)
 
 ---
 
@@ -232,10 +232,10 @@ echo $TOKEN | cut -d. -f2 | base64 -d | jq .
 
 1. **Create Protocol Mapper** (Clients → YOUR_CLIENT → Mappers):
 
--   Mapper Type: "User Attribute"
--   User Attribute: "vault_id"
--   Token Claim Name: "vault"
--   Claim JSON Type: "String"
+- Mapper Type: "User Attribute"
+- User Attribute: "vault_id"
+- Token Claim Name: "vault"
+- Claim JSON Type: "String"
 
 2. **Set User Attributes** (Users → YOUR_USER → Attributes):
 
@@ -430,15 +430,15 @@ Use descriptive, hierarchical naming:
 
 **Per Vault**:
 
--   Cache: 10-50 MB (depending on usage)
--   Connections: 2-5 concurrent
--   Memory: ~100 MB overhead per active vault
+- Cache: 10-50 MB (depending on usage)
+- Connections: 2-5 concurrent
+- Memory: ~100 MB overhead per active vault
 
 **Example** (for 100 vaults):
 
--   Total Cache: 1-5 GB
--   Total Memory: 10-15 GB
--   Recommended: 16 GB RAM, 4-8 CPU cores
+- Total Cache: 1-5 GB
+- Total Memory: 10-15 GB
+- Recommended: 16 GB RAM, 4-8 CPU cores
 
 ### 4. Monitoring Vault Metrics
 
@@ -453,10 +453,10 @@ observability:
 
 Key metrics to monitor:
 
--   `inferadb_vault_requests_total{vault="..."}` - Request count per vault
--   `inferadb_vault_cache_hits{vault="..."}` - Cache hit rate per vault
--   `inferadb_vault_relationships_total{vault="..."}` - Relationship count per vault
--   `inferadb_vault_latency_seconds{vault="..."}` - Query latency per vault
+- `inferadb_vault_requests_total{vault="..."}` - Request count per vault
+- `inferadb_vault_cache_hits{vault="..."}` - Cache hit rate per vault
+- `inferadb_vault_relationships_total{vault="..."}` - Relationship count per vault
+- `inferadb_vault_latency_seconds{vault="..."}` - Query latency per vault
 
 ### 5. Backup and Restore
 
@@ -536,11 +536,11 @@ Import the provided dashboard: `grafana/multi-tenant-dashboard.json`
 
 Key panels:
 
--   Requests per vault (top 10)
--   Cache hit rates per vault
--   Latency distribution per vault
--   Relationship count per vault
--   Error rate per vault
+- Requests per vault (top 10)
+- Cache hit rates per vault
+- Latency distribution per vault
+- Relationship count per vault
+- Error rate per vault
 
 ### Logging
 
@@ -579,9 +579,9 @@ latency_ms:>1000 AND vault_id:*
 
 **Symptoms**:
 
--   OOM kills
--   Slow performance
--   High swap usage
+- OOM kills
+- Slow performance
+- High swap usage
 
 **Diagnosis**:
 
@@ -610,8 +610,8 @@ curl http://localhost:9090/metrics | grep inferadb_active_vaults
 
 **Symptoms**:
 
--   403 errors
--   "Vault access denied" messages
+- 403 errors
+- "Vault access denied" messages
 
 **Diagnosis**:
 
@@ -639,8 +639,8 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 **Symptoms**:
 
--   High latency
--   Low cache hit rate metrics
+- High latency
+- Low cache hit rate metrics
 
 **Diagnosis**:
 
@@ -668,10 +668,10 @@ curl http://localhost:9090/metrics | \
 
 ## Additional Resources
 
--   [Architecture Documentation](/docs/architecture/multi-tenancy.md)
--   [API Reference](/api/rest.md)
--   [Configuration Guide](/docs/configuration.md)
--   [Security Best Practices](/SECURITY.md)
+- [Architecture Documentation](/docs/architecture/multi-tenancy.md)
+- [API Reference](/api/rest.md)
+- [Configuration Guide](/docs/configuration.md)
+- [Security Best Practices](/SECURITY.md)
 
 ---
 
@@ -679,6 +679,6 @@ curl http://localhost:9090/metrics | \
 
 For deployment assistance:
 
--   GitHub Issues: https://github.com/anthropics/inferadb/issues
--   Documentation: https://docs.infera.dev
--   Email: support@infera.dev
+- GitHub Issues: https://github.com/anthropics/inferadb/issues
+- Documentation: https://docs.infera.dev
+- Email: support@infera.dev

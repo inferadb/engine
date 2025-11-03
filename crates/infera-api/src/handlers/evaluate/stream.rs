@@ -13,7 +13,7 @@ use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest};
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::get_vault};
+use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
 /// Request for batch authorization evaluation (streaming endpoint)
 #[derive(Serialize, Deserialize, Debug)]
@@ -89,30 +89,21 @@ pub async fn evaluate_stream_handler(
     State(state): State<AppState>,
     Json(request): Json<EvaluateRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
-    // Extract vault from auth context or use default
-    let vault = get_vault(&auth.0, state.default_vault);
+    // Authorize request and extract vault
+    let vault = authorize_request(
+        &auth.0,
+        state.default_vault,
+        state.config.auth.enabled,
+        &["inferadb.check"],
+    )?;
 
-    // Validate vault access (basic nil check)
+    // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        infera_auth::validate_vault_access(auth_ctx)
-            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
-    }
-
-    // If auth is enabled and present, validate scope
-    if state.config.auth.enabled {
-        if let Some(ref auth_ctx) = auth.0 {
-            // Require inferadb.check scope
-            infera_auth::middleware::require_scope(auth_ctx, "inferadb.check")
-                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!(
-                "Streaming check request from tenant: {} (vault: {})",
-                auth_ctx.tenant_id,
-                vault
-            );
-        } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
-        }
+        tracing::debug!(
+            "Streaming check request from tenant: {} (vault: {})",
+            auth_ctx.tenant_id,
+            vault
+        );
     }
 
     // Validate request

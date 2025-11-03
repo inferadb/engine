@@ -117,12 +117,10 @@ The codebase follows a layered architecture with clear separation of concerns:
 5. **infera-cache**: Two-layer caching system (authorization results + expand trees). Uses `moka` for async LRU cache.
 
 6. **infera-store**: Storage abstraction layer defining `RelationshipStore`, `VaultStore`, and `AccountStore` traits. Implementations:
-
     - `MemoryBackend` - In-memory HashMap (development/testing)
     - `FoundationDBBackend` - Distributed storage (production)
 
 7. **infera-core**: Policy evaluation engine:
-
     - IPL (Infera Policy Language) parser
     - Relationship graph traversal
     - Decision evaluation with caching
@@ -133,7 +131,6 @@ The codebase follows a layered architecture with clear separation of concerns:
 9. **infera-repl**: Multi-region replication with conflict resolution.
 
 10. **infera-auth**: Authentication and authorization:
-
     - JWT validation (EdDSA, RS256 only - no symmetric algorithms)
     - OAuth 2.0 Bearer token support
     - JWKS caching with stale-while-revalidate
@@ -141,7 +138,6 @@ The codebase follows a layered architecture with clear separation of concerns:
     - Replay protection (in-memory or Redis)
 
 11. **infera-api**: HTTP and gRPC API servers:
-
     - REST API via Axum
     - gRPC API via Tonic
     - Rate limiting
@@ -157,11 +153,11 @@ The codebase follows a layered architecture with clear separation of concerns:
 
 **Critical:** All data operations are scoped to a `Vault` (UUID). This provides complete tenant isolation.
 
--   Every `Relationship` has a `vault` field (UUID)
--   All storage operations require a `vault` parameter
--   JWT tokens include `vault` and `account` claims
--   `AuthContext` includes `vault` and `account` fields
--   Middleware validates vault access before allowing operations
+- Every `Relationship` has a `vault` field (UUID)
+- All storage operations require a `vault` parameter
+- JWT tokens include `vault` and `account` claims
+- `AuthContext` includes `vault` and `account` fields
+- Middleware validates vault access before allowing operations
 
 **Storage Layer Pattern:**
 
@@ -184,10 +180,10 @@ See `MULTI_TENANCY.md` for implementation details and phase tracking.
 
 All reads and writes use monotonically increasing `Revision` tokens:
 
--   Each vault has its own revision counter
--   Writes return the new revision
--   Reads specify a revision for snapshot consistency
--   Enables "Read Your Writes" consistency
+- Each vault has its own revision counter
+- Writes return the new revision
+- Reads specify a revision for snapshot consistency
+- Enables "Read Your Writes" consistency
 
 #### Two-Layer Caching
 
@@ -196,23 +192,23 @@ All reads and writes use monotonically increasing `Revision` tokens:
 
 Both caches:
 
--   Are vault-scoped (keys include vault UUID)
--   Are revision-aware (invalidated on writes)
--   Support selective invalidation by resource
+- Are vault-scoped (keys include vault UUID)
+- Are revision-aware (invalidated on writes)
+- Support selective invalidation by resource
 
 #### Storage Trait Abstraction
 
 The `RelationshipStore` trait enables pluggable backends:
 
--   Development: `MemoryBackend` (in-memory HashMap)
--   Production: `FoundationDBBackend` (distributed, transactional)
+- Development: `MemoryBackend` (in-memory HashMap)
+- Production: `FoundationDBBackend` (distributed, transactional)
 
 All implementations must support:
 
--   Vault-scoped operations
--   Revision-based reads
--   Change log for Watch API
--   Atomic write/delete operations
+- Vault-scoped operations
+- Revision-based reads
+- Change log for Watch API
+- Atomic write/delete operations
 
 #### API Handler Organization
 
@@ -483,15 +479,15 @@ Server::builder()
 
 **Files:**
 
--   `crates/infera-auth/src/middleware.rs` - Vault validation functions
--   `crates/infera-auth/tests/vault_auth_tests.rs` - Comprehensive vault tests
+- `crates/infera-auth/src/middleware.rs` - Vault validation functions
+- `crates/infera-auth/tests/vault_auth_tests.rs` - Comprehensive vault tests
 
 ### Authentication Security
 
 **Only asymmetric algorithms are allowed:**
 
--   EdDSA (Ed25519)
--   RS256, RS384, RS512
+- EdDSA (Ed25519)
+- RS256, RS384, RS512
 
 Symmetric algorithms (HS256, etc.) are explicitly rejected in validation.
 
@@ -531,15 +527,15 @@ pub struct AuthContext {
 
 Subjects can be wildcards (e.g., `user:*`) to model public resources:
 
--   Only valid in subject position (not resource or relation)
--   Format must be `type:*` (e.g., `user:*`, `group:*`)
--   Matching checks both exact match AND wildcard type match
+- Only valid in subject position (not resource or relation)
+- Format must be `type:*` (e.g., `user:*`, `group:*`)
+- Matching checks both exact match AND wildcard type match
 
 **Implementation:**
 
--   `Relationship::is_wildcard_subject()` - Check if subject is wildcard
--   `Relationship::matches_subject(subject)` - Check if relationship applies to subject
--   `Relationship::validate_wildcard_placement()` - Ensure wildcards only in subject
+- `Relationship::is_wildcard_subject()` - Check if subject is wildcard
+- `Relationship::matches_subject(subject)` - Check if relationship applies to subject
+- `Relationship::validate_wildcard_placement()` - Ensure wildcards only in subject
 
 ### IPL (Infera Policy Language)
 
@@ -568,9 +564,9 @@ type document {
 
 ### Test Organization
 
--   **Unit tests:** In `#[cfg(test)] mod tests` within source files
--   **Integration tests:** In `tests/` directory of each crate
--   **Fixtures:** `crates/infera-test-fixtures` for shared test utilities
+- **Unit tests:** In `#[cfg(test)] mod tests` within source files
+- **Integration tests:** In `tests/` directory of each crate
+- **Fixtures:** `crates/infera-test-fixtures` for shared test utilities
 
 ### Writing Multi-Tenant Tests
 
@@ -610,9 +606,9 @@ async fn test_vault_isolation() {
 
 Use the test helpers in `crates/infera-auth/tests/common/`:
 
--   `internal_jwt_helpers.rs` - Generate test JWTs
--   `mock_jwks.rs` - Mock JWKS server
--   `mock_oauth.rs` - Mock OAuth provider
+- `internal_jwt_helpers.rs` - Generate test JWTs
+- `mock_jwks.rs` - Mock JWKS server
+- `mock_oauth.rs` - Mock OAuth provider
 
 ---
 
@@ -655,9 +651,9 @@ Configuration precedence (highest to lowest):
 
 **Environment variable format:**
 
--   Use double underscore `__` as separator
--   Prefix with `INFERA__`
--   Example: `INFERA__AUTH__ENABLED=true`
+- Use double underscore `__` as separator
+- Prefix with `INFERA__`
+- Example: `INFERA__AUTH__ENABLED=true`
 
 ---
 
@@ -694,10 +690,10 @@ If compilation fails:
 
 ## Performance Considerations
 
--   **Caching:** Enable caching for production (default: on)
--   **Worker Threads:** Set `INFERA__SERVER__WORKER_THREADS` to CPU count
--   **Database:** Use FoundationDB for production, not MemoryBackend
--   **Rate Limiting:** Configure per deployment requirements
+- **Caching:** Enable caching for production (default: on)
+- **Worker Threads:** Set `INFERA__SERVER__WORKER_THREADS` to CPU count
+- **Database:** Use FoundationDB for production, not MemoryBackend
+- **Rate Limiting:** Configure per deployment requirements
 
 **Benchmarking:**
 
@@ -709,12 +705,12 @@ cargo bench --workspace
 
 ## Security Notes
 
--   Never use symmetric JWT algorithms (HS256) - explicitly rejected
--   Always validate vault ownership before operations
--   Use audit logging for authentication events
--   Enable replay protection in production
--   Follow least-privilege principle for scopes
--   Regularly run security audits: `cargo audit`
+- Never use symmetric JWT algorithms (HS256) - explicitly rejected
+- Always validate vault ownership before operations
+- Use audit logging for authentication events
+- Enable replay protection in production
+- Follow least-privilege principle for scopes
+- Regularly run security audits: `cargo audit`
 
 ---
 
@@ -909,16 +905,16 @@ See `MULTI_TENANCY.md` for detailed phase tracking.
 
 **Completed:**
 
--   ✅ Phase 1: Data Model & Storage (Vault/Account types, storage layer)
--   ✅ Phase 2: Authentication Integration (JWT claims, vault validation)
--   ✅ Phase 3: API Handler Updates (vault-scoped endpoints)
--   ✅ Phase 4: Account & Vault Management APIs (10 REST endpoints with admin/owner authorization)
+- ✅ Phase 1: Data Model & Storage (Vault/Account types, storage layer)
+- ✅ Phase 2: Authentication Integration (JWT claims, vault validation)
+- ✅ Phase 3: API Handler Updates (vault-scoped endpoints)
+- ✅ Phase 4: Account & Vault Management APIs (10 REST endpoints with admin/owner authorization)
 
 **Pending:**
 
--   Phase 5: Initialization & Migration
--   Phase 6: Cache Isolation
--   Phase 7: Testing & Documentation
+- Phase 5: Initialization & Migration
+- Phase 6: Cache Isolation
+- Phase 7: Testing & Documentation
 
 ---
 
@@ -931,17 +927,17 @@ The `infera-types` crate serves as the **single source of truth** for all shared
 **Key Principles:**
 
 1. **Types belong in infera-types if they are:**
-   - Used by multiple crates
-   - Core domain concepts (Relationship, Vault, Account, Decision)
-   - Request/response types for APIs
-   - Shared authentication types (AuthContext, AuthMethod)
-   - Common error types used across boundaries
+    - Used by multiple crates
+    - Core domain concepts (Relationship, Vault, Account, Decision)
+    - Request/response types for APIs
+    - Shared authentication types (AuthContext, AuthMethod)
+    - Common error types used across boundaries
 
 2. **Types should stay in their implementation crate if they are:**
-   - Implementation-specific (e.g., AuthError with JWKS/OAuth details)
-   - Only used within a single crate
-   - Tied to a specific runtime or library (e.g., WASM types)
-   - Configuration types (belong in infera-config)
+    - Implementation-specific (e.g., AuthError with JWKS/OAuth details)
+    - Only used within a single crate
+    - Tied to a specific runtime or library (e.g., WASM types)
+    - Configuration types (belong in infera-config)
 
 ### Current infera-types Organization
 
@@ -962,10 +958,10 @@ src/
 3. Add comprehensive doc comments
 4. Include tests in the same file
 5. Export from `lib.rs`:
-   ```rust
-   pub mod mytype;
-   pub use mytype::MyType;
-   ```
+    ```rust
+    pub mod mytype;
+    pub use mytype::MyType;
+    ```
 
 ### Moving Types from Other Crates
 
@@ -983,6 +979,7 @@ pub use infera_types::MyType;  // Re-export for backwards compatibility
 ```
 
 **Benefits:**
+
 - Zero breaking changes for consumers
 - Clean migration path
 - Maintains import compatibility
@@ -1001,6 +998,7 @@ Layer 5 (Binary):      infera-bin
 ```
 
 **Rules:**
+
 - Types flow **downward only** (foundation → utilities → storage → runtime → application)
 - infera-types **never** depends on other internal crates
 - If a type is needed by multiple layers, it belongs in the **lowest common layer**
@@ -1009,6 +1007,7 @@ Layer 5 (Binary):      infera-bin
 ### Common Patterns
 
 **1. Serialization Attributes:**
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]  // For API compatibility
@@ -1019,12 +1018,14 @@ pub enum Decision {
 ```
 
 **2. Request/Response Pairs:**
+
 ```rust
 pub struct CreateResourceRequest { /* ... */ }
 pub struct CreateResourceResponse { /* ... */ }
 ```
 
 **3. Helper Constructors:**
+
 ```rust
 impl DeleteFilter {
     pub fn exact(resource: String, relation: String, subject: String) -> Self { /* ... */ }
@@ -1053,6 +1054,7 @@ When moving a type to infera-types:
 ### Examples
 
 **Good - Type belongs in infera-types:**
+
 ```rust
 // Used by infera-api, infera-auth, tests
 pub struct AuthContext {
@@ -1063,6 +1065,7 @@ pub struct AuthContext {
 ```
 
 **Good - Type stays in implementation crate:**
+
 ```rust
 // Only used within infera-auth, has impl-specific details
 pub enum AuthError {
@@ -1075,6 +1078,7 @@ pub enum AuthError {
 ### Future Improvements
 
 Tracked in `PLAN.md`:
+
 - Phase 3: Move cache key types to infera-types
 - Phase 4: Reorganize lib.rs into feature-based modules
 - Add cargo-deny to enforce dependency rules

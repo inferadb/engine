@@ -10,17 +10,17 @@ This runbook covers backup and restoration procedures for InferaDB data and conf
 
 **Important**: Memory backend does **not persist data**. All data is lost on pod restart.
 
--   **Use case**: Development/testing only
--   **Backup**: Not applicable
--   **Restore**: Reload from source of truth
+- **Use case**: Development/testing only
+- **Backup**: Not applicable
+- **Restore**: Reload from source of truth
 
 ### FoundationDB Backend
 
 **Recommended**: Production deployments use FoundationDB for persistence.
 
--   **Use case**: Production
--   **Backup**: Automated backups via FDB tools
--   **Restore**: Point-in-time recovery available
+- **Use case**: Production
+- **Backup**: Automated backups via FDB tools
+- **Restore**: Point-in-time recovery available
 
 ## Configuration Backup
 
@@ -63,9 +63,9 @@ helm get all inferadb -n inferadb > backup-helm-full-$(date +%Y%m%d).yaml
 
 ### Prerequisites
 
--   FoundationDB cluster running
--   Backup agent configured
--   Blob storage available (S3, GCS, Azure Blob)
+- FoundationDB cluster running
+- Backup agent configured
+- Blob storage available (S3, GCS, Azure Blob)
 
 ### Configure FDB Backup
 
@@ -354,14 +354,14 @@ echo "Verify functionality and monitor logs"
 
 Before disaster strikes:
 
--   [ ] Regular automated backups configured
--   [ ] Backups stored in separate region/zone
--   [ ] Backup encryption enabled
--   [ ] Restore procedures tested quarterly
--   [ ] Recovery Time Objective (RTO) defined
--   [ ] Recovery Point Objective (RPO) defined
--   [ ] Runbooks accessible offline
--   [ ] Contact information current
+- [ ] Regular automated backups configured
+- [ ] Backups stored in separate region/zone
+- [ ] Backup encryption enabled
+- [ ] Restore procedures tested quarterly
+- [ ] Recovery Time Objective (RTO) defined
+- [ ] Recovery Point Objective (RPO) defined
+- [ ] Runbooks accessible offline
+- [ ] Contact information current
 
 ### DR Scenarios
 
@@ -521,11 +521,11 @@ groups:
 
 Track in monitoring dashboard:
 
--   Last successful backup timestamp
--   Backup size
--   Backup duration
--   Restore test results
--   Storage usage
+- Last successful backup timestamp
+- Backup size
+- Backup duration
+- Restore test results
+- Storage usage
 
 ## Troubleshooting
 
@@ -543,9 +543,9 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 
 **Resolution**:
 
--   Verify cluster file is correct
--   Check network connectivity
--   Ensure backup agent has proper permissions
+- Verify cluster file is correct
+- Check network connectivity
+- Ensure backup agent has proper permissions
 
 ### Restore Hangs
 
@@ -560,10 +560,10 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 
 **Resolution**:
 
--   Check FDB cluster health
--   Verify backup files are accessible
--   Check storage credentials
--   Increase restore timeout
+- Check FDB cluster health
+- Verify backup files are accessible
+- Check storage credentials
+- Increase restore timeout
 
 ### Backup Storage Full
 
@@ -577,13 +577,13 @@ aws s3 ls s3://YOUR_BUCKET_NAME/fdb-backups/ --recursive --summarize --human-rea
 
 **Resolution**:
 
--   Implement retention policy
--   Delete old backups
--   Increase storage quota
--   Archive old backups to glacier
+- Implement retention policy
+- Delete old backups
+- Increase storage quota
+- Archive old backups to glacier
 
 ## Related Runbooks
 
--   [Service Outage](service-outage.md) - Recovery procedures
--   [Storage Backend](storage-backend.md) - FDB troubleshooting
--   [Upgrades](upgrades.md) - Backup before upgrades
+- [Service Outage](service-outage.md) - Recovery procedures
+- [Storage Backend](storage-backend.md) - FDB troubleshooting
+- [Upgrades](upgrades.md) - Backup before upgrades

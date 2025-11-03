@@ -1,14 +1,14 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: inferadb
-  labels:
-    app: inferadb
-    component: server
+    name: inferadb
+    labels:
+        app: inferadb
+        component: server
 spec:
-  minAvailable: 2
-  selector:
-    matchLabels:
-      app: inferadb
-      component: server
-  unhealthyPodEvictionPolicy: IfHealthyBudget
+    minAvailable: 2
+    selector:
+        matchLabels:
+            app: inferadb
+            component: server
+    unhealthyPodEvictionPolicy: IfHealthyBudget

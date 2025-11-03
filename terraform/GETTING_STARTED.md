@@ -16,15 +16,15 @@ Need production deployment?
 
 ## Deployment Comparison
 
-| Feature | Docker | Kubernetes | Helm | Terraform AWS | Terraform GCP |
-|---------|--------|------------|------|---------------|---------------|
-| **Setup Time** | 5 min | 15 min | 10 min | 20 min | 20 min |
-| **Production Ready** | No | Yes | Yes | Yes | Yes |
-| **Auto-scaling** | No | Manual | Yes | Yes | Yes |
-| **High Availability** | No | Manual | Yes | Yes | Yes |
-| **Infrastructure** | Manual | Manual | Manual | Automated | Automated |
-| **Cost** | Minimal | Variable | Variable | ~$60-695/mo | ~$75-650/mo |
-| **Best For** | Local dev | Self-managed K8s | Any K8s | AWS deployments | GCP deployments |
+| Feature               | Docker    | Kubernetes       | Helm     | Terraform AWS   | Terraform GCP   |
+| --------------------- | --------- | ---------------- | -------- | --------------- | --------------- |
+| **Setup Time**        | 5 min     | 15 min           | 10 min   | 20 min          | 20 min          |
+| **Production Ready**  | No        | Yes              | Yes      | Yes             | Yes             |
+| **Auto-scaling**      | No        | Manual           | Yes      | Yes             | Yes             |
+| **High Availability** | No        | Manual           | Yes      | Yes             | Yes             |
+| **Infrastructure**    | Manual    | Manual           | Manual   | Automated       | Automated       |
+| **Cost**              | Minimal   | Variable         | Variable | ~$60-695/mo     | ~$75-650/mo     |
+| **Best For**          | Local dev | Self-managed K8s | Any K8s  | AWS deployments | GCP deployments |
 
 ## AWS Deployment
 
@@ -79,6 +79,7 @@ kubectl get svc -n inferadb inferadb
 ```
 
 **What You Get:**
+
 - EKS cluster with 3 nodes (m5.xlarge)
 - ElastiCache Redis for replay protection
 - Network Load Balancer
@@ -98,6 +99,7 @@ aws eks update-kubeconfig --region us-west-2 --name inferadb-dev
 ```
 
 **What You Get:**
+
 - Minimal EKS cluster (1 node, t3.medium)
 - In-memory storage only
 - NodePort service
@@ -161,6 +163,7 @@ kubectl get svc -n inferadb inferadb
 ```
 
 **What You Get:**
+
 - Regional GKE cluster (3 zones)
 - Memorystore Redis for replay protection
 - Load Balancer
@@ -181,6 +184,7 @@ gcloud container clusters get-credentials inferadb-dev \
 ```
 
 **What You Get:**
+
 - Zonal GKE cluster (1 node)
 - In-memory storage only
 - NodePort service
@@ -214,8 +218,9 @@ curl -X POST http://$LB_URL:8080/v1/check \
 ```
 
 Expected response:
+
 ```json
-{"allowed": true}
+{ "allowed": true }
 ```
 
 ## Monitoring
@@ -243,6 +248,7 @@ curl http://localhost:9090/metrics
 ### Cloud Monitoring
 
 **AWS:**
+
 ```bash
 # View CloudWatch logs
 aws logs tail /aws/eks/inferadb-prod/cluster --follow
@@ -259,6 +265,7 @@ aws cloudwatch get-metric-statistics \
 ```
 
 **GCP:**
+
 ```bash
 # View logs
 gcloud logging read "resource.type=k8s_container AND resource.labels.namespace_name=inferadb" --limit 100
@@ -282,6 +289,7 @@ terraform apply -var="inferadb_replica_count=10"
 ### Scale Nodes
 
 **AWS:**
+
 ```bash
 # Update node group
 aws eks update-nodegroup-config \
@@ -291,6 +299,7 @@ aws eks update-nodegroup-config \
 ```
 
 **GCP:**
+
 ```bash
 # Update node pool
 gcloud container clusters resize inferadb-prod \
@@ -312,6 +321,7 @@ terraform destroy
 ```
 
 **Warning:** This deletes:
+
 - Kubernetes cluster and all workloads
 - Redis/Memorystore instances
 - Load balancers
@@ -352,6 +362,7 @@ gcloud compute firewall-rules list \
 ### Redis Connection Issues
 
 **AWS:**
+
 ```bash
 # Check Redis status
 aws elasticache describe-replication-groups \
@@ -363,6 +374,7 @@ kubectl run -it --rm debug --image=redis:7 --restart=Never -- \
 ```
 
 **GCP:**
+
 ```bash
 # Check Redis instance
 gcloud redis instances describe inferadb-prod-redis --region us-central1
@@ -375,17 +387,20 @@ kubectl run -it --rm debug --image=redis:7 --restart=Never -- \
 ## Cost Optimization
 
 ### Development
+
 - Use minimal examples (~$60-75/month)
 - Use spot/preemptible instances
 - Delete when not in use
 
 ### Production
+
 - Right-size based on metrics
 - Use reserved/committed instances
 - Enable autoscaling
 - Set up budget alerts
 
 **AWS Budget Alert:**
+
 ```bash
 aws budgets create-budget \
   --account-id $(aws sts get-caller-identity --query Account --output text) \
@@ -394,6 +409,7 @@ aws budgets create-budget \
 ```
 
 **GCP Budget Alert:**
+
 ```bash
 gcloud billing budgets create \
   --billing-account=YOUR_BILLING_ACCOUNT \

@@ -12,7 +12,7 @@ use crate::{
     adapters::authzen::{
         AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject, parse_entity,
     },
-    handlers::utils::{auth::get_vault, validation::safe_format_entity},
+    handlers::utils::{auth::authorize_request, validation::safe_format_entity},
     validation::{
         validate_authzen_resource_search_request, validate_authzen_subject_search_request,
     },
@@ -116,30 +116,21 @@ pub async fn post_search_resource(
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
 
-    // Extract vault from auth context or use default
-    let vault = get_vault(&auth.0, state.default_vault);
+    // Authorize request and extract vault
+    let vault = authorize_request(
+        &auth.0,
+        state.default_vault,
+        state.config.auth.enabled,
+        &["inferadb.list"],
+    )?;
 
-    // Validate vault access
+    // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        infera_auth::validate_vault_access(auth_ctx)
-            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
-    }
-
-    // If auth is enabled, validate scope
-    if state.config.auth.enabled {
-        if let Some(ref auth_ctx) = auth.0 {
-            // Require inferadb.list scope
-            infera_auth::middleware::require_scope(auth_ctx, "inferadb.list")
-                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!(
-                tenant_id = auth_ctx.tenant_id,
-                vault = %vault,
-                "AuthZEN resource search request with authentication"
-            );
-        } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
-        }
+        tracing::debug!(
+            tenant_id = auth_ctx.tenant_id,
+            vault = %vault,
+            "AuthZEN resource search request with authentication"
+        );
     }
 
     // Validate required fields
@@ -316,30 +307,21 @@ pub async fn post_search_subject(
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
 
-    // Extract vault from auth context or use default
-    let vault = get_vault(&auth.0, state.default_vault);
+    // Authorize request and extract vault
+    let vault = authorize_request(
+        &auth.0,
+        state.default_vault,
+        state.config.auth.enabled,
+        &["inferadb.list"],
+    )?;
 
-    // Validate vault access
+    // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        infera_auth::validate_vault_access(auth_ctx)
-            .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
-    }
-
-    // If auth is enabled, validate scope
-    if state.config.auth.enabled {
-        if let Some(ref auth_ctx) = auth.0 {
-            // Require inferadb.list scope
-            infera_auth::middleware::require_scope(auth_ctx, "inferadb.list")
-                .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-
-            tracing::debug!(
-                tenant_id = auth_ctx.tenant_id,
-                vault = %vault,
-                "AuthZEN subject search request with authentication"
-            );
-        } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
-        }
+        tracing::debug!(
+            tenant_id = auth_ctx.tenant_id,
+            vault = %vault,
+            "AuthZEN subject search request with authentication"
+        );
     }
 
     // Validate required fields

@@ -62,10 +62,10 @@ If you modify the Licensed Work, you must include a prominent notice stating tha
 
 ## **Summary (Informative Only)**
 
--   ✅ **Free for non-commercial, personal, or internal use.**
--   ✅ **Source-available for learning, contribution, and research.**
--   ⚠️ **Cannot be used to offer InferaDB as a managed or commercial service without a commercial agreement.**
--   🔄 **Automatically reverts to Apache 2.0 on January 1, 2029.**
+- ✅ **Free for non-commercial, personal, or internal use.**
+- ✅ **Source-available for learning, contribution, and research.**
+- ⚠️ **Cannot be used to offer InferaDB as a managed or commercial service without a commercial agreement.**
+- 🔄 **Automatically reverts to Apache 2.0 on January 1, 2029.**
 
 ---
 

@@ -6,13 +6,13 @@ This guide helps you migrate from SpiceDB to InferaDB, highlighting API equivale
 
 **InferaDB Advantages**:
 
--   ✅ **Streaming APIs**: All list operations stream results for better performance
--   ✅ **Batch Check with Trace**: Industry's only platform with detailed trace on batch checks
--   ✅ **No Hard Limits**: SpiceDB limits BatchCheck to 30-100 items, InferaDB has no limit
--   ✅ **Simpler API**: Unified streaming pattern across all operations
--   ✅ **Built-in Auth**: JWT/OAuth with EdDSA/RS256/ES256 support
--   ✅ **Real-time Watch**: gRPC + REST/SSE streaming for change events
--   ✅ **Wildcards**: `type:*` pattern for public access modeling
+- ✅ **Streaming APIs**: All list operations stream results for better performance
+- ✅ **Batch Check with Trace**: Industry's only platform with detailed trace on batch checks
+- ✅ **No Hard Limits**: SpiceDB limits BatchCheck to 30-100 items, InferaDB has no limit
+- ✅ **Simpler API**: Unified streaming pattern across all operations
+- ✅ **Built-in Auth**: JWT/OAuth with EdDSA/RS256/ES256 support
+- ✅ **Real-time Watch**: gRPC + REST/SSE streaming for change events
+- ✅ **Wildcards**: `type:*` pattern for public access modeling
 
 ## Quick Comparison
 
@@ -128,9 +128,9 @@ curl -X POST http://localhost:8080/v1/evaluate \
 
 **Key Differences**:
 
--   ✅ InferaDB uses simple string format: `type:id`
--   ✅ InferaDB has both gRPC and REST APIs
--   ✅ InferaDB supports streaming for unlimited batch checks
+- ✅ InferaDB uses simple string format: `type:id`
+- ✅ InferaDB has both gRPC and REST APIs
+- ✅ InferaDB supports streaming for unlimited batch checks
 
 ### 2. Batch Check
 
@@ -166,9 +166,9 @@ grpcurl -plaintext -d '{
 
 **Key Differences**:
 
--   ✅ No hard limits in InferaDB
--   ✅ Streaming design handles unlimited batch size
--   ✅ Better performance for large batches
+- ✅ No hard limits in InferaDB
+- ✅ Streaming design handles unlimited batch size
+- ✅ Better performance for large batches
 
 ### 3. Expand Relation
 
@@ -196,9 +196,9 @@ grpcurl -plaintext -d '{
 
 **Key Differences**:
 
--   ✅ InferaDB streams results progressively
--   ✅ Simpler request format
--   ✅ Better performance for large usersets
+- ✅ InferaDB streams results progressively
+- ✅ Simpler request format
+- ✅ Better performance for large usersets
 
 ### 4. List Resources (LookupResources)
 
@@ -239,9 +239,9 @@ curl -X POST http://localhost:8080/v1/resources/list \
 
 **Key Differences**:
 
--   ✅ Streaming prevents memory issues with large result sets
--   ✅ REST/SSE option for web clients
--   ✅ Optional resource ID pattern filtering
+- ✅ Streaming prevents memory issues with large result sets
+- ✅ REST/SSE option for web clients
+- ✅ Optional resource ID pattern filtering
 
 ### 5. List Subjects (LookupSubjects)
 
@@ -327,9 +327,9 @@ curl -X POST http://localhost:8080/v1/write-relationships \
 
 **Key Differences**:
 
--   ✅ Simpler format (no operation field needed)
--   ✅ Streaming for efficient batch writes
--   ✅ Wildcard support: `"subject": "user:*"` for public access
+- ✅ Simpler format (no operation field needed)
+- ✅ Streaming for efficient batch writes
+- ✅ Wildcard support: `"subject": "user:*"` for public access
 
 ### 7. Delete Relationships
 
@@ -395,9 +395,9 @@ curl -X POST http://localhost:8080/v1/watch \
 
 **Key Differences**:
 
--   ✅ REST/SSE option for web applications
--   ✅ Cursor-based resumption
--   ✅ Simpler filtering
+- ✅ REST/SSE option for web applications
+- ✅ Cursor-based resumption
+- ✅ Simpler filtering
 
 ---
 
@@ -437,9 +437,9 @@ curl -X POST http://localhost:8080/v1/evaluate \
 
 **Key Differences**:
 
--   ✅ InferaDB provides sequential consistency by default
--   ✅ Simpler revision tokens (integer, not opaque token)
--   ✅ Optional revision specification via header
+- ✅ InferaDB provides sequential consistency by default
+- ✅ Simpler revision tokens (integer, not opaque token)
+- ✅ Optional revision specification via header
 
 ---
 
@@ -465,8 +465,8 @@ document:readme#reader@user:*
 
 **Both support**:
 
--   Public resources (all users can access)
--   Type-scoped wildcards (`user:*` matches any user)
+- Public resources (all users can access)
+- Type-scoped wildcards (`user:*` matches any user)
 
 ---
 
@@ -474,43 +474,43 @@ document:readme#reader@user:*
 
 ### 1. Schema Translation
 
--   [ ] Convert `definition` to `type`
--   [ ] Convert `permission` to computed `relation`
--   [ ] Test schema with sample data
+- [ ] Convert `definition` to `type`
+- [ ] Convert `permission` to computed `relation`
+- [ ] Test schema with sample data
 
 ### 2. Client Code Updates
 
--   [ ] Replace nested object format with `type:id` strings
--   [ ] Update Check calls to use Evaluate (streaming)
--   [ ] Update LookupResources to ListResources
--   [ ] Update LookupSubjects to ListSubjects
--   [ ] Handle streaming responses in list operations
+- [ ] Replace nested object format with `type:id` strings
+- [ ] Update Check calls to use Evaluate (streaming)
+- [ ] Update LookupResources to ListResources
+- [ ] Update LookupSubjects to ListSubjects
+- [ ] Handle streaming responses in list operations
 
 ### 3. Consistency Model
 
--   [ ] Replace Zookies with revision tokens
--   [ ] Update consistency guarantees (default sequential)
--   [ ] Test read-after-write scenarios
+- [ ] Replace Zookies with revision tokens
+- [ ] Update consistency guarantees (default sequential)
+- [ ] Test read-after-write scenarios
 
 ### 4. Authentication
 
--   [ ] Configure JWT/OAuth (SpiceDB uses pre-shared keys)
--   [ ] Set up JWKS endpoint or inline keys
--   [ ] Configure required scopes
+- [ ] Configure JWT/OAuth (SpiceDB uses pre-shared keys)
+- [ ] Set up JWKS endpoint or inline keys
+- [ ] Configure required scopes
 
 ### 5. Testing
 
--   [ ] Port integration tests
--   [ ] Test with production data sample
--   [ ] Performance benchmarking
--   [ ] Load testing
+- [ ] Port integration tests
+- [ ] Test with production data sample
+- [ ] Performance benchmarking
+- [ ] Load testing
 
 ### 6. Deployment
 
--   [ ] Set up InferaDB server (Docker/K8s)
--   [ ] Configure storage backend (Memory/FoundationDB)
--   [ ] Set up monitoring (Prometheus/Grafana)
--   [ ] Configure multi-region replication (if needed)
+- [ ] Set up InferaDB server (Docker/K8s)
+- [ ] Configure storage backend (Memory/FoundationDB)
+- [ ] Set up monitoring (Prometheus/Grafana)
+- [ ] Configure multi-region replication (if needed)
 
 ---
 
@@ -571,11 +571,11 @@ document:readme#reader@user:*
 
 ## Support Resources
 
--   **InferaDB Documentation**: [docs/](../README.md)
--   **API Reference**: [api/](../../api/README.md)
--   **SpiceDB Comparison**: [COMPARISON.md](../../COMPARISON.md)
--   **GitHub Issues**: [Issues](https://github.com/inferadb/server/issues)
--   **Community**: [Discussions](https://github.com/inferadb/server/discussions)
+- **InferaDB Documentation**: [docs/](../README.md)
+- **API Reference**: [api/](../../api/README.md)
+- **SpiceDB Comparison**: [COMPARISON.md](../../COMPARISON.md)
+- **GitHub Issues**: [Issues](https://github.com/inferadb/server/issues)
+- **Community**: [Discussions](https://github.com/inferadb/server/discussions)
 
 ---
 

@@ -21,7 +21,8 @@ node = "lts"                             # Node.js LTS (provides npm for prettie
 "cargo:cargo-llvm-cov" = "latest"       # Code coverage
 
 # Code formatting
-"npm:prettier" = "latest"                # Format Markdown, YAML, JSON, TOML
+"npm:prettier" = "latest"                       # Format Markdown, YAML, JSON, TOML, Rust
+"npm:prettier-plugin-rust" = "latest"           # Prettier plugin for Rust support
 
 # Protobuf compiler for gRPC
 protobuf = "latest"
