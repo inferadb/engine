@@ -4,7 +4,7 @@ use jsonwebtoken::{Algorithm, DecodingKey, Header, Validation, decode, decode_he
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use crate::error::AuthError;
+use crate::{error::AuthError, validation::validate_algorithm};
 
 /// JWT claims structure
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -155,28 +155,6 @@ pub fn validate_claims(
                 expected, claims.aud
             )));
         }
-    }
-
-    Ok(())
-}
-
-/// Validate algorithm is in allowed list and not symmetric (using constant-time comparison)
-pub fn validate_algorithm(alg: &str, accepted_algorithms: &[String]) -> Result<(), AuthError> {
-    // Always reject symmetric algorithms (using constant-time comparison)
-    const FORBIDDEN: &[&str] = &["HS256", "HS384", "HS512", "none"];
-    if FORBIDDEN.iter().any(|forbidden| alg.as_bytes().ct_eq(forbidden.as_bytes()).into()) {
-        return Err(AuthError::UnsupportedAlgorithm(format!(
-            "Algorithm '{}' is not allowed for security reasons",
-            alg
-        )));
-    }
-
-    // Check if in accepted list (using constant-time comparison)
-    if !accepted_algorithms.iter().any(|a| a.as_bytes().ct_eq(alg.as_bytes()).into()) {
-        return Err(AuthError::UnsupportedAlgorithm(format!(
-            "Algorithm '{}' is not in accepted list",
-            alg
-        )));
     }
 
     Ok(())
@@ -407,32 +385,6 @@ mod tests {
 
         let scopes = claims.parse_scopes();
         assert_eq!(scopes.len(), 0);
-    }
-
-    #[test]
-    fn test_validate_algorithm_rejects_symmetric() {
-        let accepted = vec!["EdDSA".to_string(), "RS256".to_string()];
-
-        assert!(validate_algorithm("HS256", &accepted).is_err());
-        assert!(validate_algorithm("HS384", &accepted).is_err());
-        assert!(validate_algorithm("HS512", &accepted).is_err());
-        assert!(validate_algorithm("none", &accepted).is_err());
-    }
-
-    #[test]
-    fn test_validate_algorithm_accepts_asymmetric() {
-        let accepted = vec!["EdDSA".to_string(), "RS256".to_string()];
-
-        assert!(validate_algorithm("EdDSA", &accepted).is_ok());
-        assert!(validate_algorithm("RS256", &accepted).is_ok());
-    }
-
-    #[test]
-    fn test_validate_algorithm_rejects_unlisted() {
-        let accepted = vec!["EdDSA".to_string()];
-
-        assert!(validate_algorithm("RS256", &accepted).is_err());
-        assert!(validate_algorithm("ES256", &accepted).is_err());
     }
 
     #[test]

@@ -159,12 +159,12 @@ impl OAuthJwksClient {
         jwks.iter()
             .find(|k| {
                 // Use constant-time comparison for algorithm strings
-                k.alg.as_ref().map_or(false, |k_alg| k_alg.as_bytes().ct_eq(alg.as_bytes()).into())
+                k.alg.as_ref().is_some_and(|k_alg| k_alg.as_bytes().ct_eq(alg.as_bytes()).into())
                     || (alg.as_bytes().ct_eq(b"EdDSA").into()
                         && k.kty.as_bytes().ct_eq(b"OKP").into()
                         && k.crv
                             .as_ref()
-                            .map_or(false, |crv| crv.as_bytes().ct_eq(b"Ed25519").into()))
+                            .is_some_and(|crv| crv.as_bytes().ct_eq(b"Ed25519").into()))
                     || (alg.as_bytes().ct_eq(b"RS256").into()
                         && k.kty.as_bytes().ct_eq(b"RSA").into())
             })

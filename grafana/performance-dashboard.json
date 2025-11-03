@@ -1,284 +1,266 @@
 {
-    "dashboard": {
-        "title": "InferaDB - Performance",
-        "tags": ["inferadb", "performance", "latency"],
-        "timezone": "browser",
-        "refresh": "30s",
-        "time": {
-            "from": "now-1h",
-            "to": "now"
-        },
-        "panels": [
-            {
-                "id": 1,
-                "title": "Request Latency Heatmap",
-                "type": "heatmap",
-                "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
-                "targets": [
-                    {
-                        "expr": "sum(increase(inferadb_check_duration_seconds_bucket[1m])) by (le)",
-                        "format": "heatmap",
-                        "legendFormat": "{{le}}",
-                        "refId": "A"
-                    }
-                ],
-                "options": {
-                    "calculate": true,
-                    "calculation": {},
-                    "cellGap": 2,
-                    "cellRadius": 0,
-                    "cellValues": {},
-                    "color": {
-                        "exponent": 0.5,
-                        "fill": "dark-orange",
-                        "mode": "scheme",
-                        "reverse": false,
-                        "scheme": "Spectral",
-                        "steps": 128
-                    },
-                    "exemplars": {
-                        "color": "rgba(255,0,255,0.7)"
-                    },
-                    "filterValues": {
-                        "le": 1e-9
-                    },
-                    "legend": {
-                        "show": true
-                    },
-                    "rowsFrame": {
-                        "layout": "auto"
-                    },
-                    "tooltip": {
-                        "show": true,
-                        "yHistogram": false
-                    },
-                    "yAxis": {
-                        "axisPlacement": "left",
-                        "reverse": false,
-                        "unit": "s"
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "title": "Latency by Percentile",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "p50 (target: <2ms)",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.90, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "p90 (target: <5ms)",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "p99 (target: <10ms)",
-                        "refId": "C"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.999, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "p99.9 (target: <50ms)",
-                        "refId": "D"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "ms", "label": "Latency", "logBase": 1 },
-                    { "format": "short" }
-                ],
-                "seriesOverrides": [
-                    {
-                        "alias": "p99 (target: <10ms)",
-                        "color": "#FF9830",
-                        "linewidth": 2
-                    }
-                ]
-            },
-            {
-                "id": 3,
-                "title": "Storage Latency",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "Read p99 (target: <5ms)",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "Write p99 (target: <5ms)",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.50, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "Read p50",
-                        "refId": "C"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.50, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "Write p50",
-                        "refId": "D"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "ms", "label": "Latency" },
-                    { "format": "short" }
-                ]
-            },
-            {
-                "id": 4,
-                "title": "WASM Execution Latency",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.50, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "p50",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.90, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "p90",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.99, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000",
-                        "legendFormat": "p99 (target: <50ms)",
-                        "refId": "C"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "ms", "label": "WASM Latency" },
-                    { "format": "short" }
-                ]
-            },
-            {
-                "id": 5,
-                "title": "Evaluation Depth",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.50, rate(inferadb_evaluation_depth_bucket[5m]))",
-                        "legendFormat": "p50",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.90, rate(inferadb_evaluation_depth_bucket[5m]))",
-                        "legendFormat": "p90",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))",
-                        "legendFormat": "p99 (target: <10)",
-                        "refId": "C"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "short", "label": "Depth (levels)" },
-                    { "format": "short" }
-                ]
-            },
-            {
-                "id": 6,
-                "title": "Cache Performance Details",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
-                "targets": [
-                    {
-                        "expr": "rate(inferadb_cache_hits_total[5m])",
-                        "legendFormat": "Hits/sec",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "rate(inferadb_cache_misses_total[5m])",
-                        "legendFormat": "Misses/sec",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "rate(inferadb_cache_evictions_total[5m])",
-                        "legendFormat": "Evictions/sec",
-                        "refId": "C"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "ops", "label": "Operations/sec" },
-                    { "format": "short" }
-                ]
-            },
-            {
-                "id": 7,
-                "title": "Throughput by Operation",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
-                "targets": [
-                    {
-                        "expr": "sum by (method) (rate(inferadb_checks_total[5m]))",
-                        "legendFormat": "{{method}}",
-                        "refId": "A"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "reqps", "label": "Requests/sec" },
-                    { "format": "short" }
-                ]
-            },
-            {
-                "id": 8,
-                "title": "Resource Utilization",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
-                "targets": [
-                    {
-                        "expr": "rate(process_cpu_seconds_total[5m]) * 100",
-                        "legendFormat": "CPU %",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "(process_resident_memory_bytes / process_virtual_memory_max_bytes) * 100",
-                        "legendFormat": "Memory %",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "go_goroutines",
-                        "legendFormat": "Goroutines",
-                        "refId": "C",
-                        "yaxis": 2
-                    }
-                ],
-                "yaxes": [
-                    { "format": "percent", "label": "CPU/Memory %" },
-                    { "format": "short", "label": "Goroutines" }
-                ]
-            },
-            {
-                "id": 9,
-                "title": "GC Performance",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
-                "targets": [
-                    {
-                        "expr": "rate(go_gc_duration_seconds_sum[5m]) * 1000",
-                        "legendFormat": "GC Time (ms/sec)",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "rate(go_gc_duration_seconds_count[5m])",
-                        "legendFormat": "GC Runs/sec",
-                        "refId": "B",
-                        "yaxis": 2
-                    }
-                ],
-                "yaxes": [
-                    { "format": "ms", "label": "GC Time" },
-                    { "format": "ops", "label": "GC Runs/sec" }
-                ]
-            }
+  "dashboard": {
+    "title": "InferaDB - Performance",
+    "tags": ["inferadb", "performance", "latency"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Latency Heatmap",
+        "type": "heatmap",
+        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(increase(inferadb_check_duration_seconds_bucket[1m])) by (le)",
+            "format": "heatmap",
+            "legendFormat": "{{le}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "calculate": true,
+          "calculation": {},
+          "cellGap": 2,
+          "cellRadius": 0,
+          "cellValues": {},
+          "color": {
+            "exponent": 0.5,
+            "fill": "dark-orange",
+            "mode": "scheme",
+            "reverse": false,
+            "scheme": "Spectral",
+            "steps": 128
+          },
+          "exemplars": {
+            "color": "rgba(255,0,255,0.7)"
+          },
+          "filterValues": {
+            "le": 1e-9
+          },
+          "legend": {
+            "show": true
+          },
+          "rowsFrame": {
+            "layout": "auto"
+          },
+          "tooltip": {
+            "show": true,
+            "yHistogram": false
+          },
+          "yAxis": {
+            "axisPlacement": "left",
+            "reverse": false,
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Latency by Percentile",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "p50 (target: <2ms)",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "p90 (target: <5ms)",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "p99 (target: <10ms)",
+            "refId": "C"
+          },
+          {
+            "expr": "histogram_quantile(0.999, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "p99.9 (target: <50ms)",
+            "refId": "D"
+          }
+        ],
+        "yaxes": [{ "format": "ms", "label": "Latency", "logBase": 1 }, { "format": "short" }],
+        "seriesOverrides": [
+          {
+            "alias": "p99 (target: <10ms)",
+            "color": "#FF9830",
+            "linewidth": 2
+          }
         ]
-    }
+      },
+      {
+        "id": 3,
+        "title": "Storage Latency",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "Read p99 (target: <5ms)",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "Write p99 (target: <5ms)",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "Read p50",
+            "refId": "C"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "Write p50",
+            "refId": "D"
+          }
+        ],
+        "yaxes": [{ "format": "ms", "label": "Latency" }, { "format": "short" }]
+      },
+      {
+        "id": 4,
+        "title": "WASM Execution Latency",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "p90",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "p99 (target: <50ms)",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [{ "format": "ms", "label": "WASM Latency" }, { "format": "short" }]
+      },
+      {
+        "id": 5,
+        "title": "Evaluation Depth",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(inferadb_evaluation_depth_bucket[5m]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(inferadb_evaluation_depth_bucket[5m]))",
+            "legendFormat": "p90",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))",
+            "legendFormat": "p99 (target: <10)",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [{ "format": "short", "label": "Depth (levels)" }, { "format": "short" }]
+      },
+      {
+        "id": 6,
+        "title": "Cache Performance Details",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+        "targets": [
+          {
+            "expr": "rate(inferadb_cache_hits_total[5m])",
+            "legendFormat": "Hits/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(inferadb_cache_misses_total[5m])",
+            "legendFormat": "Misses/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(inferadb_cache_evictions_total[5m])",
+            "legendFormat": "Evictions/sec",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [{ "format": "ops", "label": "Operations/sec" }, { "format": "short" }]
+      },
+      {
+        "id": 7,
+        "title": "Throughput by Operation",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+        "targets": [
+          {
+            "expr": "sum by (method) (rate(inferadb_checks_total[5m]))",
+            "legendFormat": "{{method}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [{ "format": "reqps", "label": "Requests/sec" }, { "format": "short" }]
+      },
+      {
+        "id": 8,
+        "title": "Resource Utilization",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total[5m]) * 100",
+            "legendFormat": "CPU %",
+            "refId": "A"
+          },
+          {
+            "expr": "(process_resident_memory_bytes / process_virtual_memory_max_bytes) * 100",
+            "legendFormat": "Memory %",
+            "refId": "B"
+          },
+          {
+            "expr": "go_goroutines",
+            "legendFormat": "Goroutines",
+            "refId": "C",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "CPU/Memory %" },
+          { "format": "short", "label": "Goroutines" }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "GC Performance",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+        "targets": [
+          {
+            "expr": "rate(go_gc_duration_seconds_sum[5m]) * 1000",
+            "legendFormat": "GC Time (ms/sec)",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(go_gc_duration_seconds_count[5m])",
+            "legendFormat": "GC Runs/sec",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "GC Time" },
+          { "format": "ops", "label": "GC Runs/sec" }
+        ]
+      }
+    ]
+  }
 }

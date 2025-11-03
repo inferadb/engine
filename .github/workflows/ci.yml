@@ -1,299 +1,299 @@
 name: CI
 
 on:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main]
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 env:
-    CARGO_TERM_COLOR: always
-    RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
-    # Check code formatting
-    fmt:
-        name: Format Check
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  # Check code formatting
+  fmt:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  components: rustfmt
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
 
-            - name: Check formatting
-              run: cargo fmt --all -- --check
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
-    # Run Clippy for linting
-    clippy:
-        name: Clippy
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  # Run Clippy for linting
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  components: clippy
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
-            - name: Cache cargo registry
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/registry
-                  key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-registry-
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
 
-            - name: Cache cargo index
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/git
-                  key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-index-
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
 
-            - name: Cache cargo build
-              uses: actions/cache@v4
-              with:
-                  path: target
-                  key: ${{ runner.os }}-cargo-build-clippy-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-build-clippy-
-                      ${{ runner.os }}-cargo-build-
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-clippy-
+            ${{ runner.os }}-cargo-build-
 
-            - name: Run clippy
-              run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-    # Build for multiple platforms
-    build:
-        name: Build (${{ matrix.os }})
-        runs-on: ${{ matrix.os }}
-        strategy:
-            fail-fast: false
-            matrix:
-                os: [ubuntu-latest, macos-latest]
-                include:
-                    - os: ubuntu-latest
-                      target: x86_64-unknown-linux-gnu
-                    - os: macos-latest
-                      target: x86_64-apple-darwin
+  # Build for multiple platforms
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
 
-        steps:
-            - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  targets: ${{ matrix.target }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-            - name: Cache cargo registry
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/registry
-                  key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-registry-
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
 
-            - name: Cache cargo index
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/git
-                  key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-index-
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
 
-            - name: Cache cargo build
-              uses: actions/cache@v4
-              with:
-                  path: target
-                  key: ${{ runner.os }}-cargo-build-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-build-${{ matrix.target }}-
-                      ${{ runner.os }}-cargo-build-
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-build-
 
-            - name: Build workspace
-              run: cargo build --workspace --verbose
+      - name: Build workspace
+        run: cargo build --workspace --verbose
 
-            - name: Build release
-              run: cargo build --workspace --release --verbose
+      - name: Build release
+        run: cargo build --workspace --release --verbose
 
-            - name: Upload binary artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: inferadb-${{ matrix.target }}
-                  path: target/release/inferadb
-                  retention-days: 7
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: inferadb-${{ matrix.target }}
+          path: target/release/inferadb
+          retention-days: 7
 
-    # Run tests
-    test:
-        name: Test (${{ matrix.os }})
-        runs-on: ${{ matrix.os }}
-        strategy:
-            fail-fast: false
-            matrix:
-                os: [ubuntu-latest, macos-latest]
+  # Run tests
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
 
-        steps:
-            - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-            - name: Cache cargo registry
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/registry
-                  key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-registry-
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
 
-            - name: Cache cargo index
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/git
-                  key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-index-
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
 
-            - name: Cache cargo build
-              uses: actions/cache@v4
-              with:
-                  path: target
-                  key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-test-
-                      ${{ runner.os }}-cargo-build-
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test-
+            ${{ runner.os }}-cargo-build-
 
-            - name: Run tests
-              run: cargo test --workspace --verbose --no-fail-fast
+      - name: Run tests
+        run: cargo test --workspace --verbose --no-fail-fast
 
-            - name: Run doc tests
-              run: cargo test --workspace --doc --verbose
+      - name: Run doc tests
+        run: cargo test --workspace --doc --verbose
 
-    # Test code coverage
-    coverage:
-        name: Code Coverage
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  # Test code coverage
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-            - name: Install cargo-tarpaulin
-              run: cargo install cargo-tarpaulin
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
 
-            - name: Cache cargo registry
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/registry
-                  key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-registry-
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
 
-            - name: Cache cargo index
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/git
-                  key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-index-
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
 
-            - name: Generate coverage
-              run: cargo tarpaulin --workspace --verbose --timeout 300 --out xml
+      - name: Generate coverage
+        run: cargo tarpaulin --workspace --verbose --timeout 300 --out xml
 
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v4
-              with:
-                  files: ./cobertura.xml
-                  fail_ci_if_error: false
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./cobertura.xml
+          fail_ci_if_error: false
 
-    # Check dependencies
-    dependencies:
-        name: Dependency Check
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  # Check dependencies
+  dependencies:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-            - name: Check outdated dependencies
-              run: |
-                  cargo install cargo-outdated
-                  cargo outdated --exit-code 1 || echo "Some dependencies are outdated"
+      - name: Check outdated dependencies
+        run: |
+          cargo install cargo-outdated
+          cargo outdated --exit-code 1 || echo "Some dependencies are outdated"
 
-            - name: Check for duplicate dependencies
-              run: |
-                  cargo tree --duplicates
+      - name: Check for duplicate dependencies
+        run: |
+          cargo tree --duplicates
 
-    # Build documentation
-    docs:
-        name: Documentation
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  # Build documentation
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-            - name: Cache cargo registry
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/registry
-                  key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-registry-
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
 
-            - name: Cache cargo index
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cargo/git
-                  key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-index-
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
 
-            - name: Build documentation
-              run: cargo doc --workspace --no-deps --all-features
-              env:
-                  RUSTDOCFLAGS: -D warnings
+      - name: Build documentation
+        run: cargo doc --workspace --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
 
-            - name: Upload documentation
-              uses: actions/upload-artifact@v4
-              with:
-                  name: documentation
-                  path: target/doc
-                  retention-days: 7
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: target/doc
+          retention-days: 7
 
-    # Overall status check
-    ci-success:
-        name: CI Success
-        needs: [fmt, clippy, build, test, coverage, dependencies, docs]
-        runs-on: ubuntu-latest
-        if: always()
-        steps:
-            - name: Check all jobs
-              run: |
-                  if [[ "${{ needs.fmt.result }}" != "success" ]]; then
-                    echo "Format check failed"
-                    exit 1
-                  fi
-                  if [[ "${{ needs.clippy.result }}" != "success" ]]; then
-                    echo "Clippy check failed"
-                    exit 1
-                  fi
-                  if [[ "${{ needs.build.result }}" != "success" ]]; then
-                    echo "Build failed"
-                    exit 1
-                  fi
-                  if [[ "${{ needs.test.result }}" != "success" ]]; then
-                    echo "Tests failed"
-                    exit 1
-                  fi
-                  if [[ "${{ needs.docs.result }}" != "success" ]]; then
-                    echo "Documentation build failed"
-                    exit 1
-                  fi
-                  echo "All required checks passed!"
+  # Overall status check
+  ci-success:
+    name: CI Success
+    needs: [fmt, clippy, build, test, coverage, dependencies, docs]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ needs.fmt.result }}" != "success" ]]; then
+            echo "Format check failed"
+            exit 1
+          fi
+          if [[ "${{ needs.clippy.result }}" != "success" ]]; then
+            echo "Clippy check failed"
+            exit 1
+          fi
+          if [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "Build failed"
+            exit 1
+          fi
+          if [[ "${{ needs.test.result }}" != "success" ]]; then
+            echo "Tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.docs.result }}" != "success" ]]; then
+            echo "Documentation build failed"
+            exit 1
+          fi
+          echo "All required checks passed!"

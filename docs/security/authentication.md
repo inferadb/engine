@@ -187,7 +187,7 @@ async function createJWT() {
     // Load private key
     const privateKey = await jose.importPKCS8(
         fs.readFileSync("private_key.pem", "utf8"),
-        "EdDSA",
+        "EdDSA"
     );
 
     // Create claims

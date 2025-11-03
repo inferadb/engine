@@ -537,7 +537,7 @@ class AuthorizationService {
     async checkAccess(
         subject: string,
         action: string,
-        resource: string,
+        resource: string
     ): Promise<boolean> {
         // Use core AuthZEN for evaluation
         const response = await fetch(
@@ -549,7 +549,7 @@ class AuthorizationService {
                     action: { name: action },
                     resource: { type: "document", id: resource },
                 }),
-            },
+            }
         );
         const result = await response.json();
         return result.decision;
@@ -558,7 +558,7 @@ class AuthorizationService {
     async grantAccess(
         subject: string,
         relation: string,
-        resource: string,
+        resource: string
     ): Promise<void> {
         // Use extension for relationship management
         await fetch("https://inferadb.example.com/v1/relationships:write", {

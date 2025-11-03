@@ -2,9 +2,9 @@
 
 # Image configuration
 image:
-    repository: inferadb
-    pullPolicy: IfNotPresent
-    tag: "" # Overrides the image tag (default is Chart appVersion)
+  repository: inferadb
+  pullPolicy: IfNotPresent
+  tag: "" # Overrides the image tag (default is Chart appVersion)
 
 imagePullSecrets: []
 nameOverride: ""
@@ -15,96 +15,96 @@ replicaCount: 3
 
 # Service account
 serviceAccount:
-    create: true
-    annotations: {}
-    name: ""
-    automount: false
+  create: true
+  annotations: {}
+  name: ""
+  automount: false
 
 # Pod annotations
 podAnnotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8080"
-    prometheus.io/path: "/metrics"
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
 
 # Pod security context
 podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 65532
-    runAsGroup: 65532
-    fsGroup: 65532
-    seccompProfile:
-        type: RuntimeDefault
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
 
 # Container security context
 securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-        drop:
-            - ALL
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 65532
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
 
 # Service configuration
 service:
-    type: ClusterIP
-    port: 8080
-    grpcPort: 8081
-    metricsPort: 9090
-    annotations: {}
-    sessionAffinity: None
-    # nodePort: 30080  # Only used when service.type is NodePort
-    # grpcNodePort: 30081
-    # loadBalancerIP: ""  # Only used when service.type is LoadBalancer
-    headless:
-        enabled: false # Enable for StatefulSet deployments
+  type: ClusterIP
+  port: 8080
+  grpcPort: 8081
+  metricsPort: 9090
+  annotations: {}
+  sessionAffinity: None
+  # nodePort: 30080  # Only used when service.type is NodePort
+  # grpcNodePort: 30081
+  # loadBalancerIP: ""  # Only used when service.type is LoadBalancer
+  headless:
+    enabled: false # Enable for StatefulSet deployments
 
 # Ingress configuration
 ingress:
-    enabled: false
-    className: ""
-    annotations: {}
-        # kubernetes.io/ingress.class: nginx
-        # cert-manager.io/cluster-issuer: letsencrypt-prod
-    hosts:
-        - host: inferadb.local
-          paths:
-              - path: /
-                pathType: Prefix
-    tls: []
-    #  - secretName: inferadb-tls
-    #    hosts:
-    #      - inferadb.local
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: inferadb.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: inferadb-tls
+  #    hosts:
+  #      - inferadb.local
 
 # Resource limits
 resources:
-    requests:
-        cpu: 500m
-        memory: 512Mi
-    limits:
-        cpu: 2000m
-        memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
 
 # Horizontal Pod Autoscaling
 autoscaling:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-    customMetrics: []
-        # - type: Pods
-        #   pods:
-        #     metric:
-        #       name: inferadb_requests_per_second
-        #     target:
-        #       type: AverageValue
-        #       averageValue: "1000"
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  customMetrics: []
+    # - type: Pods
+    #   pods:
+    #     metric:
+    #       name: inferadb_requests_per_second
+    #     target:
+    #       type: AverageValue
+    #       averageValue: "1000"
 
 # Pod Disruption Budget
 podDisruptionBudget:
-    enabled: true
-    minAvailable: 2
+  enabled: true
+  minAvailable: 2
 
 # Node selector
 nodeSelector: {}
@@ -114,198 +114,198 @@ tolerations: []
 
 # Affinity rules
 affinity:
-    podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                  labelSelector:
-                      matchExpressions:
-                          - key: app.kubernetes.io/name
-                            operator: In
-                            values:
-                                - inferadb
-                  topologyKey: kubernetes.io/hostname
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - inferadb
+          topologyKey: kubernetes.io/hostname
 
 # Topology spread constraints
 topologySpreadConstraints:
-    - maxSkew: 1
-      topologyKey: topology.kubernetes.io/zone
-      whenUnsatisfiable: ScheduleAnyway
-      labelSelector:
-          matchLabels:
-              app.kubernetes.io/name: inferadb
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: inferadb
 
 # InferaDB configuration
 config:
-    server:
-        host: "0.0.0.0"
-        port: 8080
-        workerThreads: 4
-        maxConnections: 10000
-        requestTimeout: 30
-        rateLimitingEnabled: true
-        rateLimitRequests: 100
-        rateLimitPeriod: 60
+  server:
+    host: "0.0.0.0"
+    port: 8080
+    workerThreads: 4
+    maxConnections: 10000
+    requestTimeout: 30
+    rateLimitingEnabled: true
+    rateLimitRequests: 100
+    rateLimitPeriod: 60
 
-    store:
-        backend: "memory" # or "foundationdb"
-        connectionString: "" # /etc/foundationdb/fdb.cluster for FDB
-        timeout: 5000
-        maxRetryDelay: 1000
-        transactionTimeout: 5000
+  store:
+    backend: "memory" # or "foundationdb"
+    connectionString: "" # /etc/foundationdb/fdb.cluster for FDB
+    timeout: 5000
+    maxRetryDelay: 1000
+    transactionTimeout: 5000
 
-    cache:
-        enabled: true
-        maxCapacity: 100000
-        ttlSeconds: 600
-        evictionPolicy: "lru"
+  cache:
+    enabled: true
+    maxCapacity: 100000
+    ttlSeconds: 600
+    evictionPolicy: "lru"
 
-    observability:
-        logLevel: "info"
-        logFormat: "json"
-        metricsEnabled: true
-        tracingEnabled: false
-        tracingEndpoint: ""
-        tracingSampleRate: 0.1
+  observability:
+    logLevel: "info"
+    logFormat: "json"
+    metricsEnabled: true
+    tracingEnabled: false
+    tracingEndpoint: ""
+    tracingSampleRate: 0.1
 
-    auth:
-        enabled: true
-        jwksCacheTtl: 300
-        acceptedAlgorithms:
-            - "EdDSA"
-            - "RS256"
-            - "ES256"
-        enforceAudience: true
-        # REQUIRED: Set to your JWT issuer's expected audience value
-        # Example: "https://api.example.com/evaluate" or "https://your-domain.com/api"
-        audience: ""
-        allowedAudiences: []
-            # Example configuration:
-            # - "https://api.example.com/evaluate"
-            # - "https://api.example.com/admin"
-        enforceScopes: true
-        requiredScopes:
-            - "authz:check"
-            - "authz:write"
-        replayProtection: true
-        requireJti: true
-        allowedClockSkew: 30
-        maxTokenAge: 3600
-        oidc:
-            enabled: false
-            issuer: ""
-            clientId: ""
-            redirectUri: ""
-            scopes: []
+  auth:
+    enabled: true
+    jwksCacheTtl: 300
+    acceptedAlgorithms:
+      - "EdDSA"
+      - "RS256"
+      - "ES256"
+    enforceAudience: true
+    # REQUIRED: Set to your JWT issuer's expected audience value
+    # Example: "https://api.example.com/evaluate" or "https://your-domain.com/api"
+    audience: ""
+    allowedAudiences: []
+      # Example configuration:
+      # - "https://api.example.com/evaluate"
+      # - "https://api.example.com/admin"
+    enforceScopes: true
+    requiredScopes:
+      - "authz:check"
+      - "authz:write"
+    replayProtection: true
+    requireJti: true
+    allowedClockSkew: 30
+    maxTokenAge: 3600
+    oidc:
+      enabled: false
+      issuer: ""
+      clientId: ""
+      redirectUri: ""
+      scopes: []
 
-    # Optional: provide full config file as YAML string
-    configFile: ""
+  # Optional: provide full config file as YAML string
+  configFile: ""
 
 # Secrets (use external secret manager in production)
 secrets:
-    # JWKS URL for JWT validation
-    jwksUrl: "https://auth.example.com/.well-known/jwks.json"
+  # JWKS URL for JWT validation
+  jwksUrl: "https://auth.example.com/.well-known/jwks.json"
 
-    # Redis URL for replay protection
-    redisUrl: "redis://redis-master:6379"
-    redisPassword: ""
+  # Redis URL for replay protection
+  redisUrl: "redis://redis-master:6379"
+  redisPassword: ""
 
-    # OAuth client secret
-    oidcClientSecret: ""
+  # OAuth client secret
+  oidcClientSecret: ""
 
-    # FoundationDB cluster file content
-    fdbClusterFile: ""
+  # FoundationDB cluster file content
+  fdbClusterFile: ""
 
-    # Additional custom secrets
-    additional: {}
+  # Additional custom secrets
+  additional: {}
 
 # External Secrets Operator integration
 externalSecrets:
-    enabled: false
-    secretStoreRef:
-        name: ""
-        kind: SecretStore # or ClusterSecretStore
-    refreshInterval: 1h
-    data: []
-        # - secretKey: INFERA__AUTH__JWKS_URL
-        #   remoteRef:
-        #     key: inferadb/prod/auth
-        #     property: jwks_url
+  enabled: false
+  secretStoreRef:
+    name: ""
+    kind: SecretStore # or ClusterSecretStore
+  refreshInterval: 1h
+  data: []
+    # - secretKey: INFERA__AUTH__JWKS_URL
+    #   remoteRef:
+    #     key: inferadb/prod/auth
+    #     property: jwks_url
 
 # Health check configuration
 healthCheck:
-    liveness:
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 5
-        successThreshold: 1
-        failureThreshold: 3
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
 
-    readiness:
-        initialDelaySeconds: 5
-        periodSeconds: 5
-        timeoutSeconds: 3
-        successThreshold: 1
-        failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
 
-    startup:
-        initialDelaySeconds: 0
-        periodSeconds: 5
-        timeoutSeconds: 3
-        successThreshold: 1
-        failureThreshold: 30
+  startup:
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 30
 
 # Graceful shutdown
 terminationGracePeriodSeconds: 30
 
 # Init containers (e.g., wait for FoundationDB)
 initContainers: []
-    # - name: wait-for-fdb
-    #   image: busybox:1.36
-    #   command:
-    #   - sh
-    #   - -c
-    #   - |
-    #     until nc -z -v -w30 foundationdb-cluster 4500; do
-    #       sleep 5
-    #     done
+  # - name: wait-for-fdb
+  #   image: busybox:1.36
+  #   command:
+  #   - sh
+  #   - -c
+  #   - |
+  #     until nc -z -v -w30 foundationdb-cluster 4500; do
+  #       sleep 5
+  #     done
 
 # Extra environment variables
 extraEnv: []
-    # - name: CUSTOM_VAR
-    #   value: "custom-value"
+  # - name: CUSTOM_VAR
+  #   value: "custom-value"
 
 # Extra volume mounts
 extraVolumeMounts: []
-    # - name: extra-config
-    #   mountPath: /extra
-    #   readOnly: true
+  # - name: extra-config
+  #   mountPath: /extra
+  #   readOnly: true
 
 # Extra volumes
 extraVolumes: []
-    # - name: extra-config
-    #   configMap:
-    #     name: extra-config
+  # - name: extra-config
+  #   configMap:
+  #     name: extra-config
 
 # ServiceMonitor for Prometheus Operator
 serviceMonitor:
-    enabled: false
-    interval: 30s
-    scrapeTimeout: 10s
-    labels: {}
-    honorLabels: true
-    relabelings: []
-    metricRelabelings: []
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  honorLabels: true
+  relabelings: []
+  metricRelabelings: []
 
 # External dependencies
 foundationdb:
-    enabled: false
-    clusterName: "inferadb-fdb"
-    version: "7.1.38"
+  enabled: false
+  clusterName: "inferadb-fdb"
+  version: "7.1.38"
 
 redis:
-    enabled: false
-    architecture: standalone
-    auth:
-        enabled: true
-        password: "change-me"
+  enabled: false
+  architecture: standalone
+  auth:
+    enabled: true
+    password: "change-me"

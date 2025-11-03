@@ -3,519 +3,519 @@
 # See docs/slos.md for detailed SLO definitions and rationale
 
 groups:
-    # ============================================================================
-    # AVAILABILITY SLO (99.9%)
-    # Error budget: 0.1% = 43.8 minutes downtime per month
-    # ============================================================================
-    - name: availability_slo
-      interval: 30s
-      rules:
-          # Fast burn: 14.4x burn rate (1 hour window)
-          # If error rate exceeds 1.44%, we'll exhaust error budget in ~2 hours
-          - alert: AvailabilitySLOFastBurn
-            expr: |
-                sum(rate(inferadb_api_errors_total{code=~"5.."}[1h]))
-                / sum(rate(inferadb_checks_total[1h])) > 0.0144
-            for: 5m
-            labels:
-                severity: P0
-                category: slo
-                slo: availability
-            annotations:
-                summary: "Fast availability SLO burn detected"
-                description: "Error rate {{ $value | humanizePercentage }} exceeds 1.44% (14.4x burn rate). Error budget will exhaust in ~2 hours if this continues."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/availability-slo"
-                dashboard_url: "http://your-grafana-instance/d/overview"
+  # ============================================================================
+  # AVAILABILITY SLO (99.9%)
+  # Error budget: 0.1% = 43.8 minutes downtime per month
+  # ============================================================================
+  - name: availability_slo
+    interval: 30s
+    rules:
+      # Fast burn: 14.4x burn rate (1 hour window)
+      # If error rate exceeds 1.44%, we'll exhaust error budget in ~2 hours
+      - alert: AvailabilitySLOFastBurn
+        expr: |
+          sum(rate(inferadb_api_errors_total{code=~"5.."}[1h]))
+          / sum(rate(inferadb_checks_total[1h])) > 0.0144
+        for: 5m
+        labels:
+          severity: P0
+          category: slo
+          slo: availability
+        annotations:
+          summary: "Fast availability SLO burn detected"
+          description: "Error rate {{ $value | humanizePercentage }} exceeds 1.44% (14.4x burn rate). Error budget will exhaust in ~2 hours if this continues."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/availability-slo"
+          dashboard_url: "http://your-grafana-instance/d/overview"
 
-          # Slow burn: 3x burn rate (24 hour window)
-          # If error rate exceeds 0.3%, we'll exhaust error budget in ~10 days
-          - alert: AvailabilitySLOSlowBurn
-            expr: |
-                sum(rate(inferadb_api_errors_total{code=~"5.."}[24h]))
-                / sum(rate(inferadb_checks_total[24h])) > 0.003
-            for: 1h
-            labels:
-                severity: P1
-                category: slo
-                slo: availability
-            annotations:
-                summary: "Slow availability SLO burn detected"
-                description: "Error rate {{ $value | humanizePercentage }} exceeds 0.3% (3x burn rate) over 24h window."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/availability-slo"
+      # Slow burn: 3x burn rate (24 hour window)
+      # If error rate exceeds 0.3%, we'll exhaust error budget in ~10 days
+      - alert: AvailabilitySLOSlowBurn
+        expr: |
+          sum(rate(inferadb_api_errors_total{code=~"5.."}[24h]))
+          / sum(rate(inferadb_checks_total[24h])) > 0.003
+        for: 1h
+        labels:
+          severity: P1
+          category: slo
+          slo: availability
+        annotations:
+          summary: "Slow availability SLO burn detected"
+          description: "Error rate {{ $value | humanizePercentage }} exceeds 0.3% (3x burn rate) over 24h window."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/availability-slo"
 
-          # SLO violation: Error budget exhausted
-          - alert: AvailabilitySLOViolation
-            expr: |
-                (sum(rate(inferadb_api_errors_total{code=~"5.."}[30d]))
-                / sum(rate(inferadb_checks_total[30d]))) > 0.001
-            for: 5m
-            labels:
-                severity: P0
-                category: slo
-                slo: availability
-            annotations:
-                summary: "Availability SLO violated - error budget exhausted"
-                description: "30-day error rate {{ $value | humanizePercentage }} exceeds 0.1% target. Freeze all non-critical changes until resolved."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/slo-violation"
+      # SLO violation: Error budget exhausted
+      - alert: AvailabilitySLOViolation
+        expr: |
+          (sum(rate(inferadb_api_errors_total{code=~"5.."}[30d]))
+          / sum(rate(inferadb_checks_total[30d]))) > 0.001
+        for: 5m
+        labels:
+          severity: P0
+          category: slo
+          slo: availability
+        annotations:
+          summary: "Availability SLO violated - error budget exhausted"
+          description: "30-day error rate {{ $value | humanizePercentage }} exceeds 0.1% target. Freeze all non-critical changes until resolved."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/slo-violation"
 
-          # Warning: Error budget low (50% consumed)
-          - alert: AvailabilitySLOBudgetLow
-            expr: |
-                (sum(rate(inferadb_api_errors_total{code=~"5.."}[30d]))
-                / sum(rate(inferadb_checks_total[30d]))) > 0.0005
-            for: 30m
-            labels:
-                severity: P2
-                category: slo
-                slo: availability
-            annotations:
-                summary: "Availability error budget 50% consumed"
-                description: "Error rate {{ $value | humanizePercentage }} indicates error budget is half consumed."
+      # Warning: Error budget low (50% consumed)
+      - alert: AvailabilitySLOBudgetLow
+        expr: |
+          (sum(rate(inferadb_api_errors_total{code=~"5.."}[30d]))
+          / sum(rate(inferadb_checks_total[30d]))) > 0.0005
+        for: 30m
+        labels:
+          severity: P2
+          category: slo
+          slo: availability
+        annotations:
+          summary: "Availability error budget 50% consumed"
+          description: "Error rate {{ $value | humanizePercentage }} indicates error budget is half consumed."
 
-    # ============================================================================
-    # LATENCY SLO (p99 < 10ms)
-    # ============================================================================
-    - name: latency_slo
-      interval: 30s
-      rules:
-          # p99 latency exceeds target
-          - alert: LatencySLOViolation
-            expr: |
-                histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000 > 10
-            for: 5m
-            labels:
-                severity: P0
-                category: slo
-                slo: latency
-            annotations:
-                summary: "p99 latency exceeds 10ms target"
-                description: "p99 latency is {{ $value }}ms (target: <10ms). Check for cache issues, storage slowness, or evaluation depth."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/latency-slo"
-                dashboard_url: "http://your-grafana-instance/d/performance"
+  # ============================================================================
+  # LATENCY SLO (p99 < 10ms)
+  # ============================================================================
+  - name: latency_slo
+    interval: 30s
+    rules:
+      # p99 latency exceeds target
+      - alert: LatencySLOViolation
+        expr: |
+          histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000 > 10
+        for: 5m
+        labels:
+          severity: P0
+          category: slo
+          slo: latency
+        annotations:
+          summary: "p99 latency exceeds 10ms target"
+          description: "p99 latency is {{ $value }}ms (target: <10ms). Check for cache issues, storage slowness, or evaluation depth."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/latency-slo"
+          dashboard_url: "http://your-grafana-instance/d/performance"
 
-          # p99 latency warning (8ms - approaching target)
-          - alert: LatencySLOWarning
-            expr: |
-                histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000 > 8
-            for: 10m
-            labels:
-                severity: P2
-                category: slo
-                slo: latency
-            annotations:
-                summary: "p99 latency approaching 10ms target"
-                description: "p99 latency is {{ $value }}ms (target: <10ms). Investigate before it degrades further."
+      # p99 latency warning (8ms - approaching target)
+      - alert: LatencySLOWarning
+        expr: |
+          histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000 > 8
+        for: 10m
+        labels:
+          severity: P2
+          category: slo
+          slo: latency
+        annotations:
+          summary: "p99 latency approaching 10ms target"
+          description: "p99 latency is {{ $value }}ms (target: <10ms). Investigate before it degrades further."
 
-          # p50 latency exceeds target (2ms)
-          - alert: MedianLatencyHigh
-            expr: |
-                histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000 > 2
-            for: 10m
-            labels:
-                severity: P1
-                category: slo
-                slo: latency
-            annotations:
-                summary: "Median latency exceeds 2ms target"
-                description: "p50 latency is {{ $value }}ms (target: <2ms). This affects most requests."
+      # p50 latency exceeds target (2ms)
+      - alert: MedianLatencyHigh
+        expr: |
+          histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000 > 2
+        for: 10m
+        labels:
+          severity: P1
+          category: slo
+          slo: latency
+        annotations:
+          summary: "Median latency exceeds 2ms target"
+          description: "p50 latency is {{ $value }}ms (target: <2ms). This affects most requests."
 
-          # p90 latency exceeds target (5ms)
-          - alert: P90LatencyHigh
-            expr: |
-                histogram_quantile(0.90, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000 > 5
-            for: 10m
-            labels:
-                severity: P2
-                category: slo
-                slo: latency
-            annotations:
-                summary: "p90 latency exceeds 5ms target"
-                description: "p90 latency is {{ $value }}ms (target: <5ms)."
+      # p90 latency exceeds target (5ms)
+      - alert: P90LatencyHigh
+        expr: |
+          histogram_quantile(0.90, rate(inferadb_check_duration_seconds_bucket[5m])) * 1000 > 5
+        for: 10m
+        labels:
+          severity: P2
+          category: slo
+          slo: latency
+        annotations:
+          summary: "p90 latency exceeds 5ms target"
+          description: "p90 latency is {{ $value }}ms (target: <5ms)."
 
-          # WASM latency p99 exceeds target (50ms)
-          - alert: WASMLatencyHigh
-            expr: |
-                histogram_quantile(0.99, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000 > 50
-            for: 5m
-            labels:
-                severity: P1
-                category: slo
-                slo: latency
-            annotations:
-                summary: "WASM p99 latency exceeds 50ms target"
-                description: "WASM execution p99 latency is {{ $value }}ms (target: <50ms). Check WASM policy complexity."
+      # WASM latency p99 exceeds target (50ms)
+      - alert: WASMLatencyHigh
+        expr: |
+          histogram_quantile(0.99, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000 > 50
+        for: 5m
+        labels:
+          severity: P1
+          category: slo
+          slo: latency
+        annotations:
+          summary: "WASM p99 latency exceeds 50ms target"
+          description: "WASM execution p99 latency is {{ $value }}ms (target: <50ms). Check WASM policy complexity."
 
-    # ============================================================================
-    # ERROR RATE SLO (<0.1%)
-    # ============================================================================
-    - name: error_rate_slo
-      interval: 30s
-      rules:
-          # Error rate exceeds target
-          - alert: ErrorRateSLOViolation
-            expr: |
-                (sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
-                / sum(rate(inferadb_checks_total[5m]))) > 0.001
-            for: 5m
-            labels:
-                severity: P0
-                category: slo
-                slo: error_rate
-            annotations:
-                summary: "Error rate exceeds 0.1% target"
-                description: "5xx error rate is {{ $value | humanizePercentage }} (target: <0.1%). 1 in {{ div 1 $value | humanize }} requests failing."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/error-rate-slo"
+  # ============================================================================
+  # ERROR RATE SLO (<0.1%)
+  # ============================================================================
+  - name: error_rate_slo
+    interval: 30s
+    rules:
+      # Error rate exceeds target
+      - alert: ErrorRateSLOViolation
+        expr: |
+          (sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
+          / sum(rate(inferadb_checks_total[5m]))) > 0.001
+        for: 5m
+        labels:
+          severity: P0
+          category: slo
+          slo: error_rate
+        annotations:
+          summary: "Error rate exceeds 0.1% target"
+          description: "5xx error rate is {{ $value | humanizePercentage }} (target: <0.1%). 1 in {{ div 1 $value | humanize }} requests failing."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/error-rate-slo"
 
-          # Error rate warning (0.05% - half of target)
-          - alert: ErrorRateSLOWarning
-            expr: |
-                (sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
-                / sum(rate(inferadb_checks_total[5m]))) > 0.0005
-            for: 10m
-            labels:
-                severity: P2
-                category: slo
-                slo: error_rate
-            annotations:
-                summary: "Error rate approaching 0.1% target"
-                description: "5xx error rate is {{ $value | humanizePercentage }} (target: <0.1%)."
+      # Error rate warning (0.05% - half of target)
+      - alert: ErrorRateSLOWarning
+        expr: |
+          (sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
+          / sum(rate(inferadb_checks_total[5m]))) > 0.0005
+        for: 10m
+        labels:
+          severity: P2
+          category: slo
+          slo: error_rate
+        annotations:
+          summary: "Error rate approaching 0.1% target"
+          description: "5xx error rate is {{ $value | humanizePercentage }} (target: <0.1%)."
 
-          # Specific error type alerts
-          - alert: StorageErrorsHigh
-            expr: |
-                rate(inferadb_storage_errors_total[5m]) > 0.01
-            for: 5m
-            labels:
-                severity: P1
-                category: errors
-            annotations:
-                summary: "High storage error rate"
-                description: "Storage errors at {{ $value }}/sec. Check storage backend health."
+      # Specific error type alerts
+      - alert: StorageErrorsHigh
+        expr: |
+          rate(inferadb_storage_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: P1
+          category: errors
+        annotations:
+          summary: "High storage error rate"
+          description: "Storage errors at {{ $value }}/sec. Check storage backend health."
 
-          - alert: EvaluationErrorsHigh
-            expr: |
-                rate(inferadb_evaluation_errors_total[5m]) > 0.01
-            for: 5m
-            labels:
-                severity: P1
-                category: errors
-            annotations:
-                summary: "High evaluation error rate"
-                description: "Evaluation errors at {{ $value }}/sec. Check for policy issues or circular references."
+      - alert: EvaluationErrorsHigh
+        expr: |
+          rate(inferadb_evaluation_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: P1
+          category: errors
+        annotations:
+          summary: "High evaluation error rate"
+          description: "Evaluation errors at {{ $value }}/sec. Check for policy issues or circular references."
 
-    # ============================================================================
-    # CACHE HIT RATE SLO (>80%)
-    # ============================================================================
-    - name: cache_slo
-      interval: 30s
-      rules:
-          # Cache hit rate below target
-          - alert: CacheHitRateLow
-            expr: |
-                (sum(rate(inferadb_cache_hits_total[5m]))
-                / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))) < 0.80
-            for: 10m
-            labels:
-                severity: P1
-                category: slo
-                slo: cache
-            annotations:
-                summary: "Cache hit rate below 80% target"
-                description: "Cache hit rate is {{ $value | humanizePercentage }} (target: >80%). Consider increasing cache size or TTL."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/cache-slo"
-                dashboard_url: "http://your-grafana-instance/d/cache"
+  # ============================================================================
+  # CACHE HIT RATE SLO (>80%)
+  # ============================================================================
+  - name: cache_slo
+    interval: 30s
+    rules:
+      # Cache hit rate below target
+      - alert: CacheHitRateLow
+        expr: |
+          (sum(rate(inferadb_cache_hits_total[5m]))
+          / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))) < 0.80
+        for: 10m
+        labels:
+          severity: P1
+          category: slo
+          slo: cache
+        annotations:
+          summary: "Cache hit rate below 80% target"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (target: >80%). Consider increasing cache size or TTL."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/cache-slo"
+          dashboard_url: "http://your-grafana-instance/d/cache"
 
-          # Cache hit rate critically low (60%)
-          - alert: CacheHitRateCriticallyLow
-            expr: |
-                (sum(rate(inferadb_cache_hits_total[5m]))
-                / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))) < 0.60
-            for: 5m
-            labels:
-                severity: P0
-                category: slo
-                slo: cache
-            annotations:
-                summary: "Cache hit rate critically low"
-                description: "Cache hit rate is {{ $value | humanizePercentage }} (target: >80%). Performance severely degraded."
+      # Cache hit rate critically low (60%)
+      - alert: CacheHitRateCriticallyLow
+        expr: |
+          (sum(rate(inferadb_cache_hits_total[5m]))
+          / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))) < 0.60
+        for: 5m
+        labels:
+          severity: P0
+          category: slo
+          slo: cache
+        annotations:
+          summary: "Cache hit rate critically low"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (target: >80%). Performance severely degraded."
 
-          # High cache eviction rate
-          - alert: CacheEvictionRateHigh
-            expr: |
-                rate(inferadb_cache_evictions_total[5m]) > 100
-            for: 10m
-            labels:
-                severity: P2
-                category: cache
-            annotations:
-                summary: "High cache eviction rate"
-                description: "Cache evicting {{ $value }} items/sec. Cache may be undersized for workload."
+      # High cache eviction rate
+      - alert: CacheEvictionRateHigh
+        expr: |
+          rate(inferadb_cache_evictions_total[5m]) > 100
+        for: 10m
+        labels:
+          severity: P2
+          category: cache
+        annotations:
+          summary: "High cache eviction rate"
+          description: "Cache evicting {{ $value }} items/sec. Cache may be undersized for workload."
 
-    # ============================================================================
-    # STORAGE LATENCY SLO (p99 < 5ms)
-    # ============================================================================
-    - name: storage_latency_slo
-      interval: 30s
-      rules:
-          # Storage read latency p99 exceeds target
-          - alert: StorageReadLatencyHigh
-            expr: |
-                histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000 > 5
-            for: 5m
-            labels:
-                severity: P1
-                category: slo
-                slo: storage_latency
-            annotations:
-                summary: "Storage read p99 latency exceeds 5ms"
-                description: "Storage read p99 latency is {{ $value }}ms (target: <5ms). Check storage backend performance."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/storage-latency-slo"
+  # ============================================================================
+  # STORAGE LATENCY SLO (p99 < 5ms)
+  # ============================================================================
+  - name: storage_latency_slo
+    interval: 30s
+    rules:
+      # Storage read latency p99 exceeds target
+      - alert: StorageReadLatencyHigh
+        expr: |
+          histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000 > 5
+        for: 5m
+        labels:
+          severity: P1
+          category: slo
+          slo: storage_latency
+        annotations:
+          summary: "Storage read p99 latency exceeds 5ms"
+          description: "Storage read p99 latency is {{ $value }}ms (target: <5ms). Check storage backend performance."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/storage-latency-slo"
 
-          # Storage write latency p99 exceeds target
-          - alert: StorageWriteLatencyHigh
-            expr: |
-                histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000 > 5
-            for: 5m
-            labels:
-                severity: P1
-                category: slo
-                slo: storage_latency
-            annotations:
-                summary: "Storage write p99 latency exceeds 5ms"
-                description: "Storage write p99 latency is {{ $value }}ms (target: <5ms). Check storage backend performance."
+      # Storage write latency p99 exceeds target
+      - alert: StorageWriteLatencyHigh
+        expr: |
+          histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000 > 5
+        for: 5m
+        labels:
+          severity: P1
+          category: slo
+          slo: storage_latency
+        annotations:
+          summary: "Storage write p99 latency exceeds 5ms"
+          description: "Storage write p99 latency is {{ $value }}ms (target: <5ms). Check storage backend performance."
 
-          # Storage latency warning (4ms - approaching target)
-          - alert: StorageLatencyWarning
-            expr: |
-                (histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000 > 4)
-                or
-                (histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000 > 4)
-            for: 10m
-            labels:
-                severity: P2
-                category: slo
-                slo: storage_latency
-            annotations:
-                summary: "Storage latency approaching 5ms target"
-                description: "Storage p99 latency is {{ $value }}ms (target: <5ms)."
+      # Storage latency warning (4ms - approaching target)
+      - alert: StorageLatencyWarning
+        expr: |
+          (histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) * 1000 > 4)
+          or
+          (histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m])) * 1000 > 4)
+        for: 10m
+        labels:
+          severity: P2
+          category: slo
+          slo: storage_latency
+        annotations:
+          summary: "Storage latency approaching 5ms target"
+          description: "Storage p99 latency is {{ $value }}ms (target: <5ms)."
 
-    # ============================================================================
-    # REPLICATION LAG SLO (<100ms)
-    # ============================================================================
-    - name: replication_lag_slo
-      interval: 30s
-      rules:
-          # Replication lag exceeds target
-          - alert: ReplicationLagHigh
-            expr: |
-                inferadb_replication_lag_milliseconds > 100
-            for: 5m
-            labels:
-                severity: P1
-                category: slo
-                slo: replication
-            annotations:
-                summary: "Replication lag exceeds 100ms target"
-                description: "Replication lag is {{ $value }}ms (target: <100ms) for region {{ $labels.target_region }}."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/replication-lag-slo"
-                dashboard_url: "http://your-grafana-instance/d/replication"
+  # ============================================================================
+  # REPLICATION LAG SLO (<100ms)
+  # ============================================================================
+  - name: replication_lag_slo
+    interval: 30s
+    rules:
+      # Replication lag exceeds target
+      - alert: ReplicationLagHigh
+        expr: |
+          inferadb_replication_lag_milliseconds > 100
+        for: 5m
+        labels:
+          severity: P1
+          category: slo
+          slo: replication
+        annotations:
+          summary: "Replication lag exceeds 100ms target"
+          description: "Replication lag is {{ $value }}ms (target: <100ms) for region {{ $labels.target_region }}."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/replication-lag-slo"
+          dashboard_url: "http://your-grafana-instance/d/replication"
 
-          # Replication lag critical (500ms)
-          - alert: ReplicationLagCritical
-            expr: |
-                inferadb_replication_lag_milliseconds > 500
-            for: 2m
-            labels:
-                severity: P0
-                category: slo
-                slo: replication
-            annotations:
-                summary: "Critical replication lag"
-                description: "Replication lag is {{ $value }}ms for region {{ $labels.target_region }}. Data consistency at risk."
+      # Replication lag critical (500ms)
+      - alert: ReplicationLagCritical
+        expr: |
+          inferadb_replication_lag_milliseconds > 500
+        for: 2m
+        labels:
+          severity: P0
+          category: slo
+          slo: replication
+        annotations:
+          summary: "Critical replication lag"
+          description: "Replication lag is {{ $value }}ms for region {{ $labels.target_region }}. Data consistency at risk."
 
-          # Replication target unhealthy
-          - alert: ReplicationTargetUnhealthy
-            expr: |
-                (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
-            for: 2m
-            labels:
-                severity: P0
-                category: replication
-            annotations:
-                summary: "Replication target unhealthy"
-                description: "{{ $value | humanizePercentage }} of replication targets are connected. Check network and remote region health."
+      # Replication target unhealthy
+      - alert: ReplicationTargetUnhealthy
+        expr: |
+          (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
+        for: 2m
+        labels:
+          severity: P0
+          category: replication
+        annotations:
+          summary: "Replication target unhealthy"
+          description: "{{ $value | humanizePercentage }} of replication targets are connected. Check network and remote region health."
 
-          # Replication errors
-          - alert: ReplicationErrorsHigh
-            expr: |
-                rate(inferadb_replication_errors_total[5m]) > 0.01
-            for: 5m
-            labels:
-                severity: P1
-                category: replication
-            annotations:
-                summary: "High replication error rate"
-                description: "Replication errors at {{ $value }}/sec for target {{ $labels.target_region }}."
+      # Replication errors
+      - alert: ReplicationErrorsHigh
+        expr: |
+          rate(inferadb_replication_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: P1
+          category: replication
+        annotations:
+          summary: "High replication error rate"
+          description: "Replication errors at {{ $value }}/sec for target {{ $labels.target_region }}."
 
-          # Conflict rate high
-          - alert: ConflictRateHigh
-            expr: |
-                (rate(inferadb_replication_conflicts_total[5m])
-                / rate(inferadb_replication_changes_replicated_total[5m])) > 0.05
-            for: 10m
-            labels:
-                severity: P2
-                category: replication
-            annotations:
-                summary: "High replication conflict rate"
-                description: "Conflict rate is {{ $value | humanizePercentage }} (>5%). Review conflict resolution strategy."
+      # Conflict rate high
+      - alert: ConflictRateHigh
+        expr: |
+          (rate(inferadb_replication_conflicts_total[5m])
+          / rate(inferadb_replication_changes_replicated_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: P2
+          category: replication
+        annotations:
+          summary: "High replication conflict rate"
+          description: "Conflict rate is {{ $value | humanizePercentage }} (>5%). Review conflict resolution strategy."
 
-    # ============================================================================
-    # JWKS CACHE FRESHNESS SLO (<1s stale serving)
-    # ============================================================================
-    - name: jwks_slo
-      interval: 30s
-      rules:
-          # JWKS stale serving rate high
-          - alert: JWKSStaleCacheServing
-            expr: |
-                rate(inferadb_jwks_stale_served_total[1m]) > 1
-            for: 2m
-            labels:
-                severity: P2
-                category: slo
-                slo: jwks
-            annotations:
-                summary: "JWKS serving stale cache frequently"
-                description: "Serving stale JWKS cache at {{ $value }}/sec. May cause auth failures."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/jwks-slo"
+  # ============================================================================
+  # JWKS CACHE FRESHNESS SLO (<1s stale serving)
+  # ============================================================================
+  - name: jwks_slo
+    interval: 30s
+    rules:
+      # JWKS stale serving rate high
+      - alert: JWKSStaleCacheServing
+        expr: |
+          rate(inferadb_jwks_stale_served_total[1m]) > 1
+        for: 2m
+        labels:
+          severity: P2
+          category: slo
+          slo: jwks
+        annotations:
+          summary: "JWKS serving stale cache frequently"
+          description: "Serving stale JWKS cache at {{ $value }}/sec. May cause auth failures."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/jwks-slo"
 
-          # JWKS refresh failures
-          - alert: JWKSRefreshFailures
-            expr: |
-                rate(inferadb_jwks_refresh_errors_total[5m]) > 0
-            for: 5m
-            labels:
-                severity: P1
-                category: auth
-            annotations:
-                summary: "JWKS refresh failures"
-                description: "JWKS refresh failing for issuer {{ $labels.issuer }}. Auth may fail soon."
+      # JWKS refresh failures
+      - alert: JWKSRefreshFailures
+        expr: |
+          rate(inferadb_jwks_refresh_errors_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: P1
+          category: auth
+        annotations:
+          summary: "JWKS refresh failures"
+          description: "JWKS refresh failing for issuer {{ $labels.issuer }}. Auth may fail soon."
 
-    # ============================================================================
-    # EVALUATION DEPTH SLO (p99 < 10 levels)
-    # ============================================================================
-    - name: evaluation_depth_slo
-      interval: 30s
-      rules:
-          # Evaluation depth exceeds target
-          - alert: EvaluationDepthHigh
-            expr: |
-                histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m])) > 10
-            for: 10m
-            labels:
-                severity: P2
-                category: slo
-                slo: evaluation
-            annotations:
-                summary: "Evaluation depth p99 exceeds 10 levels"
-                description: "p99 evaluation depth is {{ $value }} (target: <10). Check for overly complex policies or circular references."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/evaluation-depth-slo"
+  # ============================================================================
+  # EVALUATION DEPTH SLO (p99 < 10 levels)
+  # ============================================================================
+  - name: evaluation_depth_slo
+    interval: 30s
+    rules:
+      # Evaluation depth exceeds target
+      - alert: EvaluationDepthHigh
+        expr: |
+          histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m])) > 10
+        for: 10m
+        labels:
+          severity: P2
+          category: slo
+          slo: evaluation
+        annotations:
+          summary: "Evaluation depth p99 exceeds 10 levels"
+          description: "p99 evaluation depth is {{ $value }} (target: <10). Check for overly complex policies or circular references."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/evaluation-depth-slo"
 
-          # Evaluation depth critical (20 levels)
-          - alert: EvaluationDepthCritical
-            expr: |
-                histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m])) > 20
-            for: 5m
-            labels:
-                severity: P1
-                category: slo
-                slo: evaluation
-            annotations:
-                summary: "Critical evaluation depth"
-                description: "p99 evaluation depth is {{ $value }}. Performance severely impacted."
+      # Evaluation depth critical (20 levels)
+      - alert: EvaluationDepthCritical
+        expr: |
+          histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m])) > 20
+        for: 5m
+        labels:
+          severity: P1
+          category: slo
+          slo: evaluation
+        annotations:
+          summary: "Critical evaluation depth"
+          description: "p99 evaluation depth is {{ $value }}. Performance severely impacted."
 
-    # ============================================================================
-    # CAPACITY AND RESOURCE ALERTS
-    # ============================================================================
-    - name: capacity
-      interval: 30s
-      rules:
-          # CPU utilization high
-          - alert: CPUUtilizationHigh
-            expr: |
-                rate(process_cpu_seconds_total[5m]) * 100 > 70
-            for: 10m
-            labels:
-                severity: P2
-                category: capacity
-            annotations:
-                summary: "CPU utilization high"
-                description: "CPU utilization is {{ $value }}% (threshold: 70%). Consider scaling."
+  # ============================================================================
+  # CAPACITY AND RESOURCE ALERTS
+  # ============================================================================
+  - name: capacity
+    interval: 30s
+    rules:
+      # CPU utilization high
+      - alert: CPUUtilizationHigh
+        expr: |
+          rate(process_cpu_seconds_total[5m]) * 100 > 70
+        for: 10m
+        labels:
+          severity: P2
+          category: capacity
+        annotations:
+          summary: "CPU utilization high"
+          description: "CPU utilization is {{ $value }}% (threshold: 70%). Consider scaling."
 
-          # Memory utilization high
-          - alert: MemoryUtilizationHigh
-            expr: |
-                (process_resident_memory_bytes / process_virtual_memory_max_bytes) * 100 > 80
-            for: 10m
-            labels:
-                severity: P2
-                category: capacity
-            annotations:
-                summary: "Memory utilization high"
-                description: "Memory utilization is {{ $value }}% (threshold: 80%). Consider scaling."
+      # Memory utilization high
+      - alert: MemoryUtilizationHigh
+        expr: |
+          (process_resident_memory_bytes / process_virtual_memory_max_bytes) * 100 > 80
+        for: 10m
+        labels:
+          severity: P2
+          category: capacity
+        annotations:
+          summary: "Memory utilization high"
+          description: "Memory utilization is {{ $value }}% (threshold: 80%). Consider scaling."
 
-          # Request rate increasing rapidly
-          - alert: RequestRateIncreasing
-            expr: |
-                deriv(rate(inferadb_checks_total[5m])[10m]) > 100
-            for: 10m
-            labels:
-                severity: P3
-                category: capacity
-            annotations:
-                summary: "Request rate increasing rapidly"
-                description: "Request rate increasing by {{ $value }}/sec². Monitor for capacity issues."
+      # Request rate increasing rapidly
+      - alert: RequestRateIncreasing
+        expr: |
+          deriv(rate(inferadb_checks_total[5m])[10m]) > 100
+        for: 10m
+        labels:
+          severity: P3
+          category: capacity
+        annotations:
+          summary: "Request rate increasing rapidly"
+          description: "Request rate increasing by {{ $value }}/sec². Monitor for capacity issues."
 
-    # ============================================================================
-    # SYSTEM HEALTH ALERTS
-    # ============================================================================
-    - name: health
-      interval: 30s
-      rules:
-          # Service down
-          - alert: ServiceDown
-            expr: |
-                up{job="inferadb"} == 0
-            for: 1m
-            labels:
-                severity: P0
-                category: health
-            annotations:
-                summary: "InferaDB service down"
-                description: "InferaDB instance {{ $labels.instance }} is down."
-                runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/service-down"
+  # ============================================================================
+  # SYSTEM HEALTH ALERTS
+  # ============================================================================
+  - name: health
+    interval: 30s
+    rules:
+      # Service down
+      - alert: ServiceDown
+        expr: |
+          up{job="inferadb"} == 0
+        for: 1m
+        labels:
+          severity: P0
+          category: health
+        annotations:
+          summary: "InferaDB service down"
+          description: "InferaDB instance {{ $labels.instance }} is down."
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/service-down"
 
-          # High number of goroutines (potential leak)
-          - alert: GoroutineLeakSuspected
-            expr: |
-                go_goroutines > 10000
-            for: 10m
-            labels:
-                severity: P2
-                category: health
-            annotations:
-                summary: "High goroutine count"
-                description: "{{ $value }} goroutines running. Possible goroutine leak."
+      # High number of goroutines (potential leak)
+      - alert: GoroutineLeakSuspected
+        expr: |
+          go_goroutines > 10000
+        for: 10m
+        labels:
+          severity: P2
+          category: health
+        annotations:
+          summary: "High goroutine count"
+          description: "{{ $value }} goroutines running. Possible goroutine leak."
 
-          # File descriptor usage high
-          - alert: FileDescriptorUsageHigh
-            expr: |
-                (process_open_fds / process_max_fds) * 100 > 80
-            for: 10m
-            labels:
-                severity: P1
-                category: health
-            annotations:
-                summary: "File descriptor usage high"
-                description: "Using {{ $value }}% of available file descriptors."
+      # File descriptor usage high
+      - alert: FileDescriptorUsageHigh
+        expr: |
+          (process_open_fds / process_max_fds) * 100 > 80
+        for: 10m
+        labels:
+          severity: P1
+          category: health
+        annotations:
+          summary: "File descriptor usage high"
+          description: "Using {{ $value }}% of available file descriptors."

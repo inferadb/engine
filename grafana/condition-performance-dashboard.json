@@ -1,346 +1,334 @@
 {
-    "dashboard": {
-        "title": "InferaDB - Condition Performance",
-        "tags": ["inferadb", "authorization", "conditions", "wasm"],
-        "timezone": "browser",
-        "refresh": "30s",
-        "time": {
-            "from": "now-1h",
-            "to": "now"
+  "dashboard": {
+    "title": "InferaDB - Condition Performance",
+    "tags": ["inferadb", "authorization", "conditions", "wasm"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Condition Evaluation Rate",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(inferadb_condition_evaluations_total[5m]))",
+            "legendFormat": "Total Evaluations/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(inferadb_condition_evaluation_success_total[5m]))",
+            "legendFormat": "Successful/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(inferadb_condition_evaluation_failure_total[5m]))",
+            "legendFormat": "Failed/sec",
+            "refId": "C"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "orientation": "vertical",
+          "textMode": "value_and_name",
+          "colorMode": "background",
+          "graphMode": "area"
         },
-        "panels": [
-            {
-                "id": 1,
-                "title": "Condition Evaluation Rate",
-                "type": "stat",
-                "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
-                "targets": [
-                    {
-                        "expr": "sum(rate(inferadb_condition_evaluations_total[5m]))",
-                        "legendFormat": "Total Evaluations/sec",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "sum(rate(inferadb_condition_evaluation_success_total[5m]))",
-                        "legendFormat": "Successful/sec",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "sum(rate(inferadb_condition_evaluation_failure_total[5m]))",
-                        "legendFormat": "Failed/sec",
-                        "refId": "C"
-                    }
-                ],
-                "options": {
-                    "reduceOptions": {
-                        "calcs": ["lastNotNull"]
-                    },
-                    "orientation": "vertical",
-                    "textMode": "value_and_name",
-                    "colorMode": "background",
-                    "graphMode": "area"
-                },
-                "fieldConfig": {
-                    "defaults": {
-                        "unit": "reqps",
-                        "thresholds": {
-                            "mode": "absolute",
-                            "steps": [{ "value": null, "color": "green" }]
-                        }
-                    },
-                    "overrides": [
-                        {
-                            "matcher": {
-                                "id": "byName",
-                                "options": "Failed/sec"
-                            },
-                            "properties": [
-                                {
-                                    "id": "color",
-                                    "value": {
-                                        "mode": "fixed",
-                                        "fixedColor": "red"
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                }
-            },
-            {
-                "id": 2,
-                "title": "Condition Success Rate",
-                "type": "gauge",
-                "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
-                "targets": [
-                    {
-                        "expr": "sum(rate(inferadb_condition_evaluation_success_total[5m])) / sum(rate(inferadb_condition_evaluations_total[5m])) * 100",
-                        "refId": "A"
-                    }
-                ],
-                "options": {
-                    "showThresholdLabels": true,
-                    "showThresholdMarkers": true
-                },
-                "fieldConfig": {
-                    "defaults": {
-                        "thresholds": {
-                            "mode": "absolute",
-                            "steps": [
-                                { "value": 0, "color": "red" },
-                                { "value": 95, "color": "yellow" },
-                                { "value": 99, "color": "green" }
-                            ]
-                        },
-                        "unit": "percent",
-                        "min": 0,
-                        "max": 100
-                    }
-                }
-            },
-            {
-                "id": 3,
-                "title": "WASM Invocations",
-                "type": "stat",
-                "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
-                "targets": [
-                    {
-                        "expr": "sum(rate(inferadb_wasm_invocations_total[5m]))",
-                        "legendFormat": "WASM Calls/sec",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "sum(rate(inferadb_wasm_errors_total[5m]))",
-                        "legendFormat": "WASM Errors/sec",
-                        "refId": "B"
-                    }
-                ],
-                "options": {
-                    "reduceOptions": {
-                        "calcs": ["lastNotNull"]
-                    },
-                    "orientation": "vertical",
-                    "textMode": "value_and_name",
-                    "colorMode": "background",
-                    "graphMode": "area"
-                },
-                "fieldConfig": {
-                    "defaults": {
-                        "unit": "reqps"
-                    }
-                }
-            },
-            {
-                "id": 4,
-                "title": "Condition Evaluation Latency",
-                "type": "graph",
-                "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.50, sum by (condition_type, le) (rate(inferadb_condition_evaluation_duration_seconds_bucket[5m]))) * 1000",
-                        "legendFormat": "{{condition_type}} - p50",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.90, sum by (condition_type, le) (rate(inferadb_condition_evaluation_duration_seconds_bucket[5m]))) * 1000",
-                        "legendFormat": "{{condition_type}} - p90",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.99, sum by (condition_type, le) (rate(inferadb_condition_evaluation_duration_seconds_bucket[5m]))) * 1000",
-                        "legendFormat": "{{condition_type}} - p99",
-                        "refId": "C"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "ms", "label": "Latency" },
-                    { "format": "short" }
-                ],
-                "legend": {
-                    "show": true,
-                    "alignAsTable": true,
-                    "rightSide": false,
-                    "avg": true,
-                    "max": true,
-                    "current": true
-                }
-            },
-            {
-                "id": 5,
-                "title": "WASM Execution Latency by Module",
-                "type": "graph",
-                "gridPos": { "h": 10, "w": 12, "x": 12, "y": 8 },
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.50, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000",
-                        "legendFormat": "{{module}} - p50",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.90, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000",
-                        "legendFormat": "{{module}} - p90",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000",
-                        "legendFormat": "{{module}} - p99",
-                        "refId": "C"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "ms", "label": "Latency" },
-                    { "format": "short" }
-                ],
-                "legend": {
-                    "show": true,
-                    "alignAsTable": true,
-                    "rightSide": false,
-                    "avg": true,
-                    "max": true,
-                    "current": true
-                }
-            },
-            {
-                "id": 6,
-                "title": "Condition Evaluation Trends",
-                "type": "graph",
-                "gridPos": { "h": 10, "w": 12, "x": 0, "y": 18 },
-                "targets": [
-                    {
-                        "expr": "sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m]))",
-                        "legendFormat": "{{condition_type}}",
-                        "refId": "A"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "reqps", "label": "Evaluations/sec" },
-                    { "format": "short" }
-                ],
-                "legend": {
-                    "show": true,
-                    "alignAsTable": true,
-                    "rightSide": false,
-                    "avg": true,
-                    "max": true,
-                    "current": true
-                }
-            },
-            {
-                "id": 7,
-                "title": "WASM Fuel Consumption",
-                "type": "graph",
-                "gridPos": { "h": 10, "w": 12, "x": 12, "y": 18 },
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.50, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))",
-                        "legendFormat": "{{module}} - p50",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.90, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))",
-                        "legendFormat": "{{module}} - p90",
-                        "refId": "B"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))",
-                        "legendFormat": "{{module}} - p99",
-                        "refId": "C"
-                    }
-                ],
-                "yaxes": [
-                    { "format": "short", "label": "Fuel Units" },
-                    { "format": "short" }
-                ],
-                "legend": {
-                    "show": true,
-                    "alignAsTable": true,
-                    "rightSide": false,
-                    "avg": true,
-                    "max": true,
-                    "current": true
-                }
-            },
-            {
-                "id": 8,
-                "title": "Slowest Condition Types",
-                "type": "table",
-                "gridPos": { "h": 10, "w": 12, "x": 0, "y": 28 },
-                "targets": [
-                    {
-                        "expr": "topk(10, avg by (condition_type) (rate(inferadb_condition_evaluation_duration_seconds_sum[5m]) / rate(inferadb_condition_evaluation_duration_seconds_count[5m])) * 1000)",
-                        "format": "table",
-                        "instant": true,
-                        "refId": "A"
-                    }
-                ],
-                "transformations": [
-                    {
-                        "id": "organize",
-                        "options": {
-                            "excludeByName": { "Time": true },
-                            "renameByName": {
-                                "condition_type": "Condition Type",
-                                "Value": "Avg Latency (ms)"
-                            }
-                        }
-                    }
-                ]
-            },
-            {
-                "id": 9,
-                "title": "Most Used WASM Modules",
-                "type": "table",
-                "gridPos": { "h": 10, "w": 12, "x": 12, "y": 28 },
-                "targets": [
-                    {
-                        "expr": "topk(10, sum by (module) (rate(inferadb_wasm_invocations_total[5m])))",
-                        "format": "table",
-                        "instant": true,
-                        "refId": "A"
-                    }
-                ],
-                "transformations": [
-                    {
-                        "id": "organize",
-                        "options": {
-                            "excludeByName": { "Time": true },
-                            "renameByName": {
-                                "module": "WASM Module",
-                                "Value": "Invocations/sec"
-                            }
-                        }
-                    }
-                ]
-            },
-            {
-                "id": 10,
-                "title": "Condition Failure Rate",
-                "type": "graph",
-                "gridPos": { "h": 8, "w": 24, "x": 0, "y": 38 },
-                "targets": [
-                    {
-                        "expr": "sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m])) / sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m])) * 100",
-                        "legendFormat": "{{condition_type}}",
-                        "refId": "A"
-                    }
-                ],
-                "yaxes": [
-                    {
-                        "format": "percent",
-                        "label": "Failure Rate %",
-                        "min": 0
-                    },
-                    { "format": "short" }
-                ],
-                "legend": {
-                    "show": true,
-                    "alignAsTable": true,
-                    "rightSide": false,
-                    "avg": true,
-                    "max": true,
-                    "current": true
-                }
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [{ "value": null, "color": "green" }]
             }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Failed/sec"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "red"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "title": "Condition Success Rate",
+        "type": "gauge",
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(inferadb_condition_evaluation_success_total[5m])) / sum(rate(inferadb_condition_evaluations_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 95, "color": "yellow" },
+                { "value": 99, "color": "green" }
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "WASM Invocations",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(inferadb_wasm_invocations_total[5m]))",
+            "legendFormat": "WASM Calls/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(inferadb_wasm_errors_total[5m]))",
+            "legendFormat": "WASM Errors/sec",
+            "refId": "B"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "orientation": "vertical",
+          "textMode": "value_and_name",
+          "colorMode": "background",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Condition Evaluation Latency",
+        "type": "graph",
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum by (condition_type, le) (rate(inferadb_condition_evaluation_duration_seconds_bucket[5m]))) * 1000",
+            "legendFormat": "{{condition_type}} - p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.90, sum by (condition_type, le) (rate(inferadb_condition_evaluation_duration_seconds_bucket[5m]))) * 1000",
+            "legendFormat": "{{condition_type}} - p90",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (condition_type, le) (rate(inferadb_condition_evaluation_duration_seconds_bucket[5m]))) * 1000",
+            "legendFormat": "{{condition_type}} - p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [{ "format": "ms", "label": "Latency" }, { "format": "short" }],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "rightSide": false,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 5,
+        "title": "WASM Execution Latency by Module",
+        "type": "graph",
+        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000",
+            "legendFormat": "{{module}} - p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.90, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000",
+            "legendFormat": "{{module}} - p90",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000",
+            "legendFormat": "{{module}} - p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [{ "format": "ms", "label": "Latency" }, { "format": "short" }],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "rightSide": false,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 6,
+        "title": "Condition Evaluation Trends",
+        "type": "graph",
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 18 },
+        "targets": [
+          {
+            "expr": "sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m]))",
+            "legendFormat": "{{condition_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [{ "format": "reqps", "label": "Evaluations/sec" }, { "format": "short" }],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "rightSide": false,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 7,
+        "title": "WASM Fuel Consumption",
+        "type": "graph",
+        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 18 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))",
+            "legendFormat": "{{module}} - p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.90, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))",
+            "legendFormat": "{{module}} - p90",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))",
+            "legendFormat": "{{module}} - p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [{ "format": "short", "label": "Fuel Units" }, { "format": "short" }],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "rightSide": false,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 8,
+        "title": "Slowest Condition Types",
+        "type": "table",
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 28 },
+        "targets": [
+          {
+            "expr": "topk(10, avg by (condition_type) (rate(inferadb_condition_evaluation_duration_seconds_sum[5m]) / rate(inferadb_condition_evaluation_duration_seconds_count[5m])) * 1000)",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": {
+                "condition_type": "Condition Type",
+                "Value": "Avg Latency (ms)"
+              }
+            }
+          }
         ]
-    }
+      },
+      {
+        "id": 9,
+        "title": "Most Used WASM Modules",
+        "type": "table",
+        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 28 },
+        "targets": [
+          {
+            "expr": "topk(10, sum by (module) (rate(inferadb_wasm_invocations_total[5m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": {
+                "module": "WASM Module",
+                "Value": "Invocations/sec"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Condition Failure Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 38 },
+        "targets": [
+          {
+            "expr": "sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m])) / sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m])) * 100",
+            "legendFormat": "{{condition_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Failure Rate %",
+            "min": 0
+          },
+          { "format": "short" }
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "rightSide": false,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      }
+    ]
+  }
 }

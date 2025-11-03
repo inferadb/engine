@@ -1,48 +1,48 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-    name: inferadb
-    labels:
-        app: inferadb
-        component: server
+  name: inferadb
+  labels:
+    app: inferadb
+    component: server
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-    name: inferadb
-    labels:
-        app: inferadb
-        component: server
+  name: inferadb
+  labels:
+    app: inferadb
+    component: server
 rules:
-    # Allow reading ConfigMaps for configuration
-    - apiGroups: [""]
-      resources: ["configmaps"]
-      verbs: ["get", "list", "watch"]
+  # Allow reading ConfigMaps for configuration
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
 
-    # Allow reading Secrets
-    - apiGroups: [""]
-      resources: ["secrets"]
-      verbs: ["get", "list"]
+  # Allow reading Secrets
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
 
-    # Allow reading pod information for health checks
-    - apiGroups: [""]
-      resources: ["pods"]
-      verbs: ["get", "list"]
+  # Allow reading pod information for health checks
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-    name: inferadb
-    labels:
-        app: inferadb
-        component: server
+  name: inferadb
+  labels:
+    app: inferadb
+    component: server
 roleRef:
-    apiGroup: rbac.authorization.k8s.io
-    kind: Role
-    name: inferadb
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: inferadb
 subjects:
-    - kind: ServiceAccount
-      name: inferadb
-      # namespace will be set by kustomization.yaml
+  - kind: ServiceAccount
+    name: inferadb
+    # namespace will be set by kustomization.yaml

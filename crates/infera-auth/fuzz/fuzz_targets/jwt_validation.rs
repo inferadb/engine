@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use infera_auth::jwt::{validate_algorithm, validate_claims, JwtClaims};
+use infera_auth::{jwt::{validate_claims, JwtClaims}, validation::validate_algorithm};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fuzz_target!(|data: &[u8]| {

@@ -23,6 +23,15 @@ use tracing::warn;
 
 use crate::{error::AuthError, jwt::JwtClaims};
 
+/// Forbidden JWT algorithms that are never accepted for security reasons
+///
+/// These algorithms are blocked because:
+/// - `none`: No signature verification (trivially bypassable)
+/// - `HS256`, `HS384`, `HS512`: Symmetric algorithms (shared secret vulnerability)
+///
+/// Only asymmetric algorithms (EdDSA, RS256, RS384, RS512) are allowed.
+pub const FORBIDDEN_ALGORITHMS: &[&str] = &["none", "HS256", "HS384", "HS512"];
+
 /// Validate all timestamp-related claims with clock skew tolerance
 ///
 /// Checks:
@@ -152,12 +161,14 @@ pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError
 /// This function enforces strict algorithm security:
 /// - ALWAYS rejects symmetric algorithms (HS256, HS384, HS512)
 /// - ALWAYS rejects "none" algorithm
-/// - Only accepts algorithms in the configured allowed list
+/// - Only accepts algorithms in the provided allowed list
+///
+/// Uses constant-time comparison to prevent timing attacks.
 ///
 /// # Arguments
 ///
 /// * `alg` - The algorithm from the JWT header
-/// * `config` - Authentication configuration containing accepted algorithms
+/// * `accepted_algorithms` - List of accepted algorithm names
 ///
 /// # Errors
 ///
@@ -165,30 +176,39 @@ pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError
 /// - Algorithm is symmetric (HS256, HS384, HS512)
 /// - Algorithm is "none"
 /// - Algorithm is not in the accepted algorithms list
-pub fn validate_algorithm(alg: &str, config: &AuthConfig) -> Result<(), AuthError> {
-    // Hardcoded blocklist - never accept these (using constant-time comparison)
-    const FORBIDDEN: &[&str] = &["none", "HS256", "HS384", "HS512"];
-
-    if FORBIDDEN.iter().any(|forbidden| alg.as_bytes().ct_eq(forbidden.as_bytes()).into()) {
-        warn!(algorithm = %alg, "Forbidden algorithm rejected");
+///
+/// # Examples
+///
+/// ```rust
+/// use infera_auth::validation::validate_algorithm;
+///
+/// // With explicit list
+/// let result = validate_algorithm("EdDSA", &["EdDSA".to_string(), "RS256".to_string()]);
+/// assert!(result.is_ok());
+///
+/// // Symmetric algorithm rejected
+/// let result = validate_algorithm("HS256", &["EdDSA".to_string()]);
+/// assert!(result.is_err());
+///
+/// // With config
+/// use infera_config::AuthConfig;
+/// # let config = AuthConfig::default();
+/// let result = validate_algorithm("EdDSA", &config.accepted_algorithms);
+/// ```
+pub fn validate_algorithm(alg: &str, accepted_algorithms: &[String]) -> Result<(), AuthError> {
+    // Check against forbidden algorithms using constant-time comparison
+    if FORBIDDEN_ALGORITHMS
+        .iter()
+        .any(|forbidden| alg.as_bytes().ct_eq(forbidden.as_bytes()).into())
+    {
         return Err(AuthError::UnsupportedAlgorithm(format!(
-            "Algorithm '{}' is forbidden for security reasons (symmetric or none)",
+            "Algorithm '{}' is not allowed for security reasons",
             alg
         )));
     }
 
-    // Check against accepted algorithms
-    if config.accepted_algorithms.is_empty() {
-        warn!("No accepted algorithms configured");
-        return Err(AuthError::UnsupportedAlgorithm("No accepted algorithms configured".into()));
-    }
-
-    if !config
-        .accepted_algorithms
-        .iter()
-        .any(|accepted| accepted.as_bytes().ct_eq(alg.as_bytes()).into())
-    {
-        warn!(algorithm = %alg, "Algorithm not in accepted list");
+    // Check if in accepted list (using constant-time comparison)
+    if !accepted_algorithms.iter().any(|a| a.as_bytes().ct_eq(alg.as_bytes()).into()) {
         return Err(AuthError::UnsupportedAlgorithm(format!(
             "Algorithm '{}' is not in accepted list",
             alg
@@ -375,38 +395,72 @@ mod tests {
     #[test]
     fn test_validate_algorithm_asymmetric() {
         let config = default_config();
-        assert!(validate_algorithm("EdDSA", &config).is_ok());
-        assert!(validate_algorithm("RS256", &config).is_ok());
+        assert!(validate_algorithm("EdDSA", &config.accepted_algorithms).is_ok());
+        assert!(validate_algorithm("RS256", &config.accepted_algorithms).is_ok());
     }
 
     #[test]
     fn test_validate_algorithm_symmetric_rejected() {
         let config = default_config();
-        assert!(validate_algorithm("HS256", &config).is_err());
-        assert!(validate_algorithm("HS384", &config).is_err());
-        assert!(validate_algorithm("HS512", &config).is_err());
+        assert!(validate_algorithm("HS256", &config.accepted_algorithms).is_err());
+        assert!(validate_algorithm("HS384", &config.accepted_algorithms).is_err());
+        assert!(validate_algorithm("HS512", &config.accepted_algorithms).is_err());
     }
 
     #[test]
     fn test_validate_algorithm_none_rejected() {
         let config = default_config();
-        let result = validate_algorithm("none", &config);
+        let result = validate_algorithm("none", &config.accepted_algorithms);
         assert!(matches!(result, Err(AuthError::UnsupportedAlgorithm(_))));
     }
 
     #[test]
     fn test_validate_algorithm_not_in_list() {
         let config = default_config();
-        let result = validate_algorithm("ES256", &config);
+        let result = validate_algorithm("ES256", &config.accepted_algorithms);
         assert!(matches!(result, Err(AuthError::UnsupportedAlgorithm(_))));
     }
 
     #[test]
     fn test_validate_algorithm_empty_list() {
-        let mut config = default_config();
-        config.accepted_algorithms = vec![];
-
-        let result = validate_algorithm("EdDSA", &config);
+        let empty: Vec<String> = vec![];
+        let result = validate_algorithm("EdDSA", &empty);
         assert!(matches!(result, Err(AuthError::UnsupportedAlgorithm(_))));
+    }
+
+    #[test]
+    fn test_validate_algorithm_rejects_symmetric() {
+        let accepted = vec!["EdDSA".to_string(), "RS256".to_string()];
+
+        assert!(validate_algorithm("HS256", &accepted).is_err());
+        assert!(validate_algorithm("HS384", &accepted).is_err());
+        assert!(validate_algorithm("HS512", &accepted).is_err());
+        assert!(validate_algorithm("none", &accepted).is_err());
+    }
+
+    #[test]
+    fn test_validate_algorithm_accepts_asymmetric() {
+        let accepted = vec!["EdDSA".to_string(), "RS256".to_string()];
+
+        assert!(validate_algorithm("EdDSA", &accepted).is_ok());
+        assert!(validate_algorithm("RS256", &accepted).is_ok());
+    }
+
+    #[test]
+    fn test_validate_algorithm_rejects_unlisted() {
+        let accepted = vec!["EdDSA".to_string()];
+
+        assert!(validate_algorithm("RS256", &accepted).is_err());
+        assert!(validate_algorithm("ES256", &accepted).is_err());
+    }
+
+    #[test]
+    fn test_forbidden_algorithms_constant() {
+        // Verify the FORBIDDEN_ALGORITHMS constant is correctly defined
+        assert_eq!(FORBIDDEN_ALGORITHMS.len(), 4);
+        assert!(FORBIDDEN_ALGORITHMS.contains(&"none"));
+        assert!(FORBIDDEN_ALGORITHMS.contains(&"HS256"));
+        assert!(FORBIDDEN_ALGORITHMS.contains(&"HS384"));
+        assert!(FORBIDDEN_ALGORITHMS.contains(&"HS512"));
     }
 }

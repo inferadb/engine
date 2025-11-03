@@ -534,7 +534,7 @@ class InferaClient {
     async check(
         subject: string,
         resource: string,
-        permission: string,
+        permission: string
     ): Promise<boolean> {
         const response = await fetch(`${this.baseUrl}/check`, {
             method: "POST",
@@ -551,7 +551,7 @@ class InferaClient {
             resource: string;
             relation: string;
             subject: string;
-        }>,
+        }>
     ): Promise<number> {
         const response = await fetch(`${this.baseUrl}/write`, {
             method: "POST",
