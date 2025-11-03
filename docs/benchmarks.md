@@ -30,10 +30,10 @@ These metrics were established on 2025-11-03 and serve as the regression detecti
 
 **Key Insights:**
 
--   Simple authorization checks complete in **<200 nanoseconds**
--   Throughput exceeds **5 million operations per second** for direct checks
--   Cache provides minimal benefit for simple checks (already extremely fast)
--   Complex nested evaluations remain under 10 microseconds
+- Simple authorization checks complete in **<200 nanoseconds**
+- Throughput exceeds **5 million operations per second** for direct checks
+- Cache provides minimal benefit for simple checks (already extremely fast)
+- Complex nested evaluations remain under 10 microseconds
 
 ### API Throughput Performance
 
@@ -52,10 +52,10 @@ These metrics were established on 2025-11-03 and serve as the regression detecti
 
 **Key Insights:**
 
--   Authorization checks are **490x faster** than the 10,000 RPS target
--   Cache provides **21x speedup** (185 ns vs 3.8 µs)
--   Write batching scales linearly up to 100 relationships
--   Mixed workload (70% read, 20% write, 10% expand) achieves 322K ops/sec
+- Authorization checks are **490x faster** than the 10,000 RPS target
+- Cache provides **21x speedup** (185 ns vs 3.8 µs)
+- Write batching scales linearly up to 100 relationships
+- Mixed workload (70% read, 20% write, 10% expand) achieves 322K ops/sec
 
 ## Running Benchmarks
 
@@ -112,10 +112,10 @@ authorization_check/1_docs
 
 **Interpretation:**
 
--   `time: [low med high]` - 95% confidence interval for the median
--   `change: [low med high]` - Performance change vs baseline
--   `p = X` - Statistical significance (p < 0.05 indicates significant change)
--   Status message indicates if regression/improvement was detected
+- `time: [low med high]` - 95% confidence interval for the median
+- `change: [low med high]` - Performance change vs baseline
+- `p = X` - Statistical significance (p < 0.05 indicates significant change)
+- Status message indicates if regression/improvement was detected
 
 ### Regression Thresholds
 
@@ -123,9 +123,9 @@ Per PLAN.md requirements, we monitor for regressions **>10%**.
 
 **Action Required When:**
 
--   Performance degrades by >10% with p < 0.05
--   Multiple benchmarks show smaller regressions (trend)
--   Cache effectiveness drops below 15x speedup
+- Performance degrades by >10% with p < 0.05
+- Multiple benchmarks show smaller regressions (trend)
+- Cache effectiveness drops below 15x speedup
 
 ### Comparing Specific Baselines
 
@@ -162,23 +162,23 @@ Benchmarks are **not yet integrated into CI** but are ready for integration.
 
 **Option 1: Scheduled Benchmark Runs**
 
--   Run benchmarks nightly on dedicated hardware
--   Compare against saved baselines
--   Alert on regressions >10%
--   Store results for trend analysis
+- Run benchmarks nightly on dedicated hardware
+- Compare against saved baselines
+- Alert on regressions >10%
+- Store results for trend analysis
 
 **Option 2: PR Benchmark Checks**
 
--   Run benchmarks on PRs that touch performance-critical paths
--   Compare against main branch baseline
--   Block merge if regression >10% without justification
--   Requires consistent CI runner hardware for accuracy
+- Run benchmarks on PRs that touch performance-critical paths
+- Compare against main branch baseline
+- Block merge if regression >10% without justification
+- Requires consistent CI runner hardware for accuracy
 
 **Option 3: Hybrid Approach** (Recommended)
 
--   Nightly full benchmark runs on dedicated hardware
--   PR checks only run fast benchmarks (<30s total)
--   Manual trigger for full benchmark suite on PRs
+- Nightly full benchmark runs on dedicated hardware
+- PR checks only run fast benchmarks (<30s total)
+- Manual trigger for full benchmark suite on PRs
 
 ### Example GitHub Actions Workflow
 
@@ -215,24 +215,24 @@ jobs:
 
 Located in `crates/infera-core/benches/evaluator.rs`:
 
--   **Direct checks**: Test simple relationship lookups
--   **Union checks**: Test OR logic across multiple branches
--   **Complex checks**: Test nested hierarchies with parent traversal
--   **Expand operations**: Test subject enumeration with various complexity
--   **Parallel operations**: Test concurrent branch evaluation
--   **Cache effectiveness**: Test cache hit vs miss performance
--   **Scale tests**: Test performance with 1000+ relationships
+- **Direct checks**: Test simple relationship lookups
+- **Union checks**: Test OR logic across multiple branches
+- **Complex checks**: Test nested hierarchies with parent traversal
+- **Expand operations**: Test subject enumeration with various complexity
+- **Parallel operations**: Test concurrent branch evaluation
+- **Cache effectiveness**: Test cache hit vs miss performance
+- **Scale tests**: Test performance with 1000+ relationships
 
 ### API Throughput Benchmarks
 
 Located in `crates/infera-api/benches/api_throughput.rs`:
 
--   **Authorization checks**: Vary dataset size (1, 10, 100, 1000 docs)
--   **Relationship writes**: Vary batch size (1, 10, 50, 100)
--   **Expand operations**: Test subject enumeration
--   **List operations**: Vary result limit (10, 50, 100, 500)
--   **Mixed workload**: Realistic usage pattern (70/20/10 split)
--   **Cache effectiveness**: Direct comparison of hit vs miss
+- **Authorization checks**: Vary dataset size (1, 10, 100, 1000 docs)
+- **Relationship writes**: Vary batch size (1, 10, 50, 100)
+- **Expand operations**: Test subject enumeration
+- **List operations**: Vary result limit (10, 50, 100, 500)
+- **Mixed workload**: Realistic usage pattern (70/20/10 split)
+- **Cache effectiveness**: Direct comparison of hit vs miss
 
 ### Adding New Benchmarks
 
@@ -299,10 +299,10 @@ If benchmarks fail to compile after API changes:
 
 ## Resources
 
--   [Criterion.rs User Guide](https://bheisler.github.io/criterion.rs/book/)
--   [Rust Performance Book](https://nnethercote.github.io/perf-book/)
--   [InferaDB Architecture](./CLAUDE.md)
--   [Development Plan](./PLAN.md)
+- [Criterion.rs User Guide](https://bheisler.github.io/criterion.rs/book/)
+- [Rust Performance Book](https://nnethercote.github.io/perf-book/)
+- [InferaDB Architecture](./CLAUDE.md)
+- [Development Plan](./PLAN.md)
 
 ## Performance Targets
 
