@@ -25,12 +25,14 @@
 //! - dhat-rs (heap profiling)
 //! - cargo-instruments (macOS profiling)
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use infera_api::AppState;
 use infera_config::Config;
-use infera_core::{Evaluator, ipl::{RelationDef, RelationExpr, Schema, TypeDef}};
+use infera_core::{
+    Evaluator,
+    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
+};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{EvaluateRequest, ExpandRequest, Relationship};
 use uuid::Uuid;
@@ -45,9 +47,7 @@ fn create_test_schema() -> Arc<Schema> {
                 "viewer".to_string(),
                 Some(RelationExpr::Union(vec![
                     RelationExpr::This,
-                    RelationExpr::RelationRef {
-                        relation: "owner".to_string(),
-                    },
+                    RelationExpr::RelationRef { relation: "owner".to_string() },
                 ])),
             ),
         ],
@@ -61,12 +61,8 @@ async fn create_test_state() -> AppState {
     let vault = Uuid::new_v4();
     let account = Uuid::new_v4();
 
-    let evaluator = Arc::new(Evaluator::new(
-        store.clone() as Arc<dyn RelationshipStore>,
-        schema,
-        None,
-        vault,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None, vault));
 
     let mut config = Config::default();
     config.cache.enabled = true;
@@ -150,11 +146,7 @@ async fn test_no_memory_leak_in_expand_operations() {
             });
         }
     }
-    state
-        .store
-        .write(vault, relationships)
-        .await
-        .unwrap();
+    state.store.write(vault, relationships).await.unwrap();
 
     // Perform many expand operations
     for iteration in 0..1_000 {
@@ -195,11 +187,7 @@ async fn test_no_memory_leak_in_storage_operations() {
             })
             .collect();
 
-        state
-            .store
-            .write(vault, relationships)
-            .await
-            .unwrap();
+        state.store.write(vault, relationships).await.unwrap();
 
         // Read them back
         let list_request = infera_types::ListRelationshipsRequest {
@@ -210,11 +198,7 @@ async fn test_no_memory_leak_in_storage_operations() {
             cursor: None,
         };
 
-        let _ = state
-            .evaluator
-            .list_relationships(list_request)
-            .await
-            .unwrap();
+        let _ = state.evaluator.list_relationships(list_request).await.unwrap();
     }
 
     // Test passes if we reach here without OOM
@@ -396,10 +380,7 @@ async fn test_24h_authorization_stress() {
         if iteration % 1_000_000 == 0 {
             let elapsed = start.elapsed();
             let rate = iteration as f64 / elapsed.as_secs_f64();
-            eprintln!(
-                "Progress: {} iterations in {:?} ({:.0} ops/sec)",
-                iteration, elapsed, rate
-            );
+            eprintln!("Progress: {} iterations in {:?} ({:.0} ops/sec)", iteration, elapsed, rate);
         }
 
         // Brief sleep to prevent tight-looping
@@ -439,7 +420,7 @@ async fn test_24h_mixed_workload() {
                     trace: None,
                 };
                 let _ = state.evaluator.check(request).await.unwrap();
-            }
+            },
             7..=8 => {
                 // 20%: Write operation
                 let relationships = vec![Relationship {
@@ -449,7 +430,7 @@ async fn test_24h_mixed_workload() {
                     subject: format!("user:{}", iteration % 100),
                 }];
                 let _ = state.store.write(vault, relationships).await.unwrap();
-            }
+            },
             9 => {
                 // 10%: Expand operation
                 let request = ExpandRequest {
@@ -459,7 +440,7 @@ async fn test_24h_mixed_workload() {
                     continuation_token: None,
                 };
                 let _ = state.evaluator.expand(request).await.unwrap();
-            }
+            },
             _ => unreachable!(),
         }
 
@@ -469,10 +450,7 @@ async fn test_24h_mixed_workload() {
         if iteration % 1_000_000 == 0 {
             let elapsed = start.elapsed();
             let rate = iteration as f64 / elapsed.as_secs_f64();
-            eprintln!(
-                "Progress: {} iterations in {:?} ({:.0} ops/sec)",
-                iteration, elapsed, rate
-            );
+            eprintln!("Progress: {} iterations in {:?} ({:.0} ops/sec)", iteration, elapsed, rate);
         }
 
         // Brief sleep to prevent tight-looping
@@ -527,8 +505,5 @@ async fn test_no_connection_leaks() {
     // Test passes if we can still perform operations
     // If connections were leaked, we'd get timeouts or errors
     let final_check = state.store.get_revision(vault).await;
-    assert!(
-        final_check.is_ok(),
-        "Store should still be accessible after stress test"
-    );
+    assert!(final_check.is_ok(), "Store should still be accessible after stress test");
 }
