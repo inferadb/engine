@@ -395,10 +395,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri(format!(
-                        "/v1/relationships/{}/view/{}",
-                        encoded_resource, encoded_subject
-                    ))
+                    .uri(format!("/v1/relationships/{}/view/{}", encoded_resource, encoded_subject))
                     .body(Body::empty())
                     .unwrap(),
             )

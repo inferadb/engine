@@ -59,7 +59,10 @@ async fn test_relationships_written_to_vault_a_not_visible_in_vault_b() {
         relation: "viewer".to_string(),
         subject: Some("user:alice".to_string()),
     };
-    let results_a = store.read(vault_a, &key_a, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_a = store
+        .read(vault_a, &key_a, Revision(u64::MAX))
+        .await
+        .expect("Storage operation should succeed");
     assert_eq!(results_a.len(), 1);
 
     // Verify vault A cannot see vault B's data
@@ -68,15 +71,24 @@ async fn test_relationships_written_to_vault_a_not_visible_in_vault_b() {
         relation: "viewer".to_string(),
         subject: Some("user:bob".to_string()),
     };
-    let results_a_tries_b = store.read(vault_a, &key_b, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_a_tries_b = store
+        .read(vault_a, &key_b, Revision(u64::MAX))
+        .await
+        .expect("Storage operation should succeed");
     assert_eq!(results_a_tries_b.len(), 0, "Vault A should not see vault B's data");
 
     // Verify vault B can see its own data
-    let results_b = store.read(vault_b, &key_b, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_b = store
+        .read(vault_b, &key_b, Revision(u64::MAX))
+        .await
+        .expect("Storage operation should succeed");
     assert_eq!(results_b.len(), 1);
 
     // Verify vault B cannot see vault A's data
-    let results_b_tries_a = store.read(vault_b, &key_a, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_b_tries_a = store
+        .read(vault_b, &key_a, Revision(u64::MAX))
+        .await
+        .expect("Storage operation should succeed");
     assert_eq!(results_b_tries_a.len(), 0, "Vault B should not see vault A's data");
 }
 
@@ -244,11 +256,17 @@ async fn test_delete_operations_only_affect_target_vault() {
     store.delete(vault_a, &key).await.expect("Storage operation should succeed");
 
     // Verify deleted from vault A
-    let results_a = store.read(vault_a, &key, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_a = store
+        .read(vault_a, &key, Revision(u64::MAX))
+        .await
+        .expect("Storage operation should succeed");
     assert_eq!(results_a.len(), 0, "Should be deleted from vault A");
 
     // Verify still exists in vault B
-    let results_b = store.read(vault_b, &key, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+    let results_b = store
+        .read(vault_b, &key, Revision(u64::MAX))
+        .await
+        .expect("Storage operation should succeed");
     assert_eq!(results_b.len(), 1, "Should still exist in vault B");
 }
 
@@ -318,7 +336,10 @@ async fn test_filter_based_operations_scoped_to_vault() {
         subject: Some("user:alice".to_string()),
     };
 
-    let (_, deleted) = store.delete_by_filter(vault_a, &filter, None).await.expect("Storage operation should succeed");
+    let (_, deleted) = store
+        .delete_by_filter(vault_a, &filter, None)
+        .await
+        .expect("Storage operation should succeed");
 
     assert_eq!(deleted, 2, "Should delete 2 viewer relationships from vault A");
 
@@ -432,7 +453,10 @@ async fn test_vault_isolation_under_load() {
                 relation: "view".to_string(),
                 subject: Some("user:alice".to_string()),
             };
-            let results = store_a.read(vault_a, &key, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+            let results = store_a
+                .read(vault_a, &key, Revision(u64::MAX))
+                .await
+                .expect("Storage operation should succeed");
             assert_eq!(results.len(), 1);
         }
     });
@@ -455,7 +479,10 @@ async fn test_vault_isolation_under_load() {
                 relation: "view".to_string(),
                 subject: Some("user:bob".to_string()),
             };
-            let results = store_b.read(vault_b, &key, Revision(u64::MAX)).await.expect("Storage operation should succeed");
+            let results = store_b
+                .read(vault_b, &key, Revision(u64::MAX))
+                .await
+                .expect("Storage operation should succeed");
             assert_eq!(results.len(), 1);
         }
     });

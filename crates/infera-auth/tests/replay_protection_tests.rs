@@ -36,7 +36,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use infera_auth::{error::AuthError, replay::{InMemoryReplayProtection, ReplayProtection}};
+use infera_auth::{
+    error::AuthError,
+    replay::{InMemoryReplayProtection, ReplayProtection},
+};
 
 // =============================================================================
 // Helper Functions
@@ -66,7 +69,8 @@ async fn test_in_memory_first_use_succeeds() {
     let replay = InMemoryReplayProtection::new();
     let exp = future_timestamp(3600);
 
-    let is_new = replay.check_and_mark("jti-001", exp).await.expect("check_and_mark should succeed");
+    let is_new =
+        replay.check_and_mark("jti-001", exp).await.expect("check_and_mark should succeed");
 
     assert!(is_new, "First use of JTI should return true");
 }
@@ -77,7 +81,8 @@ async fn test_in_memory_second_use_fails() {
     let exp = future_timestamp(3600);
 
     // First use - should succeed
-    let is_new = replay.check_and_mark("jti-002", exp).await.expect("First check_and_mark should succeed");
+    let is_new =
+        replay.check_and_mark("jti-002", exp).await.expect("First check_and_mark should succeed");
     assert!(is_new, "First use should return true");
 
     // Second use (replay attempt) - should fail
@@ -105,19 +110,23 @@ async fn test_in_memory_different_jtis_independent() {
     let exp = future_timestamp(3600);
 
     // First JTI
-    let is_new_1 = replay.check_and_mark("jti-a", exp).await.expect("First JTI check should succeed");
+    let is_new_1 =
+        replay.check_and_mark("jti-a", exp).await.expect("First JTI check should succeed");
     assert!(is_new_1, "First JTI should be new");
 
     // Second JTI (different)
-    let is_new_2 = replay.check_and_mark("jti-b", exp).await.expect("Second JTI check should succeed");
+    let is_new_2 =
+        replay.check_and_mark("jti-b", exp).await.expect("Second JTI check should succeed");
     assert!(is_new_2, "Second JTI should be new");
 
     // Replay first JTI
-    let is_replay_1 = replay.check_and_mark("jti-a", exp).await.expect("Replay check should succeed");
+    let is_replay_1 =
+        replay.check_and_mark("jti-a", exp).await.expect("Replay check should succeed");
     assert!(!is_replay_1, "First JTI replay should be detected");
 
     // Replay second JTI
-    let is_replay_2 = replay.check_and_mark("jti-b", exp).await.expect("Replay check should succeed");
+    let is_replay_2 =
+        replay.check_and_mark("jti-b", exp).await.expect("Replay check should succeed");
     assert!(!is_replay_2, "Second JTI replay should be detected");
 }
 
@@ -134,7 +143,8 @@ async fn test_in_memory_empty_jti() {
     let is_new = replay.check_and_mark("", exp).await.expect("Empty JTI should be handled");
     assert!(is_new, "Empty JTI first use should succeed");
 
-    let is_replay = replay.check_and_mark("", exp).await.expect("Empty JTI replay check should succeed");
+    let is_replay =
+        replay.check_and_mark("", exp).await.expect("Empty JTI replay check should succeed");
     assert!(!is_replay, "Empty JTI replay should be detected");
 }
 
@@ -162,8 +172,10 @@ async fn test_in_memory_special_characters_in_jti() {
     // JTI with special characters
     let special_jti = "jti-!@#$%^&*()_+-=[]{}|;:',.<>?/~`";
 
-    let is_new =
-        replay.check_and_mark(special_jti, exp).await.expect("Special character JTI should be handled");
+    let is_new = replay
+        .check_and_mark(special_jti, exp)
+        .await
+        .expect("Special character JTI should be handled");
     assert!(is_new, "Special character JTI first use should succeed");
 
     let is_replay = replay
@@ -178,7 +190,8 @@ async fn test_in_memory_very_short_ttl() {
     let replay = InMemoryReplayProtection::new();
     let exp = future_timestamp(1); // Expires in 1 second
 
-    let is_new = replay.check_and_mark("jti-short-ttl", exp).await.expect("Short TTL should be handled");
+    let is_new =
+        replay.check_and_mark("jti-short-ttl", exp).await.expect("Short TTL should be handled");
     assert!(is_new, "Short TTL first use should succeed");
 }
 
@@ -187,7 +200,8 @@ async fn test_in_memory_very_long_ttl() {
     let replay = InMemoryReplayProtection::new();
     let exp = future_timestamp(365 * 24 * 3600); // 1 year
 
-    let is_new = replay.check_and_mark("jti-long-ttl", exp).await.expect("Long TTL should be handled");
+    let is_new =
+        replay.check_and_mark("jti-long-ttl", exp).await.expect("Long TTL should be handled");
     assert!(is_new, "Long TTL first use should succeed");
 }
 
@@ -234,7 +248,8 @@ async fn test_in_memory_concurrent_same_jti() {
     let mut replay_count = 0;
 
     for handle in handles {
-        let result = handle.await.expect("Task should complete").expect("check_and_mark should succeed");
+        let result =
+            handle.await.expect("Task should complete").expect("check_and_mark should succeed");
         if result {
             success_count += 1;
         } else {
@@ -273,7 +288,8 @@ async fn test_in_memory_concurrent_different_jtis() {
 
     // All should succeed (different JTIs)
     for handle in handles {
-        let result = handle.await.expect("Task should complete").expect("check_and_mark should succeed");
+        let result =
+            handle.await.expect("Task should complete").expect("check_and_mark should succeed");
         assert!(result, "All different JTIs should be new");
     }
 }
@@ -299,7 +315,8 @@ async fn test_in_memory_high_load_stress() {
 
     // Verify all operations complete successfully
     for handle in handles {
-        let (first, second) = handle.await.expect("Task should complete").expect("Operations should succeed");
+        let (first, second) =
+            handle.await.expect("Task should complete").expect("Operations should succeed");
         assert!(first, "First use should succeed");
         assert!(!second, "Second use should fail (replay)");
     }
@@ -346,7 +363,7 @@ async fn test_in_memory_mixed_concurrent_operations() {
     for handle in handles {
         match handle.await.expect("Task should complete") {
             Ok(true) => valid_count += 1,
-            Ok(false) => {} // Replay detected
+            Ok(false) => {}, // Replay detected
             Err(AuthError::TokenExpired) => expired_count += 1,
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
@@ -362,8 +379,9 @@ async fn test_in_memory_mixed_concurrent_operations() {
 
 #[cfg(feature = "replay-protection")]
 mod redis_tests {
-    use super::*;
     use infera_auth::replay::RedisReplayProtection;
+
+    use super::*;
 
     /// Get Redis URL from environment, or skip test if not available
     async fn get_redis_url() -> Option<String> {
@@ -406,7 +424,8 @@ mod redis_tests {
         let is_new = replay.check_and_mark(&jti, exp).await.expect("First check should succeed");
         assert!(is_new, "First use should return true");
 
-        let is_replay = replay.check_and_mark(&jti, exp).await.expect("Second check should succeed");
+        let is_replay =
+            replay.check_and_mark(&jti, exp).await.expect("Second check should succeed");
         assert!(!is_replay, "Second use should return false (replay detected)");
     }
 
@@ -423,10 +442,7 @@ mod redis_tests {
         let jti = unique_jti("redis-expired");
 
         let result = replay.check_and_mark(&jti, exp).await;
-        assert!(
-            matches!(result, Err(AuthError::TokenExpired)),
-            "Expired token should be rejected"
-        );
+        assert!(matches!(result, Err(AuthError::TokenExpired)), "Expired token should be rejected");
     }
 
     #[tokio::test]
@@ -437,8 +453,9 @@ mod redis_tests {
         };
 
         // Create two separate instances (simulating different nodes)
-        let replay1 =
-            RedisReplayProtection::new(&redis_url).await.expect("First Redis connection should succeed");
+        let replay1 = RedisReplayProtection::new(&redis_url)
+            .await
+            .expect("First Redis connection should succeed");
         let replay2 = RedisReplayProtection::new(&redis_url)
             .await
             .expect("Second Redis connection should succeed");
@@ -451,7 +468,8 @@ mod redis_tests {
         assert!(is_new, "First use should succeed");
 
         // Second instance should see it as already used
-        let is_replay = replay2.check_and_mark(&jti, exp).await.expect("Second check should succeed");
+        let is_replay =
+            replay2.check_and_mark(&jti, exp).await.expect("Second check should succeed");
         assert!(!is_replay, "Second instance should detect replay");
     }
 
@@ -473,7 +491,8 @@ mod redis_tests {
         for _ in 0..CONCURRENT_OPS_BASIC {
             let replay_clone = Arc::clone(&replay);
             let jti_clone = jti.clone();
-            let handle = tokio::spawn(async move { replay_clone.check_and_mark(&jti_clone, exp).await });
+            let handle =
+                tokio::spawn(async move { replay_clone.check_and_mark(&jti_clone, exp).await });
             handles.push(handle);
         }
 
@@ -482,7 +501,8 @@ mod redis_tests {
         let mut replay_count = 0;
 
         for handle in handles {
-            let result = handle.await.expect("Task should complete").expect("check_and_mark should succeed");
+            let result =
+                handle.await.expect("Task should complete").expect("check_and_mark should succeed");
             if result {
                 success_count += 1;
             } else {

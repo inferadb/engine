@@ -20,6 +20,14 @@ pub use account::Account;
 pub use vault::{SystemConfig, Vault};
 
 // ============================================================================
+// Authentication Types
+// ============================================================================
+
+pub mod auth;
+
+pub use auth::{AuthContext, AuthMethod};
+
+// ============================================================================
 // Core Domain Types
 // ============================================================================
 
@@ -149,6 +157,7 @@ pub type StoreResult<T> = std::result::Result<T, StoreError>;
 
 /// The result of a permission check
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum Decision {
     Allow,
     Deny,

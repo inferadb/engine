@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Internal dependencies
+infera-types = { path = "../infera-types" }
+
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-opentelemetry = { workspace = true }

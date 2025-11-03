@@ -734,3 +734,162 @@ See `MULTI_TENANCY.md` for detailed phase tracking.
 -   Phase 5: Initialization & Migration
 -   Phase 6: Cache Isolation
 -   Phase 7: Testing & Documentation
+
+---
+
+## Type Organization and Centralization
+
+### infera-types: The Foundation Crate
+
+The `infera-types` crate serves as the **single source of truth** for all shared type definitions. It has **zero dependencies** on other internal crates to prevent circular dependencies.
+
+**Key Principles:**
+
+1. **Types belong in infera-types if they are:**
+   - Used by multiple crates
+   - Core domain concepts (Relationship, Vault, Account, Decision)
+   - Request/response types for APIs
+   - Shared authentication types (AuthContext, AuthMethod)
+   - Common error types used across boundaries
+
+2. **Types should stay in their implementation crate if they are:**
+   - Implementation-specific (e.g., AuthError with JWKS/OAuth details)
+   - Only used within a single crate
+   - Tied to a specific runtime or library (e.g., WASM types)
+   - Configuration types (belong in infera-config)
+
+### Current infera-types Organization
+
+```
+src/
+  lib.rs          - Main exports
+  account.rs      - Account multi-tenancy type
+  vault.rs        - Vault and SystemConfig
+  auth.rs         - AuthContext and AuthMethod
+```
+
+### Adding New Types to infera-types
+
+**Step-by-step process:**
+
+1. Create a new module file (e.g., `src/mytype.rs`)
+2. Define the type with appropriate derives (typically `Debug, Clone, Serialize, Deserialize`)
+3. Add comprehensive doc comments
+4. Include tests in the same file
+5. Export from `lib.rs`:
+   ```rust
+   pub mod mytype;
+   pub use mytype::MyType;
+   ```
+
+### Moving Types from Other Crates
+
+**Use the re-export pattern for backwards compatibility:**
+
+```rust
+// OLD: crates/infera-some-crate/src/lib.rs
+pub struct MyType { /* ... */ }
+
+// NEW: crates/infera-types/src/mytype.rs
+pub struct MyType { /* ... */ }
+
+// NEW: crates/infera-some-crate/src/lib.rs
+pub use infera_types::MyType;  // Re-export for backwards compatibility
+```
+
+**Benefits:**
+- Zero breaking changes for consumers
+- Clean migration path
+- Maintains import compatibility
+
+### Circular Dependency Prevention
+
+**Dependency Architecture (5 layers):**
+
+```
+Layer 0 (Foundation):  infera-types, infera-const
+Layer 1 (Utilities):   infera-config, infera-observe
+Layer 2 (Storage):     infera-store, infera-cache
+Layer 3 (Runtime):     infera-wasm, infera-core, infera-auth
+Layer 4 (Application): infera-repl, infera-api
+Layer 5 (Binary):      infera-bin
+```
+
+**Rules:**
+- Types flow **downward only** (foundation → utilities → storage → runtime → application)
+- infera-types **never** depends on other internal crates
+- If a type is needed by multiple layers, it belongs in the **lowest common layer**
+- When in doubt, put it in **infera-types**
+
+### Common Patterns
+
+**1. Serialization Attributes:**
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]  // For API compatibility
+pub enum Decision {
+    Allow,
+    Deny,
+}
+```
+
+**2. Request/Response Pairs:**
+```rust
+pub struct CreateResourceRequest { /* ... */ }
+pub struct CreateResourceResponse { /* ... */ }
+```
+
+**3. Helper Constructors:**
+```rust
+impl DeleteFilter {
+    pub fn exact(resource: String, relation: String, subject: String) -> Self { /* ... */ }
+    pub fn by_resource(resource: String) -> Self { /* ... */ }
+}
+```
+
+### Migration Checklist
+
+When moving a type to infera-types:
+
+- [ ] Create module file in `crates/infera-types/src/`
+- [ ] Move type definition with all derives and attributes
+- [ ] Move all impl blocks and methods
+- [ ] Move all tests
+- [ ] Add module declaration to `lib.rs`
+- [ ] Add public re-export to `lib.rs`
+- [ ] Replace original with re-export
+- [ ] Add infera-types dependency if needed
+- [ ] Run `cargo test -p infera-types`
+- [ ] Run `cargo test` on affected crates
+- [ ] Run `cargo test --workspace`
+- [ ] Run `cargo +nightly fmt --all`
+- [ ] Run `cargo clippy --workspace -- -D warnings`
+
+### Examples
+
+**Good - Type belongs in infera-types:**
+```rust
+// Used by infera-api, infera-auth, tests
+pub struct AuthContext {
+    pub vault: Uuid,
+    pub account: Uuid,
+    // ...
+}
+```
+
+**Good - Type stays in implementation crate:**
+```rust
+// Only used within infera-auth, has impl-specific details
+pub enum AuthError {
+    JWKSFetchFailed(String),      // HTTP implementation detail
+    TokenDecodeFailed(String),     // JWT library detail
+    ReplayProtectionError(String), // Optional feature detail
+}
+```
+
+### Future Improvements
+
+Tracked in `PLAN.md`:
+- Phase 3: Move cache key types to infera-types
+- Phase 4: Reorganize lib.rs into feature-based modules
+- Add cargo-deny to enforce dependency rules

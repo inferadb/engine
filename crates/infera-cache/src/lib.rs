@@ -11,18 +11,13 @@ use std::{
     time::Duration,
 };
 
+// Re-export Decision from infera-types for backwards compatibility
+pub use infera_types::Decision;
 use infera_types::{Relationship, Revision};
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 pub use uuid::Uuid;
-
-/// Authorization decision
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Decision {
-    Allow,
-    Deny,
-}
 
 /// Cache key for authorization checks
 ///

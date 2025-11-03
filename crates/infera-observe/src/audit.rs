@@ -5,6 +5,7 @@
 
 use std::{sync::Arc, time::SystemTime};
 
+use infera_types::Decision;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
@@ -30,16 +31,6 @@ pub enum AuditEventType {
     WatchStart,
     /// Simulation performed
     Simulation,
-}
-
-/// Authorization decision
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum Decision {
-    /// Access allowed
-    Allow,
-    /// Access denied
-    Deny,
 }
 
 /// Audit event metadata
