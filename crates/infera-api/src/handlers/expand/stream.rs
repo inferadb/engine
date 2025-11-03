@@ -8,11 +8,10 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::{Stream, StreamExt, stream};
+use infera_const::scopes::*;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::ExpandRequest;
-
-use infera_const::scopes::*;
 
 use crate::{AppState, Result, handlers::utils::auth::authorize_request};
 

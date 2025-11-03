@@ -35,9 +35,10 @@ pub fn require_admin_scope(auth: &Option<infera_types::AuthContext>) -> Result<(
             if ctx.scopes.iter().any(|s| s == SCOPE_ADMIN) {
                 Ok(())
             } else {
-                Err(ApiError::Forbidden(
-                    format!("Admin scope ({}) required for this operation", SCOPE_ADMIN),
-                ))
+                Err(ApiError::Forbidden(format!(
+                    "Admin scope ({}) required for this operation",
+                    SCOPE_ADMIN
+                )))
             }
         },
     }
@@ -232,12 +233,8 @@ mod tests {
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
         let default_vault = Uuid::nil();
 
-        let result = authorize_request(
-            &Some(auth_ctx),
-            default_vault,
-            true,
-            &[SCOPE_EXPAND, SCOPE_CHECK],
-        );
+        let result =
+            authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_EXPAND, SCOPE_CHECK]);
 
         assert!(result.is_ok());
     }
@@ -247,12 +244,8 @@ mod tests {
         let auth_ctx = create_test_auth_context(vec![SCOPE_ADMIN.to_string()]);
         let default_vault = Uuid::nil();
 
-        let result = authorize_request(
-            &Some(auth_ctx),
-            default_vault,
-            true,
-            &[SCOPE_EXPAND, SCOPE_CHECK],
-        );
+        let result =
+            authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_EXPAND, SCOPE_CHECK]);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Forbidden(_)));

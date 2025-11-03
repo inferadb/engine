@@ -8,10 +8,9 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::Stream;
+use infera_const::scopes::*;
 use infera_store::RelationshipStore;
 use serde::{Deserialize, Serialize};
-
-use infera_const::scopes::*;
 
 use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
@@ -38,12 +37,8 @@ pub async fn watch_handler(
     Json(request): Json<WatchRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_WATCH],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WATCH])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

@@ -4,9 +4,8 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use uuid::Uuid;
-
 use infera_const::scopes::*;
+use uuid::Uuid;
 
 use crate::{ApiError, AppState, handlers::utils::auth::require_admin_scope};
 

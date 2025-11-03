@@ -1,10 +1,9 @@
 //! Write relationships endpoint
 
 use axum::{Json, extract::State};
+use infera_const::scopes::*;
 use infera_types::Relationship;
 use serde::{Deserialize, Serialize};
-
-use infera_const::scopes::*;
 
 use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
@@ -30,12 +29,8 @@ pub async fn write_relationships_handler(
     Json(request): Json<WriteRequest>,
 ) -> Result<Json<WriteResponse>> {
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_WRITE],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WRITE])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

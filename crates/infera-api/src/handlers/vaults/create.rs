@@ -6,10 +6,9 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
+use infera_const::scopes::*;
 use infera_types::{CreateVaultRequest, Vault, VaultResponse};
 use uuid::Uuid;
-
-use infera_const::scopes::*;
 
 use crate::{
     ApiError, AppState, handlers::utils::auth::authorize_account_access,

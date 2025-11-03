@@ -3,12 +3,11 @@
 use std::sync::Arc;
 
 use axum::{Json, extract::State};
+use infera_const::scopes::*;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use serde::{Deserialize, Serialize};
-
-use infera_const::scopes::*;
 
 use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 

@@ -1,9 +1,8 @@
 //! Create account handler
 
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
-use infera_types::{Account, AccountResponse, CreateAccountRequest};
-
 use infera_const::scopes::*;
+use infera_types::{Account, AccountResponse, CreateAccountRequest};
 
 use crate::{
     ApiError, AppState, handlers::utils::auth::require_admin_scope,

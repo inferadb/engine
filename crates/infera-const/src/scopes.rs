@@ -219,11 +219,7 @@ mod tests {
     fn test_no_duplicate_scopes() {
         let mut unique_scopes = std::collections::HashSet::new();
         for scope in ALL_SCOPES {
-            assert!(
-                unique_scopes.insert(scope),
-                "Duplicate scope found: '{}'",
-                scope
-            );
+            assert!(unique_scopes.insert(scope), "Duplicate scope found: '{}'", scope);
         }
     }
 }

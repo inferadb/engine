@@ -23,18 +23,9 @@ pub fn create_test_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![TypeDef {
         name: "document".to_string(),
         relations: vec![
-            RelationDef {
-                name: "owner".to_string(),
-                expr: Some(RelationExpr::This),
-            },
-            RelationDef {
-                name: "viewer".to_string(),
-                expr: Some(RelationExpr::This),
-            },
-            RelationDef {
-                name: "editor".to_string(),
-                expr: Some(RelationExpr::This),
-            },
+            RelationDef { name: "owner".to_string(), expr: Some(RelationExpr::This) },
+            RelationDef { name: "viewer".to_string(), expr: Some(RelationExpr::This) },
+            RelationDef { name: "editor".to_string(), expr: Some(RelationExpr::This) },
         ],
         forbids: vec![],
     }]))
@@ -268,9 +259,8 @@ mod tests {
         let state = create_test_state();
         let vault = Uuid::new_v4();
 
-        let relationships = vec![
-            create_test_relationship(vault, "doc:readme", "viewer", "user:alice"),
-        ];
+        let relationships =
+            vec![create_test_relationship(vault, "doc:readme", "viewer", "user:alice")];
 
         let result = write_test_relationships(&state, vault, relationships).await;
         assert!(result.is_ok());
@@ -278,6 +268,4 @@ mod tests {
         let revision = result.unwrap();
         assert!(revision.0 > 0);
     }
-
 }
-

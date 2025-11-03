@@ -8,12 +8,11 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::{Stream, StreamExt};
+use infera_const::scopes::*;
 use infera_core::{DecisionTrace, Evaluator};
 use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest};
 use serde::{Deserialize, Serialize};
-
-use infera_const::scopes::*;
 
 use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
 
@@ -92,12 +91,8 @@ pub async fn evaluate_stream_handler(
     Json(request): Json<EvaluateRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_CHECK],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_CHECK])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

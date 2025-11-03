@@ -4,10 +4,9 @@
 //! adapter layer over InferaDB's native evaluation functionality.
 
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use infera_const::scopes::*;
 use infera_types::EvaluateRequest;
 use serde::{Deserialize, Serialize};
-
-use infera_const::scopes::*;
 
 use crate::{
     ApiError, AppState,
@@ -70,12 +69,8 @@ pub async fn post_evaluation(
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_CHECK],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_CHECK])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
@@ -233,12 +228,8 @@ pub async fn post_evaluations(
     let batch_size = request.evaluations.len();
 
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_CHECK],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_CHECK])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

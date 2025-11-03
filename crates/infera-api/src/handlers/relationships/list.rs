@@ -6,10 +6,9 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::{Stream, StreamExt, stream};
+use infera_const::scopes::*;
 use infera_types::ListRelationshipsRequest;
 use serde::{Deserialize, Serialize};
-
-use infera_const::scopes::*;
 
 use crate::{ApiError, AppState, Result};
 

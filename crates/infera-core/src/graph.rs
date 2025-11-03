@@ -84,8 +84,8 @@ impl GraphContext {
 ///
 /// The function performs two lookups:
 /// 1. Exact match: `(resource, relation, subject)` relationship exists
-/// 2. Wildcard match: `(resource, relation, type:*)` relationship exists, where
-///    `type` is extracted from the subject (e.g., "user" from "user:alice")
+/// 2. Wildcard match: `(resource, relation, type:*)` relationship exists, where `type` is extracted
+///    from the subject (e.g., "user" from "user:alice")
 ///
 /// # Arguments
 ///

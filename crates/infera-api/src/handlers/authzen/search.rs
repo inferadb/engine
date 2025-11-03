@@ -4,10 +4,9 @@
 //! adapter layer over InferaDB's native list resources and list subjects functionality.
 
 use axum::{Json, extract::State, response::IntoResponse};
+use infera_const::scopes::*;
 use infera_types::{ListResourcesRequest, ListSubjectsRequest};
 use serde::{Deserialize, Serialize};
-
-use infera_const::scopes::*;
 
 use crate::{
     ApiError, AppState,
@@ -119,12 +118,8 @@ pub async fn post_search_resource(
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_LIST],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_LIST])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
@@ -310,12 +305,8 @@ pub async fn post_search_subject(
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_LIST],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_LIST])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

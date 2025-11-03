@@ -4,10 +4,9 @@ use axum::{
     Json,
     extract::{Query, State},
 };
+use infera_const::scopes::*;
 use infera_types::{AccountResponse, ListAccountsResponse};
 use serde::Deserialize;
-
-use infera_const::scopes::*;
 
 use crate::{ApiError, AppState, handlers::utils::auth::require_admin_scope};
 

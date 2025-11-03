@@ -4,10 +4,9 @@ use axum::{
     Json,
     extract::{Path, State},
 };
+use infera_const::scopes::*;
 use infera_types::{AccountResponse, UpdateAccountRequest};
 use uuid::Uuid;
-
-use infera_const::scopes::*;
 
 use crate::{
     ApiError, AppState, handlers::utils::auth::require_admin_scope,

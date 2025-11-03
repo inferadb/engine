@@ -2,11 +2,12 @@ use std::sync::Arc;
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use infera_core::{
-    CheckRequest, Evaluator, ExpandRequest,
+    Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
 use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::Relationship;
+use infera_types::{EvaluateRequest, ExpandRequest, Relationship};
+use uuid::Uuid;
 
 fn create_complex_schema() -> Schema {
     Schema::new(vec![
@@ -54,19 +55,21 @@ fn create_complex_schema() -> Schema {
 async fn setup_evaluator_with_data(num_relationships: usize) -> Evaluator {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_complex_schema());
+    let vault = Uuid::new_v4();
 
     // Create test data
     let mut relationships = Vec::new();
     for i in 0..num_relationships {
         relationships.push(Relationship {
+            vault,
             resource: format!("doc:{}", i),
             relation: "owner".to_string(),
             subject: format!("subject:{}", i),
         });
     }
-    store.write(relationships).await.unwrap();
+    store.write(vault, relationships).await.unwrap();
 
-    Evaluator::new(store, schema, None)
+    Evaluator::new(store as Arc<dyn RelationshipStore>, schema, None, vault)
 }
 
 fn bench_direct_check(c: &mut Criterion) {
@@ -76,11 +79,12 @@ fn bench_direct_check(c: &mut Criterion) {
         let evaluator = rt.block_on(setup_evaluator_with_data(100));
 
         b.to_async(&rt).iter(|| async {
-            let request = CheckRequest {
+            let request = EvaluateRequest {
                 subject: "subject:0".to_string(),
                 resource: "doc:0".to_string(),
                 permission: "owner".to_string(),
                 context: None,
+                trace: None,
             };
 
             black_box(evaluator.check(request).await.unwrap())
@@ -91,11 +95,12 @@ fn bench_direct_check(c: &mut Criterion) {
         let evaluator = rt.block_on(setup_evaluator_with_data(100));
 
         b.to_async(&rt).iter(|| async {
-            let request = CheckRequest {
+            let request = EvaluateRequest {
                 subject: "subject:99".to_string(),
                 resource: "doc:0".to_string(),
                 permission: "owner".to_string(),
                 context: None,
+                trace: None,
             };
 
             black_box(evaluator.check(request).await.unwrap())
@@ -110,11 +115,12 @@ fn bench_union_check(c: &mut Criterion) {
         let evaluator = rt.block_on(setup_evaluator_with_data(100));
 
         b.to_async(&rt).iter(|| async {
-            let request = CheckRequest {
+            let request = EvaluateRequest {
                 subject: "subject:0".to_string(),
                 resource: "doc:0".to_string(),
                 permission: "editor".to_string(), // editor = this | owner
                 context: None,
+                trace: None,
             };
 
             black_box(evaluator.check(request).await.unwrap())
@@ -129,31 +135,35 @@ fn bench_complex_check(c: &mut Criterion) {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
             let schema = Arc::new(create_complex_schema());
+            let vault = Uuid::new_v4();
 
             // Create nested hierarchy
-            let tuples = vec![
-                Tuple {
+            let relationships = vec![
+                Relationship {
+                    vault,
                     resource: "folder:root".to_string(),
                     relation: "owner".to_string(),
                     subject: "subject:admin".to_string(),
                 },
-                Tuple {
+                Relationship {
+                    vault,
                     resource: "doc:readme".to_string(),
                     relation: "parent".to_string(),
                     subject: "folder:root".to_string(),
                 },
             ];
-            store.write(relationships).await.unwrap();
+            store.write(vault, relationships).await.unwrap();
 
-            Evaluator::new(store, schema, None)
+            Evaluator::new(store as Arc<dyn RelationshipStore>, schema, None, vault)
         });
 
         b.to_async(&rt).iter(|| async {
-            let request = CheckRequest {
+            let request = EvaluateRequest {
                 subject: "subject:admin".to_string(),
                 resource: "doc:readme".to_string(),
                 permission: "viewer".to_string(), // Should traverse parent->viewer
                 context: None,
+                trace: None,
             };
 
             black_box(evaluator.check_with_trace(request).await.unwrap())
@@ -202,6 +212,7 @@ fn bench_parallel_expand(c: &mut Criterion) {
     c.bench_function("expand_parallel_4_branches", |b| {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
+            let vault = Uuid::new_v4();
 
             // Create schema with 4 independent branches
             let schema = Arc::new(Schema::new(vec![TypeDef::new(
@@ -233,14 +244,15 @@ fn bench_parallel_expand(c: &mut Criterion) {
                     _ => "contributor",
                 };
                 relationships.push(Relationship {
+                    vault,
                     resource: "doc:readme".to_string(),
                     relation: relation.to_string(),
                     subject: format!("subject:{}", i),
                 });
             }
-            store.write(relationships).await.unwrap();
+            store.write(vault, relationships).await.unwrap();
 
-            Evaluator::new(store, schema, None)
+            Evaluator::new(store as Arc<dyn RelationshipStore>, schema, None, vault)
         });
 
         b.to_async(&rt).iter(|| async {
@@ -259,6 +271,7 @@ fn bench_parallel_expand(c: &mut Criterion) {
     c.bench_function("expand_parallel_intersection", |b| {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
+            let vault = Uuid::new_v4();
 
             let schema = Arc::new(Schema::new(vec![TypeDef::new(
                 "doc".to_string(),
@@ -281,12 +294,14 @@ fn bench_parallel_expand(c: &mut Criterion) {
             let mut relationships = Vec::new();
             for i in 0..50 {
                 relationships.push(Relationship {
+                    vault,
                     resource: "doc:readme".to_string(),
                     relation: "group_a".to_string(),
                     subject: format!("subject:{}", i),
                 });
                 if i < 30 {
                     relationships.push(Relationship {
+                        vault,
                         resource: "doc:readme".to_string(),
                         relation: "group_b".to_string(),
                         subject: format!("subject:{}", i),
@@ -294,15 +309,16 @@ fn bench_parallel_expand(c: &mut Criterion) {
                 }
                 if i < 20 {
                     relationships.push(Relationship {
+                        vault,
                         resource: "doc:readme".to_string(),
                         relation: "group_c".to_string(),
                         subject: format!("subject:{}", i),
                     });
                 }
             }
-            store.write(relationships).await.unwrap();
+            store.write(vault, relationships).await.unwrap();
 
-            Evaluator::new(store, schema, None)
+            Evaluator::new(store as Arc<dyn RelationshipStore>, schema, None, vault)
         });
 
         b.to_async(&rt).iter(|| async {
@@ -325,11 +341,12 @@ fn bench_large_scale(c: &mut Criterion) {
         let evaluator = rt.block_on(setup_evaluator_with_data(1000));
 
         b.to_async(&rt).iter(|| async {
-            let request = CheckRequest {
+            let request = EvaluateRequest {
                 subject: "subject:500".to_string(),
                 resource: "doc:500".to_string(),
                 permission: "owner".to_string(),
                 context: None,
+                trace: None,
             };
 
             black_box(evaluator.check(request).await.unwrap())
@@ -347,6 +364,7 @@ fn bench_expand_cache(c: &mut Criterion) {
     c.bench_function("expand_with_cache_hit", |b| {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
+            let vault = Uuid::new_v4();
 
             let schema = Arc::new(Schema::new(vec![TypeDef::new(
                 "doc".to_string(),
@@ -367,15 +385,22 @@ fn bench_expand_cache(c: &mut Criterion) {
             let mut relationships = Vec::new();
             for i in 0..50 {
                 relationships.push(Relationship {
+                    vault,
                     resource: "doc:readme".to_string(),
                     relation: "reader".to_string(),
                     subject: format!("subject:{}", i),
                 });
             }
-            store.write(relationships).await.unwrap();
+            store.write(vault, relationships).await.unwrap();
 
             let cache = Arc::new(AuthCache::new(10_000, Duration::from_secs(300)));
-            Evaluator::new_with_cache(store, schema, None, Some(cache))
+            Evaluator::new_with_cache(
+                store as Arc<dyn RelationshipStore>,
+                schema,
+                None,
+                Some(cache),
+                vault,
+            )
         });
 
         // First request will populate cache

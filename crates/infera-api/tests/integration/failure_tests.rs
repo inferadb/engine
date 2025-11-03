@@ -7,10 +7,12 @@
 //! - Concurrent write conflicts
 //! - Empty result sets
 
-use infera_types::{Relationship, RelationshipKey, Revision, DeleteFilter};
+use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
 use uuid::Uuid;
 
-use crate::{create_test_relationship, create_test_state, write_test_relationships, create_test_config};
+use crate::{
+    create_test_config, create_test_relationship, create_test_state, write_test_relationships,
+};
 
 /// Test: Operations with cache disabled
 #[tokio::test]
@@ -49,9 +51,7 @@ async fn test_read_with_old_revision() {
     let vault = Uuid::new_v4();
 
     // Write relationships
-    let relationships = vec![
-        create_test_relationship(vault, "doc:readme", "viewer", "user:alice"),
-    ];
+    let relationships = vec![create_test_relationship(vault, "doc:readme", "viewer", "user:alice")];
 
     let rev = write_test_relationships(&state, vault, relationships).await.unwrap();
 
@@ -112,9 +112,7 @@ async fn test_multiple_deletes_same_data() {
     let vault = Uuid::new_v4();
 
     // Write relationships
-    let relationships = vec![
-        create_test_relationship(vault, "doc:readme", "viewer", "user:alice"),
-    ];
+    let relationships = vec![create_test_relationship(vault, "doc:readme", "viewer", "user:alice")];
     write_test_relationships(&state, vault, relationships).await.unwrap();
 
     let filter = DeleteFilter {
@@ -156,11 +154,7 @@ async fn test_delete_with_no_filter_fields() {
 
     // Try to delete with empty filter (no fields specified)
     // This is an edge case - the behavior depends on implementation
-    let filter = DeleteFilter {
-        resource: None,
-        relation: None,
-        subject: None,
-    };
+    let filter = DeleteFilter { resource: None, relation: None, subject: None };
 
     let result = state.store.delete_by_filter(vault, &filter, None).await;
     // The system should handle this gracefully (either error or delete all)
@@ -178,18 +172,15 @@ async fn test_concurrent_writes_different_vaults() {
     // Create write tasks for different vaults
     let state_clone = state.clone();
     let handle_a = tokio::spawn(async move {
-        let relationships = vec![
-            create_test_relationship(vault_a, "doc:a", "viewer", "user:alice"),
-        ];
+        let relationships =
+            vec![create_test_relationship(vault_a, "doc:a", "viewer", "user:alice")];
         let result = write_test_relationships(&state_clone, vault_a, relationships).await;
         assert!(result.is_ok(), "Vault A write should succeed");
     });
 
     let state_clone = state.clone();
     let handle_b = tokio::spawn(async move {
-        let relationships = vec![
-            create_test_relationship(vault_b, "doc:b", "viewer", "user:bob"),
-        ];
+        let relationships = vec![create_test_relationship(vault_b, "doc:b", "viewer", "user:bob")];
         let result = write_test_relationships(&state_clone, vault_b, relationships).await;
         assert!(result.is_ok(), "Vault B write should succeed");
     });
@@ -263,11 +254,8 @@ async fn test_partial_filter_delete() {
     write_test_relationships(&state, vault, relationships).await.unwrap();
 
     // Delete all relationships for doc:readme (regardless of relation/subject)
-    let filter = DeleteFilter {
-        resource: Some("doc:readme".to_string()),
-        relation: None,
-        subject: None,
-    };
+    let filter =
+        DeleteFilter { resource: Some("doc:readme".to_string()), relation: None, subject: None };
 
     let result = state.store.delete_by_filter(vault, &filter, None).await;
     assert!(result.is_ok(), "Partial filter delete should succeed");
