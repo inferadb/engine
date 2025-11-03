@@ -72,7 +72,7 @@ pub struct EvaluateSummary {
 ///
 /// # Response (Server-Sent Events)
 /// Stream of evaluation results followed by a summary:
-/// ```
+/// ```text
 /// data: {"decision":"allow","index":0,"error":null,"trace":null}
 ///
 /// event: summary

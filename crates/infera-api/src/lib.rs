@@ -213,21 +213,9 @@ pub fn create_router(state: AppState) -> Router {
             let jwks_cache = Arc::clone(jwks_cache);
             let auth_enabled = state.config.auth.enabled;
 
-            // Get default vault and account from config
-            let default_vault = state
-                .config
-                .multi_tenancy
-                .default_vault
-                .as_ref()
-                .and_then(|s| uuid::Uuid::parse_str(s).ok())
-                .unwrap_or(uuid::Uuid::nil());
-            let default_account = state
-                .config
-                .multi_tenancy
-                .default_account
-                .as_ref()
-                .and_then(|s| uuid::Uuid::parse_str(s).ok())
-                .unwrap_or(uuid::Uuid::nil());
+            // Use default vault and account from AppState
+            let default_vault = state.default_vault;
+            let default_account = state.default_account;
 
             protected_routes.layer(axum::middleware::from_fn(move |req, next| {
                 let jwks_cache = Arc::clone(&jwks_cache);
@@ -249,21 +237,9 @@ pub fn create_router(state: AppState) -> Router {
         tracing::warn!("Authentication DISABLED - using default vault for all requests");
         let auth_enabled = false;
 
-        // Get default vault and account from config
-        let default_vault = state
-            .config
-            .multi_tenancy
-            .default_vault
-            .as_ref()
-            .and_then(|s| uuid::Uuid::parse_str(s).ok())
-            .unwrap_or(uuid::Uuid::nil());
-        let default_account = state
-            .config
-            .multi_tenancy
-            .default_account
-            .as_ref()
-            .and_then(|s| uuid::Uuid::parse_str(s).ok())
-            .unwrap_or(uuid::Uuid::nil());
+        // Use default vault and account from AppState
+        let default_vault = state.default_vault;
+        let default_account = state.default_account;
 
         // Create a dummy JWKS cache (not used when auth is disabled)
         let dummy_jwks_cache = Arc::new(infera_auth::jwks_cache::JwksCache::new(

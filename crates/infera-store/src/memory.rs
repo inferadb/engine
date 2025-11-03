@@ -644,7 +644,10 @@ impl RelationshipStore for MemoryBackend {
         }
 
         self.metrics.record_read(timer.elapsed(), false);
-        Ok(resources.into_iter().collect())
+        // Sort resources for stable pagination
+        let mut resources_vec: Vec<String> = resources.into_iter().collect();
+        resources_vec.sort();
+        Ok(resources_vec)
     }
 
     async fn list_relationships(

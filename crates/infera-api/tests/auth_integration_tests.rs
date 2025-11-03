@@ -19,7 +19,7 @@ use infera_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use infera_store::{MemoryBackend, RelationshipStore};
+use infera_store::MemoryBackend;
 use serde_json::json;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -160,11 +160,14 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
             ),
         ],
     )]));
+    // Use a test vault ID
+    let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let test_account = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
     let evaluator = Arc::new(Evaluator::new(
         Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
         schema,
         None,
-        uuid::Uuid::nil(),
+        test_vault,
     ));
     let mut config = Config::default();
 
@@ -184,8 +187,8 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
         config,
         jwks_cache,
         health_tracker,
-        default_vault: Uuid::nil(),
-        default_account: Uuid::nil(),
+        default_vault: test_vault,
+        default_account: test_account,
     }
 }
 
