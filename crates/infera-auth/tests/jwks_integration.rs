@@ -343,7 +343,7 @@ async fn test_jwks_fetch_404_error() {
     // Create cache with non-existent server
     let cache = Arc::new(Cache::new(100));
     let jwks_cache =
-        JwksCache::new("http://127.0.0.1:1".to_string(), cache, Duration::from_secs(300));
+        JwksCache::new("http://127.0.0.1:1".to_string(), cache, Duration::from_secs(300)).unwrap();
 
     // Try to fetch JWKS - should fail due to connection error
     let result = jwks_cache.get_jwks("nonexistent").await;

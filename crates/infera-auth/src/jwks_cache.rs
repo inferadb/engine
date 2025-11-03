@@ -31,7 +31,7 @@
 //!     "https://control-plane.example.com".to_string(),
 //!     cache,
 //!     Duration::from_secs(300), // 5 minute TTL
-//! );
+//! )?;
 //!
 //! // Fetch keys for a tenant (cached automatically)
 //! let keys = jwks_cache.get_jwks("acme").await?;
@@ -226,7 +226,7 @@ pub struct JwksSet {
 ///     "https://control-plane.example.com".to_string(),
 ///     cache,
 ///     Duration::from_secs(300), // 5 minute TTL
-/// );
+/// )?;
 ///
 /// // Fetch JWKS for a tenant (cached automatically)
 /// let keys = jwks_cache.get_jwks("acme").await?;
@@ -250,7 +250,8 @@ impl JwksCache {
     ///
     /// # Errors
     ///
-    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration issues)
+    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration
+    /// issues)
     pub fn new(
         base_url: String,
         cache: Arc<Cache<JwksCacheKey, CachedJwks>>,

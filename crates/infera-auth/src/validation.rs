@@ -41,9 +41,7 @@ use crate::{error::AuthError, jwt::JwtClaims};
 pub fn validate_timestamp_claims(claims: &JwtClaims, config: &AuthConfig) -> Result<(), AuthError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|_| {
-            AuthError::InvalidTokenFormat("System time is before Unix epoch".to_string())
-        })?
+        .map_err(|_| AuthError::InvalidTokenFormat("System time is before Unix epoch".to_string()))?
         .as_secs();
 
     let clock_skew = config.clock_skew_seconds.unwrap_or(60);

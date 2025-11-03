@@ -718,6 +718,191 @@ cargo bench --workspace
 
 ---
 
+## Error Handling Standards
+
+All error handling in InferaDB follows standardized patterns for consistency, maintainability, and proper error chain preservation.
+
+### Error Type Requirements
+
+Every error enum **MUST**:
+
+1. **Use `thiserror::Error` derive:**
+
+```rust
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum MyError {
+    #[error("Clear description: {0}")]
+    Variant(String),
+}
+```
+
+2. **Have a Result type alias:**
+
+```rust
+pub type Result<T> = std::result::Result<T, MyError>;
+```
+
+3. **Preserve error chains when wrapping:**
+
+```rust
+// ✅ GOOD: Preserves source error
+#[error("Operation failed")]
+Wrapped(#[from] SomeOtherError),
+
+// ❌ BAD: Loses source error
+#[error("Operation failed: {0}")]
+Wrapped(String),
+```
+
+### Error Conversion Patterns
+
+#### Pattern 1: Automatic Conversion with `#[from]`
+
+Use this when you want automatic `From` implementation and error chain preservation:
+
+```rust
+#[derive(Debug, Error)]
+pub enum MyError {
+    #[error("Storage error")]
+    Store(#[from] infera_types::StoreError),  // Auto-implements From<StoreError>
+}
+```
+
+#### Pattern 2: Custom Conversion with Source Preservation
+
+Use this when you need custom conversion logic but still want to preserve the error chain:
+
+```rust
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error("Authentication failed")]
+    Auth {
+        #[source]  // Preserves error chain for std::error::Error::source()
+        source: infera_auth::AuthError,
+    },
+}
+
+impl From<infera_auth::AuthError> for ApiError {
+    fn from(source: infera_auth::AuthError) -> Self {
+        Self::Auth { source }
+    }
+}
+```
+
+#### Pattern 3: Internal Errors with anyhow (NOT for public APIs)
+
+Use `anyhow` for internal error propagation where you need rich context but don't need structured error types:
+
+```rust
+use anyhow::{Context, Result};
+
+async fn internal_operation() -> Result<Data> {
+    store.get_data()
+        .await
+        .context("Failed to retrieve data from store")?
+}
+```
+
+**⚠️ Important:** Convert `anyhow::Error` to public error types at crate boundaries.
+
+### Error Handling Guidelines
+
+1. **At crate boundaries:** Convert to the crate's public error type
+2. **Within crates:** Use Result type alias for cleaner signatures
+3. **For context:** Use `.context()` with anyhow internally, structured variants externally
+4. **For aggregation:** Wrap multiple errors in enum variants, don't stringify
+5. **For testing:** Match on error variants, not error message strings
+
+### Anti-Patterns to Avoid
+
+❌ **Stringifying errors and losing the error chain:**
+
+```rust
+.map_err(|e| MyError::Internal(e.to_string()))  // Loses error chain!
+```
+
+✅ **Instead, preserve the error:**
+
+```rust
+.map_err(|e| MyError::Internal { source: e })?
+// or use #[from] for automatic conversion
+```
+
+❌ **Generic String variants:**
+
+```rust
+#[error("Internal error: {0}")]
+Internal(String),  // Too generic, no structure, no source
+```
+
+✅ **Use structured variants:**
+
+```rust
+#[error("Internal operation failed: {operation}")]
+InternalOperation {
+    operation: String,
+    #[source]
+    source: Box<dyn std::error::Error + Send + Sync>,
+}
+```
+
+❌ **No Result type alias (verbose signatures):**
+
+```rust
+fn operation() -> std::result::Result<T, MyVeryLongErrorTypeName>
+```
+
+✅ **Use Result alias:**
+
+```rust
+pub type Result<T> = std::result::Result<T, MyError>;
+
+fn operation() -> Result<T>  // Clean and concise
+```
+
+### Example: Complete Error Module
+
+```rust
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum StorageError {
+    #[error("Entity not found: {entity_type}:{entity_id}")]
+    NotFound {
+        entity_type: String,
+        entity_id: String,
+    },
+
+    #[error("Database error during {operation}")]
+    Database {
+        operation: String,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    #[error("Serialization failed")]
+    Serialization(#[from] serde_json::Error),
+}
+
+pub type Result<T> = std::result::Result<T, StorageError>;
+```
+
+### Testing Error Handling
+
+**Test error variants, not error messages:**
+
+```rust
+// ❌ BAD: Fragile, breaks if message changes
+assert_eq!(err.to_string(), "Entity not found");
+
+// ✅ GOOD: Robust, tests actual error type
+assert!(matches!(err, StorageError::NotFound { .. }));
+```
+
+---
+
 ## Multi-Tenancy Implementation Status
 
 See `MULTI_TENANCY.md` for detailed phase tracking.

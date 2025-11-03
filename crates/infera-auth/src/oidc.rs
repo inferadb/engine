@@ -45,7 +45,8 @@ impl OidcDiscoveryClient {
     ///
     /// # Errors
     ///
-    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration issues)
+    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration
+    /// issues)
     pub fn new(cache_ttl: Duration) -> Result<Self, AuthError> {
         let cache = Arc::new(
             Cache::builder()
@@ -54,10 +55,10 @@ impl OidcDiscoveryClient {
                 .build(),
         );
 
-        let http_client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
-            .build()
-            .map_err(|e| AuthError::OidcDiscoveryFailed(format!("Failed to create HTTP client: {}", e)))?;
+        let http_client =
+            reqwest::Client::builder().timeout(Duration::from_secs(10)).build().map_err(|e| {
+                AuthError::OidcDiscoveryFailed(format!("Failed to create HTTP client: {}", e))
+            })?;
 
         Ok(Self { http_client, cache })
     }
@@ -91,7 +92,7 @@ impl OidcDiscoveryClient {
     /// use std::time::Duration;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let client = OidcDiscoveryClient::new(Duration::from_secs(86400));
+    /// let client = OidcDiscoveryClient::new(Duration::from_secs(86400))?;
     /// let config = client.discover("https://auth.example.com").await?;
     /// println!("JWKS URI: {}", config.jwks_uri);
     /// # Ok(())
@@ -114,7 +115,7 @@ impl OidcDiscoveryClient {
         };
 
         // Perform discovery and record metrics
-        let result = async {
+        let result = (async {
             // Fetch discovery document
             let response = self.http_client.get(&discovery_url).send().await.map_err(|e| {
                 AuthError::JwksError(format!("Failed to fetch OIDC discovery: {}", e))
@@ -152,7 +153,7 @@ impl OidcDiscoveryClient {
             }
 
             Ok(config)
-        }
+        })
         .await;
 
         // Record metrics

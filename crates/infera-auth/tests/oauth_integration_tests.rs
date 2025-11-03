@@ -29,11 +29,10 @@ async fn test_oauth_jwt_validation() {
     let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
 
     // Create JWKS cache
-    let jwks_cache = Arc::new(JwksCache::new(
-        base_url.clone(),
-        Arc::new(Cache::new(100)),
-        Duration::from_secs(300),
-    ).unwrap());
+    let jwks_cache = Arc::new(
+        JwksCache::new(base_url.clone(), Arc::new(Cache::new(100)), Duration::from_secs(300))
+            .unwrap(),
+    );
 
     // Create OAuth client
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
@@ -71,11 +70,10 @@ async fn test_oauth_jwt_validation_expired() {
 
     // Create OAuth client
     let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
-    let jwks_cache = Arc::new(JwksCache::new(
-        base_url.clone(),
-        Arc::new(Cache::new(100)),
-        Duration::from_secs(300),
-    ).unwrap());
+    let jwks_cache = Arc::new(
+        JwksCache::new(base_url.clone(), Arc::new(Cache::new(100)), Duration::from_secs(300))
+            .unwrap(),
+    );
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Validate OAuth JWT - should fail with TokenExpired
@@ -96,7 +94,7 @@ async fn test_oidc_discovery() {
     let (base_url, _handle, _state) = start_mock_oauth_server().await;
 
     // Create OIDC discovery client
-    let client = OidcDiscoveryClient::new(Duration::from_secs(300));
+    let client = OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap();
 
     // Discover OIDC configuration
     let config = client.discover(&base_url).await.expect("Failed to discover OIDC configuration");
@@ -114,7 +112,7 @@ async fn test_oidc_discovery_caching() {
     let (base_url, _handle, _state) = start_mock_oauth_server().await;
 
     // Create OIDC discovery client with cache
-    let client = OidcDiscoveryClient::new(Duration::from_secs(300));
+    let client = OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap();
 
     // First discovery - cache miss
     let config1 = client.discover(&base_url).await.expect("Failed to discover OIDC configuration");
@@ -152,7 +150,7 @@ async fn test_token_introspection_active() {
     register_opaque_token(&state, &token, metadata.clone());
 
     // Create introspection client
-    let client = IntrospectionClient::new();
+    let client = IntrospectionClient::new().unwrap();
 
     // Introspect token
     let result = client
@@ -176,7 +174,7 @@ async fn test_token_introspection_inactive() {
     let token = generate_opaque_token();
 
     // Create introspection client
-    let client = IntrospectionClient::new();
+    let client = IntrospectionClient::new().unwrap();
 
     // Introspect unregistered token
     let result = client
@@ -211,7 +209,7 @@ async fn test_token_introspection_caching() {
     register_opaque_token(&state, &token, metadata);
 
     // Create introspection client with cache
-    let client = IntrospectionClient::new_with_cache(100, Duration::from_secs(60));
+    let client = IntrospectionClient::new_with_cache(100, Duration::from_secs(60)).unwrap();
 
     // First introspection - cache miss
     let result1 = client
@@ -244,11 +242,10 @@ async fn test_oauth_jwt_missing_tenant_id() {
 
     // Create OAuth client
     let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
-    let jwks_cache = Arc::new(JwksCache::new(
-        base_url.clone(),
-        Arc::new(Cache::new(100)),
-        Duration::from_secs(300),
-    ).unwrap());
+    let jwks_cache = Arc::new(
+        JwksCache::new(base_url.clone(), Arc::new(Cache::new(100)), Duration::from_secs(300))
+            .unwrap(),
+    );
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Validate OAuth JWT

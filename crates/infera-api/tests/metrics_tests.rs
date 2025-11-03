@@ -38,12 +38,15 @@ fn create_test_schema() -> Arc<Schema> {
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn RelationshipStore>,
-        schema,
-        None,
-        uuid::Uuid::nil(),
-    ));
+    let evaluator = Arc::new(
+        Evaluator::new(
+            Arc::clone(&store) as Arc<dyn RelationshipStore>,
+            schema,
+            None,
+            uuid::Uuid::nil(),
+        )
+        .unwrap(),
+    );
 
     let mut config = Config::default();
     config.auth.enabled = auth_enabled;
@@ -140,11 +143,14 @@ async fn test_metrics_after_successful_auth() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:9999/tenants".to_string(),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:9999/tenants".to_string(),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) =
@@ -204,11 +210,14 @@ async fn test_metrics_after_failed_auth() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:9999/tenants".to_string(),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:9999/tenants".to_string(),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
@@ -273,11 +282,14 @@ async fn test_metrics_cardinality() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:9999/tenants".to_string(),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:9999/tenants".to_string(),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) =

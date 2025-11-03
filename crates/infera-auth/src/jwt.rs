@@ -241,7 +241,7 @@ pub fn verify_signature(
 ///     "https://control-plane.example.com".to_string(),
 ///     cache,
 ///     Duration::from_secs(300),
-/// );
+/// )?;
 ///
 /// // Verify a JWT
 /// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6ImFjbWUta2V5LTAwMSJ9...";

@@ -72,7 +72,7 @@ mod common {
             // Start mock JWKS server
             let jwks_filter = {
                 let jwks = Arc::clone(&jwks);
-                warp::path!("tenants" / String / ".well-known" / "jwks.json")
+                warp::path("tenants" / String / ".well-known" / "jwks.json")
                     .and(warp::get())
                     .and_then(move |_tenant_id: String| {
                         let jwks = Arc::clone(&jwks);
@@ -196,7 +196,7 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
 async fn test_auth_disabled_allows_unauthenticated_requests() {
     // When auth is disabled, requests should work without tokens
     let state = create_test_state_with_auth(None);
-    let app = create_router(state);
+    let app = create_router(state).unwrap();
 
     let check_request = json!({
         "evaluations": [{
@@ -232,14 +232,17 @@ async fn test_missing_authorization_header() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:8999/tenants".to_string(),
-        cache,
-        std::time::Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:8999/tenants".to_string(),
+            cache,
+            std::time::Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state);
+    let app = create_router(state).unwrap();
 
     let check_request = json!({
         "evaluations": [{
@@ -278,14 +281,17 @@ async fn test_malformed_authorization_header() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:8999/tenants".to_string(),
-        cache,
-        std::time::Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:8999/tenants".to_string(),
+            cache,
+            std::time::Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state);
+    let app = create_router(state).unwrap();
 
     let check_request = json!({
         "evaluations": [{
@@ -333,14 +339,17 @@ async fn test_health_endpoint_unauthenticated() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:8999/tenants".to_string(),
-        cache,
-        std::time::Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:8999/tenants".to_string(),
+            cache,
+            std::time::Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state);
+    let app = create_router(state).unwrap();
 
     let response =
         app.oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap()).await.unwrap();
@@ -361,14 +370,17 @@ async fn test_invalid_jwt_format() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:8999/tenants".to_string(),
-        cache,
-        std::time::Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:8999/tenants".to_string(),
+            cache,
+            std::time::Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state);
+    let app = create_router(state).unwrap();
 
     let check_request = json!({
         "evaluations": [{

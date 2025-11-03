@@ -43,7 +43,16 @@ pub enum EntityError {
 
     #[error("Invalid id '{0}': must match pattern ^[a-z0-9_-]+$")]
     InvalidId(String),
+
+    #[error("Type contains colon character: '{0}'")]
+    TypeContainsColon(String),
+
+    #[error("ID contains colon character: '{0}'")]
+    IdContainsColon(String),
 }
+
+/// Result type alias for AuthZEN entity operations
+pub type Result<T> = std::result::Result<T, EntityError>;
 
 /// AuthZEN entity representation with separate type and id fields
 ///
@@ -66,7 +75,7 @@ pub struct AuthZENEntity {
 
 impl AuthZENEntity {
     /// Creates a new AuthZENEntity with validation
-    pub fn new(entity_type: String, id: String) -> Result<Self, EntityError> {
+    pub fn new(entity_type: String, id: String) -> Result<Self> {
         validate_type(&entity_type)?;
         validate_id(&id)?;
         Ok(Self { entity_type, id })
@@ -74,7 +83,7 @@ impl AuthZENEntity {
 }
 
 /// Validates that a type string matches the required format
-fn validate_type(type_str: &str) -> Result<(), EntityError> {
+fn validate_type(type_str: &str) -> Result<()> {
     if type_str.is_empty() {
         return Err(EntityError::EmptyType);
     }
@@ -97,7 +106,7 @@ fn validate_type(type_str: &str) -> Result<(), EntityError> {
 }
 
 /// Validates that an id string matches the required format
-fn validate_id(id_str: &str) -> Result<(), EntityError> {
+fn validate_id(id_str: &str) -> Result<()> {
     if id_str.is_empty() {
         return Err(EntityError::EmptyId);
     }
@@ -134,7 +143,7 @@ fn validate_id(id_str: &str) -> Result<(), EntityError> {
 /// - The string doesn't contain exactly one colon
 /// - The type or id portions are empty
 /// - The type or id don't match the required format
-pub fn parse_entity(s: &str) -> Result<AuthZENEntity, EntityError> {
+pub fn parse_entity(s: &str) -> Result<AuthZENEntity> {
     let parts: Vec<&str> = s.split(':').collect();
 
     if parts.len() != 2 {
@@ -147,7 +156,25 @@ pub fn parse_entity(s: &str) -> Result<AuthZENEntity, EntityError> {
     AuthZENEntity::new(entity_type, id)
 }
 
-/// Formats an AuthZEN entity into an InferaDB type:id string
+/// Formats an AuthZEN entity into an InferaDB type:id string with validation
+///
+/// This function validates that neither the type nor the ID contains a colon
+/// character before formatting, preventing injection attacks.
+///
+/// # Arguments
+///
+/// * `entity` - The AuthZEN entity to format
+///
+/// # Returns
+///
+/// A validated string in `"type:id"` format
+///
+/// # Errors
+///
+/// Returns `EntityError` if:
+/// - The type contains a colon character
+/// - The ID contains a colon character
+/// - Either field is empty
 ///
 /// # Examples
 ///
@@ -157,10 +184,33 @@ pub fn parse_entity(s: &str) -> Result<AuthZENEntity, EntityError> {
 ///     entity_type: "user".to_string(),
 ///     id: "alice".to_string(),
 /// };
-/// assert_eq!(format_entity(&entity), "user:alice");
+/// assert_eq!(format_entity(&entity).unwrap(), "user:alice");
+///
+/// // Injection attempt should fail
+/// let malicious = AuthZENEntity {
+///     entity_type: "user:admin".to_string(),
+///     id: "alice".to_string(),
+/// };
+/// assert!(format_entity(&malicious).is_err());
 /// ```
-pub fn format_entity(entity: &AuthZENEntity) -> String {
-    format!("{}:{}", entity.entity_type, entity.id)
+pub fn format_entity(entity: &AuthZENEntity) -> Result<String> {
+    // Validate for empty fields
+    if entity.entity_type.is_empty() {
+        return Err(EntityError::EmptyType);
+    }
+    if entity.id.is_empty() {
+        return Err(EntityError::EmptyId);
+    }
+
+    // Validate for colon injection
+    if entity.entity_type.contains(':') {
+        return Err(EntityError::TypeContainsColon(entity.entity_type.clone()));
+    }
+    if entity.id.contains(':') {
+        return Err(EntityError::IdContainsColon(entity.id.clone()));
+    }
+
+    Ok(format!("{}:{}", entity.entity_type, entity.id))
 }
 
 /// AuthZEN subject representation
@@ -227,12 +277,27 @@ pub struct AuthZENEvaluationResponse {
 /// - resource.type:resource.id -> "type:id"
 pub fn convert_authzen_request_to_native(
     req: &AuthZENEvaluationRequest,
-) -> Result<(String, String, String), EntityError> {
+) -> Result<(String, String, String)> {
+    // Validate for colon injection BEFORE concatenation
+    if req.subject.subject_type.contains(':') {
+        return Err(EntityError::TypeContainsColon(req.subject.subject_type.clone()));
+    }
+    if req.subject.id.contains(':') {
+        return Err(EntityError::IdContainsColon(req.subject.id.clone()));
+    }
+    if req.resource.resource_type.contains(':') {
+        return Err(EntityError::TypeContainsColon(req.resource.resource_type.clone()));
+    }
+    if req.resource.id.contains(':') {
+        return Err(EntityError::IdContainsColon(req.resource.id.clone()));
+    }
+
+    // Now safe to concatenate after validation
     let subject = format!("{}:{}", req.subject.subject_type, req.subject.id);
     let resource = format!("{}:{}", req.resource.resource_type, req.resource.id);
     let permission = req.action.name.clone();
 
-    // Validate the generated strings
+    // Validate the generated strings for additional checks
     parse_entity(&subject)?;
     parse_entity(&resource)?;
 
@@ -323,14 +388,14 @@ mod tests {
     #[test]
     fn test_format_entity() {
         let entity = AuthZENEntity { entity_type: "user".to_string(), id: "alice".to_string() };
-        assert_eq!(format_entity(&entity), "user:alice");
+        assert_eq!(format_entity(&entity).unwrap(), "user:alice");
 
         let entity =
             AuthZENEntity { entity_type: "team".to_string(), id: "engineering".to_string() };
-        assert_eq!(format_entity(&entity), "team:engineering");
+        assert_eq!(format_entity(&entity).unwrap(), "team:engineering");
 
         let entity = AuthZENEntity { entity_type: "doc".to_string(), id: "design-doc".to_string() };
-        assert_eq!(format_entity(&entity), "doc:design-doc");
+        assert_eq!(format_entity(&entity).unwrap(), "doc:design-doc");
     }
 
     #[test]
@@ -345,7 +410,7 @@ mod tests {
 
         for input in test_cases {
             let entity = parse_entity(input).unwrap();
-            let output = format_entity(&entity);
+            let output = format_entity(&entity).unwrap();
             assert_eq!(input, output, "Roundtrip failed for: {}", input);
         }
     }
@@ -504,5 +569,157 @@ mod tests {
         let deserialized: AuthZENEvaluationResponse = serde_json::from_str(&json).unwrap();
         assert!(deserialized.decision);
         assert!(deserialized.context.is_none());
+    }
+
+    // Security Tests - Colon Injection Prevention
+
+    #[test]
+    fn test_format_entity_rejects_colon_in_type() {
+        let malicious =
+            AuthZENEntity { entity_type: "user:admin".to_string(), id: "alice".to_string() };
+
+        let result = format_entity(&malicious);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EntityError::TypeContainsColon("user:admin".to_string()));
+    }
+
+    #[test]
+    fn test_format_entity_rejects_colon_in_id() {
+        let malicious =
+            AuthZENEntity { entity_type: "user".to_string(), id: "alice:admin".to_string() };
+
+        let result = format_entity(&malicious);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EntityError::IdContainsColon("alice:admin".to_string()));
+    }
+
+    #[test]
+    fn test_format_entity_rejects_multiple_colons() {
+        let malicious = AuthZENEntity {
+            entity_type: "user:group:admin".to_string(),
+            id: "alice:bob:charlie".to_string(),
+        };
+
+        let result = format_entity(&malicious);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_format_entity_rejects_empty_type() {
+        let invalid = AuthZENEntity { entity_type: "".to_string(), id: "alice".to_string() };
+
+        let result = format_entity(&invalid);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EntityError::EmptyType);
+    }
+
+    #[test]
+    fn test_format_entity_rejects_empty_id() {
+        let invalid = AuthZENEntity { entity_type: "user".to_string(), id: "".to_string() };
+
+        let result = format_entity(&invalid);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EntityError::EmptyId);
+    }
+
+    #[test]
+    fn test_convert_authzen_rejects_colon_in_subject_type() {
+        let request = AuthZENEvaluationRequest {
+            subject: AuthZENSubject {
+                subject_type: "user:admin".to_string(),
+                id: "alice".to_string(),
+            },
+            action: AuthZENAction { name: "view".to_string() },
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "doc-1".to_string(),
+            },
+            context: None,
+        };
+
+        let result = convert_authzen_request_to_native(&request);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EntityError::TypeContainsColon("user:admin".to_string()));
+    }
+
+    #[test]
+    fn test_convert_authzen_rejects_colon_in_subject_id() {
+        let request = AuthZENEvaluationRequest {
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice:admin".to_string(),
+            },
+            action: AuthZENAction { name: "view".to_string() },
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "doc-1".to_string(),
+            },
+            context: None,
+        };
+
+        let result = convert_authzen_request_to_native(&request);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EntityError::IdContainsColon("alice:admin".to_string()));
+    }
+
+    #[test]
+    fn test_convert_authzen_rejects_colon_in_resource_type() {
+        let request = AuthZENEvaluationRequest {
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
+            resource: AuthZENResource {
+                resource_type: "document:secret".to_string(),
+                id: "doc-1".to_string(),
+            },
+            context: None,
+        };
+
+        let result = convert_authzen_request_to_native(&request);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            EntityError::TypeContainsColon("document:secret".to_string())
+        );
+    }
+
+    #[test]
+    fn test_convert_authzen_rejects_colon_in_resource_id() {
+        let request = AuthZENEvaluationRequest {
+            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            action: AuthZENAction { name: "view".to_string() },
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "doc:secret".to_string(),
+            },
+            context: None,
+        };
+
+        let result = convert_authzen_request_to_native(&request);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EntityError::IdContainsColon("doc:secret".to_string()));
+    }
+
+    #[test]
+    fn test_privilege_escalation_attempt() {
+        // Attacker tries to escalate privileges by injecting admin role
+        let attack = AuthZENEntity {
+            entity_type: "user".to_string(),
+            id: "alice:group:admin".to_string(), // Trying to add admin group
+        };
+
+        let result = format_entity(&attack);
+        assert!(result.is_err(), "Should reject privilege escalation attempt");
+    }
+
+    #[test]
+    fn test_resource_spoofing_attempt() {
+        // Attacker tries to access a different resource by injection
+        let attack = AuthZENEntity {
+            entity_type: "document".to_string(),
+            id: "public:document:secret".to_string(), // Trying to access secret doc
+        };
+
+        let result = format_entity(&attack);
+        assert!(result.is_err(), "Should reject resource spoofing attempt");
     }
 }

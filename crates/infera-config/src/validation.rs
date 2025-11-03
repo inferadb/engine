@@ -36,11 +36,11 @@ pub enum ValidationError {
     Multiple(Vec<ValidationError>),
 }
 
-/// Validation result type
-pub type ValidationResult<T> = Result<T, ValidationError>;
+/// Result type alias for validation operations
+pub type Result<T> = std::result::Result<T, ValidationError>;
 
 /// Validate complete configuration
-pub fn validate(config: &Config) -> ValidationResult<()> {
+pub fn validate(config: &Config) -> Result<()> {
     let mut errors = Vec::new();
 
     if let Err(e) = validate_server(&config.server) {
@@ -69,7 +69,7 @@ pub fn validate(config: &Config) -> ValidationResult<()> {
 }
 
 /// Validate server configuration
-pub fn validate_server(config: &ServerConfig) -> ValidationResult<()> {
+pub fn validate_server(config: &ServerConfig) -> Result<()> {
     // Validate port (must be in valid range)
     if config.port == 0 {
         return Err(ValidationError::InvalidPort(config.port));
@@ -89,7 +89,7 @@ pub fn validate_server(config: &ServerConfig) -> ValidationResult<()> {
 }
 
 /// Validate store configuration
-pub fn validate_store(config: &StoreConfig) -> ValidationResult<()> {
+pub fn validate_store(config: &StoreConfig) -> Result<()> {
     // Validate backend type
     match config.backend.as_str() {
         "memory" => {
@@ -108,7 +108,7 @@ pub fn validate_store(config: &StoreConfig) -> ValidationResult<()> {
 }
 
 /// Validate cache configuration
-pub fn validate_cache(config: &CacheConfig) -> ValidationResult<()> {
+pub fn validate_cache(config: &CacheConfig) -> Result<()> {
     if config.enabled {
         // Validate capacity
         if config.max_capacity == 0 {
@@ -125,7 +125,7 @@ pub fn validate_cache(config: &CacheConfig) -> ValidationResult<()> {
 }
 
 /// Validate observability configuration
-pub fn validate_observability(config: &ObservabilityConfig) -> ValidationResult<()> {
+pub fn validate_observability(config: &ObservabilityConfig) -> Result<()> {
     // Validate log level
     match config.log_level.to_lowercase().as_str() {
         "trace" | "debug" | "info" | "warn" | "error" => Ok(()),

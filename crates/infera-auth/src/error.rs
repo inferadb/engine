@@ -99,6 +99,9 @@ impl From<jsonwebtoken::errors::Error> for AuthError {
     }
 }
 
+/// Result type alias for authentication operations
+pub type Result<T> = std::result::Result<T, AuthError>;
+
 #[cfg(test)]
 mod tests {
     use super::*;

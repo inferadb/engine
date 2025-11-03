@@ -81,7 +81,7 @@ mod common {
             // Start mock JWKS server on random port
             let jwks_filter = {
                 let jwks = Arc::clone(&jwks);
-                warp::path!("tenants" / String / ".well-known" / "jwks.json")
+                warp::path("tenants" / String / ".well-known" / "jwks.json")
                     .and(warp::get())
                     .and_then(move |_tenant_id: String| {
                         let jwks = Arc::clone(&jwks);
@@ -184,12 +184,15 @@ fn create_test_schema() -> Arc<Schema> {
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-        schema,
-        None,
-        uuid::Uuid::nil(),
-    ));
+    let evaluator = Arc::new(
+        Evaluator::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            schema,
+            None,
+            uuid::Uuid::nil(),
+        )
+        .unwrap(),
+    );
 
     let mut config = Config::default();
     config.auth.enabled = auth_enabled;
@@ -291,11 +294,14 @@ async fn test_grpc_check_without_token() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:9999/tenants".to_string(),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:9999/tenants".to_string(),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
@@ -337,11 +343,14 @@ async fn test_grpc_check_with_invalid_token() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:9999/tenants".to_string(),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:9999/tenants".to_string(),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
@@ -392,11 +401,14 @@ async fn test_grpc_check_with_tenant_jwt() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        format!("http://127.0.0.1:{}/tenants", mock_jwks.port),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            format!("http://127.0.0.1:{}/tenants", mock_jwks.port),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
@@ -465,11 +477,14 @@ async fn test_grpc_check_with_internal_jwt() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:9999/tenants".to_string(),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:9999/tenants".to_string(),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) =
@@ -546,11 +561,14 @@ async fn test_grpc_check_with_expired_internal_jwt() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:9999/tenants".to_string(),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:9999/tenants".to_string(),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) =
@@ -606,11 +624,14 @@ async fn test_grpc_lowercase_authorization_metadata() {
             .build(),
     );
 
-    let jwks_cache = Arc::new(JwksCache::new(
-        "http://127.0.0.1:9999/tenants".to_string(),
-        cache,
-        Duration::from_secs(300),
-    ));
+    let jwks_cache = Arc::new(
+        JwksCache::new(
+            "http://127.0.0.1:9999/tenants".to_string(),
+            cache,
+            Duration::from_secs(300),
+        )
+        .unwrap(),
+    );
 
     let state = create_test_state(Some(jwks_cache), true);
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;

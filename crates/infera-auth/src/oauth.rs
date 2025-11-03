@@ -66,13 +66,13 @@ impl OAuthJwksClient {
     /// # use std::sync::Arc;
     /// # use std::time::Duration;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(86400)));
+    /// let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(86400))?);
     /// let cache = Arc::new(moka::future::Cache::builder().build());
     /// let jwks_cache = Arc::new(JwksCache::new(
     ///     "https://control.example.com/tenants".to_string(),
     ///     cache,
     ///     Duration::from_secs(300),
-    /// ));
+    /// )?);
     ///
     /// let oauth_client = OAuthJwksClient::new(oidc_client, jwks_cache);
     /// let keys = oauth_client.fetch_oauth_jwks("https://oauth.example.com").await?;
@@ -222,12 +222,15 @@ impl IntrospectionClient {
     ///
     /// # Errors
     ///
-    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration issues)
+    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration
+    /// issues)
     pub fn new() -> Result<Self, AuthError> {
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .map_err(|e| AuthError::IntrospectionFailed(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| {
+                AuthError::IntrospectionFailed(format!("Failed to create HTTP client: {}", e))
+            })?;
 
         Ok(Self { http_client, cache: None })
     }
@@ -241,12 +244,18 @@ impl IntrospectionClient {
     ///
     /// # Errors
     ///
-    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration issues)
-    pub fn new_with_cache(max_capacity: u64, default_ttl: std::time::Duration) -> Result<Self, AuthError> {
+    /// Returns an error if the HTTP client cannot be created (typically due to TLS configuration
+    /// issues)
+    pub fn new_with_cache(
+        max_capacity: u64,
+        default_ttl: std::time::Duration,
+    ) -> Result<Self, AuthError> {
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .map_err(|e| AuthError::IntrospectionFailed(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| {
+                AuthError::IntrospectionFailed(format!("Failed to create HTTP client: {}", e))
+            })?;
 
         let cache = Arc::new(
             moka::future::Cache::builder()
@@ -318,7 +327,7 @@ impl IntrospectionClient {
         let mut params = HashMap::new();
         params.insert("token", token);
 
-        let result = async {
+        let result = (async {
             let response =
                 self.http_client.post(endpoint).form(&params).send().await.map_err(|e| {
                     AuthError::JwksError(format!("Token introspection request failed: {}", e))
@@ -337,7 +346,7 @@ impl IntrospectionClient {
                 })?;
 
             Ok(introspection_response)
-        }
+        })
         .await;
 
         // Record metrics
@@ -438,7 +447,7 @@ pub async fn validate_oauth_jwt(
     let issuer = unverified.claims.iss.clone();
 
     // Validation logic wrapped with metrics
-    let result = async {
+    let result = (async {
         // Fetch JWKS from OAuth issuer
         let jwks = oauth_client.fetch_oauth_jwks(&issuer).await?;
 
@@ -508,7 +517,7 @@ pub async fn validate_oauth_jwt(
         };
 
         Ok(auth_context)
-    }
+    })
     .await;
 
     // Record metrics

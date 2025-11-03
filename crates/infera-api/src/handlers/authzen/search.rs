@@ -12,7 +12,7 @@ use crate::{
     adapters::authzen::{
         AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject, parse_entity,
     },
-    handlers::utils::auth::get_vault,
+    handlers::utils::{auth::get_vault, validation::safe_format_entity},
     validation::{
         validate_authzen_resource_search_request, validate_authzen_subject_search_request,
     },
@@ -145,8 +145,8 @@ pub async fn post_search_resource(
     // Validate required fields
     validate_authzen_resource_search_request(&request)?;
 
-    // Convert AuthZEN request to native format
-    let subject = format!("{}:{}", request.subject.subject_type, request.subject.id);
+    // Convert AuthZEN request to native format with injection protection
+    let subject = safe_format_entity(&request.subject.subject_type, &request.subject.id)?;
     let permission = request.action.name.clone();
     let resource_type = request.resource_type.clone();
 
@@ -345,8 +345,8 @@ pub async fn post_search_subject(
     // Validate required fields
     validate_authzen_subject_search_request(&request)?;
 
-    // Convert AuthZEN request to native format
-    let resource = format!("{}:{}", request.resource.resource_type, request.resource.id);
+    // Convert AuthZEN request to native format with injection protection
+    let resource = safe_format_entity(&request.resource.resource_type, &request.resource.id)?;
     let relation = request.action.name.clone();
 
     // Validate the generated resource string
