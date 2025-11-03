@@ -130,12 +130,13 @@ The codebase follows a layered architecture with clear separation of concerns:
 
 9. **infera-repl**: Multi-region replication with conflict resolution.
 
-10. **infera-auth**: Authentication and authorization:
+10. **infera-auth**: Authentication and authorization (Layer 3):
     - JWT validation (EdDSA, RS256 only - no symmetric algorithms)
     - OAuth 2.0 Bearer token support
     - JWKS caching with stale-while-revalidate
-    - Vault-based access control middleware
+    - Basic vault validation (nil checks, AuthContext extraction)
     - Replay protection (in-memory or Redis)
+    - **Note:** Does NOT depend on storage or cache layers (Layer 2) - maintains clean layering
 
 11. **infera-api**: HTTP and gRPC API servers:
     - REST API via Axum
@@ -475,12 +476,17 @@ Server::builder()
 
 1. Extract vault from `AuthContext`
 2. Pass vault to storage layer
-3. Verify vault exists and account owns it (when using `validate_vault_access_with_store`)
+3. Verify vault exists and account owns it (when using database verification)
+
+**Validation Functions:**
+
+- **Basic validation** (`infera-auth`): `validate_vault_access()` - Checks for nil vault UUID and validates AuthContext
+- **Database verification** (`infera-api`): `vault_validation::validate_vault_access_with_store()` - Includes storage lookup to verify vault exists and account owns it
 
 **Files:**
 
-- `crates/infera-auth/src/middleware.rs` - Vault validation functions
-- `crates/infera-auth/tests/vault_auth_tests.rs` - Comprehensive vault tests
+- `crates/infera-auth/src/middleware.rs` - Basic vault validation (no storage dependencies)
+- `crates/infera-api/src/vault_validation.rs` - Database-backed vault verification (requires VaultStore)
 
 ### Authentication Security
 
@@ -635,8 +641,11 @@ Use the test helpers in `crates/infera-auth/tests/common/`:
 
 1. Update JWT claims if needed in `infera-auth/src/jwt.rs`
 2. Add validation logic in `infera-auth/src/validation.rs`
-3. Update middleware in `infera-auth/src/middleware.rs`
-4. Add comprehensive tests in `infera-auth/tests/`
+3. Update middleware in `infera-auth/src/middleware.rs` (basic validation only - no storage dependencies)
+4. For database-backed validation, add to `infera-api/src/vault_validation.rs`
+5. Add comprehensive tests in `infera-auth/tests/` or `infera-api/tests/`
+
+**Important:** Keep `infera-auth` free of storage/cache dependencies (Layer 3). Database-backed operations belong in `infera-api` (Layer 4).
 
 ---
 
@@ -1000,9 +1009,20 @@ Layer 5 (Binary):      infera-bin
 **Rules:**
 
 - Types flow **downward only** (foundation → utilities → storage → runtime → application)
+- Dependencies flow **downward only** (higher layers can depend on lower layers, never the reverse)
 - infera-types **never** depends on other internal crates
 - If a type is needed by multiple layers, it belongs in the **lowest common layer**
 - When in doubt, put it in **infera-types**
+
+**Layer Discipline:**
+
+Layer violations (higher layers depending on lower layers, or circular dependencies) must be fixed immediately by:
+
+1. Moving code to the appropriate layer
+2. Refactoring to remove the dependency
+3. Extracting shared types to a lower layer (typically infera-types)
+
+**Example:** Task 2.4 fixed layer violations where `infera-auth` (Layer 3) depended on `infera-store` (Layer 2). The solution was to move the database-dependent validation function (`validate_vault_access_with_store`) to `infera-api` (Layer 4), where it naturally belongs with other API-layer operations.
 
 ### Common Patterns
 

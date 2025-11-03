@@ -28,6 +28,7 @@ pub mod handlers;
 pub mod health;
 pub mod routes;
 pub mod validation;
+pub mod vault_validation;
 
 // Import handlers
 #[cfg(test)]

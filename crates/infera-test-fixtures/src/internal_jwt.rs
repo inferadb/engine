@@ -23,6 +23,10 @@ pub struct InternalClaims {
     pub tenant_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jti: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vault: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
 }
 
 impl InternalClaims {
@@ -39,6 +43,8 @@ impl InternalClaims {
             scope: "inferadb.admin".to_string(),
             tenant_id: Some("internal".to_string()),
             jti: Some(uuid::Uuid::new_v4().to_string()),
+            vault: Some(uuid::Uuid::new_v4().to_string()),
+            account: Some(uuid::Uuid::new_v4().to_string()),
         }
     }
 
@@ -54,6 +60,8 @@ impl InternalClaims {
             scope: "inferadb.admin".to_string(),
             tenant_id: Some("internal".to_string()),
             jti: Some(uuid::Uuid::new_v4().to_string()),
+            vault: Some(uuid::Uuid::new_v4().to_string()),
+            account: Some(uuid::Uuid::new_v4().to_string()),
         }
     }
 

@@ -72,7 +72,7 @@ mod common {
             // Start mock JWKS server
             let jwks_filter = {
                 let jwks = Arc::clone(&jwks);
-                warp::path("tenants" / String / ".well-known" / "jwks.json")
+                warp::path!("tenants" / String / ".well-known" / "jwks.json")
                     .and(warp::get())
                     .and_then(move |_tenant_id: String| {
                         let jwks = Arc::clone(&jwks);

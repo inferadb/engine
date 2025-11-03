@@ -41,15 +41,12 @@ fn create_multi_vault_test_state() -> (AppState, Uuid, Uuid, Uuid, Uuid) {
     let vault_b = Uuid::new_v4();
     let account_b = Uuid::new_v4();
 
-    let evaluator = Arc::new(
-        Evaluator::new(
-            Arc::clone(&store) as Arc<dyn RelationshipStore>,
-            schema,
-            None,
-            vault_a, // Default to vault A
-        )
-        .unwrap(),
-    );
+    let evaluator = Arc::new(Evaluator::new(
+        Arc::clone(&store) as Arc<dyn RelationshipStore>,
+        schema,
+        None,
+        vault_a, // Default to vault A
+    ));
 
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for simpler testing

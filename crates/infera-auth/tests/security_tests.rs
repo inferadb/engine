@@ -153,16 +153,16 @@ fn test_symmetric_algorithms_rejected() {
     let config = default_config();
 
     // HS256, HS384, HS512 should all be rejected
-    assert!(validate_algorithm("HS256", &config).is_err());
-    assert!(validate_algorithm("HS384", &config).is_err());
-    assert!(validate_algorithm("HS512", &config).is_err());
+    assert!(validate_algorithm("HS256", &config.accepted_algorithms).is_err());
+    assert!(validate_algorithm("HS384", &config.accepted_algorithms).is_err());
+    assert!(validate_algorithm("HS512", &config.accepted_algorithms).is_err());
 }
 
 #[test]
 fn test_none_algorithm_rejected() {
     let config = default_config();
 
-    let result = validate_algorithm("none", &config);
+    let result = validate_algorithm("none", &config.accepted_algorithms);
     assert!(
         matches!(result, Err(AuthError::UnsupportedAlgorithm(_))),
         "Algorithm 'none' should be rejected"
@@ -173,8 +173,8 @@ fn test_none_algorithm_rejected() {
 fn test_accepted_algorithms_allowed() {
     let config = default_config();
 
-    assert!(validate_algorithm("EdDSA", &config).is_ok());
-    assert!(validate_algorithm("RS256", &config).is_ok());
+    assert!(validate_algorithm("EdDSA", &config.accepted_algorithms).is_ok());
+    assert!(validate_algorithm("RS256", &config.accepted_algorithms).is_ok());
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn test_unlisted_asymmetric_algorithm_rejected() {
     let config = default_config();
 
     // ES256 is asymmetric but not in our accepted list
-    let result = validate_algorithm("ES256", &config);
+    let result = validate_algorithm("ES256", &config.accepted_algorithms);
     assert!(
         matches!(result, Err(AuthError::UnsupportedAlgorithm(_))),
         "Unlisted algorithm should be rejected"
@@ -414,7 +414,7 @@ async fn test_full_validation_flow_success() {
     assert!(validate_audience(&claims.aud, &config).is_ok());
 
     // Validate algorithm
-    assert!(validate_algorithm("EdDSA", &config).is_ok());
+    assert!(validate_algorithm("EdDSA", &config.accepted_algorithms).is_ok());
 
     // Check replay protection
     let replay = InMemoryReplayProtection::new();

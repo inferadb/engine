@@ -226,7 +226,8 @@ pub async fn auth_middleware(
 /// 1. Ensures vault UUID is not nil
 /// 2. Logs vault access for audit purposes
 ///
-/// For full validation including database checks, use `validate_vault_access_with_store`.
+/// For full validation including database checks, use
+/// `infera_api::vault_validation::validate_vault_access_with_store`.
 ///
 /// # Arguments
 ///
@@ -256,89 +257,6 @@ pub fn validate_vault_access(auth: &AuthContext) -> Result<(), AuthError> {
         account = %auth.account,
         client_id = %auth.client_id,
         "Vault access validated (basic)"
-    );
-
-    Ok(())
-}
-
-/// Validate vault access with database verification
-///
-/// This function performs comprehensive vault-level access validation:
-/// 1. Ensures vault UUID is not nil
-/// 2. Verifies vault exists in database
-/// 3. Verifies account owns the vault
-/// 4. Logs vault access for audit purposes
-///
-/// # Arguments
-///
-/// * `auth` - The authenticated context containing vault information
-/// * `vault_store` - The vault store for database lookups
-///
-/// # Errors
-///
-/// Returns `AuthError` if:
-/// - Vault UUID is nil
-/// - Vault does not exist in database
-/// - Account does not own the vault
-/// - Database error occurs
-pub async fn validate_vault_access_with_store(
-    auth: &AuthContext,
-    vault_store: &dyn infera_store::VaultStore,
-) -> Result<(), AuthError> {
-    // Basic validation first
-    if auth.vault.is_nil() {
-        tracing::warn!(
-            tenant_id = %auth.tenant_id,
-            client_id = %auth.client_id,
-            "Vault access denied: nil UUID detected"
-        );
-        return Err(AuthError::InvalidTokenFormat(
-            "Invalid vault: vault UUID cannot be nil".to_string(),
-        ));
-    }
-
-    // Verify vault exists in database
-    let vault = vault_store
-        .get_vault(auth.vault)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                vault = %auth.vault,
-                error = %e,
-                "Failed to fetch vault from database"
-            );
-            AuthError::InvalidTokenFormat(format!("Failed to verify vault: {}", e))
-        })?
-        .ok_or_else(|| {
-            tracing::warn!(
-                vault = %auth.vault,
-                tenant_id = %auth.tenant_id,
-                "Vault does not exist"
-            );
-            AuthError::InvalidTokenFormat("Vault does not exist".to_string())
-        })?;
-
-    // Verify account owns the vault
-    if vault.account != auth.account {
-        tracing::warn!(
-            vault = %auth.vault,
-            vault_account = %vault.account,
-            auth_account = %auth.account,
-            tenant_id = %auth.tenant_id,
-            "Account does not own vault"
-        );
-        return Err(AuthError::InvalidTokenFormat(
-            "Account does not own the specified vault".to_string(),
-        ));
-    }
-
-    // Log successful validation
-    tracing::debug!(
-        tenant_id = %auth.tenant_id,
-        vault = %auth.vault,
-        account = %auth.account,
-        vault_name = %vault.name,
-        "Vault access validated with database verification"
     );
 
     Ok(())
