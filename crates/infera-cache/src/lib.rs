@@ -11,9 +11,7 @@ use std::{
     time::Duration,
 };
 
-// Re-export Decision from infera-types for backwards compatibility
-pub use infera_types::Decision;
-use infera_types::{Relationship, Revision};
+use infera_types::{Decision, Relationship, Revision};
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;

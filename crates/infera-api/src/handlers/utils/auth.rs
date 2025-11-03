@@ -12,7 +12,7 @@ use crate::{ApiError, Result};
 ///
 /// # Returns
 /// The vault UUID from the auth context, or the default vault
-pub fn get_vault(auth: &Option<infera_auth::AuthContext>, default_vault: Uuid) -> Uuid {
+pub fn get_vault(auth: &Option<infera_types::AuthContext>, default_vault: Uuid) -> Uuid {
     auth.as_ref().map(|ctx| ctx.vault).unwrap_or(default_vault)
 }
 
@@ -27,7 +27,7 @@ pub fn get_vault(auth: &Option<infera_auth::AuthContext>, default_vault: Uuid) -
 ///
 /// # Returns
 /// Ok(()) if user has admin scope, Err otherwise
-pub fn require_admin_scope(auth: &Option<infera_auth::AuthContext>) -> Result<()> {
+pub fn require_admin_scope(auth: &Option<infera_types::AuthContext>) -> Result<()> {
     match auth {
         None => Err(ApiError::Unauthorized("Authentication required".to_string())),
         Some(ctx) => {
@@ -55,7 +55,7 @@ pub fn require_admin_scope(auth: &Option<infera_auth::AuthContext>) -> Result<()
 /// # Returns
 /// Ok(()) if authorized, Err otherwise
 pub fn authorize_account_access(
-    auth: &Option<infera_auth::AuthContext>,
+    auth: &Option<infera_types::AuthContext>,
     account_id: Uuid,
 ) -> Result<()> {
     match auth {

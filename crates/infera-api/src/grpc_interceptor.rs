@@ -26,7 +26,6 @@ use std::{sync::Arc, time::Instant};
 use chrono::{DateTime, Duration, Utc};
 use infera_auth::{
     audit::{AuditEvent, log_audit_event},
-    context::{AuthContext, AuthMethod},
     error::AuthError,
     internal::InternalJwksLoader,
     jwks_cache::JwksCache,
@@ -34,6 +33,7 @@ use infera_auth::{
 };
 use infera_config::AuthConfig;
 use infera_observe::metrics;
+use infera_types::{AuthContext, AuthMethod};
 use tonic::{Request, Status, metadata::MetadataMap};
 
 /// Extract Bearer token from gRPC metadata

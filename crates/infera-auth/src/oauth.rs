@@ -6,11 +6,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use chrono::Utc;
+use infera_types::{AuthContext, AuthMethod};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    context::{AuthContext, AuthMethod},
     error::AuthError,
     jwks_cache::{Jwk, JwksCache},
     jwt::JwtClaims,

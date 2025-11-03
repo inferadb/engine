@@ -73,10 +73,10 @@ mod tests {
     use std::sync::Arc;
 
     use axum::{Json, extract::State};
-    use infera_auth::AuthMethod;
     use infera_config::Config;
     use infera_core::{Evaluator, ipl::Schema};
     use infera_store::MemoryBackend;
+    use infera_types::AuthMethod;
     use uuid::Uuid;
 
     use super::*;
@@ -130,7 +130,7 @@ mod tests {
 
         let request = CreateAccountRequest { name: "".to_string() };
 
-        let admin_ctx = infera_auth::AuthContext {
+        let admin_ctx = infera_types::AuthContext {
             tenant_id: "test".to_string(),
             client_id: "test".to_string(),
             key_id: "test".to_string(),

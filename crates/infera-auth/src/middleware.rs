@@ -15,13 +15,9 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use infera_types::{AuthContext, AuthMethod};
 
-use crate::{
-    context::{AuthContext, AuthMethod},
-    error::AuthError,
-    jwks_cache::JwksCache,
-    jwt::verify_with_jwks,
-};
+use crate::{error::AuthError, jwks_cache::JwksCache, jwt::verify_with_jwks};
 
 /// Helper to create unauthorized response with WWW-Authenticate header
 fn unauthorized_response(message: &str) -> Response {
@@ -469,7 +465,7 @@ mod tests {
             tenant_id: "test".to_string(),
             client_id: "test-client".to_string(),
             key_id: "test-key-001".to_string(),
-            auth_method: crate::context::AuthMethod::PrivateKeyJwt,
+            auth_method: AuthMethod::PrivateKeyJwt,
             scopes: scopes.into_iter().map(|s| s.to_string()).collect(),
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),
@@ -595,7 +591,7 @@ mod tests {
             tenant_id: "test-tenant".to_string(),
             client_id: "test-client".to_string(),
             key_id: "test-key-001".to_string(),
-            auth_method: crate::context::AuthMethod::PrivateKeyJwt,
+            auth_method: AuthMethod::PrivateKeyJwt,
             scopes: vec!["inferadb.check".to_string()],
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),
@@ -613,7 +609,7 @@ mod tests {
             tenant_id: "test-tenant".to_string(),
             client_id: "test-client".to_string(),
             key_id: "test-key-001".to_string(),
-            auth_method: crate::context::AuthMethod::PrivateKeyJwt,
+            auth_method: AuthMethod::PrivateKeyJwt,
             scopes: vec!["inferadb.check".to_string()],
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),
@@ -642,7 +638,7 @@ mod tests {
             tenant_id: "default".to_string(),
             client_id: "system:unauthenticated".to_string(),
             key_id: "default".to_string(),
-            auth_method: crate::context::AuthMethod::InternalServiceJwt,
+            auth_method: AuthMethod::InternalServiceJwt,
             scopes: vec!["inferadb.check".to_string()],
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),

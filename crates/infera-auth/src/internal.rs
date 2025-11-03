@@ -23,15 +23,11 @@
 
 use std::{path::Path, sync::Arc};
 
+use infera_types::{AuthContext, AuthMethod};
 use jsonwebtoken::{Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    context::{AuthContext, AuthMethod},
-    error::AuthError,
-    jwks_cache::Jwk,
-    jwt::JwtClaims,
-};
+use crate::{error::AuthError, jwks_cache::Jwk, jwt::JwtClaims};
 
 /// Internal JWKS structure for local key storage
 ///

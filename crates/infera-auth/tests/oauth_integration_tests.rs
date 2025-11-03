@@ -10,11 +10,11 @@ use common::mock_oauth::{
     generate_oauth_jwt, generate_opaque_token, register_opaque_token, start_mock_oauth_server,
 };
 use infera_auth::{
-    context::AuthMethod,
     jwks_cache::JwksCache,
     oauth::{IntrospectionClient, IntrospectionResponse, OAuthJwksClient},
     oidc::OidcDiscoveryClient,
 };
+use infera_types::AuthMethod;
 use moka::future::Cache;
 
 /// Test OAuth JWT validation end-to-end

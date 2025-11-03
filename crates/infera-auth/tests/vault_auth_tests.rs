@@ -8,13 +8,9 @@
 
 use async_trait::async_trait;
 use chrono::Utc;
-use infera_auth::{
-    AuthError,
-    context::{AuthContext, AuthMethod},
-    validate_vault_access, validate_vault_access_with_store,
-};
+use infera_auth::{AuthError, validate_vault_access, validate_vault_access_with_store};
 use infera_store::VaultStore;
-use infera_types::{StoreResult, SystemConfig, Vault};
+use infera_types::{AuthContext, AuthMethod, StoreResult, SystemConfig, Vault};
 use uuid::Uuid;
 
 /// Mock VaultStore for testing database validation

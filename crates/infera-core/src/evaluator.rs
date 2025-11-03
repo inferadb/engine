@@ -84,11 +84,7 @@ impl Evaluator {
                 request.permission.clone(),
                 revision,
             );
-            if let Some(cached_decision) = cache.get_check(&cache_key).await {
-                let decision = match cached_decision {
-                    infera_cache::Decision::Allow => Decision::Allow,
-                    infera_cache::Decision::Deny => Decision::Deny,
-                };
+            if let Some(decision) = cache.get_check(&cache_key).await {
                 debug!(
                     decision = ?decision,
                     duration = ?start.elapsed(),
@@ -152,7 +148,7 @@ impl Evaluator {
                         request.permission.clone(),
                         revision,
                     );
-                    cache.put_check(cache_key, infera_cache::Decision::Deny).await;
+                    cache.put_check(cache_key, Decision::Deny).await;
                 }
 
                 return Ok(decision);
@@ -182,11 +178,7 @@ impl Evaluator {
                 request.permission.clone(),
                 revision,
             );
-            let cache_decision = match decision {
-                Decision::Allow => infera_cache::Decision::Allow,
-                Decision::Deny => infera_cache::Decision::Deny,
-            };
-            cache.put_check(cache_key, cache_decision).await;
+            cache.put_check(cache_key, decision.clone()).await;
         }
 
         debug!(

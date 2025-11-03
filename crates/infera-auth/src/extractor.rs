@@ -12,8 +12,7 @@ use axum::{
     http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
 };
-
-use crate::context::AuthContext;
+use infera_types::AuthContext;
 
 /// Extractor that requires authentication
 ///
@@ -99,9 +98,9 @@ where
 mod tests {
     use axum::http::{Request, StatusCode};
     use chrono::{Duration, Utc};
+    use infera_types::AuthMethod;
 
     use super::*;
-    use crate::context::AuthMethod;
 
     fn create_test_auth_context() -> AuthContext {
         AuthContext {

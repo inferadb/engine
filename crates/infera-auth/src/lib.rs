@@ -29,8 +29,6 @@
 
 /// Audit logging for authentication events
 pub mod audit;
-/// Authentication context and types
-pub mod context;
 /// Authentication errors
 pub mod error;
 /// Axum extractors for authentication
@@ -54,7 +52,6 @@ pub mod validation;
 
 // Re-export key types
 pub use audit::{AuditEvent, log_audit_event};
-pub use context::{AuthContext, AuthMethod};
 pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
 pub use internal::{InternalJwks, InternalJwksLoader};
