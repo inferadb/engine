@@ -240,7 +240,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### Availability SLO Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/availability-slo`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/availability-slo`
 
 **Steps**:
 
@@ -254,7 +254,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### Latency SLO Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/latency-slo`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/latency-slo`
 
 **Steps**:
 
@@ -268,7 +268,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### Error Rate SLO Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/error-rate-slo`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/error-rate-slo`
 
 **Steps**:
 
@@ -281,7 +281,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### Cache SLO Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/cache-slo`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/cache-slo`
 
 **Steps**:
 
@@ -293,7 +293,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### Storage Latency SLO Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/storage-latency-slo`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/storage-latency-slo`
 
 **Steps**:
 
@@ -306,7 +306,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### Replication Lag SLO Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/replication-lag-slo`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/replication-lag-slo`
 
 **Steps**:
 
@@ -320,7 +320,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### JWKS SLO Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/jwks-slo`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/jwks-slo`
 
 **Steps**:
 
@@ -333,7 +333,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### Evaluation Depth SLO Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/evaluation-depth-slo`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/evaluation-depth-slo`
 
 **Steps**:
 
@@ -346,7 +346,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 ### Service Down Runbook
 
-**URL**: `https://docs.inferadb.dev/runbooks/service-down`
+**URL**: `https://github.com/inferadb/inferadb/tree/main/docs/runbooks/service-down`
 
 **Steps**:
 

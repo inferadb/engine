@@ -13,15 +13,31 @@ This directory contains Kubernetes manifests for deploying InferaDB to a Kuberne
 
 ## Quick Start
 
-### 1. Create Namespace
+### 1. Customize Configuration
+
+**IMPORTANT:** Before deploying, update these files with your environment-specific values:
+
+1. **configmap.yaml** (line 63-66):
+   - Replace `https://your-domain.com/api/evaluate` with your actual JWT audience
+   - Update any other configuration values as needed
+
+2. **secret.yaml**:
+   - Replace all placeholder values marked with `change-me-in-production`
+   - **DO NOT** commit real secrets to version control
+   - Use Kubernetes secrets, External Secrets Operator, or sealed-secrets instead
+
+3. **kustomization.yaml** (line 37):
+   - Replace `v1.0.0` with your desired InferaDB version
+
+### 2. Create Namespace
 
 ```bash
 kubectl create namespace inferadb
 ```
 
-### 2. Update Secrets
+### 3. Update Secrets (Production Recommended)
 
-Edit `secret.yaml` and replace placeholder values:
+Create secrets using kubectl (not checked into git):
 
 ```bash
 kubectl create secret generic inferadb-secrets \
@@ -31,7 +47,7 @@ kubectl create secret generic inferadb-secrets \
   -n inferadb
 ```
 
-### 3. Deploy
+### 4. Deploy
 
 ```bash
 kubectl apply -f rbac.yaml -n inferadb

@@ -45,4 +45,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: inferadb
-    namespace: default
+    # namespace will be set by kustomization.yaml

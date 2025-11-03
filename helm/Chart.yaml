@@ -19,9 +19,8 @@ sources:
 
 maintainers:
   - name: InferaDB Team
-    email: team@inferadb.com
 
-icon: https://inferadb.com/logo.svg
+icon: https://raw.githubusercontent.com/inferadb/inferadb/main/docs/assets/logo.svg
 
 dependencies: []
 

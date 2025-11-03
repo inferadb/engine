@@ -24,8 +24,8 @@ groups:
         annotations:
           summary: "Fast availability SLO burn detected"
           description: "Error rate {{ $value | humanizePercentage }} exceeds 1.44% (14.4x burn rate). Error budget will exhaust in ~2 hours if this continues."
-          runbook_url: "https://docs.inferadb.dev/runbooks/availability-slo"
-          dashboard_url: "https://grafana.inferadb.dev/d/overview"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/availability-slo"
+          dashboard_url: "http://your-grafana-instance/d/overview"
 
       # Slow burn: 3x burn rate (24 hour window)
       # If error rate exceeds 0.3%, we'll exhaust error budget in ~10 days
@@ -41,7 +41,7 @@ groups:
         annotations:
           summary: "Slow availability SLO burn detected"
           description: "Error rate {{ $value | humanizePercentage }} exceeds 0.3% (3x burn rate) over 24h window."
-          runbook_url: "https://docs.inferadb.dev/runbooks/availability-slo"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/availability-slo"
 
       # SLO violation: Error budget exhausted
       - alert: AvailabilitySLOViolation
@@ -56,7 +56,7 @@ groups:
         annotations:
           summary: "Availability SLO violated - error budget exhausted"
           description: "30-day error rate {{ $value | humanizePercentage }} exceeds 0.1% target. Freeze all non-critical changes until resolved."
-          runbook_url: "https://docs.inferadb.dev/runbooks/slo-violation"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/slo-violation"
 
       # Warning: Error budget low (50% consumed)
       - alert: AvailabilitySLOBudgetLow
@@ -90,8 +90,8 @@ groups:
         annotations:
           summary: "p99 latency exceeds 10ms target"
           description: "p99 latency is {{ $value }}ms (target: <10ms). Check for cache issues, storage slowness, or evaluation depth."
-          runbook_url: "https://docs.inferadb.dev/runbooks/latency-slo"
-          dashboard_url: "https://grafana.inferadb.dev/d/performance"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/latency-slo"
+          dashboard_url: "http://your-grafana-instance/d/performance"
 
       # p99 latency warning (8ms - approaching target)
       - alert: LatencySLOWarning
@@ -164,7 +164,7 @@ groups:
         annotations:
           summary: "Error rate exceeds 0.1% target"
           description: "5xx error rate is {{ $value | humanizePercentage }} (target: <0.1%). 1 in {{ div 1 $value | humanize }} requests failing."
-          runbook_url: "https://docs.inferadb.dev/runbooks/error-rate-slo"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/error-rate-slo"
 
       # Error rate warning (0.05% - half of target)
       - alert: ErrorRateSLOWarning
@@ -222,8 +222,8 @@ groups:
         annotations:
           summary: "Cache hit rate below 80% target"
           description: "Cache hit rate is {{ $value | humanizePercentage }} (target: >80%). Consider increasing cache size or TTL."
-          runbook_url: "https://docs.inferadb.dev/runbooks/cache-slo"
-          dashboard_url: "https://grafana.inferadb.dev/d/cache"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/cache-slo"
+          dashboard_url: "http://your-grafana-instance/d/cache"
 
       # Cache hit rate critically low (60%)
       - alert: CacheHitRateCriticallyLow
@@ -269,7 +269,7 @@ groups:
         annotations:
           summary: "Storage read p99 latency exceeds 5ms"
           description: "Storage read p99 latency is {{ $value }}ms (target: <5ms). Check storage backend performance."
-          runbook_url: "https://docs.inferadb.dev/runbooks/storage-latency-slo"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/storage-latency-slo"
 
       # Storage write latency p99 exceeds target
       - alert: StorageWriteLatencyHigh
@@ -317,8 +317,8 @@ groups:
         annotations:
           summary: "Replication lag exceeds 100ms target"
           description: "Replication lag is {{ $value }}ms (target: <100ms) for region {{ $labels.target_region }}."
-          runbook_url: "https://docs.inferadb.dev/runbooks/replication-lag-slo"
-          dashboard_url: "https://grafana.inferadb.dev/d/replication"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/replication-lag-slo"
+          dashboard_url: "http://your-grafana-instance/d/replication"
 
       # Replication lag critical (500ms)
       - alert: ReplicationLagCritical
@@ -388,7 +388,7 @@ groups:
         annotations:
           summary: "JWKS serving stale cache frequently"
           description: "Serving stale JWKS cache at {{ $value }}/sec. May cause auth failures."
-          runbook_url: "https://docs.inferadb.dev/runbooks/jwks-slo"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/jwks-slo"
 
       # JWKS refresh failures
       - alert: JWKSRefreshFailures
@@ -420,7 +420,7 @@ groups:
         annotations:
           summary: "Evaluation depth p99 exceeds 10 levels"
           description: "p99 evaluation depth is {{ $value }} (target: <10). Check for overly complex policies or circular references."
-          runbook_url: "https://docs.inferadb.dev/runbooks/evaluation-depth-slo"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/evaluation-depth-slo"
 
       # Evaluation depth critical (20 levels)
       - alert: EvaluationDepthCritical
@@ -494,7 +494,7 @@ groups:
         annotations:
           summary: "InferaDB service down"
           description: "InferaDB instance {{ $labels.instance }} is down."
-          runbook_url: "https://docs.inferadb.dev/runbooks/service-down"
+          runbook_url: "https://github.com/inferadb/inferadb/tree/main/docs/runbooks/service-down"
 
       # High number of goroutines (potential leak)
       - alert: GoroutineLeakSuspected

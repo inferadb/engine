@@ -7,33 +7,33 @@ Official Helm chart for deploying InferaDB to Kubernetes.
 - Kubernetes 1.24+
 - Helm 3.8+
 - PV provisioner support in the underlying infrastructure (for persistent storage)
+- (Optional) [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator) for ServiceMonitor support
 
 ## Installation
-
-### Add Helm Repository
-
-```bash
-helm repo add inferadb https://charts.inferadb.com
-helm repo update
-```
-
-### Install Chart
-
-```bash
-# Install with default values
-helm install inferadb inferadb/inferadb
-
-# Install with custom values
-helm install inferadb inferadb/inferadb -f custom-values.yaml
-
-# Install in specific namespace
-helm install inferadb inferadb/inferadb --namespace inferadb --create-namespace
-```
 
 ### Install from Source
 
 ```bash
+# Clone the repository
+git clone https://github.com/inferadb/inferadb.git
+cd inferadb
+
+# Install with default values
 helm install inferadb ./helm --namespace inferadb --create-namespace
+
+# Install with custom values
+helm install inferadb ./helm -f custom-values.yaml --namespace inferadb --create-namespace
+```
+
+### Install from Helm Repository (if available)
+
+```bash
+# Add Helm repository
+helm repo add inferadb https://charts.inferadb.com
+helm repo update
+
+# Install chart
+helm install inferadb inferadb/inferadb --namespace inferadb --create-namespace
 ```
 
 ## Configuration
@@ -71,13 +71,15 @@ autoscaling:
 
 foundationdb:
   enabled: true
-  clusterName: "prod-fdb"
+  clusterName: "foundationdb-cluster"  # Name of your FDB cluster
 
 redis:
   enabled: true
   auth:
     enabled: true
-    password: "secure-password"
+    # IMPORTANT: Use External Secrets or sealed-secrets for production
+    # DO NOT commit real passwords to version control
+    existingSecret: "redis-password-secret"  # Reference to external secret
 ```
 
 #### Development with In-Memory Storage
@@ -241,7 +243,7 @@ helm install inferadb ./helm \
 ### Custom Configuration File
 
 ```bash
-cat > prod-values.yaml <<EOF
+cat > production-values.yaml <<EOF
 replicaCount: 5
 config:
   store:
@@ -251,7 +253,7 @@ config:
     replayProtection: true
 EOF
 
-helm install inferadb ./helm -f prod-values.yaml
+helm install inferadb ./helm -f production-values.yaml
 ```
 
 ## Troubleshooting

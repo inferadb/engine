@@ -176,9 +176,13 @@ config:
       - "RS256"
       - "ES256"
     enforceAudience: true
-    audience: "https://api.inferadb.com/evaluate"
-    allowedAudiences:
-      - "https://api.inferadb.com/evaluate"
+    # REQUIRED: Set to your JWT issuer's expected audience value
+    # Example: "https://api.example.com/evaluate" or "https://your-domain.com/api"
+    audience: ""
+    allowedAudiences: []
+      # Example configuration:
+      # - "https://api.example.com/evaluate"
+      # - "https://api.example.com/admin"
     enforceScopes: true
     requiredScopes:
       - "authz:check"

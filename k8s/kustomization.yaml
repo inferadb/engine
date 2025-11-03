@@ -17,19 +17,21 @@ commonLabels:
   app.kubernetes.io/component: server
   app.kubernetes.io/managed-by: kustomize
 
-configMapGenerator:
-  - name: inferadb-config
-    behavior: merge
-    envs:
-      - config.env
+# Optional: Uncomment to override configuration via files
+# configMapGenerator:
+#   - name: inferadb-config
+#     behavior: merge
+#     envs:
+#       - config.env
 
-secretGenerator:
-  - name: inferadb-secrets
-    behavior: merge
-    envs:
-      - secrets.env
+# Optional: Uncomment to override secrets via files
+# secretGenerator:
+#   - name: inferadb-secrets
+#     behavior: merge
+#     envs:
+#       - secrets.env
 
 images:
   - name: inferadb
     newName: inferadb
-    newTag: latest
+    newTag: v1.0.0  # Replace with desired version

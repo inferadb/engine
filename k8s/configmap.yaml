@@ -60,9 +60,10 @@ data:
         - "RS256"
         - "ES256"
       enforce_audience: true
-      audience: "https://api.inferadb.com/evaluate"
+      # REQUIRED: Replace with your JWT issuer's audience value
+      audience: "https://your-domain.com/api/evaluate"
       allowed_audiences:
-        - "https://api.inferadb.com/evaluate"
+        - "https://your-domain.com/api/evaluate"
       enforce_scopes: true
       required_scopes:
         - "authz:check"
