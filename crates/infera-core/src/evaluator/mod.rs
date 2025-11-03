@@ -28,7 +28,7 @@ pub struct Evaluator {
     schema: Arc<Schema>,
     cache: Option<Arc<AuthCache>>,
     /// The vault ID for multi-tenant isolation
-    /// TODO: In Phase 2, this will be extracted from auth context instead
+    /// (Extracted from auth context at the API handler level)
     vault: Uuid,
 }
 

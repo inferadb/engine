@@ -15,7 +15,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Get the vault ID for health checks
-/// TODO(Phase 2): Extract this from authentication context
+///
+/// Health checks use nil UUID as they don't require vault isolation
 fn get_vault() -> Uuid {
     Uuid::nil()
 }

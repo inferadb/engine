@@ -76,8 +76,58 @@ impl GraphContext {
     }
 }
 
-/// Check if a direct relationship exists
-/// This checks both for exact subject matches and wildcard matches
+/// Check if a direct relationship exists between subject and resource
+///
+/// This function checks for both exact subject matches and wildcard patterns
+/// (e.g., `user:*` matches any user like `user:alice`). Wildcard matching enables
+/// modeling public resources accessible to all users of a given type.
+///
+/// The function performs two lookups:
+/// 1. Exact match: `(resource, relation, subject)` relationship exists
+/// 2. Wildcard match: `(resource, relation, type:*)` relationship exists, where
+///    `type` is extracted from the subject (e.g., "user" from "user:alice")
+///
+/// # Arguments
+///
+/// * `store` - The relationship store to query
+/// * `vault` - Vault UUID for multi-tenant isolation
+/// * `resource` - The resource identifier (e.g., "doc:readme")
+/// * `relation` - The relation name (e.g., "viewer")
+/// * `subject` - The subject identifier (e.g., "user:alice")
+/// * `revision` - Revision for consistent reads (use `Revision(u64::MAX)` for latest)
+///
+/// # Returns
+///
+/// Returns `Ok(true)` if the relationship exists (either exact or wildcard match),
+/// `Ok(false)` if no relationship exists, or `Err` if the storage operation fails.
+///
+/// # Example
+///
+/// ```ignore
+/// use infera_core::graph::has_direct_relationship;
+/// use infera_types::Revision;
+/// use uuid::Uuid;
+///
+/// # async {
+/// let vault_id = Uuid::new_v4();
+/// let revision = Revision(u64::MAX); // Latest revision
+///
+/// // Check if user:alice is a viewer of doc:readme
+/// let exists = has_direct_relationship(
+///     &store,
+///     vault_id,
+///     "doc:readme",
+///     "viewer",
+///     "user:alice",
+///     revision
+/// ).await?;
+///
+/// if exists {
+///     println!("Relationship exists");
+/// }
+/// # Ok::<(), infera_core::EvalError>(())
+/// # };
+/// ```
 pub async fn has_direct_relationship(
     store: &dyn RelationshipStore,
     vault: Uuid,
@@ -117,7 +167,54 @@ pub async fn has_direct_relationship(
     Ok(false)
 }
 
-/// Get all users with a specific relation on an object
+/// Get all users (subjects) with a specific relation on a resource
+///
+/// This function retrieves all subjects that have a given relation to a resource.
+/// For example, it can answer questions like "Who are all the viewers of doc:readme?"
+/// or "Which users can edit folder:shared?".
+///
+/// The function returns all subjects for the given `(resource, relation)` pair,
+/// including both explicitly defined subjects and wildcard subjects (e.g., `user:*`).
+///
+/// # Arguments
+///
+/// * `store` - The relationship store to query
+/// * `vault` - Vault UUID for multi-tenant isolation
+/// * `resource` - The resource identifier (e.g., "doc:readme", "folder:shared")
+/// * `relation` - The relation name (e.g., "viewer", "editor", "owner")
+/// * `revision` - Revision for consistent reads (use `Revision(u64::MAX)` for latest)
+///
+/// # Returns
+///
+/// Returns `Ok(Vec<String>)` containing all subjects with the relation, or `Err`
+/// if the storage operation fails. Returns an empty vector if no relationships exist.
+///
+/// # Example
+///
+/// ```ignore
+/// use infera_core::graph::get_users_with_relation;
+/// use infera_types::Revision;
+/// use uuid::Uuid;
+///
+/// # async {
+/// let vault_id = Uuid::new_v4();
+/// let revision = Revision(u64::MAX); // Latest revision
+///
+/// // Get all users who can view doc:readme
+/// let viewers = get_users_with_relation(
+///     &store,
+///     vault_id,
+///     "doc:readme",
+///     "viewer",
+///     revision
+/// ).await?;
+///
+/// for viewer in viewers {
+///     println!("Viewer: {}", viewer);
+/// }
+/// # Ok::<(), infera_core::EvalError>(())
+/// # };
+/// ```
 pub async fn get_users_with_relation(
     store: &dyn RelationshipStore,
     vault: Uuid,
@@ -135,9 +232,69 @@ pub async fn get_users_with_relation(
     Ok(relationships.into_iter().map(|t| t.subject).collect())
 }
 
-/// Batch prefetch users with a specific relation for multiple objects
-/// This is useful for graph traversal optimizations where we know we'll need
-/// the same relation for many objects (e.g., ComputedUserset, RelatedObjectUserset)
+/// Batch prefetch users with a specific relation for multiple resources
+///
+/// This function performs concurrent lookups to retrieve subjects for a given
+/// relation across multiple resources. It's a performance optimization for graph
+/// traversal scenarios where the same relation needs to be queried for many resources,
+/// such as when evaluating `ComputedUserset` or `RelatedObjectUserset` expressions.
+///
+/// Instead of serially querying each resource, this function executes all queries
+/// concurrently using `join_all`, significantly reducing total latency when traversing
+/// complex permission graphs.
+///
+/// # Arguments
+///
+/// * `store` - The relationship store to query
+/// * `vault` - Vault UUID for multi-tenant isolation
+/// * `objects` - Slice of resource identifiers to query (e.g., `["doc:readme", "doc:guide"]`)
+/// * `relation` - The relation name to look up (e.g., "viewer", "owner")
+/// * `revision` - Revision for consistent reads (use `Revision(u64::MAX)` for latest)
+///
+/// # Returns
+///
+/// Returns `Ok(HashMap<String, Vec<String>>)` mapping each resource to its list of
+/// subjects with the given relation. If a resource has no subjects for the relation,
+/// it will be present in the map with an empty vector. Returns `Err` if any storage
+/// operation fails.
+///
+/// # Performance
+///
+/// This function uses parallel execution for all resource queries. For N resources,
+/// latency is roughly `O(1)` storage query time rather than `O(N)` sequential queries.
+///
+/// # Example
+///
+/// ```ignore
+/// use infera_core::graph::prefetch_users_batch;
+/// use infera_types::Revision;
+/// use uuid::Uuid;
+///
+/// # async {
+/// let vault_id = Uuid::new_v4();
+/// let revision = Revision(u64::MAX);
+///
+/// // Get all editors for multiple documents at once
+/// let documents = vec![
+///     "doc:readme".to_string(),
+///     "doc:guide".to_string(),
+///     "doc:tutorial".to_string(),
+/// ];
+///
+/// let editors_map = prefetch_users_batch(
+///     &store,
+///     vault_id,
+///     &documents,
+///     "editor",
+///     revision
+/// ).await?;
+///
+/// for (doc, editors) in editors_map {
+///     println!("{} has {} editors", doc, editors.len());
+/// }
+/// # Ok::<(), infera_core::EvalError>(())
+/// # };
+/// ```
 pub async fn prefetch_users_batch(
     store: &dyn RelationshipStore,
     vault: Uuid,
