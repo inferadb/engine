@@ -255,6 +255,7 @@ async fn test_vault_scoped_listing() {
         Arc::clone(&state.store) as Arc<dyn RelationshipStore>,
         create_test_schema(),
         None, // No WASM host for tests
+        None, // No cache for tests
     ));
 
     // Test list_resources in vault B

@@ -4,21 +4,21 @@
 [advisories]
 # Ignore specific advisories
 ignore = [
-    # shlex is unmaintained but used only as a build dependency
-    # through cc -> cmake -> aws-lc-sys chain. No security impact.
-    "RUSTSEC-2024-0006",  # shlex unmaintained
+  # shlex is unmaintained but used only as a build dependency
+  # through cc -> cmake -> aws-lc-sys chain. No security impact.
+  "RUSTSEC-2024-0006", # shlex unmaintained
 
-    # Wasmtime 27.0.0 vulnerability - will upgrade to 34.0.2+ in future update
-    "RUSTSEC-2025-0046",  # wasmtime fd_renumber panic
+  # Wasmtime 27.0.0 vulnerability - will upgrade to 34.0.2+ in future update
+  "RUSTSEC-2025-0046", # wasmtime fd_renumber panic
 
-    # RSA timing attack - only affects test fixtures (infera-test-fixtures), not production code
-    # Used for generating test JWTs, no exposure to production traffic
-    "RUSTSEC-2023-0071",  # rsa Marvin Attack
+  # RSA timing attack - only affects test fixtures (infera-test-fixtures), not production code
+  # Used for generating test JWTs, no exposure to production traffic
+  "RUSTSEC-2023-0071", # rsa Marvin Attack
 
-    # Unmaintained transitive dependencies from wasmtime
-    # These are deep in the dependency tree and will be resolved when wasmtime is upgraded
-    "RUSTSEC-2025-0057",  # fxhash unmaintained
-    "RUSTSEC-2024-0436",  # paste unmaintained
+  # Unmaintained transitive dependencies from wasmtime
+  # These are deep in the dependency tree and will be resolved when wasmtime is upgraded
+  "RUSTSEC-2025-0057", # fxhash unmaintained
+  "RUSTSEC-2024-0436", # paste unmaintained
 ]
 
 [output]

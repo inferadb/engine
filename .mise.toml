@@ -11,18 +11,18 @@
 
 [tools]
 rust = "nightly"
-node = "lts"                             # Node.js LTS (provides npm for prettier)
+node = "lts"     # Node.js LTS (provides npm for prettier)
 
 # Development tools (installed automatically with `mise install`)
-"cargo:cargo-watch" = "latest"          # Auto-rebuild on file changes
-"cargo:cargo-nextest" = "latest"        # Next-generation test runner
-"cargo:cargo-audit" = "latest"          # Security vulnerability scanning
-"cargo:cargo-deny" = "latest"           # Lint dependencies
-"cargo:cargo-llvm-cov" = "latest"       # Code coverage
+"cargo:cargo-watch" = "latest"    # Auto-rebuild on file changes
+"cargo:cargo-nextest" = "latest"  # Next-generation test runner
+"cargo:cargo-audit" = "latest"    # Security vulnerability scanning
+"cargo:cargo-deny" = "latest"     # Lint dependencies
+"cargo:cargo-llvm-cov" = "latest" # Code coverage
 
 # Code formatting
-"npm:prettier" = "latest"                       # Format Markdown, YAML, JSON, TOML, Rust
-"npm:prettier-plugin-rust" = "latest"           # Prettier plugin for Rust support
+"cargo:taplo-cli" = "latest" # TOML formatter and linter
+"npm:prettier" = "latest"    # Format Markdown, YAML, JSON, Rust
 
 # Protobuf compiler for gRPC
 protobuf = "latest"
@@ -39,8 +39,8 @@ CARGO_BUILD_JOBS = "{{ num_cpus() }}"
 [tasks.setup]
 description = "One-time development environment setup"
 run = [
-    "rustup component add rustfmt clippy rust-src rust-analyzer",
-    "cargo fetch",
-    "echo '\n✅ Setup complete! Use standard cargo commands for development.'",
-    "echo 'Run \"make help\" to see available shortcuts.\n'"
+  "rustup component add rustfmt clippy rust-src rust-analyzer",
+  "cargo fetch",
+  "echo '\n✅ Setup complete! Use standard cargo commands for development.'",
+  "echo 'Run \"make help\" to see available shortcuts.\n'",
 ]

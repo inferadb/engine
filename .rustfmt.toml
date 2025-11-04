@@ -9,5 +9,5 @@ newline_style = "Unix"
 merge_derives = false
 comment_width = 100
 wrap_comments = true
-normalize_comments= true
+normalize_comments = true
 condense_wildcard_suffixes = true

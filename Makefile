@@ -14,6 +14,7 @@
 # Use mise exec if available, otherwise use system cargo
 CARGO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- cargo" || echo "cargo")
 PRETTIER := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- prettier" || echo "prettier")
+TAPLO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- taplo" || echo "taplo")
 
 # Default target - show help
 .DEFAULT_GOAL := help
@@ -48,20 +49,32 @@ test-integration: ## Run integration tests only
 
 check: ## Run all checks (fmt, clippy, test, audit)
 	@echo "🔍 Checking code and documentation formatting..."
-	@$(PRETTIER) --check "**/*.{rs,md,yml,yaml,json,toml}" || true
+
+	@$(PRETTIER) --check "**/*.{md,yml,yaml,json}"|| true
+	@echo "🔍 Checking TOML formatting (taplo)..."
+
+	@$(TAPLO) fmt --check
 	@echo "🔍 Checking Rust code formatting (rustfmt)..."
+
 	@$(CARGO) +nightly fmt --check
 	@echo "🔍 Running clippy..."
+
 	@$(CARGO) clippy --workspace --all-targets -- -D warnings
 	@echo "🧪 Running tests..."
+
 	@$(CARGO) test --workspace
 	@echo "🔒 Running security audit..."
+
 	@$(CARGO) audit
 	@echo "✅ All checks passed!"
 
-fmt: ## Format code with Prettier and rustfmt
+fmt: ## Format code with Prettier, Taplo, and rustfmt
 	@echo "🎨 Formatting all files with Prettier..."
-	@$(PRETTIER) --write "**/*.{rs,md,yml,yaml,json,toml}" || true
+	@$(PRETTIER) --write "**/*.{md,yml,yaml,json}"|| true
+
+	@echo "🎨 Formatting TOML files with Taplo..."
+	@$(TAPLO) fmt
+
 	@echo "🎨 Formatting Rust code with rustfmt..."
 	@$(CARGO) +nightly fmt --all
 

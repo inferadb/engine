@@ -37,7 +37,7 @@ use handlers::{
     evaluate::stream::evaluate_stream_handler,
     expand::stream::expand_handler,
     relationships::{
-        delete_bulk::delete_relationships_handler, list::list_relationships_stream_handler,
+        delete::delete_relationships_handler, list::list_relationships_stream_handler,
         write::write_relationships_handler,
     },
     resources::list::list_resources_stream_handler,
@@ -629,7 +629,7 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
-    use handlers::relationships::{delete_bulk::DeleteResponse, write::WriteResponse};
+    use handlers::relationships::{delete::DeleteResponse, write::WriteResponse};
     use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use infera_store::MemoryBackend;
     use infera_types::{UsersetNodeType, UsersetTree};

@@ -1,19 +1,19 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/infera-types",
-    "crates/infera-const",
-    "crates/infera-core",
-    "crates/infera-store",
-    "crates/infera-wasm",
-    "crates/infera-repl",
-    "crates/infera-api",
-    "crates/infera-auth",
-    "crates/infera-cache",
-    "crates/infera-observe",
-    "crates/infera-config",
-    "crates/infera-bin",
-    "crates/infera-test-fixtures",
+  "crates/infera-types",
+  "crates/infera-const",
+  "crates/infera-core",
+  "crates/infera-store",
+  "crates/infera-wasm",
+  "crates/infera-repl",
+  "crates/infera-api",
+  "crates/infera-auth",
+  "crates/infera-cache",
+  "crates/infera-observe",
+  "crates/infera-config",
+  "crates/infera-bin",
+  "crates/infera-test-fixtures",
 ]
 
 [workspace.package]

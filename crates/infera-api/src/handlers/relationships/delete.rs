@@ -1,17 +1,264 @@
-//! DELETE handler for exact relationship match
+//! Delete relationships handlers
 //!
-//! Provides a REST-style DELETE endpoint to remove a specific relationship.
-//! This is a convenience endpoint that wraps the native delete relationships functionality.
+//! This module contains handlers for deleting relationships via two API styles:
+//! - REST DELETE: `DELETE /v1/relationships/{resource}/{relation}/{subject}` - Single exact match
+//! - JSON POST: `POST /v1/relationships/delete` - Bulk deletion with filters/lists
+//!
+//! Both handlers share the same core deletion logic to ensure consistent behavior,
+//! validation, and cache invalidation.
 
 use axum::{
+    Json,
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
-use infera_types::DeleteFilter;
+use infera_const::scopes::SCOPE_WRITE;
+use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::get::RelationshipPath;
-use crate::{ApiError, AppState, handlers::utils::auth::authorize_request};
+use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DeleteRequest {
+    /// Optional filter for bulk deletion
+    /// If provided, all relationships matching the filter will be deleted
+    pub filter: Option<DeleteFilter>,
+    /// Optional exact relationships to delete
+    /// Can be combined with filter
+    pub relationships: Option<Vec<Relationship>>,
+    /// Maximum number of relationships to delete (safety limit)
+    /// If not specified, uses default limit (1000) for filter-based deletes
+    /// Set to 0 for unlimited (use with extreme caution!)
+    pub limit: Option<usize>,
+    /// Optional expected revision for optimistic locking
+    /// If provided, the delete will only succeed if the current store revision matches
+    pub expected_revision: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DeleteResponse {
+    pub revision: String,
+    pub relationships_deleted: usize,
+}
+
+/// Core deletion logic used by both REST DELETE and POST endpoints
+///
+/// This function handles the actual deletion and cache invalidation,
+/// ensuring consistent behavior across different API styles.
+async fn delete_relationships_internal(
+    vault: Uuid,
+    state: &AppState,
+    request: DeleteRequest,
+) -> Result<(Revision, usize)> {
+    // Validate that at least one deletion method is specified
+    let has_filter = request.filter.is_some();
+    let has_relationships = request.relationships.as_ref().is_some_and(|r| !r.is_empty());
+
+    if !has_filter && !has_relationships {
+        return Err(ApiError::InvalidRequest(
+            "Must provide either filter or relationships to delete".to_string(),
+        ));
+    }
+
+    // Optimistic locking: Check expected revision if provided
+    if let Some(expected_rev) = &request.expected_revision {
+        let current_rev = state
+            .store
+            .get_revision(vault)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to get revision: {}", e)))?;
+
+        let current_rev_str = current_rev.0.to_string();
+        if &current_rev_str != expected_rev {
+            return Err(ApiError::RevisionMismatch {
+                expected: expected_rev.clone(),
+                actual: current_rev_str,
+            });
+        }
+    }
+
+    let mut total_deleted = 0;
+    let mut last_revision = None;
+    let mut affected_resources = std::collections::HashSet::new();
+
+    // Handle filter-based deletion if filter is provided
+    if let Some(filter) = request.filter {
+        // Validate filter is not empty
+        if filter.is_empty() {
+            return Err(ApiError::InvalidRequest(
+                "Filter must have at least one field set to avoid deleting all relationships"
+                    .to_string(),
+            ));
+        }
+
+        // Apply default limit of 1000 if not specified, 0 means unlimited
+        let limit = match request.limit {
+            Some(0) => None,    // 0 means unlimited
+            Some(n) => Some(n), // Explicit limit
+            None => Some(1000), // Default limit
+        };
+
+        // Track affected resources for cache invalidation
+        if let Some(ref resource) = filter.resource {
+            affected_resources.insert(resource.clone());
+        }
+
+        // Perform batch deletion
+        let (revision, count) = state
+            .store
+            .delete_by_filter(vault, &filter, limit)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to delete by filter: {}", e)))?;
+
+        last_revision = Some(revision);
+        total_deleted += count;
+    }
+
+    // Handle exact relationship deletion if relationships are provided
+    if let Some(relationships) = request.relationships {
+        if !relationships.is_empty() {
+            // Validate and convert relationships to RelationshipKeys
+            let mut keys = Vec::new();
+            for relationship in &relationships {
+                if relationship.resource.is_empty() {
+                    return Err(ApiError::InvalidRequest(
+                        "Relationship resource cannot be empty".to_string(),
+                    ));
+                }
+                if relationship.relation.is_empty() {
+                    return Err(ApiError::InvalidRequest(
+                        "Relationship relation cannot be empty".to_string(),
+                    ));
+                }
+                if relationship.subject.is_empty() {
+                    return Err(ApiError::InvalidRequest(
+                        "Relationship subject cannot be empty".to_string(),
+                    ));
+                }
+                // Validate format (should contain colon)
+                if !relationship.resource.contains(':') {
+                    return Err(ApiError::InvalidRequest(format!(
+                        "Invalid object format '{}': must be 'type:id'",
+                        relationship.resource
+                    )));
+                }
+                if !relationship.subject.contains(':') {
+                    return Err(ApiError::InvalidRequest(format!(
+                        "Invalid user format '{}': must be 'type:id'",
+                        relationship.subject
+                    )));
+                }
+
+                // Track resource for cache invalidation
+                affected_resources.insert(relationship.resource.clone());
+
+                keys.push(RelationshipKey {
+                    resource: relationship.resource.clone(),
+                    relation: relationship.relation.clone(),
+                    subject: Some(relationship.subject.clone()),
+                });
+            }
+
+            // Delete relationships from store
+            for key in keys {
+                match state.store.delete(vault, &key).await {
+                    Ok(revision) => {
+                        last_revision = Some(revision);
+                        total_deleted += 1;
+                    },
+                    Err(e) => {
+                        tracing::warn!("Failed to delete relationship {:?}: {}", key, e);
+                        // Continue deleting other relationships even if one fails
+                    },
+                }
+            }
+        }
+    }
+
+    // Return the last revision from successful deletes
+    let revision = last_revision
+        .ok_or_else(|| ApiError::Internal("No relationships were deleted".to_string()))?;
+
+    // Invalidate cache for affected resources
+    let resources_vec: Vec<String> = affected_resources.into_iter().collect();
+    state.relationship_service.invalidate_cache_for_resources(&resources_vec).await;
+
+    Ok((revision, total_deleted))
+}
+
+/// Delete relationships endpoint (POST /v1/relationships/delete)
+///
+/// This endpoint supports bulk deletion operations via JSON POST body.
+/// It supports both filter-based deletion and exact relationship lists.
+///
+/// # Authorization
+/// - Requires authentication
+/// - Requires `inferadb.write` scope
+///
+/// # Request Body
+/// ```json
+/// {
+///   "filter": {
+///     "resource": "document:readme",
+///     "relation": "view",
+///     "subject": "user:alice"
+///   },
+///   "relationships": [
+///     {
+///       "resource": "document:readme",
+///       "relation": "view",
+///       "subject": "user:alice"
+///     }
+///   ],
+///   "limit": 1000,
+///   "expected_revision": "123"
+/// }
+/// ```
+///
+/// # Response (200 OK)
+/// ```json
+/// {
+///   "revision": "124",
+///   "relationships_deleted": 5
+/// }
+/// ```
+///
+/// # Errors
+/// - 401 Unauthorized: No authentication provided
+/// - 403 Forbidden: Missing required scope
+/// - 400 Bad Request: Invalid request format
+/// - 409 Conflict: Revision mismatch (optimistic locking)
+/// - 500 Internal Server Error: Storage operation failed
+#[tracing::instrument(skip(state))]
+pub async fn delete_relationships_handler(
+    auth: infera_auth::extractor::OptionalAuth,
+    State(state): State<AppState>,
+    Json(request): Json<DeleteRequest>,
+) -> Result<Json<DeleteResponse>> {
+    // Authorize request and extract vault
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WRITE])?;
+
+    // Log authenticated requests
+    if let Some(ref auth_ctx) = auth.0 {
+        tracing::debug!(
+            vault = %vault,
+            tenant_id = %auth_ctx.tenant_id,
+            "Delete request from tenant"
+        );
+    }
+
+    // Call internal deletion function
+    let (revision, total_deleted) = delete_relationships_internal(vault, &state, request).await?;
+
+    Ok(Json(DeleteResponse {
+        revision: revision.0.to_string(),
+        relationships_deleted: total_deleted,
+    }))
+}
 
 /// Handler for `DELETE /v1/relationships/{resource}/{relation}/{subject}`
 ///
@@ -55,11 +302,12 @@ pub async fn delete_relationship(
     auth: infera_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Path(params): Path<RelationshipPath>,
-) -> Result<impl IntoResponse, ApiError> {
+) -> std::result::Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
 
-    // Authorize request and extract vault (no auth enforcement for DELETE)
-    let vault = authorize_request(&auth.0, state.default_vault, false, &[])?;
+    // Authorize request and extract vault
+    let vault =
+        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WRITE])?;
 
     // URL-decode path parameters (they come URL-encoded from the router)
     let resource = urlencoding::decode(&params.resource)
@@ -82,32 +330,22 @@ pub async fn delete_relationship(
         "Deleting exact relationship match"
     );
 
-    // Validate parameters are non-empty
-    if resource.is_empty() {
-        return Err(ApiError::InvalidRequest("Resource cannot be empty".to_string()));
-    }
-    if relation.is_empty() {
-        return Err(ApiError::InvalidRequest("Relation cannot be empty".to_string()));
-    }
-    if subject.is_empty() {
-        return Err(ApiError::InvalidRequest("Subject cannot be empty".to_string()));
-    }
-
-    // Delete using exact match filters
-    let delete_filter = DeleteFilter {
-        resource: Some(resource.clone()),
-        relation: Some(relation.clone()),
-        subject: Some(subject.clone()),
+    // Create a DeleteRequest with the exact relationship to delete
+    let delete_request = DeleteRequest {
+        filter: None,
+        relationships: Some(vec![Relationship {
+            vault,
+            resource: resource.clone(),
+            relation: relation.clone(),
+            subject: subject.clone(),
+        }]),
+        limit: None,
+        expected_revision: None,
     };
 
-    let (revision, deleted_count) = state
-        .store
-        .delete_by_filter(vault, &delete_filter, Some(1))
-        .await
-        .map_err(|e| ApiError::Internal(format!("Failed to delete relationship: {}", e)))?;
-
-    // Invalidate cache for the affected resource
-    state.relationship_service.invalidate_cache_for_resources(&[resource.clone()]).await;
+    // Call internal deletion logic (validates, deletes, and invalidates cache)
+    let (revision, deleted_count) =
+        delete_relationships_internal(vault, &state, delete_request).await?;
 
     // Record metrics
     let duration = start.elapsed();

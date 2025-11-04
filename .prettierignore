@@ -1,3 +1,6 @@
+# Source
+crates/
+
 # Build artifacts
 target/
 dist/
@@ -37,11 +40,12 @@ docs/_build/
 site/
 
 # Helm charts (if using templating)
-charts/
+helm/templates/
 
 # Proto generated files
 *.pb.rs
 
 # Test fixtures that need exact formatting
+tests/
 **/fixtures/**
 **/snapshots/**
