@@ -49,7 +49,7 @@ tonic-build = "0.12"
 [dev-dependencies]
 base64 = "0.22"
 chrono = { workspace = true }
-criterion = { version = "0.5", features = ["async_tokio"] }
+criterion = { version = "0.7", features = ["async_tokio"] }
 ed25519-dalek = "2.1"
 infera-test-fixtures = { path = "../infera-test-fixtures" }
 jsonwebtoken = { workspace = true }
