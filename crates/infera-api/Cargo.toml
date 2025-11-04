@@ -60,7 +60,7 @@ rand = "0.8"
 tempfile = "3.8"
 tokio-test = "0.4"
 uuid = "1.10"
-warp = "0.3"
+warp = "0.4"
 
 [[bench]]
 harness = false
