@@ -9,7 +9,10 @@ use std::sync::Arc;
 use infera_types::{AuthContext, Revision};
 use tonic::{Request, Response, Status};
 
-use super::{InferaServiceImpl, proto::{ChangeOperation, WatchRequest, WatchResponse}};
+use super::{
+    InferaServiceImpl,
+    proto::{ChangeOperation, WatchRequest, WatchResponse},
+};
 
 pub async fn watch(
     service: &InferaServiceImpl,

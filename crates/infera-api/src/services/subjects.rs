@@ -2,15 +2,15 @@
 
 use std::sync::Arc;
 
+use infera_cache::AuthCache;
 use infera_core::{Evaluator, ipl::Schema};
 use infera_store::RelationshipStore;
 use infera_types::{ListSubjectsRequest, ListSubjectsResponse};
 use infera_wasm::WasmHost;
 use uuid::Uuid;
 
-use crate::ApiError;
-
 use super::validation::validate_list_subjects_request;
+use crate::ApiError;
 
 /// Service for listing subjects that have access to resources
 ///
@@ -21,6 +21,7 @@ pub struct SubjectService {
     store: Arc<dyn RelationshipStore>,
     schema: Arc<Schema>,
     wasm_host: Option<Arc<WasmHost>>,
+    cache: Option<Arc<AuthCache>>,
 }
 
 impl SubjectService {
@@ -29,15 +30,17 @@ impl SubjectService {
         store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
+        cache: Option<Arc<AuthCache>>,
     ) -> Self {
-        Self { store, schema, wasm_host }
+        Self { store, schema, wasm_host, cache }
     }
 
     /// Lists subjects that have a relation to a resource
     ///
     /// # Arguments
     /// * `vault` - The vault ID for multi-tenant isolation
-    /// * `request` - The list subjects request containing resource, relation, and optional subject type filter
+    /// * `request` - The list subjects request containing resource, relation, and optional subject
+    ///   type filter
     ///
     /// # Returns
     /// A list of subject IDs and optional pagination cursor
@@ -63,10 +66,11 @@ impl SubjectService {
         );
 
         // Create vault-scoped evaluator for proper multi-tenant isolation
-        let evaluator = Arc::new(Evaluator::new(
+        let evaluator = Arc::new(Evaluator::new_with_cache(
             Arc::clone(&self.store),
             Arc::clone(&self.schema),
             self.wasm_host.clone(),
+            self.cache.clone(),
             vault,
         ));
 
@@ -88,10 +92,11 @@ impl SubjectService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_core::ipl::{RelationDef, RelationExpr, TypeDef};
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
+
+    use super::*;
 
     async fn create_test_service() -> (SubjectService, Uuid) {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -136,7 +141,7 @@ mod tests {
             .await
             .unwrap();
 
-        let service = SubjectService::new(store, schema, None);
+        let service = SubjectService::new(store, schema, None, None);
 
         (service, vault)
     }
@@ -262,7 +267,7 @@ mod tests {
             .await
             .unwrap();
 
-        let service = SubjectService::new(store, schema, None);
+        let service = SubjectService::new(store, schema, None, None);
 
         let request = ListSubjectsRequest {
             resource: "document:readme".to_string(),

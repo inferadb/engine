@@ -19,10 +19,7 @@ use infera_api::{
 };
 use infera_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
 use infera_config::Config;
-use infera_core::{
-    Evaluator,
-    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
-};
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::MemoryBackend;
 // Re-use test helpers from test fixtures
 use infera_test_fixtures::{
@@ -184,31 +181,25 @@ fn create_test_schema() -> Arc<Schema> {
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-        schema,
-        None,
-        uuid::Uuid::nil(),
-    ));
 
     let mut config = Config::default();
     config.auth.enabled = auth_enabled;
 
-    let config = Arc::new(config);
+    let state = AppState::new(
+        store,
+        schema,
+        None, // No WASM host for tests
+        Arc::new(config),
+        jwks_cache,
+        Uuid::nil(),
+        Uuid::nil(),
+    );
 
-    let health_tracker = Arc::new(infera_api::health::HealthTracker::new());
+    let health_tracker = state.health_tracker.clone();
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    AppState {
-        evaluator,
-        store,
-        config,
-        jwks_cache,
-        health_tracker,
-        default_vault: Uuid::nil(),
-        default_account: Uuid::nil(),
-    }
+    state
 }
 
 /// Start a gRPC server with authentication enabled

@@ -10,10 +10,7 @@ use std::sync::Arc;
 
 use infera_api::AppState;
 use infera_config::Config;
-use infera_core::{
-    Evaluator,
-    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
-};
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{AuthContext, AuthMethod, Relationship};
 use uuid::Uuid;
@@ -68,22 +65,15 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
     let default_vault = Uuid::new_v4();
     let default_account = Uuid::new_v4();
 
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn RelationshipStore>,
-        schema,
-        None,
-        default_vault,
-    ));
-
-    AppState {
-        evaluator,
+    AppState::new(
         store,
-        config: Arc::new(config),
-        jwks_cache: None,
-        health_tracker: Arc::new(infera_api::health::HealthTracker::new()),
+        schema,
+        None, // No WASM host for tests
+        Arc::new(config),
+        None, // No JWKS cache for tests
         default_vault,
         default_account,
-    }
+    )
 }
 
 /// Create test AppState with multiple vaults for multi-tenancy testing
@@ -96,25 +86,18 @@ pub fn create_multi_vault_test_state() -> (AppState, Uuid, Uuid, Uuid, Uuid) {
     let vault_b = Uuid::new_v4();
     let account_b = Uuid::new_v4();
 
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn RelationshipStore>,
-        schema,
-        None,
-        vault_a, // Default to vault A
-    ));
-
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for simpler testing
 
-    let state = AppState {
-        evaluator,
+    let state = AppState::new(
         store,
-        config: Arc::new(config),
-        jwks_cache: None,
-        health_tracker: Arc::new(infera_api::health::HealthTracker::new()),
-        default_vault: vault_a,
-        default_account: account_a,
-    };
+        schema,
+        None, // No WASM host for tests
+        Arc::new(config),
+        None,    // No JWKS cache for tests
+        vault_a, // Default to vault A
+        account_a,
+    );
 
     (state, vault_a, account_a, vault_b, account_b)
 }

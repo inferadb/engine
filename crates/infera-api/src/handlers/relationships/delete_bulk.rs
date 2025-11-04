@@ -179,18 +179,9 @@ pub async fn delete_relationships_handler(
     let revision = last_revision
         .ok_or_else(|| ApiError::Internal("No relationships were deleted".to_string()))?;
 
-    // Invalidate cache for all affected resources in this vault
-    if !affected_resources.is_empty() {
-        if let Some(cache) = state.evaluator.cache() {
-            let resources_vec: Vec<String> = affected_resources.into_iter().collect();
-            cache.invalidate_vault_resources(vault, &resources_vec).await;
-            tracing::debug!(
-                vault = %vault,
-                resources_invalidated = resources_vec.len(),
-                "Cache invalidated for deleted relationships"
-            );
-        }
-    }
+    // Invalidate cache for affected resources
+    let resources_vec: Vec<String> = affected_resources.into_iter().collect();
+    state.relationship_service.invalidate_cache_for_resources(&resources_vec).await;
 
     Ok(Json(DeleteResponse {
         revision: revision.0.to_string(),

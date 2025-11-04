@@ -1,6 +1,6 @@
 //! Expand endpoint - streaming-only for progressive results
-
-use std::sync::Arc;
+//!
+//! This is a thin protocol adapter that converts REST requests to service calls.
 
 use axum::{
     Json,
@@ -9,8 +9,6 @@ use axum::{
 };
 use futures::{Stream, StreamExt, stream};
 use infera_const::scopes::*;
-use infera_core::Evaluator;
-use infera_store::RelationshipStore;
 use infera_types::ExpandRequest;
 
 use crate::{AppState, Result, handlers::utils::auth::authorize_request};
@@ -42,16 +40,8 @@ pub async fn expand_handler(
         );
     }
 
-    // Create evaluator with correct vault for this request
-    let evaluator = Evaluator::new(
-        Arc::clone(&state.store) as Arc<dyn RelationshipStore>,
-        Arc::clone(state.evaluator.schema()),
-        state.evaluator.wasm_host().cloned(),
-        vault,
-    );
-
-    // Execute the expand operation
-    let response = evaluator.expand(request).await?;
+    // Execute the expand operation using expansion service (handles validation)
+    let response = state.expansion_service.expand(vault, request).await?;
 
     // Create a stream that sends each user as a separate SSE event
     let users = response.users;

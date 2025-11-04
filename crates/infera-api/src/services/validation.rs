@@ -1,10 +1,11 @@
 //! Request validation utilities shared across services
 
-use crate::ApiError;
 use infera_types::{
     DeleteFilter, EvaluateRequest, ListRelationshipsRequest, ListResourcesRequest,
     ListSubjectsRequest, Relationship,
 };
+
+use crate::ApiError;
 
 /// Validates an evaluation request
 ///
@@ -197,10 +198,7 @@ fn validate_entity_format(entity: &str, field_name: &str) -> Result<(), ApiError
     }
 
     // Entity type must be lowercase alphanumeric with underscores
-    if !entity_type
-        .chars()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-    {
+    if !entity_type.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
         return Err(ApiError::InvalidRequest(format!(
             "{} type must be lowercase alphanumeric with underscores, got: '{}'",
             field_name, entity_type
@@ -221,16 +219,11 @@ fn validate_wildcard_subject(subject: &str) -> Result<(), ApiError> {
 
     let entity_type = subject.trim_end_matches(":*");
     if entity_type.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "Wildcard subject type cannot be empty".to_string(),
-        ));
+        return Err(ApiError::InvalidRequest("Wildcard subject type cannot be empty".to_string()));
     }
 
     // Entity type must be lowercase alphanumeric with underscores
-    if !entity_type
-        .chars()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-    {
+    if !entity_type.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
         return Err(ApiError::InvalidRequest(format!(
             "Wildcard subject type must be lowercase alphanumeric with underscores, got: '{}'",
             entity_type

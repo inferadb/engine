@@ -1,8 +1,8 @@
 use std::{sync::Arc, time::Duration};
 
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
-use infera_cache::{AuthCache, CheckCacheKey, Decision};
-use infera_types::Revision;
+use infera_cache::{AuthCache, CheckCacheKey};
+use infera_types::{Decision, Revision};
 use uuid::Uuid;
 
 async fn setup_cache(max_capacity: u64) -> AuthCache {

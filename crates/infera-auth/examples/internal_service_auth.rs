@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Step 2: Create JWKS with public key
     println!("Step 2: Creating JWKS with public key...");
     let public_key_bytes = verifying_key.to_bytes();
-    let public_key_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&public_key_bytes);
+    let public_key_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(public_key_bytes);
 
     let jwks = InternalJwks {
         issuer: "https://internal.inferadb.com".to_string(),

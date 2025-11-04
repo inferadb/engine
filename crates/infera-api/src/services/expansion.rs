@@ -98,10 +98,11 @@ impl ExpansionService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_core::ipl::{RelationDef, RelationExpr, TypeDef};
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
+
+    use super::*;
 
     async fn create_test_service() -> (ExpansionService, Uuid) {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -153,14 +154,14 @@ mod tests {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             limit: None,
-            cursor: None,
+            continuation_token: None,
         };
 
         let response = service.expand(vault, request).await.unwrap();
 
-        assert_eq!(response.subjects.len(), 2);
-        assert!(response.subjects.contains(&"user:alice".to_string()));
-        assert!(response.subjects.contains(&"user:bob".to_string()));
+        assert_eq!(response.users.len(), 2);
+        assert!(response.users.contains(&"user:alice".to_string()));
+        assert!(response.users.contains(&"user:bob".to_string()));
     }
 
     #[tokio::test]
@@ -171,12 +172,12 @@ mod tests {
             resource: "document:nonexistent".to_string(),
             relation: "viewer".to_string(),
             limit: None,
-            cursor: None,
+            continuation_token: None,
         };
 
         let response = service.expand(vault, request).await.unwrap();
 
-        assert_eq!(response.subjects.len(), 0);
+        assert_eq!(response.users.len(), 0);
     }
 
     #[tokio::test]
@@ -187,13 +188,13 @@ mod tests {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             limit: Some(1),
-            cursor: None,
+            continuation_token: None,
         };
 
         let response = service.expand(vault, request).await.unwrap();
 
-        assert_eq!(response.subjects.len(), 1);
-        assert!(response.cursor.is_some()); // Should have cursor for pagination
+        assert_eq!(response.users.len(), 1);
+        assert!(response.continuation_token.is_some()); // Should have cursor for pagination
     }
 
     #[tokio::test]
@@ -204,7 +205,7 @@ mod tests {
             resource: "".to_string(),
             relation: "viewer".to_string(),
             limit: None,
-            cursor: None,
+            continuation_token: None,
         };
 
         let result = service.expand(vault, request).await;
@@ -220,7 +221,7 @@ mod tests {
             resource: "invalid".to_string(), // Missing colon
             relation: "viewer".to_string(),
             limit: None,
-            cursor: None,
+            continuation_token: None,
         };
 
         let result = service.expand(vault, request).await;
@@ -263,15 +264,15 @@ mod tests {
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             limit: None,
-            cursor: None,
+            continuation_token: None,
         };
 
-        // Vault A should return subjects
+        // Vault A should return users
         let response_a = service.expand(vault_a, request.clone()).await.unwrap();
-        assert_eq!(response_a.subjects.len(), 1);
+        assert_eq!(response_a.users.len(), 1);
 
         // Vault B should return empty (vault isolation)
         let response_b = service.expand(vault_b, request).await.unwrap();
-        assert_eq!(response_b.subjects.len(), 0);
+        assert_eq!(response_b.users.len(), 0);
     }
 }

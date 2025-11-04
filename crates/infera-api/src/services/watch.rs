@@ -14,13 +14,13 @@ use crate::ApiError;
 /// This service handles the business logic for streaming relationship changes
 /// as they occur. It is protocol-agnostic and used by gRPC, REST, and AuthZEN handlers.
 pub struct WatchService {
-    store: Arc<dyn RelationshipStore>,
+    _store: Arc<dyn RelationshipStore>,
 }
 
 impl WatchService {
     /// Creates a new watch service
     pub fn new(store: Arc<dyn RelationshipStore>) -> Self {
-        Self { store }
+        Self { _store: store }
     }
 
     /// Watches for relationship changes in a vault
@@ -59,10 +59,11 @@ impl WatchService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use futures::StreamExt;
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_watch_changes() {
@@ -87,17 +88,15 @@ mod tests {
         // Poll the stream for a change event
         // Note: MemoryBackend might not support watch, so this test may need adjustment
         // based on the actual implementation
-        if let Some(event_result) = tokio::time::timeout(
-            std::time::Duration::from_millis(100),
-            stream.next(),
-        )
-        .await
-        .ok()
-        .flatten()
+        if let Some(event_result) =
+            tokio::time::timeout(std::time::Duration::from_millis(100), stream.next())
+                .await
+                .ok()
+                .flatten()
         {
             // If we get an event, verify it
             let event = event_result.unwrap();
-            assert_eq!(event.operation, "create");
+            assert_eq!(event.operation, infera_types::ChangeOperation::Create);
         }
     }
 
@@ -109,9 +108,7 @@ mod tests {
         let service = WatchService::new(store);
 
         // Watch with resource type filter
-        let stream = service
-            .watch_changes(vault, None, Some("document".to_string()))
-            .await;
+        let stream = service.watch_changes(vault, None, Some("document".to_string())).await;
 
         // Should succeed in creating the stream
         assert!(stream.is_ok());
@@ -140,8 +137,8 @@ mod tests {
 
         // Stream A should not receive events from vault B (vault isolation)
         // This is a timeout test - if we receive no event, vault isolation is working
-        let result = tokio::time::timeout(std::time::Duration::from_millis(100), stream_a.next())
-            .await;
+        let result =
+            tokio::time::timeout(std::time::Duration::from_millis(100), stream_a.next()).await;
 
         // We expect a timeout (no event received) because the write was to a different vault
         assert!(result.is_err(), "Should not receive events from different vault");

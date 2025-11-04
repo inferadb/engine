@@ -4,7 +4,6 @@ use axum::{
     Json,
     extract::{Query, State},
 };
-use infera_const::scopes::*;
 use infera_types::{AccountResponse, ListAccountsResponse};
 use serde::Deserialize;
 
@@ -78,6 +77,7 @@ mod tests {
     use std::sync::Arc;
 
     use infera_config::Config;
+    use infera_const::scopes::SCOPE_ADMIN;
     use infera_core::{Evaluator, ipl::Schema};
     use infera_store::MemoryBackend;
     use infera_types::Account;
@@ -89,24 +89,18 @@ mod tests {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            schema,
-            None,
-            test_vault,
-        ));
         let config = Arc::new(Config::default());
-        let health_tracker = Arc::new(crate::health::HealthTracker::new());
+        let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
-        AppState {
-            evaluator,
+        AppState::new(
             store,
+            schema,
+            None, // No WASM host for tests
             config,
-            jwks_cache: None,
-            health_tracker,
-            default_vault: test_vault,
-            default_account: Uuid::nil(),
-        }
+            None, // No JWKS cache for tests
+            test_vault,
+            Uuid::nil(),
+        )
     }
 
     fn create_admin_context() -> infera_types::AuthContext {

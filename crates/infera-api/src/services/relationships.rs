@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use infera_cache::AuthCache;
 use infera_core::{Evaluator, ipl::Schema};
 use infera_store::RelationshipStore;
 use infera_types::{
@@ -11,11 +12,10 @@ use infera_types::{
 use infera_wasm::WasmHost;
 use uuid::Uuid;
 
-use crate::ApiError;
-
 use super::validation::{
     validate_delete_filter, validate_list_relationships_request, validate_relationship,
 };
+use crate::ApiError;
 
 /// Service for managing relationships
 ///
@@ -25,6 +25,7 @@ pub struct RelationshipService {
     store: Arc<dyn RelationshipStore>,
     schema: Arc<Schema>,
     wasm_host: Option<Arc<WasmHost>>,
+    cache: Option<Arc<AuthCache>>,
 }
 
 impl RelationshipService {
@@ -33,8 +34,9 @@ impl RelationshipService {
         store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
+        cache: Option<Arc<AuthCache>>,
     ) -> Self {
-        Self { store, schema, wasm_host }
+        Self { store, schema, wasm_host, cache }
     }
 
     /// Writes relationships to the store
@@ -117,11 +119,10 @@ impl RelationshipService {
         );
 
         // Delete from store
-        let (revision, relationships_deleted) = self
-            .store
-            .delete_by_filter(vault, &filter, limit)
-            .await
-            .map_err(|e| ApiError::Internal(format!("Failed to delete relationships: {}", e)))?;
+        let (revision, relationships_deleted) =
+            self.store.delete_by_filter(vault, &filter, limit).await.map_err(|e| {
+                ApiError::Internal(format!("Failed to delete relationships: {}", e))
+            })?;
 
         tracing::debug!(
             relationships_deleted = relationships_deleted,
@@ -129,10 +130,7 @@ impl RelationshipService {
             "Relationships deleted successfully"
         );
 
-        Ok(DeleteResponse {
-            revision,
-            relationships_deleted,
-        })
+        Ok(DeleteResponse { revision, relationships_deleted })
     }
 
     /// Lists relationships matching optional filters
@@ -165,17 +163,19 @@ impl RelationshipService {
         );
 
         // Create vault-scoped evaluator
-        let evaluator = Arc::new(Evaluator::new(
+        let evaluator = Arc::new(Evaluator::new_with_cache(
             Arc::clone(&self.store),
             Arc::clone(&self.schema),
             self.wasm_host.clone(),
+            self.cache.clone(),
             vault,
         ));
 
         // Execute list operation
-        let response = evaluator.list_relationships(request).await.map_err(|e| {
-            ApiError::Internal(format!("Failed to list relationships: {}", e))
-        })?;
+        let response = evaluator
+            .list_relationships(request)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to list relationships: {}", e)))?;
 
         tracing::debug!(
             relationship_count = response.relationships.len(),
@@ -185,13 +185,44 @@ impl RelationshipService {
 
         Ok(response)
     }
+
+    /// Invalidates cache entries for specific resources
+    ///
+    /// This should be called after relationship writes or deletes to ensure
+    /// authorization decisions are re-evaluated with the latest data.
+    ///
+    /// # Arguments
+    /// * `resources` - List of resource identifiers to invalidate
+    #[tracing::instrument(skip(self))]
+    pub async fn invalidate_cache_for_resources(&self, resources: &[String]) {
+        if let Some(cache) = &self.cache {
+            cache.invalidate_resources(resources).await;
+            tracing::debug!(resource_count = resources.len(), "Cache invalidated for resources");
+        }
+    }
+
+    /// Invalidates all cache entries for a specific vault
+    ///
+    /// This provides a way to do complete cache invalidation for a vault,
+    /// useful for bulk operations or administrative tasks.
+    ///
+    /// # Arguments
+    /// * `vault` - The vault ID to invalidate cache for
+    #[tracing::instrument(skip(self), fields(vault = %vault))]
+    pub async fn invalidate_cache_for_vault(&self, vault: Uuid) {
+        if let Some(cache) = &self.cache {
+            cache.invalidate_vault(vault).await;
+            tracing::debug!("Cache invalidated for entire vault");
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_core::ipl::{RelationDef, RelationExpr, TypeDef};
     use infera_store::MemoryBackend;
+
+    use super::*;
 
     async fn create_test_service() -> (RelationshipService, Uuid) {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -206,7 +237,7 @@ mod tests {
         }]));
 
         let vault = Uuid::new_v4();
-        let service = RelationshipService::new(store, schema, None);
+        let service = RelationshipService::new(store, schema, None, None);
 
         (service, vault)
     }
@@ -281,7 +312,7 @@ mod tests {
         };
 
         let result = service.delete_relationships(vault, filter, None).await.unwrap();
-        assert_eq!(result.deleted_count, 2);
+        assert_eq!(result.relationships_deleted, 2);
     }
 
     #[tokio::test]
@@ -370,7 +401,7 @@ mod tests {
         let vault_a = Uuid::new_v4();
         let vault_b = Uuid::new_v4();
 
-        let service = RelationshipService::new(store, schema, None);
+        let service = RelationshipService::new(store, schema, None, None);
 
         // Write to vault A
         let relationships = vec![Relationship {

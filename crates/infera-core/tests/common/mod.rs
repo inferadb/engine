@@ -97,6 +97,6 @@ impl TestFixture {
     }
 }
 
-/// Helper to create a relationship
+// Helper to create a relationship
 // Re-export centralized relationship helper
-pub use infera_test_fixtures::test_relationship as relationship;
+// Note: Currently unused but kept for potential future test utilities

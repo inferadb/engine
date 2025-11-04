@@ -15,10 +15,7 @@ use axum::{
 use infera_api::{AppState, create_router};
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
-use infera_core::{
-    Evaluator,
-    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
-};
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::MemoryBackend;
 use serde_json::json;
 use tower::ServiceExt;
@@ -163,33 +160,28 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     // Use a test vault ID
     let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     let test_account = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-        schema,
-        None,
-        test_vault,
-    ));
+
     let mut config = Config::default();
 
     // Enable auth for these tests but disable rate limiting
     config.auth.enabled = jwks_cache.is_some();
     config.server.rate_limiting_enabled = false;
 
-    let config = Arc::new(config);
+    let state = AppState::new(
+        store,
+        schema,
+        None, // No WASM host for tests
+        Arc::new(config),
+        jwks_cache,
+        test_vault,
+        test_account,
+    );
 
-    let health_tracker = Arc::new(infera_api::health::HealthTracker::new());
+    let health_tracker = state.health_tracker.clone();
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    AppState {
-        evaluator,
-        store,
-        config,
-        jwks_cache,
-        health_tracker,
-        default_vault: test_vault,
-        default_account: test_account,
-    }
+    state
 }
 
 #[tokio::test]

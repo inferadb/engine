@@ -2,15 +2,15 @@
 
 use std::sync::Arc;
 
+use infera_cache::AuthCache;
 use infera_core::{Evaluator, ipl::Schema};
 use infera_store::RelationshipStore;
 use infera_types::{ListResourcesRequest, ListResourcesResponse};
 use infera_wasm::WasmHost;
 use uuid::Uuid;
 
-use crate::ApiError;
-
 use super::validation::validate_list_resources_request;
+use crate::ApiError;
 
 /// Service for listing resources accessible to subjects
 ///
@@ -21,6 +21,7 @@ pub struct ResourceService {
     store: Arc<dyn RelationshipStore>,
     schema: Arc<Schema>,
     wasm_host: Option<Arc<WasmHost>>,
+    cache: Option<Arc<AuthCache>>,
 }
 
 impl ResourceService {
@@ -29,8 +30,9 @@ impl ResourceService {
         store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
+        cache: Option<Arc<AuthCache>>,
     ) -> Self {
-        Self { store, schema, wasm_host }
+        Self { store, schema, wasm_host, cache }
     }
 
     /// Lists resources accessible to a subject
@@ -63,17 +65,19 @@ impl ResourceService {
         );
 
         // Create vault-scoped evaluator for proper multi-tenant isolation
-        let evaluator = Arc::new(Evaluator::new(
+        let evaluator = Arc::new(Evaluator::new_with_cache(
             Arc::clone(&self.store),
             Arc::clone(&self.schema),
             self.wasm_host.clone(),
+            self.cache.clone(),
             vault,
         ));
 
         // Execute list operation
-        let response = evaluator.list_resources(request).await.map_err(|e| {
-            ApiError::Internal(format!("Failed to list resources: {}", e))
-        })?;
+        let response = evaluator
+            .list_resources(request)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Failed to list resources: {}", e)))?;
 
         tracing::debug!(
             resource_count = response.resources.len(),
@@ -87,10 +91,11 @@ impl ResourceService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_core::ipl::{RelationDef, RelationExpr, TypeDef};
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
+
+    use super::*;
 
     async fn create_test_service() -> (ResourceService, Uuid) {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -135,7 +140,7 @@ mod tests {
             .await
             .unwrap();
 
-        let service = ResourceService::new(store, schema, None);
+        let service = ResourceService::new(store, schema, None, None);
 
         (service, vault)
     }
@@ -244,7 +249,7 @@ mod tests {
             .await
             .unwrap();
 
-        let service = ResourceService::new(store, schema, None);
+        let service = ResourceService::new(store, schema, None, None);
 
         let request = ListResourcesRequest {
             subject: "user:alice".to_string(),

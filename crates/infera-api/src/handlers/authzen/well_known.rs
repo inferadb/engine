@@ -142,24 +142,18 @@ mod tests {
         let schema = Arc::new(infera_core::ipl::Schema::new(vec![]));
         // Use a test vault ID
         let test_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            schema,
-            None,
-            test_vault,
-        ));
         let config = Arc::new(Config::default());
-        let health_tracker = Arc::new(crate::health::HealthTracker::new());
+        let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
-        AppState {
-            evaluator,
+        AppState::new(
             store,
+            schema,
+            None, // No WASM host for tests
             config,
-            jwks_cache: None,
-            health_tracker,
-            default_vault: test_vault,
-            default_account: Uuid::nil(),
-        }
+            None, // No JWKS cache for tests
+            test_vault,
+            Uuid::nil(),
+        )
     }
 
     #[tokio::test]

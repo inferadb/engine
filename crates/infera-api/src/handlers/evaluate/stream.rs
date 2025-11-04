@@ -1,4 +1,6 @@
 //! Streaming evaluation handler using Server-Sent Events
+//!
+//! This is a thin protocol adapter that converts REST requests to service calls.
 
 use std::sync::Arc;
 
@@ -9,8 +11,7 @@ use axum::{
 };
 use futures::{Stream, StreamExt};
 use infera_const::scopes::*;
-use infera_core::{DecisionTrace, Evaluator};
-use infera_store::RelationshipStore;
+use infera_core::DecisionTrace;
 use infera_types::{Decision, EvaluateRequest};
 use serde::{Deserialize, Serialize};
 
@@ -113,51 +114,20 @@ pub async fn evaluate_stream_handler(
     let evaluations = request.evaluations;
     let total_evaluations = evaluations.len() as u32;
 
-    // Create evaluator with correct vault for this request
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&state.store) as Arc<dyn RelationshipStore>,
-        Arc::clone(state.evaluator.schema()),
-        state.evaluator.wasm_host().cloned(),
-        vault,
-    ));
+    // Get evaluation service
+    let evaluation_service = Arc::clone(&state.evaluation_service);
 
     // Create a stream that processes each evaluation and emits results
     let stream = futures::stream::iter(evaluations.into_iter().enumerate())
         .then(move |(index, evaluate_request)| {
-            let evaluator = evaluator.clone();
+            let evaluation_service = evaluation_service.clone();
             async move {
-                // Validate individual evaluation
-                if evaluate_request.subject.is_empty() {
-                    return Event::default().json_data(EvaluateRestResponse {
-                        decision: "deny".to_string(),
-                        index: index as u32,
-                        error: Some("Subject cannot be empty".to_string()),
-                        trace: None,
-                    });
-                }
-                if evaluate_request.resource.is_empty() {
-                    return Event::default().json_data(EvaluateRestResponse {
-                        decision: "deny".to_string(),
-                        index: index as u32,
-                        error: Some("Resource cannot be empty".to_string()),
-                        trace: None,
-                    });
-                }
-                if evaluate_request.permission.is_empty() {
-                    return Event::default().json_data(EvaluateRestResponse {
-                        decision: "deny".to_string(),
-                        index: index as u32,
-                        error: Some("Permission cannot be empty".to_string()),
-                        trace: None,
-                    });
-                }
-
                 // Check if trace is requested
                 let trace = evaluate_request.trace.unwrap_or(false);
 
                 if trace {
-                    // Perform evaluation with trace
-                    match evaluator.check_with_trace(evaluate_request).await {
+                    // Perform evaluation with trace using service (handles validation)
+                    match evaluation_service.evaluate_with_trace(vault, evaluate_request).await {
                         Ok(trace_result) => Event::default().json_data(EvaluateRestResponse {
                             decision: match trace_result.decision {
                                 Decision::Allow => "allow".to_string(),
@@ -170,13 +140,13 @@ pub async fn evaluate_stream_handler(
                         Err(e) => Event::default().json_data(EvaluateRestResponse {
                             decision: "deny".to_string(),
                             index: index as u32,
-                            error: Some(format!("Evaluation error: {}", e)),
+                            error: Some(e.to_string()),
                             trace: None,
                         }),
                     }
                 } else {
-                    // Perform regular evaluation without trace
-                    match evaluator.check(evaluate_request).await {
+                    // Perform regular evaluation without trace using service (handles validation)
+                    match evaluation_service.evaluate(vault, evaluate_request).await {
                         Ok(decision) => Event::default().json_data(EvaluateRestResponse {
                             decision: match decision {
                                 Decision::Allow => "allow".to_string(),
@@ -189,7 +159,7 @@ pub async fn evaluate_stream_handler(
                         Err(e) => Event::default().json_data(EvaluateRestResponse {
                             decision: "deny".to_string(),
                             index: index as u32,
-                            error: Some(format!("Evaluation error: {}", e)),
+                            error: Some(e.to_string()),
                             trace: None,
                         }),
                     }

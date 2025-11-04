@@ -106,15 +106,8 @@ pub async fn delete_relationship(
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to delete relationship: {}", e)))?;
 
-    // Invalidate cache for the deleted resource in this vault
-    if let Some(cache) = state.evaluator.cache() {
-        cache.invalidate_vault_resources(vault, std::slice::from_ref(&resource)).await;
-        tracing::debug!(
-            vault = %vault,
-            resource = %resource,
-            "Cache invalidated for deleted relationship"
-        );
-    }
+    // Invalidate cache for the affected resource
+    state.relationship_service.invalidate_cache_for_resources(&[resource.clone()]).await;
 
     // Record metrics
     let duration = start.elapsed();
@@ -160,7 +153,6 @@ mod tests {
         routing::delete,
     };
     use infera_config::Config;
-    use infera_core::Evaluator;
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
     use tower::ServiceExt;
@@ -185,14 +177,8 @@ mod tests {
 
         // Use a test vault ID
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            schema,
-            None,
-            test_vault,
-        ));
         let config = Arc::new(Config::default());
-        let health_tracker = Arc::new(crate::health::HealthTracker::new());
+        let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add test relationships
         store
@@ -216,15 +202,15 @@ mod tests {
             .await
             .unwrap();
 
-        AppState {
-            evaluator,
+        AppState::new(
             store,
+            schema,
+            None, // No WASM host for tests
             config,
-            jwks_cache: None,
-            health_tracker,
-            default_vault: test_vault,
-            default_account: Uuid::nil(),
-        }
+            None, // No JWKS cache for tests
+            test_vault,
+            Uuid::nil(),
+        )
     }
 
     #[tokio::test]

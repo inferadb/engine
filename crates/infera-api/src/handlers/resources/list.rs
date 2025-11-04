@@ -1,4 +1,6 @@
 //! List resources endpoint - returns all resources accessible by a subject
+//!
+//! This is a thin protocol adapter that converts REST requests to service calls.
 
 use axum::{
     Json,
@@ -10,7 +12,7 @@ use infera_const::scopes::*;
 use infera_types::ListResourcesRequest;
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result};
+use crate::{AppState, Result, handlers::utils::auth::authorize_request};
 
 /// List resources endpoint - returns all resources accessible by a subject
 #[derive(Serialize, Deserialize, Debug)]
@@ -40,31 +42,21 @@ pub async fn list_resources_stream_handler(
     State(state): State<AppState>,
     Json(request): Json<ListResourcesRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
-    // If auth is enabled and present, validate scope
-    if state.config.auth.enabled {
-        if let Some(auth_ctx) = auth.0 {
-            // Require inferadb.check scope (or lookup-resources scope)
-            infera_auth::middleware::require_any_scope(
-                &auth_ctx,
-                &[SCOPE_CHECK, SCOPE_LIST_RESOURCES],
-            )
-            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+    // Authorize request and extract vault
+    let vault = authorize_request(
+        &auth.0,
+        state.default_vault,
+        state.config.auth.enabled,
+        &[SCOPE_CHECK, SCOPE_LIST_RESOURCES],
+    )?;
 
-            tracing::debug!("Streaming list resources request from tenant: {}", auth_ctx.tenant_id);
-        } else {
-            return Err(ApiError::Unauthorized("Authentication required".to_string()));
-        }
-    }
-
-    // Validate request
-    if request.subject.is_empty() {
-        return Err(ApiError::InvalidRequest("Subject cannot be empty".to_string()));
-    }
-    if request.resource_type.is_empty() {
-        return Err(ApiError::InvalidRequest("Resource type cannot be empty".to_string()));
-    }
-    if request.permission.is_empty() {
-        return Err(ApiError::InvalidRequest("Permission cannot be empty".to_string()));
+    // Log authenticated requests
+    if let Some(ref auth_ctx) = auth.0 {
+        tracing::debug!(
+            "Streaming list resources request from tenant: {} (vault: {})",
+            auth_ctx.tenant_id,
+            vault
+        );
     }
 
     // Convert to core request
@@ -77,8 +69,8 @@ pub async fn list_resources_stream_handler(
         resource_id_pattern: request.resource_id_pattern,
     };
 
-    // Execute the lookup operation
-    let response = state.evaluator.list_resources(list_request).await?;
+    // Execute the list operation using resource service (handles validation)
+    let response = state.resource_service.list_resources(vault, list_request).await?;
 
     // Create a stream that sends each resource as a separate SSE event
     let resources = response.resources;

@@ -9,7 +9,7 @@ use clap::Parser;
 use infera_auth::jwks_cache::JwksCache;
 use infera_bin::initialization;
 use infera_config::load_or_default;
-use infera_core::{Evaluator, ipl::Schema};
+use infera_core::ipl::Schema;
 use infera_store::MemoryBackend;
 use infera_wasm::WasmHost;
 
@@ -77,15 +77,6 @@ async fn main() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![]));
     tracing::info!("Schema loaded");
 
-    // Create evaluator
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-        schema,
-        wasm_host,
-        system_config.default_vault,
-    ));
-    tracing::info!("Policy evaluator initialized");
-
     // Initialize JWKS cache if authentication is enabled
     let jwks_cache = if config.auth.enabled {
         tracing::info!("Authentication ENABLED - initializing JWKS cache");
@@ -124,8 +115,9 @@ async fn main() -> Result<()> {
     tracing::info!("Starting API server on {}:{}", config.server.host, config.server.port);
 
     infera_api::serve(
-        evaluator,
         store,
+        schema,
+        wasm_host,
         config,
         jwks_cache,
         system_config.default_vault,

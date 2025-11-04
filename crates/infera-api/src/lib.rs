@@ -150,6 +150,9 @@ pub struct AppState {
     /// Default account ID used when authentication is disabled
     pub default_account: Uuid,
 
+    // Shared cache for authorization decisions and expansions
+    pub auth_cache: Arc<infera_cache::AuthCache>,
+
     // Service layer (protocol-agnostic business logic)
     pub evaluation_service: Arc<services::EvaluationService>,
     pub resource_service: Arc<services::ResourceService>,
@@ -174,29 +177,47 @@ impl AppState {
     ) -> Self {
         let health_tracker = Arc::new(health::HealthTracker::new());
 
-        // Create services
+        // Create shared cache
+        let auth_cache = if config.cache.enabled {
+            Arc::new(infera_cache::AuthCache::new(
+                config.cache.max_capacity,
+                std::time::Duration::from_secs(config.cache.ttl_seconds),
+            ))
+        } else {
+            // Create a minimal cache that won't be used
+            Arc::new(infera_cache::AuthCache::new(1, std::time::Duration::from_secs(1)))
+        };
+
+        // Determine which cache to pass to services
+        let service_cache = if config.cache.enabled { Some(Arc::clone(&auth_cache)) } else { None };
+
+        // Create services with shared cache
         let evaluation_service = Arc::new(services::EvaluationService::new(
             Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
             Arc::clone(&schema),
             wasm_host.clone(),
+            service_cache.clone(),
         ));
 
         let resource_service = Arc::new(services::ResourceService::new(
             Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
             Arc::clone(&schema),
             wasm_host.clone(),
+            service_cache.clone(),
         ));
 
         let subject_service = Arc::new(services::SubjectService::new(
             Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
             Arc::clone(&schema),
             wasm_host.clone(),
+            service_cache.clone(),
         ));
 
         let relationship_service = Arc::new(services::RelationshipService::new(
             Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
             Arc::clone(&schema),
             wasm_host.clone(),
+            service_cache,
         ));
 
         let expansion_service = Arc::new(services::ExpansionService::new(
@@ -206,7 +227,7 @@ impl AppState {
         ));
 
         let watch_service = Arc::new(services::WatchService::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>
         ));
 
         Self {
@@ -216,6 +237,7 @@ impl AppState {
             health_tracker,
             default_vault,
             default_account,
+            auth_cache,
             evaluation_service,
             resource_service,
             subject_service,
@@ -425,7 +447,6 @@ pub async fn serve(
     default_vault: Uuid,
     default_account: Uuid,
 ) -> anyhow::Result<()> {
-
     // Create AppState with services
     let state = AppState::new(
         store,

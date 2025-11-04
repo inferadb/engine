@@ -10,10 +10,7 @@ use std::sync::Arc;
 
 use infera_api::AppState;
 use infera_config::Config;
-use infera_core::{
-    Evaluator,
-    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
-};
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::Relationship;
 use uuid::Uuid;
@@ -41,25 +38,18 @@ fn create_multi_vault_test_state() -> (AppState, Uuid, Uuid, Uuid, Uuid) {
     let vault_b = Uuid::new_v4();
     let account_b = Uuid::new_v4();
 
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn RelationshipStore>,
-        schema,
-        None,
-        vault_a, // Default to vault A
-    ));
-
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for simpler testing
 
-    let state = AppState {
-        evaluator,
+    let state = AppState::new(
         store,
-        config: Arc::new(config),
-        jwks_cache: None,
-        health_tracker: Arc::new(infera_api::health::HealthTracker::new()),
-        default_vault: vault_a,
-        default_account: account_a,
-    };
+        schema,
+        None, // No WASM host for tests
+        Arc::new(config),
+        None,    // No JWKS cache for tests
+        vault_a, // Default to vault A
+        account_a,
+    );
 
     (state, vault_a, account_a, vault_b, account_b)
 }
@@ -240,15 +230,18 @@ async fn test_vault_scoped_listing() {
 
     // Test list_resources in vault A
     let resources_a = state
-        .evaluator
-        .list_resources(infera_types::ListResourcesRequest {
-            subject: "user:alice".to_string(),
-            permission: "viewer".to_string(),
-            resource_type: "document".to_string(),
-            limit: None,
-            cursor: None,
-            resource_id_pattern: None,
-        })
+        .resource_service
+        .list_resources(
+            state.default_vault,
+            infera_types::ListResourcesRequest {
+                subject: "user:alice".to_string(),
+                permission: "viewer".to_string(),
+                resource_type: "document".to_string(),
+                limit: None,
+                cursor: None,
+                resource_id_pattern: None,
+            },
+        )
         .await
         .unwrap();
 
@@ -257,24 +250,26 @@ async fn test_vault_scoped_listing() {
     assert!(resources_a.resources.contains(&"document:doc2".to_string()));
     assert!(!resources_a.resources.contains(&"document:doc3".to_string()));
 
-    // Create evaluator for vault B
-    let evaluator_b = Evaluator::new(
+    // Create a new resource service for vault B
+    let resource_service_b = Arc::new(infera_api::services::ResourceService::new(
         Arc::clone(&state.store) as Arc<dyn RelationshipStore>,
         create_test_schema(),
-        None, // No WASM host
-        vault_b,
-    );
+        None, // No WASM host for tests
+    ));
 
     // Test list_resources in vault B
-    let resources_b = evaluator_b
-        .list_resources(infera_types::ListResourcesRequest {
-            subject: "user:bob".to_string(),
-            permission: "viewer".to_string(),
-            resource_type: "document".to_string(),
-            limit: None,
-            cursor: None,
-            resource_id_pattern: None,
-        })
+    let resources_b = resource_service_b
+        .list_resources(
+            vault_b,
+            infera_types::ListResourcesRequest {
+                subject: "user:bob".to_string(),
+                permission: "viewer".to_string(),
+                resource_type: "document".to_string(),
+                limit: None,
+                cursor: None,
+                resource_id_pattern: None,
+            },
+        )
         .await
         .unwrap();
 
@@ -564,14 +559,17 @@ async fn test_cached_data_doesnt_leak_between_vaults() {
 
     // Check permission in vault A (should cache result)
     let result_a = state
-        .evaluator
-        .check(infera_types::EvaluateRequest {
-            subject: "user:alice".to_string(),
-            resource: "document:cached".to_string(),
-            permission: "viewer".to_string(),
-            context: None,
-            trace: None,
-        })
+        .evaluation_service
+        .evaluate(
+            state.default_vault,
+            infera_types::EvaluateRequest {
+                subject: "user:alice".to_string(),
+                resource: "document:cached".to_string(),
+                permission: "viewer".to_string(),
+                context: None,
+                trace: None,
+            },
+        )
         .await
         .unwrap();
 
@@ -580,24 +578,23 @@ async fn test_cached_data_doesnt_leak_between_vaults() {
         "Alice should have access in vault A"
     );
 
-    // Create evaluator for vault B
-    let evaluator_b = Evaluator::new_with_cache(
-        Arc::clone(&state.store) as Arc<dyn RelationshipStore>,
-        create_test_schema(),
-        None,                                    // No WASM host
-        state.evaluator.cache().map(Arc::clone), // Share cache to test isolation
-        vault_b,
-    );
+    // Create an evaluation service for vault B
+    // Note: Services handle vault scoping, so even with shared cache,
+    // different vaults should return different results
 
     // Check same permission in vault B (should not use cached result from vault A)
-    let result_b = evaluator_b
-        .check(infera_types::EvaluateRequest {
-            subject: "user:alice".to_string(),
-            resource: "document:cached".to_string(),
-            permission: "viewer".to_string(),
-            context: None,
-            trace: None,
-        })
+    let result_b = state
+        .evaluation_service
+        .evaluate(
+            vault_b,
+            infera_types::EvaluateRequest {
+                subject: "user:alice".to_string(),
+                resource: "document:cached".to_string(),
+                permission: "viewer".to_string(),
+                context: None,
+                trace: None,
+            },
+        )
         .await
         .unwrap();
 

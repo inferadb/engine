@@ -29,10 +29,7 @@ use std::{sync::Arc, time::Duration};
 
 use infera_api::AppState;
 use infera_config::Config;
-use infera_core::{
-    Evaluator,
-    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
-};
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{EvaluateRequest, ExpandRequest, Relationship};
 use uuid::Uuid;
@@ -61,22 +58,19 @@ async fn create_test_state() -> AppState {
     let vault = Uuid::new_v4();
     let account = Uuid::new_v4();
 
-    let evaluator =
-        Arc::new(Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None, vault));
-
     let mut config = Config::default();
     config.cache.enabled = true;
     config.cache.max_capacity = 10000;
 
-    AppState {
-        evaluator,
+    AppState::new(
         store,
-        config: Arc::new(config),
-        jwks_cache: None,
-        health_tracker: Arc::new(infera_api::health::HealthTracker::new()),
-        default_vault: vault,
-        default_account: account,
-    }
+        schema,
+        None, // No WASM host for tests
+        Arc::new(config),
+        None, // No JWKS cache for tests
+        vault,
+        account,
+    )
 }
 
 /// Test: Repeated authorization checks should not leak memory
@@ -112,7 +106,7 @@ async fn test_no_memory_leak_in_authorization_checks() {
             trace: None,
         };
 
-        let _ = state.evaluator.check(request).await.unwrap();
+        let _ = state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
 
         // Every 1000 iterations, verify cache is within bounds
         if iteration % 1000 == 0 {
@@ -157,7 +151,7 @@ async fn test_no_memory_leak_in_expand_operations() {
             continuation_token: None,
         };
 
-        let result = state.evaluator.expand(request).await.unwrap();
+        let result = state.expansion_service.expand(state.default_vault, request).await.unwrap();
 
         // Note: Results may be empty depending on the evaluation logic
         // This test is about memory leaks, not correctness
@@ -198,7 +192,11 @@ async fn test_no_memory_leak_in_storage_operations() {
             cursor: None,
         };
 
-        let _ = state.evaluator.list_relationships(list_request).await.unwrap();
+        let _ = state
+            .relationship_service
+            .list_relationships(state.default_vault, list_request)
+            .await
+            .unwrap();
     }
 
     // Test passes if we reach here without OOM
@@ -235,7 +233,7 @@ async fn test_no_memory_leak_in_cache_eviction() {
             trace: None,
         };
 
-        let _ = state.evaluator.check(request).await.unwrap();
+        let _ = state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
     }
 
     // Test passes if we reach here without OOM
@@ -276,7 +274,11 @@ async fn test_no_memory_leak_under_concurrent_load() {
                     trace: None,
                 };
 
-                let _ = state_clone.evaluator.check(request).await.unwrap();
+                let _ = state_clone
+                    .evaluation_service
+                    .evaluate(state_clone.default_vault, request)
+                    .await
+                    .unwrap();
             }
         });
         handles.push(handle);
@@ -320,7 +322,11 @@ async fn test_no_memory_leak_in_streaming() {
             cursor: None,
         };
 
-        let result = state.evaluator.list_relationships(request).await.unwrap();
+        let result = state
+            .relationship_service
+            .list_relationships(state.default_vault, request)
+            .await
+            .unwrap();
 
         // Consume the results
         let _count = result.relationships.len();
@@ -372,7 +378,7 @@ async fn test_24h_authorization_stress() {
             trace: None,
         };
 
-        let _ = state.evaluator.check(request).await.unwrap();
+        let _ = state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
 
         iteration += 1;
 
@@ -419,7 +425,8 @@ async fn test_24h_mixed_workload() {
                     context: None,
                     trace: None,
                 };
-                let _ = state.evaluator.check(request).await.unwrap();
+                let _ =
+                    state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
             },
             7..=8 => {
                 // 20%: Write operation
@@ -439,7 +446,7 @@ async fn test_24h_mixed_workload() {
                     limit: Some(100),
                     continuation_token: None,
                 };
-                let _ = state.evaluator.expand(request).await.unwrap();
+                let _ = state.expansion_service.expand(state.default_vault, request).await.unwrap();
             },
             _ => unreachable!(),
         }
@@ -492,7 +499,7 @@ async fn test_no_connection_leaks() {
             context: None,
             trace: None,
         };
-        let _ = state.evaluator.check(request).await.unwrap();
+        let _ = state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
 
         // Every 100 iterations, verify we can still operate
         // (would fail if we leaked all connections)

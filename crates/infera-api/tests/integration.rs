@@ -12,4 +12,7 @@ mod e2e_tests;
 #[path = "integration/failure_tests.rs"]
 mod failure_tests;
 
+#[path = "integration/cache_invalidation_tests.rs"]
+mod cache_invalidation_tests;
+
 pub use framework::*;

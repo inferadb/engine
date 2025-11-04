@@ -20,10 +20,7 @@ use infera_api::{
     },
 };
 use infera_config::Config;
-use infera_core::{
-    Evaluator,
-    ipl::{RelationDef, Schema, TypeDef},
-};
+use infera_core::ipl::{RelationDef, Schema, TypeDef};
 use infera_store::MemoryBackend;
 use tonic::{
     Request,
@@ -37,28 +34,22 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],
     )]));
-    let evaluator = Arc::new(Evaluator::new(
-        Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-        schema,
-        None,
-        uuid::Uuid::nil(),
-    ));
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for tests
 
-    let health_tracker = Arc::new(infera_api::health::HealthTracker::new());
+    let state = AppState::new(
+        store,
+        schema,
+        None, // No WASM host for tests
+        Arc::new(config),
+        None, // No JWKS cache for tests
+        Uuid::nil(),
+        Uuid::nil(),
+    );
+
+    let health_tracker = state.health_tracker.clone();
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
-
-    let state = AppState {
-        evaluator,
-        store,
-        config: Arc::new(config),
-        jwks_cache: None,
-        health_tracker,
-        default_vault: Uuid::nil(),
-        default_account: Uuid::nil(),
-    };
 
     let service = InferaServiceImpl::new(state);
 

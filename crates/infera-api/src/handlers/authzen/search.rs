@@ -150,15 +150,6 @@ pub async fn post_search_resource(
         "Converted AuthZEN resource search request to native format"
     );
 
-    // Create evaluator with correct vault for this request
-    use std::sync::Arc;
-    let evaluator = Arc::new(infera_core::Evaluator::new(
-        Arc::clone(&state.store) as Arc<dyn infera_store::RelationshipStore>,
-        Arc::clone(state.evaluator.schema()),
-        state.evaluator.wasm_host().cloned(),
-        vault,
-    ));
-
     // Convert to core request
     let list_request = ListResourcesRequest {
         subject,
@@ -169,8 +160,8 @@ pub async fn post_search_resource(
         resource_id_pattern: None,
     };
 
-    // Execute the search operation using vault-scoped evaluator
-    let response = evaluator.list_resources(list_request).await?;
+    // Execute the search operation using resource service
+    let response = state.resource_service.list_resources(vault, list_request).await?;
 
     // Convert native response to AuthZEN format
     let authzen_resources: Result<Vec<AuthZENEntity>, ApiError> = response
@@ -336,15 +327,6 @@ pub async fn post_search_subject(
         "Converted AuthZEN subject search request to native format"
     );
 
-    // Create evaluator with correct vault for this request
-    use std::sync::Arc;
-    let evaluator = Arc::new(infera_core::Evaluator::new(
-        Arc::clone(&state.store) as Arc<dyn infera_store::RelationshipStore>,
-        Arc::clone(state.evaluator.schema()),
-        state.evaluator.wasm_host().cloned(),
-        vault,
-    ));
-
     // Convert to core request
     let list_request = ListSubjectsRequest {
         resource,
@@ -354,8 +336,8 @@ pub async fn post_search_subject(
         cursor: request.cursor,
     };
 
-    // Execute the search operation using vault-scoped evaluator
-    let response = evaluator.list_subjects(list_request).await?;
+    // Execute the search operation using subject service
+    let response = state.subject_service.list_subjects(vault, list_request).await?;
 
     // Convert native response to AuthZEN format
     let authzen_subjects: Result<Vec<AuthZENEntity>, ApiError> = response
@@ -399,7 +381,6 @@ mod tests {
         routing::post,
     };
     use infera_config::Config;
-    use infera_core::Evaluator;
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
     use tower::ServiceExt;
@@ -425,14 +406,8 @@ mod tests {
 
         // Use a test vault ID
         let test_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            schema,
-            None,
-            test_vault,
-        ));
         let config = Arc::new(Config::default());
-        let health_tracker = Arc::new(crate::health::HealthTracker::new());
+        let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add test relationships
         store
@@ -462,15 +437,15 @@ mod tests {
             .await
             .unwrap();
 
-        AppState {
-            evaluator,
+        AppState::new(
             store,
+            schema,
+            None, // No WASM host for tests
             config,
-            jwks_cache: None,
-            health_tracker,
-            default_vault: test_vault,
-            default_account: Uuid::nil(),
-        }
+            None, // No JWKS cache for tests
+            test_vault,
+            Uuid::nil(),
+        )
     }
 
     #[tokio::test]

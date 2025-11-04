@@ -129,15 +129,7 @@ pub async fn get_relationship(
         return Err(ApiError::InvalidRequest("Subject cannot be empty".to_string()));
     }
 
-    // Create evaluator with correct vault for this request
-    let evaluator = infera_core::Evaluator::new(
-        std::sync::Arc::clone(&state.store) as std::sync::Arc<dyn infera_store::RelationshipStore>,
-        std::sync::Arc::clone(state.evaluator.schema()),
-        state.evaluator.wasm_host().cloned(),
-        vault,
-    );
-
-    // Query the store using exact match filters
+    // Query the store using exact match filters via relationship service
     let list_request = ListRelationshipsRequest {
         resource: Some(resource.clone()),
         relation: Some(relation.clone()),
@@ -146,7 +138,7 @@ pub async fn get_relationship(
         cursor: None,
     };
 
-    let response = evaluator.list_relationships(list_request).await?;
+    let response = state.relationship_service.list_relationships(vault, list_request).await?;
 
     // Record metrics
     let duration = start.elapsed();
@@ -233,7 +225,6 @@ mod tests {
         routing::get,
     };
     use infera_config::Config;
-    use infera_core::Evaluator;
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
     use tower::ServiceExt;
@@ -258,14 +249,8 @@ mod tests {
 
         // Use a test vault ID
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            schema,
-            None,
-            test_vault,
-        ));
         let config = Arc::new(Config::default());
-        let health_tracker = Arc::new(crate::health::HealthTracker::new());
+        let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add test relationships
         store
@@ -289,15 +274,15 @@ mod tests {
             .await
             .unwrap();
 
-        AppState {
-            evaluator,
+        AppState::new(
             store,
+            schema,
+            None, // No WASM host for tests
             config,
-            jwks_cache: None,
-            health_tracker,
-            default_vault: test_vault,
-            default_account: Uuid::nil(),
-        }
+            None, // No JWKS cache for tests
+            test_vault,
+            Uuid::nil(),
+        )
     }
 
     #[tokio::test]

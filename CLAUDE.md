@@ -141,6 +141,7 @@ The codebase follows a layered architecture with clear separation of concerns:
 11. **infera-api**: HTTP and gRPC API servers:
     - REST API via Axum
     - gRPC API via Tonic
+    - Service layer (EvaluationService, ExpansionService, RelationshipService, etc.)
     - Rate limiting
     - Health checks (liveness, readiness, startup)
 
@@ -188,14 +189,80 @@ All reads and writes use monotonically increasing `Revision` tokens:
 
 #### Two-Layer Caching
 
-1. **Authorization Cache**: Caches (subject, resource, permission) → Decision
-2. **Expand Cache**: Caches relationship expansion trees
+InferaDB uses a sophisticated two-layer caching system to optimize authorization decisions and relationship expansions.
 
-Both caches:
+**Cache Layers:**
 
-- Are vault-scoped (keys include vault UUID)
-- Are revision-aware (invalidated on writes)
-- Support selective invalidation by resource
+1. **Authorization Cache**: Caches (subject, resource, permission, revision) → Decision
+2. **Expand Cache**: Caches relationship expansion trees (resource, relation, revision) → subjects
+
+**Architecture:**
+
+- Single `Arc<AuthCache>` instance stored in `AppState`
+- Shared across all services (EvaluationService, ResourceService, SubjectService, etc.)
+- Services pass cache as `Option<Arc<AuthCache>>` parameter to evaluators
+- Respects `config.cache.enabled` flag for easy disable in development/testing
+
+**Cache Properties:**
+
+- **Vault-scoped**: Keys include vault UUID for complete tenant isolation
+- **Revision-aware**: Keys include revision to ensure consistency
+- **LRU eviction**: Uses `moka` async cache with configurable capacity
+- **TTL support**: Configurable time-to-live (default: 300 seconds)
+- **Statistics tracking**: Hit/miss rates, entry counts, invalidation counts
+
+**Cache Invalidation:**
+
+Cache invalidation is performed by `RelationshipService` after mutations:
+
+```rust
+// In handlers/relationships/write.rs
+let revision = state.relationship_service.write_relationships(vault, relationships.clone()).await?;
+
+// Invalidate cache for affected resources
+let affected_resources: Vec<String> = relationships.iter().map(|r| r.resource.clone()).collect();
+state.relationship_service.invalidate_cache_for_resources(&affected_resources).await;
+```
+
+**Invalidation Strategies:**
+
+1. **Selective Invalidation** (preferred): `invalidate_cache_for_resources(&[String])`
+    - Only invalidates entries for specific resources
+    - Efficient for targeted updates
+    - Uses secondary indexes for fast lookup
+
+2. **Vault-wide Invalidation**: `invalidate_cache_for_vault(Uuid)`
+    - Invalidates all entries for a specific vault
+    - Used when revision changes affect entire vault
+    - Maintains isolation between vaults
+
+**Implementation Details:**
+
+- **Service Integration**: All services that create evaluators pass the shared cache:
+
+    ```rust
+    let evaluator = Evaluator::new_with_cache(store, schema, wasm_host, cache, vault);
+    ```
+
+- **Handler Responsibilities**: Handlers must call invalidation after successful mutations:
+    - `handlers/relationships/write.rs` - Invalidates after batch writes
+    - `handlers/relationships/delete.rs` - Invalidates after single delete
+    - `handlers/relationships/delete_bulk.rs` - Invalidates after bulk delete
+
+- **Test Coverage**: Comprehensive integration tests in `tests/integration/cache_invalidation_tests.rs`:
+    - Cache population and hit/miss tracking
+    - Invalidation on write and delete
+    - Selective vs vault-wide invalidation
+    - Vault isolation in cache operations
+    - Multiple writes to same resource
+    - Bulk operations
+
+**Performance Considerations:**
+
+- Cache keys include revision, so writes naturally invalidate stale entries
+- Selective invalidation reduces re-evaluation overhead
+- Secondary indexes enable O(1) resource-based invalidation
+- Async cache operations don't block request threads
 
 #### Storage Trait Abstraction
 
@@ -468,6 +535,178 @@ Server::builder()
 
 ---
 
+## Service Layer Architecture
+
+InferaDB uses a **service layer pattern** to separate business logic from protocol adapters. This provides:
+
+- **Protocol Independence**: Business logic works with core types, not gRPC/REST/AuthZEN formats
+- **Vault Scoping**: Each service call receives a vault UUID for multi-tenant isolation
+- **Testability**: Services can be unit tested independently of protocols
+- **Code Reuse**: Same service methods used by gRPC, REST, and AuthZEN handlers
+
+### Available Services
+
+Located in `crates/infera-api/src/services/`:
+
+1. **EvaluationService** (`evaluation.rs`) - Authorization checks
+    - `evaluate(vault, request)` - Check if subject has permission on resource
+    - `evaluate_with_trace(vault, request)` - Evaluation with debug trace
+
+2. **ExpansionService** (`expansion.rs`) - Relationship graph expansion
+    - `expand(vault, request)` - Discover all subjects with permission on resource
+
+3. **RelationshipService** (`relationships.rs`) - Relationship management
+    - `write_relationships(vault, relationships)` - Create relationships
+    - `delete_relationships(vault, filter, limit)` - Delete by filter
+    - `list_relationships(vault, request)` - List with pagination
+
+4. **ResourceService** (`resources.rs`) - Resource discovery
+    - `list_resources(vault, request)` - List resources subject can access
+
+5. **SubjectService** (`subjects.rs`) - Subject discovery
+    - `list_subjects(vault, request)` - List subjects with access to resource
+
+6. **WatchService** (`watch.rs`) - Real-time change streaming
+    - `watch_changes(vault, cursor, resource_type)` - Stream relationship changes
+
+### Service Creation Pattern
+
+Services are created once during application startup in `AppState::new()`:
+
+```rust
+pub struct AppState {
+    pub store: Arc<dyn infera_store::InferaStore>,
+    pub config: Arc<Config>,
+    pub jwks_cache: Option<Arc<JwksCache>>,
+    pub default_vault: Uuid,
+    pub default_account: Uuid,
+
+    // Services
+    pub evaluation_service: Arc<EvaluationService>,
+    pub expansion_service: Arc<ExpansionService>,
+    pub relationship_service: Arc<RelationshipService>,
+    pub resource_service: Arc<ResourceService>,
+    pub subject_service: Arc<SubjectService>,
+    pub watch_service: Arc<WatchService>,
+}
+
+impl AppState {
+    pub fn new(
+        store: Arc<dyn infera_store::InferaStore>,
+        schema: Arc<infera_core::ipl::Schema>,
+        wasm_host: Option<Arc<infera_wasm::WasmHost>>,
+        config: Arc<Config>,
+        jwks_cache: Option<Arc<JwksCache>>,
+        default_vault: Uuid,
+        default_account: Uuid,
+    ) -> Self {
+        let store_rs = Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>;
+
+        Self {
+            evaluation_service: Arc::new(EvaluationService::new(
+                Arc::clone(&store_rs),
+                Arc::clone(&schema),
+                wasm_host.clone(),
+            )),
+            expansion_service: Arc::new(ExpansionService::new(
+                Arc::clone(&store_rs),
+                Arc::clone(&schema),
+                wasm_host.clone(),
+            )),
+            relationship_service: Arc::new(RelationshipService::new(
+                Arc::clone(&store_rs),
+                Arc::clone(&schema),
+                wasm_host.clone(),
+            )),
+            resource_service: Arc::new(ResourceService::new(
+                Arc::clone(&store_rs),
+                Arc::clone(&schema),
+                wasm_host.clone(),
+            )),
+            subject_service: Arc::new(SubjectService::new(
+                Arc::clone(&store_rs),
+                Arc::clone(&schema),
+                wasm_host,
+            )),
+            watch_service: Arc::new(WatchService::new(store_rs)),
+            store,
+            config,
+            jwks_cache,
+            default_vault,
+            default_account,
+        }
+    }
+}
+```
+
+### Handler Pattern
+
+All protocol handlers (gRPC, REST, AuthZEN) follow the same pattern:
+
+```rust
+// 1. Extract vault from auth context
+let vault = authorize_request(
+    &auth.0,
+    state.default_vault,
+    state.config.auth.enabled,
+    &[SCOPE_CHECK],
+)?;
+
+// 2. Convert protocol request to core types
+let core_request = EvaluateRequest {
+    subject: protocol_request.subject,
+    resource: protocol_request.resource,
+    permission: protocol_request.permission,
+};
+
+// 3. Call service with vault parameter
+let decision = state.evaluation_service
+    .evaluate(vault, core_request)
+    .await?;
+
+// 4. Convert service response back to protocol format
+Ok(ProtocolResponse {
+    decision: decision.to_string(),
+})
+```
+
+### Adding a New Service
+
+1. Create service file in `crates/infera-api/src/services/`
+2. Define service struct with dependencies (store, schema, wasm_host)
+3. Implement methods that take `vault: Uuid` as first parameter
+4. Add comprehensive doc comments with examples
+5. Add service to `AppState` struct
+6. Create service instance in `AppState::new()`
+7. Export from `services/mod.rs`
+8. Add unit tests in same file
+
+### Service Testing Pattern
+
+Services should have unit tests that verify:
+
+- Vault isolation (operations on vault A don't affect vault B)
+- Input validation
+- Business logic correctness
+- Error handling
+
+```rust
+#[tokio::test]
+async fn test_vault_isolation() {
+    let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+    let schema = Arc::new(Schema::new(vec![]));
+    let service = EvaluationService::new(store, schema, None);
+
+    let vault_a = Uuid::new_v4();
+    let vault_b = Uuid::new_v4();
+
+    // Write to vault A
+    // Verify vault B cannot see vault A's data
+}
+```
+
+---
+
 ## Critical Implementation Details
 
 ### Vault Isolation Enforcement
@@ -625,9 +864,10 @@ Use the test helpers in `crates/infera-auth/tests/common/`:
 1. Define request/response types in `infera-types`
 2. Add handler in `infera-api/src/handlers/`
 3. Extract `AuthContext` via `RequireAuth` extractor
-4. Validate vault access
-5. Call evaluator/store with `auth.vault`
-6. Add integration tests in `infera-api/tests/`
+4. Validate vault access using `authorize_request()`
+5. Call appropriate service from `AppState` with vault parameter (e.g., `state.evaluation_service.evaluate(vault, ...)`)
+6. Services handle all business logic and are protocol-agnostic
+7. Add integration tests in `infera-api/tests/`
 
 ### Adding New Storage Operations
 

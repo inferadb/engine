@@ -2,15 +2,15 @@
 
 use std::sync::Arc;
 
+use infera_cache::AuthCache;
 use infera_core::{DecisionTrace, Evaluator, ipl::Schema};
 use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest};
 use infera_wasm::WasmHost;
 use uuid::Uuid;
 
-use crate::ApiError;
-
 use super::validation::validate_evaluate_request;
+use crate::ApiError;
 
 /// Service for evaluating authorization decisions
 ///
@@ -21,6 +21,7 @@ pub struct EvaluationService {
     store: Arc<dyn RelationshipStore>,
     schema: Arc<Schema>,
     wasm_host: Option<Arc<WasmHost>>,
+    cache: Option<Arc<AuthCache>>,
 }
 
 impl EvaluationService {
@@ -29,8 +30,9 @@ impl EvaluationService {
         store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
+        cache: Option<Arc<AuthCache>>,
     ) -> Self {
-        Self { store, schema, wasm_host }
+        Self { store, schema, wasm_host, cache }
     }
 
     /// Evaluates a single authorization request
@@ -62,10 +64,11 @@ impl EvaluationService {
         );
 
         // Create vault-scoped evaluator for proper multi-tenant isolation
-        let evaluator = Arc::new(Evaluator::new(
+        let evaluator = Arc::new(Evaluator::new_with_cache(
             Arc::clone(&self.store),
             Arc::clone(&self.schema),
             self.wasm_host.clone(),
+            self.cache.clone(),
             vault,
         ));
 
@@ -109,10 +112,11 @@ impl EvaluationService {
         );
 
         // Create vault-scoped evaluator
-        let evaluator = Arc::new(Evaluator::new(
+        let evaluator = Arc::new(Evaluator::new_with_cache(
             Arc::clone(&self.store),
             Arc::clone(&self.schema),
             self.wasm_host.clone(),
+            self.cache.clone(),
             vault,
         ));
 
@@ -195,10 +199,11 @@ impl EvaluationService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_core::ipl::{RelationDef, RelationExpr, TypeDef};
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
+
+    use super::*;
 
     async fn create_test_service() -> (EvaluationService, Uuid) {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
@@ -229,7 +234,7 @@ mod tests {
             .await
             .unwrap();
 
-        let service = EvaluationService::new(store, schema, None);
+        let service = EvaluationService::new(store, schema, None, None);
 
         (service, vault)
     }
@@ -357,7 +362,7 @@ mod tests {
             .await
             .unwrap();
 
-        let service = EvaluationService::new(store, schema, None);
+        let service = EvaluationService::new(store, schema, None, None);
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),

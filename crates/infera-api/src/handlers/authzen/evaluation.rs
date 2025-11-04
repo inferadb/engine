@@ -95,15 +95,6 @@ pub async fn post_evaluation(
         "Converted AuthZEN request to native format"
     );
 
-    // Create evaluator with correct vault for this request
-    use std::sync::Arc;
-    let evaluator = Arc::new(infera_core::Evaluator::new(
-        Arc::clone(&state.store) as Arc<dyn infera_store::RelationshipStore>,
-        Arc::clone(state.evaluator.schema()),
-        state.evaluator.wasm_host().cloned(),
-        vault,
-    ));
-
     // Create native evaluation request
     let native_request = EvaluateRequest {
         subject: subject.clone(),
@@ -113,9 +104,10 @@ pub async fn post_evaluation(
         trace: Some(false),
     };
 
-    // Perform evaluation using vault-scoped evaluator
-    let decision = evaluator
-        .check(native_request)
+    // Perform evaluation using evaluation service
+    let decision = state
+        .evaluation_service
+        .evaluate(vault, native_request)
         .await
         .map_err(|e| ApiError::Internal(format!("Evaluation failed: {}", e)))?;
 
@@ -255,15 +247,6 @@ pub async fn post_evaluations(
         )));
     }
 
-    // Create evaluator with correct vault for this request
-    use std::sync::Arc;
-    let evaluator = Arc::new(infera_core::Evaluator::new(
-        Arc::clone(&state.store) as Arc<dyn infera_store::RelationshipStore>,
-        Arc::clone(state.evaluator.schema()),
-        state.evaluator.wasm_host().cloned(),
-        vault,
-    ));
-
     tracing::info!(batch_size = batch_size, vault = %vault, "Processing AuthZEN batch evaluation request");
 
     // Process each evaluation in the batch
@@ -303,8 +286,8 @@ pub async fn post_evaluations(
             trace: Some(false),
         };
 
-        // Perform evaluation using vault-scoped evaluator
-        let decision_result = evaluator.check(native_request).await;
+        // Perform evaluation using evaluation service
+        let decision_result = state.evaluation_service.evaluate(vault, native_request).await;
 
         match decision_result {
             Ok(decision) => {
@@ -372,7 +355,6 @@ mod tests {
         routing::post,
     };
     use infera_config::Config;
-    use infera_core::Evaluator;
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
     use tower::ServiceExt;
@@ -401,14 +383,8 @@ mod tests {
 
         // Use a test vault ID
         let test_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            schema,
-            None,
-            test_vault,
-        ));
         let config = Arc::new(Config::default());
-        let health_tracker = Arc::new(crate::health::HealthTracker::new());
+        let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         // Add a test relationship: user:alice can view document:readme
         store
@@ -424,15 +400,15 @@ mod tests {
             .await
             .unwrap();
 
-        AppState {
-            evaluator,
+        AppState::new(
             store,
+            schema,
+            None, // No WASM host for tests
             config,
-            jwks_cache: None,
-            health_tracker,
-            default_vault: test_vault,
-            default_account: Uuid::nil(),
-        }
+            None, // No JWKS cache for tests
+            test_vault,
+            Uuid::nil(),
+        )
     }
 
     #[tokio::test]
