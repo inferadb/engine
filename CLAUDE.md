@@ -43,22 +43,23 @@ Layer 5 (Binary):      infera-bin
 ```
 
 **Critical Rules:**
+
 - Dependencies flow **downward only**
 - `infera-types` has **zero dependencies** on other internal crates
 - Types used by multiple layers belong in the **lowest common layer**
 
 ### Core Crates
 
-| Crate | Purpose | Key Features |
-|-------|---------|--------------|
-| **infera-types** | Shared types | Relationship, Vault, Account, Decision - zero deps |
-| **infera-config** | Configuration | YAML files, env vars, CLI args |
-| **infera-store** | Storage abstraction | MemoryBackend (dev), FoundationDBBackend (prod) |
-| **infera-cache** | Two-layer caching | Authorization + expand caches, vault-scoped |
-| **infera-core** | Policy evaluation | IPL parser, graph traversal, decision engine |
-| **infera-wasm** | WASM runtime | WebAssembly policy modules via wasmtime |
-| **infera-auth** | Authentication | JWT (EdDSA/RS256 only), OAuth 2.0, vault validation |
-| **infera-api** | API servers | REST (Axum) + gRPC (Tonic), service layer |
+| Crate             | Purpose             | Key Features                                        |
+| ----------------- | ------------------- | --------------------------------------------------- |
+| **infera-types**  | Shared types        | Relationship, Vault, Account, Decision - zero deps  |
+| **infera-config** | Configuration       | YAML files, env vars, CLI args                      |
+| **infera-store**  | Storage abstraction | MemoryBackend (dev), FoundationDBBackend (prod)     |
+| **infera-cache**  | Two-layer caching   | Authorization + expand caches, vault-scoped         |
+| **infera-core**   | Policy evaluation   | IPL parser, graph traversal, decision engine        |
+| **infera-wasm**   | WASM runtime        | WebAssembly policy modules via wasmtime             |
+| **infera-auth**   | Authentication      | JWT (EdDSA/RS256 only), OAuth 2.0, vault validation |
+| **infera-api**    | API servers         | REST (Axum) + gRPC (Tonic), service layer           |
 
 **📖 Detailed architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
@@ -114,12 +115,14 @@ state.relationship_service
 ## Authentication Security
 
 **Only asymmetric algorithms allowed:**
+
 - EdDSA (Ed25519)
 - RS256, RS384, RS512
 
 Symmetric algorithms (HS256, etc.) are **explicitly rejected**.
 
 **JWT Claims:**
+
 ```rust
 pub struct Claims {
     pub sub: String,       // subject
@@ -186,6 +189,7 @@ async fn test_vault_isolation() {
 ### Adding a New Type
 
 **If used by multiple crates:**
+
 1. Add to `infera-types/src/mytype.rs`
 2. Export from `infera-types/src/lib.rs`
 3. Re-export from original crate for compatibility
@@ -244,16 +248,19 @@ pub type Result<T> = std::result::Result<T, MyError>;
 ## Troubleshooting
 
 **Vault errors:**
+
 - Check `Relationship.vault` is set
 - Ensure `AuthContext` includes vault/account
 - Verify storage operations receive vault parameter
 
 **Auth errors:**
+
 - Verify asymmetric algorithm (EdDSA/RS256)
 - Check token includes vault/account claims
 - Ensure JWKS URL is accessible
 
 **Build errors:**
+
 - Run `cargo clean`
 - Check Rust version: `rustc --version` (need 1.83+)
 - Run `cargo update`
@@ -263,6 +270,7 @@ pub type Result<T> = std::result::Result<T, MyError>;
 ## CI/CD Pipeline
 
 **5 Workflows:**
+
 - `ci.yml` - Main CI (format, lint, build, test, coverage)
 - `security.yml` - Security audits (cargo-audit, cargo-deny)
 - `benchmark.yml` - Performance regression detection
@@ -286,15 +294,13 @@ cargo deny check
 
 ## Documentation Index
 
-| Document | Purpose |
-|----------|---------|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architectural patterns, service layer, handlers |
-| [docs/ERROR_HANDLING.md](docs/ERROR_HANDLING.md) | Error handling standards and patterns |
-| [docs/TYPE_ORGANIZATION.md](docs/TYPE_ORGANIZATION.md) | Type organization and centralization |
-| [docs/CI_CD.md](docs/CI_CD.md) | CI/CD pipeline, workflows, release process |
-| [MULTI_TENANCY.md](MULTI_TENANCY.md) | Multi-tenancy implementation status |
-| [SECURITY.md](SECURITY.md) | Security policy and procedures |
-| [.github/WORKFLOW_NAMING_GUIDE.md](.github/WORKFLOW_NAMING_GUIDE.md) | Workflow naming conventions |
+| Document                                               | Purpose                                         |
+| ------------------------------------------------------ | ----------------------------------------------- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)           | Architectural patterns, service layer, handlers |
+| [docs/ERROR_HANDLING.md](docs/ERROR_HANDLING.md)       | Error handling standards and patterns           |
+| [docs/TYPE_ORGANIZATION.md](docs/TYPE_ORGANIZATION.md) | Type organization and centralization            |
+| [docs/CI_CD.md](docs/CI_CD.md)                         | CI/CD pipeline, workflows, release process      |
+| [SECURITY.md](SECURITY.md)                             | Security policy and procedures                  |
 
 ---
 

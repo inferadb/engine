@@ -56,12 +56,14 @@ See `MULTI_TENANCY.md` for detailed phase tracking and implementation status.
 ### Validation Functions
 
 **Basic validation** (`infera-auth` crate):
+
 - Function: `validate_vault_access()`
 - Checks for nil vault UUID
 - Validates AuthContext structure
 - No storage dependencies (Layer 3)
 
 **Database verification** (`infera-api` crate):
+
 - Function: `vault_validation::validate_vault_access_with_store()`
 - Verifies vault exists in storage
 - Verifies account owns the vault
@@ -295,6 +297,7 @@ Ok(ProtocolResponse {
 REST API handlers are organized in `crates/infera-api/src/handlers/`:
 
 **Organization Principles:**
+
 - Organized by resource type (not HTTP method)
 - One file per operation
 - Naming convention: `{verb}_{resource}_handler`
@@ -345,6 +348,7 @@ crates/infera-api/src/handlers/
 gRPC handlers are organized in `crates/infera-api/src/grpc/`:
 
 **Organization Principles:**
+
 - Feature-based modules
 - Delegation pattern in `grpc/mod.rs`
 - Type safety with Pin<Box<dyn Stream>>
