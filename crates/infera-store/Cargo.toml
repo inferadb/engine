@@ -1,33 +1,33 @@
 [package]
-name = "infera-store"
-version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
-authors.workspace = true
+name = "infera-store"
+version.workspace = true
 
 [dependencies]
-tokio = { workspace = true }
-async-trait = { workspace = true }
-thiserror = { workspace = true }
 anyhow = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
-futures = { workspace = true }
 uuid = { workspace = true }
 
 # Storage backends
 foundationdb = { workspace = true, optional = true }
 
 # Internal dependencies
-infera-types = { path = "../infera-types" }
 infera-observe = { path = "../infera-observe" }
+infera-types = { path = "../infera-types" }
 
 [dev-dependencies]
-tokio-test = "0.4"
 criterion = { workspace = true }
-proptest = { workspace = true }
 infera-test-fixtures = { path = "../infera-test-fixtures" }
+proptest = { workspace = true }
+tokio-test = "0.4"
 
 [features]
 default = []

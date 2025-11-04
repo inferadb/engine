@@ -1,9 +1,9 @@
 [package]
-name = "infera-bin"
-version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
-authors.workspace = true
+name = "infera-bin"
+version.workspace = true
 
 [lib]
 name = "infera_bin"
@@ -14,23 +14,23 @@ name = "inferadb"
 path = "src/main.rs"
 
 [dependencies]
-tokio = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
-tracing = { workspace = true }
 moka = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
 uuid = { workspace = true }
 
 # Internal dependencies
+infera-api = { path = "../infera-api" }
 infera-auth = { path = "../infera-auth" }
+infera-cache = { path = "../infera-cache" }
+infera-config = { path = "../infera-config" }
 infera-core = { path = "../infera-core" }
+infera-observe = { path = "../infera-observe" }
 infera-store = { path = "../infera-store" }
 infera-types = { path = "../infera-types" }
 infera-wasm = { path = "../infera-wasm" }
-infera-api = { path = "../infera-api" }
-infera-config = { path = "../infera-config" }
-infera-observe = { path = "../infera-observe" }
-infera-cache = { path = "../infera-cache" }
 
 [dev-dependencies]
 futures = { workspace = true }

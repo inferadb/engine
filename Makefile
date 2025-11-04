@@ -50,7 +50,7 @@ test-integration: ## Run integration tests only
 check: ## Run all checks (fmt, clippy, test, audit)
 	@echo "🔍 Checking code and documentation formatting..."
 
-	@$(PRETTIER) --check "**/*.{md,yml,yaml,json}"|| true
+	@$(PRETTIER) --check "**/*.{md,yml,yaml,json}" --log-level warn || true
 	@echo "🔍 Checking TOML formatting (taplo)..."
 
 	@$(TAPLO) fmt --check
@@ -70,7 +70,7 @@ check: ## Run all checks (fmt, clippy, test, audit)
 
 fmt: ## Format code with Prettier, Taplo, and rustfmt
 	@echo "🎨 Formatting all files with Prettier..."
-	@$(PRETTIER) --write "**/*.{md,yml,yaml,json}"|| true
+	@$(PRETTIER) --write "**/*.{md,yml,yaml,json}" --log-level warn || true
 
 	@echo "🎨 Formatting TOML files with Taplo..."
 	@$(TAPLO) fmt

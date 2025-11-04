@@ -112,6 +112,9 @@ pub trait RelationshipStore: Send + Sync {
     /// Get the latest change log revision for a vault
     /// Returns Revision::zero() if no changes exist
     async fn get_change_log_revision(&self, vault: Uuid) -> Result<Revision>;
+
+    /// Downcast to Any for accessing concrete implementation methods
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[cfg(test)]

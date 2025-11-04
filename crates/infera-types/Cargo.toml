@@ -1,9 +1,9 @@
 [package]
-name = "infera-types"
-version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
-authors.workspace = true
+name = "infera-types"
+version.workspace = true
 
 [dependencies]
 chrono = { workspace = true }

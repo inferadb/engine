@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use infera_cache::AuthCache;
 use infera_core::{Evaluator, ipl::Schema};
 use infera_store::RelationshipStore;
 use infera_types::{ExpandRequest, ExpandResponse};
@@ -19,6 +20,7 @@ pub struct ExpansionService {
     store: Arc<dyn RelationshipStore>,
     schema: Arc<Schema>,
     wasm_host: Option<Arc<WasmHost>>,
+    cache: Option<Arc<AuthCache>>,
 }
 
 impl ExpansionService {
@@ -27,8 +29,9 @@ impl ExpansionService {
         store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
+        cache: Option<Arc<AuthCache>>,
     ) -> Self {
-        Self { store, schema, wasm_host }
+        Self { store, schema, wasm_host, cache }
     }
 
     /// Expands a relationship graph
@@ -73,22 +76,24 @@ impl ExpansionService {
         );
 
         // Create vault-scoped evaluator for proper multi-tenant isolation
-        let evaluator = Arc::new(Evaluator::new(
+        let evaluator = Arc::new(Evaluator::new_with_cache(
             Arc::clone(&self.store),
             Arc::clone(&self.schema),
             self.wasm_host.clone(),
+            self.cache.clone(),
             vault,
         ));
 
         // Execute expansion
-        let response = evaluator
-            .expand(request)
-            .await
-            .map_err(|e| ApiError::Internal(format!("Expansion failed: {}", e)))?;
+        let response = evaluator.expand(request.clone()).await.map_err(|e| {
+            tracing::error!("Expansion failed: {}", e);
+            ApiError::Internal(format!("Expansion failed: {}", e))
+        })?;
 
         tracing::debug!(
             user_count = response.users.len(),
             has_continuation_token = response.continuation_token.is_some(),
+            tree_nodes = ?response.tree,
             "Expansion completed"
         );
 
@@ -141,7 +146,7 @@ mod tests {
             .await
             .unwrap();
 
-        let service = ExpansionService::new(store, schema, None);
+        let service = ExpansionService::new(Arc::clone(&store), schema, None, None);
 
         (service, vault)
     }
@@ -258,7 +263,7 @@ mod tests {
             .await
             .unwrap();
 
-        let service = ExpansionService::new(store, schema, None);
+        let service = ExpansionService::new(store, schema, None, None);
 
         let request = ExpandRequest {
             resource: "document:readme".to_string(),

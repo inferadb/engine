@@ -772,6 +772,10 @@ impl RelationshipStore for MemoryBackend {
 
         Ok(vault_data.change_log.keys().last().copied().unwrap_or(Revision::zero()))
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 // Blanket implementation of InferaStore for MemoryBackend

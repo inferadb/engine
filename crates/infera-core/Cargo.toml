@@ -1,22 +1,22 @@
 [package]
-name = "infera-core"
-version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
-authors.workspace = true
+name = "infera-core"
+version.workspace = true
 
 [dependencies]
-tokio = { workspace = true }
-async-trait = { workspace = true }
-async-recursion = { workspace = true }
-thiserror = { workspace = true }
 anyhow = { workspace = true }
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+base64 = "0.22"
+futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
-futures = { workspace = true }
 uuid = { workspace = true }
-base64 = "0.22"
 
 # Parser options (choose one)
 pest = "2.7"
@@ -24,24 +24,24 @@ pest_derive = "2.7"
 # nom = "7.1"
 
 # Internal dependencies
-infera-types = { path = "../infera-types" }
-infera-const = { path = "../infera-const" }
-infera-store = { path = "../infera-store" }
-infera-wasm = { path = "../infera-wasm" }
-infera-observe = { path = "../infera-observe" }
 infera-cache = { path = "../infera-cache" }
+infera-const = { path = "../infera-const" }
+infera-observe = { path = "../infera-observe" }
+infera-store = { path = "../infera-store" }
+infera-types = { path = "../infera-types" }
+infera-wasm = { path = "../infera-wasm" }
 
 [dev-dependencies]
-tokio-test = "0.4"
-proptest = { workspace = true }
 criterion = { workspace = true }
-wat = "1.0"
 infera-test-fixtures = { path = "../infera-test-fixtures" }
+proptest = { workspace = true }
+tokio-test = "0.4"
+wat = "1.0"
 
 [[bench]]
+harness = false
 name = "ipl_parser"
-harness = false
 
 [[bench]]
-name = "evaluator"
 harness = false
+name = "evaluator"

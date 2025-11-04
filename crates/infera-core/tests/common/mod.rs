@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use infera_core::{Evaluator, ipl::Schema};
 use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{Decision, EvaluateRequest, Relationship};
+// Re-export for use in tests
+pub use infera_types::Relationship;
+use infera_types::{Decision, EvaluateRequest};
 use infera_wasm::WasmHost;
 use uuid::Uuid;
 
@@ -97,6 +99,12 @@ impl TestFixture {
     }
 }
 
-// Helper to create a relationship
-// Re-export centralized relationship helper
-// Note: Currently unused but kept for potential future test utilities
+/// Helper function to create a relationship with vault set to nil
+pub fn relationship(resource: &str, relation: &str, subject: &str) -> Relationship {
+    Relationship {
+        vault: Uuid::nil(),
+        resource: resource.to_string(),
+        relation: relation.to_string(),
+        subject: subject.to_string(),
+    }
+}

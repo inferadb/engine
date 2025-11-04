@@ -1,10 +1,10 @@
 //! Watch service - handles real-time change streaming
 
-use std::sync::Arc;
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use futures::Stream;
 use infera_store::RelationshipStore;
-use infera_types::ChangeEvent;
+use infera_types::{ChangeEvent, Revision};
 use uuid::Uuid;
 
 use crate::ApiError;
@@ -14,13 +14,13 @@ use crate::ApiError;
 /// This service handles the business logic for streaming relationship changes
 /// as they occur. It is protocol-agnostic and used by gRPC, REST, and AuthZEN handlers.
 pub struct WatchService {
-    _store: Arc<dyn RelationshipStore>,
+    store: Arc<dyn RelationshipStore>,
 }
 
 impl WatchService {
     /// Creates a new watch service
     pub fn new(store: Arc<dyn RelationshipStore>) -> Self {
-        Self { _store: store }
+        Self { store }
     }
 
     /// Watches for relationship changes in a vault
@@ -36,24 +36,65 @@ impl WatchService {
     /// # Errors
     /// Returns `ApiError::Internal` if the watch stream cannot be created
     ///
-    /// # Note
-    /// This is a placeholder implementation. The actual watch functionality needs to be
-    /// implemented at the storage layer (RelationshipStore/InferaStore).
+    /// # Implementation
+    /// This uses polling on the change log with a small delay between polls.
+    /// For production use, a push-based mechanism would be more efficient.
     #[tracing::instrument(skip(self), fields(vault = %vault))]
     pub async fn watch_changes(
         &self,
         vault: Uuid,
-        _cursor: Option<String>,
-        _resource_type: Option<String>,
-    ) -> Result<impl Stream<Item = Result<ChangeEvent, ApiError>>, ApiError> {
-        tracing::warn!(
-            "Watch functionality not yet implemented at storage layer for vault {}",
-            vault
-        );
+        cursor: Option<String>,
+        resource_type: Option<String>,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<ChangeEvent, ApiError>> + Send>>, ApiError> {
+        // Parse cursor or start from current revision
+        let start_revision =
+            if let Some(cursor_str) = cursor {
+                Revision(cursor_str.parse::<u64>().map_err(|_| {
+                    ApiError::InvalidRequest(format!("Invalid cursor: {}", cursor_str))
+                })?)
+            } else {
+                // Start from current revision
+                self.store.get_revision(vault).await.map_err(|e| {
+                    ApiError::Internal(format!("Failed to get current revision: {}", e))
+                })?
+            };
 
-        // Return an empty stream for now
-        // TODO: Implement watch at storage layer
-        Ok(futures::stream::empty())
+        let store = Arc::clone(&self.store);
+        let resource_types: Vec<String> = resource_type.into_iter().collect();
+
+        // Create a polling stream that checks for new changes
+        let stream = async_stream::stream! {
+            let mut current_revision = start_revision;
+
+            loop {
+                // Check for new changes since last revision
+                let changes_result = if let Some(infra_store) = store.as_any().downcast_ref::<infera_store::MemoryBackend>() {
+                    infra_store.read_changes(vault, current_revision, &resource_types, Some(100)).await
+                } else {
+                    // For other store types, we can't implement watch yet
+                    break;
+                };
+
+                match changes_result {
+                    Ok(changes) if !changes.is_empty() => {
+                        for change in changes {
+                            current_revision = Revision(current_revision.0.max(change.revision.0 + 1));
+                            yield Ok(change);
+                        }
+                    }
+                    Ok(_) => {
+                        // No new changes, wait before polling again
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                    Err(e) => {
+                        yield Err(ApiError::Internal(format!("Failed to read changes: {}", e)));
+                        break;
+                    }
+                }
+            }
+        };
+
+        Ok(Box::pin(stream))
     }
 }
 

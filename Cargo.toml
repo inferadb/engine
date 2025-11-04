@@ -1,59 +1,59 @@
 [workspace]
-resolver = "2"
 members = [
-  "crates/infera-types",
-  "crates/infera-const",
-  "crates/infera-core",
-  "crates/infera-store",
-  "crates/infera-wasm",
-  "crates/infera-repl",
   "crates/infera-api",
   "crates/infera-auth",
-  "crates/infera-cache",
-  "crates/infera-observe",
-  "crates/infera-config",
   "crates/infera-bin",
+  "crates/infera-cache",
+  "crates/infera-config",
+  "crates/infera-const",
+  "crates/infera-core",
+  "crates/infera-observe",
+  "crates/infera-repl",
+  "crates/infera-store",
   "crates/infera-test-fixtures",
+  "crates/infera-types",
+  "crates/infera-wasm",
 ]
+resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
-edition = "2021"
-license = "BSL-1.1"
 authors = ["InferaDB Project"]
-repository = "https://github.com/inferadb/server"
+edition = "2021"
 homepage = "https://inferadb.com"
+license = "BSL-1.1"
+repository = "https://github.com/inferadb/server"
+version = "0.1.0"
 
 [workspace.dependencies]
 # Core async runtime
-tokio = { version = "1.41", features = ["full"] }
-async-trait = "0.1"
 async-recursion = "1.0"
+async-trait = "0.1"
 futures = "0.3"
+tokio = { version = "1.41", features = ["full"] }
 
 # Error handling
-thiserror = "2.0"
 anyhow = "1.0"
+thiserror = "2.0"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Tracing and observability
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-tracing-opentelemetry = "0.27"
-opentelemetry = "0.26"
-opentelemetry-otlp = { version = "0.26", features = ["tonic", "tokio"] }
-opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
 metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
+opentelemetry = "0.26"
+opentelemetry-otlp = { version = "0.26", features = ["tokio", "tonic"] }
+opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
+tracing = "0.1"
+tracing-opentelemetry = "0.27"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Web frameworks
 axum = { version = "0.7", features = ["tokio"] }
 tonic = "0.12"
 tower = "0.5"
-tower-http = { version = "0.6", features = ["trace", "cors"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
 tower_governor = "0.4"
 
 # WASM runtime
@@ -66,32 +66,32 @@ foundationdb = "0.10"
 moka = { version = "0.12", features = ["future"] }
 
 # Configuration
-config = "0.14"
 clap = { version = "4.5", features = ["derive"] }
+config = "0.14"
 
 # Testing
-proptest = "1.6"
 criterion = { version = "0.5", features = ["async_tokio"] }
+proptest = "1.6"
 
 # Random number generation
 rand = "0.8"
 
 # Authentication
-jsonwebtoken = "9.3"
-ed25519-dalek = { version = "2.1", features = ["rand_core"] }
-rsa = "0.9"
-sha2 = "0.10"
-secrecy = "0.10"
-zeroize = "1.8"
-chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1.0", features = ["v4", "serde"] }
 base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+jsonwebtoken = "9.3"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+rsa = "0.9"
+secrecy = "0.10"
+sha2 = "0.10"
+uuid = { version = "1.0", features = ["serde", "v4"] }
+zeroize = "1.8"
 
 [profile.release]
-opt-level = 3
-lto = "thin"
 codegen-units = 1
+lto = "thin"
+opt-level = 3
 strip = true
 
 [profile.bench]

@@ -17,8 +17,8 @@ ignore = [
   # RSA timing attack - only affects test fixtures, not production code
   "RUSTSEC-2023-0071",
   # Unmaintained transitive dependencies from wasmtime
-  "RUSTSEC-2025-0057", # fxhash
   "RUSTSEC-2024-0436", # paste
+  "RUSTSEC-2025-0057", # fxhash
 ]
 
 [licenses]
@@ -28,80 +28,80 @@ version = 2
 private = { ignore = true }
 # Allow specific licenses
 allow = [
-  "MIT",
-  "Apache-2.0",
+  "0BSD",
   "Apache-2.0 WITH LLVM-exception",
+  "Apache-2.0",
   "BSD-2-Clause",
   "BSD-3-Clause",
-  "ISC",
-  "Unicode-DFS-2016",
-  "Unicode-3.0",
-  "OpenSSL",
-  "Zlib",
-  "0BSD",
-  "MPL-2.0",
   "CC0-1.0",
   "CDLA-Permissive-2.0",
+  "ISC",
   "LicenseRef-BSL-1.1",             # Custom license for workspace crates
+  "MIT",
+  "MPL-2.0",
+  "OpenSSL",
+  "Unicode-3.0",
+  "Unicode-DFS-2016",
+  "Zlib",
 ]
 # Confidence threshold for license detection
 confidence-threshold = 0.8
 
 # Clarify BSL-1.1 license for workspace crates
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-api"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-auth"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-bin"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-cache"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-config"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-core"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-observe"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-repl"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-store"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
+expression = "LicenseRef-BSL-1.1"
+license-files = []
 name = "infera-test-fixtures"
-expression = "LicenseRef-BSL-1.1"
-license-files = []
 
 [[licenses.clarify]]
-name = "infera-wasm"
 expression = "LicenseRef-BSL-1.1"
 license-files = []
+name = "infera-wasm"
 
 [bans]
 # Warn on multiple versions of the same crate

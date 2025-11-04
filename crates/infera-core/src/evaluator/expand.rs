@@ -45,6 +45,7 @@ impl Evaluator {
         } else {
             self.build_userset_tree_with_users(
                 &request.resource,
+                &request.relation,
                 relation_def.expr.as_ref().unwrap(),
                 &mut ctx,
             )
@@ -85,6 +86,7 @@ impl Evaluator {
     async fn build_userset_tree_with_users(
         &self,
         resource: &str,
+        relation: &str,
         expr: &crate::ipl::RelationExpr,
         ctx: &mut GraphContext,
     ) -> Result<UsersetTree> {
@@ -98,7 +100,7 @@ impl Evaluator {
                     Some(infera_cache::ExpandCacheKey::new(
                         self.vault,
                         resource.to_string(),
-                        "".to_string(), // "this" uses empty relation
+                        relation.to_string(),
                         ctx.revision,
                     ))
                 } else {
@@ -114,7 +116,7 @@ impl Evaluator {
                                 &*ctx.store,
                                 ctx.vault,
                                 resource,
-                                "",
+                                relation,
                                 ctx.revision,
                             )
                             .await?
@@ -124,16 +126,28 @@ impl Evaluator {
                             users
                         }
                     } else {
-                        get_users_with_relation(&*ctx.store, ctx.vault, resource, "", ctx.revision)
-                            .await?
-                            .into_iter()
-                            .collect()
-                    }
-                } else {
-                    get_users_with_relation(&*ctx.store, ctx.vault, resource, "", ctx.revision)
+                        get_users_with_relation(
+                            &*ctx.store,
+                            ctx.vault,
+                            resource,
+                            relation,
+                            ctx.revision,
+                        )
                         .await?
                         .into_iter()
                         .collect()
+                    }
+                } else {
+                    get_users_with_relation(
+                        &*ctx.store,
+                        ctx.vault,
+                        resource,
+                        relation,
+                        ctx.revision,
+                    )
+                    .await?
+                    .into_iter()
+                    .collect()
                 };
 
                 Ok(UsersetTree { node_type: UsersetNodeType::Leaf { users }, children: vec![] })
@@ -241,13 +255,15 @@ impl Evaluator {
 
             RelationExpr::Union(exprs) => {
                 // Parallelize union branch expansion
-                let children = self.expand_branches_parallel(resource, exprs, ctx).await?;
+                let children =
+                    self.expand_branches_parallel(resource, relation, exprs, ctx).await?;
                 Ok(UsersetTree { node_type: UsersetNodeType::Union, children })
             },
 
             RelationExpr::Intersection(exprs) => {
                 // Parallelize intersection branch expansion
-                let children = self.expand_branches_parallel(resource, exprs, ctx).await?;
+                let children =
+                    self.expand_branches_parallel(resource, relation, exprs, ctx).await?;
                 Ok(UsersetTree { node_type: UsersetNodeType::Intersection, children })
             },
 
@@ -256,6 +272,7 @@ impl Evaluator {
                 let children = self
                     .expand_branches_parallel(
                         resource,
+                        relation,
                         &[base.as_ref().clone(), subtract.as_ref().clone()],
                         ctx,
                     )
@@ -274,14 +291,14 @@ impl Evaluator {
                 )))
             },
 
-            RelationExpr::RelationRef { relation } => {
+            RelationExpr::RelationRef { relation: ref_relation } => {
                 // Relation reference - recursively expand the referenced relation
                 // Try cache first
                 let cache_key = if let Some(_cache) = &self.cache {
                     Some(infera_cache::ExpandCacheKey::new(
                         self.vault,
                         resource.to_string(),
-                        relation.clone(),
+                        ref_relation.clone(),
                         ctx.revision,
                     ))
                 } else {
@@ -310,8 +327,8 @@ impl Evaluator {
                     EvalError::Evaluation(format!("Type not found: {}", type_name))
                 })?;
 
-                let relation_def = type_def.find_relation(relation).ok_or_else(|| {
-                    EvalError::Evaluation(format!("Relation not found: {}", relation))
+                let relation_def = type_def.find_relation(ref_relation).ok_or_else(|| {
+                    EvalError::Evaluation(format!("Relation not found: {}", ref_relation))
                 })?;
 
                 // Clone the expression to avoid borrow checker issues
@@ -320,13 +337,14 @@ impl Evaluator {
                 // If the referenced relation has no expression, it's a direct relation
                 let tree = if let Some(expr) = expr_opt.as_ref() {
                     // Recursively expand the referenced relation's expression
-                    self.build_userset_tree_with_users(resource, expr, ctx).await?
+                    // Use the referenced relation name, not the current relation
+                    self.build_userset_tree_with_users(resource, ref_relation, expr, ctx).await?
                 } else {
                     let users: Vec<String> = get_users_with_relation(
                         &*ctx.store,
                         ctx.vault,
                         resource,
-                        relation,
+                        ref_relation,
                         ctx.revision,
                     )
                     .await?
@@ -361,6 +379,7 @@ impl Evaluator {
     async fn expand_branches_parallel(
         &self,
         resource: &str,
+        relation: &str,
         exprs: &[crate::ipl::RelationExpr],
         ctx: &GraphContext,
     ) -> Result<Vec<UsersetTree>> {
@@ -381,10 +400,12 @@ impl Evaluator {
                 branch_ctx.visited = ctx.visited.clone();
 
                 let resource = resource.to_string();
+                let relation = relation.to_string();
                 let expr = expr.clone();
 
                 async move {
-                    self.build_userset_tree_with_users(&resource, &expr, &mut branch_ctx).await
+                    self.build_userset_tree_with_users(&resource, &relation, &expr, &mut branch_ctx)
+                        .await
                 }
             })
             .collect();

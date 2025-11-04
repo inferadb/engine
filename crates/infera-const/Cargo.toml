@@ -1,9 +1,9 @@
 [package]
-name = "infera-const"
-version = "0.1.0"
-edition = "2021"
 authors = ["InferaDB Team"]
 description = "Shared constants for InferaDB"
+edition = "2021"
 license = "BSL-1.1"
+name = "infera-const"
+version = "0.1.0"
 
 [dependencies]

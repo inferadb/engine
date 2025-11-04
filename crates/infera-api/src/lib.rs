@@ -217,13 +217,14 @@ impl AppState {
             Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
             Arc::clone(&schema),
             wasm_host.clone(),
-            service_cache,
+            service_cache.clone(),
         ));
 
         let expansion_service = Arc::new(services::ExpansionService::new(
             Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
             Arc::clone(&schema),
             wasm_host.clone(),
+            service_cache,
         ));
 
         let watch_service = Arc::new(services::WatchService::new(

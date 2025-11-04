@@ -1,27 +1,27 @@
 [package]
-name = "infera-repl"
-version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
-authors.workspace = true
+name = "infera-repl"
+version.workspace = true
 
 [dependencies]
-tokio = { workspace = true }
 async-trait = { workspace = true }
-thiserror = { workspace = true }
+base64 = "0.21"
+futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
-futures = { workspace = true }
 uuid = { workspace = true }
-base64 = "0.21"
 
 # Internal dependencies
-infera-types = { path = "../infera-types" }
-infera-const = { path = "../infera-const" }
-infera-store = { path = "../infera-store" }
-infera-observe = { path = "../infera-observe" }
 infera-api = { path = "../infera-api" }
+infera-const = { path = "../infera-const" }
+infera-observe = { path = "../infera-observe" }
+infera-store = { path = "../infera-store" }
+infera-types = { path = "../infera-types" }
 
 # gRPC for replication
 tonic = { workspace = true }
