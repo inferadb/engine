@@ -66,7 +66,7 @@ mod tests {
 
     use infera_config::Config;
     use infera_const::scopes::{SCOPE_ADMIN, SCOPE_CHECK, SCOPE_WRITE};
-    use infera_core::{Evaluator, ipl::Schema};
+    use infera_core::ipl::Schema;
     use infera_store::MemoryBackend;
     use infera_types::Account;
 

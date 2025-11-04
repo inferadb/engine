@@ -11,7 +11,7 @@ use std::sync::Arc;
 use infera_api::AppState;
 use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_store::{MemoryBackend, RelationshipStore};
+use infera_store::MemoryBackend;
 use infera_types::{AuthContext, AuthMethod, Relationship};
 use uuid::Uuid;
 

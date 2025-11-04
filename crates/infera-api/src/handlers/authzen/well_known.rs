@@ -129,7 +129,6 @@ mod tests {
         http::{Request, StatusCode},
     };
     use infera_config::Config;
-    use infera_core::Evaluator;
     use infera_store::MemoryBackend;
     use tower::ServiceExt;
     use uuid::Uuid;

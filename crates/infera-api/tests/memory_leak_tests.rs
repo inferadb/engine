@@ -30,7 +30,7 @@ use std::{sync::Arc, time::Duration};
 use infera_api::AppState;
 use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_store::{MemoryBackend, RelationshipStore};
+use infera_store::MemoryBackend;
 use infera_types::{EvaluateRequest, ExpandRequest, Relationship};
 use uuid::Uuid;
 
@@ -383,14 +383,14 @@ async fn test_24h_authorization_stress() {
         iteration += 1;
 
         // Log progress every million iterations
-        if iteration % 1_000_000 == 0 {
+        if iteration.is_multiple_of(1_000_000) {
             let elapsed = start.elapsed();
             let rate = iteration as f64 / elapsed.as_secs_f64();
             eprintln!("Progress: {} iterations in {:?} ({:.0} ops/sec)", iteration, elapsed, rate);
         }
 
         // Brief sleep to prevent tight-looping
-        if iteration % 10_000 == 0 {
+        if iteration.is_multiple_of(10_000) {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
@@ -454,14 +454,14 @@ async fn test_24h_mixed_workload() {
         iteration += 1;
 
         // Log progress every million iterations
-        if iteration % 1_000_000 == 0 {
+        if iteration.is_multiple_of(1_000_000) {
             let elapsed = start.elapsed();
             let rate = iteration as f64 / elapsed.as_secs_f64();
             eprintln!("Progress: {} iterations in {:?} ({:.0} ops/sec)", iteration, elapsed, rate);
         }
 
         // Brief sleep to prevent tight-looping
-        if iteration % 10_000 == 0 {
+        if iteration.is_multiple_of(10_000) {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
