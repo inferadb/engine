@@ -1,132 +1,107 @@
-# Configuration for cargo-deny
-# https://embarkstudios.github.io/cargo-deny/
+# cargo-deny configuration for InferaDB
+# Documentation: https://embarkstudios.github.io/cargo-deny/
 
 [advisories]
-version = 2
-# The path where the advisory databases are cloned/fetched into
-db-path = "~/.cargo/advisory-db"
-# The url(s) of the advisory databases to use
-db-urls = ["https://github.com/rustsec/advisory-db"]
-# In version 2, all advisories default to 'deny' status
-# Deny yanked crates
-yanked = "deny"
-# Ignore specific advisories by ID
+# Deny crates with security vulnerabilities
+vulnerability = "deny"
+
+# Warn about unmaintained crates
+unmaintained = "warn"
+
+# Warn about crates with unsound code
+unsound = "warn"
+
+# Warn about yanked crates
+yanked = "warn"
+
+# Warn about security notices
+notice = "warn"
+
+# Ignore specific advisories (use sparingly, document why)
 ignore = [
-  # Wasmtime 27.0.0 vulnerability - will upgrade to 34.0.2+ later
-  "RUSTSEC-2025-0046",
-  # RSA timing attack - only affects test fixtures, not production code
-  "RUSTSEC-2023-0071",
-  # Unmaintained transitive dependencies from wasmtime
-  "RUSTSEC-2024-0436", # paste
-  "RUSTSEC-2025-0057", # fxhash
+  # Example: "RUSTSEC-2020-0056"  # False positive for our use case
 ]
 
 [licenses]
-version = 2
-# In version 2, all licenses are denied unless explicitly allowed
-# Ignore workspace crates (private, not published to crates.io)
-private = { ignore = true }
-# Allow specific licenses
+# Deny unlicensed crates
+unlicensed = "deny"
+
+# Allow only permissive licenses
 allow = [
   "0BSD",
-  "Apache-2.0 WITH LLVM-exception",
   "Apache-2.0",
   "BSD-2-Clause",
   "BSD-3-Clause",
-  "CC0-1.0",
-  "CDLA-Permissive-2.0",
   "ISC",
-  "LicenseRef-BSL-1.1",             # Custom license for workspace crates
   "MIT",
-  "MPL-2.0",
-  "OpenSSL",
-  "Unicode-3.0",
   "Unicode-DFS-2016",
   "Zlib",
 ]
+
+# Explicitly deny copyleft licenses
+deny = ["AGPL-3.0", "GPL-2.0", "GPL-3.0", "LGPL-2.0", "LGPL-2.1", "LGPL-3.0"]
+
+# Deny any copyleft licenses not explicitly listed
+copyleft = "deny"
+
+# Warn about allowing OSI-approved or FSF Free/Libre licenses
+# https://opensource.org/licenses/alphabetical
+allow-osi-fsf-free = "neither"
+
 # Confidence threshold for license detection
 confidence-threshold = 0.8
 
-# Clarify BSL-1.1 license for workspace crates
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-api"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-auth"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-bin"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-cache"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-config"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-core"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-observe"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-repl"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-store"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-test-fixtures"
-
-[[licenses.clarify]]
-expression = "LicenseRef-BSL-1.1"
-license-files = []
-name = "infera-wasm"
+# Clarifications for dual-licensed crates
+# [[licenses.clarify]]
+# name = "ring"
+# expression = "MIT AND ISC AND OpenSSL"
+# license-files = [
+#     { path = "LICENSE", hash = 0xbd0eed23 }
+# ]
 
 [bans]
-# Warn on multiple versions of the same crate
+# Warn about multiple versions of the same crate
 multiple-versions = "warn"
-# Deny wildcard dependencies, but allow them for workspace crates
-wildcards = "allow"
-# Deny specific crates
-deny = [
-  # Example: { name = "openssl", wrappers = ["openssl-sys"] },
-]
-# Skip certain crates from duplicate version checks
+
+# Warn about wildcard dependencies
+wildcards = "warn"
+
+# Allow certain crates to have multiple versions (minimize this list)
 skip = [
-  # Some crates commonly have multiple versions
+  # Example: Sometimes syn has multiple versions in the dependency tree
+  # { name = "syn", version = "1.0" }
 ]
-# Skip checking certain trees
-skip-tree = [
-  # Example: { name = "windows-sys", depth = 3 },
+
+# Deny specific crates (security/quality concerns)
+deny = [
+  # Ban old, insecure crypto libraries
+  { name = "openssl", wrappers = ["openssl-sys"] },
+
+  # Ban crates with known supply chain issues
+  # { name = "malicious-crate", reason = "Supply chain compromise" }
 ]
+
+# Allow certain dependencies to be used only in specific contexts
+# [[bans.features]]
+# name = "tokio"
+# deny = ["rt-multi-thread"]  # Example: deny specific features
 
 [sources]
 # Deny crates from unknown registries
 unknown-registry = "deny"
-# Deny crates from git
+
+# Deny crates from unknown git repositories
 unknown-git = "deny"
+
 # Allow only crates.io
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-# Allow git sources from specific organizations
-allow-git = []
+
+# Allow specific git sources (use sparingly)
+allow-git = [
+  # Example: git sources for unreleased fixes
+  # "https://github.com/rust-lang/cargo"
+]
+
+# [sources.allow-org]
+# # Allow all crates from specific GitHub orgs
+# github = ["rust-lang", "tokio-rs"]

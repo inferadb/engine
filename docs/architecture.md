@@ -1,361 +1,400 @@
-# Architecture Overview
+# InferaDB Architecture Patterns
 
-InferaDB is a high-performance authorization service that implements Relationship-Based Access Control (ReBAC) using a graph-based evaluation model.
+This document covers critical architectural patterns used throughout InferaDB.
 
-## System Architecture
+## Table of Contents
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         API Layer                            │
-│  ┌──────────────────┐              ┌──────────────────┐     │
-│  │   REST API       │              │    gRPC API      │     │
-│  │  (Axum/Tower)    │              │     (Tonic)      │     │
-│  └──────────────────┘              └──────────────────┘     │
-└────────────────┬────────────────────────────┬───────────────┘
-                 │                            │
-                 ▼                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Core Engine                              │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │              Policy Evaluator                       │     │
-│  │  • Graph Traversal  • Relation Evaluation          │     │
-│  │  • Cycle Detection  • Decision Tracing             │     │
-│  └────────────────────────────────────────────────────┘     │
-│                                                              │
-│  ┌────────────┐  ┌──────────────┐  ┌──────────────┐        │
-│  │ IPL Parser │  │ Query Planner │  │  WASM Host   │        │
-│  └────────────┘  └──────────────┘  └──────────────┘        │
-└────────┬────────────────┬──────────────────┬────────────────┘
-         │                │                  │
-         ▼                ▼                  ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Infrastructure Layer                       │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │   Cache     │  │    Store     │  │   Observe    │       │
-│  │   (Moka)    │  │  (Memory/    │  │ (Tracing/    │       │
-│  │             │  │   FDB)       │  │  Metrics)    │       │
-│  └─────────────┘  └──────────────┘  └──────────────┘       │
-└─────────────────────────────────────────────────────────────┘
-```
+- [Multi-Tenancy with Vaults](#multi-tenancy-with-vaults)
+- [Vault Isolation Enforcement](#vault-isolation-enforcement)
+- [Two-Layer Caching](#two-layer-caching)
+- [Service Layer Pattern](#service-layer-pattern)
+- [Handler Organization](#handler-organization)
 
-## Component Overview
+---
 
-### API Layer (`infera-api`)
+## Multi-Tenancy with Vaults
 
-The API layer provides external interfaces for authorization queries and tuple management.
+**Critical:** All data operations are scoped to a `Vault` (UUID). This provides complete tenant isolation.
 
-**REST API** (`src/lib.rs`):
+### Key Principles
 
-- `/check` - Check if a subject has permission
-- `/expand` - Expand a relation into its constituent relationships
-- `/write` - Write authorization tuples
-- Built with Axum web framework
-- JSON request/response format
+- Every `Relationship` has a `vault` field (UUID)
+- All storage operations require a `vault` parameter
+- JWT tokens include `vault` and `account` claims
+- `AuthContext` includes `vault` and `account` fields
+- Middleware validates vault access before allowing operations
 
-**gRPC API** (`src/grpc.rs`):
-
-- High-performance binary protocol
-- Same operations as REST API
-- Built with Tonic framework
-- Protocol Buffer definitions in `proto/infera.proto`
-
-### Core Engine (`infera-core`)
-
-The heart of InferaDB, responsible for policy evaluation and authorization decisions.
-
-**IPL Parser** (`src/ipl/`):
-
-- Parses IPL (Infera Policy Language) schemas
-- Uses Pest parser generator
-- Validates semantic correctness
-- Builds Abstract Syntax Tree (AST)
-
-**Policy Evaluator** (`src/evaluator.rs`):
-
-- Evaluates authorization checks
-- Implements graph traversal algorithms
-- Supports all relation types:
-    - Direct relations (`this`)
-    - Computed usersets (`viewer from parent`)
-    - Union, Intersection, Exclusion operations
-    - Tuple-to-userset relations
-    - WASM module invocations
-- Provides decision tracing for debugging
-
-**Query Optimizer** (`src/optimizer.rs`):
-
-- Analyzes relation definitions
-- Creates optimal query plans
-- Estimates query costs
-- Identifies parallelization opportunities
-- Suggests optimizations for expensive queries
-
-**Parallel Evaluator** (`src/parallel.rs`):
-
-- Executes relation branches in parallel
-- Manages concurrency limits
-- Implements early exit optimizations
-- Uses Tokio's async runtime
-
-### Storage Layer (`infera-store`)
-
-Manages tuple storage with revision tracking for snapshot consistency.
-
-**Tuple Store Trait** (`src/lib.rs`):
+### Storage Layer Pattern
 
 ```rust
-#[async_trait]
-pub trait TupleStore: Send + Sync {
-    async fn read(&self, key: &TupleKey, revision: Revision) -> Result<Vec<Tuple>>;
-    async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision>;
-    async fn get_revision(&self) -> Result<Revision>;
-}
+async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision>
+async fn read(&self, vault: Uuid, key: &RelationshipKey, revision: Revision) -> Result<Vec<Relationship>>
 ```
 
-**Memory Backend** (`src/memory.rs`):
+All storage operations **MUST** include the vault parameter as the first argument.
 
-- In-memory implementation for testing/development
-- BTreeMap-based indexing for fast lookups
-- Full revision history
-- Optimized for reads with RwLock
+### Authentication Flow
 
-**FoundationDB Backend** (`src/foundationdb.rs`):
+1. Extract JWT from request
+2. Validate token and extract `vault` + `account` claims
+3. Create `AuthContext` with vault/account
+4. Validate vault access (basic + database verification)
+5. Pass `AuthContext.vault` to all storage operations
 
-- Production-ready distributed storage (WIP)
-- ACID transactions
-- Horizontal scalability
+See `MULTI_TENANCY.md` for detailed phase tracking and implementation status.
 
-### Cache Layer (`infera-cache`)
+---
 
-Intelligent caching of authorization results with automatic invalidation.
+## Vault Isolation Enforcement
 
-**Features**:
+**Never** skip vault validation. All operations must:
 
-- LRU eviction with TTL expiration (Moka async cache)
-- Revision-based cache keys for correctness
-- Automatic invalidation on writes
-- Hit/miss rate tracking
-- Statistics reporting
+1. Extract vault from `AuthContext`
+2. Pass vault to storage layer
+3. Verify vault exists and account owns it (when using database verification)
 
-**Cache Key Design**:
+### Validation Functions
+
+**Basic validation** (`infera-auth` crate):
+- Function: `validate_vault_access()`
+- Checks for nil vault UUID
+- Validates AuthContext structure
+- No storage dependencies (Layer 3)
+
+**Database verification** (`infera-api` crate):
+- Function: `vault_validation::validate_vault_access_with_store()`
+- Verifies vault exists in storage
+- Verifies account owns the vault
+- Requires VaultStore dependency (Layer 4)
+
+### Implementation Files
+
+- `crates/infera-auth/src/middleware.rs` - Basic vault validation (no storage dependencies)
+- `crates/infera-api/src/vault_validation.rs` - Database-backed vault verification (requires VaultStore)
+
+### Example: Vault-Scoped Handler
 
 ```rust
-struct CheckCacheKey {
-    subject: String,
-    resource: String,
-    permission: String,
-    revision: u64,  // Ensures cache correctness
+#[tracing::instrument(skip(state))]
+pub async fn some_handler(
+    auth: infera_auth::extractor::OptionalAuth,
+    State(state): State<AppState>,
+    Json(request): Json<SomeRequest>,
+) -> Result<impl IntoResponse> {
+    // 1. Extract vault from auth context
+    let vault = get_vault(&auth.0, state.default_vault);
+
+    // 2. Authorize (scope checks, etc.)
+    require_scope(&auth.0, SCOPE_RELATIONSHIPS_WRITE)?;
+
+    // 3. Call service with vault parameter
+    let result = state.some_service
+        .do_operation(vault, request)
+        .await?;
+
+    Ok(Json(result))
 }
 ```
 
-### WASM Integration (`infera-wasm`)
+---
 
-Secure execution of custom policy logic using WebAssembly.
+## Two-Layer Caching
 
-**Sandbox** (`src/sandbox.rs`):
+InferaDB uses a sophisticated two-layer caching system to optimize authorization decisions and relationship expansions.
 
-- Wasmtime-based isolation
-- Configurable resource limits:
-    - Memory (default: 10MB)
-    - CPU (fuel-based: 1M instructions)
-    - Table elements
-- Host functions available to WASM modules
+### Cache Layers
 
-**Host Functions** (`src/host.rs`):
+1. **Authorization Cache**: Caches `(subject, resource, permission, revision) → Decision`
+2. **Expand Cache**: Caches relationship expansion trees `(resource, relation, revision) → subjects`
 
-- `log(ptr, len)` - Logging from WASM
-- Execution context passed at invocation
-- Safe memory access with bounds checking
+### Architecture
 
-### Replication (`infera-repl`)
+- Single `Arc<AuthCache>` instance stored in `AppState`
+- Shared across all services (EvaluationService, ResourceService, SubjectService, etc.)
+- Services pass cache as `Option<Arc<AuthCache>>` parameter to evaluators
+- Respects `config.cache.enabled` flag for easy disable in development/testing
 
-Consistency management and replication infrastructure.
+### Cache Properties
 
-**Revision Tokens** (`src/token.rs`):
+- **Vault-scoped**: Keys include vault UUID for complete tenant isolation
+- **Revision-aware**: Keys include revision to ensure consistency
+- **LRU eviction**: Uses `moka` async cache with configurable capacity
+- **TTL support**: Configurable time-to-live (default: 300 seconds)
+- **Statistics tracking**: Hit/miss rates, entry counts, invalidation counts
 
-- Zookie-style tokens for snapshot consistency
-- Vector clocks for causality tracking
-- Base64-encoded JSON serialization
-- Validation and causality checking
+### Cache Invalidation
 
-**Snapshot Reader** (`src/snapshot.rs`):
-
-- Read-at-specific-revision support
-- Blocking with timeout for unavailable revisions
-- Enables linearizable reads
-
-### Observability (`infera-observe`)
-
-Metrics, tracing, and logging infrastructure.
-
-**Features**:
-
-- OpenTelemetry integration
-- Prometheus metrics export
-- Structured logging with tracing
-- Request tracing across components
-
-## Data Model
-
-### Tuples
-
-Authorization relationships are represented as tuples:
+Cache invalidation is performed by `RelationshipService` after mutations:
 
 ```rust
-struct Tuple {
-    object: String,      // "document:readme"
-    relation: String,    // "viewer"
-    user: String,        // "user:alice"
+// In handlers/relationships/write.rs
+let revision = state.relationship_service
+    .write_relationships(vault, relationships.clone())
+    .await?;
+
+// Invalidate cache for affected resources
+let affected_resources: Vec<String> = relationships
+    .iter()
+    .map(|r| r.resource.clone())
+    .collect();
+
+state.relationship_service
+    .invalidate_cache_for_resources(&affected_resources)
+    .await;
+```
+
+### Invalidation Strategies
+
+1. **Selective Invalidation** (preferred): `invalidate_cache_for_resources(&[String])`
+    - Only invalidates entries for specific resources
+    - Efficient for targeted updates
+    - Uses secondary indexes for fast lookup
+
+2. **Vault-wide Invalidation**: `invalidate_cache_for_vault(Uuid)`
+    - Invalidates all entries for a specific vault
+    - Used when revision changes affect entire vault
+    - Maintains isolation between vaults
+
+### Handler Responsibilities
+
+Handlers **must** call invalidation after successful mutations:
+
+- `handlers/relationships/write.rs` - Invalidates after batch writes
+- `handlers/relationships/delete.rs` - Invalidates after single delete
+- `handlers/relationships/delete_bulk.rs` - Invalidates after bulk delete
+
+### Performance Considerations
+
+- Cache keys include revision, so writes naturally invalidate stale entries
+- Selective invalidation reduces re-evaluation overhead
+- Secondary indexes enable O(1) resource-based invalidation
+- Async cache operations don't block request threads
+
+---
+
+## Service Layer Pattern
+
+Services separate business logic from protocol adapters (gRPC/REST/AuthZEN).
+
+### Benefits
+
+- **Protocol Independence**: Business logic works with core types, not protocol-specific formats
+- **Vault Scoping**: Each service call receives a vault UUID for multi-tenant isolation
+- **Testability**: Services can be unit tested independently of protocols
+- **Code Reuse**: Same service methods used by gRPC, REST, and AuthZEN handlers
+
+### Available Services
+
+Located in `crates/infera-api/src/services/`:
+
+1. **EvaluationService** (`evaluation.rs`) - Authorization checks
+    - `evaluate(vault, request)` - Check if subject has permission on resource
+    - `evaluate_with_trace(vault, request)` - Evaluation with debug trace
+
+2. **ExpansionService** (`expansion.rs`) - Relationship graph expansion
+    - `expand(vault, request)` - Discover all subjects with permission on resource
+
+3. **RelationshipService** (`relationships.rs`) - Relationship management
+    - `write_relationships(vault, relationships)` - Create relationships
+    - `delete_relationships(vault, filter, limit)` - Delete by filter
+    - `list_relationships(vault, request)` - List with pagination
+
+4. **ResourceService** (`resources.rs`) - Resource discovery
+    - `list_resources(vault, request)` - List resources subject can access
+
+5. **SubjectService** (`subjects.rs`) - Subject discovery
+    - `list_subjects(vault, request)` - List subjects with access to resource
+
+6. **WatchService** (`watch.rs`) - Real-time change streaming
+    - `watch_changes(vault, cursor, resource_type)` - Stream relationship changes
+
+### Service Creation Pattern
+
+Services are created once during application startup in `AppState::new()`:
+
+```rust
+pub struct AppState {
+    pub store: Arc<dyn infera_store::InferaStore>,
+    pub config: Arc<Config>,
+    pub default_vault: Uuid,
+    pub default_account: Uuid,
+
+    // Services
+    pub evaluation_service: Arc<EvaluationService>,
+    pub expansion_service: Arc<ExpansionService>,
+    pub relationship_service: Arc<RelationshipService>,
+    pub resource_service: Arc<ResourceService>,
+    pub subject_service: Arc<SubjectService>,
+    pub watch_service: Arc<WatchService>,
+}
+
+impl AppState {
+    pub fn new(
+        store: Arc<dyn infera_store::InferaStore>,
+        schema: Arc<infera_core::ipl::Schema>,
+        wasm_host: Option<Arc<infera_wasm::WasmHost>>,
+        config: Arc<Config>,
+        default_vault: Uuid,
+        default_account: Uuid,
+    ) -> Self {
+        let store_rs = Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>;
+
+        Self {
+            evaluation_service: Arc::new(EvaluationService::new(
+                Arc::clone(&store_rs),
+                Arc::clone(&schema),
+                wasm_host.clone(),
+            )),
+            // ... other services
+            store,
+            config,
+            default_vault,
+            default_account,
+        }
+    }
 }
 ```
 
-### Schema (IPL)
+### Handler Pattern
 
-Policies are defined using IPL:
+All protocol handlers (gRPC, REST, AuthZEN) follow the same pattern:
 
-```ipl
-type document {
-    relation viewer
-    relation editor
-    relation owner
+```rust
+// 1. Extract vault from auth context
+let vault = authorize_request(
+    &auth.0,
+    state.default_vault,
+    state.config.auth.enabled,
+    &[SCOPE_CHECK],
+)?;
 
-    relation can_view = viewer | editor | owner
-    relation can_edit = editor | owner
-    relation can_delete = owner
+// 2. Convert protocol request to core types
+let core_request = EvaluateRequest {
+    subject: protocol_request.subject,
+    resource: protocol_request.resource,
+    permission: protocol_request.permission,
+};
+
+// 3. Call service with vault parameter
+let decision = state.evaluation_service
+    .evaluate(vault, core_request)
+    .await?;
+
+// 4. Convert service response back to protocol format
+Ok(ProtocolResponse {
+    decision: decision.to_string(),
+})
+```
+
+---
+
+## Handler Organization
+
+### REST Handlers
+
+REST API handlers are organized in `crates/infera-api/src/handlers/`:
+
+**Organization Principles:**
+- Organized by resource type (not HTTP method)
+- One file per operation
+- Naming convention: `{verb}_{resource}_handler`
+- All use `#[tracing::instrument(skip(state))]`
+- Shared utilities in `handlers::utils::auth`
+
+**Directory Structure:**
+
+```
+crates/infera-api/src/handlers/
+├── mod.rs                 # Module declarations
+├── utils/                 # Shared utilities
+│   └── auth.rs           # Authentication helpers
+├── evaluate/             # Evaluation endpoints
+│   └── stream.rs         # POST /v1/evaluate
+├── expand/               # Expand operations
+│   └── stream.rs         # POST /v1/expand
+├── relationships/        # Relationship management
+│   ├── get.rs            # GET /v1/relationships/:id
+│   ├── delete.rs         # DELETE /v1/relationships/:id
+│   ├── write.rs          # POST /v1/relationships/write
+│   ├── delete_bulk.rs    # POST /v1/relationships/delete
+│   └── list.rs           # POST /v1/relationships/list
+├── resources/            # Resource listing
+│   └── list.rs           # POST /v1/resources/list
+├── subjects/             # Subject listing
+│   └── list.rs           # POST /v1/subjects/list
+├── simulate/             # Ephemeral evaluation
+│   └── evaluate.rs       # POST /v1/simulate
+├── watch/                # Real-time change streaming
+│   └── stream.rs         # POST /v1/watch
+├── accounts/             # Account management
+│   ├── create.rs         # POST /v1/accounts
+│   ├── list.rs           # GET /v1/accounts
+│   ├── get.rs            # GET /v1/accounts/:id
+│   ├── update.rs         # PATCH /v1/accounts/:id
+│   └── delete.rs         # DELETE /v1/accounts/:id
+└── vaults/               # Vault management
+    ├── create.rs         # POST /v1/accounts/:account_id/vaults
+    ├── list.rs           # GET /v1/accounts/:account_id/vaults
+    ├── get.rs            # GET /v1/vaults/:id
+    ├── update.rs         # PATCH /v1/vaults/:id
+    └── delete.rs         # DELETE /v1/vaults/:id
+```
+
+### gRPC Handlers
+
+gRPC handlers are organized in `crates/infera-api/src/grpc/`:
+
+**Organization Principles:**
+- Feature-based modules
+- Delegation pattern in `grpc/mod.rs`
+- Type safety with Pin<Box<dyn Stream>>
+- Vault scoping via AuthContext in request extensions
+
+**Directory Structure:**
+
+```
+crates/infera-api/src/grpc/
+├── mod.rs                # Service trait implementation + delegation
+├── evaluate.rs           # Bidirectional streaming: evaluate
+├── expand.rs             # Server streaming: expand
+├── relationships.rs      # Client streaming: write/delete
+├── list.rs               # Server streaming: list operations
+├── watch.rs              # Server streaming: watch changes
+├── simulate.rs           # Unary RPC: simulate evaluation
+└── health.rs             # Unary RPC: health check
+```
+
+**Delegation Pattern:**
+
+```rust
+// grpc/mod.rs
+pub struct InferaServiceImpl {
+    state: AppState,
 }
 
-type folder {
-    relation viewer
-    relation parent: folder
+#[tonic::async_trait]
+impl InferaService for InferaServiceImpl {
+    async fn evaluate(
+        &self,
+        request: Request<tonic::Streaming<EvaluateRequest>>,
+    ) -> Result<Response<Self::EvaluateStream>, Status> {
+        // Delegate to submodule
+        evaluate::evaluate(self, request).await
+    }
 
-    relation can_view = viewer | viewer from parent
+    // ... other method delegations
 }
 ```
 
-## Request Flow
+---
 
-### Authorization Check
+## Related Documentation
 
-1. **Request arrives** at API layer (`/check` or `Check` RPC)
-2. **Cache lookup** - Check if result is cached at current revision
-3. **Query planning** - Optimizer analyzes relation and creates plan
-4. **Evaluation** - Evaluator traverses relationship graph:
-    - Lookup direct tuples in store
-    - Recursively evaluate computed relations
-    - Execute set operations (union/intersection/exclusion)
-    - Invoke WASM modules if needed
-5. **Cache result** - Store decision in cache with current revision
-6. **Return decision** - Allow or Deny with optional trace
+- [Multi-Tenancy Implementation](../MULTI_TENANCY.md)
+- [Service Layer Tests](../crates/infera-api/tests/)
+- [Handler Examples](../crates/infera-api/src/handlers/)
+- [gRPC Service Definition](../proto/infera/v1/service.proto)
 
-### Write Operation
+---
 
-1. **Request arrives** with tuples to write
-2. **Store writes** tuples and returns new revision
-3. **Cache invalidation** - Invalidate affected cache entries
-4. **Return revision** - Client receives new revision token
-
-## Performance Characteristics
-
-### Latency Targets
-
-- Simple checks (direct tuples): **<1ms**
-- Complex checks (nested relations): **<10ms**
-- Cache lookups: **<100μs**
-- Writes (in-memory): **<1ms**
-
-### Throughput
-
-- Target: **100k+ checks/second** per instance
-- Horizontal scaling via replication
-- Cache hit rates typically >80%
-
-### Resource Usage
-
-- Memory: Proportional to tuple count and cache size
-- CPU: Graph traversal and evaluation logic
-- I/O: Minimal for in-memory, depends on store for FDB
-
-## Concurrency Model
-
-InferaDB is built on Tokio's async runtime:
-
-- **Lock-free reads** where possible (RwLock for in-memory store)
-- **Parallel evaluation** for union/intersection branches
-- **Configurable concurrency** limits to prevent resource exhaustion
-- **Non-blocking I/O** for all async operations
-
-## Security Model
-
-### WASM Sandbox
-
-- Memory isolation per module execution
-- CPU limits via fuel metering
-- No file system or network access
-- Host functions are the only I/O mechanism
-
-### API Security
-
-- Authentication/authorization for API endpoints (planned)
-- Tenant isolation (planned)
-- Rate limiting (planned)
-
-## Deployment Topology
-
-### Single-Node
-
-```
-┌─────────────────┐
-│   InferaDB      │
-│  (All-in-one)   │
-│                 │
-│  • API          │
-│  • Evaluator    │
-│  • Memory Store │
-│  • Cache        │
-└─────────────────┘
-```
-
-### Multi-Region (Planned)
-
-```
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  Region A    │    │  Region B    │    │  Region C    │
-│              │◄──►│              │◄──►│              │
-│  InferaDB    │    │  InferaDB    │    │  InferaDB    │
-│  + FDB       │    │  + FDB       │    │  + FDB       │
-└──────────────┘    └──────────────┘    └──────────────┘
-       │                    │                    │
-       └────────────────────┴────────────────────┘
-                  Change Feed (NATS/Kafka)
-```
-
-## Design Principles
-
-1. **Performance First** - Sub-10ms latency for most operations
-2. **Correctness** - Revision-based consistency, no stale data
-3. **Scalability** - Horizontal scaling via replication
-4. **Flexibility** - WASM for custom logic, extensible via IPL
-5. **Observability** - Complete tracing and metrics
-6. **Safety** - Rust's type system, WASM sandboxing
-
-## Trade-offs
-
-### In-Memory Store
-
-- **Pro**: Extremely fast (<1ms operations)
-- **Con**: Limited by single-node memory, no persistence
-
-### FoundationDB Store
-
-- **Pro**: Distributed, durable, ACID transactions
-- **Con**: Higher latency (~5-10ms), operational complexity
-
-### Graph Evaluation
-
-- **Pro**: Expressive, supports complex authorization models
-- **Con**: Evaluation cost grows with graph depth
-
-### Caching
-
-- **Pro**: Massive performance improvement
-- **Con**: Memory usage, invalidation complexity
+Last updated: 2025-11-03

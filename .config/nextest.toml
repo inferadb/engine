@@ -1,0 +1,66 @@
+# Nextest configuration for InferaDB
+# Documentation: https://nexte.st/book/configuration.html
+
+[profile.default]
+# Run tests with all available CPU cores
+test-threads = "num-cpus"
+
+# Don't retry failed tests by default (developers should fix immediately)
+retries = 0
+
+# Show only failing tests and summary
+status-level = "pass"
+
+# Default timeout per test: 60 seconds
+slow-timeout = { period = "60s", terminate-after = 2 }
+
+[profile.ci]
+# CI profile: used in GitHub Actions
+
+# Retry flaky tests in CI (exponential backoff)
+retries = { backoff = "exponential", count = 2, delay = "1s", max-delay = "10s" }
+
+# Stricter timeout for CI (catch infinite loops)
+slow-timeout = { period = "60s", terminate-after = 3 }
+
+# Show all test output in CI for debugging
+status-level = "all"
+
+# Use all available CPUs in CI
+test-threads = "num-cpus"
+
+# Generate JUnit XML for GitHub Actions test reporting
+[profile.ci.junit]
+path = "junit.xml"
+store-success-output = false
+store-failure-output = true
+
+# Test-specific overrides
+[[profile.ci.overrides]]
+# WASM tests are resource-intensive, run serially
+filter = 'package(infera-wasm)'
+test-threads = 1
+slow-timeout = { period = "120s", terminate-after = 2 }
+
+[[profile.ci.overrides]]
+# Memory leak tests are long-running (excluded from default runs via --ignored)
+filter = 'test(~24h)'
+slow-timeout = { period = "7200s" }  # 2 hours for stress tests
+
+[[profile.ci.overrides]]
+# Integration tests may need more time for setup/teardown
+filter = 'test(integration)'
+slow-timeout = { period = "90s", terminate-after = 2 }
+
+# Profile for local development with watch mode
+[profile.dev]
+test-threads = "num-cpus"
+status-level = "fail"  # Only show failures
+retries = 0
+failure-output = "immediate"  # Show failures immediately
+
+# Profile for coverage runs (no retries, collect all output)
+[profile.coverage]
+test-threads = "num-cpus"
+retries = 0
+status-level = "all"

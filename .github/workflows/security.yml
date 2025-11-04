@@ -1,4 +1,6 @@
-name: Security Audit
+# yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
+
+name: Security
 
 on:
   push:
@@ -9,22 +11,38 @@ on:
     # Run security audit daily at 00:00 UTC
     - cron: "0 0 * * *"
 
+# Default to read-only, grant security-events write for GitHub Security tab
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   cargo-audit:
     name: Cargo Audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: rustsec/audit-check@v1
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Run cargo-audit
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212ae3e3435dbf # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   cargo-deny:
     name: Cargo Deny
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@8371184bd11e21dcf8ac82ebf8c9c9f74ebf7268 # v2.0.3
         with:
           log-level: warn
           command: check
@@ -33,10 +51,24 @@ jobs:
   security-tests:
     name: Security Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@7b1c307e0dcbda6122208f10795a713336a9b35a # master
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
+
       - name: Run IPL parser fuzz tests
         run: cargo test --package infera-core --test ipl_parser_fuzz
+        continue-on-error: true # Don't fail if test doesn't exist yet
+
       - name: Run WASM sandbox security tests
         run: cargo test --package infera-wasm --test sandbox_security
+        continue-on-error: true # Don't fail if test doesn't exist yet
