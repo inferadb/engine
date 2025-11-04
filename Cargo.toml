@@ -50,7 +50,7 @@ tracing-opentelemetry = "0.27"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Web frameworks
-axum = { version = "0.7", features = ["tokio"] }
+axum = { version = "0.8", features = ["tokio"] }
 tonic = "0.12"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace"] }
