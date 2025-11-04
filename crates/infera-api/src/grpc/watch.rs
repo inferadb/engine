@@ -1,12 +1,15 @@
+//! gRPC watch handler - protocol adapter for watch functionality
+//!
+//! TODO: Move the watch polling logic to WatchService once watch is fully
+//! implemented at the storage layer. Currently this is a direct adapter over
+//! the store's read_changes method.
+
 use std::sync::Arc;
 
-use infera_types::Revision;
+use infera_types::{AuthContext, Revision};
 use tonic::{Request, Response, Status};
 
-use super::{
-    InferaServiceImpl, get_vault,
-    proto::{ChangeOperation, WatchRequest, WatchResponse},
-};
+use super::{InferaServiceImpl, proto::{ChangeOperation, WatchRequest, WatchResponse}};
 
 pub async fn watch(
     service: &InferaServiceImpl,
@@ -19,6 +22,13 @@ pub async fn watch(
     >,
     Status,
 > {
+    // Extract vault from request extensions (set by auth middleware)
+    let vault = request
+        .extensions()
+        .get::<AuthContext>()
+        .map(|ctx| ctx.vault)
+        .unwrap_or(service.state.default_vault);
+
     let req = request.into_inner();
     let store = Arc::clone(&service.state.store) as Arc<dyn infera_store::RelationshipStore>;
 
@@ -42,7 +52,7 @@ pub async fn watch(
     } else {
         // Start from current revision (won't get historical events)
         store
-            .get_change_log_revision(get_vault())
+            .get_change_log_revision(vault)
             .await
             .map_err(|e| Status::internal(format!("Failed to get current revision: {}", e)))?
     };
@@ -55,7 +65,7 @@ pub async fn watch(
 
         loop {
             // Read changes from the change log
-            match store.read_changes(get_vault(), last_revision, &resource_types, Some(100)).await {
+            match store.read_changes(vault, last_revision, &resource_types, Some(100)).await {
                 Ok(events) => {
                     for event in &events {
                         // Convert ChangeEvent to WatchResponse

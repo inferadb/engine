@@ -41,6 +41,7 @@ infera-core = { path = "../infera-core" }
 infera-store = { path = "../infera-store" }
 infera-config = { path = "../infera-config" }
 infera-observe = { path = "../infera-observe" }
+infera-wasm = { path = "../infera-wasm" }
 
 [build-dependencies]
 tonic-build = "0.12"

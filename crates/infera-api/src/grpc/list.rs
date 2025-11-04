@@ -1,5 +1,7 @@
+//! gRPC list handlers - thin protocol adapters over service layer
+
 use infera_types::{
-    ListRelationshipsRequest as CoreListRelationshipsRequest,
+    AuthContext, ListRelationshipsRequest as CoreListRelationshipsRequest,
     ListResourcesRequest as CoreListResourcesRequest,
     ListSubjectsRequest as CoreListSubjectsRequest,
 };
@@ -13,6 +15,10 @@ use super::{
     },
 };
 
+/// Handles list resources requests
+///
+/// This is a thin protocol adapter that converts between gRPC proto format
+/// and calls the ResourceService for business logic.
 pub async fn list_resources(
     service: &InferaServiceImpl,
     request: Request<ListResourcesRequest>,
@@ -24,19 +30,16 @@ pub async fn list_resources(
     >,
     Status,
 > {
+    // Extract vault from request extensions (set by auth middleware)
+    let vault = request
+        .extensions()
+        .get::<AuthContext>()
+        .map(|ctx| ctx.vault)
+        .unwrap_or(service.state.default_vault);
+
     let req = request.into_inner();
 
-    // Validate request
-    if req.subject.is_empty() {
-        return Err(Status::invalid_argument("Subject cannot be empty"));
-    }
-    if req.resource_type.is_empty() {
-        return Err(Status::invalid_argument("Resource type cannot be empty"));
-    }
-    if req.permission.is_empty() {
-        return Err(Status::invalid_argument("Permission cannot be empty"));
-    }
-
+    // Convert proto to core type
     let list_request = CoreListResourcesRequest {
         subject: req.subject,
         resource_type: req.resource_type,
@@ -46,13 +49,13 @@ pub async fn list_resources(
         resource_id_pattern: req.resource_id_pattern,
     };
 
-    // Execute list
+    // Execute list using resource service
     let response = service
         .state
-        .evaluator
-        .list_resources(list_request)
+        .resource_service
+        .list_resources(vault, list_request)
         .await
-        .map_err(|e| Status::internal(format!("List failed: {}", e)))?;
+        .map_err(|e| Status::internal(e.to_string()))?;
 
     // Create stream of resources
     let resources = response.resources;
@@ -74,6 +77,10 @@ pub async fn list_resources(
     Ok(Response::new(Box::pin(stream)))
 }
 
+/// Handles list relationships requests
+///
+/// This is a thin protocol adapter that converts between gRPC proto format
+/// and calls the RelationshipService for business logic.
 pub async fn list_relationships(
     service: &InferaServiceImpl,
     request: Request<ListRelationshipsRequest>,
@@ -89,9 +96,16 @@ pub async fn list_relationships(
     >,
     Status,
 > {
+    // Extract vault from request extensions (set by auth middleware)
+    let vault = request
+        .extensions()
+        .get::<AuthContext>()
+        .map(|ctx| ctx.vault)
+        .unwrap_or(service.state.default_vault);
+
     let req = request.into_inner();
 
-    // Build core request (all filters are optional)
+    // Convert proto to core type (all filters are optional)
     let list_request = CoreListRelationshipsRequest {
         resource: req.resource,
         relation: req.relation,
@@ -100,13 +114,13 @@ pub async fn list_relationships(
         cursor: req.cursor,
     };
 
-    // Execute list
+    // Execute list using relationship service
     let response = service
         .state
-        .evaluator
-        .list_relationships(list_request)
+        .relationship_service
+        .list_relationships(vault, list_request)
         .await
-        .map_err(|e| Status::internal(format!("List relationships failed: {}", e)))?;
+        .map_err(|e| Status::internal(e.to_string()))?;
 
     // Create stream of relationships
     let relationships = response.relationships;
@@ -138,6 +152,10 @@ pub async fn list_relationships(
     Ok(Response::new(Box::pin(stream)))
 }
 
+/// Handles list subjects requests
+///
+/// This is a thin protocol adapter that converts between gRPC proto format
+/// and calls the SubjectService for business logic.
 pub async fn list_subjects(
     service: &InferaServiceImpl,
     request: Request<ListSubjectsRequest>,
@@ -149,9 +167,16 @@ pub async fn list_subjects(
     >,
     Status,
 > {
+    // Extract vault from request extensions (set by auth middleware)
+    let vault = request
+        .extensions()
+        .get::<AuthContext>()
+        .map(|ctx| ctx.vault)
+        .unwrap_or(service.state.default_vault);
+
     let req = request.into_inner();
 
-    // Build core request
+    // Convert proto to core type
     let list_request = CoreListSubjectsRequest {
         resource: req.resource,
         relation: req.relation,
@@ -160,13 +185,13 @@ pub async fn list_subjects(
         cursor: req.cursor,
     };
 
-    // Execute list
+    // Execute list using subject service
     let response = service
         .state
-        .evaluator
-        .list_subjects(list_request)
+        .subject_service
+        .list_subjects(vault, list_request)
         .await
-        .map_err(|e| Status::internal(format!("List subjects failed: {}", e)))?;
+        .map_err(|e| Status::internal(e.to_string()))?;
 
     // Create stream of subjects
     let subjects = response.subjects;

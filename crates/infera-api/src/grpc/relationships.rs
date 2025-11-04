@@ -1,16 +1,29 @@
-use infera_types::{DeleteFilter as CoreDeleteFilter, Relationship, RelationshipKey, Revision};
+//! gRPC relationship handlers - thin protocol adapters over RelationshipService
+
+use infera_types::{AuthContext, DeleteFilter as CoreDeleteFilter, Relationship, Revision};
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferaServiceImpl, get_vault,
+    InferaServiceImpl,
     proto::{DeleteRequest, DeleteResponse, WriteRequest, WriteResponse},
 };
 
+/// Handles client streaming write requests for relationships
+///
+/// This is a thin protocol adapter that converts between gRPC proto format
+/// and calls the RelationshipService for business logic.
 pub async fn write_relationships(
     service: &InferaServiceImpl,
     request: Request<tonic::Streaming<WriteRequest>>,
 ) -> Result<Response<WriteResponse>, Status> {
     use futures::StreamExt;
+
+    // Extract vault from request extensions (set by auth middleware)
+    let vault = request
+        .extensions()
+        .get::<AuthContext>()
+        .map(|ctx| ctx.vault)
+        .unwrap_or(service.state.default_vault);
 
     let mut stream = request.into_inner();
     let mut all_relationships = Vec::new();
@@ -20,7 +33,7 @@ pub async fn write_relationships(
         let write_req = write_req?;
         for relationship in write_req.relationships {
             all_relationships.push(Relationship {
-                vault: get_vault(),
+                vault,
                 resource: relationship.resource,
                 relation: relationship.relation,
                 subject: relationship.subject,
@@ -28,46 +41,13 @@ pub async fn write_relationships(
         }
     }
 
-    if all_relationships.is_empty() {
-        return Err(Status::invalid_argument("No relationships provided"));
-    }
-
-    // Validate relationship format
-    for relationship in &all_relationships {
-        if relationship.resource.is_empty() {
-            return Err(Status::invalid_argument("Relationship resource cannot be empty"));
-        }
-        if relationship.relation.is_empty() {
-            return Err(Status::invalid_argument("Relationship relation cannot be empty"));
-        }
-        if relationship.subject.is_empty() {
-            return Err(Status::invalid_argument("Relationship subject cannot be empty"));
-        }
-        if !relationship.resource.contains(':') {
-            return Err(Status::invalid_argument(format!(
-                "Invalid object format '{}': must be 'type:id'",
-                relationship.resource
-            )));
-        }
-        if !relationship.subject.contains(':') {
-            return Err(Status::invalid_argument(format!(
-                "Invalid user format '{}': must be 'type:id'",
-                relationship.subject
-            )));
-        }
-        // Validate wildcard placement (wildcards only allowed in subject position as "type:*")
-        if let Err(err) = relationship.validate_wildcard_placement() {
-            return Err(Status::invalid_argument(err));
-        }
-    }
-
-    // Write all relationships in a batch
+    // Write using relationship service (handles validation)
     let revision = service
         .state
-        .store
-        .write(get_vault(), all_relationships.clone())
+        .relationship_service
+        .write_relationships(vault, all_relationships.clone())
         .await
-        .map_err(|e| Status::internal(format!("Write failed: {}", e)))?;
+        .map_err(|e| Status::internal(e.to_string()))?;
 
     Ok(Response::new(WriteResponse {
         revision: revision.0.to_string(),
@@ -75,11 +55,22 @@ pub async fn write_relationships(
     }))
 }
 
+/// Handles client streaming delete requests for relationships
+///
+/// This is a thin protocol adapter that converts between gRPC proto format
+/// and calls the RelationshipService for business logic.
 pub async fn delete_relationships(
     service: &InferaServiceImpl,
     request: Request<tonic::Streaming<DeleteRequest>>,
 ) -> Result<Response<DeleteResponse>, Status> {
     use futures::StreamExt;
+
+    // Extract vault from request extensions (set by auth middleware)
+    let vault = request
+        .extensions()
+        .get::<AuthContext>()
+        .map(|ctx| ctx.vault)
+        .unwrap_or(service.state.default_vault);
 
     let mut stream = request.into_inner();
     let mut all_filters = Vec::new();
@@ -125,13 +116,6 @@ pub async fn delete_relationships(
             subject: proto_filter.subject,
         };
 
-        // Validate filter is not empty
-        if filter.is_empty() {
-            return Err(Status::invalid_argument(
-                "Filter must have at least one field set to avoid deleting all relationships",
-            ));
-        }
-
         // Apply default limit of 1000 if not specified, 0 means unlimited
         let limit = match limit_override.flatten() {
             Some(0) => None,             // 0 means unlimited
@@ -139,45 +123,37 @@ pub async fn delete_relationships(
             None => Some(1000),          // Default limit
         };
 
-        // Perform batch deletion
-        let (revision, count) = service
+        // Delete using relationship service (handles validation)
+        let response = service
             .state
-            .store
-            .delete_by_filter(get_vault(), &filter, limit)
+            .relationship_service
+            .delete_relationships(vault, filter, limit)
             .await
-            .map_err(|e| Status::internal(format!("Failed to delete by filter: {}", e)))?;
+            .map_err(|e| Status::internal(e.to_string()))?;
 
-        last_revision = revision;
-        total_deleted += count;
+        last_revision = response.revision;
+        total_deleted += response.relationships_deleted;
     }
 
-    // Handle exact relationship deletion
+    // Handle exact relationship deletion by converting to exact filters
     for relationship in all_relationships {
-        // Validate relationship format
-        if relationship.resource.is_empty() {
-            return Err(Status::invalid_argument("Resource cannot be empty"));
-        }
-        if relationship.relation.is_empty() {
-            return Err(Status::invalid_argument("Relation cannot be empty"));
-        }
-        if relationship.subject.is_empty() {
-            return Err(Status::invalid_argument("Subject cannot be empty"));
-        }
-
-        let key = RelationshipKey {
-            resource: relationship.resource,
-            relation: relationship.relation,
+        // Create exact filter for this relationship (all three fields specified)
+        let filter = CoreDeleteFilter {
+            resource: Some(relationship.resource),
+            relation: Some(relationship.relation),
             subject: Some(relationship.subject),
         };
 
-        last_revision = service
+        // Delete using relationship service (limit 1 for exact match)
+        let response = service
             .state
-            .store
-            .delete(get_vault(), &key)
+            .relationship_service
+            .delete_relationships(vault, filter, Some(1))
             .await
-            .map_err(|e| Status::internal(format!("Failed to delete relationship: {}", e)))?;
+            .map_err(|e| Status::internal(e.to_string()))?;
 
-        total_deleted += 1;
+        last_revision = response.revision;
+        total_deleted += response.relationships_deleted;
     }
 
     Ok(Response::new(DeleteResponse {

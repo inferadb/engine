@@ -1,5 +1,7 @@
+//! gRPC evaluate handler - thin protocol adapter over EvaluationService
+
 use infera_core::DecisionTrace;
-use infera_types::{Decision, EvaluateRequest as CoreEvaluateRequest};
+use infera_types::{AuthContext, Decision, EvaluateRequest as CoreEvaluateRequest};
 use tonic::{Request, Response, Status};
 
 use super::{
@@ -7,6 +9,10 @@ use super::{
     proto::{Decision as ProtoDecision, EvaluateRequest, EvaluateResponse},
 };
 
+/// Handles bidirectional streaming evaluation requests
+///
+/// This is a thin protocol adapter that converts between gRPC proto format
+/// and calls the EvaluationService for business logic.
 pub async fn evaluate(
     service: &InferaServiceImpl,
     request: Request<tonic::Streaming<EvaluateRequest>>,
@@ -20,8 +26,15 @@ pub async fn evaluate(
 > {
     use futures::StreamExt;
 
+    // Extract vault from request extensions (set by auth middleware)
+    let vault = request
+        .extensions()
+        .get::<AuthContext>()
+        .map(|ctx| ctx.vault)
+        .unwrap_or(service.state.default_vault);
+
     let mut stream = request.into_inner();
-    let evaluator = service.state.evaluator.clone();
+    let evaluation_service = service.state.evaluation_service.clone();
 
     // Process each check request in the stream
     let output_stream = async_stream::stream! {
@@ -29,20 +42,7 @@ pub async fn evaluate(
         while let Some(check_req) = stream.next().await {
             match check_req {
                 Ok(req) => {
-                    // Validate request
-                    if req.subject.is_empty() {
-                        yield Err(Status::invalid_argument("Subject cannot be empty"));
-                        continue;
-                    }
-                    if req.resource.is_empty() {
-                        yield Err(Status::invalid_argument("Resource cannot be empty"));
-                        continue;
-                    }
-                    if req.permission.is_empty() {
-                        yield Err(Status::invalid_argument("Permission cannot be empty"));
-                        continue;
-                    }
-
+                    // Convert proto to core type
                     let evaluate_request = CoreEvaluateRequest {
                         subject: req.subject.clone(),
                         resource: req.resource.clone(),
@@ -52,11 +52,11 @@ pub async fn evaluate(
                     };
 
                     // Check if trace is requested
-                    let trace = req.trace.unwrap_or(false);
+                    let trace_requested = req.trace.unwrap_or(false);
 
-                    if trace {
-                        // Use check_with_trace for detailed evaluation trace
-                        match evaluator.check_with_trace(evaluate_request).await {
+                    if trace_requested {
+                        // Use evaluation service with trace
+                        match evaluation_service.evaluate_with_trace(vault, evaluate_request).await {
                             Ok(trace_result) => {
                                 let proto_decision = match trace_result.decision {
                                     Decision::Allow => ProtoDecision::Allow,
@@ -73,17 +73,18 @@ pub async fn evaluate(
                                 });
                             }
                             Err(e) => {
+                                // Return validation/evaluation errors in response
                                 yield Ok(EvaluateResponse {
                                     decision: ProtoDecision::Deny as i32,
                                     index,
-                                    error: Some(format!("Evaluation error: {}", e)),
+                                    error: Some(e.to_string()),
                                     trace: None,
                                 });
                             }
                         }
                     } else {
                         // Regular evaluation without trace
-                        match evaluator.check(evaluate_request).await {
+                        match evaluation_service.evaluate(vault, evaluate_request).await {
                             Ok(decision) => {
                                 let proto_decision = match decision {
                                     Decision::Allow => ProtoDecision::Allow,
@@ -98,11 +99,11 @@ pub async fn evaluate(
                                 });
                             }
                             Err(e) => {
-                                // Return error in response rather than failing the stream
+                                // Return validation/evaluation errors in response
                                 yield Ok(EvaluateResponse {
                                     decision: ProtoDecision::Deny as i32,
                                     index,
-                                    error: Some(format!("Evaluation error: {}", e)),
+                                    error: Some(e.to_string()),
                                     trace: None,
                                 });
                             }
@@ -122,7 +123,7 @@ pub async fn evaluate(
     Ok(Response::new(Box::pin(output_stream)))
 }
 
-// Helper function to convert DecisionTrace to proto
+/// Helper function to convert DecisionTrace to proto format
 fn convert_trace_to_proto(trace: DecisionTrace) -> super::proto::DecisionTrace {
     use infera_core::{EvaluationNode, NodeType as CoreNodeType};
 

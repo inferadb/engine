@@ -12,7 +12,6 @@ use axum::{
 };
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
-use infera_core::Evaluator;
 use serde::Serialize;
 use thiserror::Error;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
@@ -27,6 +26,7 @@ pub mod grpc_interceptor;
 pub mod handlers;
 pub mod health;
 pub mod routes;
+pub mod services;
 pub mod validation;
 pub mod vault_validation;
 
@@ -141,7 +141,6 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 /// Application state
 #[derive(Clone)]
 pub struct AppState {
-    pub evaluator: Arc<Evaluator>,
     pub store: Arc<dyn infera_store::InferaStore>,
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
@@ -150,6 +149,81 @@ pub struct AppState {
     pub default_vault: Uuid,
     /// Default account ID used when authentication is disabled
     pub default_account: Uuid,
+
+    // Service layer (protocol-agnostic business logic)
+    pub evaluation_service: Arc<services::EvaluationService>,
+    pub resource_service: Arc<services::ResourceService>,
+    pub subject_service: Arc<services::SubjectService>,
+    pub relationship_service: Arc<services::RelationshipService>,
+    pub expansion_service: Arc<services::ExpansionService>,
+    pub watch_service: Arc<services::WatchService>,
+}
+
+impl AppState {
+    /// Creates a new AppState with services
+    ///
+    /// This is a convenience constructor that creates all services from the provided components.
+    pub fn new(
+        store: Arc<dyn infera_store::InferaStore>,
+        schema: Arc<infera_core::ipl::Schema>,
+        wasm_host: Option<Arc<infera_wasm::WasmHost>>,
+        config: Arc<Config>,
+        jwks_cache: Option<Arc<JwksCache>>,
+        default_vault: Uuid,
+        default_account: Uuid,
+    ) -> Self {
+        let health_tracker = Arc::new(health::HealthTracker::new());
+
+        // Create services
+        let evaluation_service = Arc::new(services::EvaluationService::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
+        ));
+
+        let resource_service = Arc::new(services::ResourceService::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
+        ));
+
+        let subject_service = Arc::new(services::SubjectService::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
+        ));
+
+        let relationship_service = Arc::new(services::RelationshipService::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
+        ));
+
+        let expansion_service = Arc::new(services::ExpansionService::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
+        ));
+
+        let watch_service = Arc::new(services::WatchService::new(
+            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
+        ));
+
+        Self {
+            store,
+            config,
+            jwks_cache,
+            health_tracker,
+            default_vault,
+            default_account,
+            evaluation_service,
+            resource_service,
+            subject_service,
+            relationship_service,
+            expansion_service,
+            watch_service,
+        }
+    }
 }
 
 /// Create the API router
@@ -343,29 +417,30 @@ async fn shutdown_signal() {
 
 /// Start the REST API server
 pub async fn serve(
-    evaluator: Arc<Evaluator>,
     store: Arc<dyn infera_store::InferaStore>,
+    schema: Arc<infera_core::ipl::Schema>,
+    wasm_host: Option<Arc<infera_wasm::WasmHost>>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: Uuid,
     default_account: Uuid,
 ) -> anyhow::Result<()> {
-    // Create health tracker
-    let health_tracker = Arc::new(health::HealthTracker::new());
 
-    // Mark service as ready to accept traffic
-    health_tracker.set_ready(true);
-    health_tracker.set_startup_complete(true);
-
-    let state = AppState {
-        evaluator,
+    // Create AppState with services
+    let state = AppState::new(
         store,
-        config: config.clone(),
+        schema,
+        wasm_host,
+        config.clone(),
         jwks_cache,
-        health_tracker,
         default_vault,
         default_account,
-    };
+    );
+
+    // Mark service as ready to accept traffic
+    state.health_tracker.set_ready(true);
+    state.health_tracker.set_startup_complete(true);
+
     let app = create_router(state)?;
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
@@ -394,8 +469,9 @@ pub async fn serve(
 
 /// Start the gRPC server
 pub async fn serve_grpc(
-    evaluator: Arc<Evaluator>,
     store: Arc<dyn infera_store::InferaStore>,
+    schema: Arc<infera_core::ipl::Schema>,
+    wasm_host: Option<Arc<infera_wasm::WasmHost>>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: Uuid,
@@ -404,22 +480,22 @@ pub async fn serve_grpc(
     use grpc::proto::infera_service_server::InferaServiceServer;
     use tonic::transport::Server;
 
-    // Create health tracker
-    let health_tracker = Arc::new(health::HealthTracker::new());
-    health_tracker.set_ready(true);
-    health_tracker.set_startup_complete(true);
-
-    let state = AppState {
-        evaluator,
+    // Create AppState with services
+    let state = AppState::new(
         store,
-        config: config.clone(),
-        jwks_cache: jwks_cache.clone(),
-        health_tracker,
+        schema,
+        wasm_host,
+        config.clone(),
+        jwks_cache,
         default_vault,
         default_account,
-    };
+    );
 
-    let service = grpc::InferaServiceImpl::new(state);
+    // Mark service as ready to accept traffic
+    state.health_tracker.set_ready(true);
+    state.health_tracker.set_startup_complete(true);
+
+    let service = grpc::InferaServiceImpl::new(state.clone());
 
     // Use port + 1 for gRPC by default
     let grpc_port = config.server.port + 1;
@@ -435,7 +511,7 @@ pub async fn serve_grpc(
 
     // Set up authentication if enabled
     if config.auth.enabled {
-        if let Some(cache) = jwks_cache {
+        if let Some(cache) = state.jwks_cache.as_ref() {
             info!("Starting gRPC server on {} with authentication enabled", addr);
 
             // Try to load internal JWKS if configured
@@ -452,7 +528,7 @@ pub async fn serve_grpc(
 
             // Create auth interceptor
             let interceptor = grpc_interceptor::AuthInterceptor::new(
-                cache,
+                Arc::clone(cache),
                 internal_loader,
                 Arc::new(config.auth.clone()),
             );
@@ -482,35 +558,40 @@ pub async fn serve_grpc(
 
 /// Start both REST and gRPC servers concurrently
 pub async fn serve_both(
-    evaluator: Arc<Evaluator>,
     store: Arc<dyn infera_store::InferaStore>,
+    schema: Arc<infera_core::ipl::Schema>,
+    wasm_host: Option<Arc<infera_wasm::WasmHost>>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: Uuid,
     default_account: Uuid,
 ) -> anyhow::Result<()> {
-    let rest_evaluator = Arc::clone(&evaluator);
     let rest_store = Arc::clone(&store);
+    let rest_schema = Arc::clone(&schema);
+    let rest_wasm_host = wasm_host.clone();
     let rest_config = Arc::clone(&config);
     let rest_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
 
-    let grpc_evaluator = Arc::clone(&evaluator);
     let grpc_store = Arc::clone(&store);
+    let grpc_schema = Arc::clone(&schema);
+    let grpc_wasm_host = wasm_host.clone();
     let grpc_config = Arc::clone(&config);
     let grpc_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
 
     tokio::try_join!(
         serve(
-            rest_evaluator,
             rest_store,
+            rest_schema,
+            rest_wasm_host,
             rest_config,
             rest_jwks_cache,
             default_vault,
             default_account
         ),
         serve_grpc(
-            grpc_evaluator,
             grpc_store,
+            grpc_schema,
+            grpc_wasm_host,
             grpc_config,
             grpc_jwks_cache,
             default_vault,
@@ -555,31 +636,28 @@ mod tests {
         // Use a test vault ID
         let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
         let test_account = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
-        let evaluator = Arc::new(Evaluator::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            schema,
-            None,
-            test_vault,
-        ));
+
         let mut config = infera_config::Config::default();
         // Disable auth and rate limiting for tests
         config.auth.enabled = false;
         config.server.rate_limiting_enabled = false;
         let config = Arc::new(config);
 
-        let health_tracker = Arc::new(health::HealthTracker::new());
-        health_tracker.set_ready(true);
-        health_tracker.set_startup_complete(true);
-
-        AppState {
-            evaluator,
+        // Use AppState::new() to create state with all services
+        let state = AppState::new(
             store,
+            schema,
+            None, // No WASM host for tests
             config,
-            jwks_cache: None,
-            health_tracker,
-            default_vault: test_vault,
-            default_account: test_account,
-        }
+            None, // No JWKS cache for tests
+            test_vault,
+            test_account,
+        );
+
+        state.health_tracker.set_ready(true);
+        state.health_tracker.set_startup_complete(true);
+
+        state
     }
 
     /// Helper function to parse SSE response and extract evaluation results

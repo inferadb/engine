@@ -1,5 +1,8 @@
+//! gRPC expand handler - thin protocol adapter over ExpansionService
+
 use infera_types::{
-    ExpandRequest as CoreExpandRequest, UsersetNodeType as CoreUsersetNodeType, UsersetTree,
+    AuthContext, ExpandRequest as CoreExpandRequest, UsersetNodeType as CoreUsersetNodeType,
+    UsersetTree,
 };
 use tonic::{Request, Response, Status};
 
@@ -20,6 +23,13 @@ pub async fn expand(
     >,
     Status,
 > {
+    // Extract vault from request extensions (set by auth middleware)
+    let vault = request
+        .extensions()
+        .get::<AuthContext>()
+        .map(|ctx| ctx.vault)
+        .unwrap_or(service.state.default_vault);
+
     let req = request.into_inner();
 
     let expand_request = CoreExpandRequest {
@@ -29,13 +39,13 @@ pub async fn expand(
         continuation_token: None,
     };
 
-    // Execute expansion
+    // Execute expansion using expansion service
     let response = service
         .state
-        .evaluator
-        .expand(expand_request)
+        .expansion_service
+        .expand(vault, expand_request)
         .await
-        .map_err(|e| Status::internal(format!("Expansion failed: {}", e)))?;
+        .map_err(|e| Status::internal(e.to_string()))?;
 
     // Convert tree to proto
     let tree = convert_userset_tree_to_proto(response.tree);
