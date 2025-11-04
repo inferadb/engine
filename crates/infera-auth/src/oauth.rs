@@ -7,7 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use chrono::Utc;
 use infera_types::{AuthContext, AuthMethod};
-use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header, dangerous::insecure_decode};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
@@ -436,12 +436,9 @@ pub async fn validate_oauth_jwt(
     };
 
     // Decode without verification first to get issuer
-    let mut validation = Validation::new(header.alg);
-    validation.insecure_disable_signature_validation();
-    validation.validate_exp = false;
-    validation.validate_aud = false; // Don't validate audience in initial decode
-
-    let unverified = decode::<JwtClaims>(token, &DecodingKey::from_secret(&[]), &validation)
+    // Using insecure_decode is safe here because we only use it to read the issuer,
+    // and we fully validate the token signature later
+    let unverified = insecure_decode::<JwtClaims>(token)
         .map_err(|e| AuthError::InvalidTokenFormat(format!("Failed to decode JWT: {}", e)))?;
 
     let issuer = unverified.claims.iss.clone();

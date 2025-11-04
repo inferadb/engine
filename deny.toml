@@ -2,30 +2,18 @@
 # Documentation: https://embarkstudios.github.io/cargo-deny/
 
 [advisories]
-# Deny crates with security vulnerabilities
-vulnerability = "deny"
-
 # Warn about unmaintained crates
-unmaintained = "warn"
-
-# Warn about crates with unsound code
-unsound = "warn"
+unmaintained = "workspace"
 
 # Warn about yanked crates
 yanked = "warn"
 
-# Warn about security notices
-notice = "warn"
-
 # Ignore specific advisories (use sparingly, document why)
 ignore = [
-  # Example: "RUSTSEC-2020-0056"  # False positive for our use case
+  # "RUSTSEC-0000-0000",
 ]
 
 [licenses]
-# Deny unlicensed crates
-unlicensed = "deny"
-
 # Allow only permissive licenses
 allow = [
   "0BSD",
@@ -37,16 +25,6 @@ allow = [
   "Unicode-DFS-2016",
   "Zlib",
 ]
-
-# Explicitly deny copyleft licenses
-deny = ["AGPL-3.0", "GPL-2.0", "GPL-3.0", "LGPL-2.0", "LGPL-2.1", "LGPL-3.0"]
-
-# Deny any copyleft licenses not explicitly listed
-copyleft = "deny"
-
-# Warn about allowing OSI-approved or FSF Free/Libre licenses
-# https://opensource.org/licenses/alphabetical
-allow-osi-fsf-free = "neither"
 
 # Confidence threshold for license detection
 confidence-threshold = 0.8
@@ -75,10 +53,7 @@ skip = [
 # Deny specific crates (security/quality concerns)
 deny = [
   # Ban old, insecure crypto libraries
-  { name = "openssl", wrappers = ["openssl-sys"] },
-
-  # Ban crates with known supply chain issues
-  # { name = "malicious-crate", reason = "Supply chain compromise" }
+  { name = "openssl", use-instead = "rustls" },
 ]
 
 # Allow certain dependencies to be used only in specific contexts
@@ -96,12 +71,8 @@ unknown-git = "deny"
 # Allow only crates.io
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 
-# Allow specific git sources (use sparingly)
+# Allow specific git sources
 allow-git = [
   # Example: git sources for unreleased fixes
   # "https://github.com/rust-lang/cargo"
 ]
-
-# [sources.allow-org]
-# # Allow all crates from specific GitHub orgs
-# github = ["rust-lang", "tokio-rs"]
