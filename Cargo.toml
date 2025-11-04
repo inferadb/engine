@@ -80,7 +80,7 @@ rand = "0.8"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
-jsonwebtoken = "9.3"
+jsonwebtoken = "10.1"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 rsa = "0.9"
 secrecy = "0.10"
