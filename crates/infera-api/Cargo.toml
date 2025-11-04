@@ -4,6 +4,7 @@ edition.workspace = true
 license.workspace = true
 name = "infera-api"
 version.workspace = true
+publish.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }

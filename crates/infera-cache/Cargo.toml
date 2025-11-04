@@ -4,6 +4,7 @@ edition.workspace = true
 license.workspace = true
 name = "infera-cache"
 version.workspace = true
+publish.workspace = true
 
 [dependencies]
 moka = { workspace = true }

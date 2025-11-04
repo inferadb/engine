@@ -1,10 +1,11 @@
 [package]
-authors = ["InferaDB Team"]
+authors.workspace = true
 description = "Authentication and authorization for InferaDB"
-edition = "2021"
-license = "Apache-2.0"
+edition.workspace = true
+license.workspace = true
 name = "infera-auth"
-version = "0.1.0"
+version.workspace = true
+publish.workspace = true
 
 [dependencies]
 # Workspace dependencies
