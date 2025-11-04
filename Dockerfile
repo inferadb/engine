@@ -9,7 +9,7 @@
 # ============================================================================
 # Stage 1: Planner - Determine dependencies
 # ============================================================================
-FROM rust:1.83-slim AS planner
+FROM rust:1.91-slim AS planner
 WORKDIR /app
 
 # Install cargo-chef for dependency caching
@@ -25,7 +25,7 @@ RUN cargo chef prepare --recipe-path recipe.json
 # ============================================================================
 # Stage 2: Cacher - Build dependencies
 # ============================================================================
-FROM rust:1.83-slim AS cacher
+FROM rust:1.91-slim AS cacher
 WORKDIR /app
 
 # Install cargo-chef
@@ -40,7 +40,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 # ============================================================================
 # Stage 3: Builder - Build the application
 # ============================================================================
-FROM rust:1.83-slim AS builder
+FROM rust:1.91-slim AS builder
 WORKDIR /app
 
 # Install build dependencies
