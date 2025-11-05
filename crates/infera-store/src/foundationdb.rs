@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use foundationdb::{
-    Database, FdbError, TransactOption,
-    relationship::{Subspace, pack, unpack},
+    Database, FdbBindingError, TransactOption,
+    tuple::{Subspace, unpack},
 };
 use infera_types::{ChangeEvent, DeleteFilter};
 use serde_json;
@@ -48,7 +48,7 @@ impl FoundationDBBackend {
                 .map_err(|e| StoreError::Database(format!("Failed to open cluster file: {}", e)))?
         } else {
             Database::default().map_err(|e| {
-                StoreError::Database(format!("Failed to open default cluster: {}", e))
+                StoreError::Database(format!("Failed to open default cluster: {}", e))))))
             })?
         };
 
@@ -79,7 +79,7 @@ impl FoundationDBBackend {
                 match trx.get(&revision_key, false).await? {
                     Some(bytes) => {
                         let rev: u64 = serde_json::from_slice(&bytes).map_err(|e| {
-                            FdbError::from(format!("Failed to deserialize revision: {}", e))
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize revision: {}", e))))))
                         })?;
                         Ok(Revision(rev))
                     },
@@ -102,7 +102,7 @@ impl FoundationDBBackend {
                 let current = match trx.get(&revision_key, false).await? {
                     Some(bytes) => {
                         let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
+                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize: {}", e)))?;
                         rev
                     },
                     None => 0,
@@ -110,7 +110,7 @@ impl FoundationDBBackend {
 
                 let next = current + 1;
                 let bytes = serde_json::to_vec(&next)
-                    .map_err(|e| FdbError::from(format!("Failed to serialize: {}", e)))?;
+                    .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize: {}", e)))?;
 
                 trx.set(&revision_key, &bytes);
                 Ok(Revision(next))
@@ -122,7 +122,7 @@ impl FoundationDBBackend {
     }
 
     /// Create a key for a relationship with revision
-    fn relationship_key(&self, relationship: &Tuple, revision: Revision) -> Vec<u8> {
+    fn relationship_key(&self, relationship: &Relationship, revision: Revision) -> Vec<u8> {
         self.relationships_subspace.pack(&(
             &relationship.resource,
             &relationship.relation,
@@ -139,7 +139,7 @@ impl FoundationDBBackend {
         subject: &str,
         revision: Revision,
     ) -> Vec<u8> {
-        self.index_subspace.pack(&("obj", object, relation, user, revision.0))
+        self.index_subspace.pack(&("obj", resource, relation, subject, revision.0))
     }
 
     /// Create an index key for reverse lookups (user/relation)
@@ -150,7 +150,7 @@ impl FoundationDBBackend {
         resource: &str,
         revision: Revision,
     ) -> Vec<u8> {
-        self.index_subspace.pack(&("user", user, relation, object, revision.0))
+        self.index_subspace.pack(&("user", subject, relation, resource, revision.0))
     }
 
     /// Parse a relationship from a key
@@ -194,6 +194,8 @@ impl RelationshipStore for FoundationDBBackend {
                             begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
                             end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
                             limit: None,
+                                target_bytes: 0,
+                            target_bytes: 0,
                             reverse: false,
                             mode: foundationdb::StreamingMode::WantAll,
                         },
@@ -208,7 +210,7 @@ impl RelationshipStore for FoundationDBBackend {
                 for kv in range.iter() {
                     let unpacked: (String, String, String, String, u64) =
                         unpack(&kv.key()[relationships_subspace.bytes().len()..]).map_err(|e| {
-                            FdbError::from(format!("Failed to unpack index: {}", e))
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack index: {}", e))))))
                         })?;
 
                     let (_prefix, _obj, _rel, user, rev) = unpacked;
@@ -270,7 +272,7 @@ impl RelationshipStore for FoundationDBBackend {
                 let current = match trx.get(&revision_key, false).await? {
                     Some(bytes) => {
                         let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
+                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize: {}", e)))?;
                         rev
                     },
                     None => 0,
@@ -278,7 +280,7 @@ impl RelationshipStore for FoundationDBBackend {
 
                 let next_rev = current + 1;
                 let rev_bytes = serde_json::to_vec(&next_rev)
-                    .map_err(|e| FdbError::from(format!("Failed to serialize: {}", e)))?;
+                    .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize: {}", e)))?;
                 trx.set(&revision_key, &rev_bytes);
 
                 let revision = Revision(next_rev);
@@ -342,7 +344,7 @@ impl RelationshipStore for FoundationDBBackend {
                 let current = match trx.get(&revision_key, false).await? {
                     Some(bytes) => {
                         let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
+                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize: {}", e)))?;
                         rev
                     },
                     None => 0,
@@ -350,7 +352,7 @@ impl RelationshipStore for FoundationDBBackend {
 
                 let next_rev = current + 1;
                 let rev_bytes = serde_json::to_vec(&next_rev)
-                    .map_err(|e| FdbError::from(format!("Failed to serialize: {}", e)))?;
+                    .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize: {}", e)))?;
                 trx.set(&revision_key, &rev_bytes);
 
                 let revision = Revision(next_rev);
@@ -375,6 +377,7 @@ impl RelationshipStore for FoundationDBBackend {
                                 ),
                                 end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
                                 limit: None,
+                                target_bytes: 0,
                                 reverse: false,
                                 mode: foundationdb::StreamingMode::WantAll,
                             },
@@ -387,7 +390,7 @@ impl RelationshipStore for FoundationDBBackend {
                     for kv in range.iter() {
                         let unpacked: (String, String, String, u64) =
                             unpack(&kv.key()[relationships_subspace.bytes().len()..])
-                                .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+                                .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e)))?;
 
                         let (_obj, _rel, user, _rev) = unpacked;
                         if !deleted_users.contains(&user) {
@@ -434,7 +437,7 @@ impl RelationshipStore for FoundationDBBackend {
                 let current = match trx.get(&revision_key, false).await? {
                     Some(bytes) => {
                         let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbError::from(format!("Failed to deserialize: {}", e)))?;
+                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize: {}", e)))?;
                         rev
                     },
                     None => 0,
@@ -442,7 +445,7 @@ impl RelationshipStore for FoundationDBBackend {
 
                 let next_rev = current + 1;
                 let rev_bytes = serde_json::to_vec(&next_rev)
-                    .map_err(|e| FdbError::from(format!("Failed to serialize: {}", e)))?;
+                    .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize: {}", e)))?;
                 trx.set(&revision_key, &rev_bytes);
 
                 let revision = Revision(next_rev);
@@ -458,6 +461,8 @@ impl RelationshipStore for FoundationDBBackend {
                             begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
                             end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
                             limit: None,
+                                target_bytes: 0,
+                            target_bytes: 0,
                             reverse: false,
                             mode: foundationdb::StreamingMode::WantAll,
                         },
@@ -479,7 +484,7 @@ impl RelationshipStore for FoundationDBBackend {
 
                     let unpacked: (String, String, String, u64) =
                         unpack(&kv.key()[relationships_subspace.bytes().len()..])
-                            .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e)))?;
 
                     let (resource, relation, subject, _rev) = unpacked;
 
@@ -564,6 +569,8 @@ impl RelationshipStore for FoundationDBBackend {
                             begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
                             end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
                             limit: None,
+                                target_bytes: 0,
+                            target_bytes: 0,
                             reverse: false,
                             mode: foundationdb::StreamingMode::WantAll,
                         },
@@ -578,7 +585,7 @@ impl RelationshipStore for FoundationDBBackend {
                     // Unpack: ("obj", object, relation, user, rev)
                     let unpacked: (String, String, String, String, u64) =
                         unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
-                            FdbError::from(format!("Failed to unpack index: {}", e))
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack index: {}", e))))))
                         })?;
 
                     let (_prefix, object, relation, user, rev) = unpacked;
@@ -634,7 +641,7 @@ impl RelationshipStore for FoundationDBBackend {
                 // Determine the best index to use based on provided filters
                 match (&object_filter, &relation_filter, &user_filter) {
                     // Use object index when we have object filter
-                    (Some(obj), Some(rel), _) | (Some(obj), None, _) => {
+                    (Some(obj), rel, _) => {
                         let start_key = if let Some(rel) = &relation_filter {
                             index_subspace.pack(&("obj", obj.as_str(), rel.as_str()))
                         } else {
@@ -656,6 +663,7 @@ impl RelationshipStore for FoundationDBBackend {
                                         &end_key,
                                     ),
                                     limit: None,
+                                target_bytes: 0,
                                     reverse: false,
                                     mode: foundationdb::StreamingMode::WantAll,
                                 },
@@ -667,7 +675,7 @@ impl RelationshipStore for FoundationDBBackend {
                         for kv in range.iter() {
                             let unpacked: (String, String, String, String, u64) =
                                 unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
-                                    FdbError::from(format!("Failed to unpack: {}", e))
+                                    FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e))))))
                                 })?;
 
                             let (_prefix, object, relation, user, rev) = unpacked;
@@ -702,7 +710,7 @@ impl RelationshipStore for FoundationDBBackend {
                         }
                     },
                     // Use user index when we have user filter (but no object filter)
-                    (None, Some(rel), Some(usr)) | (None, None, Some(usr)) => {
+                    (None, rel, Some(usr)) => {
                         let start_key = if let Some(rel) = &relation_filter {
                             index_subspace.pack(&("user", usr.as_str(), rel.as_str()))
                         } else {
@@ -724,6 +732,7 @@ impl RelationshipStore for FoundationDBBackend {
                                         &end_key,
                                     ),
                                     limit: None,
+                                target_bytes: 0,
                                     reverse: false,
                                     mode: foundationdb::StreamingMode::WantAll,
                                 },
@@ -735,7 +744,7 @@ impl RelationshipStore for FoundationDBBackend {
                         for kv in range.iter() {
                             let unpacked: (String, String, String, String, u64) =
                                 unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
-                                    FdbError::from(format!("Failed to unpack: {}", e))
+                                    FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e))))))
                                 })?;
 
                             let (_prefix, user, relation, object, rev) = unpacked;
@@ -778,6 +787,7 @@ impl RelationshipStore for FoundationDBBackend {
                                         &end_key,
                                     ),
                                     limit: None,
+                                target_bytes: 0,
                                     reverse: false,
                                     mode: foundationdb::StreamingMode::WantAll,
                                 },
@@ -790,7 +800,7 @@ impl RelationshipStore for FoundationDBBackend {
                             let unpacked: (String, String, String, u64) = unpack(
                                 &kv.key()[relationships_subspace.bytes().len()..],
                             )
-                            .map_err(|e| FdbError::from(format!("Failed to unpack: {}", e)))?;
+                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e)))?;
 
                             let (object, relation, user, rev) = unpacked;
 
@@ -852,7 +862,7 @@ impl RelationshipStore for FoundationDBBackend {
 
                 // Serialize the change event
                 let value = serde_json::to_vec(&event).map_err(|e| {
-                    FdbError::from(format!("Failed to serialize change event: {}", e))
+                    FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize change event: {}", e))))))
                 })?;
 
                 trx.set(&key, &value);
@@ -898,7 +908,7 @@ impl RelationshipStore for FoundationDBBackend {
 
                 for kv in range {
                     let event: ChangeEvent = serde_json::from_slice(&kv.value()).map_err(|e| {
-                        FdbError::from(format!("Failed to deserialize change event: {}", e))
+                        FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize change event: {}", e))))))
                     })?;
 
                     // Filter by resource type if specified
@@ -952,7 +962,7 @@ impl RelationshipStore for FoundationDBBackend {
 
                 if let Some(kv) = range.first() {
                     let event: ChangeEvent = serde_json::from_slice(&kv.value()).map_err(|e| {
-                        FdbError::from(format!("Failed to deserialize change event: {}", e))
+                        FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize change event: {}", e))))))
                     })?;
                     Ok(event.revision)
                 } else {
@@ -961,7 +971,7 @@ impl RelationshipStore for FoundationDBBackend {
             })
             .await
             .map_err(|e| {
-                StoreError::Database(format!("Failed to get change log revision: {}", e))
+                StoreError::Database(format!("Failed to get change log revision: {}", e))))))
             })?;
 
         Ok(result)
