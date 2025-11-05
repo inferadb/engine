@@ -68,7 +68,7 @@ moka = { version = "0.12", features = ["future"] }
 
 # Configuration
 clap = { version = "4.5", features = ["derive"] }
-config = "0.14"
+config = "0.15"
 
 # Testing
 criterion = { version = "0.5", features = ["async_tokio"] }
