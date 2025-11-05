@@ -3,8 +3,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 name = "infera-config"
-version.workspace = true
 publish.workspace = true
+version.workspace = true
 
 [features]
 aws-secrets = ["aws-config", "aws-sdk-secretsmanager"]

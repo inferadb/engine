@@ -4,8 +4,8 @@ description = "Authentication and authorization for InferaDB"
 edition.workspace = true
 license.workspace = true
 name = "infera-auth"
-version.workspace = true
 publish.workspace = true
+version.workspace = true
 
 [dependencies]
 # Workspace dependencies
