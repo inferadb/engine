@@ -127,13 +127,25 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build workspace (debug)
-        run: cargo build --workspace --verbose
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            export MACOSX_DEPLOYMENT_TARGET=15.0
+          fi
+          cargo build --workspace --verbose
 
       - name: Build tests (no run)
-        run: cargo test --workspace --no-run --verbose
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            export MACOSX_DEPLOYMENT_TARGET=15.0
+          fi
+          cargo test --workspace --no-run --verbose
 
       - name: Build workspace (release)
-        run: cargo build --workspace --release --verbose
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            export MACOSX_DEPLOYMENT_TARGET=15.0
+          fi
+          cargo build --workspace --release --verbose
 
       - name: Print sccache stats
         run: sccache --show-stats
@@ -184,10 +196,18 @@ jobs:
           save-if: false # Don't save, only restore from build job
 
       - name: Run tests with nextest
-        run: cargo nextest run --workspace --profile ci --no-fail-fast
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            export MACOSX_DEPLOYMENT_TARGET=15.0
+          fi
+          cargo nextest run --workspace --profile ci --no-fail-fast
 
       - name: Run doc tests
-        run: cargo test --workspace --doc --verbose
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            export MACOSX_DEPLOYMENT_TARGET=15.0
+          fi
+          cargo test --workspace --doc --verbose
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@82082dac68ad6a19d980f8ce817e108b9f496c2a # v2.18.0
