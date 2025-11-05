@@ -82,15 +82,7 @@ async fn create_test_state_with_data(num_relationships: usize) -> AppState {
     config.cache.max_capacity = 10000;
     config.auth.enabled = false;
 
-    AppState::new(
-        store,
-        schema,
-        None,
-        Arc::new(config),
-        None,
-        vault,
-        account,
-    )
+    AppState::new(store, schema, None, Arc::new(config), None, vault, account)
 }
 
 /// Benchmark: Authorization check (check if user has permission)
@@ -209,7 +201,13 @@ fn bench_list_relationships(c: &mut Criterion) {
                         cursor: None,
                     };
 
-                    black_box(state.relationship_service.list_relationships(vault, request).await.unwrap())
+                    black_box(
+                        state
+                            .relationship_service
+                            .list_relationships(vault, request)
+                            .await
+                            .unwrap(),
+                    )
                 });
             },
         );
