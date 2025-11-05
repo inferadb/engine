@@ -219,6 +219,12 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install cargo-nextest
+        if: steps.check-core.outputs.core == 'true'
+        uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
+        with:
+          tool: cargo-nextest
+
       - name: Restore build cache
         if: steps.check-core.outputs.core == 'true'
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
@@ -228,7 +234,7 @@ jobs:
 
       - name: Run IPL parser fuzz tests
         if: steps.check-core.outputs.core == 'true'
-        run: cargo test --package infera-core --test ipl_parser_fuzz
+        run: cargo nextest run --package infera-core --test ipl_parser_fuzz
         continue-on-error: true # Don't fail if test doesn't exist yet
 
   # WASM Security Tests (reuses build cache)
@@ -266,6 +272,12 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install cargo-nextest
+        if: steps.check-wasm.outputs.wasm == 'true'
+        uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
+        with:
+          tool: cargo-nextest
+
       - name: Restore build cache
         if: steps.check-wasm.outputs.wasm == 'true'
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
@@ -275,7 +287,7 @@ jobs:
 
       - name: Run WASM sandbox security tests
         if: steps.check-wasm.outputs.wasm == 'true'
-        run: cargo test --package infera-wasm --test sandbox_security
+        run: cargo nextest run --package infera-wasm --test sandbox_security
         continue-on-error: true # Don't fail if test doesn't exist yet
 
   # Test code coverage (reuses build cache)
