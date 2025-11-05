@@ -8,10 +8,12 @@ use std::{collections::HashMap, fs, path::Path};
 use aws_config::BehaviorVersion;
 #[cfg(feature = "aws-secrets")]
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
-#[cfg(feature = "azure-secrets")]
-use azure_security_keyvault::SecretClient;
-#[cfg(feature = "gcp-secrets")]
-use google_secretmanager1::{SecretManager, hyper, hyper_rustls, oauth2};
+// Azure Key Vault support is temporarily disabled pending API updates
+// #[cfg(feature = "azure-secrets")]
+// use azure_security_keyvault::SecretClient;
+// GCP Secret Manager support is temporarily disabled pending API updates
+// #[cfg(feature = "gcp-secrets")]
+// use google_secretmanager1::SecretManager;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -158,7 +160,7 @@ impl SecretProvider for MemorySecretProvider {
 #[cfg(feature = "aws-secrets")]
 pub struct AwsSecretsProvider {
     client: SecretsManagerClient,
-    region: String,
+    _region: String,
 }
 
 #[cfg(feature = "aws-secrets")]
@@ -173,7 +175,7 @@ impl AwsSecretsProvider {
 
         let client = SecretsManagerClient::new(&config);
 
-        Ok(Self { client, region: region_str })
+        Ok(Self { client, _region: region_str })
     }
 
     /// Get a secret from AWS Secrets Manager (async)
@@ -205,59 +207,31 @@ impl SecretProvider for AwsSecretsProvider {
 /// GCP Secret Manager provider
 ///
 /// Fetches secrets from Google Cloud Secret Manager
+///
+/// TODO: Update to use google-secretmanager1 v6+ API (breaking changes in hyper/oauth2)
+/// The google-secretmanager1 crate has updated its dependencies and API.
+/// This code needs to be updated to match the new API surface.
 #[cfg(feature = "gcp-secrets")]
 pub struct GcpSecretsProvider {
-    hub: SecretManager<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>,
-    project_id: String,
+    _project_id: String,
 }
 
 #[cfg(feature = "gcp-secrets")]
 impl GcpSecretsProvider {
     /// Create a new GCP Secret Manager provider
-    pub async fn new(project_id: impl Into<String>) -> Result<Self, SecretError> {
-        let secret = oauth2::read_application_secret("credentials.json").await.map_err(|e| {
-            SecretError::InvalidFormat(format!("Failed to read GCP credentials: {}", e))
-        })?;
-
-        let auth = oauth2::InstalledFlowAuthenticator::builder(
-            secret,
-            oauth2::InstalledFlowReturnMethod::HTTPRedirect,
-        )
-        .build()
-        .await
-        .map_err(|e| SecretError::InvalidFormat(format!("GCP auth error: {}", e)))?;
-
-        let hub = SecretManager::new(
-            hyper::Client::builder().build(
-                hyper_rustls::HttpsConnectorBuilder::new()
-                    .with_native_roots()
-                    .unwrap()
-                    .https_or_http()
-                    .enable_http1()
-                    .build(),
-            ),
-            auth,
-        );
-
-        Ok(Self { hub, project_id: project_id.into() })
+    pub async fn new(_project_id: impl Into<String>) -> Result<Self, SecretError> {
+        // TODO: Implement using updated google-secretmanager1 v6+ API
+        // The API has changed significantly with hyper 1.0 and new oauth2 structure
+        Err(SecretError::InvalidFormat(
+            "GCP Secret Manager support requires API updates for google-secretmanager1 v6+".to_string()
+        ))
     }
 
     /// Get a secret from GCP Secret Manager (async)
-    pub async fn get_async(&self, key: &str) -> Result<String, SecretError> {
-        let name = format!("projects/{}/secrets/{}/versions/latest", self.project_id, key);
-
-        let (_, secret_version) =
-            self.hub.projects().secrets_versions_access(&name).doit().await.map_err(|e| {
-                SecretError::InvalidFormat(format!("GCP Secret Manager error: {}", e))
-            })?;
-
-        let payload = secret_version
-            .payload
-            .and_then(|p| p.data)
-            .ok_or_else(|| SecretError::NotFound(key.to_string()))?;
-
-        String::from_utf8(payload)
-            .map_err(|e| SecretError::InvalidFormat(format!("Invalid UTF-8 in secret: {}", e)))
+    pub async fn get_async(&self, _key: &str) -> Result<String, SecretError> {
+        Err(SecretError::InvalidFormat(
+            "GCP Secret Manager support requires API updates".to_string()
+        ))
     }
 }
 
@@ -276,36 +250,31 @@ impl SecretProvider for GcpSecretsProvider {
 /// Azure Key Vault provider
 ///
 /// Fetches secrets from Azure Key Vault
+///
+/// TODO: Update to use azure-identity v0.29+ and azure-security-keyvault v0.21+ APIs
+/// The Azure SDK has updated with breaking changes to DefaultAzureCredential and SecretClient.
 #[cfg(feature = "azure-secrets")]
 pub struct AzureSecretsProvider {
-    client: SecretClient,
-    vault_url: String,
+    _vault_url: String,
 }
 
 #[cfg(feature = "azure-secrets")]
 impl AzureSecretsProvider {
     /// Create a new Azure Key Vault provider
     pub async fn new(vault_url: impl Into<String>) -> Result<Self, SecretError> {
-        use azure_identity::DefaultAzureCredential;
-
-        let vault_url_str = vault_url.into();
-        let credential = DefaultAzureCredential::default();
-        let client = SecretClient::new(&vault_url_str, credential).map_err(|e| {
-            SecretError::InvalidFormat(format!("Azure Key Vault client error: {}", e))
-        })?;
-
-        Ok(Self { client, vault_url: vault_url_str })
+        // TODO: Implement using updated azure-identity v0.29+ API
+        // DefaultAzureCredential and SecretClient APIs have changed
+        let _vault_url_str = vault_url.into();
+        Err(SecretError::InvalidFormat(
+            "Azure Key Vault support requires API updates for azure-identity v0.29+".to_string()
+        ))
     }
 
     /// Get a secret from Azure Key Vault (async)
-    pub async fn get_async(&self, key: &str) -> Result<String, SecretError> {
-        let secret = self
-            .client
-            .get(key)
-            .await
-            .map_err(|e| SecretError::InvalidFormat(format!("Azure Key Vault error: {}", e)))?;
-
-        Ok(secret.value().to_string())
+    pub async fn get_async(&self, _key: &str) -> Result<String, SecretError> {
+        Err(SecretError::InvalidFormat(
+            "Azure Key Vault support requires API updates".to_string()
+        ))
     }
 }
 
