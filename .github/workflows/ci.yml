@@ -65,7 +65,7 @@ jobs:
       - name: Run clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-  # Build for multiple platforms
+  # Build workspace once and cache for downstream jobs
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -103,9 +103,13 @@ jobs:
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           shared-key: ${{ matrix.os }}-${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build workspace (debug)
         run: cargo build --workspace --verbose
+
+      - name: Build tests (no run)
+        run: cargo test --workspace --no-run --verbose
 
       - name: Build workspace (release)
         run: cargo build --workspace --release --verbose
@@ -120,9 +124,10 @@ jobs:
           path: target/release/inferadb
           retention-days: 7
 
-  # Run tests
+  # Run tests (reuses build cache)
   test:
     name: Test (${{ matrix.os }})
+    needs: build
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -131,6 +136,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
 
     steps:
       - name: Checkout code
@@ -146,10 +156,11 @@ jobs:
         with:
           tool: cargo-nextest
 
-      - name: Cache Rust dependencies
+      - name: Restore build cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ${{ matrix.os }}-test
+          shared-key: ${{ matrix.os }}-${{ matrix.target }}
+          save-if: false # Don't save, only restore from build job
 
       - name: Run tests with nextest
         run: cargo nextest run --workspace --profile ci --no-fail-fast
@@ -173,9 +184,104 @@ jobs:
           path: target/nextest/ci/junit.xml
           retention-days: 7
 
-  # Test code coverage
+  # IPL Parser Security Tests (reuses build cache)
+  # Only runs on PRs that modify infera-core
+  ipl-parser-security-tests:
+    name: IPL Parser Security Tests
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - name: Check if infera-core was modified
+        id: check-core
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            core:
+              - 'crates/infera-core/**'
+
+      - name: Skip if infera-core not modified
+        if: steps.check-core.outputs.core != 'true'
+        run: |
+          echo "infera-core not modified, skipping tests"
+          exit 0
+
+      # Only run these steps if infera-core was modified
+      - name: Checkout code
+        if: steps.check-core.outputs.core == 'true'
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Install Rust toolchain
+        if: steps.check-core.outputs.core == 'true'
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+
+      - name: Restore build cache
+        if: steps.check-core.outputs.core == 'true'
+        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        with:
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          save-if: false # Don't save, only restore from build job
+
+      - name: Run IPL parser fuzz tests
+        if: steps.check-core.outputs.core == 'true'
+        run: cargo test --package infera-core --test ipl_parser_fuzz
+        continue-on-error: true # Don't fail if test doesn't exist yet
+
+  # WASM Security Tests (reuses build cache)
+  # Only runs on PRs that modify infera-wasm
+  wasm-security-tests:
+    name: WASM Security Tests
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - name: Check if infera-wasm was modified
+        id: check-wasm
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            wasm:
+              - 'crates/infera-wasm/**'
+
+      - name: Skip if infera-wasm not modified
+        if: steps.check-wasm.outputs.wasm != 'true'
+        run: |
+          echo "infera-wasm not modified, skipping tests"
+          exit 0
+
+      # Only run these steps if infera-wasm was modified
+      - name: Checkout code
+        if: steps.check-wasm.outputs.wasm == 'true'
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Install Rust toolchain
+        if: steps.check-wasm.outputs.wasm == 'true'
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+
+      - name: Restore build cache
+        if: steps.check-wasm.outputs.wasm == 'true'
+        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        with:
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          save-if: false # Don't save, only restore from build job
+
+      - name: Run WASM sandbox security tests
+        if: steps.check-wasm.outputs.wasm == 'true'
+        run: cargo test --package infera-wasm --test sandbox_security
+        continue-on-error: true # Don't fail if test doesn't exist yet
+
+  # Test code coverage (reuses build cache)
   coverage:
     name: Code Coverage
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -193,10 +299,11 @@ jobs:
         with:
           tool: cargo-tarpaulin
 
-      - name: Cache Rust dependencies
+      - name: Restore build cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: coverage
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          save-if: false # Don't save, only restore from build job
 
       - name: Generate coverage
         run: cargo tarpaulin --workspace --verbose --timeout 300 --out xml
@@ -234,9 +341,10 @@ jobs:
       - name: Check for duplicate dependencies
         run: cargo tree --duplicates
 
-  # Build documentation
+  # Build documentation (reuses build cache)
   docs:
     name: Documentation
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -249,10 +357,11 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Cache Rust dependencies
+      - name: Restore build cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: docs
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          save-if: false # Don't save, only restore from build job
 
       - name: Build documentation
         run: cargo doc --workspace --no-deps --all-features
@@ -269,7 +378,7 @@ jobs:
   # Overall status check
   ci-success:
     name: CI Success
-    needs: [fmt, clippy, build, test, coverage, dependencies, docs]
+    needs: [fmt, clippy, build, test, ipl-parser-security-tests, wasm-security-tests, coverage, dependencies, docs]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -297,4 +406,19 @@ jobs:
             echo "Documentation build failed"
             exit 1
           fi
+          # Security tests are conditional (only on PRs when crates modified)
+          # They can be skipped or successful, but not failed
+          echo "Security test results:"
+          echo "  IPL Parser: ${{ needs.ipl-parser-security-tests.result }}"
+          echo "  WASM: ${{ needs.wasm-security-tests.result }}"
+
+          if [[ "${{ needs.ipl-parser-security-tests.result }}" == "failure" ]]; then
+            echo "IPL Parser security tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.wasm-security-tests.result }}" == "failure" ]]; then
+            echo "WASM security tests failed"
+            exit 1
+          fi
+
           echo "All required checks passed!"

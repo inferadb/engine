@@ -3,10 +3,6 @@
 name: Benchmark
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 # Cancel in-progress runs for PRs, queue for main

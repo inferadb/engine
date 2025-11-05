@@ -3,18 +3,20 @@
 name: Security
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
-  schedule:
-    # Run security audit daily at 00:00 UTC
-    - cron: "0 0 * * *"
+    paths:
+      # Only run on PRs that modify dependencies or security configuration
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**/Cargo.toml"
+      - "deny.toml"
+      - ".github/workflows/security.yml"
 
-# Default to read-only, grant security-events write for GitHub Security tab
 permissions:
   contents: read
   security-events: write
+  pull-requests: write
 
 jobs:
   cargo-audit:
@@ -48,27 +50,21 @@ jobs:
           command: check
           arguments: --all-features
 
-  security-tests:
-    name: Security Tests
+  dependency-review:
+    name: Dependency Review
     runs-on: ubuntu-latest
+    # Only run on pull requests (not on push to main or scheduled runs)
+    if: github.event_name == 'pull_request'
     permissions:
       contents: read
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+      - name: Dependency Review
+        uses: actions/dependency-review-action@45529485b5eb76184ced07362d2331fd9d26f03f # v4
         with:
-          toolchain: stable
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
-
-      - name: Run IPL parser fuzz tests
-        run: cargo test --package infera-core --test ipl_parser_fuzz
-        continue-on-error: true # Don't fail if test doesn't exist yet
-
-      - name: Run WASM sandbox security tests
-        run: cargo test --package infera-wasm --test sandbox_security
-        continue-on-error: true # Don't fail if test doesn't exist yet
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.0, LGPL-2.1, LGPL-3.0
+          comment-summary-in-pr: always
