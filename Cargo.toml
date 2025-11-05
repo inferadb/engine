@@ -61,7 +61,7 @@ tower_governor = "0.4"
 wasmtime = "38.0"
 
 # Storage
-foundationdb = { version = "0.10", features = ["fdb-7_4"] }
+foundationdb = { version = "0.10", features = ["fdb-7_3"] }
 
 # Caching
 moka = { version = "0.12", features = ["future"] }
