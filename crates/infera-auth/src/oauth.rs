@@ -7,7 +7,9 @@ use std::{collections::HashMap, sync::Arc};
 
 use chrono::Utc;
 use infera_types::{AuthContext, AuthMethod};
-use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header, dangerous::insecure_decode};
+use jsonwebtoken::{
+    Algorithm, DecodingKey, Validation, dangerous::insecure_decode, decode, decode_header,
+};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
