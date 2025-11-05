@@ -57,6 +57,12 @@ jobs:
           toolchain: stable
           components: clippy
 
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
@@ -90,6 +96,16 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
+
+      - name: Install protobuf compiler
+        run: |
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y protobuf-compiler
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            brew install protobuf
+          fi
+          protoc --version
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
