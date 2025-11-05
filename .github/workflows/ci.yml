@@ -63,6 +63,11 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           protoc --version
 
+      - name: Install FoundationDB client library
+        run: |
+          wget https://github.com/apple/foundationdb/releases/download/7.3.43/foundationdb-clients_7.3.43-1_amd64.deb
+          sudo dpkg -i foundationdb-clients_7.3.43-1_amd64.deb
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
