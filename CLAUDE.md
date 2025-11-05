@@ -285,23 +285,3 @@ cargo test --workspace --doc
 cargo audit
 cargo deny check
 ```
-
-**Expected CI time:** ~4-5 minutes (with sccache + nextest optimizations)
-
-**📖 Complete CI/CD guide:** [docs/CI_CD.md](docs/CI_CD.md)
-
----
-
-## Documentation Index
-
-| Document                                               | Purpose                                         |
-| ------------------------------------------------------ | ----------------------------------------------- |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)           | Architectural patterns, service layer, handlers |
-| [docs/ERROR_HANDLING.md](docs/ERROR_HANDLING.md)       | Error handling standards and patterns           |
-| [docs/TYPE_ORGANIZATION.md](docs/TYPE_ORGANIZATION.md) | Type organization and centralization            |
-| [docs/CI_CD.md](docs/CI_CD.md)                         | CI/CD pipeline, workflows, release process      |
-| [SECURITY.md](SECURITY.md)                             | Security policy and procedures                  |
-
----
-
-**Last updated:** 2025-11-03

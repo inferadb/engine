@@ -176,8 +176,9 @@ mod tests {
         // Should either succeed or fail with connection error
         match store {
             Ok(s) => {
-                let rev = s.get_revision().await.unwrap();
-                assert!(rev.0 >= 0);
+                let test_vault = uuid::Uuid::new_v4();
+                let _rev = s.get_revision(test_vault).await.unwrap();
+                // Successfully got revision
             },
             Err(e) => {
                 // Expected if FDB is not running

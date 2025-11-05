@@ -7,18 +7,21 @@
 //! - Horizontal scalability
 //! - High availability
 
+#![allow(clippy::io_other_error)]
+
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use foundationdb::{
-    Database, FdbBindingError, TransactOption,
+    Database, FdbBindingError, RangeOption,
     tuple::{Subspace, unpack},
 };
-use infera_types::{ChangeEvent, DeleteFilter};
+use infera_types::{ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision};
 use serde_json;
-use tracing::{debug, error, warn};
+use tracing::debug;
+use uuid::Uuid;
 
-use crate::{Relationship, RelationshipKey, RelationshipStore, Result, Revision, StoreError};
+use crate::{RelationshipStore, Result, StoreError};
 
 /// FoundationDB storage backend
 pub struct FoundationDBBackend {
@@ -30,6 +33,7 @@ pub struct FoundationDBBackend {
     changelog_subspace: Subspace,
 }
 
+#[allow(dead_code)]
 impl FoundationDBBackend {
     /// Create a new FoundationDB backend
     pub async fn new() -> Result<Self> {
@@ -39,8 +43,7 @@ impl FoundationDBBackend {
     /// Create a new FoundationDB backend with a specific cluster file
     pub async fn with_cluster_file(cluster_file: Option<&str>) -> Result<Self> {
         // Initialize FDB API
-        let network = foundationdb::boot()
-            .map_err(|e| StoreError::Database(format!("Failed to initialize FDB: {}", e)))?;
+        let _network = unsafe { foundationdb::boot() };
 
         // Create database handle
         let db = if let Some(path) = cluster_file {
@@ -48,7 +51,7 @@ impl FoundationDBBackend {
                 .map_err(|e| StoreError::Database(format!("Failed to open cluster file: {}", e)))?
         } else {
             Database::default().map_err(|e| {
-                StoreError::Database(format!("Failed to open default cluster: {}", e))))))
+                StoreError::Database(format!("Failed to open default cluster: {}", e))
             })?
         };
 
@@ -69,21 +72,37 @@ impl FoundationDBBackend {
         })
     }
 
-    /// Get the current global revision
-    async fn get_current_revision(&self) -> Result<Revision> {
+    /// Get the current revision for a vault
+    async fn get_current_revision(&self, vault: Uuid) -> Result<Revision> {
         let db = Arc::clone(&self.db);
-        let revision_key = self.revision_subspace.pack(&("current",));
+        let revision_subspace = self.revision_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                match trx.get(&revision_key, false).await? {
-                    Some(bytes) => {
-                        let rev: u64 = serde_json::from_slice(&bytes).map_err(|e| {
-                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize revision: {}", e))))))
-                        })?;
-                        Ok(Revision(rev))
-                    },
-                    None => Ok(Revision::zero()),
+            .run({
+                let revision_subspace = revision_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let revision_subspace = revision_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        let revision_key = revision_subspace.pack(&(vault_bytes, "current"));
+
+                        match trx.get(&revision_key, false).await? {
+                            Some(bytes) => {
+                                let rev: u64 = serde_json::from_slice(&bytes).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize revision: {}", e),
+                                        ),
+                                    ))
+                                })?;
+                                Ok(Revision(rev))
+                            },
+                            None => Ok(Revision::zero()),
+                        }
+                    }
                 }
             })
             .await
@@ -92,28 +111,49 @@ impl FoundationDBBackend {
         Ok(result)
     }
 
-    /// Increment and return the next revision
-    async fn increment_revision(&self) -> Result<Revision> {
+    /// Increment and return the next revision for a vault
+    async fn increment_revision(&self, vault: Uuid) -> Result<Revision> {
         let db = Arc::clone(&self.db);
-        let revision_key = self.revision_subspace.pack(&("current",));
+        let revision_subspace = self.revision_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                let current = match trx.get(&revision_key, false).await? {
-                    Some(bytes) => {
-                        let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize: {}", e)))?;
-                        rev
-                    },
-                    None => 0,
-                };
+            .run({
+                let revision_subspace = revision_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let revision_subspace = revision_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        let revision_key = revision_subspace.pack(&(vault_bytes, "current"));
 
-                let next = current + 1;
-                let bytes = serde_json::to_vec(&next)
-                    .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize: {}", e)))?;
+                        let current = match trx.get(&revision_key, false).await? {
+                            Some(bytes) => {
+                                let rev: u64 = serde_json::from_slice(&bytes).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize: {}", e),
+                                        ),
+                                    ))
+                                })?;
+                                rev
+                            },
+                            None => 0,
+                        };
 
-                trx.set(&revision_key, &bytes);
-                Ok(Revision(next))
+                        let next = current + 1;
+                        let bytes = serde_json::to_vec(&next).map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to serialize: {}", e),
+                            )))
+                        })?;
+
+                        trx.set(&revision_key, &bytes);
+                        Ok(Revision(next))
+                    }
+                }
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to increment revision: {}", e)))?;
@@ -122,8 +162,14 @@ impl FoundationDBBackend {
     }
 
     /// Create a key for a relationship with revision
-    fn relationship_key(&self, relationship: &Relationship, revision: Revision) -> Vec<u8> {
+    fn relationship_key(
+        &self,
+        vault: Uuid,
+        relationship: &Relationship,
+        revision: Revision,
+    ) -> Vec<u8> {
         self.relationships_subspace.pack(&(
+            vault.as_bytes().to_vec(),
             &relationship.resource,
             &relationship.relation,
             &relationship.subject,
@@ -134,50 +180,71 @@ impl FoundationDBBackend {
     /// Create an index key for object/relation lookups
     fn index_key_object(
         &self,
+        vault: Uuid,
         resource: &str,
         relation: &str,
         subject: &str,
         revision: Revision,
     ) -> Vec<u8> {
-        self.index_subspace.pack(&("obj", resource, relation, subject, revision.0))
+        self.index_subspace.pack(&(
+            vault.as_bytes().to_vec(),
+            "obj",
+            resource,
+            relation,
+            subject,
+            revision.0,
+        ))
     }
 
     /// Create an index key for reverse lookups (user/relation)
     fn index_key_user(
         &self,
+        vault: Uuid,
         subject: &str,
         relation: &str,
         resource: &str,
         revision: Revision,
     ) -> Vec<u8> {
-        self.index_subspace.pack(&("user", subject, relation, resource, revision.0))
+        self.index_subspace.pack(&(
+            vault.as_bytes().to_vec(),
+            "user",
+            subject,
+            relation,
+            resource,
+            revision.0,
+        ))
     }
 
     /// Parse a relationship from a key
-    fn parse_relationship_from_key(&self, key: &[u8]) -> Result<Relationship> {
-        let unpacked: (String, String, String, u64) =
+    fn parse_relationship_from_key(&self, vault: Uuid, key: &[u8]) -> Result<Relationship> {
+        let unpacked: (Vec<u8>, String, String, String, u64) =
             unpack(&key[self.relationships_subspace.bytes().len()..]).map_err(|e| {
-                StoreError::Serialization(serde_json::Error::custom(format!(
-                    "Failed to unpack relationship key: {}",
-                    e
-                )))
+                StoreError::Internal(format!("Failed to unpack relationship key: {}", e))
             })?;
 
-        Ok(Relationship { resource: unpacked.0, relation: unpacked.1, subject: unpacked.2 })
+        Ok(Relationship { vault, resource: unpacked.1, relation: unpacked.2, subject: unpacked.3 })
     }
 }
 
 #[async_trait]
 impl RelationshipStore for FoundationDBBackend {
-    async fn read(&self, key: &RelationshipKey, revision: Revision) -> Result<Vec<Relationship>> {
+    async fn read(
+        &self,
+        vault: Uuid,
+        key: &RelationshipKey,
+        revision: Revision,
+    ) -> Result<Vec<Relationship>> {
         let db = Arc::clone(&self.db);
         let object = key.resource.clone();
         let relation = key.relation.clone();
         let user_filter = key.subject.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         // Create range for this object+relation at or before the revision
-        let start_key = self.index_subspace.pack(&("obj", &object, &relation));
-        let end_key = self.index_subspace.pack(&(
+        let index_subspace = self.index_subspace.clone();
+        let start_key = index_subspace.pack(&(vault_bytes.clone(), "obj", &object, &relation));
+        let end_key = index_subspace.pack(&(
+            vault_bytes.clone(),
             "obj",
             &object,
             &relation,
@@ -187,67 +254,97 @@ impl RelationshipStore for FoundationDBBackend {
         let relationships_subspace = self.relationships_subspace.clone();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                let range = trx
-                    .get_range(
-                        &foundationdb::RangeOption {
-                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                            limit: None,
-                                target_bytes: 0,
-                            target_bytes: 0,
-                            reverse: false,
-                            mode: foundationdb::StreamingMode::WantAll,
-                        },
-                        1,
-                        false,
-                    )
-                    .await?;
+            .run({
+                let start_key = start_key.clone();
+                let end_key = end_key.clone();
+                let object = object.clone();
+                let relation = relation.clone();
+                let user_filter = user_filter.clone();
+                let index_subspace = index_subspace.clone();
+                let relationships_subspace = relationships_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let start_key = start_key.clone();
+                    let end_key = end_key.clone();
+                    let object = object.clone();
+                    let relation = relation.clone();
+                    let user_filter = user_filter.clone();
+                    let index_subspace = index_subspace.clone();
+                    let relationships_subspace = relationships_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        let range = trx
+                            .get_range(
+                                &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                                1,
+                                false,
+                            )
+                            .await?;
 
-                let mut relationships = Vec::new();
-                let mut seen = std::collections::HashSet::new();
+                        let mut relationships = Vec::new();
+                        let mut seen = std::collections::HashSet::new();
 
-                for kv in range.iter() {
-                    let unpacked: (String, String, String, String, u64) =
-                        unpack(&kv.key()[relationships_subspace.bytes().len()..]).map_err(|e| {
-                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack index: {}", e))))))
-                        })?;
+                        // Collect range into Vec of owned data before iterating to make it Send
+                        let range_items: Vec<_> = range
+                            .iter()
+                            .map(|kv| (kv.key().to_vec(), kv.value().to_vec()))
+                            .collect();
+                        for (key, _value) in range_items {
+                            let unpacked: (Vec<u8>, String, String, String, String, u64) =
+                                unpack(&key[index_subspace.bytes().len()..]).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to unpack index: {}", e),
+                                        ),
+                                    ))
+                                })?;
 
-                    let (_prefix, _obj, _rel, user, rev) = unpacked;
+                            let (_vault_bytes, _prefix, _obj, _rel, user, rev) = unpacked;
 
-                    // Only include relationships at or before requested revision
-                    if rev > revision.0 {
-                        continue;
-                    }
+                            // Only include relationships at or before requested revision
+                            if rev > revision.0 {
+                                continue;
+                            }
 
-                    // Apply user filter if specified
-                    if let Some(ref filter_user) = user_filter {
-                        if &user != filter_user {
-                            continue;
-                        }
-                    }
+                            // Apply user filter if specified
+                            if let Some(ref filter_user) = user_filter {
+                                if &user != filter_user {
+                                    continue;
+                                }
+                            }
 
-                    // Deduplicate - only keep latest version of each relationship
-                    let relationship_id = format!("{}:{}:{}", object, relation, user);
-                    if !seen.contains(&relationship_id) {
-                        seen.insert(relationship_id);
+                            // Deduplicate - only keep latest version of each relationship
+                            let relationship_id = format!("{}:{}:{}", object, relation, user);
+                            if !seen.contains(&relationship_id) {
+                                seen.insert(relationship_id);
 
-                        // Check if this relationship is still active (not deleted)
-                        let relationship_key =
-                            relationships_subspace.pack(&(&object, &relation, &user, rev));
-                        if let Some(value) = trx.get(&relationship_key, false).await? {
-                            if &value == b"active" {
-                                relationships.push(Relationship {
-                                    resource: object.clone(),
-                                    relation: relation.clone(),
-                                    subject: user.clone(),
-                                });
+                                // Check if this relationship is still active (not deleted)
+                                let relationship_key = relationships_subspace.pack(&(
+                                    vault_bytes.clone(),
+                                    &object,
+                                    &relation,
+                                    &user,
+                                    rev,
+                                ));
+                                if let Some(relationship_value) =
+                                    trx.get(&relationship_key, false).await?
+                                {
+                                    if relationship_value.as_ref() == b"active" {
+                                        relationships.push(Relationship {
+                                            vault,
+                                            resource: object.clone(),
+                                            relation: relation.clone(),
+                                            subject: user.clone(),
+                                        });
+                                    }
+                                }
                             }
                         }
+
+                        Ok(relationships)
                     }
                 }
-
-                Ok(relationships)
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to read: {}", e)))?;
@@ -256,153 +353,230 @@ impl RelationshipStore for FoundationDBBackend {
         Ok(result)
     }
 
-    async fn write(&self, relationships: Vec<Relationship>) -> Result<Revision> {
+    async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision> {
         if relationships.is_empty() {
-            return self.get_current_revision().await;
+            return self.get_current_revision(vault).await;
         }
 
+        let relationships_len = relationships.len();
         let db = Arc::clone(&self.db);
         let relationships_subspace = self.relationships_subspace.clone();
         let index_subspace = self.index_subspace.clone();
-        let revision_key = self.revision_subspace.pack(&("current",));
+        let revision_subspace = self.revision_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                // Get and increment revision
-                let current = match trx.get(&revision_key, false).await? {
-                    Some(bytes) => {
-                        let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize: {}", e)))?;
-                        rev
-                    },
-                    None => 0,
-                };
+            .run({
+                let relationships = relationships.clone();
+                let relationships_subspace = relationships_subspace.clone();
+                let index_subspace = index_subspace.clone();
+                let revision_subspace = revision_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let relationships = relationships.clone();
+                    let relationships_subspace = relationships_subspace.clone();
+                    let index_subspace = index_subspace.clone();
+                    let revision_subspace = revision_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        // Get and increment revision
+                        let revision_key =
+                            revision_subspace.pack(&(vault_bytes.clone(), "current"));
+                        let current = match trx.get(&revision_key, false).await? {
+                            Some(bytes) => {
+                                let rev: u64 = serde_json::from_slice(&bytes).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize: {}", e),
+                                        ),
+                                    ))
+                                })?;
+                                rev
+                            },
+                            None => 0,
+                        };
 
-                let next_rev = current + 1;
-                let rev_bytes = serde_json::to_vec(&next_rev)
-                    .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize: {}", e)))?;
-                trx.set(&revision_key, &rev_bytes);
+                        let next_rev = current + 1;
+                        let rev_bytes = serde_json::to_vec(&next_rev).map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to serialize: {}", e),
+                            )))
+                        })?;
+                        trx.set(&revision_key, &rev_bytes);
 
-                let revision = Revision(next_rev);
+                        let revision = Revision(next_rev);
 
-                // Write each relationship
-                for relationship in &relationships {
-                    // Write relationship data
-                    let relationship_key = relationships_subspace.pack(&(
-                        &relationship.resource,
-                        &relationship.relation,
-                        &relationship.subject,
-                        revision.0,
-                    ));
-                    trx.set(&relationship_key, b"active");
+                        // Write each relationship
+                        for relationship in &relationships {
+                            // Write relationship data
+                            let relationship_key = relationships_subspace.pack(&(
+                                vault_bytes.clone(),
+                                &relationship.resource,
+                                &relationship.relation,
+                                &relationship.subject,
+                                revision.0,
+                            ));
+                            trx.set(&relationship_key, b"active");
 
-                    // Write index for object lookups
-                    let obj_index = index_subspace.pack(&(
-                        "obj",
-                        &relationship.resource,
-                        &relationship.relation,
-                        &relationship.subject,
-                        revision.0,
-                    ));
-                    trx.set(&obj_index, b"");
+                            // Write index for object lookups
+                            let obj_index = index_subspace.pack(&(
+                                vault_bytes.clone(),
+                                "obj",
+                                &relationship.resource,
+                                &relationship.relation,
+                                &relationship.subject,
+                                revision.0,
+                            ));
+                            trx.set(&obj_index, b"");
 
-                    // Write index for reverse lookups
-                    let subject_index = index_subspace.pack(&(
-                        "user",
-                        &relationship.subject,
-                        &relationship.relation,
-                        &relationship.resource,
-                        revision.0,
-                    ));
-                    trx.set(&subject_index, b"");
+                            // Write index for reverse lookups
+                            let subject_index = index_subspace.pack(&(
+                                vault_bytes.clone(),
+                                "user",
+                                &relationship.subject,
+                                &relationship.relation,
+                                &relationship.resource,
+                                revision.0,
+                            ));
+                            trx.set(&subject_index, b"");
+                        }
+
+                        Ok(revision)
+                    }
                 }
-
-                Ok(revision)
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to write: {}", e)))?;
 
-        debug!("Wrote {} relationships at revision {:?}", relationships.len(), result);
+        debug!("Wrote {} relationships at revision {:?}", relationships_len, result);
         Ok(result)
     }
 
-    async fn get_revision(&self) -> Result<Revision> {
-        self.get_current_revision().await
+    async fn get_revision(&self, vault: Uuid) -> Result<Revision> {
+        self.get_current_revision(vault).await
     }
 
-    async fn delete(&self, key: &RelationshipKey) -> Result<Revision> {
+    async fn delete(&self, vault: Uuid, key: &RelationshipKey) -> Result<Revision> {
         let db = Arc::clone(&self.db);
         let object = key.resource.clone();
         let relation = key.relation.clone();
         let user_filter = key.subject.clone();
         let relationships_subspace = self.relationships_subspace.clone();
-        let revision_key = self.revision_subspace.pack(&("current",));
+        let revision_subspace = self.revision_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                // Get and increment revision
-                let current = match trx.get(&revision_key, false).await? {
-                    Some(bytes) => {
-                        let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize: {}", e)))?;
-                        rev
-                    },
-                    None => 0,
-                };
-
-                let next_rev = current + 1;
-                let rev_bytes = serde_json::to_vec(&next_rev)
-                    .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize: {}", e)))?;
-                trx.set(&revision_key, &rev_bytes);
-
-                let revision = Revision(next_rev);
-
-                // Mark matching relationships as deleted
-                if let Some(user) = user_filter {
-                    // Delete specific relationship
-                    let relationship_key =
-                        relationships_subspace.pack(&(&object, &relation, &user, revision.0));
-                    trx.set(&relationship_key, b"deleted");
-                } else {
-                    // Delete all relationships matching object+relation
-                    // We write a deletion marker for each unique user we find
-                    let start_key = relationships_subspace.pack(&(&object, &relation));
-                    let end_key = relationships_subspace.pack(&(&object, &relation, "\u{10FFFF}"));
-
-                    let range = trx
-                        .get_range(
-                            &foundationdb::RangeOption {
-                                begin: foundationdb::KeySelector::first_greater_or_equal(
-                                    &start_key,
-                                ),
-                                end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                                limit: None,
-                                target_bytes: 0,
-                                reverse: false,
-                                mode: foundationdb::StreamingMode::WantAll,
+            .run({
+                let object = object.clone();
+                let relation = relation.clone();
+                let user_filter = user_filter.clone();
+                let relationships_subspace = relationships_subspace.clone();
+                let revision_subspace = revision_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let object = object.clone();
+                    let relation = relation.clone();
+                    let user_filter = user_filter.clone();
+                    let relationships_subspace = relationships_subspace.clone();
+                    let revision_subspace = revision_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        // Get and increment revision
+                        let revision_key =
+                            revision_subspace.pack(&(vault_bytes.clone(), "current"));
+                        let current = match trx.get(&revision_key, false).await? {
+                            Some(bytes) => {
+                                let rev: u64 = serde_json::from_slice(&bytes).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize: {}", e),
+                                        ),
+                                    ))
+                                })?;
+                                rev
                             },
-                            1,
-                            false,
-                        )
-                        .await?;
+                            None => 0,
+                        };
 
-                    let mut deleted_users = std::collections::HashSet::new();
-                    for kv in range.iter() {
-                        let unpacked: (String, String, String, u64) =
-                            unpack(&kv.key()[relationships_subspace.bytes().len()..])
-                                .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e)))?;
+                        let next_rev = current + 1;
+                        let rev_bytes = serde_json::to_vec(&next_rev).map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to serialize: {}", e),
+                            )))
+                        })?;
+                        trx.set(&revision_key, &rev_bytes);
 
-                        let (_obj, _rel, user, _rev) = unpacked;
-                        if !deleted_users.contains(&user) {
-                            deleted_users.insert(user.clone());
-                            let del_key = relationships_subspace
-                                .pack(&(&object, &relation, &user, revision.0));
-                            trx.set(&del_key, b"deleted");
+                        let revision = Revision(next_rev);
+
+                        // Mark matching relationships as deleted
+                        if let Some(user) = user_filter {
+                            // Delete specific relationship
+                            let relationship_key = relationships_subspace.pack(&(
+                                vault_bytes.clone(),
+                                &object,
+                                &relation,
+                                &user,
+                                revision.0,
+                            ));
+                            trx.set(&relationship_key, b"deleted");
+                        } else {
+                            // Delete all relationships matching object+relation
+                            // We write a deletion marker for each unique user we find
+                            let start_key = relationships_subspace.pack(&(
+                                vault_bytes.clone(),
+                                &object,
+                                &relation,
+                            ));
+                            let end_key = relationships_subspace.pack(&(
+                                vault_bytes.clone(),
+                                &object,
+                                &relation,
+                                "\u{10FFFF}",
+                            ));
+
+                            let range = trx
+                                .get_range(
+                                    &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                                    1,
+                                    false,
+                                )
+                                .await?;
+
+                            let mut deleted_users = std::collections::HashSet::new();
+                            for kv in range.iter() {
+                                let unpacked: (Vec<u8>, String, String, String, u64) =
+                                    unpack(&kv.key()[relationships_subspace.bytes().len()..])
+                                        .map_err(|e| {
+                                            FdbBindingError::new_custom_error(Box::new(
+                                                std::io::Error::new(
+                                                    std::io::ErrorKind::Other,
+                                                    format!("Failed to unpack: {}", e),
+                                                ),
+                                            ))
+                                        })?;
+
+                                let (_vault_bytes, _obj, _rel, user, _rev) = unpacked;
+                                if !deleted_users.contains(&user) {
+                                    deleted_users.insert(user.clone());
+                                    let del_key = relationships_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        &object,
+                                        &relation,
+                                        &user,
+                                        revision.0,
+                                    ));
+                                    trx.set(&del_key, b"deleted");
+                                }
+                            }
                         }
+
+                        Ok(revision)
                     }
                 }
-
-                Ok(revision)
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to delete: {}", e)))?;
@@ -416,6 +590,7 @@ impl RelationshipStore for FoundationDBBackend {
 
     async fn delete_by_filter(
         &self,
+        vault: Uuid,
         filter: &DeleteFilter,
         limit: Option<usize>,
     ) -> Result<(Revision, usize)> {
@@ -429,112 +604,151 @@ impl RelationshipStore for FoundationDBBackend {
         let db = Arc::clone(&self.db);
         let filter = filter.clone();
         let relationships_subspace = self.relationships_subspace.clone();
-        let revision_key = self.revision_subspace.pack(&("current",));
+        let revision_subspace = self.revision_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                // Get and increment revision
-                let current = match trx.get(&revision_key, false).await? {
-                    Some(bytes) => {
-                        let rev: u64 = serde_json::from_slice(&bytes)
-                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize: {}", e)))?;
-                        rev
-                    },
-                    None => 0,
-                };
+            .run({
+                let filter = filter.clone();
+                let relationships_subspace = relationships_subspace.clone();
+                let revision_subspace = revision_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let filter = filter.clone();
+                    let relationships_subspace = relationships_subspace.clone();
+                    let revision_subspace = revision_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        // Get and increment revision
+                        let revision_key =
+                            revision_subspace.pack(&(vault_bytes.clone(), "current"));
+                        let current = match trx.get(&revision_key, false).await? {
+                            Some(bytes) => {
+                                let rev: u64 = serde_json::from_slice(&bytes).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize: {}", e),
+                                        ),
+                                    ))
+                                })?;
+                                rev
+                            },
+                            None => 0,
+                        };
 
-                let next_rev = current + 1;
-                let rev_bytes = serde_json::to_vec(&next_rev)
-                    .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize: {}", e)))?;
-                trx.set(&revision_key, &rev_bytes);
+                        let next_rev = current + 1;
+                        let rev_bytes = serde_json::to_vec(&next_rev).map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to serialize: {}", e),
+                            )))
+                        })?;
+                        trx.set(&revision_key, &rev_bytes);
 
-                let revision = Revision(next_rev);
+                        let revision = Revision(next_rev);
 
-                // Scan all relationships and match against filter
-                // This is a full scan - could be optimized with better indexing
-                let start_key = relationships_subspace.pack(&());
-                let end_key = relationships_subspace.pack(&("\u{10FFFF}",));
+                        // Scan all relationships in this vault and match against filter
+                        let start_key = relationships_subspace.pack(&(vault_bytes.clone(),));
+                        let end_key =
+                            relationships_subspace.pack(&(vault_bytes.clone(), "\u{10FFFF}"));
 
-                let range = trx
-                    .get_range(
-                        &foundationdb::RangeOption {
-                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                            limit: None,
-                                target_bytes: 0,
-                            target_bytes: 0,
-                            reverse: false,
-                            mode: foundationdb::StreamingMode::WantAll,
-                        },
-                        1,
-                        false,
-                    )
-                    .await?;
+                        let range = trx
+                            .get_range(
+                                &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                                1,
+                                false,
+                            )
+                            .await?;
 
-                let mut deleted_count = 0;
-                let mut deleted_keys = std::collections::HashSet::new();
+                        let mut deleted_count = 0;
+                        // Use owned Strings to avoid lifetime issues
+                        let mut deleted_keys: std::collections::HashSet<(String, String, String)> =
+                            std::collections::HashSet::new();
 
-                for kv in range.iter() {
-                    // Skip if already at limit
-                    if let Some(lim) = limit {
-                        if lim > 0 && deleted_count >= lim {
-                            break;
+                        // Collect range into Vec of owned data before iterating to make it Send
+                        let range_items: Vec<_> = range
+                            .iter()
+                            .map(|kv| (kv.key().to_vec(), kv.value().to_vec()))
+                            .collect();
+                        for (key, value) in range_items {
+                            // Skip if already at limit
+                            if let Some(lim) = limit {
+                                if lim > 0 && deleted_count >= lim {
+                                    break;
+                                }
+                            }
+
+                            let unpacked: (Vec<u8>, String, String, String, u64) = unpack(
+                                &key[relationships_subspace.bytes().len()..],
+                            )
+                            .map_err(|e| {
+                                FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("Failed to unpack: {}", e),
+                                )))
+                            })?;
+
+                            let (_vault_bytes, resource, relation, subject, _rev) = unpacked;
+
+                            // Skip if already marked as deleted
+                            if value.as_slice() == b"deleted" {
+                                continue;
+                            }
+
+                            // Check filter conditions
+                            let matches =
+                                match (&filter.resource, &filter.relation, &filter.subject) {
+                                    // All three specified (exact match)
+                                    (Some(res), Some(rel_name), Some(sub)) => {
+                                        resource == *res && relation == *rel_name && subject == *sub
+                                    },
+                                    // Resource + Relation
+                                    (Some(res), Some(rel_name), None) => {
+                                        resource == *res && relation == *rel_name
+                                    },
+                                    // Resource + Subject
+                                    (Some(res), None, Some(sub)) => {
+                                        resource == *res && subject == *sub
+                                    },
+                                    // Relation + Subject
+                                    (None, Some(rel_name), Some(sub)) => {
+                                        relation == *rel_name && subject == *sub
+                                    },
+                                    // Resource only
+                                    (Some(res), None, None) => resource == *res,
+                                    // Relation only
+                                    (None, Some(rel_name), None) => relation == *rel_name,
+                                    // Subject only (user offboarding)
+                                    (None, None, Some(sub)) => subject == *sub,
+                                    // None (should be caught by filter.is_empty())
+                                    (None, None, None) => false,
+                                };
+
+                            if matches {
+                                // Create unique key for this relationship (without revision)
+                                let unique_key =
+                                    (resource.clone(), relation.clone(), subject.clone());
+                                if !deleted_keys.contains(&unique_key) {
+                                    deleted_keys.insert(unique_key.clone());
+
+                                    // Write deletion marker at new revision
+                                    let del_key = relationships_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        &unique_key.0,
+                                        &unique_key.1,
+                                        &unique_key.2,
+                                        revision.0,
+                                    ));
+                                    trx.set(&del_key, b"deleted");
+                                    deleted_count += 1;
+                                }
+                            }
                         }
-                    }
 
-                    let unpacked: (String, String, String, u64) =
-                        unpack(&kv.key()[relationships_subspace.bytes().len()..])
-                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e)))?;
-
-                    let (resource, relation, subject, _rev) = unpacked;
-
-                    // Skip if already marked as deleted
-                    if kv.value() == b"deleted" {
-                        continue;
-                    }
-
-                    // Check filter conditions
-                    let matches = match (&filter.resource, &filter.relation, &filter.subject) {
-                        // All three specified (exact match)
-                        (Some(res), Some(rel_name), Some(sub)) => {
-                            resource == *res && relation == *rel_name && subject == *sub
-                        },
-                        // Resource + Relation
-                        (Some(res), Some(rel_name), None) => {
-                            resource == *res && relation == *rel_name
-                        },
-                        // Resource + Subject
-                        (Some(res), None, Some(sub)) => resource == *res && subject == *sub,
-                        // Relation + Subject
-                        (None, Some(rel_name), Some(sub)) => {
-                            relation == *rel_name && subject == *sub
-                        },
-                        // Resource only
-                        (Some(res), None, None) => resource == *res,
-                        // Relation only
-                        (None, Some(rel_name), None) => relation == *rel_name,
-                        // Subject only (user offboarding)
-                        (None, None, Some(sub)) => subject == *sub,
-                        // None (should be caught by filter.is_empty())
-                        (None, None, None) => false,
-                    };
-
-                    if matches {
-                        // Create unique key for this relationship (without revision)
-                        let unique_key = (&resource, &relation, &subject);
-                        if !deleted_keys.contains(&unique_key) {
-                            deleted_keys.insert(unique_key);
-
-                            // Write deletion marker at new revision
-                            let del_key = relationships_subspace
-                                .pack(&(&resource, &relation, &subject, revision.0));
-                            trx.set(&del_key, b"deleted");
-                            deleted_count += 1;
-                        }
+                        Ok((revision, deleted_count))
                     }
                 }
-
-                Ok((revision, deleted_count))
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to delete by filter: {}", e)))?;
@@ -545,6 +759,7 @@ impl RelationshipStore for FoundationDBBackend {
 
     async fn list_resources_by_type(
         &self,
+        vault: Uuid,
         object_type: &str,
         revision: Revision,
     ) -> Result<Vec<String>> {
@@ -552,64 +767,91 @@ impl RelationshipStore for FoundationDBBackend {
         let object_type = object_type.to_string();
         let index_subspace = self.index_subspace.clone();
         let relationships_subspace = self.relationships_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         // Build the type prefix (e.g., "document:")
         let type_prefix = format!("{}:", object_type);
         let type_end = format!("{};\u{0}", object_type); // Next string after "type:"
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                // Query range of all objects with this type prefix
-                let start_key = index_subspace.pack(&("obj", type_prefix.as_str()));
-                let end_key = index_subspace.pack(&("obj", type_end.as_str()));
+            .run({
+                let type_prefix = type_prefix.clone();
+                let type_end = type_end.clone();
+                let index_subspace = index_subspace.clone();
+                let relationships_subspace = relationships_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let type_prefix = type_prefix.clone();
+                    let type_end = type_end.clone();
+                    let index_subspace = index_subspace.clone();
+                    let relationships_subspace = relationships_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        // Query range of all objects with this type prefix
+                        let start_key = index_subspace.pack(&(
+                            vault_bytes.clone(),
+                            "obj",
+                            type_prefix.as_str(),
+                        ));
+                        let end_key =
+                            index_subspace.pack(&(vault_bytes.clone(), "obj", type_end.as_str()));
 
-                let range = trx
-                    .get_range(
-                        &foundationdb::RangeOption {
-                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                            limit: None,
-                                target_bytes: 0,
-                            target_bytes: 0,
-                            reverse: false,
-                            mode: foundationdb::StreamingMode::WantAll,
-                        },
-                        1,
-                        false,
-                    )
-                    .await?;
+                        let range = trx
+                            .get_range(
+                                &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                                1,
+                                false,
+                            )
+                            .await?;
 
-                let mut objects = std::collections::HashSet::new();
+                        let mut objects = std::collections::HashSet::new();
 
-                for kv in range.iter() {
-                    // Unpack: ("obj", object, relation, user, rev)
-                    let unpacked: (String, String, String, String, u64) =
-                        unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
-                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack index: {}", e))))))
-                        })?;
+                        // Collect range into Vec of owned data before iterating to make it Send
+                        let range_items: Vec<_> = range
+                            .iter()
+                            .map(|kv| (kv.key().to_vec(), kv.value().to_vec()))
+                            .collect();
+                        for (key, _value) in range_items {
+                            // Unpack: (vault_bytes, "obj", object, relation, user, rev)
+                            let unpacked: (Vec<u8>, String, String, String, String, u64) =
+                                unpack(&key[index_subspace.bytes().len()..]).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to unpack index: {}", e),
+                                        ),
+                                    ))
+                                })?;
 
-                    let (_prefix, object, relation, user, rev) = unpacked;
+                            let (_vault_bytes, _prefix, object, relation, user, rev) = unpacked;
 
-                    // Only include relationships at or before requested revision
-                    if rev > revision.0 {
-                        continue;
-                    }
+                            // Only include relationships at or before requested revision
+                            if rev > revision.0 {
+                                continue;
+                            }
 
-                    // Check if this relationship is still active at the requested revision
-                    let relationship_key =
-                        relationships_subspace.pack(&(&object, &relation, &user, rev));
-                    if let Some(value) = trx.get(&relationship_key, false).await? {
-                        if &value == b"active" {
-                            objects.insert(object);
+                            // Check if this relationship is still active at the requested revision
+                            let relationship_key = relationships_subspace.pack(&(
+                                vault_bytes.clone(),
+                                &object,
+                                &relation,
+                                &user,
+                                rev,
+                            ));
+                            if let Some(value) = trx.get(&relationship_key, false).await? {
+                                if value.as_ref() == b"active" {
+                                    objects.insert(object);
+                                }
+                            }
                         }
+
+                        // Convert to sorted vector for deterministic output
+                        let mut result: Vec<String> = objects.into_iter().collect();
+                        result.sort();
+
+                        Ok(result)
                     }
                 }
-
-                // Convert to sorted vector for deterministic output
-                let mut result: Vec<String> = objects.into_iter().collect();
-                result.sort();
-
-                Ok(result)
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to list objects by type: {}", e)))?;
@@ -620,6 +862,7 @@ impl RelationshipStore for FoundationDBBackend {
 
     async fn list_relationships(
         &self,
+        vault: Uuid,
         resource: Option<&str>,
         relation: Option<&str>,
         subject: Option<&str>,
@@ -632,206 +875,309 @@ impl RelationshipStore for FoundationDBBackend {
         let user_filter = subject.map(|s| s.to_string());
         let index_subspace = self.index_subspace.clone();
         let relationships_subspace = self.relationships_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                let mut relationships = Vec::new();
-                let mut seen = std::collections::HashSet::new();
+            .run({
+                let object_filter = object_filter.clone();
+                let relation_filter = relation_filter.clone();
+                let user_filter = user_filter.clone();
+                let index_subspace = index_subspace.clone();
+                let relationships_subspace = relationships_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let object_filter = object_filter.clone();
+                    let relation_filter = relation_filter.clone();
+                    let user_filter = user_filter.clone();
+                    let index_subspace = index_subspace.clone();
+                    let relationships_subspace = relationships_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        let mut relationships = Vec::new();
+                        let mut seen = std::collections::HashSet::new();
 
-                // Determine the best index to use based on provided filters
-                match (&object_filter, &relation_filter, &user_filter) {
-                    // Use object index when we have object filter
-                    (Some(obj), rel, _) => {
-                        let start_key = if let Some(rel) = &relation_filter {
-                            index_subspace.pack(&("obj", obj.as_str(), rel.as_str()))
-                        } else {
-                            index_subspace.pack(&("obj", obj.as_str()))
-                        };
-                        let end_key = if let Some(rel) = &relation_filter {
-                            index_subspace.pack(&("obj", obj.as_str(), rel.as_str(), "\u{10FFFF}"))
-                        } else {
-                            index_subspace.pack(&("obj", obj.as_str(), "\u{10FFFF}"))
-                        };
+                        // Determine the best index to use based on provided filters
+                        match (&object_filter, &relation_filter, &user_filter) {
+                            // Use object index when we have object filter
+                            (Some(obj), _rel, _) => {
+                                let start_key = if let Some(rel) = &relation_filter {
+                                    index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "obj",
+                                        obj.as_str(),
+                                        rel.as_str(),
+                                    ))
+                                } else {
+                                    index_subspace.pack(&(vault_bytes.clone(), "obj", obj.as_str()))
+                                };
+                                let end_key = if let Some(rel) = &relation_filter {
+                                    index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "obj",
+                                        obj.as_str(),
+                                        rel.as_str(),
+                                        "\u{10FFFF}",
+                                    ))
+                                } else {
+                                    index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "obj",
+                                        obj.as_str(),
+                                        "\u{10FFFF}",
+                                    ))
+                                };
 
-                        let range = trx
-                            .get_range(
-                                &foundationdb::RangeOption {
-                                    begin: foundationdb::KeySelector::first_greater_or_equal(
-                                        &start_key,
-                                    ),
-                                    end: foundationdb::KeySelector::first_greater_or_equal(
-                                        &end_key,
-                                    ),
-                                    limit: None,
-                                target_bytes: 0,
-                                    reverse: false,
-                                    mode: foundationdb::StreamingMode::WantAll,
-                                },
-                                1,
-                                false,
-                            )
-                            .await?;
+                                let range = trx
+                                    .get_range(
+                                        &RangeOption::from((
+                                            start_key.as_slice(),
+                                            end_key.as_slice(),
+                                        )),
+                                        1,
+                                        false,
+                                    )
+                                    .await?;
 
-                        for kv in range.iter() {
-                            let unpacked: (String, String, String, String, u64) =
-                                unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
-                                    FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e))))))
-                                })?;
+                                // Collect range into Vec of owned data before iterating to make it
+                                // Send
+                                let range_items: Vec<_> = range
+                                    .iter()
+                                    .map(|kv| (kv.key().to_vec(), kv.value().to_vec()))
+                                    .collect();
+                                for (key, _value) in range_items {
+                                    let unpacked: (Vec<u8>, String, String, String, String, u64) =
+                                        unpack(&key[index_subspace.bytes().len()..]).map_err(
+                                            |e| {
+                                                FdbBindingError::new_custom_error(Box::new(
+                                                    std::io::Error::new(
+                                                        std::io::ErrorKind::Other,
+                                                        format!("Failed to unpack: {}", e),
+                                                    ),
+                                                ))
+                                            },
+                                        )?;
 
-                            let (_prefix, object, relation, user, rev) = unpacked;
+                                    let (_vault_bytes, _prefix, object, relation, user, rev) =
+                                        unpacked;
 
-                            // Filter by revision
-                            if rev > revision.0 {
-                                continue;
-                            }
+                                    // Filter by revision
+                                    if rev > revision.0 {
+                                        continue;
+                                    }
 
-                            // Apply user filter if needed
-                            if let Some(ref filter_user) = user_filter {
-                                if &user != filter_user {
-                                    continue;
+                                    // Apply user filter if needed
+                                    if let Some(ref filter_user) = user_filter {
+                                        if &user != filter_user {
+                                            continue;
+                                        }
+                                    }
+
+                                    // Deduplicate
+                                    let relationship_id =
+                                        format!("{}:{}:{}", object, relation, user);
+                                    if seen.contains(&relationship_id) {
+                                        continue;
+                                    }
+                                    seen.insert(relationship_id);
+
+                                    // Check if active
+                                    let relationship_key = relationships_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        &object,
+                                        &relation,
+                                        &user,
+                                        rev,
+                                    ));
+                                    if let Some(relationship_value) =
+                                        trx.get(&relationship_key, false).await?
+                                    {
+                                        if relationship_value.as_ref() == b"active" {
+                                            relationships.push(Relationship {
+                                                vault,
+                                                resource: object,
+                                                relation,
+                                                subject: user,
+                                            });
+                                        }
+                                    }
                                 }
-                            }
+                            },
+                            // Use user index when we have user filter (but no object filter)
+                            (None, _rel, Some(usr)) => {
+                                let start_key = if let Some(rel) = &relation_filter {
+                                    index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "user",
+                                        usr.as_str(),
+                                        rel.as_str(),
+                                    ))
+                                } else {
+                                    index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "user",
+                                        usr.as_str(),
+                                    ))
+                                };
+                                let end_key = if let Some(rel) = &relation_filter {
+                                    index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "user",
+                                        usr.as_str(),
+                                        rel.as_str(),
+                                        "\u{10FFFF}",
+                                    ))
+                                } else {
+                                    index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "user",
+                                        usr.as_str(),
+                                        "\u{10FFFF}",
+                                    ))
+                                };
 
-                            // Deduplicate
-                            let relationship_id = format!("{}:{}:{}", object, relation, user);
-                            if seen.contains(&relationship_id) {
-                                continue;
-                            }
-                            seen.insert(relationship_id);
+                                let range = trx
+                                    .get_range(
+                                        &RangeOption::from((
+                                            start_key.as_slice(),
+                                            end_key.as_slice(),
+                                        )),
+                                        1,
+                                        false,
+                                    )
+                                    .await?;
 
-                            // Check if active
-                            let relationship_key =
-                                relationships_subspace.pack(&(&object, &relation, &user, rev));
-                            if let Some(value) = trx.get(&relationship_key, false).await? {
-                                if &value == b"active" {
-                                    relationships.push(Relationship { object, relation, user });
+                                // Collect range into Vec of owned data before iterating to make it
+                                // Send
+                                let range_items: Vec<_> = range
+                                    .iter()
+                                    .map(|kv| (kv.key().to_vec(), kv.value().to_vec()))
+                                    .collect();
+                                for (key, _value) in range_items {
+                                    let unpacked: (Vec<u8>, String, String, String, String, u64) =
+                                        unpack(&key[index_subspace.bytes().len()..]).map_err(
+                                            |e| {
+                                                FdbBindingError::new_custom_error(Box::new(
+                                                    std::io::Error::new(
+                                                        std::io::ErrorKind::Other,
+                                                        format!("Failed to unpack: {}", e),
+                                                    ),
+                                                ))
+                                            },
+                                        )?;
+
+                                    let (_vault_bytes, _prefix, user, relation, object, rev) =
+                                        unpacked;
+
+                                    // Filter by revision
+                                    if rev > revision.0 {
+                                        continue;
+                                    }
+
+                                    // Deduplicate
+                                    let relationship_id =
+                                        format!("{}:{}:{}", object, relation, user);
+                                    if seen.contains(&relationship_id) {
+                                        continue;
+                                    }
+                                    seen.insert(relationship_id);
+
+                                    // Check if active
+                                    let relationship_key = relationships_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        &object,
+                                        &relation,
+                                        &user,
+                                        rev,
+                                    ));
+                                    if let Some(relationship_value) =
+                                        trx.get(&relationship_key, false).await?
+                                    {
+                                        if relationship_value.as_ref() == b"active" {
+                                            relationships.push(Relationship {
+                                                vault,
+                                                resource: object,
+                                                relation,
+                                                subject: user,
+                                            });
+                                        }
+                                    }
                                 }
-                            }
+                            },
+                            // Only relation filter or no filters - scan all relationships
+                            (None, Some(_), None) | (None, None, None) => {
+                                // Full scan of relationships in this vault
+                                let start_key =
+                                    relationships_subspace.pack(&(vault_bytes.clone(),));
+                                let end_key = relationships_subspace
+                                    .pack(&(vault_bytes.clone(), "\u{10FFFF}"));
+
+                                let range = trx
+                                    .get_range(
+                                        &RangeOption::from((
+                                            start_key.as_slice(),
+                                            end_key.as_slice(),
+                                        )),
+                                        1,
+                                        false,
+                                    )
+                                    .await?;
+
+                                // Collect range into Vec of owned data before iterating to make it
+                                // Send
+                                let range_items: Vec<_> = range
+                                    .iter()
+                                    .map(|kv| (kv.key().to_vec(), kv.value().to_vec()))
+                                    .collect();
+                                for (key, value) in range_items {
+                                    let unpacked: (Vec<u8>, String, String, String, u64) =
+                                        unpack(&key[relationships_subspace.bytes().len()..])
+                                            .map_err(|e| {
+                                                FdbBindingError::new_custom_error(Box::new(
+                                                    std::io::Error::new(
+                                                        std::io::ErrorKind::Other,
+                                                        format!("Failed to unpack: {}", e),
+                                                    ),
+                                                ))
+                                            })?;
+
+                                    let (_vault_bytes, object, relation, user, rev) = unpacked;
+
+                                    // Filter by revision
+                                    if rev > revision.0 {
+                                        continue;
+                                    }
+
+                                    // Apply relation filter if needed
+                                    if let Some(ref filter_rel) = relation_filter {
+                                        if &relation != filter_rel {
+                                            continue;
+                                        }
+                                    }
+
+                                    // Deduplicate
+                                    let relationship_id =
+                                        format!("{}:{}:{}", object, relation, user);
+                                    if seen.contains(&relationship_id) {
+                                        continue;
+                                    }
+                                    seen.insert(relationship_id);
+
+                                    // Check if active
+                                    if value.as_slice() == b"active" {
+                                        relationships.push(Relationship {
+                                            vault,
+                                            resource: object,
+                                            relation,
+                                            subject: user,
+                                        });
+                                    }
+                                }
+                            },
                         }
-                    },
-                    // Use user index when we have user filter (but no object filter)
-                    (None, rel, Some(usr)) => {
-                        let start_key = if let Some(rel) = &relation_filter {
-                            index_subspace.pack(&("user", usr.as_str(), rel.as_str()))
-                        } else {
-                            index_subspace.pack(&("user", usr.as_str()))
-                        };
-                        let end_key = if let Some(rel) = &relation_filter {
-                            index_subspace.pack(&("user", usr.as_str(), rel.as_str(), "\u{10FFFF}"))
-                        } else {
-                            index_subspace.pack(&("user", usr.as_str(), "\u{10FFFF}"))
-                        };
 
-                        let range = trx
-                            .get_range(
-                                &foundationdb::RangeOption {
-                                    begin: foundationdb::KeySelector::first_greater_or_equal(
-                                        &start_key,
-                                    ),
-                                    end: foundationdb::KeySelector::first_greater_or_equal(
-                                        &end_key,
-                                    ),
-                                    limit: None,
-                                target_bytes: 0,
-                                    reverse: false,
-                                    mode: foundationdb::StreamingMode::WantAll,
-                                },
-                                1,
-                                false,
-                            )
-                            .await?;
-
-                        for kv in range.iter() {
-                            let unpacked: (String, String, String, String, u64) =
-                                unpack(&kv.key()[index_subspace.bytes().len()..]).map_err(|e| {
-                                    FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e))))))
-                                })?;
-
-                            let (_prefix, user, relation, object, rev) = unpacked;
-
-                            // Filter by revision
-                            if rev > revision.0 {
-                                continue;
-                            }
-
-                            // Deduplicate
-                            let relationship_id = format!("{}:{}:{}", object, relation, user);
-                            if seen.contains(&relationship_id) {
-                                continue;
-                            }
-                            seen.insert(relationship_id);
-
-                            // Check if active
-                            let relationship_key =
-                                relationships_subspace.pack(&(&object, &relation, &user, rev));
-                            if let Some(value) = trx.get(&relationship_key, false).await? {
-                                if &value == b"active" {
-                                    relationships.push(Relationship { object, relation, user });
-                                }
-                            }
-                        }
-                    },
-                    // Only relation filter or no filters - scan all relationships
-                    (None, Some(_), None) | (None, None, None) => {
-                        // Full scan of relationships
-                        let start_key = relationships_subspace.pack(&());
-                        let end_key = relationships_subspace.pack(&("\u{10FFFF}",));
-
-                        let range = trx
-                            .get_range(
-                                &foundationdb::RangeOption {
-                                    begin: foundationdb::KeySelector::first_greater_or_equal(
-                                        &start_key,
-                                    ),
-                                    end: foundationdb::KeySelector::first_greater_or_equal(
-                                        &end_key,
-                                    ),
-                                    limit: None,
-                                target_bytes: 0,
-                                    reverse: false,
-                                    mode: foundationdb::StreamingMode::WantAll,
-                                },
-                                1,
-                                false,
-                            )
-                            .await?;
-
-                        for kv in range.iter() {
-                            let unpacked: (String, String, String, u64) = unpack(
-                                &kv.key()[relationships_subspace.bytes().len()..],
-                            )
-                            .map_err(|e| FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to unpack: {}", e)))?;
-
-                            let (object, relation, user, rev) = unpacked;
-
-                            // Filter by revision
-                            if rev > revision.0 {
-                                continue;
-                            }
-
-                            // Apply relation filter if needed
-                            if let Some(ref filter_rel) = relation_filter {
-                                if &relation != filter_rel {
-                                    continue;
-                                }
-                            }
-
-                            // Deduplicate
-                            let relationship_id = format!("{}:{}:{}", object, relation, user);
-                            if seen.contains(&relationship_id) {
-                                continue;
-                            }
-                            seen.insert(relationship_id);
-
-                            // Check if active
-                            if &kv.value() == b"active" {
-                                relationships.push(Relationship { object, relation, user });
-                            }
-                        }
-                    },
+                        Ok(relationships)
+                    }
                 }
-
-                Ok(relationships)
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to list relationships: {}", e)))?;
@@ -846,27 +1192,42 @@ impl RelationshipStore for FoundationDBBackend {
         Ok(result)
     }
 
-    async fn append_change(&self, event: ChangeEvent) -> Result<()> {
+    async fn append_change(&self, vault: Uuid, event: ChangeEvent) -> Result<()> {
         let db = Arc::clone(&self.db);
         let changelog_subspace = self.changelog_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                // Create key: (revision, timestamp, resource)
-                // This allows efficient range queries starting from a revision
-                let key = changelog_subspace.pack(&(
-                    event.revision.0,
-                    event.timestamp_nanos,
-                    &event.relationship.resource,
-                ));
+            .run({
+                let event = event.clone();
+                let changelog_subspace = changelog_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let event = event.clone();
+                    let changelog_subspace = changelog_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        // Create key: (vault, revision, timestamp, resource)
+                        // This allows efficient range queries starting from a revision
+                        let key = changelog_subspace.pack(&(
+                            vault_bytes,
+                            event.revision.0,
+                            event.timestamp_nanos,
+                            &event.relationship.resource,
+                        ));
 
-                // Serialize the change event
-                let value = serde_json::to_vec(&event).map_err(|e| {
-                    FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to serialize change event: {}", e))))))
-                })?;
+                        // Serialize the change event
+                        let value = serde_json::to_vec(&event).map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to serialize change event: {}", e),
+                            )))
+                        })?;
 
-                trx.set(&key, &value);
-                Ok(())
+                        trx.set(&key, &value);
+                        Ok(())
+                    }
+                }
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to append change: {}", e)))?;
@@ -876,6 +1237,7 @@ impl RelationshipStore for FoundationDBBackend {
 
     async fn read_changes(
         &self,
+        vault: Uuid,
         start_revision: Revision,
         resource_types: &[String],
         limit: Option<usize>,
@@ -884,52 +1246,67 @@ impl RelationshipStore for FoundationDBBackend {
         let changelog_subspace = self.changelog_subspace.clone();
         let resource_types = resource_types.to_vec();
         let max_count = limit.unwrap_or(usize::MAX);
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                // Create range starting from start_revision
-                let start_key = changelog_subspace.pack(&(start_revision.0,));
-                let end_key = changelog_subspace.pack(&(u64::MAX,));
+            .run({
+                let resource_types = resource_types.clone();
+                let changelog_subspace = changelog_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let resource_types = resource_types.clone();
+                    let changelog_subspace = changelog_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        // Create range starting from start_revision for this vault
+                        let start_key =
+                            changelog_subspace.pack(&(vault_bytes.clone(), start_revision.0));
+                        let end_key = changelog_subspace.pack(&(vault_bytes.clone(), u64::MAX));
 
-                let range = trx
-                    .get_range(
-                        &foundationdb::RangeOption {
-                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                            limit: Some(max_count as i32),
-                            reverse: false,
-                            mode: foundationdb::StreamingMode::WantAll,
-                        },
-                        false,
-                    )
-                    .await?;
+                        let range = trx
+                            .get_range(
+                                &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                                1,
+                                false,
+                            )
+                            .await?;
 
-                let mut events = Vec::new();
+                        let mut events = Vec::new();
 
-                for kv in range {
-                    let event: ChangeEvent = serde_json::from_slice(&kv.value()).map_err(|e| {
-                        FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize change event: {}", e))))))
-                    })?;
+                        // Collect range into Vec before iterating to make it Send
+                        let range_items: Vec<_> = range.iter().collect();
+                        for kv in range_items {
+                            let event: ChangeEvent =
+                                serde_json::from_slice(kv.value()).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize change event: {}", e),
+                                        ),
+                                    ))
+                                })?;
 
-                    // Filter by resource type if specified
-                    if !resource_types.is_empty() {
-                        if let Some(event_type) = event.resource_type() {
-                            if !resource_types.iter().any(|t| t == event_type) {
-                                continue;
+                            // Filter by resource type if specified
+                            if !resource_types.is_empty() {
+                                if let Some(event_type) = event.resource_type() {
+                                    if !resource_types.iter().any(|t| t == event_type) {
+                                        continue;
+                                    }
+                                } else {
+                                    continue;
+                                }
                             }
-                        } else {
-                            continue;
+
+                            events.push(event);
+
+                            if events.len() >= max_count {
+                                break;
+                            }
                         }
-                    }
 
-                    events.push(event);
-
-                    if events.len() >= max_count {
-                        break;
+                        Ok(events)
                     }
                 }
-
-                Ok(events)
             })
             .await
             .map_err(|e| StoreError::Database(format!("Failed to read changes: {}", e)))?;
@@ -937,44 +1314,59 @@ impl RelationshipStore for FoundationDBBackend {
         Ok(result)
     }
 
-    async fn get_change_log_revision(&self) -> Result<Revision> {
+    async fn get_change_log_revision(&self, vault: Uuid) -> Result<Revision> {
         let db = Arc::clone(&self.db);
         let changelog_subspace = self.changelog_subspace.clone();
+        let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
-            .run(move |trx, _maybe_committed| async move {
-                // Get the last key in the changelog
-                let start_key = changelog_subspace.pack(&(u64::MAX,));
-                let end_key = changelog_subspace.pack(&(0u64,));
+            .run({
+                let changelog_subspace = changelog_subspace.clone();
+                let vault_bytes = vault_bytes.clone();
+                move |trx, _maybe_committed| {
+                    let changelog_subspace = changelog_subspace.clone();
+                    let vault_bytes = vault_bytes.clone();
+                    async move {
+                        // Get the last key in the changelog for this vault
+                        let start_key = changelog_subspace.pack(&(vault_bytes.clone(), u64::MAX));
+                        let end_key = changelog_subspace.pack(&(vault_bytes.clone(), 0u64));
 
-                let range = trx
-                    .get_range(
-                        &foundationdb::RangeOption {
-                            begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                            end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                            limit: Some(1),
-                            reverse: true, // Get last entry
-                            mode: foundationdb::StreamingMode::WantAll,
-                        },
-                        false,
-                    )
-                    .await?;
+                        let range = trx
+                            .get_range(
+                                &RangeOption::from((start_key.as_slice(), end_key.as_slice()))
+                                    .rev(),
+                                1,
+                                false,
+                            )
+                            .await?;
 
-                if let Some(kv) = range.first() {
-                    let event: ChangeEvent = serde_json::from_slice(&kv.value()).map_err(|e| {
-                        FdbBindingError::new_custom_error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to deserialize change event: {}", e))))))
-                    })?;
-                    Ok(event.revision)
-                } else {
-                    Ok(Revision::zero())
+                        if let Some(kv) = range.first() {
+                            let event: ChangeEvent =
+                                serde_json::from_slice(kv.value()).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize change event: {}", e),
+                                        ),
+                                    ))
+                                })?;
+                            Ok(event.revision)
+                        } else {
+                            Ok(Revision::zero())
+                        }
+                    }
                 }
             })
             .await
             .map_err(|e| {
-                StoreError::Database(format!("Failed to get change log revision: {}", e))))))
+                StoreError::Database(format!("Failed to get change log revision: {}", e))
             })?;
 
         Ok(result)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -989,7 +1381,7 @@ mod tests {
     ///
     /// ```bash
     /// # Start FoundationDB first (e.g., via Docker)
-    /// docker run -p 4500:4500 foundationdb/foundationdb:7.4.5
+    /// docker run -p 4500:4500 foundationdb/foundationdb:7.3.69
     ///
     /// # Run tests with the feature flag
     /// cargo test -p infera-store --features fdb-integration-tests
@@ -1004,15 +1396,17 @@ mod tests {
     #[tokio::test]
     async fn test_fdb_basic_operations() {
         let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
 
         let relationship = Relationship {
+            vault,
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
         };
 
         // Write
-        let rev = store.write(vec![relationship.clone()]).await.unwrap();
+        let rev = store.write(vault, vec![relationship.clone()]).await.unwrap();
 
         // Read
         let key = RelationshipKey {
@@ -1020,13 +1414,13 @@ mod tests {
             relation: "reader".to_string(),
             subject: None,
         };
-        let results = store.read(&key, rev).await.unwrap();
+        let results = store.read(vault, &key, rev).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].subject, "user:alice");
 
         // Delete
-        let del_rev = store.delete(&key).await.unwrap();
-        let results = store.read(&key, del_rev).await.unwrap();
+        let del_rev = store.delete(vault, &key).await.unwrap();
+        let results = store.read(vault, &key, del_rev).await.unwrap();
         assert_eq!(results.len(), 0);
     }
 }
