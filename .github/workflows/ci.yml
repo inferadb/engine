@@ -24,7 +24,7 @@ env:
 jobs:
   # Check code formatting
   fmt:
-    name: Rustfmt
+    name: Formatting
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -43,7 +43,7 @@ jobs:
 
   # Run Clippy for linting
   clippy:
-    name: Clippy
+    name: Linting
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -142,7 +142,7 @@ jobs:
 
   # Run tests (reuses build cache)
   test:
-    name: Test (${{ matrix.os }})
+    name: Tests (${{ matrix.os }})
     needs: build
     runs-on: ${{ matrix.os }}
     permissions:
@@ -345,7 +345,7 @@ jobs:
 
   # Check dependencies
   dependencies:
-    name: Dependency Check
+    name: Dependencies
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -369,40 +369,6 @@ jobs:
       - name: Check for duplicate dependencies
         run: cargo tree --duplicates
 
-  # Build documentation (reuses build cache)
-  docs:
-    name: Documentation
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
-        with:
-          toolchain: stable
-
-      - name: Restore build cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
-        with:
-          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
-          save-if: false # Don't save, only restore from build job
-
-      - name: Build documentation
-        run: cargo doc --workspace --no-deps --all-features
-        env:
-          RUSTDOCFLAGS: -D warnings
-
-      - name: Upload documentation
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
-        with:
-          name: documentation
-          path: target/doc
-          retention-days: 7
-
   # Overall status check
   ci-success:
     name: CI Success
@@ -416,7 +382,6 @@ jobs:
         wasm-security-tests,
         coverage,
         dependencies,
-        docs,
       ]
     runs-on: ubuntu-latest
     permissions:
@@ -439,10 +404,6 @@ jobs:
           fi
           if [[ "${{ needs.test.result }}" != "success" ]]; then
             echo "Tests failed"
-            exit 1
-          fi
-          if [[ "${{ needs.docs.result }}" != "success" ]]; then
-            echo "Documentation build failed"
             exit 1
           fi
           # Security tests are conditional (only on PRs when crates modified)

@@ -56,6 +56,61 @@ jobs:
           draft: false
           prerelease: false
 
+  # Build and publish documentation
+  docs:
+    name: Build Documentation
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        with:
+          shared-key: docs
+
+      - name: Build documentation
+        run: cargo doc --workspace --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+      - name: Add index redirect
+        run: |
+          echo '<meta http-equiv="refresh" content="0; url=inferadb">' > target/doc/index.html
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: documentation
+          path: target/doc
+          retention-days: 30
+
+      - name: Compress documentation
+        run: |
+          cd target
+          tar czf docs-${{ needs.create-release.outputs.version }}.tar.gz doc/
+
+      - name: Upload docs to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.create-release.outputs.version }} \
+            target/docs-${{ needs.create-release.outputs.version }}.tar.gz
+
   # Build release binaries for multiple platforms
   build-release:
     name: Build Release (${{ matrix.target }})
@@ -100,6 +155,16 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
+
+      - name: Install protobuf compiler
+        run: |
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y protobuf-compiler
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            brew install protobuf
+          fi
+          protoc --version
 
       - name: Install cross-compilation tools
         if: matrix.target == 'aarch64-unknown-linux-gnu'

@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   cargo-audit:
-    name: Cargo Audit
+    name: Vulnerabilities
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -35,7 +35,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   cargo-deny:
-    name: Cargo Deny
+    name: Licenses
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -51,7 +51,7 @@ jobs:
           arguments: --all-features
 
   dependency-review:
-    name: Dependency Review
+    name: Dependencies
     runs-on: ubuntu-latest
     # Only run on pull requests (not on push to main or scheduled runs)
     if: github.event_name == 'pull_request'
