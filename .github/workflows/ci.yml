@@ -39,7 +39,7 @@ jobs:
           components: rustfmt
 
       - name: Check formatting
-        run: cargo fmt +nightly --all -- --check
+        run: cargo +nightly fmt --all -- --check
 
   # Run Clippy for linting
   clippy:
@@ -246,12 +246,12 @@ jobs:
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
-          save-if: false # Don't save, only restore from build job
+          save-if: false
 
       - name: Run IPL parser fuzz tests
         if: steps.check-core.outputs.core == 'true'
         run: cargo nextest run --package infera-core --test ipl_parser_fuzz
-        continue-on-error: true # Don't fail if test doesn't exist yet
+        continue-on-error: true
 
   # WASM Security Tests (reuses build cache)
   # Only runs on PRs that modify infera-wasm
@@ -304,7 +304,7 @@ jobs:
       - name: Run WASM sandbox security tests
         if: steps.check-wasm.outputs.wasm == 'true'
         run: cargo nextest run --package infera-wasm --test sandbox_security
-        continue-on-error: true # Don't fail if test doesn't exist yet
+        continue-on-error: true
 
   # Test code coverage (reuses build cache)
   coverage:
@@ -341,7 +341,7 @@ jobs:
         with:
           files: ./cobertura.xml
           fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }} # Not required for public repos with GitHub App
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   # Check dependencies
   dependencies:
