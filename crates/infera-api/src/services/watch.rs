@@ -9,6 +9,9 @@ use uuid::Uuid;
 
 use crate::ApiError;
 
+/// Type alias for watch change stream
+type ChangeStream = Pin<Box<dyn Stream<Item = std::result::Result<ChangeEvent, ApiError>> + Send>>;
+
 /// Service for watching relationship changes in real-time
 ///
 /// This service handles the business logic for streaming relationship changes
@@ -45,7 +48,7 @@ impl WatchService {
         vault: Uuid,
         cursor: Option<String>,
         resource_type: Option<String>,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<ChangeEvent, ApiError>> + Send>>, ApiError> {
+    ) -> std::result::Result<ChangeStream, ApiError> {
         // Parse cursor or start from current revision
         let start_revision =
             if let Some(cursor_str) = cursor {
@@ -66,6 +69,9 @@ impl WatchService {
         let stream = async_stream::stream! {
             let mut current_revision = start_revision;
 
+            // Clippy suggests while let, but the pattern doesn't fit because we need to check
+            // the downcast result inside the loop and break on None
+            #[allow(clippy::while_let_loop)]
             loop {
                 // Check for new changes since last revision
                 let changes_result = if let Some(infra_store) = store.as_any().downcast_ref::<infera_store::MemoryBackend>() {

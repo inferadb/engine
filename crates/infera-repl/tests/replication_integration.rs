@@ -104,7 +104,7 @@ async fn test_multiple_conflicts_in_sequence() {
     // Simulate a sequence of conflicting writes
     let relationship = test_relationship("doc:readme", "viewer", "user:alice");
 
-    let changes = vec![
+    let changes = [
         test_change(relationship.clone(), Operation::Insert, 1000),
         test_change(relationship.clone(), Operation::Delete, 2000),
         test_change(relationship.clone(), Operation::Insert, 3000),

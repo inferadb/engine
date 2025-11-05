@@ -14,11 +14,8 @@ use std::sync::Arc;
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use infera_api::AppState;
 use infera_config::Config;
-use infera_core::{
-    Evaluator,
-    ipl::{RelationDef, RelationExpr, Schema, TypeDef},
-};
-use infera_store::{MemoryBackend, RelationshipStore};
+use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use infera_store::MemoryBackend;
 use infera_types::{EvaluateRequest, ExpandRequest, ListRelationshipsRequest, Relationship};
 use uuid::Uuid;
 
@@ -80,23 +77,20 @@ async fn create_test_state_with_data(num_relationships: usize) -> AppState {
 
     let _ = store.write(vault, relationships).await;
 
-    let evaluator =
-        Arc::new(Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None, vault));
-
     let mut config = Config::default();
     config.cache.enabled = true;
     config.cache.max_capacity = 10000;
     config.auth.enabled = false;
 
-    AppState {
-        evaluator,
+    AppState::new(
         store,
-        config: Arc::new(config),
-        jwks_cache: None,
-        health_tracker: Arc::new(infera_api::health::HealthTracker::new()),
-        default_vault: vault,
-        default_account: account,
-    }
+        schema,
+        None,
+        Arc::new(config),
+        None,
+        vault,
+        account,
+    )
 }
 
 /// Benchmark: Authorization check (check if user has permission)
@@ -106,6 +100,7 @@ fn bench_authorization_check(c: &mut Criterion) {
 
     // Pre-create state with 1000 relationships
     let state = runtime.block_on(create_test_state_with_data(1000));
+    let vault = state.default_vault;
 
     let mut group = c.benchmark_group("authorization_check");
 
@@ -125,7 +120,7 @@ fn bench_authorization_check(c: &mut Criterion) {
                         trace: None,
                     };
 
-                    black_box(state.evaluator.check(request).await.unwrap())
+                    black_box(state.evaluation_service.evaluate(vault, request).await.unwrap())
                 });
             },
         );
@@ -170,6 +165,7 @@ fn bench_relationship_write(c: &mut Criterion) {
 fn bench_expand_operation(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let state = runtime.block_on(create_test_state_with_data(500));
+    let vault = state.default_vault;
 
     let mut group = c.benchmark_group("expand_operation");
     group.throughput(Throughput::Elements(1));
@@ -183,7 +179,7 @@ fn bench_expand_operation(c: &mut Criterion) {
                 continuation_token: None,
             };
 
-            black_box(state.evaluator.expand(request).await.unwrap())
+            black_box(state.expansion_service.expand(vault, request).await.unwrap())
         });
     });
 
@@ -194,6 +190,7 @@ fn bench_expand_operation(c: &mut Criterion) {
 fn bench_list_relationships(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let state = runtime.block_on(create_test_state_with_data(1000));
+    let vault = state.default_vault;
 
     let mut group = c.benchmark_group("list_relationships");
 
@@ -212,7 +209,7 @@ fn bench_list_relationships(c: &mut Criterion) {
                         cursor: None,
                     };
 
-                    black_box(state.evaluator.list_relationships(request).await.unwrap())
+                    black_box(state.relationship_service.list_relationships(vault, request).await.unwrap())
                 });
             },
         );
@@ -241,7 +238,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
                     context: None,
                     trace: None,
                 };
-                let _ = state.evaluator.check(request).await.unwrap();
+                let _ = state.evaluation_service.evaluate(vault, request).await.unwrap();
             }
 
             // 2 write operations (20%)
@@ -262,7 +259,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
                 limit: None,
                 continuation_token: None,
             };
-            black_box(state.evaluator.expand(expand_request).await.unwrap())
+            black_box(state.expansion_service.expand(vault, expand_request).await.unwrap())
         });
     });
 
@@ -273,6 +270,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
 fn bench_cache_effectiveness(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let state = runtime.block_on(create_test_state_with_data(100));
+    let vault = state.default_vault;
 
     let mut group = c.benchmark_group("cache_effectiveness");
 
@@ -284,7 +282,7 @@ fn bench_cache_effectiveness(c: &mut Criterion) {
         context: None,
         trace: None,
     };
-    runtime.block_on(state.evaluator.check(request.clone())).unwrap();
+    runtime.block_on(state.evaluation_service.evaluate(vault, request.clone())).unwrap();
 
     group.bench_function("cache_hit", |b| {
         b.to_async(&runtime).iter(|| async {
@@ -295,7 +293,7 @@ fn bench_cache_effectiveness(c: &mut Criterion) {
                 context: None,
                 trace: None,
             };
-            black_box(state.evaluator.check(request).await.unwrap())
+            black_box(state.evaluation_service.evaluate(vault, request).await.unwrap())
         });
     });
 
@@ -309,7 +307,7 @@ fn bench_cache_effectiveness(c: &mut Criterion) {
                 context: None,
                 trace: None,
             };
-            black_box(state.evaluator.check(request).await.unwrap())
+            black_box(state.evaluation_service.evaluate(vault, request).await.unwrap())
         });
     });
 
