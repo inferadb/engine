@@ -54,7 +54,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: nightly
           components: clippy
 
       - name: Cache Rust dependencies
@@ -88,7 +88,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: nightly
           targets: ${{ matrix.target }}
 
       - name: Setup sccache
@@ -149,7 +149,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
@@ -217,7 +217,7 @@ jobs:
         if: steps.check-core.outputs.core == 'true'
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Install cargo-nextest
         if: steps.check-core.outputs.core == 'true'
@@ -270,7 +270,7 @@ jobs:
         if: steps.check-wasm.outputs.wasm == 'true'
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Install cargo-nextest
         if: steps.check-wasm.outputs.wasm == 'true'
@@ -304,7 +304,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Install cargo-tarpaulin
         uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
@@ -340,7 +340,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
@@ -367,7 +367,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Restore build cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
@@ -390,7 +390,18 @@ jobs:
   # Overall status check
   ci-success:
     name: CI Success
-    needs: [fmt, clippy, build, test, ipl-parser-security-tests, wasm-security-tests, coverage, dependencies, docs]
+    needs:
+      [
+        fmt,
+        clippy,
+        build,
+        test,
+        ipl-parser-security-tests,
+        wasm-security-tests,
+        coverage,
+        dependencies,
+        docs,
+      ]
     runs-on: ubuntu-latest
     permissions:
       contents: read
