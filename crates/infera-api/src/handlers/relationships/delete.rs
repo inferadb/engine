@@ -456,7 +456,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state);
 
         let response = app
@@ -481,7 +481,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state);
 
         let response = app
@@ -508,7 +508,7 @@ mod tests {
 
         // First deletion
         let app1 = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
 
         let response1 = app1
@@ -526,7 +526,7 @@ mod tests {
 
         // Second deletion of the same relationship
         let app2 = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state);
 
         let response2 = app2
@@ -564,7 +564,7 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state);
 
         // URL encode the parameters (space becomes %20, @ becomes %40, : becomes %3A)
@@ -602,7 +602,7 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state);
 
         // URL encode the special characters
@@ -628,7 +628,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", delete(delete_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state);
 
         let response = app

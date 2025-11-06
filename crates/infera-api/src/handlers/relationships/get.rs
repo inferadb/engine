@@ -290,7 +290,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
             .with_state(state);
 
         let response = app
@@ -327,7 +327,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
             .with_state(state);
 
         let response = app
@@ -349,7 +349,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
             .with_state(state);
 
         // URL encode "document:readme" -> "document%3Areadme"
@@ -387,7 +387,7 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
             .with_state(state);
 
         // URL encode the special characters
@@ -429,7 +429,7 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/:resource/:relation/:subject", get(get_relationship))
+            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
             .with_state(state);
 
         let response = app

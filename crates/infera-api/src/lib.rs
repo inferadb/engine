@@ -262,7 +262,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
             .unwrap(),
     );
 
-    let governor_layer = GovernorLayer { config: governor_conf };
+    let governor_layer = GovernorLayer::new(governor_conf);
 
     // Protected routes that require authentication
     // All native InferaDB endpoints are versioned under /v1/
@@ -275,7 +275,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
         .route("/v1/relationships/write", post(write_relationships_handler))
         .route("/v1/relationships/delete", post(delete_relationships_handler))
         .route(
-            "/v1/relationships/:resource/:relation/:subject",
+            "/v1/relationships/{resource}/{relation}/{subject}",
             axum::routing::get(handlers::relationships::get::get_relationship)
                 .delete(handlers::relationships::delete::delete_relationship),
         )
@@ -288,18 +288,18 @@ pub fn create_router(state: AppState) -> Result<Router> {
                 .get(handlers::accounts::list::list_accounts),
         )
         .route(
-            "/v1/accounts/:id",
+            "/v1/accounts/{id}",
             axum::routing::get(handlers::accounts::get::get_account)
                 .patch(handlers::accounts::update::update_account)
                 .delete(handlers::accounts::delete::delete_account),
         )
         // Vault management routes
         .route(
-            "/v1/accounts/:account_id/vaults",
+            "/v1/accounts/{account_id}/vaults",
             post(handlers::vaults::create::create_vault).get(handlers::vaults::list::list_vaults),
         )
         .route(
-            "/v1/vaults/:id",
+            "/v1/vaults/{id}",
             axum::routing::get(handlers::vaults::get::get_vault)
                 .patch(handlers::vaults::update::update_vault)
                 .delete(handlers::vaults::delete::delete_vault),

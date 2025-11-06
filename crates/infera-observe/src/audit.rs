@@ -301,7 +301,7 @@ impl AuditLogger {
         // Check sampling
         if self.config.sample_rate < 1.0 {
             use rand::Rng;
-            let sample: f64 = rand::thread_rng().gen();
+            let sample: f64 = rand::rng().random();
             if sample > self.config.sample_rate {
                 crate::metrics::record_audit_event_sampled(&event_type_str);
                 return;

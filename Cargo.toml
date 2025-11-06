@@ -42,20 +42,20 @@ serde_json = "1.0"
 
 # Tracing and observability
 metrics = "0.24"
-metrics-exporter-prometheus = "0.16"
-opentelemetry = "0.26"
-opentelemetry-otlp = { version = "0.26", features = ["tokio", "tonic"] }
-opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
+metrics-exporter-prometheus = "0.17.2"
+opentelemetry = "0.31.0"
+opentelemetry-otlp = { version = "0.31.0", features = ["trace", "grpc-tonic"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio"] }
 tracing = "0.1"
-tracing-opentelemetry = "0.27"
+tracing-opentelemetry = "0.32.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Web frameworks
-axum = { version = "0.7", features = ["tokio"] }
-tonic = "0.12"
+axum = { version = "0.8.6", features = ["tokio"] }
+tonic = "0.14.2"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace"] }
-tower_governor = "0.4"
+tower_governor = "0.8.0"
 
 # WASM runtime
 wasmtime = { version = "38.0", default-features = false, features = ["cranelift", "runtime", "std", "cache", "parallel-compilation", "wat"] }
@@ -68,17 +68,17 @@ moka = { version = "0.12", features = ["future"] }
 
 # Configuration
 clap = { version = "4.5", features = ["derive"] }
-config = "0.14"
+config = "0.15.18"
 
 # Testing
-criterion = { version = "0.5", features = ["async_tokio"] }
+criterion = { version = "0.7.0", features = ["async_tokio"] }
 proptest = "1.6"
 
 # Random number generation
-rand = "0.8"
+rand = "0.9.2"
 
 # Authentication
-base64 = "0.22"
+base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 jsonwebtoken = { version = "10.1", default-features = false, features = [

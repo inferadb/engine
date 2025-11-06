@@ -7,7 +7,6 @@
 //! - `OptionalAuth`: Optional authentication, returns None if not present
 
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
@@ -39,7 +38,6 @@ use infera_types::AuthContext;
 #[derive(Debug, Clone)]
 pub struct RequireAuth(pub AuthContext);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for RequireAuth
 where
     S: Send + Sync,
@@ -81,7 +79,6 @@ where
 #[derive(Debug, Clone)]
 pub struct OptionalAuth(pub Option<AuthContext>);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for OptionalAuth
 where
     S: Send + Sync,

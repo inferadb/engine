@@ -4,12 +4,9 @@
 
 use anyhow::Result;
 use metrics_exporter_prometheus::PrometheusBuilder;
-use opentelemetry::{KeyValue, trace::TracerProvider as _};
-use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::{
-    Resource,
-    trace::{RandomIdGenerator, Sampler},
-};
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_otlp::{SpanExporter, WithExportConfig};
+use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler, SdkTracerProvider};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub mod aggregation;
@@ -49,21 +46,26 @@ pub fn init_tracing_with_config(config: TracingConfig) -> Result<()> {
     // Add OpenTelemetry layer if endpoint is configured
     let otlp_enabled = config.otlp_endpoint.is_some();
     if let Some(endpoint) = config.otlp_endpoint {
-        let tracer = opentelemetry_otlp::new_pipeline()
-            .tracing()
-            .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(endpoint))
-            .with_trace_config(
-                opentelemetry_sdk::trace::Config::default()
-                    .with_sampler(Sampler::TraceIdRatioBased(config.sample_rate))
-                    .with_id_generator(RandomIdGenerator::default())
-                    .with_resource(Resource::new(vec![KeyValue::new(
-                        "service.name",
-                        config.service_name.clone(),
-                    )])),
-            )
-            .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+        // Build the OTLP exporter
+        let exporter = SpanExporter::builder()
+            .with_tonic()
+            .with_endpoint(endpoint)
+            .build()?;
 
-        let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer.tracer("inferadb"));
+        // Build the resource with service name
+        let resource = opentelemetry_sdk::Resource::builder()
+            .with_service_name(config.service_name.clone())
+            .build();
+
+        // Build the tracer provider
+        let tracer_provider = SdkTracerProvider::builder()
+            .with_batch_exporter(exporter)
+            .with_sampler(Sampler::TraceIdRatioBased(config.sample_rate))
+            .with_id_generator(RandomIdGenerator::default())
+            .with_resource(resource)
+            .build();
+
+        let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer_provider.tracer("inferadb"));
 
         // Try to init, but don't fail if already initialized
         if subscriber.with(telemetry_layer).try_init().is_err() {

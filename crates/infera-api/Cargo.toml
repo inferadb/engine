@@ -29,9 +29,10 @@ uuid = { version = "1.10", features = ["v4"] }
 async-stream = "0.3"
 futures = { workspace = true }
 pin-project = "1.1"
-prost = "0.13"
-tonic = "0.12"
-tonic-reflection = "0.12"
+prost = "0.14.1"
+tonic = "0.14.2"
+tonic-prost = "0.14"
+tonic-reflection = "0.14.2"
 
 # Internal dependencies
 infera-auth = { path = "../infera-auth" }
@@ -45,7 +46,8 @@ infera-types = { path = "../infera-types" }
 infera-wasm = { path = "../infera-wasm" }
 
 [build-dependencies]
-tonic-build = "0.12"
+tonic-build = "0.14.2"
+tonic-prost-build = "0.14"
 
 [dev-dependencies]
 base64 = "0.22"
@@ -61,7 +63,7 @@ rand = "0.8"
 tempfile = "3.8"
 tokio-test = "0.4"
 uuid = "1.10"
-warp = "0.3"
+warp = "0.4.2"
 
 [[bench]]
 harness = false
