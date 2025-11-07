@@ -185,6 +185,16 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install protobuf compiler
+        run: |
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y protobuf-compiler
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            brew install protobuf
+          fi
+          protoc --version
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
         with:
@@ -261,6 +271,13 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install protobuf compiler
+        if: steps.check-core.outputs.core == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
+
       - name: Install cargo-nextest
         if: steps.check-core.outputs.core == 'true'
         uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
@@ -314,6 +331,13 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install protobuf compiler
+        if: steps.check-wasm.outputs.wasm == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
+
       - name: Install cargo-nextest
         if: steps.check-wasm.outputs.wasm == 'true'
         uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
@@ -347,6 +371,12 @@ jobs:
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
+
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
 
       - name: Install cargo-tarpaulin
         uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
