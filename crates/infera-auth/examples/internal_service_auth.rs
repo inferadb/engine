@@ -25,7 +25,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use base64::Engine;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
-use rand::rngs::OsRng;
+use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]

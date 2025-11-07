@@ -36,7 +36,7 @@ mod common {
     use std::sync::Arc;
 
     use ed25519_dalek::SigningKey;
-    use rand::rngs::OsRng;
+    use rand_core::OsRng;
     use serde_json::json;
     use tokio::sync::RwLock;
     use warp::Filter;
