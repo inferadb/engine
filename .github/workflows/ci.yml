@@ -26,6 +26,7 @@ jobs:
   fmt:
     name: Formatting
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     steps:
@@ -45,6 +46,7 @@ jobs:
   clippy:
     name: Linting
     runs-on: ubuntu-latest-4-core
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     env:
@@ -202,7 +204,7 @@ jobs:
     name: IPL Parser Security Tests
     needs: build
     runs-on: ubuntu-latest-4-core
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     env:
@@ -266,7 +268,7 @@ jobs:
     name: WASM Security Tests
     needs: build
     runs-on: ubuntu-latest-4-core
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     env:
@@ -329,6 +331,7 @@ jobs:
     name: Code Coverage
     needs: build
     runs-on: ubuntu-latest-4-core
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     env:
@@ -375,6 +378,7 @@ jobs:
   dependencies:
     name: Dependencies
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     steps:
@@ -418,14 +422,16 @@ jobs:
     steps:
       - name: Check all jobs
         run: |
-          if [[ "${{ needs.fmt.result }}" != "success" ]]; then
+          # Format and Clippy can be skipped for Dependabot PRs
+          if [[ "${{ needs.fmt.result }}" != "success" && "${{ needs.fmt.result }}" != "skipped" ]]; then
             echo "Format check failed"
             exit 1
           fi
-          if [[ "${{ needs.clippy.result }}" != "success" ]]; then
+          if [[ "${{ needs.clippy.result }}" != "success" && "${{ needs.clippy.result }}" != "skipped" ]]; then
             echo "Clippy check failed"
             exit 1
           fi
+          # Build and test are always required
           if [[ "${{ needs.build.result }}" != "success" ]]; then
             echo "Build failed"
             exit 1
@@ -434,7 +440,16 @@ jobs:
             echo "Tests failed"
             exit 1
           fi
-          # Security tests are conditional (only on PRs when crates modified)
+          # Coverage and dependencies can be skipped for Dependabot PRs
+          if [[ "${{ needs.coverage.result }}" != "success" && "${{ needs.coverage.result }}" != "skipped" ]]; then
+            echo "Coverage check failed"
+            exit 1
+          fi
+          if [[ "${{ needs.dependencies.result }}" != "success" && "${{ needs.dependencies.result }}" != "skipped" ]]; then
+            echo "Dependencies check failed"
+            exit 1
+          fi
+          # Security tests are conditional (only on PRs when crates modified, skipped for Dependabot)
           # They can be skipped or successful, but not failed
           echo "Security test results:"
           echo "  IPL Parser: ${{ needs.ipl-parser-security-tests.result }}"
