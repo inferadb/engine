@@ -23,6 +23,7 @@ use axum::{
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use infera_auth::{jwks_cache::Jwk, jwt::JwtClaims, oauth::IntrospectionResponse};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
+use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::task::JoinHandle;
@@ -44,7 +45,7 @@ impl OAuthServerState {
 
 /// Get or create the OAuth server's signing key
 fn get_oauth_signing_key() -> &'static SigningKey {
-    OAUTH_KEYPAIR.get_or_init(|| SigningKey::generate(&mut rand::thread_rng()))
+    OAUTH_KEYPAIR.get_or_init(|| SigningKey::generate(&mut OsRng))
 }
 
 /// Convert Ed25519 public key to JWK format

@@ -8,6 +8,7 @@ use axum::{Json, Router, extract::Path, routing::get};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use infera_auth::{jwks_cache::Jwk, jwt::JwtClaims};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
+use rand_core::OsRng;
 use serde_json::json;
 use tokio::task::JoinHandle;
 
@@ -22,7 +23,7 @@ fn get_test_keypair_for_tenant(tenant: &str) -> SigningKey {
     if let Some(key) = map.get(tenant) {
         key.clone()
     } else {
-        let signing_key = SigningKey::generate(&mut rand::thread_rng());
+        let signing_key = SigningKey::generate(&mut OsRng);
         map.insert(tenant.to_string(), signing_key.clone());
         signing_key
     }
@@ -67,7 +68,7 @@ async fn jwks_handler(Path(tenant_json): Path<String>) -> Json<serde_json::Value
 
 /// Start a mock JWKS server on a random port
 pub async fn start_mock_jwks_server() -> (String, JoinHandle<()>) {
-    let app = Router::new().route("/jwks/:tenant", get(jwks_handler));
+    let app = Router::new().route("/jwks/{tenant}", get(jwks_handler));
 
     // Bind to random port
     let addr = SocketAddr::from(([127, 0, 0, 1], 0));
