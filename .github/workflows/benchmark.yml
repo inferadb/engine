@@ -21,10 +21,13 @@ env:
 jobs:
   benchmark:
     name: Run Benchmarks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-core
     permissions:
       contents: write
       pull-requests: write
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -34,16 +37,17 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install protobuf compiler
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler mold
           protoc --version
+          mold --version
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: benchmark
+          shared-key: benchmark-4-core
 
       - name: Run benchmarks
         run: cargo bench --workspace --no-fail-fast -- --output-format bencher | tee benchmark-results.txt

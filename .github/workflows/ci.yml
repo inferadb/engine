@@ -44,9 +44,12 @@ jobs:
   # Run Clippy for linting
   clippy:
     name: Linting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-core
     permissions:
       contents: read
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -57,21 +60,22 @@ jobs:
           toolchain: stable
           components: clippy
 
-      - name: Install protobuf compiler
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler mold
           protoc --version
+          mold --version
 
       - name: Install FoundationDB client library
         run: |
-          wget https://github.com/apple/foundationdb/releases/download/7.3.69/foundationdb-clients_7.3.69-1_amd64.deb
+          wget -q https://github.com/apple/foundationdb/releases/download/7.3.69/foundationdb-clients_7.3.69-1_amd64.deb
           sudo dpkg -i foundationdb-clients_7.3.69-1_amd64.deb
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
           save-if: false
 
       - name: Run clippy
@@ -79,20 +83,15 @@ jobs:
 
   # Build workspace once and cache for downstream jobs
   build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: Build
+    runs-on: ubuntu-latest-4-core
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: macos-latest
-            target: aarch64-apple-darwin
-
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -101,52 +100,31 @@ jobs:
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
-          targets: ${{ matrix.target }}
 
-      - name: Install protobuf compiler
+      - name: Install system dependencies
         run: |
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y protobuf-compiler
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            brew install protobuf
-          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler mold
           protoc --version
+          mold --version
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
-      - name: Configure sccache
-        run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
-          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ${{ matrix.os }}-${{ matrix.target }}
+          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build workspace (debug)
-        run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            export MACOSX_DEPLOYMENT_TARGET=15.0
-          fi
-          cargo build --workspace --verbose
+        run: cargo build --workspace
 
       - name: Build tests (no run)
-        run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            export MACOSX_DEPLOYMENT_TARGET=15.0
-          fi
-          cargo test --workspace --no-run --verbose
+        run: cargo test --workspace --no-run
 
       - name: Build workspace (release)
-        run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            export MACOSX_DEPLOYMENT_TARGET=15.0
-          fi
-          cargo build --workspace --release --verbose
+        run: cargo build --workspace --release
 
       - name: Print sccache stats
         run: sccache --show-stats
@@ -154,28 +132,21 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: inferadb-${{ matrix.target }}
+          name: inferadb-x86_64-unknown-linux-gnu
           path: target/release/inferadb
           retention-days: 7
 
   # Run tests (reuses build cache)
   test:
-    name: Tests (${{ matrix.os }})
+    name: Tests
     needs: build
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest-4-core
     permissions:
       contents: read
       checks: write # For test result publishing
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: macos-latest
-            target: aarch64-apple-darwin
-
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -185,15 +156,12 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install protobuf compiler
+      - name: Install system dependencies
         run: |
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y protobuf-compiler
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            brew install protobuf
-          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler mold
           protoc --version
+          mold --version
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
@@ -203,36 +171,28 @@ jobs:
       - name: Restore build cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ${{ matrix.os }}-${{ matrix.target }}
+          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
 
       - name: Run tests with nextest
-        run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            export MACOSX_DEPLOYMENT_TARGET=15.0
-          fi
-          cargo nextest run --workspace --profile ci --no-fail-fast
+        run: cargo nextest run --workspace --profile ci --no-fail-fast
 
       - name: Run doc tests
-        run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            export MACOSX_DEPLOYMENT_TARGET=15.0
-          fi
-          cargo test --workspace --doc --verbose
+        run: cargo test --workspace --doc
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@82082dac68ad6a19d980f8ce817e108b9f496c2a # v2.18.0
-        if: always() && runner.os == 'Linux' # Only run on Linux to avoid duplicates
+        if: always()
         with:
           files: target/nextest/ci/junit.xml
-          check_name: Test Results (${{ matrix.os }})
+          check_name: Test Results
           comment_mode: off
 
       - name: Upload test results
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: always()
         with:
-          name: test-results-${{ matrix.os }}
+          name: test-results-ubuntu
           path: target/nextest/ci/junit.xml
           retention-days: 7
 
@@ -241,10 +201,13 @@ jobs:
   ipl-parser-security-tests:
     name: IPL Parser Security Tests
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-core
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Check if infera-core was modified
         id: check-core
@@ -271,12 +234,13 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install protobuf compiler
+      - name: Install system dependencies
         if: steps.check-core.outputs.core == 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler mold
           protoc --version
+          mold --version
 
       - name: Install cargo-nextest
         if: steps.check-core.outputs.core == 'true'
@@ -288,7 +252,7 @@ jobs:
         if: steps.check-core.outputs.core == 'true'
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
           save-if: false
 
       - name: Run IPL parser fuzz tests
@@ -301,10 +265,13 @@ jobs:
   wasm-security-tests:
     name: WASM Security Tests
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-core
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Check if infera-wasm was modified
         id: check-wasm
@@ -331,12 +298,13 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install protobuf compiler
+      - name: Install system dependencies
         if: steps.check-wasm.outputs.wasm == 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler mold
           protoc --version
+          mold --version
 
       - name: Install cargo-nextest
         if: steps.check-wasm.outputs.wasm == 'true'
@@ -348,7 +316,7 @@ jobs:
         if: steps.check-wasm.outputs.wasm == 'true'
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
 
       - name: Run WASM sandbox security tests
@@ -360,9 +328,12 @@ jobs:
   coverage:
     name: Code Coverage
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-core
     permissions:
       contents: read
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -372,11 +343,12 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install protobuf compiler
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler mold
           protoc --version
+          mold --version
 
       - name: Install cargo-tarpaulin
         uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
@@ -386,11 +358,11 @@ jobs:
       - name: Restore build cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
 
       - name: Generate coverage
-        run: cargo tarpaulin --workspace --verbose --timeout 300 --out xml
+        run: cargo tarpaulin --workspace --timeout 300 --out xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@7f8b4b4bde536c465e797be725718b88c5d95e0e # v5.1.2
