@@ -21,7 +21,7 @@ env:
 jobs:
   benchmark:
     name: Run Benchmarks
-    runs-on: ubuntu-latest-4-core
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write

@@ -45,7 +45,7 @@ jobs:
   # Run Clippy for linting
   clippy:
     name: Linting
-    runs-on: ubuntu-latest-4-core
+    runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
@@ -77,7 +77,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
 
       - name: Run clippy
@@ -86,7 +86,7 @@ jobs:
   # Build workspace once and cache for downstream jobs
   build:
     name: Build
-    runs-on: ubuntu-latest-4-core
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
@@ -116,7 +116,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build workspace (debug)
@@ -142,7 +142,7 @@ jobs:
   test:
     name: Tests
     needs: build
-    runs-on: ubuntu-latest-4-core
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       checks: write # For test result publishing
@@ -173,7 +173,7 @@ jobs:
       - name: Restore build cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
 
       - name: Run tests with nextest
@@ -203,7 +203,7 @@ jobs:
   ipl-parser-security-tests:
     name: IPL Parser Security Tests
     needs: build
-    runs-on: ubuntu-latest-4-core
+    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     permissions:
       contents: read
@@ -254,7 +254,7 @@ jobs:
         if: steps.check-core.outputs.core == 'true'
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
 
       - name: Run IPL parser fuzz tests
@@ -267,7 +267,7 @@ jobs:
   wasm-security-tests:
     name: WASM Security Tests
     needs: build
-    runs-on: ubuntu-latest-4-core
+    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     permissions:
       contents: read
@@ -318,7 +318,7 @@ jobs:
         if: steps.check-wasm.outputs.wasm == 'true'
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
 
       - name: Run WASM sandbox security tests
@@ -330,7 +330,7 @@ jobs:
   coverage:
     name: Code Coverage
     needs: build
-    runs-on: ubuntu-latest-4-core
+    runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
@@ -361,7 +361,7 @@ jobs:
       - name: Restore build cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          shared-key: ubuntu-latest-4-core-x86_64-unknown-linux-gnu
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
 
       - name: Generate coverage
