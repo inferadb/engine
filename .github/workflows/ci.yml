@@ -181,7 +181,7 @@ jobs:
         run: cargo test --workspace --doc
 
       - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@82082dac68ad6a19d980f8ce817e108b9f496c2a # v2.18.0
+        uses: EnricoMi/publish-unit-test-result-action@34d7c956a59aed1bfebf31df77b8de55db9bbaaf # v2.18.0
         if: always()
         with:
           files: target/nextest/ci/junit.xml
