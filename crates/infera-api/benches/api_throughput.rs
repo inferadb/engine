@@ -9,9 +9,9 @@
 //!
 //! Run with: `cargo bench --package infera-api`
 
-use std::sync::Arc;
+use std::{hint::black_box, sync::Arc};
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use infera_api::AppState;
 use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};

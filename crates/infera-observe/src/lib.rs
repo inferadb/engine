@@ -47,10 +47,7 @@ pub fn init_tracing_with_config(config: TracingConfig) -> Result<()> {
     let otlp_enabled = config.otlp_endpoint.is_some();
     if let Some(endpoint) = config.otlp_endpoint {
         // Build the OTLP exporter
-        let exporter = SpanExporter::builder()
-            .with_tonic()
-            .with_endpoint(endpoint)
-            .build()?;
+        let exporter = SpanExporter::builder().with_tonic().with_endpoint(endpoint).build()?;
 
         // Build the resource with service name
         let resource = opentelemetry_sdk::Resource::builder()
@@ -65,7 +62,8 @@ pub fn init_tracing_with_config(config: TracingConfig) -> Result<()> {
             .with_resource(resource)
             .build();
 
-        let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer_provider.tracer("inferadb"));
+        let telemetry_layer =
+            tracing_opentelemetry::layer().with_tracer(tracer_provider.tracer("inferadb"));
 
         // Try to init, but don't fail if already initialized
         if subscriber.with(telemetry_layer).try_init().is_err() {
