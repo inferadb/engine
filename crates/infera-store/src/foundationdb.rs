@@ -9,7 +9,7 @@
 
 #![allow(clippy::io_other_error)]
 
-use std::sync::Arc;
+use std::sync::{Arc, Once};
 
 use async_trait::async_trait;
 use foundationdb::{
@@ -22,6 +22,11 @@ use tracing::debug;
 use uuid::Uuid;
 
 use crate::{RelationshipStore, Result, StoreError};
+
+// Global initialization flag for FDB network
+// The FDB client library requires that select_api_version (called by boot())
+// is only called once per process
+static FDB_INIT: Once = Once::new();
 
 /// FoundationDB storage backend
 pub struct FoundationDBBackend {
@@ -42,8 +47,15 @@ impl FoundationDBBackend {
 
     /// Create a new FoundationDB backend with a specific cluster file
     pub async fn with_cluster_file(cluster_file: Option<&str>) -> Result<Self> {
-        // Initialize FDB API
-        let _network = unsafe { foundationdb::boot() };
+        // Initialize FDB API - only once per process
+        // The FDB client library requires that select_api_version (called by boot())
+        // is only called once per process. Using Once ensures thread-safe initialization.
+        FDB_INIT.call_once(|| {
+            let _network = unsafe { foundationdb::boot() };
+            // The network handle is intentionally leaked here as it needs to live
+            // for the entire process lifetime
+            std::mem::forget(_network);
+        });
 
         // Create database handle
         let db = if let Some(path) = cluster_file {
@@ -281,8 +293,9 @@ impl RelationshipStore for FoundationDBBackend {
                             )
                             .await?;
 
-                        let mut relationships = Vec::new();
-                        let mut seen = std::collections::HashSet::new();
+                        // Track the latest revision for each relationship
+                        let mut latest_revisions =
+                            std::collections::HashMap::<String, (u64, String)>::new();
 
                         // Collect range into Vec of owned data before iterating to make it Send
                         let range_items: Vec<_> = range
@@ -314,30 +327,38 @@ impl RelationshipStore for FoundationDBBackend {
                                 }
                             }
 
-                            // Deduplicate - only keep latest version of each relationship
+                            // Track the latest revision for each relationship
                             let relationship_id = format!("{}:{}:{}", object, relation, user);
-                            if !seen.contains(&relationship_id) {
-                                seen.insert(relationship_id);
-
-                                // Check if this relationship is still active (not deleted)
-                                let relationship_key = relationships_subspace.pack(&(
-                                    vault_bytes.clone(),
-                                    &object,
-                                    &relation,
-                                    &user,
-                                    rev,
-                                ));
-                                if let Some(relationship_value) =
-                                    trx.get(&relationship_key, false).await?
-                                {
-                                    if relationship_value.as_ref() == b"active" {
-                                        relationships.push(Relationship {
-                                            vault,
-                                            resource: object.clone(),
-                                            relation: relation.clone(),
-                                            subject: user.clone(),
-                                        });
+                            latest_revisions
+                                .entry(relationship_id)
+                                .and_modify(|(existing_rev, _)| {
+                                    if rev > *existing_rev {
+                                        *existing_rev = rev;
                                     }
+                                })
+                                .or_insert((rev, user.clone()));
+                        }
+
+                        // Now check each relationship at its latest revision to see if it's active
+                        let mut relationships = Vec::new();
+                        for (_relationship_id, (rev, user)) in latest_revisions {
+                            let relationship_key = relationships_subspace.pack(&(
+                                vault_bytes.clone(),
+                                &object,
+                                &relation,
+                                &user,
+                                rev,
+                            ));
+                            if let Some(relationship_value) =
+                                trx.get(&relationship_key, false).await?
+                            {
+                                if relationship_value.as_ref() == b"active" {
+                                    relationships.push(Relationship {
+                                        vault,
+                                        resource: object.clone(),
+                                        relation: relation.clone(),
+                                        subject: user.clone(),
+                                    });
                                 }
                             }
                         }
@@ -465,6 +486,7 @@ impl RelationshipStore for FoundationDBBackend {
         let user_filter = key.subject.clone();
         let relationships_subspace = self.relationships_subspace.clone();
         let revision_subspace = self.revision_subspace.clone();
+        let index_subspace = self.index_subspace.clone();
         let vault_bytes = vault.as_bytes().to_vec();
 
         let result = db
@@ -474,6 +496,7 @@ impl RelationshipStore for FoundationDBBackend {
                 let user_filter = user_filter.clone();
                 let relationships_subspace = relationships_subspace.clone();
                 let revision_subspace = revision_subspace.clone();
+                let index_subspace = index_subspace.clone();
                 let vault_bytes = vault_bytes.clone();
                 move |trx, _maybe_committed| {
                     let object = object.clone();
@@ -481,6 +504,7 @@ impl RelationshipStore for FoundationDBBackend {
                     let user_filter = user_filter.clone();
                     let relationships_subspace = relationships_subspace.clone();
                     let revision_subspace = revision_subspace.clone();
+                    let index_subspace = index_subspace.clone();
                     let vault_bytes = vault_bytes.clone();
                     async move {
                         // Get and increment revision
@@ -523,6 +547,27 @@ impl RelationshipStore for FoundationDBBackend {
                                 revision.0,
                             ));
                             trx.set(&relationship_key, b"deleted");
+
+                            // Create index entry for the deletion
+                            let obj_index = index_subspace.pack(&(
+                                vault_bytes.clone(),
+                                "obj",
+                                &object,
+                                &relation,
+                                &user,
+                                revision.0,
+                            ));
+                            trx.set(&obj_index, b"");
+
+                            let subject_index = index_subspace.pack(&(
+                                vault_bytes.clone(),
+                                "user",
+                                &user,
+                                &relation,
+                                &object,
+                                revision.0,
+                            ));
+                            trx.set(&subject_index, b"");
                         } else {
                             // Delete all relationships matching object+relation
                             // We write a deletion marker for each unique user we find
@@ -570,6 +615,27 @@ impl RelationshipStore for FoundationDBBackend {
                                         revision.0,
                                     ));
                                     trx.set(&del_key, b"deleted");
+
+                                    // Create index entries for the deletion
+                                    let obj_index = index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "obj",
+                                        &object,
+                                        &relation,
+                                        &user,
+                                        revision.0,
+                                    ));
+                                    trx.set(&obj_index, b"");
+
+                                    let subject_index = index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "user",
+                                        &user,
+                                        &relation,
+                                        &object,
+                                        revision.0,
+                                    ));
+                                    trx.set(&subject_index, b"");
                                 }
                             }
                         }
@@ -1422,5 +1488,393 @@ mod tests {
         let del_rev = store.delete(vault, &key).await.unwrap();
         let results = store.read(vault, &key, del_rev).await.unwrap();
         assert_eq!(results.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_vault_isolation() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault_a = Uuid::new_v4();
+        let vault_b = Uuid::new_v4();
+
+        // Write to vault A
+        let rel_a = Relationship {
+            vault: vault_a,
+            resource: "doc:secret".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        let rev_a = store.write(vault_a, vec![rel_a.clone()]).await.unwrap();
+
+        // Write to vault B
+        let rel_b = Relationship {
+            vault: vault_b,
+            resource: "doc:secret".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:bob".to_string(),
+        };
+        let rev_b = store.write(vault_b, vec![rel_b.clone()]).await.unwrap();
+
+        // Verify vault A can only see its own data
+        let key = RelationshipKey {
+            resource: "doc:secret".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results_a = store.read(vault_a, &key, rev_a).await.unwrap();
+        assert_eq!(results_a.len(), 1, "Vault A should see 1 relationship");
+        assert_eq!(results_a[0].subject, "user:alice");
+
+        // Verify vault B can only see its own data
+        let results_b = store.read(vault_b, &key, rev_b).await.unwrap();
+        assert_eq!(results_b.len(), 1, "Vault B should see 1 relationship");
+        assert_eq!(results_b[0].subject, "user:bob");
+
+        // Critical: Verify vault A cannot see vault B's data
+        let results_cross = store.read(vault_a, &key, rev_b).await.unwrap();
+        assert_eq!(results_cross.len(), 1, "Vault A should still only see alice");
+        assert_eq!(results_cross[0].subject, "user:alice");
+
+        // Critical: Verify vault B cannot see vault A's data
+        let results_cross2 = store.read(vault_b, &key, rev_a).await.unwrap();
+        assert_eq!(results_cross2.len(), 1, "Vault B should still only see bob");
+        assert_eq!(results_cross2[0].subject, "user:bob");
+    }
+
+    #[tokio::test]
+    async fn test_revision_mvcc() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        let key = RelationshipKey {
+            resource: "doc:history".to_string(),
+            relation: "editor".to_string(),
+            subject: None,
+        };
+
+        // Rev 1: Write alice
+        let rel1 = Relationship {
+            vault,
+            resource: "doc:history".to_string(),
+            relation: "editor".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        let rev1 = store.write(vault, vec![rel1]).await.unwrap();
+
+        // Rev 2: Add bob
+        let rel2 = Relationship {
+            vault,
+            resource: "doc:history".to_string(),
+            relation: "editor".to_string(),
+            subject: "user:bob".to_string(),
+        };
+        let rev2 = store.write(vault, vec![rel2]).await.unwrap();
+
+        // Rev 3: Delete alice
+        let del_key = RelationshipKey {
+            resource: "doc:history".to_string(),
+            relation: "editor".to_string(),
+            subject: Some("user:alice".to_string()),
+        };
+        let rev3 = store.delete(vault, &del_key).await.unwrap();
+
+        // Time travel: Read at rev1 should show only alice
+        let results_at_rev1 = store.read(vault, &key, rev1).await.unwrap();
+        assert_eq!(results_at_rev1.len(), 1, "At rev1 should have 1 user");
+        assert_eq!(results_at_rev1[0].subject, "user:alice");
+
+        // Time travel: Read at rev2 should show alice and bob
+        let results_at_rev2 = store.read(vault, &key, rev2).await.unwrap();
+        assert_eq!(results_at_rev2.len(), 2, "At rev2 should have 2 users");
+        let subjects: Vec<_> = results_at_rev2.iter().map(|r| r.subject.as_str()).collect();
+        assert!(subjects.contains(&"user:alice"));
+        assert!(subjects.contains(&"user:bob"));
+
+        // Time travel: Read at rev3 should show only bob
+        let results_at_rev3 = store.read(vault, &key, rev3).await.unwrap();
+        assert_eq!(results_at_rev3.len(), 1, "At rev3 should have 1 user");
+        assert_eq!(results_at_rev3[0].subject, "user:bob");
+    }
+
+    #[tokio::test]
+    async fn test_delete_by_filter_resource_only() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Setup: Create multiple relationships for same resource
+        let rels = vec![
+            Relationship {
+                vault,
+                resource: "doc:delete_me".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:delete_me".to_string(),
+                relation: "editor".to_string(),
+                subject: "user:bob".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:keep_me".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:charlie".to_string(),
+            },
+        ];
+        store.write(vault, rels).await.unwrap();
+
+        // Delete all relationships for doc:delete_me
+        let filter = DeleteFilter {
+            resource: Some("doc:delete_me".to_string()),
+            relation: None,
+            subject: None,
+        };
+        let (rev, count) = store.delete_by_filter(vault, &filter, None).await.unwrap();
+        assert_eq!(count, 2, "Should delete 2 relationships");
+
+        // Verify doc:delete_me relationships are gone
+        let key = RelationshipKey {
+            resource: "doc:delete_me".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results = store.read(vault, &key, rev).await.unwrap();
+        assert_eq!(results.len(), 0, "doc:delete_me should have no relationships");
+
+        // Verify doc:keep_me is still there
+        let key2 = RelationshipKey {
+            resource: "doc:keep_me".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results2 = store.read(vault, &key2, rev).await.unwrap();
+        assert_eq!(results2.len(), 1, "doc:keep_me should still exist");
+    }
+
+    #[tokio::test]
+    async fn test_delete_by_filter_subject_only() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Setup: User alice has multiple permissions
+        let rels = vec![
+            Relationship {
+                vault,
+                resource: "doc:1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:2".to_string(),
+                relation: "editor".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:bob".to_string(),
+            },
+        ];
+        store.write(vault, rels).await.unwrap();
+
+        // User offboarding: Delete all alice's relationships
+        let filter = DeleteFilter {
+            resource: None,
+            relation: None,
+            subject: Some("user:alice".to_string()),
+        };
+        let (rev, count) = store.delete_by_filter(vault, &filter, None).await.unwrap();
+        assert_eq!(count, 2, "Should delete alice's 2 relationships");
+
+        // Verify alice has no relationships
+        let key = RelationshipKey {
+            resource: "doc:1".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results = store.read(vault, &key, rev).await.unwrap();
+        assert_eq!(results.len(), 1, "Should only have bob now");
+        assert_eq!(results[0].subject, "user:bob");
+    }
+
+    #[tokio::test]
+    async fn test_delete_by_filter_with_limit() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Setup: Create 5 relationships with same resource
+        let rels: Vec<_> = (1..=5)
+            .map(|i| Relationship {
+                vault,
+                resource: "doc:limited".to_string(),
+                relation: "viewer".to_string(),
+                subject: format!("user:{}", i),
+            })
+            .collect();
+        store.write(vault, rels).await.unwrap();
+
+        // Delete with limit of 3
+        let filter = DeleteFilter {
+            resource: Some("doc:limited".to_string()),
+            relation: Some("viewer".to_string()),
+            subject: None,
+        };
+        let (rev, count) = store.delete_by_filter(vault, &filter, Some(3)).await.unwrap();
+        assert_eq!(count, 3, "Should delete exactly 3 relationships");
+
+        // Verify only 2 remain
+        let key = RelationshipKey {
+            resource: "doc:limited".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results = store.read(vault, &key, rev).await.unwrap();
+        assert_eq!(results.len(), 2, "Should have 2 relationships remaining");
+    }
+
+    #[tokio::test]
+    async fn test_delete_by_filter_empty_filter() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Empty filter should error
+        let filter = DeleteFilter {
+            resource: None,
+            relation: None,
+            subject: None,
+        };
+        let result = store.delete_by_filter(vault, &filter, None).await;
+        assert!(result.is_err(), "Empty filter should return error");
+    }
+
+    #[tokio::test]
+    async fn test_index_consistency_after_delete() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Write a relationship
+        let rel = Relationship {
+            vault,
+            resource: "doc:indexed".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        let write_rev = store.write(vault, vec![rel]).await.unwrap();
+
+        // Verify we can read it (index is working)
+        let key = RelationshipKey {
+            resource: "doc:indexed".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results = store.read(vault, &key, write_rev).await.unwrap();
+        assert_eq!(results.len(), 1, "Should find relationship via index");
+
+        // Delete the relationship
+        let del_rev = store.delete(vault, &key).await.unwrap();
+
+        // Critical: Index should reflect deletion
+        let results_after = store.read(vault, &key, del_rev).await.unwrap();
+        assert_eq!(results_after.len(), 0, "Index should show relationship deleted");
+
+        // Verify at different revision numbers
+        let current_rev = store.get_revision(vault).await.unwrap();
+        let results_at_current = store.read(vault, &key, current_rev).await.unwrap();
+        assert_eq!(results_at_current.len(), 0, "Should still show deleted at current rev");
+    }
+
+    #[tokio::test]
+    async fn test_bulk_write_operations() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Write multiple relationships in one transaction
+        let rels: Vec<_> = (1..=10)
+            .map(|i| Relationship {
+                vault,
+                resource: format!("doc:{}", i),
+                relation: "owner".to_string(),
+                subject: "user:admin".to_string(),
+            })
+            .collect();
+
+        let rev = store.write(vault, rels).await.unwrap();
+
+        // Verify all were written
+        for i in 1..=10 {
+            let key = RelationshipKey {
+                resource: format!("doc:{}", i),
+                relation: "owner".to_string(),
+                subject: None,
+            };
+            let results = store.read(vault, &key, rev).await.unwrap();
+            assert_eq!(results.len(), 1, "Doc {} should have owner", i);
+            assert_eq!(results[0].subject, "user:admin");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_read_query_variations() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Setup diverse relationships
+        let rels = vec![
+            Relationship {
+                vault,
+                resource: "doc:1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:1".to_string(),
+                relation: "editor".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:2".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:bob".to_string(),
+            },
+        ];
+        let rev = store.write(vault, rels).await.unwrap();
+
+        // Query 1: Specific resource + relation
+        let key1 = RelationshipKey {
+            resource: "doc:1".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results1 = store.read(vault, &key1, rev).await.unwrap();
+        assert_eq!(results1.len(), 2, "doc:1 viewers should be alice and bob");
+
+        // Query 2: Specific resource + relation + subject
+        let key2 = RelationshipKey {
+            resource: "doc:1".to_string(),
+            relation: "viewer".to_string(),
+            subject: Some("user:alice".to_string()),
+        };
+        let results2 = store.read(vault, &key2, rev).await.unwrap();
+        assert_eq!(results2.len(), 1, "Should find exact match");
+        assert_eq!(results2[0].subject, "user:alice");
+
+        // Query 3: Resource only (all relations)
+        let key3 = RelationshipKey {
+            resource: "doc:1".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results3 = store.read(vault, &key3, rev).await.unwrap();
+        assert!(results3.len() >= 2, "doc:1 should have multiple relationships");
     }
 }

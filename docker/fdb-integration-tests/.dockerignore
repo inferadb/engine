@@ -1,0 +1,64 @@
+# Build artifacts
+target/
+**/*.rs.bk
+**/*.pdb
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Documentation (not needed for tests)
+docs/
+*.md
+!Cargo.toml
+!Cargo.lock
+
+# Test artifacts
+*.profraw
+*.profdata
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Docker files (avoid recursion)
+docker/
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Coverage reports
+coverage/
+htmlcov/
+*.coverage
+
+# Benchmarks
+benches/results/
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
