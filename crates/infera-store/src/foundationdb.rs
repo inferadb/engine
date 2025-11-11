@@ -16,7 +16,7 @@ use foundationdb::{
     Database, FdbBindingError, RangeOption,
     tuple::{Subspace, unpack},
 };
-use infera_types::{ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision};
+use infera_types::{ChangeEvent, ChangeOperation, DeleteFilter, Relationship, RelationshipKey, Revision};
 use serde_json;
 use tracing::debug;
 use uuid::Uuid;
@@ -29,6 +29,7 @@ use crate::{RelationshipStore, Result, StoreError};
 static FDB_INIT: Once = Once::new();
 
 /// FoundationDB storage backend
+#[derive(Clone)]
 pub struct FoundationDBBackend {
     db: Arc<Database>,
     // Subspaces for organizing data
@@ -670,6 +671,7 @@ impl RelationshipStore for FoundationDBBackend {
         let db = Arc::clone(&self.db);
         let filter = filter.clone();
         let relationships_subspace = self.relationships_subspace.clone();
+        let index_subspace = self.index_subspace.clone();
         let revision_subspace = self.revision_subspace.clone();
         let vault_bytes = vault.as_bytes().to_vec();
 
@@ -677,11 +679,13 @@ impl RelationshipStore for FoundationDBBackend {
             .run({
                 let filter = filter.clone();
                 let relationships_subspace = relationships_subspace.clone();
+                let index_subspace = index_subspace.clone();
                 let revision_subspace = revision_subspace.clone();
                 let vault_bytes = vault_bytes.clone();
                 move |trx, _maybe_committed| {
                     let filter = filter.clone();
                     let relationships_subspace = relationships_subspace.clone();
+                    let index_subspace = index_subspace.clone();
                     let revision_subspace = revision_subspace.clone();
                     let vault_bytes = vault_bytes.clone();
                     async move {
@@ -722,7 +726,7 @@ impl RelationshipStore for FoundationDBBackend {
                         let range = trx
                             .get_range(
                                 &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
-                                1,
+                                10000,  // Large limit for full vault scan
                                 false,
                             )
                             .await?;
@@ -807,6 +811,28 @@ impl RelationshipStore for FoundationDBBackend {
                                         revision.0,
                                     ));
                                     trx.set(&del_key, b"deleted");
+
+                                    // Create index entries for the deletion
+                                    let obj_index = index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "obj",
+                                        &unique_key.0,
+                                        &unique_key.1,
+                                        &unique_key.2,
+                                        revision.0,
+                                    ));
+                                    trx.set(&obj_index, b"");
+
+                                    let subject_index = index_subspace.pack(&(
+                                        vault_bytes.clone(),
+                                        "user",
+                                        &unique_key.2,
+                                        &unique_key.1,
+                                        &unique_key.0,
+                                        revision.0,
+                                    ));
+                                    trx.set(&subject_index, b"");
+
                                     deleted_count += 1;
                                 }
                             }
@@ -1876,5 +1902,579 @@ mod tests {
         };
         let results3 = store.read(vault, &key3, rev).await.unwrap();
         assert!(results3.len() >= 2, "doc:1 should have multiple relationships");
+    }
+
+    #[tokio::test]
+    async fn test_change_log_operations() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Create test relationships
+        let rel1 = Relationship {
+            vault,
+            resource: "doc:changelog".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        let rel2 = Relationship {
+            vault,
+            resource: "doc:changelog".to_string(),
+            relation: "editor".to_string(),
+            subject: "user:bob".to_string(),
+        };
+
+        // Get initial change log revision
+        let initial_rev = store.get_change_log_revision(vault).await.unwrap();
+
+        // Write relationships and append change events
+        let rev1 = store.write(vault, vec![rel1.clone()]).await.unwrap();
+        let timestamp1 = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as i64;
+        let event1 = ChangeEvent {
+            operation: ChangeOperation::Create,
+            relationship: rel1.clone(),
+            revision: rev1,
+            timestamp_nanos: timestamp1,
+        };
+        store.append_change(vault, event1).await.unwrap();
+
+        let rev2 = store.write(vault, vec![rel2.clone()]).await.unwrap();
+        let timestamp2 = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as i64;
+        let event2 = ChangeEvent {
+            operation: ChangeOperation::Create,
+            relationship: rel2.clone(),
+            revision: rev2,
+            timestamp_nanos: timestamp2,
+        };
+        store.append_change(vault, event2).await.unwrap();
+
+        // Read changes from initial revision
+        let changes = store
+            .read_changes(vault, initial_rev, &[], None)
+            .await
+            .unwrap();
+        assert_eq!(changes.len(), 2, "Should have 2 change events");
+        assert_eq!(changes[0].operation, ChangeOperation::Create);
+        assert_eq!(changes[0].relationship.subject, "user:alice");
+        assert_eq!(changes[1].relationship.subject, "user:bob");
+
+        // Read changes with limit
+        let limited_changes = store
+            .read_changes(vault, initial_rev, &[], Some(1))
+            .await
+            .unwrap();
+        assert_eq!(limited_changes.len(), 1, "Should respect limit parameter");
+
+        // Read changes filtered by resource type
+        let filtered_changes = store
+            .read_changes(vault, initial_rev, &["doc".to_string()], None)
+            .await
+            .unwrap();
+        assert_eq!(
+            filtered_changes.len(),
+            2,
+            "Should filter by resource type prefix"
+        );
+
+        // Get current change log revision
+        let current_rev = store.get_change_log_revision(vault).await.unwrap();
+        assert!(
+            current_rev.0 >= initial_rev.0,
+            "Change log revision should advance"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_resources_by_type() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Create relationships for different resource types
+        let rels = vec![
+            Relationship {
+                vault,
+                resource: "doc:1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:2".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "folder:1".to_string(),
+                relation: "owner".to_string(),
+                subject: "user:bob".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:3".to_string(),
+                relation: "editor".to_string(),
+                subject: "user:charlie".to_string(),
+            },
+        ];
+        let rev = store.write(vault, rels).await.unwrap();
+
+        // List all doc resources
+        let doc_resources = store
+            .list_resources_by_type(vault, "doc", rev)
+            .await
+            .unwrap();
+        assert_eq!(doc_resources.len(), 3, "Should find 3 doc resources");
+        assert!(doc_resources.contains(&"doc:1".to_string()));
+        assert!(doc_resources.contains(&"doc:2".to_string()));
+        assert!(doc_resources.contains(&"doc:3".to_string()));
+
+        // List all folder resources
+        let folder_resources = store
+            .list_resources_by_type(vault, "folder", rev)
+            .await
+            .unwrap();
+        assert_eq!(folder_resources.len(), 1, "Should find 1 folder resource");
+        assert!(folder_resources.contains(&"folder:1".to_string()));
+
+        // List non-existent resource type
+        let empty_resources = store
+            .list_resources_by_type(vault, "nonexistent", rev)
+            .await
+            .unwrap();
+        assert_eq!(empty_resources.len(), 0, "Should return empty for non-existent type");
+    }
+
+    #[tokio::test]
+    async fn test_list_relationships() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Create diverse relationships
+        let rels = vec![
+            Relationship {
+                vault,
+                resource: "doc:1".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:1".to_string(),
+                relation: "editor".to_string(),
+                subject: "user:alice".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "doc:2".to_string(),
+                relation: "viewer".to_string(),
+                subject: "user:bob".to_string(),
+            },
+            Relationship {
+                vault,
+                resource: "folder:1".to_string(),
+                relation: "owner".to_string(),
+                subject: "user:charlie".to_string(),
+            },
+        ];
+        let rev = store.write(vault, rels).await.unwrap();
+
+        // List all relationships (no filters)
+        let all_rels = store
+            .list_relationships(vault, None, None, None, rev)
+            .await
+            .unwrap();
+        assert_eq!(all_rels.len(), 4, "Should list all relationships");
+
+        // List relationships for specific resource
+        let doc1_rels = store
+            .list_relationships(vault, Some("doc:1"), None, None, rev)
+            .await
+            .unwrap();
+        assert_eq!(
+            doc1_rels.len(),
+            2,
+            "Should find 2 relationships for doc:1"
+        );
+        assert!(doc1_rels.iter().all(|r| r.resource == "doc:1"));
+
+        // List relationships for specific relation
+        let viewer_rels = store
+            .list_relationships(vault, None, Some("viewer"), None, rev)
+            .await
+            .unwrap();
+        assert_eq!(
+            viewer_rels.len(),
+            2,
+            "Should find 2 viewer relationships"
+        );
+        assert!(viewer_rels.iter().all(|r| r.relation == "viewer"));
+
+        // List relationships for specific subject
+        let alice_rels = store
+            .list_relationships(vault, None, None, Some("user:alice"), rev)
+            .await
+            .unwrap();
+        assert_eq!(
+            alice_rels.len(),
+            2,
+            "Should find 2 relationships for alice"
+        );
+        assert!(alice_rels.iter().all(|r| r.subject == "user:alice"));
+
+        // List with multiple filters
+        let filtered_rels = store
+            .list_relationships(vault, Some("doc:1"), Some("viewer"), None, rev)
+            .await
+            .unwrap();
+        assert_eq!(
+            filtered_rels.len(),
+            1,
+            "Should find 1 relationship matching all filters"
+        );
+        assert_eq!(filtered_rels[0].resource, "doc:1");
+        assert_eq!(filtered_rels[0].relation, "viewer");
+        assert_eq!(filtered_rels[0].subject, "user:alice");
+    }
+
+    #[tokio::test]
+    async fn test_edge_cases() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Test 1: Unicode strings
+        let unicode_rel = Relationship {
+            vault,
+            resource: "doc:测试文档".to_string(),
+            relation: "просмотр".to_string(),
+            subject: "user:alice🌟".to_string(),
+        };
+        let rev1 = store.write(vault, vec![unicode_rel.clone()]).await.unwrap();
+        let key1 = RelationshipKey {
+            resource: "doc:测试文档".to_string(),
+            relation: "просмотр".to_string(),
+            subject: None,
+        };
+        let results1 = store.read(vault, &key1, rev1).await.unwrap();
+        assert_eq!(results1.len(), 1, "Should handle Unicode strings");
+        assert_eq!(results1[0].subject, "user:alice🌟");
+
+        // Test 2: Very long strings (1000 chars)
+        let long_string = "x".repeat(1000);
+        let long_rel = Relationship {
+            vault,
+            resource: format!("doc:{}", long_string),
+            relation: "viewer".to_string(),
+            subject: "user:bob".to_string(),
+        };
+        let rev2 = store.write(vault, vec![long_rel.clone()]).await.unwrap();
+        let key2 = RelationshipKey {
+            resource: format!("doc:{}", long_string),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results2 = store.read(vault, &key2, rev2).await.unwrap();
+        assert_eq!(results2.len(), 1, "Should handle very long strings");
+
+        // Test 3: Empty string edge cases (relation cannot be empty in valid data)
+        let minimal_rel = Relationship {
+            vault,
+            resource: "r".to_string(),
+            relation: "rel".to_string(),
+            subject: "s".to_string(),
+        };
+        let rev3 = store.write(vault, vec![minimal_rel.clone()]).await.unwrap();
+        let key3 = RelationshipKey {
+            resource: "r".to_string(),
+            relation: "rel".to_string(),
+            subject: None,
+        };
+        let results3 = store.read(vault, &key3, rev3).await.unwrap();
+        assert_eq!(results3.len(), 1, "Should handle minimal valid strings");
+
+        // Test 4: Special characters in strings
+        let special_rel = Relationship {
+            vault,
+            resource: "doc:test@#$%^&*()".to_string(),
+            relation: "viewer!@#".to_string(),
+            subject: "user:alice<>{}[]".to_string(),
+        };
+        let rev4 = store.write(vault, vec![special_rel.clone()]).await.unwrap();
+        let key4 = RelationshipKey {
+            resource: "doc:test@#$%^&*()".to_string(),
+            relation: "viewer!@#".to_string(),
+            subject: None,
+        };
+        let results4 = store.read(vault, &key4, rev4).await.unwrap();
+        assert_eq!(results4.len(), 1, "Should handle special characters");
+
+        // Test 5: Duplicate writes (idempotency)
+        let dup_rel = Relationship {
+            vault,
+            resource: "doc:dup".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        store.write(vault, vec![dup_rel.clone()]).await.unwrap();
+        let rev5 = store.write(vault, vec![dup_rel.clone()]).await.unwrap();
+        let key5 = RelationshipKey {
+            resource: "doc:dup".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let results5 = store.read(vault, &key5, rev5).await.unwrap();
+        // Should not create duplicates - exact same relationship
+        assert_eq!(results5.len(), 1, "Duplicate writes should be idempotent");
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_operations() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Test concurrent writes from multiple tasks
+        let mut handles = vec![];
+        for i in 0..10 {
+            let store_clone = store.clone();
+            let handle = tokio::spawn(async move {
+                let rel = Relationship {
+                    vault,
+                    resource: format!("doc:{}", i),
+                    relation: "owner".to_string(),
+                    subject: format!("user:{}", i),
+                };
+                store_clone.write(vault, vec![rel]).await.unwrap()
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all writes to complete
+        let mut revisions = vec![];
+        for handle in handles {
+            let rev = handle.await.unwrap();
+            revisions.push(rev);
+        }
+
+        // All revisions should be unique (transactions should serialize)
+        let unique_revs: std::collections::HashSet<_> = revisions.iter().collect();
+        assert_eq!(
+            unique_revs.len(),
+            10,
+            "Concurrent writes should produce unique revisions"
+        );
+
+        // Verify all writes succeeded
+        let final_rev = store.get_revision(vault).await.unwrap();
+        for i in 0..10 {
+            let key = RelationshipKey {
+                resource: format!("doc:{}", i),
+                relation: "owner".to_string(),
+                subject: None,
+            };
+            let results = store.read(vault, &key, final_rev).await.unwrap();
+            assert_eq!(
+                results.len(),
+                1,
+                "Each concurrent write should have succeeded"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_large_dataset_operations() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Write a large batch of relationships (100 relationships)
+        let large_batch: Vec<_> = (0..100)
+            .map(|i| Relationship {
+                vault,
+                resource: format!("doc:{}", i),
+                relation: "viewer".to_string(),
+                subject: format!("user:{}", i % 10), // 10 unique users
+            })
+            .collect();
+
+        let rev = store.write(vault, large_batch).await.unwrap();
+
+        // Verify all relationships were written
+        for i in 0..100 {
+            let key = RelationshipKey {
+                resource: format!("doc:{}", i),
+                relation: "viewer".to_string(),
+                subject: None,
+            };
+            let results = store.read(vault, &key, rev).await.unwrap();
+            assert_eq!(
+                results.len(),
+                1,
+                "Large batch write should persist all relationships"
+            );
+        }
+
+        // Test delete_by_filter with large result set
+        let filter = DeleteFilter {
+            resource: None,
+            relation: Some("viewer".to_string()),
+            subject: None,
+        };
+        let (del_rev, count) = store
+            .delete_by_filter(vault, &filter, Some(50))
+            .await
+            .unwrap();
+        assert_eq!(count, 50, "Should delete exactly 50 with limit");
+
+        // Verify deletions
+        let mut remaining = 0;
+        for i in 0..100 {
+            let key = RelationshipKey {
+                resource: format!("doc:{}", i),
+                relation: "viewer".to_string(),
+                subject: None,
+            };
+            let results = store.read(vault, &key, del_rev).await.unwrap();
+            remaining += results.len();
+        }
+        assert_eq!(remaining, 50, "Should have 50 relationships remaining");
+    }
+
+    #[tokio::test]
+    async fn test_vault_isolation_comprehensive() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault_a = Uuid::new_v4();
+        let vault_b = Uuid::new_v4();
+
+        // Create identical relationships in both vaults
+        let rel = Relationship {
+            vault: vault_a, // Will be overridden for vault_b
+            resource: "doc:shared".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+
+        let mut rel_a = rel.clone();
+        rel_a.vault = vault_a;
+        let _rev_a = store.write(vault_a, vec![rel_a]).await.unwrap();
+
+        let mut rel_b = rel.clone();
+        rel_b.vault = vault_b;
+        let rev_b = store.write(vault_b, vec![rel_b]).await.unwrap();
+
+        // Delete from vault A
+        let key = RelationshipKey {
+            resource: "doc:shared".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let del_rev_a = store.delete(vault_a, &key).await.unwrap();
+
+        // Verify vault A is deleted
+        let results_a = store.read(vault_a, &key, del_rev_a).await.unwrap();
+        assert_eq!(results_a.len(), 0, "Vault A should show deleted");
+
+        // Critical: Verify vault B is unaffected by vault A's deletion
+        let results_b = store.read(vault_b, &key, rev_b).await.unwrap();
+        assert_eq!(
+            results_b.len(),
+            1,
+            "Vault B should be unaffected by vault A deletion"
+        );
+        assert_eq!(results_b[0].subject, "user:alice");
+
+        // Verify at later revision in vault B
+        let final_rev_b = store.get_revision(vault_b).await.unwrap();
+        let results_b_final = store.read(vault_b, &key, final_rev_b).await.unwrap();
+        assert_eq!(
+            results_b_final.len(),
+            1,
+            "Vault B should remain unaffected"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_mvcc_with_interleaved_operations() {
+        let store = FoundationDBBackend::new().await.unwrap();
+        let vault = Uuid::new_v4();
+
+        // Rev 1: Alice is viewer
+        let rel1 = Relationship {
+            vault,
+            resource: "doc:timeline".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        let rev1 = store.write(vault, vec![rel1]).await.unwrap();
+
+        // Rev 2: Bob is editor (different relation)
+        let rel2 = Relationship {
+            vault,
+            resource: "doc:timeline".to_string(),
+            relation: "editor".to_string(),
+            subject: "user:bob".to_string(),
+        };
+        let rev2 = store.write(vault, vec![rel2]).await.unwrap();
+
+        // Rev 3: Charlie is viewer
+        let rel3 = Relationship {
+            vault,
+            resource: "doc:timeline".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:charlie".to_string(),
+        };
+        let rev3 = store.write(vault, vec![rel3]).await.unwrap();
+
+        // Rev 4: Delete alice
+        let del_key = RelationshipKey {
+            resource: "doc:timeline".to_string(),
+            relation: "viewer".to_string(),
+            subject: Some("user:alice".to_string()),
+        };
+        let rev4 = store.delete(vault, &del_key).await.unwrap();
+
+        // Verify time-travel queries
+        let key_viewers = RelationshipKey {
+            resource: "doc:timeline".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+
+        // At rev1: Only alice
+        let r1 = store.read(vault, &key_viewers, rev1).await.unwrap();
+        assert_eq!(r1.len(), 1);
+        assert_eq!(r1[0].subject, "user:alice");
+
+        // At rev2: Still only alice (bob is editor)
+        let r2 = store.read(vault, &key_viewers, rev2).await.unwrap();
+        assert_eq!(r2.len(), 1);
+        assert_eq!(r2[0].subject, "user:alice");
+
+        // At rev3: Alice and charlie
+        let r3 = store.read(vault, &key_viewers, rev3).await.unwrap();
+        assert_eq!(r3.len(), 2);
+        let subjects: Vec<_> = r3.iter().map(|r| r.subject.as_str()).collect();
+        assert!(subjects.contains(&"user:alice"));
+        assert!(subjects.contains(&"user:charlie"));
+
+        // At rev4: Only charlie (alice deleted)
+        let r4 = store.read(vault, &key_viewers, rev4).await.unwrap();
+        assert_eq!(r4.len(), 1);
+        assert_eq!(r4[0].subject, "user:charlie");
+
+        // Bob should be visible throughout (different relation)
+        let key_editors = RelationshipKey {
+            resource: "doc:timeline".to_string(),
+            relation: "editor".to_string(),
+            subject: None,
+        };
+        let bob_at_rev2 = store.read(vault, &key_editors, rev2).await.unwrap();
+        assert_eq!(bob_at_rev2.len(), 1);
+        let bob_at_rev4 = store.read(vault, &key_editors, rev4).await.unwrap();
+        assert_eq!(bob_at_rev4.len(), 1);
     }
 }
