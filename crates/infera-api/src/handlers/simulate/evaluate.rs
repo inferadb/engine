@@ -2,14 +2,18 @@
 
 use std::sync::Arc;
 
-use axum::{Json, extract::State};
+use axum::extract::State;
 use infera_const::scopes::*;
 use infera_core::Evaluator;
 use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest, Relationship};
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
+use crate::{
+    ApiError, AppState, Result,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::authorize_request,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SimulateRequest {
@@ -35,9 +39,10 @@ pub struct SimulateResponse {
 #[tracing::instrument(skip(state))]
 pub async fn simulate_handler(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Json(request): Json<SimulateRequest>,
-) -> Result<Json<SimulateResponse>> {
+    request: axum::Json<SimulateRequest>,
+) -> Result<ResponseData<SimulateResponse>> {
     // Authorize request and extract vault
     let vault = authorize_request(
         &auth.0,
@@ -52,13 +57,13 @@ pub async fn simulate_handler(
     }
 
     // Validate context relationships
-    if request.context_relationships.is_empty() {
+    if request.0.context_relationships.is_empty() {
         return Err(ApiError::InvalidRequest(
             "At least one context relationship required".to_string(),
         ));
     }
 
-    for relationship in &request.context_relationships {
+    for relationship in &request.0.context_relationships {
         if relationship.resource.is_empty()
             || relationship.relation.is_empty()
             || relationship.subject.is_empty()
@@ -74,7 +79,7 @@ pub async fn simulate_handler(
 
     // Write context relationships to ephemeral store
     ephemeral_store
-        .write(vault, request.context_relationships.clone())
+        .write(vault, request.0.context_relationships.clone())
         .await
         .map_err(|e| ApiError::Internal(format!("Failed to write context relationships: {}", e)))?;
 
@@ -86,17 +91,20 @@ pub async fn simulate_handler(
 
     // Run the evaluation with the ephemeral data
     let evaluate_request = EvaluateRequest {
-        subject: request.check.subject,
-        resource: request.check.resource,
-        permission: request.check.permission,
-        context: request.check.context,
+        subject: request.0.check.subject,
+        resource: request.0.check.resource,
+        permission: request.0.check.permission,
+        context: request.0.check.context,
         trace: None,
     };
 
     let decision = temp_evaluator.check(evaluate_request).await?;
 
-    Ok(Json(SimulateResponse {
-        decision,
-        context_relationships_count: request.context_relationships.len(),
-    }))
+    Ok(ResponseData::new(
+        SimulateResponse {
+            decision,
+            context_relationships_count: request.0.context_relationships.len(),
+        },
+        format,
+    ))
 }

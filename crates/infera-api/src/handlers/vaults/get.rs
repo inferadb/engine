@@ -1,13 +1,14 @@
 //! Get vault handler
 
-use axum::{
-    Json,
-    extract::{Path, State},
-};
+use axum::extract::{Path, State};
 use infera_types::VaultResponse;
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access};
+use crate::{
+    ApiError, AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::authorize_account_access,
+};
 
 /// Get a vault by ID
 ///
@@ -42,9 +43,10 @@ use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access}
 #[tracing::instrument(skip(state))]
 pub async fn get_vault(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(vault_id): Path<Uuid>,
-) -> Result<Json<VaultResponse>, ApiError> {
+) -> Result<ResponseData<VaultResponse>, ApiError> {
     // Get vault from storage
     let vault = state
         .store
@@ -58,5 +60,5 @@ pub async fn get_vault(
 
     tracing::debug!(vault_id = %vault.id, vault_name = %vault.name, "Vault retrieved");
 
-    Ok(Json(VaultResponse::from(vault)))
+    Ok(ResponseData::new(VaultResponse::from(vault), format))
 }

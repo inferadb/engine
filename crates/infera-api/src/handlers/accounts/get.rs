@@ -1,13 +1,14 @@
 //! Get account handler
 
-use axum::{
-    Json,
-    extract::{Path, State},
-};
+use axum::extract::{Path, State};
 use infera_types::AccountResponse;
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access};
+use crate::{
+    ApiError, AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::authorize_account_access,
+};
 
 /// Get an account by ID
 ///
@@ -41,9 +42,10 @@ use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access}
 #[tracing::instrument(skip(state))]
 pub async fn get_account(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(account_id): Path<Uuid>,
-) -> Result<Json<AccountResponse>, ApiError> {
+) -> Result<ResponseData<AccountResponse>, ApiError> {
     // Check authorization (admin OR account owner)
     authorize_account_access(&auth.0, account_id)?;
 
@@ -57,7 +59,7 @@ pub async fn get_account(
 
     tracing::debug!(account_id = %account.id, account_name = %account.name, "Account retrieved");
 
-    Ok(Json(AccountResponse::from(account)))
+    Ok(ResponseData::new(AccountResponse::from(account), format))
 }
 
 #[cfg(test)]
@@ -71,6 +73,7 @@ mod tests {
     use infera_types::Account;
 
     use super::*;
+    use crate::content_negotiation::ResponseFormat;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -125,9 +128,13 @@ mod tests {
         let state = create_test_state();
         let account_id = Uuid::new_v4();
 
-        let result =
-            get_account(infera_auth::extractor::OptionalAuth(None), State(state), Path(account_id))
-                .await;
+        let result = get_account(
+            infera_auth::extractor::OptionalAuth(None),
+            AcceptHeader(ResponseFormat::Json),
+            State(state),
+            Path(account_id),
+        )
+        .await;
 
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -146,14 +153,15 @@ mod tests {
 
         let result = get_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created.id),
         )
         .await
         .unwrap();
 
-        assert_eq!(result.0.id, created.id);
-        assert_eq!(result.0.name, "Test Account");
+        assert_eq!(result.data.id, created.id);
+        assert_eq!(result.data.name, "Test Account");
     }
 
     #[tokio::test]
@@ -166,13 +174,14 @@ mod tests {
 
         let result = get_account(
             infera_auth::extractor::OptionalAuth(Some(create_user_context(created.id))),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created.id),
         )
         .await
         .unwrap();
 
-        assert_eq!(result.0.id, created.id);
+        assert_eq!(result.data.id, created.id);
     }
 
     #[tokio::test]
@@ -188,6 +197,7 @@ mod tests {
 
         let result = get_account(
             infera_auth::extractor::OptionalAuth(Some(create_user_context(other_account_id))),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created.id),
         )
@@ -207,6 +217,7 @@ mod tests {
 
         let result = get_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(account_id),
         )

@@ -2,12 +2,16 @@
 //!
 //! This is a thin protocol adapter that converts REST requests to service calls.
 
-use axum::{Json, extract::State};
+use axum::extract::State;
 use infera_const::scopes::*;
 use infera_types::Relationship;
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
+use crate::{
+    ApiError, AppState, Result,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::authorize_request,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WriteRequest {
@@ -27,9 +31,10 @@ pub struct WriteResponse {
 #[tracing::instrument(skip(state))]
 pub async fn write_relationships_handler(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Json(request): Json<WriteRequest>,
-) -> Result<Json<WriteResponse>> {
+    axum::Json(request): axum::Json<WriteRequest>,
+) -> Result<ResponseData<WriteResponse>> {
     // Authorize request and extract vault
     let vault =
         authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WRITE])?;
@@ -76,8 +81,11 @@ pub async fn write_relationships_handler(
         relationships.iter().map(|r| r.resource.clone()).collect();
     state.relationship_service.invalidate_cache_for_resources(&affected_resources).await;
 
-    Ok(Json(WriteResponse {
-        revision: revision.0.to_string(), // Extract the u64 value
-        relationships_written: relationships.len(),
-    }))
+    Ok(ResponseData::new(
+        WriteResponse {
+            revision: revision.0.to_string(), // Extract the u64 value
+            relationships_written: relationships.len(),
+        },
+        format,
+    ))
 }

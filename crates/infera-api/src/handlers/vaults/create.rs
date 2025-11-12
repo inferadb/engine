@@ -10,7 +10,9 @@ use infera_types::{CreateVaultRequest, Vault, VaultResponse};
 use uuid::Uuid;
 
 use crate::{
-    ApiError, AppState, handlers::utils::auth::authorize_account_access,
+    ApiError, AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::authorize_account_access,
     validation::validate_vault_name,
 };
 
@@ -55,6 +57,7 @@ use crate::{
 #[tracing::instrument(skip(state))]
 pub async fn create_vault(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(account_id): Path<Uuid>,
     Json(request): Json<CreateVaultRequest>,
@@ -88,7 +91,7 @@ pub async fn create_vault(
     );
 
     // Convert to response and return 201 Created
-    Ok((StatusCode::CREATED, Json(VaultResponse::from(created_vault))))
+    Ok((StatusCode::CREATED, ResponseData::new(VaultResponse::from(created_vault), format)))
 }
 
 #[cfg(test)]
@@ -102,6 +105,7 @@ mod tests {
     use infera_types::Account;
 
     use super::*;
+    use crate::content_negotiation::ResponseFormat;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -159,6 +163,7 @@ mod tests {
 
         let result = create_vault(
             infera_auth::extractor::OptionalAuth(None),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(account_id),
             Json(request),
@@ -184,6 +189,7 @@ mod tests {
 
         let result = create_vault(
             infera_auth::extractor::OptionalAuth(Some(create_user_context(created_account.id))),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created_account.id),
             Json(request),
@@ -210,6 +216,7 @@ mod tests {
 
         let result = create_vault(
             infera_auth::extractor::OptionalAuth(Some(create_user_context(other_account_id))),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created_account.id),
             Json(request),
@@ -235,6 +242,7 @@ mod tests {
 
         let result = create_vault(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created_account.id),
             Json(request),
@@ -255,6 +263,7 @@ mod tests {
 
         let result = create_vault(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(account_id),
             Json(request),
@@ -280,6 +289,7 @@ mod tests {
 
         let result = create_vault(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created_account.id),
             Json(request),

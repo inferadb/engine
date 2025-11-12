@@ -11,7 +11,11 @@ use futures::{Stream, StreamExt, stream};
 use infera_const::scopes::*;
 use infera_types::ExpandRequest;
 
-use crate::{AppState, Result, handlers::utils::auth::authorize_request};
+use crate::{
+    ApiError, AppState, Result,
+    content_negotiation::{AcceptHeader, ResponseFormat},
+    handlers::utils::auth::authorize_request,
+};
 
 /// Expand endpoint - streaming-only for progressive results
 ///
@@ -20,9 +24,17 @@ use crate::{AppState, Result, handlers::utils::auth::authorize_request};
 #[tracing::instrument(skip(state))]
 pub async fn expand_handler(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<ExpandRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // Streaming endpoints only support JSON (SSE with JSON payloads)
+    if format == ResponseFormat::Toon {
+        return Err(ApiError::InvalidRequest(
+            "Streaming endpoints do not support TOON format. Use Accept: application/json or text/event-stream".to_string()
+        ));
+    }
+
     // Authorize request and extract vault
     let vault = authorize_request(
         &auth.0,

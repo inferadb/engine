@@ -6,7 +6,10 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access};
+use crate::{
+    ApiError, AppState, content_negotiation::AcceptHeader,
+    handlers::utils::auth::authorize_account_access,
+};
 
 /// Delete a vault
 ///
@@ -36,6 +39,7 @@ use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access}
 #[tracing::instrument(skip(state))]
 pub async fn delete_vault(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(_format): AcceptHeader,
     State(state): State<AppState>,
     Path(vault_id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {

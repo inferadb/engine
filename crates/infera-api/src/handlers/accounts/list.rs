@@ -1,13 +1,14 @@
 //! List accounts handler
 
-use axum::{
-    Json,
-    extract::{Query, State},
-};
+use axum::extract::{Query, State};
 use infera_types::{AccountResponse, ListAccountsResponse};
 use serde::Deserialize;
 
-use crate::{ApiError, AppState, handlers::utils::auth::require_admin_scope};
+use crate::{
+    ApiError, AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::require_admin_scope,
+};
 
 /// Query parameters for listing accounts
 #[derive(Debug, Deserialize)]
@@ -49,9 +50,10 @@ pub struct ListQueryParams {
 #[tracing::instrument(skip(state))]
 pub async fn list_accounts(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Query(params): Query<ListQueryParams>,
-) -> Result<Json<ListAccountsResponse>, ApiError> {
+) -> Result<ResponseData<ListAccountsResponse>, ApiError> {
     // Require admin scope
     require_admin_scope(&auth.0)?;
 
@@ -69,7 +71,7 @@ pub async fn list_accounts(
         accounts: accounts.into_iter().map(AccountResponse::from).collect(),
     };
 
-    Ok(Json(response))
+    Ok(ResponseData::new(response, format))
 }
 
 #[cfg(test)]
@@ -84,6 +86,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+    use crate::content_negotiation::ResponseFormat;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -123,8 +126,13 @@ mod tests {
         let state = create_test_state();
         let params = Query(ListQueryParams { limit: None });
 
-        let result =
-            list_accounts(infera_auth::extractor::OptionalAuth(None), State(state), params).await;
+        let result = list_accounts(
+            infera_auth::extractor::OptionalAuth(None),
+            AcceptHeader(ResponseFormat::Json),
+            State(state),
+            params,
+        )
+        .await;
 
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -147,13 +155,14 @@ mod tests {
 
         let result = list_accounts(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             params,
         )
         .await
         .unwrap();
 
-        assert_eq!(result.0.accounts.len(), 2);
+        assert_eq!(result.data.accounts.len(), 2);
     }
 
     #[tokio::test]
@@ -170,12 +179,13 @@ mod tests {
 
         let result = list_accounts(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             params,
         )
         .await
         .unwrap();
 
-        assert_eq!(result.0.accounts.len(), 3);
+        assert_eq!(result.data.accounts.len(), 3);
     }
 }

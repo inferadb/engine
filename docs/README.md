@@ -21,6 +21,7 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 - [gRPC API Explorer](../api/grpc-explorer.html) - Interactive gRPC API testing
 - [REST API Reference](../api/rest.md) - HTTP/JSON API endpoints
 - [gRPC API Reference](../api/grpc.md) - High-performance gRPC interface
+- [Content Negotiation](../api/content-negotiation.md) - JSON vs TOON response formats for LLM optimization
 - [OpenAPI Specification](../api/openapi.yaml) - OpenAPI 3.1 spec
 
 ## Core Concepts

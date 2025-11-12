@@ -16,7 +16,9 @@ use foundationdb::{
     Database, FdbBindingError, RangeOption,
     tuple::{Subspace, unpack},
 };
-use infera_types::{ChangeEvent, ChangeOperation, DeleteFilter, Relationship, RelationshipKey, Revision};
+use infera_types::{
+    ChangeEvent, ChangeOperation, DeleteFilter, Relationship, RelationshipKey, Revision,
+};
 use serde_json;
 use tracing::debug;
 use uuid::Uuid;
@@ -726,7 +728,7 @@ impl RelationshipStore for FoundationDBBackend {
                         let range = trx
                             .get_range(
                                 &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
-                                10000,  // Large limit for full vault scan
+                                10000, // Large limit for full vault scan
                                 false,
                             )
                             .await?;
@@ -1766,11 +1768,7 @@ mod tests {
         let vault = Uuid::new_v4();
 
         // Empty filter should error
-        let filter = DeleteFilter {
-            resource: None,
-            relation: None,
-            subject: None,
-        };
+        let filter = DeleteFilter { resource: None, relation: None, subject: None };
         let result = store.delete_by_filter(vault, &filter, None).await;
         assert!(result.is_err(), "Empty filter should return error");
     }
@@ -1930,10 +1928,7 @@ mod tests {
 
         // Write relationships and append change events
         let rev1 = store.write(vault, vec![rel1.clone()]).await.unwrap();
-        let timestamp1 = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as i64;
+        let timestamp1 = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as i64;
         let event1 = ChangeEvent {
             operation: ChangeOperation::Create,
             relationship: rel1.clone(),
@@ -1943,10 +1938,7 @@ mod tests {
         store.append_change(vault, event1).await.unwrap();
 
         let rev2 = store.write(vault, vec![rel2.clone()]).await.unwrap();
-        let timestamp2 = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as i64;
+        let timestamp2 = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as i64;
         let event2 = ChangeEvent {
             operation: ChangeOperation::Create,
             relationship: rel2.clone(),
@@ -1956,39 +1948,24 @@ mod tests {
         store.append_change(vault, event2).await.unwrap();
 
         // Read changes from initial revision
-        let changes = store
-            .read_changes(vault, initial_rev, &[], None)
-            .await
-            .unwrap();
+        let changes = store.read_changes(vault, initial_rev, &[], None).await.unwrap();
         assert_eq!(changes.len(), 2, "Should have 2 change events");
         assert_eq!(changes[0].operation, ChangeOperation::Create);
         assert_eq!(changes[0].relationship.subject, "user:alice");
         assert_eq!(changes[1].relationship.subject, "user:bob");
 
         // Read changes with limit
-        let limited_changes = store
-            .read_changes(vault, initial_rev, &[], Some(1))
-            .await
-            .unwrap();
+        let limited_changes = store.read_changes(vault, initial_rev, &[], Some(1)).await.unwrap();
         assert_eq!(limited_changes.len(), 1, "Should respect limit parameter");
 
         // Read changes filtered by resource type
-        let filtered_changes = store
-            .read_changes(vault, initial_rev, &["doc".to_string()], None)
-            .await
-            .unwrap();
-        assert_eq!(
-            filtered_changes.len(),
-            2,
-            "Should filter by resource type prefix"
-        );
+        let filtered_changes =
+            store.read_changes(vault, initial_rev, &["doc".to_string()], None).await.unwrap();
+        assert_eq!(filtered_changes.len(), 2, "Should filter by resource type prefix");
 
         // Get current change log revision
         let current_rev = store.get_change_log_revision(vault).await.unwrap();
-        assert!(
-            current_rev.0 >= initial_rev.0,
-            "Change log revision should advance"
-        );
+        assert!(current_rev.0 >= initial_rev.0, "Change log revision should advance");
     }
 
     #[tokio::test]
@@ -2026,28 +2003,20 @@ mod tests {
         let rev = store.write(vault, rels).await.unwrap();
 
         // List all doc resources
-        let doc_resources = store
-            .list_resources_by_type(vault, "doc", rev)
-            .await
-            .unwrap();
+        let doc_resources = store.list_resources_by_type(vault, "doc", rev).await.unwrap();
         assert_eq!(doc_resources.len(), 3, "Should find 3 doc resources");
         assert!(doc_resources.contains(&"doc:1".to_string()));
         assert!(doc_resources.contains(&"doc:2".to_string()));
         assert!(doc_resources.contains(&"doc:3".to_string()));
 
         // List all folder resources
-        let folder_resources = store
-            .list_resources_by_type(vault, "folder", rev)
-            .await
-            .unwrap();
+        let folder_resources = store.list_resources_by_type(vault, "folder", rev).await.unwrap();
         assert_eq!(folder_resources.len(), 1, "Should find 1 folder resource");
         assert!(folder_resources.contains(&"folder:1".to_string()));
 
         // List non-existent resource type
-        let empty_resources = store
-            .list_resources_by_type(vault, "nonexistent", rev)
-            .await
-            .unwrap();
+        let empty_resources =
+            store.list_resources_by_type(vault, "nonexistent", rev).await.unwrap();
         assert_eq!(empty_resources.len(), 0, "Should return empty for non-existent type");
     }
 
@@ -2086,46 +2055,25 @@ mod tests {
         let rev = store.write(vault, rels).await.unwrap();
 
         // List all relationships (no filters)
-        let all_rels = store
-            .list_relationships(vault, None, None, None, rev)
-            .await
-            .unwrap();
+        let all_rels = store.list_relationships(vault, None, None, None, rev).await.unwrap();
         assert_eq!(all_rels.len(), 4, "Should list all relationships");
 
         // List relationships for specific resource
-        let doc1_rels = store
-            .list_relationships(vault, Some("doc:1"), None, None, rev)
-            .await
-            .unwrap();
-        assert_eq!(
-            doc1_rels.len(),
-            2,
-            "Should find 2 relationships for doc:1"
-        );
+        let doc1_rels =
+            store.list_relationships(vault, Some("doc:1"), None, None, rev).await.unwrap();
+        assert_eq!(doc1_rels.len(), 2, "Should find 2 relationships for doc:1");
         assert!(doc1_rels.iter().all(|r| r.resource == "doc:1"));
 
         // List relationships for specific relation
-        let viewer_rels = store
-            .list_relationships(vault, None, Some("viewer"), None, rev)
-            .await
-            .unwrap();
-        assert_eq!(
-            viewer_rels.len(),
-            2,
-            "Should find 2 viewer relationships"
-        );
+        let viewer_rels =
+            store.list_relationships(vault, None, Some("viewer"), None, rev).await.unwrap();
+        assert_eq!(viewer_rels.len(), 2, "Should find 2 viewer relationships");
         assert!(viewer_rels.iter().all(|r| r.relation == "viewer"));
 
         // List relationships for specific subject
-        let alice_rels = store
-            .list_relationships(vault, None, None, Some("user:alice"), rev)
-            .await
-            .unwrap();
-        assert_eq!(
-            alice_rels.len(),
-            2,
-            "Should find 2 relationships for alice"
-        );
+        let alice_rels =
+            store.list_relationships(vault, None, None, Some("user:alice"), rev).await.unwrap();
+        assert_eq!(alice_rels.len(), 2, "Should find 2 relationships for alice");
         assert!(alice_rels.iter().all(|r| r.subject == "user:alice"));
 
         // List with multiple filters
@@ -2133,11 +2081,7 @@ mod tests {
             .list_relationships(vault, Some("doc:1"), Some("viewer"), None, rev)
             .await
             .unwrap();
-        assert_eq!(
-            filtered_rels.len(),
-            1,
-            "Should find 1 relationship matching all filters"
-        );
+        assert_eq!(filtered_rels.len(), 1, "Should find 1 relationship matching all filters");
         assert_eq!(filtered_rels[0].resource, "doc:1");
         assert_eq!(filtered_rels[0].relation, "viewer");
         assert_eq!(filtered_rels[0].subject, "user:alice");
@@ -2263,11 +2207,7 @@ mod tests {
 
         // All revisions should be unique (transactions should serialize)
         let unique_revs: std::collections::HashSet<_> = revisions.iter().collect();
-        assert_eq!(
-            unique_revs.len(),
-            10,
-            "Concurrent writes should produce unique revisions"
-        );
+        assert_eq!(unique_revs.len(), 10, "Concurrent writes should produce unique revisions");
 
         // Verify all writes succeeded
         let final_rev = store.get_revision(vault).await.unwrap();
@@ -2278,11 +2218,7 @@ mod tests {
                 subject: None,
             };
             let results = store.read(vault, &key, final_rev).await.unwrap();
-            assert_eq!(
-                results.len(),
-                1,
-                "Each concurrent write should have succeeded"
-            );
+            assert_eq!(results.len(), 1, "Each concurrent write should have succeeded");
         }
     }
 
@@ -2311,23 +2247,13 @@ mod tests {
                 subject: None,
             };
             let results = store.read(vault, &key, rev).await.unwrap();
-            assert_eq!(
-                results.len(),
-                1,
-                "Large batch write should persist all relationships"
-            );
+            assert_eq!(results.len(), 1, "Large batch write should persist all relationships");
         }
 
         // Test delete_by_filter with large result set
-        let filter = DeleteFilter {
-            resource: None,
-            relation: Some("viewer".to_string()),
-            subject: None,
-        };
-        let (del_rev, count) = store
-            .delete_by_filter(vault, &filter, Some(50))
-            .await
-            .unwrap();
+        let filter =
+            DeleteFilter { resource: None, relation: Some("viewer".to_string()), subject: None };
+        let (del_rev, count) = store.delete_by_filter(vault, &filter, Some(50)).await.unwrap();
         assert_eq!(count, 50, "Should delete exactly 50 with limit");
 
         // Verify deletions
@@ -2380,21 +2306,13 @@ mod tests {
 
         // Critical: Verify vault B is unaffected by vault A's deletion
         let results_b = store.read(vault_b, &key, rev_b).await.unwrap();
-        assert_eq!(
-            results_b.len(),
-            1,
-            "Vault B should be unaffected by vault A deletion"
-        );
+        assert_eq!(results_b.len(), 1, "Vault B should be unaffected by vault A deletion");
         assert_eq!(results_b[0].subject, "user:alice");
 
         // Verify at later revision in vault B
         let final_rev_b = store.get_revision(vault_b).await.unwrap();
         let results_b_final = store.read(vault_b, &key, final_rev_b).await.unwrap();
-        assert_eq!(
-            results_b_final.len(),
-            1,
-            "Vault B should remain unaffected"
-        );
+        assert_eq!(results_b_final.len(), 1, "Vault B should remain unaffected");
     }
 
     #[tokio::test]

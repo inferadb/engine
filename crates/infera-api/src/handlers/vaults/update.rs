@@ -8,7 +8,10 @@ use infera_types::{UpdateVaultRequest, VaultResponse};
 use uuid::Uuid;
 
 use crate::{
-    ApiError, AppState, handlers::utils::auth::require_admin_scope, validation::validate_vault_name,
+    ApiError, AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::require_admin_scope,
+    validation::validate_vault_name,
 };
 
 /// Update a vault
@@ -54,10 +57,11 @@ use crate::{
 #[tracing::instrument(skip(state))]
 pub async fn update_vault(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(vault_id): Path<Uuid>,
     Json(request): Json<UpdateVaultRequest>,
-) -> Result<Json<VaultResponse>, ApiError> {
+) -> Result<ResponseData<VaultResponse>, ApiError> {
     // Require admin scope for vault updates
     require_admin_scope(&auth.0)?;
 
@@ -102,5 +106,5 @@ pub async fn update_vault(
 
     tracing::info!(vault_id = %updated_vault.id, "Vault updated");
 
-    Ok(Json(VaultResponse::from(updated_vault)))
+    Ok(ResponseData::new(VaultResponse::from(updated_vault), format))
 }

@@ -17,6 +17,7 @@ Detailed API documentation:
 
 - **[REST API Reference](./rest.md)** - Complete REST API documentation with examples
 - **[gRPC API Reference](./grpc.md)** - Complete gRPC API documentation with examples
+- **[Content Negotiation Guide](./content-negotiation.md)** - JSON vs TOON response formats (30-60% token savings for LLMs)
 
 ### 📋 API Specifications
 
@@ -78,6 +79,29 @@ grpcurl -plaintext -d '{
 **Try it interactively**: Follow the guide at [grpc-explorer.html](./grpc-explorer.html)
 
 ## API Features
+
+### Response Format Options
+
+InferaDB REST APIs support **content negotiation** for response formats:
+
+- **JSON (default):** `Accept: application/json` - Standard format
+- **TOON:** `Accept: text/toon` - Token Oriented Object Notation (30-60% token reduction for LLMs)
+
+```bash
+# JSON response (default)
+curl http://localhost:8080/api/v1/vaults/123
+
+# TOON response (optimized for LLMs)
+curl -H "Accept: text/toon" http://localhost:8080/api/v1/vaults/123
+```
+
+**When to use TOON:**
+- Building LLM-powered applications
+- Reducing token costs for AI workflows
+- Optimizing prompt context windows
+- Processing large authorization datasets with AI
+
+**See:** [Content Negotiation Guide](./content-negotiation.md) for complete documentation.
 
 ### AuthZEN-Compliant Endpoints
 

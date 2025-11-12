@@ -20,6 +20,7 @@ use tracing::info;
 use uuid::Uuid;
 
 pub mod adapters;
+pub mod content_negotiation;
 pub mod formatters;
 pub mod grpc;
 pub mod grpc_interceptor;

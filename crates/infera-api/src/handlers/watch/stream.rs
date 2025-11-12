@@ -12,7 +12,11 @@ use infera_const::scopes::*;
 use infera_store::RelationshipStore;
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
+use crate::{
+    ApiError, AppState, Result,
+    content_negotiation::{AcceptHeader, ResponseFormat},
+    handlers::utils::auth::authorize_request,
+};
 
 /// REST request for Watch endpoint
 #[derive(Debug, Deserialize, Serialize)]
@@ -33,9 +37,17 @@ pub struct WatchRestRequest {
 #[tracing::instrument(skip(state))]
 pub async fn watch_handler(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<WatchRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // Streaming endpoints only support JSON (SSE with JSON payloads)
+    if format == ResponseFormat::Toon {
+        return Err(ApiError::InvalidRequest(
+            "Streaming endpoints do not support TOON format. Use Accept: application/json or text/event-stream".to_string()
+        ));
+    }
+
     // Authorize request and extract vault
     let vault =
         authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WATCH])?;

@@ -1,13 +1,14 @@
 //! List vaults handler
 
-use axum::{
-    Json,
-    extract::{Path, State},
-};
+use axum::extract::{Path, State};
 use infera_types::{ListVaultsResponse, VaultResponse};
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access};
+use crate::{
+    ApiError, AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::authorize_account_access,
+};
 
 /// List vaults for an account
 ///
@@ -45,9 +46,10 @@ use crate::{ApiError, AppState, handlers::utils::auth::authorize_account_access}
 #[tracing::instrument(skip(state))]
 pub async fn list_vaults(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(account_id): Path<Uuid>,
-) -> Result<Json<ListVaultsResponse>, ApiError> {
+) -> Result<ResponseData<ListVaultsResponse>, ApiError> {
     // Check authorization (admin OR account owner)
     authorize_account_access(&auth.0, account_id)?;
 
@@ -64,5 +66,5 @@ pub async fn list_vaults(
     let response =
         ListVaultsResponse { vaults: vaults.into_iter().map(VaultResponse::from).collect() };
 
-    Ok(Json(response))
+    Ok(ResponseData::new(response, format))
 }

@@ -3,10 +3,13 @@
 //! Implements the `GET /.well-known/authzen-configuration` endpoint as specified
 //! by the AuthZEN specification for service discovery and capability negotiation.
 
-use axum::{Json, extract::State, http::header, response::IntoResponse};
+use axum::{extract::State, http::header, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::AppState;
+use crate::{
+    AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+};
 
 /// AuthZEN configuration response
 ///
@@ -73,7 +76,10 @@ pub struct AuthZENExtensions {
 ///
 /// This endpoint returns `Cache-Control: public, max-age=3600` to allow
 /// clients to cache the configuration for 1 hour, reducing unnecessary requests.
-pub async fn get_authzen_configuration(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn get_authzen_configuration(
+    AcceptHeader(format): AcceptHeader,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
     // Construct the base URL from configuration
     let base_url = format!("http://{}:{}", state.config.server.host, state.config.server.port);
 
@@ -110,14 +116,8 @@ pub async fn get_authzen_configuration(State(state): State<AppState>) -> impl In
         }),
     };
 
-    // Return JSON response with cache headers
-    (
-        [
-            (header::CONTENT_TYPE, "application/json"),
-            (header::CACHE_CONTROL, "public, max-age=3600"),
-        ],
-        Json(config),
-    )
+    // Return response with cache headers
+    ([(header::CACHE_CONTROL, "public, max-age=3600")], ResponseData::new(config, format))
 }
 
 #[cfg(test)]

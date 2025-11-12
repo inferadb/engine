@@ -3,7 +3,7 @@
 //! Implements the AuthZEN-compliant evaluation endpoints that provide a thin
 //! adapter layer over InferaDB's native evaluation functionality.
 
-use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use axum::extract::State;
 use infera_const::scopes::*;
 use infera_types::EvaluateRequest;
 use serde::{Deserialize, Serialize};
@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ApiError, AppState,
     adapters::authzen::{AuthZENEvaluationRequest, convert_authzen_request_to_native},
+    content_negotiation::{AcceptHeader, ResponseData},
     formatters::authzen::{format_denial_with_error, format_evaluation_response},
     handlers::utils::auth::authorize_request,
     validation::validate_authzen_evaluation_request,
@@ -63,9 +64,10 @@ pub struct EnhancedAuthZENEvaluationResponse {
 #[tracing::instrument(skip(state), fields(authzen_alias = true))]
 pub async fn post_evaluation(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Json(request): Json<AuthZENEvaluationRequest>,
-) -> Result<impl IntoResponse, ApiError> {
+    request: axum::Json<AuthZENEvaluationRequest>,
+) -> Result<ResponseData<EnhancedAuthZENEvaluationResponse>, ApiError> {
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
@@ -82,10 +84,10 @@ pub async fn post_evaluation(
     }
 
     // Validate required fields
-    validate_authzen_evaluation_request(&request)?;
+    validate_authzen_evaluation_request(&request.0)?;
 
     // Convert AuthZEN request to native format
-    let (subject, resource, permission) = convert_authzen_request_to_native(&request)
+    let (subject, resource, permission) = convert_authzen_request_to_native(&request.0)
         .map_err(|e| ApiError::InvalidRequest(format!("Invalid entity format: {}", e)))?;
 
     tracing::debug!(
@@ -100,7 +102,7 @@ pub async fn post_evaluation(
         subject: subject.clone(),
         resource: resource.clone(),
         permission: permission.clone(),
-        context: request.context.clone(),
+        context: request.0.context.clone(),
         trace: Some(false),
     };
 
@@ -135,7 +137,7 @@ pub async fn post_evaluation(
         "AuthZEN evaluation completed"
     );
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok(ResponseData::new(response, format))
 }
 
 /// Batch evaluation request containing multiple evaluations
@@ -213,11 +215,12 @@ const MAX_BATCH_SIZE: usize = 100;
 #[tracing::instrument(skip(state), fields(authzen_alias = true, batch = true))]
 pub async fn post_evaluations(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Json(request): Json<AuthZENEvaluationsRequest>,
-) -> Result<impl IntoResponse, ApiError> {
+    request: axum::Json<AuthZENEvaluationsRequest>,
+) -> Result<ResponseData<AuthZENEvaluationsResponse>, ApiError> {
     let start = std::time::Instant::now();
-    let batch_size = request.evaluations.len();
+    let batch_size = request.0.evaluations.len();
 
     // Authorize request and extract vault
     let vault =
@@ -252,7 +255,7 @@ pub async fn post_evaluations(
     // Process each evaluation in the batch
     let mut results = Vec::with_capacity(batch_size);
 
-    for (index, eval_request) in request.evaluations.into_iter().enumerate() {
+    for (index, eval_request) in request.0.evaluations.into_iter().enumerate() {
         // Validate required fields for this evaluation
         if let Err(e) = validate_authzen_evaluation_request(&eval_request) {
             // On validation error, return a deny decision with error context
@@ -341,7 +344,7 @@ pub async fn post_evaluations(
 
     let response = AuthZENEvaluationsResponse { evaluations: results };
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok(ResponseData::new(response, format))
 }
 
 #[cfg(test)]

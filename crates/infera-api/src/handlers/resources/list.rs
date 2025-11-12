@@ -12,7 +12,11 @@ use infera_const::scopes::*;
 use infera_types::ListResourcesRequest;
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, Result, handlers::utils::auth::authorize_request};
+use crate::{
+    ApiError, AppState, Result,
+    content_negotiation::{AcceptHeader, ResponseFormat},
+    handlers::utils::auth::authorize_request,
+};
 
 /// List resources endpoint - returns all resources accessible by a subject
 #[derive(Serialize, Deserialize, Debug)]
@@ -39,9 +43,17 @@ pub struct ListResourcesRestRequest {
 #[tracing::instrument(skip(state))]
 pub async fn list_resources_stream_handler(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<ListResourcesRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // Streaming endpoints only support JSON (SSE with JSON payloads)
+    if format == ResponseFormat::Toon {
+        return Err(ApiError::InvalidRequest(
+            "Streaming endpoints do not support TOON format. Use Accept: application/json or text/event-stream".to_string()
+        ));
+    }
+
     // Authorize request and extract vault
     let vault = authorize_request(
         &auth.0,

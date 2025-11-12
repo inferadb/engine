@@ -3,7 +3,7 @@
 //! Implements the AuthZEN-compliant search endpoints that provide a thin
 //! adapter layer over InferaDB's native list resources and list subjects functionality.
 
-use axum::{Json, extract::State, response::IntoResponse};
+use axum::extract::State;
 use infera_const::scopes::*;
 use infera_types::{ListResourcesRequest, ListSubjectsRequest};
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,7 @@ use crate::{
     adapters::authzen::{
         AuthZENAction, AuthZENEntity, AuthZENResource, AuthZENSubject, parse_entity,
     },
+    content_negotiation::{AcceptHeader, ResponseData},
     handlers::utils::{auth::authorize_request, validation::safe_format_entity},
     validation::{
         validate_authzen_resource_search_request, validate_authzen_subject_search_request,
@@ -112,9 +113,10 @@ pub struct AuthZENResourceSearchResponse {
 #[tracing::instrument(skip(state), fields(authzen_alias = true, search_type = "resource"))]
 pub async fn post_search_resource(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Json(request): Json<AuthZENResourceSearchRequest>,
-) -> Result<impl IntoResponse, ApiError> {
+    request: axum::Json<AuthZENResourceSearchRequest>,
+) -> Result<ResponseData<AuthZENResourceSearchResponse>, ApiError> {
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
@@ -131,12 +133,12 @@ pub async fn post_search_resource(
     }
 
     // Validate required fields
-    validate_authzen_resource_search_request(&request)?;
+    validate_authzen_resource_search_request(&request.0)?;
 
     // Convert AuthZEN request to native format with injection protection
-    let subject = safe_format_entity(&request.subject.subject_type, &request.subject.id)?;
-    let permission = request.action.name.clone();
-    let resource_type = request.resource_type.clone();
+    let subject = safe_format_entity(&request.0.subject.subject_type, &request.0.subject.id)?;
+    let permission = request.0.action.name.clone();
+    let resource_type = request.0.resource_type.clone();
 
     // Validate the generated subject string
     parse_entity(&subject)
@@ -146,7 +148,7 @@ pub async fn post_search_resource(
         subject = %subject,
         permission = %permission,
         resource_type = %resource_type,
-        limit = ?request.limit,
+        limit = ?request.0.limit,
         "Converted AuthZEN resource search request to native format"
     );
 
@@ -155,8 +157,8 @@ pub async fn post_search_resource(
         subject,
         resource_type: resource_type.clone(),
         permission,
-        limit: request.limit.map(|l| l as usize),
-        cursor: request.cursor,
+        limit: request.0.limit.map(|l| l as usize),
+        cursor: request.0.cursor,
         resource_id_pattern: None,
     };
 
@@ -191,10 +193,10 @@ pub async fn post_search_resource(
         "AuthZEN resource search completed"
     );
 
-    Ok(Json(AuthZENResourceSearchResponse {
-        resources: authzen_resources,
-        cursor: response.cursor,
-    }))
+    Ok(ResponseData::new(
+        AuthZENResourceSearchResponse { resources: authzen_resources, cursor: response.cursor },
+        format,
+    ))
 }
 
 /// AuthZEN subject search request
@@ -290,9 +292,10 @@ pub struct AuthZENSubjectSearchResponse {
 #[tracing::instrument(skip(state), fields(authzen_alias = true, search_type = "subject"))]
 pub async fn post_search_subject(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Json(request): Json<AuthZENSubjectSearchRequest>,
-) -> Result<impl IntoResponse, ApiError> {
+    request: axum::Json<AuthZENSubjectSearchRequest>,
+) -> Result<ResponseData<AuthZENSubjectSearchResponse>, ApiError> {
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
@@ -309,11 +312,11 @@ pub async fn post_search_subject(
     }
 
     // Validate required fields
-    validate_authzen_subject_search_request(&request)?;
+    validate_authzen_subject_search_request(&request.0)?;
 
     // Convert AuthZEN request to native format with injection protection
-    let resource = safe_format_entity(&request.resource.resource_type, &request.resource.id)?;
-    let relation = request.action.name.clone();
+    let resource = safe_format_entity(&request.0.resource.resource_type, &request.0.resource.id)?;
+    let relation = request.0.action.name.clone();
 
     // Validate the generated resource string
     parse_entity(&resource)
@@ -322,8 +325,8 @@ pub async fn post_search_subject(
     tracing::debug!(
         resource = %resource,
         relation = %relation,
-        subject_type = ?request.subject_type,
-        limit = ?request.limit,
+        subject_type = ?request.0.subject_type,
+        limit = ?request.0.limit,
         "Converted AuthZEN subject search request to native format"
     );
 
@@ -331,9 +334,9 @@ pub async fn post_search_subject(
     let list_request = ListSubjectsRequest {
         resource,
         relation,
-        subject_type: request.subject_type,
-        limit: request.limit.map(|l| l as usize),
-        cursor: request.cursor,
+        subject_type: request.0.subject_type,
+        limit: request.0.limit.map(|l| l as usize),
+        cursor: request.0.cursor,
     };
 
     // Execute the search operation using subject service
@@ -367,7 +370,10 @@ pub async fn post_search_subject(
         "AuthZEN subject search completed"
     );
 
-    Ok(Json(AuthZENSubjectSearchResponse { subjects: authzen_subjects, cursor: response.cursor }))
+    Ok(ResponseData::new(
+        AuthZENSubjectSearchResponse { subjects: authzen_subjects, cursor: response.cursor },
+        format,
+    ))
 }
 
 #[cfg(test)]

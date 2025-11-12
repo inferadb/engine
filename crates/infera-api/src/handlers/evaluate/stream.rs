@@ -15,7 +15,11 @@ use infera_core::DecisionTrace;
 use infera_types::{Decision, EvaluateRequest};
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
+use crate::{
+    ApiError, AppState, Result,
+    content_negotiation::{AcceptHeader, ResponseFormat},
+    handlers::utils::auth::authorize_request,
+};
 
 /// Request for batch authorization evaluation (streaming endpoint)
 #[derive(Serialize, Deserialize, Debug)]
@@ -88,9 +92,17 @@ pub struct EvaluateSummary {
 #[tracing::instrument(skip(state))]
 pub async fn evaluate_stream_handler(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<EvaluateRestRequest>,
 ) -> Result<Sse<impl Stream<Item = std::result::Result<Event, axum::Error>>>> {
+    // Streaming endpoints only support JSON (SSE with JSON payloads)
+    if format == ResponseFormat::Toon {
+        return Err(ApiError::InvalidRequest(
+            "Streaming endpoints do not support TOON format. Use Accept: application/json or text/event-stream".to_string()
+        ));
+    }
+
     // Authorize request and extract vault
     let vault =
         authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_CHECK])?;

@@ -6,7 +6,10 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{ApiError, AppState, handlers::utils::auth::require_admin_scope};
+use crate::{
+    ApiError, AppState, content_negotiation::AcceptHeader,
+    handlers::utils::auth::require_admin_scope,
+};
 
 /// Delete an account
 ///
@@ -37,6 +40,7 @@ use crate::{ApiError, AppState, handlers::utils::auth::require_admin_scope};
 #[tracing::instrument(skip(state))]
 pub async fn delete_account(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(_format): AcceptHeader,
     State(state): State<AppState>,
     Path(account_id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
@@ -76,6 +80,7 @@ mod tests {
     use infera_types::{Account, Vault};
 
     use super::*;
+    use crate::content_negotiation::ResponseFormat;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -117,6 +122,7 @@ mod tests {
 
         let result = delete_account(
             infera_auth::extractor::OptionalAuth(None),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(account_id),
         )
@@ -139,6 +145,7 @@ mod tests {
 
         let result = delete_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state.clone()),
             Path(created.id),
         )
@@ -167,6 +174,7 @@ mod tests {
         // Delete account
         delete_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state.clone()),
             Path(created_account.id),
         )
@@ -185,6 +193,7 @@ mod tests {
 
         let result = delete_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(account_id),
         )

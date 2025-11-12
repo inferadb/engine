@@ -1,10 +1,12 @@
 //! Create account handler
 
-use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use infera_types::{Account, AccountResponse, CreateAccountRequest};
 
 use crate::{
-    ApiError, AppState, handlers::utils::auth::require_admin_scope,
+    ApiError, AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::require_admin_scope,
     validation::validate_account_name,
 };
 
@@ -42,8 +44,9 @@ use crate::{
 #[tracing::instrument(skip(state))]
 pub async fn create_account(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Json(request): Json<CreateAccountRequest>,
+    axum::Json(request): axum::Json<CreateAccountRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     // Require admin scope
     require_admin_scope(&auth.0)?;
@@ -65,14 +68,14 @@ pub async fn create_account(
     );
 
     // Convert to response and return 201 Created
-    Ok((StatusCode::CREATED, Json(AccountResponse::from(created_account))))
+    Ok((StatusCode::CREATED, ResponseData::new(AccountResponse::from(created_account), format)))
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
-    use axum::{Json, extract::State};
+    use axum::extract::State;
     use infera_config::Config;
     use infera_const::scopes::SCOPE_ADMIN;
     use infera_core::ipl::Schema;
@@ -81,7 +84,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::AppState;
+    use crate::{AppState, content_negotiation::ResponseFormat};
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -107,9 +110,13 @@ mod tests {
 
         let request = CreateAccountRequest { name: "Test Account".to_string() };
 
-        let result =
-            create_account(infera_auth::extractor::OptionalAuth(None), State(state), Json(request))
-                .await;
+        let result = create_account(
+            infera_auth::extractor::OptionalAuth(None),
+            AcceptHeader(ResponseFormat::Json),
+            State(state),
+            axum::Json(request),
+        )
+        .await;
 
         assert!(result.is_err());
         match result {
@@ -140,8 +147,9 @@ mod tests {
 
         let result = create_account(
             infera_auth::extractor::OptionalAuth(Some(admin_ctx)),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
-            Json(request),
+            axum::Json(request),
         )
         .await;
 

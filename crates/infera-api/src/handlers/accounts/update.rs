@@ -1,14 +1,13 @@
 //! Update account handler
 
-use axum::{
-    Json,
-    extract::{Path, State},
-};
+use axum::extract::{Path, State};
 use infera_types::{AccountResponse, UpdateAccountRequest};
 use uuid::Uuid;
 
 use crate::{
-    ApiError, AppState, handlers::utils::auth::require_admin_scope,
+    ApiError, AppState,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::require_admin_scope,
     validation::validate_account_name,
 };
 
@@ -50,10 +49,11 @@ use crate::{
 #[tracing::instrument(skip(state))]
 pub async fn update_account(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(account_id): Path<Uuid>,
-    Json(request): Json<UpdateAccountRequest>,
-) -> Result<Json<AccountResponse>, ApiError> {
+    axum::Json(request): axum::Json<UpdateAccountRequest>,
+) -> Result<ResponseData<AccountResponse>, ApiError> {
     // Require admin scope
     require_admin_scope(&auth.0)?;
 
@@ -82,7 +82,7 @@ pub async fn update_account(
         "Account updated"
     );
 
-    Ok(Json(AccountResponse::from(updated_account)))
+    Ok(ResponseData::new(AccountResponse::from(updated_account), format))
 }
 
 #[cfg(test)]
@@ -96,6 +96,7 @@ mod tests {
     use infera_types::Account;
 
     use super::*;
+    use crate::content_negotiation::ResponseFormat;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -138,9 +139,10 @@ mod tests {
 
         let result = update_account(
             infera_auth::extractor::OptionalAuth(None),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(account_id),
-            Json(request),
+            axum::Json(request),
         )
         .await;
 
@@ -163,15 +165,16 @@ mod tests {
 
         let result = update_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state.clone()),
             Path(created.id),
-            Json(request),
+            axum::Json(request),
         )
         .await
         .unwrap();
 
-        assert_eq!(result.0.name, "New Name");
-        assert_eq!(result.0.id, created.id);
+        assert_eq!(result.data.name, "New Name");
+        assert_eq!(result.data.id, created.id);
 
         // Verify it's actually updated in storage
         let stored = state.store.get_account(created.id).await.unwrap().unwrap();
@@ -186,9 +189,10 @@ mod tests {
 
         let result = update_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(account_id),
-            Json(request),
+            axum::Json(request),
         )
         .await;
 
@@ -211,9 +215,10 @@ mod tests {
 
         let result = update_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created.id),
-            Json(request),
+            axum::Json(request),
         )
         .await;
 

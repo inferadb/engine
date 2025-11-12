@@ -19,7 +19,11 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::get::RelationshipPath;
-use crate::{ApiError, AppState, Result, handlers::utils::auth::authorize_request};
+use crate::{
+    ApiError, AppState, Result,
+    content_negotiation::{AcceptHeader, ResponseData},
+    handlers::utils::auth::authorize_request,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DeleteRequest {
@@ -235,9 +239,10 @@ async fn delete_relationships_internal(
 #[tracing::instrument(skip(state))]
 pub async fn delete_relationships_handler(
     auth: infera_auth::extractor::OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<DeleteRequest>,
-) -> Result<Json<DeleteResponse>> {
+) -> Result<ResponseData<DeleteResponse>> {
     // Authorize request and extract vault
     let vault =
         authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WRITE])?;
@@ -254,10 +259,10 @@ pub async fn delete_relationships_handler(
     // Call internal deletion function
     let (revision, total_deleted) = delete_relationships_internal(vault, &state, request).await?;
 
-    Ok(Json(DeleteResponse {
-        revision: revision.0.to_string(),
-        relationships_deleted: total_deleted,
-    }))
+    Ok(ResponseData::new(
+        DeleteResponse { revision: revision.0.to_string(), relationships_deleted: total_deleted },
+        format,
+    ))
 }
 
 /// Handler for `DELETE /v1/relationships/{resource}/{relation}/{subject}`
