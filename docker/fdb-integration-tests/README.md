@@ -380,8 +380,7 @@ fdb-integration-tests:
 
 For issues specific to:
 - **This Docker setup:** Check this README and troubleshooting section
-- **FDB integration:** See `docs/FDB_TESTING_MACOS.md`
-- **Storage layer:** See `docs/ARCHITECTURE.md`
+- **Storage layer:** See `docs/architecture.md`
 - **InferaDB:** See main project documentation
 
 ## License
