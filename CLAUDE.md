@@ -61,7 +61,7 @@ Layer 5 (Binary):      infera-bin
 | **infera-auth**   | Authentication      | JWT (EdDSA/RS256 only), OAuth 2.0, vault validation |
 | **infera-api**    | API servers         | REST (Axum) + gRPC (Tonic), service layer           |
 
-**📖 Detailed architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+**📖 Detailed architecture:** [docs/architecture.md](docs/architecture.md)
 
 ---
 
@@ -108,7 +108,7 @@ state.relationship_service
     .await;
 ```
 
-**📖 Detailed patterns:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+**📖 Detailed patterns:** [docs/architecture.md](docs/architecture.md)
 
 ---
 
@@ -176,7 +176,61 @@ async fn test_vault_isolation() {
 4. Call service from `AppState` with vault parameter
 5. Add integration tests in `infera-api/tests/`
 
-**📖 Handler organization:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#handler-organization)
+**📖 Handler organization:** [docs/architecture.md](docs/architecture.md#handler-organization)
+
+### Content Negotiation & Response Formats
+
+InferaDB REST APIs support two response formats via the `Accept` header:
+
+1. **JSON (default):** `application/json`
+2. **TOON:** `text/toon` (Token Oriented Object Notation for LLM optimization - saves 30-60% tokens)
+
+**Handler Pattern:**
+
+```rust
+use crate::content_negotiation::{AcceptHeader, ResponseData};
+
+pub async fn my_handler(
+    auth: OptionalAuth,
+    AcceptHeader(format): AcceptHeader,  // Extract format preference
+    State(state): State<AppState>,
+) -> Result<ResponseData<MyResponse>, ApiError> {
+    // ... business logic ...
+    Ok(ResponseData::new(response, format))  // Serializes based on format
+}
+```
+
+**Usage:**
+
+```bash
+# JSON response (default)
+curl https://api/v1/vaults
+
+# TOON response (30-60% token savings)
+curl -H "Accept: text/toon" https://api/v1/vaults
+```
+
+**Streaming Endpoints (JSON-only):**
+
+Streaming endpoints (SSE) only support JSON. Reject TOON requests:
+
+```rust
+pub async fn stream_handler(
+    auth: OptionalAuth,
+    AcceptHeader(format): AcceptHeader,
+    State(state): State<AppState>,
+) -> Result<Sse<impl Stream<...>>, ApiError> {
+    // Streaming endpoints only support JSON
+    if format == ResponseFormat::Toon {
+        return Err(ApiError::InvalidRequest(
+            "Streaming endpoints do not support TOON format".to_string()
+        ));
+    }
+    // ... streaming logic ...
+}
+```
+
+**📖 Complete TOON guide:** [api/content-negotiation.md](api/content-negotiation.md)
 
 ### Adding New Storage Operations
 
