@@ -1,39 +1,30 @@
 //! Integration tests for content negotiation (JSON vs TOON format)
 
-use std::sync::Arc;
+mod integration;
 
 use axum::{
     body::Body,
     http::{Request, StatusCode, header},
 };
-use infera_api::AppState;
-use infera_config::Config;
-use infera_store::MemoryBackend;
-use infera_types::{Relationship, Vault, VaultResponse};
+use infera_types::{Account, Vault, VaultResponse};
 use serde_json::json;
 use tower::ServiceExt;
 use uuid::Uuid;
 
-/// Helper to create test app state
-fn create_test_state() -> AppState {
-    let store = Arc::new(MemoryBackend::new());
-    let config = Arc::new(Config::default());
-    let default_vault = Uuid::new_v4();
-    let default_account = Uuid::new_v4();
+/// Helper to create test app state with account
+async fn create_test_state() -> infera_api::AppState {
+    let state = integration::create_test_state();
 
-    AppState {
-        store,
-        config,
-        jwks_cache: None,
-        health_tracker: Arc::new(infera_api::health::HealthTracker::new()),
-        default_vault,
-        default_account,
-    }
+    // Create the default account
+    let account = Account::with_id(state.default_account, "Test Account".to_string());
+    state.store.create_account(account).await.expect("Failed to create test account");
+
+    state
 }
 
 #[tokio::test]
 async fn test_json_format_explicit() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
@@ -67,7 +58,7 @@ async fn test_json_format_explicit() {
 
 #[tokio::test]
 async fn test_toon_format_explicit() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
@@ -105,7 +96,7 @@ async fn test_toon_format_explicit() {
 
 #[tokio::test]
 async fn test_default_format_is_json() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
@@ -133,7 +124,7 @@ async fn test_default_format_is_json() {
 
 #[tokio::test]
 async fn test_wildcard_accept_defaults_to_json() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
@@ -162,7 +153,7 @@ async fn test_wildcard_accept_defaults_to_json() {
 
 #[tokio::test]
 async fn test_quality_value_priority_json_higher() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
@@ -191,7 +182,7 @@ async fn test_quality_value_priority_json_higher() {
 
 #[tokio::test]
 async fn test_quality_value_priority_toon_higher() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
@@ -220,13 +211,13 @@ async fn test_quality_value_priority_toon_higher() {
 
 #[tokio::test]
 async fn test_streaming_endpoint_rejects_toon() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Request streaming endpoint with TOON format
     let request = Request::builder()
         .method("POST")
-        .uri("/v1/evaluate/stream")
+        .uri("/v1/evaluate")
         .header(header::ACCEPT, "text/toon")
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(
@@ -254,13 +245,13 @@ async fn test_streaming_endpoint_rejects_toon() {
 
 #[tokio::test]
 async fn test_streaming_endpoint_accepts_json() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Request streaming endpoint with JSON format
     let request = Request::builder()
         .method("POST")
-        .uri("/v1/evaluate/stream")
+        .uri("/v1/evaluate")
         .header(header::ACCEPT, "application/json")
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(
@@ -284,7 +275,7 @@ async fn test_streaming_endpoint_accepts_json() {
 
 #[tokio::test]
 async fn test_error_responses_always_json() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Request non-existent vault with TOON Accept header
@@ -312,7 +303,7 @@ async fn test_error_responses_always_json() {
 
 #[tokio::test]
 async fn test_multiple_endpoints_support_toon() {
-    let state = create_test_state();
+    let state = create_test_state().await;
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create test data
