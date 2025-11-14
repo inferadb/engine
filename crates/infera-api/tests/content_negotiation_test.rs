@@ -30,11 +30,7 @@ async fn test_json_format_explicit() {
     // Create a vault first
     let vault_id = Uuid::new_v4();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
-    state
-        .store
-        .create_vault(vault)
-        .await
-        .unwrap();
+    state.store.create_vault(vault).await.unwrap();
 
     // Request with explicit JSON Accept header
     let request = Request::builder()
@@ -64,11 +60,7 @@ async fn test_toon_format_explicit() {
     // Create a vault first
     let vault_id = Uuid::new_v4();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
-    state
-        .store
-        .create_vault(vault)
-        .await
-        .unwrap();
+    state.store.create_vault(vault).await.unwrap();
 
     // Request with TOON Accept header
     let request = Request::builder()
@@ -102,11 +94,7 @@ async fn test_default_format_is_json() {
     // Create a vault first
     let vault_id = Uuid::new_v4();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
-    state
-        .store
-        .create_vault(vault)
-        .await
-        .unwrap();
+    state.store.create_vault(vault).await.unwrap();
 
     // Request with NO Accept header (should default to JSON)
     let request = Request::builder()
@@ -130,11 +118,7 @@ async fn test_wildcard_accept_defaults_to_json() {
     // Create a vault first
     let vault_id = Uuid::new_v4();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
-    state
-        .store
-        .create_vault(vault)
-        .await
-        .unwrap();
+    state.store.create_vault(vault).await.unwrap();
 
     // Request with wildcard Accept header
     let request = Request::builder()
@@ -159,11 +143,7 @@ async fn test_quality_value_priority_json_higher() {
     // Create a vault first
     let vault_id = Uuid::new_v4();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
-    state
-        .store
-        .create_vault(vault)
-        .await
-        .unwrap();
+    state.store.create_vault(vault).await.unwrap();
 
     // Request with JSON having higher priority
     let request = Request::builder()
@@ -188,11 +168,7 @@ async fn test_quality_value_priority_toon_higher() {
     // Create a vault first
     let vault_id = Uuid::new_v4();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
-    state
-        .store
-        .create_vault(vault)
-        .await
-        .unwrap();
+    state.store.create_vault(vault).await.unwrap();
 
     // Request with TOON having higher priority
     let request = Request::builder()

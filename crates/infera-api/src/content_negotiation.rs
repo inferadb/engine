@@ -203,7 +203,10 @@ impl<T: Serialize> IntoResponse for ResponseData<T> {
                     },
                     Err(e) => {
                         // TOON encoding failed, fall back to JSON
-                        warn!("TOON encoding failed (JSON value conversion error), falling back to JSON: {}", e);
+                        warn!(
+                            "TOON encoding failed (JSON value conversion error), falling back to JSON: {}",
+                            e
+                        );
 
                         // Attempt JSON serialization as fallback
                         match serde_json::to_string(&self.data) {
