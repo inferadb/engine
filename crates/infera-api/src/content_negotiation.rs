@@ -12,8 +12,13 @@
 //!     Extension,
 //!     Json,
 //! };
-//! use infera_api::{AppState, Result, content_negotiation::{AcceptHeader, ResponseData}};
-//! use serde::Serialize;
+//! use infera_api::{AppState, ApiError, content_negotiation::{AcceptHeader, ResponseData}};
+//! use serde::{Deserialize, Serialize};
+//!
+//! #[derive(Deserialize)]
+//! struct MyRequest {
+//!     name: String,
+//! }
 //!
 //! #[derive(Serialize)]
 //! struct MyResponse {
@@ -24,9 +29,9 @@
 //!     State(state): State<AppState>,
 //!     AcceptHeader(format): AcceptHeader,
 //!     Json(request): Json<MyRequest>,
-//! ) -> Result<ResponseData<MyResponse>> {
+//! ) -> Result<ResponseData<MyResponse>, ApiError> {
 //!     let response = MyResponse {
-//!         message: "Hello".to_string(),
+//!         message: format!("Hello {}", request.name),
 //!     };
 //!     Ok(ResponseData::new(response, format))
 //! }
@@ -197,13 +202,28 @@ impl<T: Serialize> IntoResponse for ResponseData<T> {
                             .into_response()
                     },
                     Err(e) => {
-                        warn!("Failed to convert to JSON value for TOON encoding: {}", e);
-                        (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            [(header::CONTENT_TYPE, "application/json")],
-                            r#"{"error":"Internal serialization error"}"#,
-                        )
-                            .into_response()
+                        // TOON encoding failed, fall back to JSON
+                        warn!("TOON encoding failed (JSON value conversion error), falling back to JSON: {}", e);
+
+                        // Attempt JSON serialization as fallback
+                        match serde_json::to_string(&self.data) {
+                            Ok(json) => (
+                                StatusCode::OK,
+                                [(header::CONTENT_TYPE, ResponseFormat::Json.mime_type())],
+                                json,
+                            )
+                                .into_response(),
+                            Err(e2) => {
+                                // Both TOON and JSON serialization failed
+                                warn!("JSON fallback serialization also failed: {}", e2);
+                                (
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                    [(header::CONTENT_TYPE, "application/json")],
+                                    r#"{"error":"Internal serialization error"}"#,
+                                )
+                                    .into_response()
+                            },
+                        }
                     },
                 }
             },
