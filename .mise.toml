@@ -11,7 +11,7 @@
 
 [tools]
 rust = "nightly"
-node = "lts"     # Node.js LTS (provides npm for prettier)
+node = "24"
 
 # Development tools (installed automatically with `mise install`)
 "cargo:cargo-watch" = "latest"    # Auto-rebuild on file changes
