@@ -47,19 +47,21 @@ curl -H "Accept: text/toon" \
 **Standard JSON format** - universal compatibility
 
 **Use When:**
+
 - Building traditional web applications
 - Integrating with existing systems
 - Using standard HTTP clients
 - Debugging with browser tools
 
 **Example Response:**
+
 ```json
 {
-  "id": "660e8400-e29b-41d4-a716-446655440000",
-  "account": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "Production Vault",
-  "created_at": "2025-11-02T10:00:00Z",
-  "updated_at": "2025-11-02T10:00:00Z"
+    "id": "660e8400-e29b-41d4-a716-446655440000",
+    "account": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Production Vault",
+    "created_at": "2025-11-02T10:00:00Z",
+    "updated_at": "2025-11-02T10:00:00Z"
 }
 ```
 
@@ -68,12 +70,14 @@ curl -H "Accept: text/toon" \
 **Token Oriented Object Notation** - optimized for Large Language Models
 
 **Use When:**
+
 - Building LLM-powered applications
 - Reducing API costs for AI workflows
 - Optimizing context window usage
 - Processing large authorization datasets with AI
 
 **Example Response:**
+
 ```toon
 id: 660e8400-e29b-41d4-a716-446655440000
 account: 550e8400-e29b-41d4-a716-446655440000
@@ -90,27 +94,27 @@ updated_at: 2025-11-02T10:00:00Z
 
 ### Single Object Response
 
-| Metric | JSON | TOON | Savings |
-|--------|------|------|---------|
-| **Characters** | 172 | 132 | 23% |
-| **Tokens** | 118 | 78 | **34%** |
-| **Readability** | High | High | Equal |
+| Metric          | JSON | TOON | Savings |
+| --------------- | ---- | ---- | ------- |
+| **Characters**  | 172  | 132  | 23%     |
+| **Tokens**      | 118  | 78   | **34%** |
+| **Readability** | High | High | Equal   |
 
 ### Array Response (3 Relationships)
 
-| Metric | JSON | TOON | Savings |
-|--------|------|------|---------|
-| **Characters** | 342 | 187 | 45% |
-| **Tokens** | 342 | 187 | **45%** |
-| **Bandwidth** | 342 bytes | 187 bytes | 45% |
+| Metric         | JSON      | TOON      | Savings |
+| -------------- | --------- | --------- | ------- |
+| **Characters** | 342       | 187       | 45%     |
+| **Tokens**     | 342       | 187       | **45%** |
+| **Bandwidth**  | 342 bytes | 187 bytes | 45%     |
 
 ### Large Dataset (1000 Relationships)
 
-| Metric | JSON | TOON | Savings |
-|--------|------|------|---------|
-| **Size** | 87.3 KB | 52.1 KB | 40% |
-| **Tokens** | 18,542 | 10,834 | **41.6%** |
-| **GPT-4 Cost** | $0.185 | $0.108 | **$0.077/1K** |
+| Metric         | JSON    | TOON    | Savings       |
+| -------------- | ------- | ------- | ------------- |
+| **Size**       | 87.3 KB | 52.1 KB | 40%           |
+| **Tokens**     | 18,542  | 10,834  | **41.6%**     |
+| **GPT-4 Cost** | $0.185  | $0.108  | **$0.077/1K** |
 
 **Key Insight:** TOON's token savings increase with array size due to tabular format optimization.
 
@@ -120,26 +124,26 @@ updated_at: 2025-11-02T10:00:00Z
 
 ### ✅ Full TOON Support (All Non-Streaming Endpoints)
 
-| Endpoint Category | Examples | TOON Support |
-|-------------------|----------|--------------|
-| **Vaults** | `GET /v1/vaults/{id}` | ✅ Yes |
-| **Accounts** | `GET /v1/accounts/{id}` | ✅ Yes |
-| **Relationships** | `POST /v1/relationships/write` | ✅ Yes |
-| **Evaluation** | `POST /v1/evaluate` | ✅ Yes |
-| **Expansion** | `POST /v1/expand` | ✅ Yes |
-| **AuthZEN** | `POST /access/v1/evaluation` | ✅ Yes |
-| **Simulate** | `POST /v1/simulate` | ✅ Yes |
+| Endpoint Category | Examples                       | TOON Support |
+| ----------------- | ------------------------------ | ------------ |
+| **Vaults**        | `GET /v1/vaults/{id}`          | ✅ Yes       |
+| **Accounts**      | `GET /v1/accounts/{id}`        | ✅ Yes       |
+| **Relationships** | `POST /v1/relationships/write` | ✅ Yes       |
+| **Evaluation**    | `POST /v1/evaluate`            | ✅ Yes       |
+| **Expansion**     | `POST /v1/expand`              | ✅ Yes       |
+| **AuthZEN**       | `POST /access/v1/evaluation`   | ✅ Yes       |
+| **Simulate**      | `POST /v1/simulate`            | ✅ Yes       |
 
 ### ❌ Streaming Endpoints (JSON-Only)
 
-| Endpoint | Protocol | TOON Support | Reason |
-|----------|----------|--------------|--------|
-| `/v1/evaluate/stream` | SSE | ❌ No | Incremental events don't benefit from tabular format |
-| `/v1/expand/stream` | SSE | ❌ No | Real-time streaming uses `text/event-stream` |
-| `/v1/relationships/list` | SSE | ❌ No | Server-Sent Events require JSON payloads |
-| `/v1/resources/list` | SSE | ❌ No | Streaming protocol incompatibility |
-| `/v1/subjects/list` | SSE | ❌ No | Event-based delivery model |
-| `/v1/watch` | SSE | ❌ No | Real-time change notifications |
+| Endpoint                 | Protocol | TOON Support | Reason                                               |
+| ------------------------ | -------- | ------------ | ---------------------------------------------------- |
+| `/v1/evaluate/stream`    | SSE      | ❌ No        | Incremental events don't benefit from tabular format |
+| `/v1/expand/stream`      | SSE      | ❌ No        | Real-time streaming uses `text/event-stream`         |
+| `/v1/relationships/list` | SSE      | ❌ No        | Server-Sent Events require JSON payloads             |
+| `/v1/resources/list`     | SSE      | ❌ No        | Streaming protocol incompatibility                   |
+| `/v1/subjects/list`      | SSE      | ❌ No        | Event-based delivery model                           |
+| `/v1/watch`              | SSE      | ❌ No        | Real-time change notifications                       |
 
 **Streaming Endpoint Behavior:**
 
@@ -222,6 +226,7 @@ curl -H "Accept: text/toon" \
 ```
 
 **HTTP Status Codes:**
+
 - `200 OK` - Success (format determined by Accept header)
 - `400 Bad Request` - Invalid request (JSON error)
 - `401 Unauthorized` - Authentication required (JSON error)
@@ -269,36 +274,36 @@ print(message.content)
 ### Example 2: OpenAI GPT-4 with TOON
 
 ```typescript
-import OpenAI from 'openai';
-import axios from 'axios';
+import OpenAI from "openai";
+import axios from "axios";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Fetch expansion tree in TOON format
 const { data: expansionData } = await axios.post(
-  'http://localhost:8080/api/v1/expand',
-  { resource: 'project:alpha', permission: 'admin' },
-  {
-    headers: {
-      'Accept': 'text/toon',
-      'Authorization': `Bearer ${token}`
+    "http://localhost:8080/api/v1/expand",
+    { resource: "project:alpha", permission: "admin" },
+    {
+        headers: {
+            Accept: "text/toon",
+            Authorization: `Bearer ${token}`,
+        },
     }
-  }
 );
 
 // Use in GPT-4 prompt (token-efficient)
 const completion = await openai.chat.completions.create({
-  model: 'gpt-4',
-  messages: [
-    {
-      role: 'system',
-      content: 'You are a security policy analyzer.'
-    },
-    {
-      role: 'user',
-      content: `Audit this access control policy:\n\n${expansionData}`
-    }
-  ]
+    model: "gpt-4",
+    messages: [
+        {
+            role: "system",
+            content: "You are a security policy analyzer.",
+        },
+        {
+            role: "user",
+            content: `Audit this access control policy:\n\n${expansionData}`,
+        },
+    ],
 });
 
 console.log(completion.choices[0].message.content);
@@ -343,47 +348,50 @@ print(response.text)
 
 ```typescript
 interface InferaClientConfig {
-  baseURL: string;
-  authToken: string;
-  format?: 'json' | 'toon';
+    baseURL: string;
+    authToken: string;
+    format?: "json" | "toon";
 }
 
 class InferaClient {
-  private config: InferaClientConfig;
+    private config: InferaClientConfig;
 
-  constructor(config: InferaClientConfig) {
-    this.config = { format: 'json', ...config };
-  }
-
-  async getVault(vaultId: string): Promise<string> {
-    const response = await fetch(
-      `${this.config.baseURL}/v1/vaults/${vaultId}`,
-      {
-        headers: {
-          'Accept': this.config.format === 'toon' ? 'text/toon' : 'application/json',
-          'Authorization': `Bearer ${this.config.authToken}`
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
+    constructor(config: InferaClientConfig) {
+        this.config = { format: "json", ...config };
     }
 
-    return this.config.format === 'toon'
-      ? await response.text()  // TOON as string
-      : await response.json(); // JSON as object
-  }
+    async getVault(vaultId: string): Promise<string> {
+        const response = await fetch(
+            `${this.config.baseURL}/v1/vaults/${vaultId}`,
+            {
+                headers: {
+                    Accept:
+                        this.config.format === "toon"
+                            ? "text/toon"
+                            : "application/json",
+                    Authorization: `Bearer ${this.config.authToken}`,
+                },
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.statusText}`);
+        }
+
+        return this.config.format === "toon"
+            ? await response.text() // TOON as string
+            : await response.json(); // JSON as object
+    }
 }
 
 // Usage
 const client = new InferaClient({
-  baseURL: 'http://localhost:8080/api',
-  authToken: 'your-jwt-token',
-  format: 'toon' // Use TOON for LLM workflows
+    baseURL: "http://localhost:8080/api",
+    authToken: "your-jwt-token",
+    format: "toon", // Use TOON for LLM workflows
 });
 
-const vaultData = await client.getVault('660e8400-...');
+const vaultData = await client.getVault("660e8400-...");
 ```
 
 ### Python
@@ -437,33 +445,36 @@ vault_data = client.get_vault('660e8400-...')
 **No breaking changes!** TOON is opt-in.
 
 **To Continue Using JSON:**
+
 - Do nothing - JSON remains the default
 - Or explicitly set `Accept: application/json`
 
 **To Adopt TOON:**
 
 1. **Update request headers:**
-   ```bash
-   # Before (implicit JSON)
-   curl http://localhost:8080/api/v1/vaults/123
 
-   # After (explicit TOON)
-   curl -H "Accept: text/toon" http://localhost:8080/api/v1/vaults/123
-   ```
+    ```bash
+    # Before (implicit JSON)
+    curl http://localhost:8080/api/v1/vaults/123
+
+    # After (explicit TOON)
+    curl -H "Accept: text/toon" http://localhost:8080/api/v1/vaults/123
+    ```
 
 2. **Handle TOON responses:**
-   - TOON is plain text (not JSON)
-   - Parse as string for LLM usage
-   - Or convert to JSON if needed (libraries exist)
+    - TOON is plain text (not JSON)
+    - Parse as string for LLM usage
+    - Or convert to JSON if needed (libraries exist)
 
 3. **Update client libraries:**
-   - Add `Accept` header configuration
-   - Handle both JSON and TOON response types
-   - Default to JSON for backward compatibility
+    - Add `Accept` header configuration
+    - Handle both JSON and TOON response types
+    - Default to JSON for backward compatibility
 
 ### For LLM Applications
 
 **Before (JSON):**
+
 ```python
 response = requests.get(url, headers={"Authorization": f"Bearer {token}"})
 data_dict = response.json()
@@ -472,6 +483,7 @@ prompt = f"Analyze: {json.dumps(data_dict, indent=2)}"
 ```
 
 **After (TOON - 40% token savings):**
+
 ```python
 response = requests.get(
     url,
@@ -488,25 +500,26 @@ prompt = f"Analyze: {data_toon}"
 
 ### Serialization Overhead
 
-| Format | Serialization | Deserialization | Network Transfer |
-|--------|--------------|-----------------|------------------|
-| **JSON** | 5-10μs | 5-10μs | Baseline |
-| **TOON** | 8-15μs | N/A (client-side) | **40% smaller** |
+| Format   | Serialization | Deserialization   | Network Transfer |
+| -------- | ------------- | ----------------- | ---------------- |
+| **JSON** | 5-10μs        | 5-10μs            | Baseline         |
+| **TOON** | 8-15μs        | N/A (client-side) | **40% smaller**  |
 
 **Note:** TOON has slightly higher server-side serialization cost but significantly reduces network transfer and client-side token processing.
 
 ### Caching Behavior
 
 Response format does **not** affect caching:
+
 - Authorization decision caching operates at the evaluation layer
 - Cache keys are format-agnostic
 - Both JSON and TOON responses benefit equally from caching
 
 ### Compression
 
-| Format | gzip Size | Reduction |
-|--------|-----------|-----------|
-| **JSON** | 65% of original | Baseline |
+| Format   | gzip Size       | Reduction                        |
+| -------- | --------------- | -------------------------------- |
+| **JSON** | 65% of original | Baseline                         |
 | **TOON** | 70% of original | **Total: 58% smaller than JSON** |
 
 **Recommendation:** Enable gzip compression for both formats (InferaDB enables this by default).
@@ -555,33 +568,43 @@ let toon_str = encode(&data, None);
 ## FAQ
 
 ### Q: Is TOON lossless?
+
 **A:** Yes, TOON is 100% lossless. Round-trip conversion (JSON → TOON → JSON) preserves all data.
 
 ### Q: Can I mix JSON and TOON in batch requests?
+
 **A:** No, the `Accept` header applies to the entire response. Use one format per request.
 
 ### Q: What if TOON encoding fails on the server?
+
 **A:** InferaDB automatically falls back to JSON and logs a warning. Clients receive a valid JSON response.
 
 ### Q: Do I need to change my code to use this feature?
+
 **A:** No! Existing clients continue working with JSON. TOON is opt-in via `Accept: text/toon`.
 
 ### Q: Does TOON work with gRPC?
+
 **A:** No, gRPC uses Protocol Buffers which is already a highly efficient binary format.
 
 ### Q: Why are errors still JSON when I request TOON?
+
 **A:** Error messages are short (minimal token savings), and JSON errors are the standard for HTTP APIs.
 
 ### Q: Can I configure the TOON encoder (delimiters, indentation)?
+
 **A:** Currently, InferaDB uses default TOON encoding. Custom options may be added in future versions.
 
 ### Q: How much does TOON save in practice?
+
 **A:** Savings vary by response structure:
+
 - **Simple objects:** 25-35%
 - **Lists/arrays:** 40-60%
 - **Large datasets:** 40-50%
 
 ### Q: Does InferaDB validate TOON requests?
+
 **A:** No. Requests still use JSON (`Content-Type: application/json`). TOON only applies to responses (`Accept: text/toon`).
 
 ---
@@ -605,15 +628,15 @@ llm_response = analyze_with_claude(json.dumps(data))
 
 ```javascript
 // Good - JSON for web apps
-const response = await fetch('/api/v1/vaults', {
-  headers: { 'Accept': 'application/json' }
+const response = await fetch("/api/v1/vaults", {
+    headers: { Accept: "application/json" },
 });
 const vaults = await response.json();
 renderUI(vaults);
 
 // Avoid - TOON for UI (requires parsing)
-const response = await fetch('/api/v1/vaults', {
-  headers: { 'Accept': 'text/toon' }
+const response = await fetch("/api/v1/vaults", {
+    headers: { Accept: "text/toon" },
 });
 const toonText = await response.text();
 // Manual parsing required
@@ -635,18 +658,18 @@ curl http://...  # Defaults to JSON but not obvious
 ```typescript
 // Good - format-aware client
 class InferaClient {
-  async get(path: string, format: 'json' | 'toon' = 'json') {
-    const accept = format === 'toon' ? 'text/toon' : 'application/json';
-    // ...
-  }
+    async get(path: string, format: "json" | "toon" = "json") {
+        const accept = format === "toon" ? "text/toon" : "application/json";
+        // ...
+    }
 }
 
 // Avoid - hardcoded format
 class InferaClient {
-  async get(path: string) {
-    const accept = 'application/json';  // Inflexible
-    // ...
-  }
+    async get(path: string) {
+        const accept = "application/json"; // Inflexible
+        // ...
+    }
 }
 ```
 

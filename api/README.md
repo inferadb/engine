@@ -96,6 +96,7 @@ curl -H "Accept: text/toon" http://localhost:8080/api/v1/vaults/123
 ```
 
 **When to use TOON:**
+
 - Building LLM-powered applications
 - Reducing token costs for AI workflows
 - Optimizing prompt context windows

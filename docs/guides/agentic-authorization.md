@@ -27,14 +27,17 @@ As companies roll out AI agents for employees and customers, traditional role-ba
 Traditional authorization systems were designed for humans making explicit requests. AI agents introduce fundamentally different challenges:
 
 **Static vs Dynamic Permissions:**
+
 - **Traditional:** User has "editor" role on document (fixed)
 - **Agent:** Access depends on user intent, conversation context, task type, data sensitivity, time constraints
 
 **Accountability:**
+
 - **Traditional:** Clear audit trail (user X accessed resource Y)
 - **Agent:** Complex chain (user X instructed agent A to delegate to agent B to access resource Y)
 
 **Explainability:**
+
 - **Traditional:** Simple deny reasons ("missing role")
 - **Agent:** Contextual explanations ("agent can't send refund emails during pending fraud investigation")
 
@@ -76,6 +79,7 @@ Organizations must answer:
 **Description:** Intercept every agent action with an authorization check before execution.
 
 **Flow:**
+
 ```
 User Request → LLM Agent → Plan Actions → For Each Action:
                                               ↓
@@ -131,21 +135,21 @@ else:
 ```yaml
 # Base agent permissions
 relationships:
-  - resource: "team:support"
-    relation: "member"
-    subject: "agent:customer-support-bot"
+    - resource: "team:support"
+      relation: "member"
+      subject: "agent:customer-support-bot"
 
-  - resource: "tool:query-customer-database"
-    relation: "viewer"
-    subject: "team:support"
+    - resource: "tool:query-customer-database"
+      relation: "viewer"
+      subject: "team:support"
 
-# User delegation (temporary, expires)
-  - resource: "agent:customer-support-bot"
-    relation: "delegates_to"
-    subject: "user:alice"
-    metadata:
-      expires_at: "2025-11-11T18:00:00Z"
-      scope: "customer-support"
+    # User delegation (temporary, expires)
+    - resource: "agent:customer-support-bot"
+      relation: "delegates_to"
+      subject: "user:alice"
+      metadata:
+          expires_at: "2025-11-11T18:00:00Z"
+          scope: "customer-support"
 ```
 
 **IPL Policy for Contextual Rules:**
@@ -190,6 +194,7 @@ Do not attempt to access other documents.
 ```
 
 **Benefits:**
+
 - Agent doesn't waste API calls on forbidden resources
 - User gets clear visibility into agent's data scope
 - Reduces hallucination risk (agent only references accessible data)
@@ -260,6 +265,7 @@ pub extern "C" fn evaluate(context_json: &str) -> bool {
 ```
 
 **Enforceable Rules:**
+
 - Maximum 50 emails per hour per agent
 - Only send to verified customer emails
 - Require manual approval for refunds > $500
@@ -275,6 +281,7 @@ pub extern "C" fn evaluate(context_json: &str) -> bool {
 **Scenario:** Research agent delegates to data extraction agent
 
 **Permission Chain:**
+
 ```
 user:alice
   → delegates:research (scope: market-analysis)
@@ -288,19 +295,19 @@ user:alice
 
 ```yaml
 relationships:
-  - resource: "agent:research-bot"
-    relation: "delegates"
-    subject: "user:alice"
-    metadata:
-      scope: "market-analysis"
-      expires_at: "2025-11-12T00:00:00Z"
+    - resource: "agent:research-bot"
+      relation: "delegates"
+      subject: "user:alice"
+      metadata:
+          scope: "market-analysis"
+          expires_at: "2025-11-12T00:00:00Z"
 
-  - resource: "agent:data-scraper"
-    relation: "delegates"
-    subject: "agent:research-bot"
-    metadata:
-      scope: "public-datasets"
-      parent_delegation: "user:alice→agent:research-bot"
+    - resource: "agent:data-scraper"
+      relation: "delegates"
+      subject: "agent:research-bot"
+      metadata:
+          scope: "public-datasets"
+          parent_delegation: "user:alice→agent:research-bot"
 ```
 
 **Query Delegation Chain:**
@@ -414,23 +421,23 @@ result = inferadb.evaluate(
 ```yaml
 # Shared customer relationship
 relationships:
-  - resource: "org:company-a"
-    relation: "member"
-    subject: "customer:shared-customer-123"
+    - resource: "org:company-a"
+      relation: "member"
+      subject: "customer:shared-customer-123"
 
-  - resource: "org:company-b"
-    relation: "member"
-    subject: "customer:shared-customer-123"
+    - resource: "org:company-b"
+      relation: "member"
+      subject: "customer:shared-customer-123"
 
-# Partnership relationship
-  - resource: "org:company-b"
-    relation: "partner_of"
-    subject: "org:company-a"
+    # Partnership relationship
+    - resource: "org:company-b"
+      relation: "partner_of"
+      subject: "org:company-a"
 
-# Agent operates on behalf of user from company A
-  - resource: "agent:company-a-support-bot"
-    relation: "acts_on_behalf_of"
-    subject: "user:company-a-agent-operator"
+    # Agent operates on behalf of user from company A
+    - resource: "agent:company-a-support-bot"
+      relation: "acts_on_behalf_of"
+      subject: "user:company-a-agent-operator"
 ```
 
 **Cross-Org Evaluation:**
@@ -544,6 +551,7 @@ asyncio.run(monitor_agent_activity())
 ```
 
 **Dashboard Metrics:**
+
 - **Agent Activity:** Which agents are most active?
 - **Resource Access:** What data/tools are agents using?
 - **Denied Attempts:** Potential security issues or misconfiguration
@@ -591,6 +599,7 @@ if result["decision"] == "deny":
 ```
 
 **Trace Information Includes:**
+
 - Evaluated permission paths
 - Missing relationships
 - Failed conditions (time constraints, rate limits, etc.)
@@ -663,6 +672,7 @@ export_to_csv(report, filename="agent_audit_nov_2025.csv")
 ```
 
 **Compliance Use Cases:**
+
 - **GDPR:** Prove agent data access was authorized and logged
 - **HIPAA:** Demonstrate access controls for medical agents
 - **SOC 2:** Show least-privilege enforcement
@@ -820,15 +830,33 @@ Compared to JSON:
 
 ```json
 {
-  "capabilities": {
-    "read": ["document:public-docs", "document:team-drafts", "api:weather-data", "customer:tier1-customers", "knowledge-base:*"],
-    "write": ["document:user-drafts"],
-    "execute": [
-      {"tool": "tool:send-email", "rate_limit": "50/hour", "constraint": "working-hours-only"},
-      {"tool": "tool:create-ticket", "rate_limit": "100/hour", "constraint": "none"},
-      {"tool": "tool:search-knowledge-base", "rate_limit": "unlimited", "constraint": "none"}
-    ]
-  }
+    "capabilities": {
+        "read": [
+            "document:public-docs",
+            "document:team-drafts",
+            "api:weather-data",
+            "customer:tier1-customers",
+            "knowledge-base:*"
+        ],
+        "write": ["document:user-drafts"],
+        "execute": [
+            {
+                "tool": "tool:send-email",
+                "rate_limit": "50/hour",
+                "constraint": "working-hours-only"
+            },
+            {
+                "tool": "tool:create-ticket",
+                "rate_limit": "100/hour",
+                "constraint": "none"
+            },
+            {
+                "tool": "tool:search-knowledge-base",
+                "rate_limit": "unlimited",
+                "constraint": "none"
+            }
+        ]
+    }
 }
 ```
 
@@ -916,21 +944,21 @@ Compared to JSON:
 ### Integration Points
 
 1. **Agent Framework → InferaDB:**
-   - REST API for synchronous checks
-   - gRPC API for high-performance scenarios
-   - Streaming endpoints for batch operations
-   - TOON format for token-efficient responses
+    - REST API for synchronous checks
+    - gRPC API for high-performance scenarios
+    - Streaming endpoints for batch operations
+    - TOON format for token-efficient responses
 
 2. **InferaDB → Storage:**
-   - Relationships stored in FoundationDB (production)
-   - Metadata attached to relationships
-   - Multi-tenant vault isolation
+    - Relationships stored in FoundationDB (production)
+    - Metadata attached to relationships
+    - Multi-tenant vault isolation
 
 3. **InferaDB → Observability:**
-   - Watch API streams all events
-   - OpenTelemetry tracing
-   - Prometheus metrics
-   - Structured logging
+    - Watch API streams all events
+    - OpenTelemetry tracing
+    - Prometheus metrics
+    - Structured logging
 
 ---
 
@@ -939,74 +967,78 @@ Compared to JSON:
 ### Security Best Practices
 
 1. **Agent Identity Management:**
-   ```python
-   # Each agent instance gets unique identity
-   agent_id = f"agent:{agent_type}-{instance_id}-{version}"
 
-   # Rotate agent credentials regularly
-   # Use short-lived JWTs (1 hour expiration)
-   # Include agent metadata in JWT claims
-   ```
+    ```python
+    # Each agent instance gets unique identity
+    agent_id = f"agent:{agent_type}-{instance_id}-{version}"
+
+    # Rotate agent credentials regularly
+    # Use short-lived JWTs (1 hour expiration)
+    # Include agent metadata in JWT claims
+    ```
 
 2. **Least Privilege:**
-   ```python
-   # Start with minimal permissions
-   base_permissions = {
-       "read": ["public-docs:*"],
-       "execute": ["tool:search-only"]
-   }
 
-   # Add permissions progressively as needed
-   # Review and prune unused permissions quarterly
-   ```
+    ```python
+    # Start with minimal permissions
+    base_permissions = {
+        "read": ["public-docs:*"],
+        "execute": ["tool:search-only"]
+    }
+
+    # Add permissions progressively as needed
+    # Review and prune unused permissions quarterly
+    ```
 
 3. **Rate Limiting:**
-   ```python
-   # Enforce rate limits in WASM policies
-   # Per agent: 1000 checks/minute
-   # Per user: 5000 checks/minute
-   # Per tenant: 50000 checks/minute
-   ```
+    ```python
+    # Enforce rate limits in WASM policies
+    # Per agent: 1000 checks/minute
+    # Per user: 5000 checks/minute
+    # Per tenant: 50000 checks/minute
+    ```
 
 ### Performance Optimization
 
 1. **Caching Strategy:**
-   - InferaDB caches evaluation results automatically
-   - Cache keys include subject + resource + permission + context hash
-   - Typical cache hit rate: 70-80% for agent operations
-   - Cache invalidation via Watch API when relationships change
+    - InferaDB caches evaluation results automatically
+    - Cache keys include subject + resource + permission + context hash
+    - Typical cache hit rate: 70-80% for agent operations
+    - Cache invalidation via Watch API when relationships change
 
 2. **Batch Operations:**
-   ```python
-   # Batch multiple checks
-   results = inferadb.evaluate_batch([
-       {"subject": agent, "resource": "doc1", "permission": "read"},
-       {"subject": agent, "resource": "doc2", "permission": "read"},
-       {"subject": agent, "resource": "doc3", "permission": "read"}
-   ])
 
-   # Reduces network roundtrips
-   # ~10x faster than individual checks
-   ```
+    ```python
+    # Batch multiple checks
+    results = inferadb.evaluate_batch([
+        {"subject": agent, "resource": "doc1", "permission": "read"},
+        {"subject": agent, "resource": "doc2", "permission": "read"},
+        {"subject": agent, "resource": "doc3", "permission": "read"}
+    ])
+
+    # Reduces network roundtrips
+    # ~10x faster than individual checks
+    ```
 
 3. **Async Patterns:**
-   ```python
-   # Non-blocking authorization checks
-   import asyncio
 
-   async def check_and_execute(agent, actions):
-       # Check all permissions concurrently
-       checks = [
-           inferadb.check_async(agent, action.resource, action.permission)
-           for action in actions
-       ]
-       results = await asyncio.gather(*checks)
+    ```python
+    # Non-blocking authorization checks
+    import asyncio
 
-       # Execute allowed actions
-       for action, result in zip(actions, results):
-           if result.allowed:
-               await action.execute()
-   ```
+    async def check_and_execute(agent, actions):
+        # Check all permissions concurrently
+        checks = [
+            inferadb.check_async(agent, action.resource, action.permission)
+            for action in actions
+        ]
+        results = await asyncio.gather(*checks)
+
+        # Execute allowed actions
+        for action, result in zip(actions, results):
+            if result.allowed:
+                await action.execute()
+    ```
 
 ### Monitoring & Alerting
 
@@ -1053,29 +1085,29 @@ Organizations integrating InferaDB for agentic authorization gain:
 To implement agentic authorization with InferaDB:
 
 1. **Design Permission Model:**
-   - Map agents to InferaDB identities
-   - Define delegation relationships
-   - Create IPL policies for business rules
+    - Map agents to InferaDB identities
+    - Define delegation relationships
+    - Create IPL policies for business rules
 
 2. **Integrate Agent Framework:**
-   - Add authorization checks before tool execution
-   - Implement error handling for denied actions
-   - Enable agent self-discovery of capabilities
+    - Add authorization checks before tool execution
+    - Implement error handling for denied actions
+    - Enable agent self-discovery of capabilities
 
 3. **Setup Monitoring:**
-   - Configure Watch API for real-time monitoring
-   - Create dashboards for agent activity
-   - Setup alerts for anomalous behavior
+    - Configure Watch API for real-time monitoring
+    - Create dashboards for agent activity
+    - Setup alerts for anomalous behavior
 
 4. **Establish Governance:**
-   - Define permission approval workflows
-   - Create audit report schedules
-   - Document compliance procedures
+    - Define permission approval workflows
+    - Create audit report schedules
+    - Document compliance procedures
 
 5. **Iterate & Refine:**
-   - Monitor agent permission usage
-   - Prune unused permissions
-   - Adjust policies based on actual behavior
+    - Monitor agent permission usage
+    - Prune unused permissions
+    - Adjust policies based on actual behavior
 
 ---
 
