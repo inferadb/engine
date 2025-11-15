@@ -1,0 +1,35 @@
+services:
+  # Test runner with Rust environment
+  # Note: GCP doesn't provide an official Secret Manager emulator, so tests
+  # will need to mock the service or skip integration tests
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: docker/gcp-integration-tests/Dockerfile
+    container_name: inferadb-gcp-test-runner
+    environment:
+      - GCP_PROJECT_ID=test-project
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+    volumes:
+      - ../..:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - target-cache:/workspace/target
+    working_dir: /workspace
+    networks:
+      - gcp-test-network
+    command: /workspace/docker/gcp-integration-tests/run-tests.sh
+
+networks:
+  gcp-test-network:
+    driver: bridge
+    name: inferadb-gcp-test-network
+
+volumes:
+  cargo-registry:
+    name: inferadb-gcp-cargo-registry
+  cargo-git:
+    name: inferadb-gcp-cargo-git
+  target-cache:
+    name: inferadb-gcp-target-cache

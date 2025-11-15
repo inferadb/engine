@@ -3,55 +3,24 @@
 # This Dockerfile builds a minimal, secure production image using:
 # - Multi-stage build to minimize final image size
 # - Distroless base image for security
-# - Efficient layer caching
+# - Official Rust Docker images only
 # - Security scanning ready
 
 # ============================================================================
-# Stage 1: Planner - Determine dependencies
+# Stage 1: Builder - Build the application
 # ============================================================================
-FROM rust:1.83-slim AS planner
+FROM rust:1-slim AS builder
 WORKDIR /app
 
-# Install cargo-chef for dependency caching
-RUN cargo install cargo-chef
-
-# Copy manifests
-COPY Cargo.toml Cargo.lock ./
-COPY crates ./crates
-
-# Generate recipe.json for dependency building
-RUN cargo chef prepare --recipe-path recipe.json
-
-# ============================================================================
-# Stage 2: Cacher - Build dependencies
-# ============================================================================
-FROM rust:1.83-slim AS cacher
-WORKDIR /app
-
-# Install cargo-chef
-RUN cargo install cargo-chef
-
-# Copy the recipe from planner
-COPY --from=planner /app/recipe.json recipe.json
-
-# Build dependencies - this layer is cached unless dependencies change
-RUN cargo chef cook --release --recipe-path recipe.json
-
-# ============================================================================
-# Stage 3: Builder - Build the application
-# ============================================================================
-FROM rust:1.83-slim AS builder
-WORKDIR /app
+# Use nightly Rust (required for some dependencies)
+RUN rustup default nightly
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
+    protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
-
-# Copy dependencies from cacher
-COPY --from=cacher /app/target target
-COPY --from=cacher /usr/local/cargo /usr/local/cargo
 
 # Copy source code
 COPY Cargo.toml Cargo.lock ./
@@ -64,7 +33,7 @@ RUN cargo build --release --bin inferadb-server
 RUN strip /app/target/release/inferadb-server
 
 # ============================================================================
-# Stage 4: Runtime - Minimal distroless image
+# Stage 2: Runtime - Minimal distroless image
 # ============================================================================
 FROM gcr.io/distroless/cc-debian12:latest
 

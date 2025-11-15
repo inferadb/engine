@@ -9,7 +9,7 @@
 #
 # Use 'make help' to see all available commands
 
-.PHONY: help setup test test-integration test-leaks test-load test-fdb test-aws test-gcp test-azure check format lint audit deny run build release clean nuke dev doc coverage bench expand outdated tree bloat fix docker-build docker-run k8s-deploy k8s-delete ci
+.PHONY: help setup test test-integration test-leaks test-load test-fdb test-aws test-gcp test-azure check format lint audit deny run build release clean reset dev doc coverage bench expand outdated tree bloat fix docker-build docker-run k8s-deploy k8s-delete ci
 
 # Use mise exec if available, otherwise use system cargo
 CARGO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- cargo" || echo "cargo")
@@ -23,7 +23,7 @@ help: ## Show this help message
 	@echo "InferaDB Development Commands"
 	@echo ""
 	@echo "Setup & Development:"
-	@grep -E '^(setup|run|dev|build|release|clean|nuke):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(setup|run|dev|build|release|clean|reset):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Testing:"
 	@grep -E '^test.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
@@ -63,14 +63,14 @@ test-load: ## Run load/stress tests (ignored by default)
 test-fdb: ## Run FoundationDB integration tests (requires Docker)
 	@./docker/fdb-integration-tests/test.sh
 
-test-aws: ## Run AWS Secrets Manager tests (requires credentials)
-	@$(CARGO) test --package infera-config --features aws-secrets -- --test-threads=1
+test-aws: ## Run AWS Secrets Manager tests (requires Docker)
+	@./docker/aws-integration-tests/test.sh
 
-test-gcp: ## Run GCP Secret Manager tests (requires credentials)
-	@$(CARGO) test --package infera-config --features gcp-secrets -- --test-threads=1
+test-gcp: ## Run GCP Secret Manager tests (requires Docker)
+	@./docker/gcp-integration-tests/test.sh
 
-test-azure: ## Run Azure Key Vault tests (requires credentials)
-	@$(CARGO) test --package infera-config --features azure-secrets -- --test-threads=1
+test-azure: ## Run Azure Key Vault tests (requires Docker)
+	@./docker/azure-integration-tests/test.sh
 
 check: ## Run code quality checks (format, lint, audit)
 	@echo "🔍 Running code quality checks..."
@@ -105,43 +105,51 @@ release: ## Build optimized release binary
 clean: ## Clean build artifacts
 	@$(CARGO) clean
 
-nuke: ## Nuke the dev environment - reset to pristine dev environment
-	@echo "☢️  NUCLEAR CLEANUP - This will remove ALL dev artifacts!"
-	@echo "This will:"
-	@echo "  - Stop and remove all Docker containers"
-	@echo "  - Remove all Docker volumes and networks"
-	@echo "  - Clean cargo build artifacts"
-	@echo "  - Clear cargo registry cache"
-	@echo "  - Clear mise/asdf tool versions"
-	@echo "  - Remove node_modules (if any)"
-	@echo ""
-	@read -p "Are you sure? Type 'yes' to continue: " confirm && [ "$$confirm" = "yes" ] || (echo "Cancelled." && exit 1)
-	@echo ""
+reset: ## Reset the dev environment
 	@echo "🧹 Stopping and removing Docker containers..."
 	-@docker ps -aq | xargs -r docker stop 2>/dev/null || true
 	-@docker ps -aq | xargs -r docker rm 2>/dev/null || true
+	
 	@echo "🧹 Removing Docker volumes..."
 	-@docker volume ls -q | grep -E 'inferadb|fdb' | xargs -r docker volume rm 2>/dev/null || true
+	
 	@echo "🧹 Removing Docker networks..."
 	-@docker network ls -q | grep -E 'inferadb|fdb' | xargs -r docker network rm 2>/dev/null || true
+	
 	@echo "🧹 Cleaning FDB test environment..."
 	-@./docker/fdb-integration-tests/cleanup.sh 2>/dev/null || true
+
+	@echo "🧹 Cleaning AWS test environment..."
+	-@./docker/aws-integration-tests/cleanup.sh 2>/dev/null || true
+
+	@echo "🧹 Cleaning GCP test environment..."
+	-@./docker/gcp-integration-tests/cleanup.sh 2>/dev/null || true
+
+	@echo "🧹 Cleaning Azure test environment..."
+	-@./docker/azure-integration-tests/cleanup.sh 2>/dev/null || true
+
 	@echo "🧹 Cleaning cargo build artifacts..."
 	@$(CARGO) clean
+	
 	@echo "🧹 Clearing cargo registry cache..."
 	-@rm -rf ~/.cargo/registry/cache/* 2>/dev/null || true
 	-@rm -rf ~/.cargo/git/db/* 2>/dev/null || true
+	
 	@echo "🧹 Clearing target directory..."
 	-@rm -rf target/ 2>/dev/null || true
+	
 	@echo "🧹 Clearing mise cache..."
 	-@rm -rf ~/.local/share/mise/installs/* 2>/dev/null || true
+	
 	@echo "🧹 Removing node_modules..."
 	-@find . -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
+	
 	@echo "🧹 Removing temporary files..."
 	-@find . -type f -name "*.tmp" -delete 2>/dev/null || true
 	-@find . -type f -name "*.log" -delete 2>/dev/null || true
+	
 	@echo ""
-	@echo "✅ Nuclear cleanup complete! Run 'make setup' to reinitialize."
+	@echo "✅ Reset complete! Run 'make setup' to reinitialize."
 
 dev: ## Start development server with auto-reload
 	@$(CARGO) watch -x 'run --bin inferadb-server'

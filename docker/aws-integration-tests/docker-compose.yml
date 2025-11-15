@@ -1,0 +1,64 @@
+services:
+  # LocalStack - provides local AWS service emulation
+  localstack:
+    image: localstack/localstack:latest
+    container_name: inferadb-aws-test
+    ports:
+      - "4566:4566"  # LocalStack gateway
+    environment:
+      - SERVICES=secretsmanager
+      - DEBUG=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - aws-test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+
+  # Test runner with Rust environment
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: docker/aws-integration-tests/Dockerfile
+    container_name: inferadb-aws-test-runner
+    depends_on:
+      localstack:
+        condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+    volumes:
+      - ../..:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - target-cache:/workspace/target
+    working_dir: /workspace
+    networks:
+      - aws-test-network
+    command: /workspace/docker/aws-integration-tests/run-tests.sh
+
+networks:
+  aws-test-network:
+    driver: bridge
+    name: inferadb-aws-test-network
+
+volumes:
+  localstack-data:
+    name: inferadb-aws-localstack-data
+  cargo-registry:
+    name: inferadb-aws-cargo-registry
+  cargo-git:
+    name: inferadb-aws-cargo-git
+  target-cache:
+    name: inferadb-aws-target-cache
