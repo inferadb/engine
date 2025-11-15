@@ -24,6 +24,11 @@ node = "24"
 "cargo:taplo-cli" = "latest" # TOML formatter and linter
 "npm:prettier" = "latest"    # Format Markdown, YAML, JSON, Rust
 
+# Optional analysis tools (install manually if needed)
+"cargo:cargo-expand" = "latest"   # Macro expansion (for `make expand`)
+"cargo:cargo-bloat" = "latest"    # Binary size analysis (for `make bloat`)
+"cargo:cargo-outdated" = "latest" # Check outdated dependencies (for `make outdated`)
+
 # Protobuf compiler for gRPC
 protobuf = "latest"
 
