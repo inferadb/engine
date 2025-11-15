@@ -58,10 +58,10 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 
 # Build the application in release mode
-RUN cargo build --release --bin inferadb
+RUN cargo build --release --bin inferadb-server
 
 # Strip debug symbols to reduce binary size
-RUN strip /app/target/release/inferadb
+RUN strip /app/target/release/inferadb-server
 
 # ============================================================================
 # Stage 4: Runtime - Minimal distroless image
@@ -82,7 +82,7 @@ USER nonroot:nonroot
 WORKDIR /app
 
 # Copy the binary from builder
-COPY --from=builder --chown=nonroot:nonroot /app/target/release/inferadb /app/inferadb
+COPY --from=builder --chown=nonroot:nonroot /app/target/release/inferadb-server /app/inferadb-server
 
 # Expose gRPC port (default 8080)
 EXPOSE 8080
@@ -99,7 +99,7 @@ ENV RUST_LOG=info
 ENV RUST_BACKTRACE=1
 
 # Run the binary
-ENTRYPOINT ["/app/inferadb"]
+ENTRYPOINT ["/app/inferadb-server"]
 CMD ["--config", "/etc/inferadb/config.yaml"]
 
 # ============================================================================

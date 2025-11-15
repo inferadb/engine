@@ -21,7 +21,7 @@ cargo clippy --workspace --all-targets -- -D warnings  # Lint
 make check                                 # All quality checks
 
 # Running Server
-cargo watch -x 'run --bin inferadb'        # Dev server with auto-reload
+cargo watch -x 'run --bin inferadb-server' # Dev server with auto-reload
 make dev                                   # Or use make
 ```
 

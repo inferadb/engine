@@ -11,7 +11,7 @@ name = "infera_bin"
 path = "src/lib.rs"
 
 [[bin]]
-name = "inferadb"
+name = "inferadb-server"
 path = "src/main.rs"
 
 [dependencies]

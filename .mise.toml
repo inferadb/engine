@@ -27,7 +27,6 @@ node = "24"
 # Optional analysis tools (install manually if needed)
 "cargo:cargo-expand" = "latest"   # Macro expansion (for `make expand`)
 "cargo:cargo-bloat" = "latest"    # Binary size analysis (for `make bloat`)
-"cargo:cargo-outdated" = "latest" # Check outdated dependencies (for `make outdated`)
 
 # Protobuf compiler for gRPC
 protobuf = "latest"

@@ -90,7 +90,7 @@ cargo fmt                               # Format code
 cargo audit                             # Security audit
 
 # Development server with auto-reload
-cargo watch -x 'run --bin inferadb'
+cargo watch -x 'run --bin inferadb-server'
 
 # Benchmarks
 cargo bench                             # All benchmarks
@@ -142,7 +142,7 @@ cargo build
 - No optimizations
 - Use for development
 
-Binary location: `target/debug/inferadb`
+Binary location: `target/debug/inferadb-server`
 
 ### Release Build
 
@@ -155,7 +155,7 @@ cargo build --release
 - Smaller binary size
 - Use for production
 
-Binary location: `target/release/inferadb`
+Binary location: `target/release/inferadb-server`
 
 ### Profile-Guided Optimization (PGO)
 
@@ -166,7 +166,7 @@ For maximum performance:
 RUSTFLAGS="-Cprofile-generate=/tmp/pgo-data" cargo build --release
 
 # 2. Run workload to collect profile data
-./target/release/inferadb run
+./target/release/inferadb-server run
 # ... run typical workload ...
 
 # 3. Build with profile optimization
@@ -428,8 +428,8 @@ COPY . .
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-COPY --from=builder /app/target/release/inferadb /usr/local/bin/
-CMD ["inferadb", "run"]
+COPY --from=builder /app/target/release/inferadb-server /usr/local/bin/
+CMD ["inferadb-server", "run"]
 ```
 
 ### Build and Run

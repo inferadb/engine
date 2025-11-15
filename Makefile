@@ -9,7 +9,7 @@
 #
 # Use 'make help' to see all available commands
 
-.PHONY: help setup test test-integration test-leaks test-stress test-load test-fdb test-aws test-gcp test-azure check format lint audit deny run build release clean nuke dev doc coverage bench expand outdated tree bloat fix docker-build docker-run k8s-deploy k8s-delete ci
+.PHONY: help setup test test-integration test-leaks test-load test-fdb test-aws test-gcp test-azure check format lint audit deny run build release clean nuke dev doc coverage bench expand outdated tree bloat fix docker-build docker-run k8s-deploy k8s-delete ci
 
 # Use mise exec if available, otherwise use system cargo
 CARGO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- cargo" || echo "cargo")
@@ -94,7 +94,7 @@ deny: ## Check dependencies with cargo-deny
 	@$(CARGO) deny check
 
 run: ## Run the inferadb server (debug mode)
-	@$(CARGO) run --bin inferadb
+	@$(CARGO) run --bin inferadb-server
 
 build: ## Build debug binary
 	@$(CARGO) build
@@ -144,7 +144,7 @@ nuke: ## Nuke the dev environment - reset to pristine dev environment
 	@echo "✅ Nuclear cleanup complete! Run 'make setup' to reinitialize."
 
 dev: ## Start development server with auto-reload
-	@$(CARGO) watch -x 'run --bin inferadb'
+	@$(CARGO) watch -x 'run --bin inferadb-server'
 
 doc: ## Generate and open documentation (Rustdoc + API docs)
 	@$(CARGO) doc --workspace --no-deps
@@ -168,15 +168,11 @@ expand: ## Expand macros (usage: make expand FILE=path/to/file.rs)
 		echo "Install with: cargo install cargo-expand"; \
 		exit 1; \
 	fi
-	@$(CARGO) expand --bin inferadb
+	@$(CARGO) expand -p infera-bin --bin inferadb-server
 
 outdated: ## Check for outdated dependencies
-	@if ! $(CARGO) outdated --version >/dev/null 2>&1; then \
-		echo "❌ cargo-outdated is not installed"; \
-		echo "Install with: cargo install cargo-outdated"; \
-		exit 1; \
-	fi
-	@$(CARGO) outdated --workspace
+	@echo "🔍 Checking for outdated dependencies..."
+	@$(CARGO) update --workspace --dry-run 2>&1 | grep -E "(Updating|Adding|Removing)" || echo "✅ All dependencies are up to date"
 
 tree: ## Show dependency tree
 	@$(CARGO) tree --workspace
