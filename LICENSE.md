@@ -3,7 +3,7 @@
 **Licensor:** InferaDB Project
 **Licensed Work:** InferaDB (Fine-Grained Authorization Server and Components)
 **License Date:** November 1, 2025
-**Change Date:** November 1, 2029
+**Change Date:** November 1, 2030
 **Change License:** Apache License, Version 2.0
 **Licensor URL:** [https://inferadb.com](https://inferadb.com)
 
@@ -65,7 +65,7 @@ If you modify the Licensed Work, you must include a prominent notice stating tha
 - ✅ **Free for non-commercial, personal, or internal use.**
 - ✅ **Source-available for learning, contribution, and research.**
 - ⚠️ **Cannot be used to offer InferaDB as a managed or commercial service without a commercial agreement.**
-- 🔄 **Automatically reverts to Apache 2.0 on January 1, 2029.**
+- 🔄 **Automatically reverts to Apache 2.0 on January 1, 2031.**
 
 ---
 

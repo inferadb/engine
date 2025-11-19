@@ -1,0 +1,105 @@
+schema inferadb v1.0
+
+entity User {
+  attributes {
+    id: UUID
+    email: String @unique
+    department: String
+    roles: Set<String>
+    mfa_enabled: Boolean
+    clearance_levels: Set<String>
+    created_at: Timestamp
+  }
+
+  methods {
+    has_clearance(level: String) -> Boolean {
+      self.clearance_levels.contains(level)
+    }
+  }
+}
+
+entity Document {
+  attributes {
+    id: UUID
+    title: String
+    classification: Enum<"public", "internal", "confidential">
+    created_at: Timestamp
+  }
+
+  relations {
+    owner: User
+    editor: User | Group#member
+    viewer: User | Group#member | editor
+    parent_folder: Folder
+  }
+
+  permissions {
+    # Simple relationship-based permission
+    delete: owner
+
+    # Combined ReBAC + ABAC
+    edit: editor when {
+      resource.classification != "confidential" or
+      principal.has_clearance("confidential")
+    }
+
+    # Complex nested conditions
+    view: viewer when {
+      match resource.classification {
+        "public" => true
+        "internal" => principal.is_employee
+        "confidential" => {
+          principal.has_clearance("confidential") and
+          principal.mfa_enabled and
+          context.ip_address in_cidr "10.0.0.0/8"
+        }
+      }
+    }
+
+    # Inheritance from parent
+    share: edit and viewer from parent_folder
+  }
+}
+
+# Reusable policy modules
+module time_based_access {
+  function within_business_hours(ctx: Context) -> Boolean {
+    ctx.time_of_day >= time("09:00") and
+    ctx.time_of_day <= time("17:00") and
+    ctx.day_of_week not in ["Saturday", "Sunday"]
+  }
+}
+
+# Derived permissions
+derived permission sensitive_operations on Document {
+  allow principal to <action> when {
+    base_permission_granted(principal, action, resource) and
+    time_based_access.within_business_hours(context) and
+    audit_log.record(principal, action, resource)
+  }
+}
+
+wasm module custom_compliance {
+  source: "8675309"
+  revision: "latest"
+
+  capabilities {
+    network: {
+      allowed_hosts: ["geoip.maxmind.com"]
+      allowed_ports: [443]
+    }
+  }
+
+  limits {
+    max_memory: "10MB"
+    max_execution_time: "200ms"
+  }
+
+  exports {
+    function check_sox_compliance(
+      user: User,
+      resource: Resource,
+      action: String
+    ) -> ComplianceResult
+  }
+}
