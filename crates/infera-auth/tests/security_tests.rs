@@ -81,6 +81,12 @@ fn default_config() -> AuthConfig {
         internal_issuer: "https://internal.inferadb.com".into(),
         internal_audience: "https://api.inferadb.com/internal".into(),
         audience: "inferadb".into(),
+        management_api_url: "https://api.example.com".into(),
+        management_api_timeout_ms: 5000,
+        management_cache_ttl_seconds: 300,
+        cert_cache_ttl_seconds: 300,
+        management_verify_vault_ownership: false,
+        management_verify_org_status: false,
     }
 }
 

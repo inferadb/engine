@@ -658,14 +658,187 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        JWT authentication token.
+        Ed25519-signed JWT authentication token.
 
-        Include your JWT in the Authorization header:
-        ```
-        Authorization: Bearer <your-jwt-token>
+        InferaDB uses JWT tokens signed with Ed25519 (EdDSA algorithm) for authentication.
+        All API requests must include a valid JWT in the Authorization header.
+
+        ## Request Format
+
+        ```http
+        Authorization: Bearer eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6Im9yZy14eHgtY2xpZW50LXl5eS1jZXJ0LXp6eiJ9...
         ```
 
-        See [Authentication Guide](../docs/security/authentication.md) for details.
+        ## JWT Structure
+
+        **Header:**
+        ```json
+        {
+          "alg": "EdDSA",
+          "typ": "JWT",
+          "kid": "org-{org_id}-client-{client_id}-cert-{cert_id}"
+        }
+        ```
+
+        **Required Claims:**
+        - `iss`: Issuer (Management API URL + `/v1`)
+        - `sub`: Subject (`client:{client_id}`)
+        - `aud`: Audience (InferaDB server URL)
+        - `exp`: Expiration timestamp (Unix seconds)
+        - `iat`: Issued at timestamp (Unix seconds)
+        - `jti`: Unique JWT ID (UUID v4)
+        - `vault`: Vault UUID (data namespace)
+        - `account`: Account UUID (billing entity)
+        - `scope`: Space-separated permissions (e.g., "read write")
+
+        **Example Claims:**
+        ```json
+        {
+          "iss": "http://localhost:8081/v1",
+          "sub": "client:aa0e8400-e29b-41d4-a716-446655440005",
+          "aud": "http://localhost:8080",
+          "exp": 1736939100,
+          "iat": 1736938800,
+          "jti": "cc0e8400-e29b-41d4-a716-446655440007",
+          "vault": "880e8400-e29b-41d4-a716-446655440003",
+          "account": "990e8400-e29b-41d4-a716-446655440004",
+          "scope": "read write"
+        }
+        ```
+
+        ## Generating Tokens
+
+        ### Python Example
+
+        ```python
+        import jwt
+        import uuid
+        import datetime
+        from cryptography.hazmat.primitives.asymmetric import ed25519
+
+        # Load your Ed25519 private key
+        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_bytes)
+
+        # Create claims
+        claims = {
+            "iss": "http://localhost:8081/v1",
+            "sub": f"client:{client_id}",
+            "aud": "http://localhost:8080",
+            "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5),
+            "iat": datetime.datetime.now(datetime.timezone.utc),
+            "jti": str(uuid.uuid4()),
+            "vault": vault_id,
+            "account": account_id,
+            "scope": "read write"
+        }
+
+        # Sign token
+        token = jwt.encode(
+            claims,
+            private_key,
+            algorithm="EdDSA",
+            headers={"kid": cert_kid}
+        )
+        ```
+
+        ### Node.js Example
+
+        ```javascript
+        const jose = require('jose');
+        const { v4: uuidv4 } = require('uuid');
+
+        // Load Ed25519 private key (PEM format)
+        const privateKey = await jose.importPKCS8(privateKeyPem, 'EdDSA');
+
+        // Create JWT
+        const jwt = await new jose.SignJWT({
+          iss: 'http://localhost:8081/v1',
+          sub: `client:${clientId}`,
+          aud: 'http://localhost:8080',
+          vault: vaultId,
+          account: accountId,
+          scope: 'read write',
+          jti: uuidv4()
+        })
+          .setProtectedHeader({ alg: 'EdDSA', kid: certKid })
+          .setIssuedAt()
+          .setExpirationTime('5m')
+          .sign(privateKey);
+        ```
+
+        ### Rust Example
+
+        ```rust
+        use jsonwebtoken::{encode, EncodingKey, Header, Algorithm};
+        use ed25519_dalek::SigningKey;
+        use serde::{Serialize, Deserialize};
+        use chrono::Utc;
+        use uuid::Uuid;
+
+        #[derive(Serialize, Deserialize)]
+        struct Claims {
+            iss: String,
+            sub: String,
+            aud: String,
+            exp: i64,
+            iat: i64,
+            jti: String,
+            vault: Uuid,
+            account: Uuid,
+            scope: String,
+        }
+
+        let claims = Claims {
+            iss: "http://localhost:8081/v1".to_string(),
+            sub: format!("client:{}", client_id),
+            aud: "http://localhost:8080".to_string(),
+            exp: (Utc::now() + Duration::minutes(5)).timestamp(),
+            iat: Utc::now().timestamp(),
+            jti: Uuid::new_v4().to_string(),
+            vault: vault_id,
+            account: account_id,
+            scope: "read write".to_string(),
+        };
+
+        let mut header = Header::new(Algorithm::EdDSA);
+        header.kid = Some(cert_kid);
+
+        let key = EncodingKey::from_ed_der(&signing_key.to_bytes());
+        let token = encode(&header, &claims, &key)?;
+        ```
+
+        ## Scopes
+
+        | Scope | Permissions |
+        |-------|-------------|
+        | `read` | Evaluate permissions, expand relationships, list resources |
+        | `write` | Write and delete relationships |
+
+        ## Validation Process
+
+        The server validates tokens as follows:
+
+        1. **Extract `kid`** from JWT header
+        2. **Fetch Ed25519 public key** from management API (cached 15 min)
+        3. **Verify signature** using Ed25519 public key
+        4. **Validate claims** (expiration, issuer, audience)
+        5. **Verify vault ownership** (cached 5 min)
+        6. **Check organization status** (cached 5 min)
+        7. **Execute request** in vault context
+
+        ## Error Responses
+
+        | Status | Error | Cause |
+        |--------|-------|-------|
+        | 401 | Unauthorized | Invalid signature, missing token, malformed JWT |
+        | 403 | Forbidden | Vault not found, cross-org access, insufficient scope |
+        | 503 | Service Unavailable | Management API unreachable (no cached data) |
+
+        ## Setup Guide
+
+        For complete authentication setup instructions, see:
+        - [Authentication Guide](../docs/authentication.md) - Comprehensive setup and troubleshooting
+        - [README Authentication Setup](../README.md#authentication-setup) - Quick start guide
 
   schemas:
     # AuthZEN Core Schemas

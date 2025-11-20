@@ -17,7 +17,7 @@ use axum::{
 };
 use infera_types::{AuthContext, AuthMethod};
 
-use crate::{error::AuthError, jwks_cache::JwksCache, jwt::verify_with_jwks};
+use crate::{error::AuthError, jwks_cache::JwksCache, jwt::verify_with_jwks, metrics::AuthMetrics};
 
 /// Helper to create unauthorized response with WWW-Authenticate header
 fn unauthorized_response(message: &str) -> Response {
@@ -152,45 +152,110 @@ pub fn require_any_scope(auth: &AuthContext, scopes: &[&str]) -> Result<(), Auth
 /// - 500 Internal Server Error: JWKS fetch or verification errors
 pub async fn auth_middleware(
     jwks_cache: Arc<JwksCache>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, Response> {
+    auth_middleware_impl(jwks_cache, None, request, next).await
+}
+
+/// Axum middleware for JWT authentication with metrics
+///
+/// This middleware:
+/// 1. Extracts the bearer token from the Authorization header
+/// 2. Decodes and verifies the JWT using JWKS
+/// 3. Creates an AuthContext from the validated claims
+/// 4. Injects the context into request extensions
+/// 5. Records validation success/failure and duration metrics
+///
+/// # Arguments
+///
+/// * `jwks_cache` - The JWKS cache for verifying signatures
+/// * `metrics` - Prometheus metrics collector
+/// * `request` - The incoming HTTP request
+/// * `next` - The next layer in the middleware stack
+///
+/// # Returns
+///
+/// Returns the response from the next layer, or an error response if authentication fails
+pub async fn auth_middleware_with_metrics(
+    jwks_cache: Arc<JwksCache>,
+    metrics: Arc<AuthMetrics>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, Response> {
+    auth_middleware_impl(jwks_cache, Some(metrics), request, next).await
+}
+
+/// Internal implementation of auth middleware with optional metrics
+async fn auth_middleware_impl(
+    jwks_cache: Arc<JwksCache>,
+    metrics: Option<Arc<AuthMetrics>>,
     mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
+    // Start timing if metrics are enabled
+    let _timer = metrics.as_ref().map(|m| m.start_validation_timer("jwt"));
+
     // Extract bearer token from headers
-    let token = extract_bearer_token(request.headers())
-        .map_err(|e| unauthorized_response(&e.to_string()))?;
+    let token = extract_bearer_token(request.headers()).map_err(|e| {
+        if let Some(ref m) = metrics {
+            m.record_validation_failure("jwt");
+        }
+        unauthorized_response(&e.to_string())
+    })?;
 
     // Verify JWT with JWKS and get validated claims
-    let claims = verify_with_jwks(&token, &jwks_cache).await.map_err(|e| match e {
-        AuthError::TokenExpired => unauthorized_response("Token expired"),
-        AuthError::TokenNotYetValid => unauthorized_response("Token not yet valid"),
-        AuthError::InvalidSignature => unauthorized_response("Invalid signature"),
-        AuthError::InvalidTokenFormat(ref msg) => unauthorized_response(msg),
-        AuthError::InvalidAudience(msg) => {
-            (StatusCode::FORBIDDEN, format!("Invalid audience: {}", msg)).into_response()
-        },
-        AuthError::InvalidScope(msg) => {
-            (StatusCode::FORBIDDEN, format!("Invalid scope: {}", msg)).into_response()
-        },
-        _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    let claims = verify_with_jwks(&token, &jwks_cache).await.map_err(|e| {
+        if let Some(ref m) = metrics {
+            m.record_validation_failure("jwt");
+        }
+        match e {
+            AuthError::TokenExpired => unauthorized_response("Token expired"),
+            AuthError::TokenNotYetValid => unauthorized_response("Token not yet valid"),
+            AuthError::InvalidSignature => unauthorized_response("Invalid signature"),
+            AuthError::InvalidTokenFormat(ref msg) => unauthorized_response(msg),
+            AuthError::InvalidAudience(msg) => {
+                (StatusCode::FORBIDDEN, format!("Invalid audience: {}", msg)).into_response()
+            },
+            AuthError::InvalidScope(msg) => {
+                (StatusCode::FORBIDDEN, format!("Invalid scope: {}", msg)).into_response()
+            },
+            _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        }
     })?;
 
     // Extract tenant ID from claims
-    let tenant_id = claims
-        .extract_tenant_id()
-        .map_err(|e| (StatusCode::UNAUTHORIZED, e.to_string()).into_response())?;
+    let tenant_id = claims.extract_tenant_id().map_err(|e| {
+        if let Some(ref m) = metrics {
+            m.record_validation_failure("jwt");
+        }
+        (StatusCode::UNAUTHORIZED, e.to_string()).into_response()
+    })?;
 
     // Extract vault and account UUIDs from claims
     let vault_str = claims.extract_vault().ok_or_else(|| {
+        if let Some(ref m) = metrics {
+            m.record_validation_failure("jwt");
+        }
         (StatusCode::UNAUTHORIZED, "Missing vault claim in JWT".to_string()).into_response()
     })?;
     let vault = uuid::Uuid::parse_str(&vault_str).map_err(|_| {
+        if let Some(ref m) = metrics {
+            m.record_validation_failure("jwt");
+        }
         (StatusCode::UNAUTHORIZED, "Invalid vault UUID format".to_string()).into_response()
     })?;
 
     let account_str = claims.extract_account().ok_or_else(|| {
+        if let Some(ref m) = metrics {
+            m.record_validation_failure("jwt");
+        }
         (StatusCode::UNAUTHORIZED, "Missing account claim in JWT".to_string()).into_response()
     })?;
     let account = uuid::Uuid::parse_str(&account_str).map_err(|_| {
+        if let Some(ref m) = metrics {
+            m.record_validation_failure("jwt");
+        }
         (StatusCode::UNAUTHORIZED, "Invalid account UUID format".to_string()).into_response()
     })?;
 
@@ -212,6 +277,11 @@ pub async fn auth_middleware(
         vault,
         account,
     };
+
+    // Record successful validation
+    if let Some(ref m) = metrics {
+        m.record_validation_success("jwt");
+    }
 
     // Insert AuthContext into request extensions
     request.extensions_mut().insert(auth_context);

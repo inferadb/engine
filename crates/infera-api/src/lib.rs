@@ -311,6 +311,32 @@ pub fn create_router(state: AppState) -> Result<Router> {
         .route("/access/v1/search/resource", post(handlers::authzen::search::post_search_resource))
         .route("/access/v1/search/subject", post(handlers::authzen::search::post_search_subject));
 
+    // Create VaultVerifier instance based on configuration
+    let vault_verifier: Arc<dyn infera_auth::VaultVerifier> = if state.config.auth.enabled
+        && !state.config.auth.management_api_url.is_empty()
+    {
+        // Use management API for vault verification
+        let management_client = infera_auth::ManagementClient::new(
+            state.config.auth.management_api_url.clone(),
+            state.config.auth.management_api_timeout_ms,
+        )
+        .map_err(|e| ApiError::Internal(format!("Failed to create management client: {}", e)))?;
+
+        info!(
+            "Vault verification ENABLED - using management API at {}",
+            state.config.auth.management_api_url
+        );
+        Arc::new(infera_auth::ManagementApiVaultVerifier::new(
+            Arc::new(management_client),
+            std::time::Duration::from_secs(300), // 5 min vault cache TTL
+            std::time::Duration::from_secs(600), // 10 min org cache TTL
+        ))
+    } else {
+        // Use no-op verifier when auth is disabled or management API not configured
+        info!("Vault verification DISABLED - using no-op verifier");
+        Arc::new(infera_auth::NoOpVaultVerifier)
+    };
+
     // Apply authentication middleware (either with JWT validation or default context)
     let protected_routes = if state.config.auth.enabled {
         if let Some(jwks_cache) = &state.jwks_cache {
@@ -322,17 +348,28 @@ pub fn create_router(state: AppState) -> Result<Router> {
             let default_vault = state.default_vault;
             let default_account = state.default_account;
 
-            protected_routes.layer(axum::middleware::from_fn(move |req, next| {
-                let jwks_cache = Arc::clone(&jwks_cache);
-                infera_auth::middleware::optional_auth_middleware(
-                    auth_enabled,
-                    default_vault,
-                    default_account,
-                    jwks_cache,
-                    req,
-                    next,
-                )
-            }))
+            // Apply auth middleware first, then vault validation middleware
+            // Note: Layers are applied in reverse order, so vault validation runs after auth
+            let vault_verifier_clone = Arc::clone(&vault_verifier);
+            protected_routes
+                .layer(axum::middleware::from_fn(move |req, next| {
+                    let verifier = Arc::clone(&vault_verifier_clone);
+                    async move {
+                        infera_auth::enhanced_vault_validation_middleware(verifier).await(req, next)
+                            .await
+                    }
+                }))
+                .layer(axum::middleware::from_fn(move |req, next| {
+                    let jwks_cache = Arc::clone(&jwks_cache);
+                    infera_auth::middleware::optional_auth_middleware(
+                        auth_enabled,
+                        default_vault,
+                        default_account,
+                        jwks_cache,
+                        req,
+                        next,
+                    )
+                }))
         } else {
             tracing::warn!("Authentication ENABLED but JWKS cache not initialized - skipping auth");
             protected_routes
@@ -353,6 +390,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
             std::time::Duration::from_secs(300),
         )?);
 
+        // No vault validation when auth is disabled
         protected_routes.layer(axum::middleware::from_fn(move |req, next| {
             let jwks_cache = Arc::clone(&dummy_jwks_cache);
             infera_auth::middleware::optional_auth_middleware(
@@ -373,6 +411,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
         .route("/health/live", get(health::liveness_handler))
         .route("/health/ready", get(health::readiness_handler))
         .route("/health/startup", get(health::startup_handler))
+        .route("/health/auth", get(health::auth_health_check_handler))
         // AuthZEN configuration endpoint (public for service discovery)
         .route(
             "/.well-known/authzen-configuration",

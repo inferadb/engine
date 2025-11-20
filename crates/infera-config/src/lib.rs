@@ -227,6 +227,30 @@ pub struct AuthConfig {
     /// JWKS URL (alternative to jwks_base_url)
     #[serde(default = "default_jwks_url")]
     pub jwks_url: String,
+
+    /// Management API base URL for token validation
+    #[serde(default = "default_management_api_url")]
+    pub management_api_url: String,
+
+    /// Timeout for management API calls in milliseconds
+    #[serde(default = "default_management_api_timeout")]
+    pub management_api_timeout_ms: u64,
+
+    /// Cache TTL for management API responses (org/vault) in seconds
+    #[serde(default = "default_management_cache_ttl")]
+    pub management_cache_ttl_seconds: u64,
+
+    /// Cache TTL for client certificates in seconds
+    #[serde(default = "default_cert_cache_ttl")]
+    pub cert_cache_ttl_seconds: u64,
+
+    /// Whether to verify vault ownership against management API
+    #[serde(default = "default_true")]
+    pub management_verify_vault_ownership: bool,
+
+    /// Whether to verify organization status against management API
+    #[serde(default = "default_true")]
+    pub management_verify_org_status: bool,
 }
 
 fn default_auth_enabled() -> bool {
@@ -303,6 +327,26 @@ fn default_internal_issuer() -> String {
 
 fn default_internal_audience() -> String {
     "https://api.inferadb.com/internal".to_string()
+}
+
+fn default_management_api_url() -> String {
+    "http://localhost:8081".to_string()
+}
+
+fn default_management_api_timeout() -> u64 {
+    5000 // 5 seconds
+}
+
+fn default_management_cache_ttl() -> u64 {
+    300 // 5 minutes
+}
+
+fn default_cert_cache_ttl() -> u64 {
+    900 // 15 minutes
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Multi-tenancy configuration
@@ -382,6 +426,12 @@ impl Default for AuthConfig {
             introspection_url: None,
             required_scopes: default_required_scopes(),
             jwks_url: default_jwks_url(),
+            management_api_url: default_management_api_url(),
+            management_api_timeout_ms: default_management_api_timeout(),
+            management_cache_ttl_seconds: default_management_cache_ttl(),
+            cert_cache_ttl_seconds: default_cert_cache_ttl(),
+            management_verify_vault_ownership: default_true(),
+            management_verify_org_status: default_true(),
         }
     }
 }

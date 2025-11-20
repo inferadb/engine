@@ -29,6 +29,8 @@
 
 /// Audit logging for authentication events
 pub mod audit;
+/// Certificate caching for Management API
+pub mod certificate_cache;
 /// Authentication errors
 pub mod error;
 /// Axum extractors for authentication
@@ -39,6 +41,10 @@ pub mod internal;
 pub mod jwks_cache;
 /// JWT validation and claims
 pub mod jwt;
+/// Management API client
+pub mod management_client;
+/// Prometheus metrics for authentication operations
+pub mod metrics;
 /// Axum middleware for authentication
 pub mod middleware;
 /// OAuth 2.0 JWT validation
@@ -49,16 +55,31 @@ pub mod oidc;
 pub mod replay;
 /// Enhanced JWT claim validation
 pub mod validation;
+/// Vault validation middleware
+pub mod vault_middleware;
+/// Vault verification against management API
+pub mod vault_verification;
 
 // Re-export key types
 pub use audit::{AuditEvent, log_audit_event};
+pub use certificate_cache::{
+    CertificateCache, CertificateCacheError, KeyIdParseError, ParsedKeyId,
+};
 pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
 pub use internal::{InternalJwks, InternalJwksLoader};
 pub use jwks_cache::{Jwk, JwksCache};
+pub use management_client::{
+    ClientCertificate, ManagementApiError, ManagementClient, OrgStatus, OrganizationInfo, VaultInfo,
+};
+pub use metrics::AuthMetrics;
 pub use middleware::{validate_vault_access, vault_validation_middleware};
 pub use oauth::OAuthJwksClient;
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
 #[cfg(feature = "replay-protection")]
 pub use replay::RedisReplayProtection;
 pub use replay::{InMemoryReplayProtection, ReplayProtection};
+pub use vault_middleware::vault_validation_middleware as enhanced_vault_validation_middleware;
+pub use vault_verification::{
+    ManagementApiVaultVerifier, NoOpVaultVerifier, VaultVerificationError, VaultVerifier,
+};

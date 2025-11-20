@@ -16,9 +16,9 @@ use foundationdb::{
     Database, FdbBindingError, RangeOption,
     tuple::{Subspace, unpack},
 };
-use infera_types::{
-    ChangeEvent, ChangeOperation, DeleteFilter, Relationship, RelationshipKey, Revision,
-};
+#[cfg(test)]
+use infera_types::ChangeOperation;
+use infera_types::{ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision};
 use serde_json;
 use tracing::debug;
 use uuid::Uuid;

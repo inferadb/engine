@@ -283,6 +283,127 @@ pub async fn verify_with_jwks(
     Ok(verified_claims)
 }
 
+/// Verify JWT signature using certificate cache with fallback to JWKS
+///
+/// This function provides a hybrid verification approach:
+/// 1. First, checks if the `kid` matches the Management API format
+///    (org-{org_id}-client-{client_id}-cert-{cert_id})
+/// 2. If it matches, attempts to fetch the certificate from the Management API via the certificate
+///    cache
+/// 3. If the `kid` doesn't match or certificate fetch fails, falls back to JWKS verification
+///
+/// This allows the system to support both Management API client certificates and traditional JWKS
+/// keys.
+///
+/// # Arguments
+///
+/// * `token` - The JWT token to verify (as a string)
+/// * `cert_cache` - Optional certificate cache for Management API certificates
+/// * `jwks_cache` - The JWKS cache instance (used as fallback)
+///
+/// # Returns
+///
+/// Returns the validated JWT claims if verification succeeds.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The JWT is malformed or missing required fields (`kid`, tenant ID)
+/// - The algorithm is not supported (only EdDSA and RS256 are allowed)
+/// - Neither certificate cache nor JWKS can verify the token
+/// - The signature is invalid
+///
+/// # Example
+///
+/// ```no_run
+/// use infera_auth::jwt::verify_with_cert_cache_or_jwks;
+/// use infera_auth::certificate_cache::CertificateCache;
+/// use infera_auth::jwks_cache::JwksCache;
+/// use infera_auth::management_client::ManagementClient;
+/// use moka::future::Cache;
+/// use std::sync::Arc;
+/// use std::time::Duration;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Setup certificate cache
+/// let management_client = Arc::new(ManagementClient::new(
+///     "https://api.inferadb.com".to_string(),
+///     5000,
+/// )?);
+/// let cert_cache = Some(CertificateCache::new(
+///     management_client,
+///     Duration::from_secs(300),
+///     100,
+/// ));
+///
+/// // Setup JWKS cache
+/// let cache = Arc::new(Cache::new(100));
+/// let jwks_cache = JwksCache::new(
+///     "https://control-plane.example.com".to_string(),
+///     cache,
+///     Duration::from_secs(300),
+/// )?;
+///
+/// // Verify a JWT (will try cert cache first, then JWKS)
+/// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6Im9yZy0uLi4ifQ...";
+/// let claims = verify_with_cert_cache_or_jwks(token, cert_cache.as_ref(), &jwks_cache).await?;
+///
+/// println!("Verified claims for tenant: {}", claims.iss);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn verify_with_cert_cache_or_jwks(
+    token: &str,
+    cert_cache: Option<&crate::certificate_cache::CertificateCache>,
+    jwks_cache: &crate::jwks_cache::JwksCache,
+) -> Result<JwtClaims, AuthError> {
+    // 1. Decode header to get algorithm and key ID
+    let header = decode_jwt_header(token)?;
+
+    let kid = header
+        .kid
+        .ok_or_else(|| AuthError::InvalidTokenFormat("JWT header missing 'kid' field".into()))?;
+
+    // Validate algorithm
+    let alg_str = format!("{:?}", header.alg);
+    validate_algorithm(&alg_str, &["EdDSA".to_string(), "RS256".to_string()])?;
+
+    // 2. Try certificate cache first if available and kid matches format
+    if let Some(cache) = cert_cache {
+        // Check if kid matches Management API format
+        // (org-{org_id}-client-{client_id}-cert-{cert_id})
+        if kid.starts_with("org-") && kid.contains("-client-") && kid.contains("-cert-") {
+            match cache.get_decoding_key(&kid).await {
+                Ok(decoding_key) => {
+                    tracing::debug!(
+                        kid = %kid,
+                        "Successfully fetched certificate from Management API"
+                    );
+
+                    // Verify signature with Management API certificate
+                    let verified_claims = verify_signature(token, &decoding_key, header.alg)?;
+                    return Ok(verified_claims);
+                },
+                Err(e) => {
+                    // Log the error but continue to JWKS fallback
+                    tracing::warn!(
+                        kid = %kid,
+                        error = %e,
+                        "Failed to fetch certificate from Management API, falling back to JWKS"
+                    );
+                },
+            }
+        }
+    }
+
+    // 3. Fall back to JWKS verification
+    tracing::debug!(
+        kid = %kid,
+        "Using JWKS verification"
+    );
+    verify_with_jwks(token, jwks_cache).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
