@@ -30,10 +30,10 @@ pub struct JwtClaims {
     /// Tenant ID (for OAuth tokens)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tenant_id: Option<String>,
-    /// Vault UUID (for multi-tenancy isolation)
+    /// Vault ID (Snowflake ID for multi-tenancy isolation)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vault: Option<String>,
-    /// Account UUID (vault owner)
+    /// Account ID (Snowflake ID of vault owner)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account: Option<String>,
 }
@@ -67,13 +67,13 @@ impl JwtClaims {
         self.scope.split_whitespace().map(|s| s.to_string()).collect()
     }
 
-    /// Extract vault UUID from claims
+    /// Extract vault ID (Snowflake ID) from claims
     /// Returns None if not present
     pub fn extract_vault(&self) -> Option<String> {
         self.vault.clone()
     }
 
-    /// Extract account UUID from claims
+    /// Extract account ID (Snowflake ID) from claims
     /// Returns None if not present
     pub fn extract_account(&self) -> Option<String> {
         self.account.clone()
