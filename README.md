@@ -183,6 +183,185 @@ auth:
 
 **→ Complete reference: [Configuration Guide](docs/guides/configuration.md)**
 
+## Authentication Setup
+
+InferaDB integrates with the **InferaDB Management API** for authentication. The management API is the source of truth for all authentication mechanisms - it handles user registration, organization management, and issues JWT tokens that the server validates.
+
+### Quick Setup
+
+1. **Start the Management API** (required for authentication):
+   ```bash
+   # In your management API directory
+   cd management
+   make run
+   # Management API runs on http://localhost:8081
+   ```
+
+2. **Configure Server** to point to management API:
+   ```yaml
+   # config.yaml
+   auth:
+       enabled: true
+       management_api_url: "http://localhost:8081"
+       management_api_timeout_ms: 5000
+       management_cache_ttl_seconds: 300
+       cert_cache_ttl_seconds: 900
+       management_verify_vault_ownership: true
+       management_verify_org_status: true
+   ```
+
+3. **Register and Create Credentials** via management API:
+   ```bash
+   # Register user and create organization
+   curl -X POST http://localhost:8081/v1/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Alice", "email": "alice@example.com", "password": "SecurePassword123!", "accept_tos": true}'
+
+   # Login to get session
+   curl -X POST http://localhost:8081/v1/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email": "alice@example.com", "password": "SecurePassword123!"}'
+   # Returns: {"session_id": "sess_...", "user_id": "..."}
+
+   # Create a vault (using session from login)
+   curl -X POST http://localhost:8081/v1/vaults \
+     -H "Authorization: Bearer <session_id>" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "My App Vault", "organization_id": "<org_id>"}'
+   # Returns: {"id": "<vault_id>", ...}
+
+   # Create client credentials
+   curl -X POST http://localhost:8081/v1/organizations/<org_id>/clients \
+     -H "Authorization: Bearer <session_id>" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Production Service"}'
+   # Returns: {"id": "<client_id>", ...}
+
+   # Create Ed25519 certificate
+   # First, generate a key pair (example in Python):
+   # from cryptography.hazmat.primitives.asymmetric import ed25519
+   # private_key = ed25519.Ed25519PrivateKey.generate()
+   # public_key_bytes = private_key.public_key().public_bytes_raw()
+   # public_key_b64 = base64.b64encode(public_key_bytes).decode()
+
+   curl -X POST http://localhost:8081/v1/organizations/<org_id>/clients/<client_id>/certificates \
+     -H "Authorization: Bearer <session_id>" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Prod Cert", "public_key": "<base64_public_key>"}'
+   # Returns: {"id": "<cert_id>", "kid": "org-xxx-client-yyy-cert-zzz", ...}
+   ```
+
+4. **Generate JWT** and call the server:
+   ```python
+   import jwt
+   import datetime
+   from cryptography.hazmat.primitives import serialization
+   from cryptography.hazmat.primitives.asymmetric import ed25519
+
+   # Load your private key
+   private_key = ed25519.Ed25519PrivateKey.from_private_bytes(...)
+
+   # Create JWT claims
+   claims = {
+       "iss": "http://localhost:8081/v1",
+       "sub": f"client:{client_id}",
+       "aud": "http://localhost:8080",
+       "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5),
+       "iat": datetime.datetime.now(datetime.timezone.utc),
+       "jti": str(uuid.uuid4()),
+       "vault": vault_id,
+       "account": account_id,
+       "scope": "read write"
+   }
+
+   # Sign JWT with Ed25519 private key
+   token = jwt.encode(
+       claims,
+       private_key,
+       algorithm="EdDSA",
+       headers={"kid": kid}  # From certificate creation response
+   )
+
+   # Use token with server
+   response = requests.post(
+       "http://localhost:8080/v1/evaluate",
+       headers={"Authorization": f"Bearer {token}"},
+       json={"object": "document:1", "relation": "viewer", "subject": "user:alice"}
+   )
+   ```
+
+### Environment Variables
+
+Configure authentication via environment variables:
+
+```bash
+export INFERA__AUTH__ENABLED=true
+export INFERA__AUTH__MANAGEMENT_API_URL=http://localhost:8081
+export INFERA__AUTH__MANAGEMENT_API_TIMEOUT_MS=5000
+export INFERA__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
+export INFERA__AUTH__CERT_CACHE_TTL_SECONDS=900
+export INFERA__AUTH__MANAGEMENT_VERIFY_VAULT_OWNERSHIP=true
+export INFERA__AUTH__MANAGEMENT_VERIFY_ORG_STATUS=true
+```
+
+### JWT Token Format
+
+Tokens must be Ed25519-signed JWTs with the following structure:
+
+**Header:**
+```json
+{
+  "alg": "EdDSA",
+  "typ": "JWT",
+  "kid": "org-{org_id}-client-{client_id}-cert-{cert_id}"
+}
+```
+
+**Required Claims:**
+- `iss` - Issuer (management API URL + `/v1`)
+- `sub` - Subject (`client:{client_id}`)
+- `aud` - Audience (server URL)
+- `exp` - Expiration timestamp
+- `iat` - Issued at timestamp
+- `jti` - Unique token ID (for replay protection)
+- `vault` - Vault UUID
+- `account` - Account UUID
+- `scope` - Space-separated scopes (e.g., "read write")
+
+### Common Issues
+
+**Problem**: `401 Unauthorized` - Invalid signature
+- **Solution**: Ensure JWT is signed with the correct Ed25519 private key matching the public key in the certificate
+
+**Problem**: `403 Forbidden` - Vault not found
+- **Solution**: Verify the vault UUID in the JWT claims matches an existing vault in your organization
+
+**Problem**: `403 Forbidden` - Account mismatch
+- **Solution**: Ensure the `account` claim matches the account that owns the vault
+
+**Problem**: `503 Service Unavailable` - Cannot reach management API
+- **Solution**: Check that management API is running and accessible at the configured URL. The server uses caching to handle temporary outages.
+
+**Problem**: Requests succeed but use stale data after vault deletion
+- **Solution**: Wait for cache TTL to expire (5-15 minutes) or restart the server to clear caches
+
+### Performance Tuning
+
+**Cache TTL Configuration:**
+- `cert_cache_ttl_seconds: 900` (15 minutes) - How long to cache Ed25519 public keys
+- `management_cache_ttl_seconds: 300` (5 minutes) - How long to cache vault and organization data
+
+**Benefits of caching:**
+- Reduces management API load by >90%
+- Enables server operation during temporary management API outages
+- Sub-millisecond authentication after first request
+
+**Trade-offs:**
+- Longer TTLs = better performance, but slower propagation of revocations
+- Shorter TTLs = faster updates, but more management API calls
+
+**→ Complete authentication guide: [Authentication Documentation](docs/authentication.md)**
+
 ## Deployment
 
 InferaDB is production-ready with multiple deployment options:
