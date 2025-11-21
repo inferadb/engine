@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn test_validate_relationship() {
         let valid = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -321,7 +321,7 @@ mod tests {
         assert!(validate_relationship(&valid).is_ok());
 
         let wildcard = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:*".to_string(),
@@ -329,7 +329,7 @@ mod tests {
         assert!(validate_relationship(&wildcard).is_ok());
 
         let invalid = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

@@ -231,7 +231,7 @@ mod tests {
     use crate::ChangeMetadata;
     fn create_test_relationship() -> Relationship {
         Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:test".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

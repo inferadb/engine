@@ -21,7 +21,6 @@ use infera_types::ChangeOperation;
 use infera_types::{ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision};
 use serde_json;
 use tracing::debug;
-use uuid::Uuid;
 
 use crate::{RelationshipStore, Result, StoreError};
 
@@ -88,10 +87,10 @@ impl FoundationDBBackend {
     }
 
     /// Get the current revision for a vault
-    async fn get_current_revision(&self, vault: Uuid) -> Result<Revision> {
+    async fn get_current_revision(&self, vault: i64) -> Result<Revision> {
         let db = Arc::clone(&self.db);
         let revision_subspace = self.revision_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({
@@ -127,10 +126,10 @@ impl FoundationDBBackend {
     }
 
     /// Increment and return the next revision for a vault
-    async fn increment_revision(&self, vault: Uuid) -> Result<Revision> {
+    async fn increment_revision(&self, vault: i64) -> Result<Revision> {
         let db = Arc::clone(&self.db);
         let revision_subspace = self.revision_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({
@@ -179,12 +178,12 @@ impl FoundationDBBackend {
     /// Create a key for a relationship with revision
     fn relationship_key(
         &self,
-        vault: Uuid,
+        vault: i64,
         relationship: &Relationship,
         revision: Revision,
     ) -> Vec<u8> {
         self.relationships_subspace.pack(&(
-            vault.as_bytes().to_vec(),
+            vault.to_le_bytes().to_vec(),
             &relationship.resource,
             &relationship.relation,
             &relationship.subject,
@@ -195,14 +194,14 @@ impl FoundationDBBackend {
     /// Create an index key for object/relation lookups
     fn index_key_object(
         &self,
-        vault: Uuid,
+        vault: i64,
         resource: &str,
         relation: &str,
         subject: &str,
         revision: Revision,
     ) -> Vec<u8> {
         self.index_subspace.pack(&(
-            vault.as_bytes().to_vec(),
+            vault.to_le_bytes().to_vec(),
             "obj",
             resource,
             relation,
@@ -214,14 +213,14 @@ impl FoundationDBBackend {
     /// Create an index key for reverse lookups (user/relation)
     fn index_key_user(
         &self,
-        vault: Uuid,
+        vault: i64,
         subject: &str,
         relation: &str,
         resource: &str,
         revision: Revision,
     ) -> Vec<u8> {
         self.index_subspace.pack(&(
-            vault.as_bytes().to_vec(),
+            vault.to_le_bytes().to_vec(),
             "user",
             subject,
             relation,
@@ -231,7 +230,7 @@ impl FoundationDBBackend {
     }
 
     /// Parse a relationship from a key
-    fn parse_relationship_from_key(&self, vault: Uuid, key: &[u8]) -> Result<Relationship> {
+    fn parse_relationship_from_key(&self, vault: i64, key: &[u8]) -> Result<Relationship> {
         let unpacked: (Vec<u8>, String, String, String, u64) =
             unpack(&key[self.relationships_subspace.bytes().len()..]).map_err(|e| {
                 StoreError::Internal(format!("Failed to unpack relationship key: {}", e))
@@ -245,7 +244,7 @@ impl FoundationDBBackend {
 impl RelationshipStore for FoundationDBBackend {
     async fn read(
         &self,
-        vault: Uuid,
+        vault: i64,
         key: &RelationshipKey,
         revision: Revision,
     ) -> Result<Vec<Relationship>> {
@@ -253,7 +252,7 @@ impl RelationshipStore for FoundationDBBackend {
         let object = key.resource.clone();
         let relation = key.relation.clone();
         let user_filter = key.subject.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         // Create range for this object+relation at or before the revision
         let index_subspace = self.index_subspace.clone();
@@ -377,7 +376,7 @@ impl RelationshipStore for FoundationDBBackend {
         Ok(result)
     }
 
-    async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision> {
+    async fn write(&self, vault: i64, relationships: Vec<Relationship>) -> Result<Revision> {
         if relationships.is_empty() {
             return self.get_current_revision(vault).await;
         }
@@ -387,7 +386,7 @@ impl RelationshipStore for FoundationDBBackend {
         let relationships_subspace = self.relationships_subspace.clone();
         let index_subspace = self.index_subspace.clone();
         let revision_subspace = self.revision_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({
@@ -478,11 +477,11 @@ impl RelationshipStore for FoundationDBBackend {
         Ok(result)
     }
 
-    async fn get_revision(&self, vault: Uuid) -> Result<Revision> {
+    async fn get_revision(&self, vault: i64) -> Result<Revision> {
         self.get_current_revision(vault).await
     }
 
-    async fn delete(&self, vault: Uuid, key: &RelationshipKey) -> Result<Revision> {
+    async fn delete(&self, vault: i64, key: &RelationshipKey) -> Result<Revision> {
         let db = Arc::clone(&self.db);
         let object = key.resource.clone();
         let relation = key.relation.clone();
@@ -490,7 +489,7 @@ impl RelationshipStore for FoundationDBBackend {
         let relationships_subspace = self.relationships_subspace.clone();
         let revision_subspace = self.revision_subspace.clone();
         let index_subspace = self.index_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({
@@ -659,7 +658,7 @@ impl RelationshipStore for FoundationDBBackend {
 
     async fn delete_by_filter(
         &self,
-        vault: Uuid,
+        vault: i64,
         filter: &DeleteFilter,
         limit: Option<usize>,
     ) -> Result<(Revision, usize)> {
@@ -675,7 +674,7 @@ impl RelationshipStore for FoundationDBBackend {
         let relationships_subspace = self.relationships_subspace.clone();
         let index_subspace = self.index_subspace.clone();
         let revision_subspace = self.revision_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({
@@ -853,7 +852,7 @@ impl RelationshipStore for FoundationDBBackend {
 
     async fn list_resources_by_type(
         &self,
-        vault: Uuid,
+        vault: i64,
         object_type: &str,
         revision: Revision,
     ) -> Result<Vec<String>> {
@@ -861,7 +860,7 @@ impl RelationshipStore for FoundationDBBackend {
         let object_type = object_type.to_string();
         let index_subspace = self.index_subspace.clone();
         let relationships_subspace = self.relationships_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         // Build the type prefix (e.g., "document:")
         let type_prefix = format!("{}:", object_type);
@@ -956,7 +955,7 @@ impl RelationshipStore for FoundationDBBackend {
 
     async fn list_relationships(
         &self,
-        vault: Uuid,
+        vault: i64,
         resource: Option<&str>,
         relation: Option<&str>,
         subject: Option<&str>,
@@ -969,7 +968,7 @@ impl RelationshipStore for FoundationDBBackend {
         let user_filter = subject.map(|s| s.to_string());
         let index_subspace = self.index_subspace.clone();
         let relationships_subspace = self.relationships_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({
@@ -1286,10 +1285,10 @@ impl RelationshipStore for FoundationDBBackend {
         Ok(result)
     }
 
-    async fn append_change(&self, vault: Uuid, event: ChangeEvent) -> Result<()> {
+    async fn append_change(&self, vault: i64, event: ChangeEvent) -> Result<()> {
         let db = Arc::clone(&self.db);
         let changelog_subspace = self.changelog_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({
@@ -1331,7 +1330,7 @@ impl RelationshipStore for FoundationDBBackend {
 
     async fn read_changes(
         &self,
-        vault: Uuid,
+        vault: i64,
         start_revision: Revision,
         resource_types: &[String],
         limit: Option<usize>,
@@ -1340,7 +1339,7 @@ impl RelationshipStore for FoundationDBBackend {
         let changelog_subspace = self.changelog_subspace.clone();
         let resource_types = resource_types.to_vec();
         let max_count = limit.unwrap_or(usize::MAX);
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({
@@ -1408,10 +1407,10 @@ impl RelationshipStore for FoundationDBBackend {
         Ok(result)
     }
 
-    async fn get_change_log_revision(&self, vault: Uuid) -> Result<Revision> {
+    async fn get_change_log_revision(&self, vault: i64) -> Result<Revision> {
         let db = Arc::clone(&self.db);
         let changelog_subspace = self.changelog_subspace.clone();
-        let vault_bytes = vault.as_bytes().to_vec();
+        let vault_bytes = vault.to_le_bytes().to_vec();
 
         let result = db
             .run({

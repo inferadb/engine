@@ -7,15 +7,14 @@ use std::{sync::Arc, time::Duration};
 use infera_store::RelationshipStore;
 use infera_types::{Relationship, RelationshipKey, Revision};
 use tokio::time::timeout;
-use uuid::Uuid;
 
 use crate::{ReplError, Result, RevisionToken};
 
 /// Get the vault ID for REPL operations
 /// TODO(Phase 2): Allow users to specify vault via REPL command
-/// For Phase 1, we use a nil UUID as a placeholder for the default vault
-fn get_vault() -> Uuid {
-    Uuid::nil()
+/// For Phase 1, we use 0 as a placeholder for the default vault
+fn get_vault() -> i64 {
+    0
 }
 
 /// Snapshot reader for consistent reads at a specific revision
@@ -112,12 +111,12 @@ mod tests {
 
         // Write a relationship
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        store.write(uuid::Uuid::nil(), vec![relationship.clone()]).await.unwrap();
+        store.write(0, vec![relationship.clone()]).await.unwrap();
 
         // Read at current revision
         let key = RelationshipKey {
@@ -138,24 +137,24 @@ mod tests {
 
         // Write first relationship
         let relationship1 = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let rev1 = store.write(uuid::Uuid::nil(), vec![relationship1.clone()]).await.unwrap();
+        let rev1 = store.write(0, vec![relationship1.clone()]).await.unwrap();
 
         // Create token at revision 1
         let token1 = RevisionToken::new("node1".to_string(), rev1.0);
 
         // Write second relationship
         let relationship2 = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
         };
-        store.write(uuid::Uuid::nil(), vec![relationship2.clone()]).await.unwrap();
+        store.write(0, vec![relationship2.clone()]).await.unwrap();
 
         // Read at revision 1 (should only see first relationship)
         let key = RelationshipKey {
@@ -176,12 +175,12 @@ mod tests {
 
         // Write a relationship
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let revision = store.write(uuid::Uuid::nil(), vec![relationship]).await.unwrap();
+        let revision = store.write(0, vec![relationship]).await.unwrap();
 
         // Get current token
         let token = reader.current_token("node1".to_string()).await.unwrap();

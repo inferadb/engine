@@ -20,7 +20,7 @@ fn bench_cache_insert(c: &mut Criterion) {
                 let revision = Revision::zero();
 
                 let key = CheckCacheKey::new(
-                    black_box(Uuid::nil()),
+                    black_box(0i64),
                     black_box("user:alice".to_string()),
                     black_box("doc:readme".to_string()),
                     black_box("can_view".to_string()),
@@ -48,7 +48,7 @@ fn bench_cache_get_hit(c: &mut Criterion) {
                 // Pre-populate cache
                 for i in 0..100 {
                     let key = CheckCacheKey::new(
-                        Uuid::nil(),
+                        0i64,
                         format!("user:{}", i),
                         "doc:readme".to_string(),
                         "can_view".to_string(),
@@ -60,7 +60,7 @@ fn bench_cache_get_hit(c: &mut Criterion) {
                 let start = std::time::Instant::now();
                 for _ in 0..iters {
                     let key = CheckCacheKey::new(
-                        black_box(Uuid::nil()),
+                        black_box(0i64),
                         black_box("user:50".to_string()),
                         black_box("doc:readme".to_string()),
                         black_box("can_view".to_string()),
@@ -89,7 +89,7 @@ fn bench_cache_get_miss(c: &mut Criterion) {
                 // Pre-populate cache with different keys
                 for i in 0..100 {
                     let key = CheckCacheKey::new(
-                        Uuid::nil(),
+                        0i64,
                         format!("user:{}", i),
                         "doc:readme".to_string(),
                         "can_view".to_string(),
@@ -101,7 +101,7 @@ fn bench_cache_get_miss(c: &mut Criterion) {
                 let start = std::time::Instant::now();
                 for i in 0..iters {
                     let key = CheckCacheKey::new(
-                        black_box(Uuid::nil()),
+                        black_box(0i64),
                         black_box(format!("user:miss_{}", i)),
                         black_box("doc:readme".to_string()),
                         black_box("can_view".to_string()),
@@ -130,7 +130,7 @@ fn bench_cache_concurrent_access(c: &mut Criterion) {
                 // Pre-populate
                 for i in 0..100 {
                     let key = CheckCacheKey::new(
-                        Uuid::nil(),
+                        0i64,
                         format!("user:{}", i),
                         "doc:readme".to_string(),
                         "can_view".to_string(),
@@ -148,7 +148,7 @@ fn bench_cache_concurrent_access(c: &mut Criterion) {
                         let cache = Arc::clone(&cache);
                         let handle = tokio::spawn(async move {
                             let key = CheckCacheKey::new(
-                                Uuid::nil(),
+                                0i64,
                                 format!("user:{}", i % 100),
                                 "doc:readme".to_string(),
                                 "can_view".to_string(),
@@ -187,7 +187,7 @@ fn bench_cache_invalidation(c: &mut Criterion) {
                     // Populate cache
                     for i in 0..100 {
                         let key = CheckCacheKey::new(
-                            Uuid::nil(),
+                            0i64,
                             format!("user:{}", i),
                             "doc:readme".to_string(),
                             "can_view".to_string(),
@@ -224,7 +224,7 @@ fn bench_cache_selective_invalidation(c: &mut Criterion) {
                     for i in 0..10 {
                         for j in 0..10 {
                             let key = CheckCacheKey::new(
-                                Uuid::nil(),
+                                0i64,
                                 format!("user:{}", j),
                                 format!("doc:{}", i),
                                 "can_view".to_string(),

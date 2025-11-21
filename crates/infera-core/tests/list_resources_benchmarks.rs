@@ -29,7 +29,6 @@ use std::{sync::Arc, time::Instant};
 use infera_core::Evaluator;
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, ListResourcesRequest, Relationship};
-use uuid::Uuid;
 
 fn create_simple_schema() -> infera_core::ipl::Schema {
     let schema_str = r#"
@@ -49,17 +48,17 @@ async fn create_test_data(store: &Arc<MemoryBackend>, num_resources: usize) {
             resource: format!("doc:{}", i),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
 
         // Batch writes every 1000 relationships to avoid memory issues
         if relationships.len() >= 1000 {
-            store.write(Uuid::nil(), relationships.clone()).await.unwrap();
+            store.write(0i64, relationships.clone()).await.unwrap();
             relationships.clear();
         }
     }
     if !relationships.is_empty() {
-        store.write(Uuid::nil(), relationships).await.unwrap();
+        store.write(0i64, relationships).await.unwrap();
     }
 }
 
@@ -71,7 +70,7 @@ async fn bench_list_resources_1k() {
     // Create 1K resources
     create_test_data(&store, 1_000).await;
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListResourcesRequest {
         subject: "user:alice".to_string(),
@@ -107,7 +106,7 @@ async fn bench_list_resources_10k() {
     // Create 10K resources
     create_test_data(&store, 10_000).await;
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListResourcesRequest {
         subject: "user:alice".to_string(),
@@ -144,7 +143,7 @@ async fn bench_list_resources_100k() {
     println!("Creating 100K test resources...");
     create_test_data(&store, 100_000).await;
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListResourcesRequest {
         subject: "user:alice".to_string(),
@@ -191,7 +190,7 @@ async fn bench_list_resources_deep_hierarchy() {
             resource: format!("folder:level{}", i),
             relation: "parent".to_string(),
             subject: format!("folder:level{}", i - 1),
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
     }
 
@@ -200,12 +199,12 @@ async fn bench_list_resources_deep_hierarchy() {
         resource: "folder:level0".to_string(),
         relation: "viewer".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     });
 
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Check that Alice can access the deepest folder
     let check_request = EvaluateRequest {
@@ -236,7 +235,7 @@ async fn bench_list_resources_with_pattern() {
     let mut relationships = Vec::new();
     for i in 0..10_000 {
         relationships.push(Relationship {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: if i % 3 == 0 {
                 format!("doc:project_a_{}", i)
             } else if i % 3 == 1 {
@@ -248,9 +247,9 @@ async fn bench_list_resources_with_pattern() {
             subject: "user:alice".to_string(),
         });
     }
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListResourcesRequest {
         subject: "user:alice".to_string(),
@@ -288,7 +287,7 @@ async fn bench_concurrent_requests_100qps() {
     // Create 1K resources for testing
     create_test_data(&store, 1_000).await;
 
-    let evaluator = Arc::new(Evaluator::new(store, schema, None, Uuid::nil()));
+    let evaluator = Arc::new(Evaluator::new(store, schema, None, 0i64));
 
     // Run for 1 second at 100 QPS = 100 requests
     let num_requests: usize = 100;
@@ -351,7 +350,7 @@ async fn bench_concurrent_requests_1000qps() {
     // Create 1K resources for testing
     create_test_data(&store, 1_000).await;
 
-    let evaluator = Arc::new(Evaluator::new(store, schema, None, Uuid::nil()));
+    let evaluator = Arc::new(Evaluator::new(store, schema, None, 0i64));
 
     // Run for 1 second at 1000 QPS = 1000 requests
     let num_requests: usize = 1000;

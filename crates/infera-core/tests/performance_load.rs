@@ -56,7 +56,6 @@ use infera_core::{
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, ExpandRequest, Relationship};
 use tokio::task::JoinSet;
-use uuid::Uuid;
 
 mod common;
 
@@ -172,16 +171,16 @@ async fn test_sustained_throughput_100k_rps() {
             resource: format!("resource:doc{}", i),
             relation: "viewer".to_string(),
             subject: format!("subject:user{}", i % 100), // 100 unique users
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
     }
-    store.write(Uuid::nil(), relationships).await.expect("Failed to write relationships");
+    store.write(0i64, relationships).await.expect("Failed to write relationships");
 
     let evaluator = Arc::new(Evaluator::new(
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     ));
 
     // Run for 10 seconds with high concurrency
@@ -261,9 +260,9 @@ async fn test_latency_p99_under_10ms() {
     for i in 0..100 {
         store
             .write(
-                Uuid::nil(),
+                0i64,
                 vec![Relationship {
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                     resource: format!("resource:doc{}", i),
                     relation: "viewer".to_string(),
                     subject: format!("subject:user{}", i % 10),
@@ -277,7 +276,7 @@ async fn test_latency_p99_under_10ms() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     ));
 
     // Run 10k requests with moderate concurrency
@@ -351,9 +350,9 @@ async fn test_spike_load() {
     for i in 0..500 {
         store
             .write(
-                Uuid::nil(),
+                0i64,
                 vec![Relationship {
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                     resource: format!("resource:doc{}", i),
                     relation: "viewer".to_string(),
                     subject: format!("subject:user{}", i % 50),
@@ -367,7 +366,7 @@ async fn test_spike_load() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     ));
 
     println!("Starting spike test (100 RPS -> 10k RPS)...");
@@ -463,9 +462,9 @@ async fn test_stress_beyond_capacity() {
     for i in 0..5000 {
         store
             .write(
-                Uuid::nil(),
+                0i64,
                 vec![Relationship {
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                     resource: format!("resource:doc{}", i),
                     relation: "viewer".to_string(),
                     subject: format!("subject:user{}", i % 200),
@@ -479,7 +478,7 @@ async fn test_stress_beyond_capacity() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     ));
 
     println!("Starting stress test (gradually increasing load)...");
@@ -553,9 +552,9 @@ async fn test_soak_24h_simulation() {
     for i in 0..1000 {
         store
             .write(
-                Uuid::nil(),
+                0i64,
                 vec![Relationship {
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                     resource: format!("resource:doc{}", i),
                     relation: "viewer".to_string(),
                     subject: format!("subject:user{}", i % 100),
@@ -569,7 +568,7 @@ async fn test_soak_24h_simulation() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     ));
 
     println!("Starting soak test (60s simulating 24h load pattern)...");
@@ -675,10 +674,10 @@ async fn test_large_graph_1m_relationships() {
                 resource: format!("resource:doc{}", relationship_id),
                 relation: "viewer".to_string(),
                 subject: format!("subject:user{}", relationship_id % 10000),
-                vault: Uuid::nil(),
+                vault: 0i64,
             });
         }
-        store.write(Uuid::nil(), relationships).await.expect("Failed to write batch");
+        store.write(0i64, relationships).await.expect("Failed to write batch");
 
         if batch % 10 == 0 {
             println!("Progress: {}%", (batch * 100) / (total_relationships / batch_size));
@@ -692,7 +691,7 @@ async fn test_large_graph_1m_relationships() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     ));
 
     // Run performance test on large graph
@@ -774,12 +773,12 @@ async fn test_deep_nesting_10_levels() {
     // Create deep hierarchy
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "resource:root".to_string(),
                 relation: "level0".to_string(),
                 subject: "user:alice".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -789,7 +788,7 @@ async fn test_deep_nesting_10_levels() {
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     ));
 
     println!("Testing deep nesting (15 levels)...");
@@ -847,17 +846,17 @@ async fn test_wide_expansion_10k_users() {
                 resource: "resource:shared".to_string(),
                 relation: "viewer".to_string(),
                 subject: format!("subject:user{}", batch * batch_size + i),
-                vault: Uuid::nil(),
+                vault: 0i64,
             });
         }
-        store.write(Uuid::nil(), relationships).await.expect("Failed to write");
+        store.write(0i64, relationships).await.expect("Failed to write");
     }
 
     let evaluator = Arc::new(Evaluator::new(
         store as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     ));
 
     println!("Running expansion on 10k user resource...");

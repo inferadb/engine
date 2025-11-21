@@ -7,7 +7,6 @@ use infera_core::{DecisionTrace, Evaluator, ipl::Schema};
 use infera_store::RelationshipStore;
 use infera_types::{Decision, EvaluateRequest};
 use infera_wasm::WasmHost;
-use uuid::Uuid;
 
 use super::validation::validate_evaluate_request;
 use crate::ApiError;
@@ -50,7 +49,7 @@ impl EvaluationService {
     #[tracing::instrument(skip(self), fields(vault = %vault))]
     pub async fn evaluate(
         &self,
-        vault: Uuid,
+        vault: i64,
         request: EvaluateRequest,
     ) -> Result<Decision, ApiError> {
         // Validate request
@@ -98,7 +97,7 @@ impl EvaluationService {
     #[tracing::instrument(skip(self), fields(vault = %vault))]
     pub async fn evaluate_with_trace(
         &self,
-        vault: Uuid,
+        vault: i64,
         request: EvaluateRequest,
     ) -> Result<DecisionTrace, ApiError> {
         // Validate request
@@ -151,7 +150,7 @@ impl EvaluationService {
     #[tracing::instrument(skip(self, requests), fields(vault = %vault, batch_size = requests.len()))]
     pub async fn evaluate_batch(
         &self,
-        vault: Uuid,
+        vault: i64,
         requests: Vec<EvaluateRequest>,
     ) -> Vec<Result<Decision, ApiError>> {
         tracing::debug!("Evaluating batch of {} requests", requests.len());
@@ -179,7 +178,7 @@ impl EvaluationService {
     #[tracing::instrument(skip(self, requests), fields(vault = %vault, batch_size = requests.len()))]
     pub async fn evaluate_batch_with_trace(
         &self,
-        vault: Uuid,
+        vault: i64,
         requests: Vec<EvaluateRequest>,
     ) -> Vec<Result<DecisionTrace, ApiError>> {
         tracing::debug!("Evaluating batch with trace of {} requests", requests.len());
@@ -205,7 +204,7 @@ mod tests {
 
     use super::*;
 
-    async fn create_test_service() -> (EvaluationService, Uuid) {
+    async fn create_test_service() -> (EvaluationService, i64) {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
 
         // Create a simple schema with document type and view permission
@@ -218,7 +217,7 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let vault = Uuid::new_v4();
+        let vault = 12345678901234i64;
 
         // Add test relationship
         store
@@ -345,8 +344,8 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 11111111111111i64;
+        let vault_b = 22222222222222i64;
 
         // Add relationship to vault A
         store

@@ -5,7 +5,6 @@ use axum::{
     extract::{Path, State},
 };
 use infera_types::{UpdateVaultRequest, VaultResponse};
-use uuid::Uuid;
 
 use crate::{
     ApiError, AppState,
@@ -59,7 +58,7 @@ pub async fn update_vault(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(vault_id): Path<Uuid>,
+    Path(vault_id): Path<i64>,
     Json(request): Json<UpdateVaultRequest>,
 ) -> Result<ResponseData<VaultResponse>, ApiError> {
     // Require admin scope for vault updates

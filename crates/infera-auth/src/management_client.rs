@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use reqwest::{Client as HttpClient, StatusCode};
 use serde::Deserialize;
-use uuid::Uuid;
 
 /// Management API client for validating tokens and fetching metadata
 pub struct ManagementClient {
@@ -18,8 +17,8 @@ pub struct ManagementClient {
 /// Organization information from management API
 #[derive(Debug, Clone, Deserialize)]
 pub struct OrganizationInfo {
-    /// Organization UUID
-    pub id: Uuid,
+    /// Organization Snowflake ID
+    pub id: i64,
     /// Organization name
     pub name: String,
     /// Organization status
@@ -41,27 +40,14 @@ pub enum OrgStatus {
 /// Vault information from management API
 #[derive(Debug, Clone, Deserialize)]
 pub struct VaultInfo {
-    /// Vault UUID
-    pub id: Uuid,
+    /// Vault Snowflake ID
+    pub id: i64,
     /// Vault name
     pub name: String,
-    /// Organization UUID that owns this vault
-    pub organization_id: Uuid,
-    /// Account UUID that owns this vault
-    pub account_id: Uuid,
-}
-
-/// Client certificate information from management API
-#[derive(Debug, Clone, Deserialize)]
-pub struct ClientCertificate {
-    /// Certificate UUID
-    pub id: Uuid,
-    /// Client UUID
-    pub client_id: Uuid,
-    /// Base64-encoded Ed25519 public key
-    pub public_key: String,
-    /// Algorithm (e.g., "EdDSA")
-    pub algorithm: String,
+    /// Organization Snowflake ID that owns this vault
+    pub organization_id: i64,
+    /// Account Snowflake ID that owns this vault (same as organization_id)
+    pub account_id: i64,
 }
 
 impl ManagementClient {
@@ -98,7 +84,7 @@ impl ManagementClient {
     /// - The response cannot be parsed
     pub async fn get_organization(
         &self,
-        org_id: Uuid,
+        org_id: i64,
     ) -> Result<OrganizationInfo, ManagementApiError> {
         let url = format!("{}/v1/organizations/{}", self.base_url, org_id);
 
@@ -134,7 +120,7 @@ impl ManagementClient {
     /// - The HTTP request fails
     /// - The vault is not found
     /// - The response cannot be parsed
-    pub async fn get_vault(&self, vault_id: Uuid) -> Result<VaultInfo, ManagementApiError> {
+    pub async fn get_vault(&self, vault_id: i64) -> Result<VaultInfo, ManagementApiError> {
         let url = format!("{}/v1/vaults/{}", self.base_url, vault_id);
 
         let response = self
@@ -157,50 +143,6 @@ impl ManagementClient {
         }
     }
 
-    /// Fetch client certificate (for JWT verification)
-    ///
-    /// # Arguments
-    ///
-    /// * `org_id` - Organization UUID
-    /// * `client_id` - Client UUID
-    /// * `cert_id` - Certificate UUID
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The HTTP request fails
-    /// - The certificate is not found
-    /// - The response cannot be parsed
-    pub async fn get_client_certificate(
-        &self,
-        org_id: Uuid,
-        client_id: Uuid,
-        cert_id: Uuid,
-    ) -> Result<ClientCertificate, ManagementApiError> {
-        let url = format!(
-            "{}/v1/organizations/{}/clients/{}/certificates/{}",
-            self.base_url, org_id, client_id, cert_id
-        );
-
-        let response = self
-            .http_client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
-
-        match response.status() {
-            StatusCode::OK => {
-                let cert = response
-                    .json::<ClientCertificate>()
-                    .await
-                    .map_err(|e| ManagementApiError::InvalidResponse(e.to_string()))?;
-                Ok(cert)
-            },
-            StatusCode::NOT_FOUND => Err(ManagementApiError::NotFound("certificate")),
-            status => Err(ManagementApiError::UnexpectedStatus(status.as_u16())),
-        }
-    }
 }
 
 /// Errors that can occur when interacting with the Management API

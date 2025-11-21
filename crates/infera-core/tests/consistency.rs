@@ -12,7 +12,6 @@ use infera_core::{
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Decision, EvaluateRequest, Relationship, RelationshipKey};
 use tokio::task::JoinSet;
-use uuid::Uuid;
 
 mod common;
 use common::{TestFixture, relationship};
@@ -55,25 +54,25 @@ async fn test_write_then_read_different_evaluators() {
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema.clone()),
         None,
-        Uuid::nil(),
+        0i64,
     );
 
     let evaluator2 = Evaluator::new(
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
         None,
-        Uuid::nil(),
+        0i64,
     );
 
     // Write through the store
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "document:doc1".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -112,7 +111,7 @@ async fn test_delete_then_read() {
         subject: Some("user:alice".to_string()),
     };
 
-    fixture.store.delete(Uuid::nil(), &key).await.expect("Failed to delete");
+    fixture.store.delete(0i64, &key).await.expect("Failed to delete");
 
     // Should no longer have access
     fixture.assert_denied("user:alice", "document:doc1", "viewer").await;
@@ -128,12 +127,12 @@ async fn test_revision_monotonicity() {
     // Write and get revision
     let rev1 = store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "document:doc1".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -142,12 +141,12 @@ async fn test_revision_monotonicity() {
     // Write again
     let rev2 = store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "document:doc2".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:bob".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -164,12 +163,12 @@ async fn test_write_returns_new_revision() {
     // Each write should return a new revision
     let rev1 = store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "document:doc1".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -177,12 +176,12 @@ async fn test_write_returns_new_revision() {
 
     let rev2 = store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "document:doc2".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:bob".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -190,12 +189,12 @@ async fn test_write_returns_new_revision() {
 
     let rev3 = store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "document:doc3".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:charlie".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -217,19 +216,19 @@ async fn test_evaluator_concurrent_reads() {
     // Write initial data
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![
                 Relationship {
                     resource: "document:doc1".to_string(),
                     relation: "viewer".to_string(),
                     subject: "user:alice".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 Relationship {
                     resource: "document:doc2".to_string(),
                     relation: "viewer".to_string(),
                     subject: "user:bob".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
             ],
         )
@@ -246,7 +245,7 @@ async fn test_evaluator_concurrent_reads() {
                 store_clone as Arc<dyn RelationshipStore>,
                 schema_clone,
                 None,
-                Uuid::nil(),
+                0i64,
             );
 
             let request = EvaluateRequest {
@@ -283,12 +282,12 @@ async fn test_evaluator_concurrent_writes() {
         set.spawn(async move {
             store_clone
                 .write(
-                    Uuid::nil(),
+                    0i64,
                     vec![Relationship {
                         resource: format!("document:doc{}", i),
                         relation: "viewer".to_string(),
                         subject: format!("subject:user{}", i),
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                     }],
                 )
                 .await
@@ -320,12 +319,12 @@ async fn test_concurrent_write_and_read() {
         write_set.spawn(async move {
             store_clone
                 .write(
-                    Uuid::nil(),
+                    0i64,
                     vec![Relationship {
                         resource: format!("document:doc{}", i),
                         relation: "viewer".to_string(),
                         subject: format!("subject:writer{}", i),
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                     }],
                 )
                 .await
@@ -342,7 +341,7 @@ async fn test_concurrent_write_and_read() {
                 store_clone as Arc<dyn RelationshipStore>,
                 schema_clone,
                 None,
-                Uuid::nil(),
+                0i64,
             );
 
             let request = EvaluateRequest {
@@ -378,12 +377,12 @@ async fn test_concurrent_write_delete() {
     for i in 0..5 {
         store
             .write(
-                Uuid::nil(),
+                0i64,
                 vec![Relationship {
                     resource: format!("document:doc{}", i),
                     relation: "viewer".to_string(),
                     subject: "user:alice".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 }],
             )
             .await
@@ -399,12 +398,12 @@ async fn test_concurrent_write_delete() {
         set.spawn(async move {
             store_clone
                 .write(
-                    Uuid::nil(),
+                    0i64,
                     vec![Relationship {
                         resource: format!("document:doc{}", i),
                         relation: "viewer".to_string(),
                         subject: "user:alice".to_string(),
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                     }],
                 )
                 .await
@@ -420,7 +419,7 @@ async fn test_concurrent_write_delete() {
                 relation: "viewer".to_string(),
                 subject: Some("user:alice".to_string()),
             };
-            store_clone.delete(Uuid::nil(), &key).await
+            store_clone.delete(0i64, &key).await
         });
     }
 
@@ -446,12 +445,12 @@ async fn test_read_your_own_writes() {
             // Write
             store_clone
                 .write(
-                    Uuid::nil(),
+                    0i64,
                     vec![Relationship {
                         resource: format!("document:doc{}", i),
                         relation: "viewer".to_string(),
                         subject: format!("subject:user{}", i),
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                     }],
                 )
                 .await
@@ -462,7 +461,7 @@ async fn test_read_your_own_writes() {
                 store_clone as Arc<dyn RelationshipStore>,
                 schema_clone,
                 None,
-                Uuid::nil(),
+                0i64,
             );
 
             let request = EvaluateRequest {
@@ -501,24 +500,24 @@ async fn test_eventual_consistency_simulation() {
             resource: "document:doc1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "document:doc2".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
 
-    store1.write(Uuid::nil(), relationships.clone()).await.expect("Failed to write to store1");
+    store1.write(0i64, relationships.clone()).await.expect("Failed to write to store1");
 
     // Replicate to store2
-    store2.write(Uuid::nil(), relationships).await.expect("Failed to replicate to store2");
+    store2.write(0i64, relationships).await.expect("Failed to replicate to store2");
 
     // Both stores should now have the same revisions
-    let rev1 = store1.write(Uuid::nil(), vec![]).await.expect("Failed to get revision from store1");
-    let rev2 = store2.write(Uuid::nil(), vec![]).await.expect("Failed to get revision from store2");
+    let rev1 = store1.write(0i64, vec![]).await.expect("Failed to get revision from store1");
+    let rev2 = store2.write(0i64, vec![]).await.expect("Failed to get revision from store2");
 
     // After replication, both should be in sync (or store2 >= store1)
     assert!(rev2 >= rev1, "Replicated store should have caught up");
@@ -531,12 +530,12 @@ async fn test_conflicting_writes_both_preserved() {
     // Two separate writes for the same document but different users
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "document:doc1".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:alice".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -544,12 +543,12 @@ async fn test_conflicting_writes_both_preserved() {
 
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![Relationship {
                 resource: "document:doc1".to_string(),
                 relation: "viewer".to_string(),
                 subject: "user:bob".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             }],
         )
         .await
@@ -558,7 +557,7 @@ async fn test_conflicting_writes_both_preserved() {
     // Both users should have access (both relationships should exist)
     let schema = Arc::new(create_simple_schema());
     let evaluator =
-        Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None, Uuid::nil());
+        Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None, 0i64);
 
     let alice_req = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -591,23 +590,23 @@ async fn test_cross_region_consistency() {
         resource: "document:global1".to_string(),
         relation: "viewer".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     };
 
     region_a
-        .write(Uuid::nil(), vec![relationship.clone()])
+        .write(0i64, vec![relationship.clone()])
         .await
         .expect("Failed to write in region A");
 
     // Simulate replication to region B
-    region_b.write(Uuid::nil(), vec![relationship]).await.expect("Failed to replicate to region B");
+    region_b.write(0i64, vec![relationship]).await.expect("Failed to replicate to region B");
 
     // Both regions should have consistent views
     let schema = Arc::new(create_simple_schema());
 
     let eval_a =
-        Evaluator::new(region_a as Arc<dyn RelationshipStore>, schema.clone(), None, Uuid::nil());
-    let eval_b = Evaluator::new(region_b as Arc<dyn RelationshipStore>, schema, None, Uuid::nil());
+        Evaluator::new(region_a as Arc<dyn RelationshipStore>, schema.clone(), None, 0i64);
+    let eval_b = Evaluator::new(region_b as Arc<dyn RelationshipStore>, schema, None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),

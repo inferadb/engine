@@ -43,8 +43,8 @@ impl InternalClaims {
             scope: "inferadb.admin".to_string(),
             tenant_id: Some("internal".to_string()),
             jti: Some(uuid::Uuid::new_v4().to_string()),
-            vault: Some(uuid::Uuid::new_v4().to_string()),
-            account: Some(uuid::Uuid::new_v4().to_string()),
+            vault: Some("12345678901234".to_string()),
+            account: Some("98765432109876".to_string()),
         }
     }
 
@@ -60,8 +60,8 @@ impl InternalClaims {
             scope: "inferadb.admin".to_string(),
             tenant_id: Some("internal".to_string()),
             jti: Some(uuid::Uuid::new_v4().to_string()),
-            vault: Some(uuid::Uuid::new_v4().to_string()),
-            account: Some(uuid::Uuid::new_v4().to_string()),
+            vault: Some("12345678901234".to_string()),
+            account: Some("98765432109876".to_string()),
         }
     }
 

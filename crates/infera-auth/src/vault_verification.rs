@@ -2,7 +2,6 @@ use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use moka::future::Cache;
-use uuid::Uuid;
 
 use crate::{
     management_client::{
@@ -17,22 +16,22 @@ pub trait VaultVerifier: Send + Sync {
     /// Verify vault exists and belongs to the specified account
     async fn verify_vault(
         &self,
-        vault_id: Uuid,
-        account_id: Uuid,
+        vault_id: i64,
+        account_id: i64,
     ) -> Result<VaultInfo, VaultVerificationError>;
 
     /// Verify organization exists and is active
     async fn verify_organization(
         &self,
-        org_id: Uuid,
+        org_id: i64,
     ) -> Result<OrganizationInfo, VaultVerificationError>;
 }
 
 /// Management API-based vault verifier with caching
 pub struct ManagementApiVaultVerifier {
     client: Arc<ManagementClient>,
-    vault_cache: Cache<Uuid, Arc<VaultInfo>>,
-    org_cache: Cache<Uuid, Arc<OrganizationInfo>>,
+    vault_cache: Cache<i64, Arc<VaultInfo>>,
+    org_cache: Cache<i64, Arc<OrganizationInfo>>,
     metrics: Option<Arc<AuthMetrics>>,
 }
 
@@ -77,8 +76,8 @@ impl ManagementApiVaultVerifier {
 impl VaultVerifier for ManagementApiVaultVerifier {
     async fn verify_vault(
         &self,
-        vault_id: Uuid,
-        account_id: Uuid,
+        vault_id: i64,
+        account_id: i64,
     ) -> Result<VaultInfo, VaultVerificationError> {
         // Check cache first
         if let Some(cached) = self.vault_cache.get(&vault_id).await {
@@ -142,7 +141,7 @@ impl VaultVerifier for ManagementApiVaultVerifier {
 
     async fn verify_organization(
         &self,
-        org_id: Uuid,
+        org_id: i64,
     ) -> Result<OrganizationInfo, VaultVerificationError> {
         // Check cache first
         if let Some(cached) = self.org_cache.get(&org_id).await {
@@ -206,21 +205,21 @@ pub struct NoOpVaultVerifier;
 impl VaultVerifier for NoOpVaultVerifier {
     async fn verify_vault(
         &self,
-        vault_id: Uuid,
-        account_id: Uuid,
+        vault_id: i64,
+        account_id: i64,
     ) -> Result<VaultInfo, VaultVerificationError> {
         // Create dummy vault info without verification
         Ok(VaultInfo {
             id: vault_id,
             name: "unverified".to_string(),
-            organization_id: Uuid::nil(),
+            organization_id: 0,
             account_id,
         })
     }
 
     async fn verify_organization(
         &self,
-        org_id: Uuid,
+        org_id: i64,
     ) -> Result<OrganizationInfo, VaultVerificationError> {
         // Create dummy org info without verification
         Ok(OrganizationInfo {
@@ -236,25 +235,25 @@ impl VaultVerifier for NoOpVaultVerifier {
 pub enum VaultVerificationError {
     /// Vault was not found in the management API
     #[error("Vault {0} not found")]
-    VaultNotFound(Uuid),
+    VaultNotFound(i64),
 
     /// Organization was not found in the management API
     #[error("Organization {0} not found")]
-    OrganizationNotFound(Uuid),
+    OrganizationNotFound(i64),
 
     /// Organization is suspended and cannot be used
     #[error("Organization {0} is suspended")]
-    OrganizationSuspended(Uuid),
+    OrganizationSuspended(i64),
 
     /// Vault does not belong to the expected account
     #[error("Account mismatch for vault {vault_id}: expected {expected}, got {actual}")]
     AccountMismatch {
         /// The vault ID being verified
-        vault_id: Uuid,
+        vault_id: i64,
         /// The expected account ID
-        expected: Uuid,
+        expected: i64,
         /// The actual account ID
-        actual: Uuid,
+        actual: i64,
     },
 
     /// Error communicating with the management API

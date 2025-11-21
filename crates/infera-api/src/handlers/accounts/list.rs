@@ -83,7 +83,6 @@ mod tests {
     use infera_core::ipl::Schema;
     use infera_store::MemoryBackend;
     use infera_types::Account;
-    use uuid::Uuid;
 
     use super::*;
     use crate::content_negotiation::ResponseFormat;
@@ -91,7 +90,7 @@ mod tests {
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
-        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -102,7 +101,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         )
     }
 
@@ -116,8 +115,8 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::nil(),
-            account: Uuid::nil(),
+            vault: 0i64,
+            account: 0i64,
         }
     }
 
@@ -146,8 +145,8 @@ mod tests {
         let state = create_test_state();
 
         // Create test accounts
-        let account1 = Account::new("Account 1".to_string());
-        let account2 = Account::new("Account 2".to_string());
+        let account1 = Account::new(66666666666666i64, "Account 1".to_string());
+        let account2 = Account::new(77777777777777i64, "Account 2".to_string());
         state.store.create_account(account1).await.unwrap();
         state.store.create_account(account2).await.unwrap();
 
@@ -171,7 +170,7 @@ mod tests {
 
         // Create test accounts
         for i in 0..5 {
-            let account = Account::new(format!("Account {}", i));
+            let account = Account::new(i as i64, format!("Account {}", i));
             state.store.create_account(account).await.unwrap();
         }
 

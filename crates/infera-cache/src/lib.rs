@@ -15,14 +15,13 @@ use infera_types::{Decision, Relationship, Revision};
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-pub use uuid::Uuid;
 
 /// Cache key for authorization checks
 ///
-/// Includes vault UUID for multi-tenant isolation.
+/// Includes vault ID for multi-tenant isolation.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckCacheKey {
-    pub vault: Uuid,
+    pub vault: i64,
     pub subject: String,
     pub resource: String,
     pub permission: String,
@@ -31,7 +30,7 @@ pub struct CheckCacheKey {
 
 impl CheckCacheKey {
     pub fn new(
-        vault: Uuid,
+        vault: i64,
         subject: String,
         resource: String,
         permission: String,
@@ -46,17 +45,17 @@ pub type CheckCacheValue = Decision;
 
 /// Cache key for expand operations (intermediate results)
 ///
-/// Includes vault UUID for multi-tenant isolation.
+/// Includes vault ID for multi-tenant isolation.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpandCacheKey {
-    pub vault: Uuid,
+    pub vault: i64,
     pub resource: String,
     pub relation: String,
     pub revision: Revision,
 }
 
 impl ExpandCacheKey {
-    pub fn new(vault: Uuid, resource: String, relation: String, revision: Revision) -> Self {
+    pub fn new(vault: i64, resource: String, relation: String, revision: Revision) -> Self {
         Self { vault, resource, relation, revision }
     }
 }
@@ -192,7 +191,7 @@ impl AuthCache {
     }
 
     /// Invalidate all cache entries for a specific vault
-    pub async fn invalidate_vault(&self, vault: Uuid) {
+    pub async fn invalidate_vault(&self, vault: i64) {
         // Invalidate check cache entries for the vault
         let mut check_index = self.check_resource_index.write().await;
         let mut resources_to_remove = Vec::new();
@@ -247,7 +246,7 @@ impl AuthCache {
     }
 
     /// Invalidate cache entries for specific resources within a specific vault
-    pub async fn invalidate_vault_resources(&self, vault: Uuid, resources: &[String]) {
+    pub async fn invalidate_vault_resources(&self, vault: i64, resources: &[String]) {
         if resources.is_empty() {
             return;
         }
@@ -372,7 +371,7 @@ mod tests {
         let cache = AuthCache::default();
 
         let key = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -391,7 +390,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key1 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -399,7 +398,7 @@ mod tests {
         };
 
         let key2 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:bob".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -443,7 +442,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -468,7 +467,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key1 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -476,7 +475,7 @@ mod tests {
         };
 
         let key2 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:bob".to_string(),
             resource: "doc:readme".to_string(),
             permission: "write".to_string(),
@@ -500,7 +499,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_millis(100));
 
         let key = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -522,7 +521,7 @@ mod tests {
         let cache = AuthCache::new(2, Duration::from_secs(60));
 
         let key1 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:1".to_string(),
             permission: "read".to_string(),
@@ -530,7 +529,7 @@ mod tests {
         };
 
         let key2 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:bob".to_string(),
             resource: "doc:2".to_string(),
             permission: "read".to_string(),
@@ -538,7 +537,7 @@ mod tests {
         };
 
         let key3 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:charlie".to_string(),
             resource: "doc:3".to_string(),
             permission: "read".to_string(),
@@ -562,7 +561,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -588,14 +587,14 @@ mod tests {
     #[tokio::test]
     async fn test_cache_key_construction() {
         let key = CheckCacheKey::new(
-            Uuid::nil(),
+            0i64,
             "user:alice".to_string(),
             "doc:readme".to_string(),
             "read".to_string(),
             Revision(42),
         );
 
-        assert_eq!(key.vault, Uuid::nil());
+        assert_eq!(key.vault, 0i64);
         assert_eq!(key.subject, "user:alice");
         assert_eq!(key.resource, "doc:readme");
         assert_eq!(key.permission, "read");
@@ -607,7 +606,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key_rev1 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -615,7 +614,7 @@ mod tests {
         };
 
         let key_rev2 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -635,7 +634,7 @@ mod tests {
         let cache = AuthCache::default();
 
         let key = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
@@ -663,14 +662,14 @@ mod tests {
         let cache = AuthCache::default();
 
         let key1 = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
 
         let key2 = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "editor".to_string(),
             revision: Revision(1),
@@ -701,7 +700,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
@@ -726,14 +725,14 @@ mod tests {
         let cache = AuthCache::default();
 
         let key_rev1 = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
 
         let key_rev2 = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(2),
@@ -756,7 +755,7 @@ mod tests {
 
         // Check cache
         let check_key = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -767,7 +766,7 @@ mod tests {
 
         // Expand cache
         let expand_key = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
@@ -795,7 +794,7 @@ mod tests {
 
         // Cache entries for different resources
         let key1 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -803,7 +802,7 @@ mod tests {
         };
 
         let key2 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:bob".to_string(),
             resource: "doc:readme".to_string(),
             permission: "write".to_string(),
@@ -811,7 +810,7 @@ mod tests {
         };
 
         let key3 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:other".to_string(),
             permission: "read".to_string(),
@@ -846,21 +845,21 @@ mod tests {
 
         // Cache entries for different objects
         let key1 = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
         };
 
         let key2 = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:readme".to_string(),
             relation: "editor".to_string(),
             revision: Revision(1),
         };
 
         let key3 = ExpandCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             resource: "doc:other".to_string(),
             relation: "reader".to_string(),
             revision: Revision(1),
@@ -894,7 +893,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key1 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:1".to_string(),
             permission: "read".to_string(),
@@ -902,7 +901,7 @@ mod tests {
         };
 
         let key2 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:2".to_string(),
             permission: "read".to_string(),
@@ -910,7 +909,7 @@ mod tests {
         };
 
         let key3 = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:3".to_string(),
             permission: "read".to_string(),
@@ -933,19 +932,19 @@ mod tests {
     async fn test_extract_affected_resources() {
         let relationships = vec![
             Relationship {
-                vault: Uuid::nil(),
+                vault: 0i64,
                 resource: "doc:1".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
             },
             Relationship {
-                vault: Uuid::nil(),
+                vault: 0i64,
                 resource: "doc:1".to_string(),
                 relation: "editor".to_string(),
                 subject: "user:bob".to_string(),
             },
             Relationship {
-                vault: Uuid::nil(),
+                vault: 0i64,
                 resource: "doc:2".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:charlie".to_string(),
@@ -965,7 +964,7 @@ mod tests {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
         let key = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -991,7 +990,7 @@ mod tests {
         let cache = Arc::new(AuthCache::new(1000, Duration::from_secs(60)));
 
         let key = CheckCacheKey {
-            vault: Uuid::nil(),
+            vault: 0i64,
             subject: "user:alice".to_string(),
             resource: "doc:readme".to_string(),
             permission: "read".to_string(),
@@ -1037,7 +1036,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 for j in 0..10 {
                     let key = CheckCacheKey {
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                         subject: format!("user:{}", i),
                         resource: format!("doc:{}", j),
                         permission: "read".to_string(),
@@ -1074,7 +1073,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 for j in 0..10 {
                     let key = CheckCacheKey {
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                         subject: format!("user:{}", i),
                         resource: format!("doc:{}", j),
                         permission: "read".to_string(),
@@ -1093,7 +1092,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 for j in 0..10 {
                     let key = CheckCacheKey {
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                         subject: format!("user:{}", i),
                         resource: format!("doc:{}", j),
                         permission: "read".to_string(),
@@ -1129,7 +1128,7 @@ mod tests {
         for i in 0..10 {
             for j in 0..10 {
                 let key = CheckCacheKey {
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                     subject: format!("user:{}", j),
                     resource: format!("doc:{}", i),
                     permission: "read".to_string(),
@@ -1177,7 +1176,7 @@ mod tests {
         // Pre-populate cache
         for i in 0..50 {
             let key = CheckCacheKey {
-                vault: Uuid::nil(),
+                vault: 0i64,
                 subject: format!("user:{}", i),
                 resource: "doc:shared".to_string(),
                 permission: "read".to_string(),
@@ -1193,7 +1192,7 @@ mod tests {
             let cache = cache.clone();
             let handle = tokio::spawn(async move {
                 let key = CheckCacheKey {
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                     subject: format!("user:{}", i),
                     resource: "doc:shared".to_string(),
                     permission: "read".to_string(),
@@ -1239,7 +1238,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 for j in 0..5 {
                     let key = ExpandCacheKey {
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                         resource: format!("doc:{}", i),
                         relation: format!("rel:{}", j),
                         revision: Revision(1),
@@ -1257,7 +1256,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 for j in 0..5 {
                     let key = ExpandCacheKey {
-                        vault: Uuid::nil(),
+                        vault: 0i64,
                         resource: format!("doc:{}", i),
                         relation: format!("rel:{}", j),
                         revision: Revision(1),
@@ -1288,7 +1287,7 @@ mod tests {
             let cache = cache.clone();
             let handle = tokio::spawn(async move {
                 let key = CheckCacheKey {
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                     subject: format!("user:{}", i),
                     resource: "doc:shared".to_string(),
                     permission: "read".to_string(),
@@ -1327,8 +1326,8 @@ mod tests {
     async fn test_vault_isolation_different_vaults() {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 12345678901234i64;
+        let vault_b = 12345678901235i64;
 
         // Same subject/resource/permission but different vaults
         let key_a = CheckCacheKey {
@@ -1360,8 +1359,8 @@ mod tests {
     async fn test_invalidate_vault_isolation() {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 12345678901234i64;
+        let vault_b = 12345678901235i64;
 
         // Add entries for vault A
         let key_a1 = CheckCacheKey {
@@ -1422,8 +1421,8 @@ mod tests {
     async fn test_invalidate_vault_resources_isolation() {
         let cache = AuthCache::new(100, Duration::from_secs(60));
 
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 12345678901234i64;
+        let vault_b = 12345678901235i64;
 
         // Add entries for vault A
         let key_a1 = CheckCacheKey {
@@ -1478,8 +1477,8 @@ mod tests {
     async fn test_expand_cache_vault_isolation() {
         let cache = AuthCache::default();
 
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 12345678901234i64;
+        let vault_b = 12345678901235i64;
 
         let key_a = ExpandCacheKey {
             vault: vault_a,
@@ -1517,8 +1516,8 @@ mod tests {
     async fn test_vault_isolation_stress() {
         let cache = Arc::new(AuthCache::new(10000, Duration::from_secs(60)));
 
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 12345678901234i64;
+        let vault_b = 12345678901235i64;
 
         let mut handles = vec![];
 

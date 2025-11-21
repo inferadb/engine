@@ -7,7 +7,6 @@ use infera_core::{Evaluator, ipl::Schema};
 use infera_store::RelationshipStore;
 use infera_types::{ListResourcesRequest, ListResourcesResponse};
 use infera_wasm::WasmHost;
-use uuid::Uuid;
 
 use super::validation::validate_list_resources_request;
 use crate::ApiError;
@@ -50,7 +49,7 @@ impl ResourceService {
     #[tracing::instrument(skip(self), fields(vault = %vault))]
     pub async fn list_resources(
         &self,
-        vault: Uuid,
+        vault: i64,
         request: ListResourcesRequest,
     ) -> Result<ListResourcesResponse, ApiError> {
         // Validate request
@@ -97,7 +96,7 @@ mod tests {
 
     use super::*;
 
-    async fn create_test_service() -> (ResourceService, Uuid) {
+    async fn create_test_service() -> (ResourceService, i64) {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
 
         // Create a schema with document type and view permission
@@ -110,7 +109,7 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let vault = Uuid::new_v4();
+        let vault = 12345678901234i64;
 
         // Add test relationships
         store
@@ -232,8 +231,8 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 11111111111111i64;
+        let vault_b = 22222222222222i64;
 
         // Add relationship to vault A only
         store

@@ -202,7 +202,6 @@ impl ParallelEvaluator {
 #[cfg(test)]
 mod tests {
     use infera_store::MemoryBackend;
-    use uuid::Uuid;
 
     use super::*;
     use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
@@ -216,7 +215,7 @@ mod tests {
         )];
 
         let schema = Arc::new(Schema::new(types));
-        Arc::new(Evaluator::new(store, schema, None, Uuid::nil()))
+        Arc::new(Evaluator::new(store, schema, None, 0))
     }
 
     #[tokio::test]

@@ -2,7 +2,6 @@
 
 use axum::extract::{Path, State};
 use infera_types::VaultResponse;
-use uuid::Uuid;
 
 use crate::{
     ApiError, AppState,
@@ -45,7 +44,7 @@ pub async fn get_vault(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(vault_id): Path<Uuid>,
+    Path(vault_id): Path<i64>,
 ) -> Result<ResponseData<VaultResponse>, ApiError> {
     // Get vault from storage
     let vault = state

@@ -26,8 +26,6 @@ use tonic::{
     Request,
     transport::{Channel, Server},
 };
-use uuid::Uuid;
-
 async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
@@ -43,8 +41,8 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
         None, // No WASM host for tests
         Arc::new(config),
         None, // No JWKS cache for tests
-        Uuid::nil(),
-        Uuid::nil(),
+        0i64,
+        0i64,
     );
 
     let health_tracker = state.health_tracker.clone();

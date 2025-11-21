@@ -12,13 +12,12 @@ use std::{
 
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Get the vault ID for health checks
 ///
-/// Health checks use nil UUID as they don't require vault isolation
-fn get_vault() -> Uuid {
-    Uuid::nil()
+/// Health checks use 0 as they don't require vault isolation
+fn get_vault() -> i64 {
+    0
 }
 
 /// Health check status

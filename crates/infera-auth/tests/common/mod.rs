@@ -30,8 +30,8 @@ pub fn test_auth_context() -> AuthContext {
         issued_at: Utc::now(),
         expires_at: Utc::now() + Duration::hours(1),
         jti: Some("test-jti-123".to_string()),
-        vault: uuid::Uuid::nil(),
-        account: uuid::Uuid::nil(),
+        vault: 0,
+        account: 0,
     }
 }
 
@@ -59,8 +59,8 @@ pub fn test_auth_context_with(tenant_id: &str, scopes: Vec<&str>) -> AuthContext
         issued_at: Utc::now(),
         expires_at: Utc::now() + Duration::hours(1),
         jti: Some(uuid::Uuid::new_v4().to_string()),
-        vault: uuid::Uuid::nil(),
-        account: uuid::Uuid::nil(),
+        vault: 0,
+        account: 0,
     }
 }
 
@@ -87,8 +87,8 @@ pub fn test_oauth_context(tenant_id: &str, scopes: Vec<&str>) -> AuthContext {
         issued_at: Utc::now(),
         expires_at: Utc::now() + Duration::hours(1),
         jti: Some(uuid::Uuid::new_v4().to_string()),
-        vault: uuid::Uuid::nil(),
-        account: uuid::Uuid::nil(),
+        vault: 0,
+        account: 0,
     }
 }
 
@@ -110,7 +110,7 @@ pub fn test_expired_context() -> AuthContext {
         issued_at: Utc::now() - Duration::hours(2),
         expires_at: Utc::now() - Duration::hours(1),
         jti: Some("expired-jti".to_string()),
-        vault: uuid::Uuid::nil(),
-        account: uuid::Uuid::nil(),
+        vault: 0,
+        account: 0,
     }
 }

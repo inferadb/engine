@@ -42,11 +42,20 @@ impl JwtClaims {
     /// Extract tenant ID from claims
     /// For tenant JWTs: parse from "tenant:acme" format in iss
     /// For OAuth tokens: use tenant_id claim
+    /// For Management API client JWTs: use account claim (organization/account ID)
     pub fn extract_tenant_id(&self) -> Result<String, AuthError> {
         // First check explicit tenant_id claim (OAuth tokens)
         if let Some(ref tenant_id) = self.tenant_id {
             if !tenant_id.is_empty() {
                 return Ok(tenant_id.clone());
+            }
+        }
+
+        // Check account claim (Management API client JWTs)
+        // The account claim contains the organization/account ID
+        if let Some(ref account) = self.account {
+            if !account.is_empty() {
+                return Ok(account.clone());
             }
         }
 
@@ -58,7 +67,7 @@ impl JwtClaims {
         }
 
         Err(AuthError::MissingClaim(
-            "tenant_id (could not extract from iss or tenant_id claim)".into(),
+            "tenant_id (could not extract from iss, tenant_id, or account claim)".into(),
         ))
     }
 
@@ -319,34 +328,29 @@ pub async fn verify_with_jwks(
 /// use infera_auth::jwt::verify_with_cert_cache_or_jwks;
 /// use infera_auth::certificate_cache::CertificateCache;
 /// use infera_auth::jwks_cache::JwksCache;
-/// use infera_auth::management_client::ManagementClient;
 /// use moka::future::Cache;
 /// use std::sync::Arc;
 /// use std::time::Duration;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// // Setup certificate cache
-/// let management_client = Arc::new(ManagementClient::new(
-///     "https://api.inferadb.com".to_string(),
-///     5000,
-/// )?);
-/// let cert_cache = Some(CertificateCache::new(
-///     management_client,
+/// // Setup certificate cache (fetches from Management API JWKS endpoint)
+/// let cert_cache = CertificateCache::new(
+///     "https://management-api.inferadb.com".to_string(),
 ///     Duration::from_secs(300),
 ///     100,
-/// ));
+/// )?;
 ///
-/// // Setup JWKS cache
+/// // Setup JWKS cache (for OIDC providers)
 /// let cache = Arc::new(Cache::new(100));
 /// let jwks_cache = JwksCache::new(
-///     "https://control-plane.example.com".to_string(),
+///     "https://auth.inferadb.com/.well-known".to_string(),
 ///     cache,
 ///     Duration::from_secs(300),
 /// )?;
 ///
 /// // Verify a JWT (will try cert cache first, then JWKS)
 /// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6Im9yZy0uLi4ifQ...";
-/// let claims = verify_with_cert_cache_or_jwks(token, cert_cache.as_ref(), &jwks_cache).await?;
+/// let claims = verify_with_cert_cache_or_jwks(token, Some(&cert_cache), &jwks_cache).await?;
 ///
 /// println!("Verified claims for tenant: {}", claims.iss);
 /// # Ok(())

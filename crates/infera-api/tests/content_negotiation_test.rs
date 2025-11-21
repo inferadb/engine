@@ -9,7 +9,13 @@ use axum::{
 use infera_types::{Account, Vault, VaultResponse};
 use serde_json::json;
 use tower::ServiceExt;
-use uuid::Uuid;
+use std::sync::atomic::{AtomicI64, Ordering};
+
+static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
+
+fn generate_test_id() -> i64 {
+    TEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
+}
 
 /// Helper to create test app state with account
 async fn create_test_state() -> infera_api::AppState {
@@ -28,7 +34,7 @@ async fn test_json_format_explicit() {
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
-    let vault_id = Uuid::new_v4();
+    let vault_id = generate_test_id();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
@@ -58,7 +64,7 @@ async fn test_toon_format_explicit() {
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
-    let vault_id = Uuid::new_v4();
+    let vault_id = generate_test_id();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
@@ -92,7 +98,7 @@ async fn test_default_format_is_json() {
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
-    let vault_id = Uuid::new_v4();
+    let vault_id = generate_test_id();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
@@ -116,7 +122,7 @@ async fn test_wildcard_accept_defaults_to_json() {
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
-    let vault_id = Uuid::new_v4();
+    let vault_id = generate_test_id();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
@@ -141,7 +147,7 @@ async fn test_quality_value_priority_json_higher() {
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
-    let vault_id = Uuid::new_v4();
+    let vault_id = generate_test_id();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
@@ -166,7 +172,7 @@ async fn test_quality_value_priority_toon_higher() {
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create a vault first
-    let vault_id = Uuid::new_v4();
+    let vault_id = generate_test_id();
     let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
@@ -255,7 +261,7 @@ async fn test_error_responses_always_json() {
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Request non-existent vault with TOON Accept header
-    let non_existent_vault = Uuid::new_v4();
+    let non_existent_vault = generate_test_id();
     let request = Request::builder()
         .method("GET")
         .uri(format!("/v1/vaults/{}", non_existent_vault))
@@ -283,7 +289,7 @@ async fn test_multiple_endpoints_support_toon() {
     let app = infera_api::create_router(state.clone()).unwrap();
 
     // Create test data
-    let vault_id = Uuid::new_v4();
+    let vault_id = generate_test_id();
     let account_id = state.default_account;
     let vault = Vault::with_id(vault_id, account_id, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();

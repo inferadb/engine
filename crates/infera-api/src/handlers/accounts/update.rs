@@ -2,7 +2,6 @@
 
 use axum::extract::{Path, State};
 use infera_types::{AccountResponse, UpdateAccountRequest};
-use uuid::Uuid;
 
 use crate::{
     ApiError, AppState,
@@ -51,7 +50,7 @@ pub async fn update_account(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<Uuid>,
+    Path(account_id): Path<i64>,
     axum::Json(request): axum::Json<UpdateAccountRequest>,
 ) -> Result<ResponseData<AccountResponse>, ApiError> {
     // Require admin scope
@@ -101,7 +100,7 @@ mod tests {
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
-        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -112,7 +111,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         )
     }
 
@@ -126,15 +125,15 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::nil(),
-            account: Uuid::nil(),
+            vault: 0i64,
+            account: 0i64,
         }
     }
 
     #[tokio::test]
     async fn test_update_account_requires_admin() {
         let state = create_test_state();
-        let account_id = Uuid::new_v4();
+        let account_id = 999i64;
         let request = UpdateAccountRequest { name: "New Name".to_string() };
 
         let result = update_account(
@@ -158,7 +157,7 @@ mod tests {
         let state = create_test_state();
 
         // Create test account
-        let account = Account::new("Old Name".to_string());
+        let account = Account::new(44444444444444i64, "Old Name".to_string());
         let created = state.store.create_account(account).await.unwrap();
 
         let request = UpdateAccountRequest { name: "New Name".to_string() };
@@ -184,7 +183,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_account_not_found() {
         let state = create_test_state();
-        let account_id = Uuid::new_v4();
+        let account_id = 555i64;
         let request = UpdateAccountRequest { name: "New Name".to_string() };
 
         let result = update_account(
@@ -208,7 +207,7 @@ mod tests {
         let state = create_test_state();
 
         // Create test account
-        let account = Account::new("Old Name".to_string());
+        let account = Account::new(55555555555555i64, "Old Name".to_string());
         let created = state.store.create_account(account).await.unwrap();
 
         let request = UpdateAccountRequest { name: "".to_string() };

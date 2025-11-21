@@ -4,7 +4,6 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use uuid::Uuid;
 
 use crate::{
     ApiError, AppState, content_negotiation::AcceptHeader,
@@ -41,7 +40,7 @@ pub async fn delete_vault(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(_format): AcceptHeader,
     State(state): State<AppState>,
-    Path(vault_id): Path<Uuid>,
+    Path(vault_id): Path<i64>,
 ) -> Result<StatusCode, ApiError> {
     // Get vault first to check ownership
     let vault = state

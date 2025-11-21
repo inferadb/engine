@@ -141,7 +141,7 @@ mod tests {
         let store = StorageFactory::create(config).await.unwrap();
 
         // Verify it works
-        let test_vault = uuid::Uuid::new_v4();
+        let test_vault = 11111111111111i64;
         let rev = store.get_revision(test_vault).await.unwrap();
         assert_eq!(rev, crate::Revision::zero());
     }
@@ -151,7 +151,7 @@ mod tests {
         let store = StorageFactory::from_str("memory", None).await.unwrap();
 
         // Verify it works
-        let test_vault = uuid::Uuid::new_v4();
+        let test_vault = 11111111111111i64;
         let rev = store.get_revision(test_vault).await.unwrap();
         assert_eq!(rev, crate::Revision::zero());
     }
@@ -161,7 +161,7 @@ mod tests {
         let store = StorageFactory::memory();
 
         // Verify it works
-        let test_vault = uuid::Uuid::new_v4();
+        let test_vault = 11111111111111i64;
         let rev = store.get_revision(test_vault).await.unwrap();
         assert_eq!(rev, crate::Revision::zero());
     }
@@ -176,7 +176,7 @@ mod tests {
         // Should either succeed or fail with connection error
         match store {
             Ok(s) => {
-                let test_vault = uuid::Uuid::new_v4();
+                let test_vault = 11111111111111i64;
                 let _rev = s.get_revision(test_vault).await.unwrap();
                 // Successfully got revision
             },

@@ -8,7 +8,6 @@ use std::{
 use async_trait::async_trait;
 use infera_types::{Account, ChangeEvent, DeleteFilter, StoreError, SystemConfig, Vault};
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
 use crate::{
     AccountStore, MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore,
@@ -70,13 +69,13 @@ pub struct MemoryBackend {
 
 struct MemoryData {
     /// Vault-partitioned relationship storage
-    vaults_data: HashMap<Uuid, VaultData>,
+    vaults_data: HashMap<i64, VaultData>,
 
     /// Account storage
-    accounts: HashMap<Uuid, Account>,
+    accounts: HashMap<i64, Account>,
 
     /// Vault storage
-    vaults: HashMap<Uuid, Vault>,
+    vaults: HashMap<i64, Vault>,
 
     /// System configuration (default vault info)
     system_config: Option<SystemConfig>,
@@ -96,7 +95,7 @@ impl MemoryBackend {
     }
 
     /// Collect garbage for revisions older than the given revision in a specific vault
-    pub async fn gc_before(&self, vault: Uuid, before: Revision) -> Result<usize> {
+    pub async fn gc_before(&self, vault: i64, before: Revision) -> Result<usize> {
         let mut data = self.data.write().await;
         let mut removed = 0;
 
@@ -116,7 +115,7 @@ impl MemoryBackend {
     }
 
     /// Get or create vault data
-    fn get_or_create_vault_data(data: &mut MemoryData, vault: Uuid) -> &mut VaultData {
+    fn get_or_create_vault_data(data: &mut MemoryData, vault: i64) -> &mut VaultData {
         data.vaults_data.entry(vault).or_insert_with(VaultData::new)
     }
 }
@@ -145,7 +144,7 @@ impl AccountStore for MemoryBackend {
         Ok(account)
     }
 
-    async fn get_account(&self, id: Uuid) -> Result<Option<Account>> {
+    async fn get_account(&self, id: i64) -> Result<Option<Account>> {
         let data = self.data.read().await;
         Ok(data.accounts.get(&id).cloned())
     }
@@ -162,7 +161,7 @@ impl AccountStore for MemoryBackend {
         Ok(accounts)
     }
 
-    async fn delete_account(&self, id: Uuid) -> Result<()> {
+    async fn delete_account(&self, id: i64) -> Result<()> {
         let mut data = self.data.write().await;
 
         // Find and delete all vaults owned by this account
@@ -219,19 +218,19 @@ impl VaultStore for MemoryBackend {
         Ok(vault)
     }
 
-    async fn get_vault(&self, id: Uuid) -> Result<Option<Vault>> {
+    async fn get_vault(&self, id: i64) -> Result<Option<Vault>> {
         let data = self.data.read().await;
         Ok(data.vaults.get(&id).cloned())
     }
 
-    async fn list_vaults_for_account(&self, account_id: Uuid) -> Result<Vec<Vault>> {
+    async fn list_vaults_for_account(&self, account_id: i64) -> Result<Vec<Vault>> {
         let data = self.data.read().await;
         let vaults: Vec<_> =
             data.vaults.values().filter(|v| v.account == account_id).cloned().collect();
         Ok(vaults)
     }
 
-    async fn delete_vault(&self, id: Uuid) -> Result<()> {
+    async fn delete_vault(&self, id: i64) -> Result<()> {
         let mut data = self.data.write().await;
 
         // Delete vault and its data
@@ -272,7 +271,7 @@ impl VaultStore for MemoryBackend {
 impl RelationshipStore for MemoryBackend {
     async fn read(
         &self,
-        vault: Uuid,
+        vault: i64,
         key: &RelationshipKey,
         revision: Revision,
     ) -> Result<Vec<Relationship>> {
@@ -331,7 +330,7 @@ impl RelationshipStore for MemoryBackend {
         Ok(relationships)
     }
 
-    async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision> {
+    async fn write(&self, vault: i64, relationships: Vec<Relationship>) -> Result<Revision> {
         let timer = OpTimer::new();
         let mut data = self.data.write().await;
 
@@ -443,12 +442,12 @@ impl RelationshipStore for MemoryBackend {
         Ok(current_revision)
     }
 
-    async fn get_revision(&self, vault: Uuid) -> Result<Revision> {
+    async fn get_revision(&self, vault: i64) -> Result<Revision> {
         let data = self.data.read().await;
         Ok(data.vaults_data.get(&vault).map(|vd| vd.revision).unwrap_or(Revision::zero()))
     }
 
-    async fn delete(&self, vault: Uuid, key: &RelationshipKey) -> Result<Revision> {
+    async fn delete(&self, vault: i64, key: &RelationshipKey) -> Result<Revision> {
         let timer = OpTimer::new();
         let mut data = self.data.write().await;
 
@@ -513,7 +512,7 @@ impl RelationshipStore for MemoryBackend {
 
     async fn delete_by_filter(
         &self,
-        vault: Uuid,
+        vault: i64,
         filter: &DeleteFilter,
         limit: Option<usize>,
     ) -> Result<(Revision, usize)> {
@@ -611,7 +610,7 @@ impl RelationshipStore for MemoryBackend {
 
     async fn list_resources_by_type(
         &self,
-        vault: Uuid,
+        vault: i64,
         resource_type: &str,
         revision: Revision,
     ) -> Result<Vec<String>> {
@@ -652,7 +651,7 @@ impl RelationshipStore for MemoryBackend {
 
     async fn list_relationships(
         &self,
-        vault: Uuid,
+        vault: i64,
         resource: Option<&str>,
         relation: Option<&str>,
         subject: Option<&str>,
@@ -712,7 +711,7 @@ impl RelationshipStore for MemoryBackend {
         Some(self.metrics.snapshot())
     }
 
-    async fn append_change(&self, vault: Uuid, event: ChangeEvent) -> Result<()> {
+    async fn append_change(&self, vault: i64, event: ChangeEvent) -> Result<()> {
         let mut data = self.data.write().await;
         let vault_data = Self::get_or_create_vault_data(&mut data, vault);
 
@@ -723,7 +722,7 @@ impl RelationshipStore for MemoryBackend {
 
     async fn read_changes(
         &self,
-        vault: Uuid,
+        vault: i64,
         start_revision: Revision,
         resource_types: &[String],
         limit: Option<usize>,
@@ -762,7 +761,7 @@ impl RelationshipStore for MemoryBackend {
         Ok(events)
     }
 
-    async fn get_change_log_revision(&self, vault: Uuid) -> Result<Revision> {
+    async fn get_change_log_revision(&self, vault: i64) -> Result<Revision> {
         let data = self.data.read().await;
 
         let vault_data = match data.vaults_data.get(&vault) {
@@ -786,10 +785,10 @@ mod tests {
     use super::*;
 
     async fn create_test_account_and_vault(backend: &MemoryBackend) -> (Account, Vault) {
-        let account = Account::new("Test Account".to_string());
+        let account = Account::new(11111111111111i64, "Test Account".to_string());
         let account = backend.create_account(account).await.unwrap();
 
-        let vault = Vault::new(account.id, "Test Vault".to_string());
+        let vault = Vault::new(22222222222222i64, account.id, "Test Vault".to_string());
         let vault = backend.create_vault(vault).await.unwrap();
 
         (account, vault)
@@ -800,14 +799,14 @@ mod tests {
         let backend = MemoryBackend::new();
 
         // Create two accounts with vaults
-        let account1 = Account::new("Account 1".to_string());
+        let account1 = Account::new(33333333333333i64, "Account 1".to_string());
         let account1 = backend.create_account(account1).await.unwrap();
-        let vault1 = Vault::new(account1.id, "Vault 1".to_string());
+        let vault1 = Vault::new(44444444444444i64, account1.id, "Vault 1".to_string());
         let vault1 = backend.create_vault(vault1).await.unwrap();
 
-        let account2 = Account::new("Account 2".to_string());
+        let account2 = Account::new(55555555555555i64, "Account 2".to_string());
         let account2 = backend.create_account(account2).await.unwrap();
-        let vault2 = Vault::new(account2.id, "Vault 2".to_string());
+        let vault2 = Vault::new(66666666666666i64, account2.id, "Vault 2".to_string());
         let vault2 = backend.create_vault(vault2).await.unwrap();
 
         // Write relationships to vault1
@@ -903,7 +902,7 @@ mod tests {
         let (_, vault) = create_test_account_and_vault(&backend).await;
 
         // Try to write relationship with wrong vault
-        let wrong_vault = Uuid::new_v4();
+        let wrong_vault = 999999i64;
         let rel = Relationship {
             vault: wrong_vault, // Wrong vault ID!
             resource: "doc:readme".to_string(),

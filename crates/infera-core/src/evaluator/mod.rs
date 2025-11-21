@@ -12,7 +12,6 @@ use infera_types::{
 };
 use infera_wasm::WasmHost;
 use tracing::{debug, instrument};
-use uuid::Uuid;
 
 use crate::{
     EvalError, Result,
@@ -29,7 +28,7 @@ pub struct Evaluator {
     cache: Option<Arc<AuthCache>>,
     /// The vault ID for multi-tenant isolation
     /// (Extracted from auth context at the API handler level)
-    vault: Uuid,
+    vault: i64,
 }
 
 impl Evaluator {
@@ -37,7 +36,7 @@ impl Evaluator {
         store: Arc<dyn RelationshipStore>,
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
-        vault: Uuid,
+        vault: i64,
     ) -> Self {
         Self { store, schema, wasm_host, cache: Some(Arc::new(AuthCache::default())), vault }
     }
@@ -47,7 +46,7 @@ impl Evaluator {
         schema: Arc<Schema>,
         wasm_host: Option<Arc<WasmHost>>,
         cache: Option<Arc<AuthCache>>,
-        vault: Uuid,
+        vault: i64,
     ) -> Self {
         Self { store, schema, wasm_host, cache, vault }
     }

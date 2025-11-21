@@ -28,8 +28,8 @@ pub async fn vault_validation_middleware(
                 },
             };
 
-            // Skip validation if vault is nil (some endpoints don't require vault)
-            if auth_ctx.vault.is_nil() {
+            // Skip validation if vault is 0 (some endpoints don't require vault)
+            if auth_ctx.vault == 0 {
                 return next.run(req).await;
             }
 

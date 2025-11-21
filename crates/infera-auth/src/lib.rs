@@ -70,7 +70,7 @@ pub use extractor::{OptionalAuth, RequireAuth};
 pub use internal::{InternalJwks, InternalJwksLoader};
 pub use jwks_cache::{Jwk, JwksCache};
 pub use management_client::{
-    ClientCertificate, ManagementApiError, ManagementClient, OrgStatus, OrganizationInfo, VaultInfo,
+    ManagementApiError, ManagementClient, OrgStatus, OrganizationInfo, VaultInfo,
 };
 pub use metrics::AuthMetrics;
 pub use middleware::{validate_vault_access, vault_validation_middleware};

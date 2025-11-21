@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use infera_types::{
     ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult,
 };
-use uuid::Uuid;
 
 pub mod account_store;
 pub mod factory;
@@ -40,27 +39,27 @@ pub trait RelationshipStore: Send + Sync {
     /// Read relationships matching the key at a specific revision within a vault
     async fn read(
         &self,
-        vault: Uuid,
+        vault: i64,
         key: &RelationshipKey,
         revision: Revision,
     ) -> Result<Vec<Relationship>>;
 
     /// Write relationships and return the new revision
     /// All relationships must have their vault_id set correctly
-    async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision>;
+    async fn write(&self, vault: i64, relationships: Vec<Relationship>) -> Result<Revision>;
 
     /// Get the current revision for a vault
-    async fn get_revision(&self, vault: Uuid) -> Result<Revision>;
+    async fn get_revision(&self, vault: i64) -> Result<Revision>;
 
     /// Delete relationships matching the key within a vault
-    async fn delete(&self, vault: Uuid, key: &RelationshipKey) -> Result<Revision>;
+    async fn delete(&self, vault: i64, key: &RelationshipKey) -> Result<Revision>;
 
     /// Delete relationships matching a filter within a vault
     /// Returns (revision, count_deleted)
     /// The filter must have at least one field set to avoid deleting all relationships
     async fn delete_by_filter(
         &self,
-        vault: Uuid,
+        vault: i64,
         filter: &DeleteFilter,
         limit: Option<usize>,
     ) -> Result<(Revision, usize)>;
@@ -69,7 +68,7 @@ pub trait RelationshipStore: Send + Sync {
     /// Returns unique resource identifiers like ["document:1", "document:2"]
     async fn list_resources_by_type(
         &self,
-        vault: Uuid,
+        vault: i64,
         resource_type: &str,
         revision: Revision,
     ) -> Result<Vec<String>>;
@@ -82,7 +81,7 @@ pub trait RelationshipStore: Send + Sync {
     /// Returns all relationships matching the filter criteria at the specified revision
     async fn list_relationships(
         &self,
-        vault: Uuid,
+        vault: i64,
         resource: Option<&str>,
         relation: Option<&str>,
         subject: Option<&str>,
@@ -96,14 +95,14 @@ pub trait RelationshipStore: Send + Sync {
 
     /// Append a change event to the change log for a vault
     /// This is called automatically by write/delete operations
-    async fn append_change(&self, vault: Uuid, event: ChangeEvent) -> Result<()>;
+    async fn append_change(&self, vault: i64, event: ChangeEvent) -> Result<()>;
 
     /// Read change events from the change log starting from a specific revision within a vault
     /// Filters by resource types if provided (empty list means all types)
     /// Returns events in ascending revision order
     async fn read_changes(
         &self,
-        vault: Uuid,
+        vault: i64,
         start_revision: Revision,
         resource_types: &[String],
         limit: Option<usize>,
@@ -111,7 +110,7 @@ pub trait RelationshipStore: Send + Sync {
 
     /// Get the latest change log revision for a vault
     /// Returns Revision::zero() if no changes exist
-    async fn get_change_log_revision(&self, vault: Uuid) -> Result<Revision>;
+    async fn get_change_log_revision(&self, vault: i64) -> Result<Revision>;
 
     /// Downcast to Any for accessing concrete implementation methods
     fn as_any(&self) -> &dyn std::any::Any;

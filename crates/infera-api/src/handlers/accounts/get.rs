@@ -2,7 +2,6 @@
 
 use axum::extract::{Path, State};
 use infera_types::AccountResponse;
-use uuid::Uuid;
 
 use crate::{
     ApiError, AppState,
@@ -44,7 +43,7 @@ pub async fn get_account(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<Uuid>,
+    Path(account_id): Path<i64>,
 ) -> Result<ResponseData<AccountResponse>, ApiError> {
     // Check authorization (admin OR account owner)
     authorize_account_access(&auth.0, account_id)?;
@@ -78,7 +77,7 @@ mod tests {
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
-        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -89,7 +88,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         )
     }
 
@@ -103,12 +102,12 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::nil(),
-            account: Uuid::nil(),
+            vault: 0i64,
+            account: 0i64,
         }
     }
 
-    fn create_user_context(account_id: Uuid) -> infera_types::AuthContext {
+    fn create_user_context(account_id: i64) -> infera_types::AuthContext {
         infera_types::AuthContext {
             tenant_id: "test".to_string(),
             client_id: "test".to_string(),
@@ -118,7 +117,7 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::nil(),
+            vault: 0i64,
             account: account_id,
         }
     }
@@ -126,7 +125,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_account_requires_auth() {
         let state = create_test_state();
-        let account_id = Uuid::new_v4();
+        let account_id = 999i64;
 
         let result = get_account(
             infera_auth::extractor::OptionalAuth(None),
@@ -148,7 +147,7 @@ mod tests {
         let state = create_test_state();
 
         // Create test account
-        let account = Account::new("Test Account".to_string());
+        let account = Account::new(11111111111111i64, "Test Account".to_string());
         let created = state.store.create_account(account).await.unwrap();
 
         let result = get_account(
@@ -169,7 +168,7 @@ mod tests {
         let state = create_test_state();
 
         // Create test account
-        let account = Account::new("My Account".to_string());
+        let account = Account::new(22222222222222i64, "My Account".to_string());
         let created = state.store.create_account(account).await.unwrap();
 
         let result = get_account(
@@ -189,11 +188,11 @@ mod tests {
         let state = create_test_state();
 
         // Create test account
-        let account = Account::new("Other Account".to_string());
+        let account = Account::new(33333333333333i64, "Other Account".to_string());
         let created = state.store.create_account(account).await.unwrap();
 
         // Try to access with different account ID
-        let other_account_id = Uuid::new_v4();
+        let other_account_id = 777i64;
 
         let result = get_account(
             infera_auth::extractor::OptionalAuth(Some(create_user_context(other_account_id))),
@@ -213,7 +212,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_account_not_found() {
         let state = create_test_state();
-        let account_id = Uuid::new_v4();
+        let account_id = 666i64;
 
         let result = get_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),

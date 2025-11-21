@@ -4,7 +4,6 @@
 
 use async_trait::async_trait;
 use infera_types::{StoreResult, SystemConfig, Vault};
-use uuid::Uuid;
 
 /// Trait for vault storage operations
 #[async_trait]
@@ -13,13 +12,13 @@ pub trait VaultStore: Send + Sync {
     async fn create_vault(&self, vault: Vault) -> StoreResult<Vault>;
 
     /// Get a vault by ID
-    async fn get_vault(&self, id: Uuid) -> StoreResult<Option<Vault>>;
+    async fn get_vault(&self, id: i64) -> StoreResult<Option<Vault>>;
 
     /// List all vaults for an account
-    async fn list_vaults_for_account(&self, account_id: Uuid) -> StoreResult<Vec<Vault>>;
+    async fn list_vaults_for_account(&self, account_id: i64) -> StoreResult<Vec<Vault>>;
 
     /// Delete a vault (cascades to relationships)
-    async fn delete_vault(&self, id: Uuid) -> StoreResult<()>;
+    async fn delete_vault(&self, id: i64) -> StoreResult<()>;
 
     /// Update a vault
     async fn update_vault(&self, vault: Vault) -> StoreResult<Vault>;

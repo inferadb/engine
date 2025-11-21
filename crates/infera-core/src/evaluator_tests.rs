@@ -64,11 +64,11 @@ async fn test_direct_check_allow() {
         resource: "doc:readme".to_string(),
         relation: "reader".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     };
-    store.write(Uuid::nil(), vec![relationship]).await.unwrap();
+    store.write(0i64, vec![relationship]).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -87,7 +87,7 @@ async fn test_direct_check_deny() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -111,11 +111,11 @@ async fn test_wildcard_user_allow() {
         resource: "doc:readme".to_string(),
         relation: "reader".to_string(),
         subject: "user:*".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     };
-    store.write(Uuid::nil(), vec![relationship]).await.unwrap();
+    store.write(0i64, vec![relationship]).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Check that subject:alice has access
     let request = EvaluateRequest {
@@ -164,11 +164,11 @@ async fn test_union_check() {
         resource: "folder:docs".to_string(),
         relation: "owner".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     };
-    store.write(Uuid::nil(), vec![relationship]).await.unwrap();
+    store.write(0i64, vec![relationship]).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -193,18 +193,18 @@ async fn test_relationship_to_userset() {
             resource: "folder:docs".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "parent".to_string(),
             subject: "folder:docs".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Alice should be able to view doc:readme through parent->viewer
     let request = EvaluateRequest {
@@ -229,11 +229,11 @@ async fn test_nested_relations() {
         resource: "doc:readme".to_string(),
         relation: "owner".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     }];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Alice should be viewer through owner->editor->viewer chain
     let request = EvaluateRequest {
@@ -257,11 +257,11 @@ async fn test_check_with_trace() {
         resource: "doc:readme".to_string(),
         relation: "reader".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     };
-    store.write(Uuid::nil(), vec![relationship]).await.unwrap();
+    store.write(0i64, vec![relationship]).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -282,7 +282,7 @@ async fn test_expand_direct_relation() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         resource: "doc:readme".to_string(),
@@ -303,7 +303,7 @@ async fn test_expand_union() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_complex_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -336,7 +336,7 @@ async fn test_expand_intersection() {
     )]);
 
     let store = Arc::new(MemoryBackend::new());
-    let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
+    let evaluator = Evaluator::new(store, Arc::new(schema), None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -371,7 +371,7 @@ async fn test_expand_exclusion() {
     )]);
 
     let store = Arc::new(MemoryBackend::new());
-    let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
+    let evaluator = Evaluator::new(store, Arc::new(schema), None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -391,7 +391,7 @@ async fn test_expand_nested() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_complex_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Expand doc.viewer which has: this | editor | parent->viewer
     let request = ExpandRequest {
@@ -412,7 +412,7 @@ async fn test_expand_relationship_to_userset() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_complex_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Get the viewer relation which has a relationship-to-userset component
     let request = ExpandRequest {
@@ -441,7 +441,7 @@ async fn test_expand_invalid_resource() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -459,7 +459,7 @@ async fn test_expand_unknown_type() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -477,7 +477,7 @@ async fn test_expand_unknown_relation() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -502,12 +502,12 @@ async fn test_expand_pagination() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: format!("user:{}", i),
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
     }
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // First page: get 10 users
     let request = ExpandRequest {
@@ -576,12 +576,12 @@ async fn test_expand_large_userset() {
             resource: "doc:large".to_string(),
             relation: "reader".to_string(),
             subject: format!("user:{}", i),
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
     }
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Request without pagination (get all users)
     let request = ExpandRequest {
@@ -635,41 +635,41 @@ async fn test_expand_deduplication_union() {
     // Write overlapping users to both relations
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![
                 // alice is both reader and editor
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "reader".to_string(),
                     subject: "user:alice".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
                     subject: "user:alice".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // bob is only reader
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "reader".to_string(),
                     subject: "user:bob".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // charlie is only editor
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
                     subject: "user:charlie".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
             ],
         )
         .await
         .unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -714,41 +714,41 @@ async fn test_expand_deduplication_intersection() {
     // Write test data
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![
                 // alice is both approver and editor (should be in intersection)
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "approver".to_string(),
                     subject: "user:alice".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
                     subject: "user:alice".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // bob is only approver (should NOT be in intersection)
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "approver".to_string(),
                     subject: "user:bob".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // charlie is only editor (should NOT be in intersection)
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
                     subject: "user:charlie".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
             ],
         )
         .await
         .unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -793,41 +793,41 @@ async fn test_expand_deduplication_exclusion() {
     // Write test data
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![
                 // alice is viewer but not blocked (should be in result)
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
                     subject: "user:alice".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // bob is viewer AND blocked (should NOT be in result)
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
                     subject: "user:bob".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "blocked".to_string(),
                     subject: "user:bob".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // charlie is viewer but not blocked (should be in result)
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
                     subject: "user:charlie".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
             ],
         )
         .await
         .unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -877,55 +877,55 @@ async fn test_expand_parallel_correctness() {
     // Write users to different relations (some overlap intentionally)
     store
         .write(
-            Uuid::nil(),
+            0i64,
             vec![
                 // alice is admin
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "admin".to_string(),
                     subject: "user:alice".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // bob is editor
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
                     subject: "user:bob".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // charlie is viewer
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
                     subject: "user:charlie".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // dave is contributor
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "contributor".to_string(),
                     subject: "user:dave".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 // eve is both editor and viewer (test deduplication)
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "editor".to_string(),
                     subject: "user:eve".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
                 Relationship {
                     resource: "doc:readme".to_string(),
                     relation: "viewer".to_string(),
                     subject: "user:eve".to_string(),
-                    vault: Uuid::nil(),
+                    vault: 0i64,
                 },
             ],
         )
         .await
         .unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ExpandRequest {
         limit: None,
@@ -981,18 +981,18 @@ async fn test_exclusion_check() {
             resource: "doc:readme".to_string(),
             relation: "editor".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "blocked".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
+    let evaluator = Evaluator::new(store, Arc::new(schema), None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -1032,18 +1032,18 @@ async fn test_intersection_check() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "employee".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
+    let evaluator = Evaluator::new(store, Arc::new(schema), None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -1082,11 +1082,11 @@ async fn test_intersection_check_deny() {
         resource: "doc:readme".to_string(),
         relation: "reader".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     }];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, Arc::new(schema), None, Uuid::nil());
+    let evaluator = Evaluator::new(store, Arc::new(schema), None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -1110,11 +1110,11 @@ async fn test_cache_hit() {
         resource: "doc:readme".to_string(),
         relation: "reader".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     }];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -1151,12 +1151,12 @@ async fn test_cache_disabled() {
         resource: "doc:readme".to_string(),
         relation: "reader".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     }];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
     // Create evaluator without cache
-    let evaluator = Evaluator::new_with_cache(store, schema, None, None, Uuid::nil());
+    let evaluator = Evaluator::new_with_cache(store, schema, None, None, 0i64);
 
     let request = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -1183,18 +1183,18 @@ async fn test_cache_different_requests() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Different subject
     let request1 = EvaluateRequest {
@@ -1236,24 +1236,24 @@ async fn test_list_resources_basic() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:secret".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListResourcesRequest {
         subject: "user:alice".to_string(),
@@ -1285,18 +1285,18 @@ async fn test_list_resources_no_access() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListResourcesRequest {
         subject: "user:charlie".to_string(),
@@ -1324,36 +1324,36 @@ async fn test_list_resources_with_limit() {
             resource: "doc:1".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:2".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:3".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:4".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:5".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Request with limit of 2
     let request = ListResourcesRequest {
@@ -1384,12 +1384,12 @@ async fn test_list_resources_pagination() {
             resource: format!("doc:{}", i),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
     }
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // First page: get 3 resources
     let request1 = ListResourcesRequest {
@@ -1430,7 +1430,7 @@ async fn test_list_resources_empty_type() {
     let schema = Arc::new(create_simple_schema());
 
     // No documents exist of this type
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListResourcesRequest {
         subject: "user:alice".to_string(),
@@ -1460,24 +1460,24 @@ async fn test_list_resources_with_union_relation() {
             resource: "doc:1".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:2".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:3".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListResourcesRequest {
         subject: "user:alice".to_string(),
@@ -1508,30 +1508,30 @@ async fn test_list_resources_with_wildcard_pattern() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme_v2".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:tutorial".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Test wildcard pattern "readme*"
     let request = ListResourcesRequest {
@@ -1562,24 +1562,24 @@ async fn test_list_resources_with_question_mark_pattern() {
             resource: "doc:file1".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:file2".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:file10".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Test ? pattern - matches single character
     let request = ListResourcesRequest {
@@ -1609,24 +1609,24 @@ async fn test_list_resources_with_mixed_pattern() {
             resource: "doc:project_abc_report".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:project_xyz_report".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:project_abc_summary".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Test mixed pattern "project_*_report"
     let request = ListResourcesRequest {
@@ -1661,24 +1661,24 @@ async fn test_list_subjects_basic() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:charlie".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "doc:readme".to_string(),
@@ -1708,11 +1708,11 @@ async fn test_list_subjects_no_subjects() {
         resource: "doc:guide".to_string(),
         relation: "reader".to_string(),
         subject: "user:alice".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     }];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "doc:readme".to_string(),
@@ -1740,30 +1740,30 @@ async fn test_list_subjects_with_subject_type_filter() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "group:admins".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "group:engineers".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store.clone(), schema.clone(), None, Uuid::nil());
+    let evaluator = Evaluator::new(store.clone(), schema.clone(), None, 0i64);
 
     // Filter by user type
     let request = ListSubjectsRequest {
@@ -1809,36 +1809,36 @@ async fn test_list_subjects_with_limit() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:charlie".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:dave".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:eve".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Request with limit of 2
     let request = ListSubjectsRequest {
@@ -1868,12 +1868,12 @@ async fn test_list_subjects_pagination() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: format!("user:{}", i),
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
     }
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // First page: get 3 subjects
     let request1 = ListSubjectsRequest {
@@ -1919,18 +1919,18 @@ async fn test_list_subjects_with_union_relation() {
             resource: "doc:1".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "doc:1".to_string(),
@@ -1960,18 +1960,18 @@ async fn test_list_subjects_with_computed_userset() {
             resource: "doc:1".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:1".to_string(),
             relation: "editor".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "doc:1".to_string(),
@@ -2000,24 +2000,24 @@ async fn test_list_subjects_with_related_object_userset() {
             resource: "folder:docs".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "parent".to_string(),
             subject: "folder:docs".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "doc:readme".to_string(),
@@ -2048,18 +2048,18 @@ async fn test_list_subjects_deduplication() {
             resource: "doc:1".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:1".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "doc:1".to_string(),
@@ -2081,7 +2081,7 @@ async fn test_list_subjects_invalid_resource_format() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "invalid-format".to_string(), // Missing colon
@@ -2100,7 +2100,7 @@ async fn test_list_subjects_unknown_type() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "unknown:123".to_string(),
@@ -2119,7 +2119,7 @@ async fn test_list_subjects_unknown_relation() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     let request = ListSubjectsRequest {
         resource: "doc:readme".to_string(),
@@ -2172,24 +2172,24 @@ async fn test_list_relationships_no_filters() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:charlie".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // List all relationships with no filters
     let request = ListRelationshipsRequest {
@@ -2216,24 +2216,24 @@ async fn test_list_relationships_filter_by_object() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Filter by resource
     let request = ListRelationshipsRequest {
@@ -2260,24 +2260,24 @@ async fn test_list_relationships_filter_by_relation() {
             resource: "doc:readme".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "owner".to_string(),
             subject: "user:charlie".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Filter by relation
     let request = ListRelationshipsRequest {
@@ -2304,24 +2304,24 @@ async fn test_list_relationships_filter_by_user() {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Filter by subject
     let request = ListRelationshipsRequest {
@@ -2348,30 +2348,30 @@ async fn test_list_relationships_multiple_filters() {
             resource: "doc:readme".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:readme".to_string(),
             relation: "owner".to_string(),
             subject: "user:bob".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:guide".to_string(),
             relation: "owner".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Filter by resource + relation + subject
     let request = ListRelationshipsRequest {
@@ -2402,12 +2402,12 @@ async fn test_list_relationships_pagination() {
             resource: format!("doc:{}", i),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
     }
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // First page with default limit (100)
     let request = ListRelationshipsRequest {
@@ -2450,12 +2450,12 @@ async fn test_list_relationships_custom_limit() {
             resource: format!("doc:{}", i),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         });
     }
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Custom limit of 10
     let request = ListRelationshipsRequest {
@@ -2477,7 +2477,7 @@ async fn test_list_relationships_max_limit() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Request with limit > max (1000)
     let request = ListRelationshipsRequest {
@@ -2499,7 +2499,7 @@ async fn test_list_relationships_empty_result() {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_simple_schema());
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Query with no matching relationships
     let request = ListRelationshipsRequest {
@@ -2530,11 +2530,11 @@ async fn test_wildcard_check_allow() {
         resource: "doc:public".to_string(),
         relation: "reader".to_string(),
         subject: "user:*".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     };
-    store.write(Uuid::nil(), vec![wildcard_relationship]).await.unwrap();
+    store.write(0i64, vec![wildcard_relationship]).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Test that alice (a user) can read
     let request_alice = EvaluateRequest {
@@ -2571,11 +2571,11 @@ async fn test_wildcard_type_mismatch_deny() {
         resource: "doc:public".to_string(),
         relation: "reader".to_string(),
         subject: "user:*".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     };
-    store.write(Uuid::nil(), vec![wildcard_relationship]).await.unwrap();
+    store.write(0i64, vec![wildcard_relationship]).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Test that a group cannot read (type mismatch)
     let request_group = EvaluateRequest {
@@ -2601,18 +2601,18 @@ async fn test_wildcard_with_specific_override() {
             resource: "doc:public".to_string(),
             relation: "reader".to_string(),
             subject: "user:*".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         Relationship {
             resource: "doc:public".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Both specific and wildcard should allow access
     let request = EvaluateRequest {
@@ -2637,11 +2637,11 @@ async fn test_wildcard_public_resource_scenario() {
         resource: "doc:announcement".to_string(),
         relation: "reader".to_string(),
         subject: "user:*".to_string(),
-        vault: Uuid::nil(),
+        vault: 0i64,
     };
-    store.write(Uuid::nil(), vec![public_doc]).await.unwrap();
+    store.write(0i64, vec![public_doc]).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Multiple different users should all have access
     let users = vec!["user:alice", "user:bob", "user:charlie", "user:david"];
@@ -2674,19 +2674,19 @@ async fn test_wildcard_mixed_with_regular_relationships() {
             resource: "doc:public_readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:*".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
         // Private document - only Alice can read
         Relationship {
             resource: "doc:private_notes".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         },
     ];
-    store.write(Uuid::nil(), relationships).await.unwrap();
+    store.write(0i64, relationships).await.unwrap();
 
-    let evaluator = Evaluator::new(store, schema, None, Uuid::nil());
+    let evaluator = Evaluator::new(store, schema, None, 0i64);
 
     // Alice can read both
     let alice_public = EvaluateRequest {

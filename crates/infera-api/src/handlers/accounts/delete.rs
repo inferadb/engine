@@ -4,7 +4,6 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use uuid::Uuid;
 
 use crate::{
     ApiError, AppState, content_negotiation::AcceptHeader,
@@ -42,7 +41,7 @@ pub async fn delete_account(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(_format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<Uuid>,
+    Path(account_id): Path<i64>,
 ) -> Result<StatusCode, ApiError> {
     // Require admin scope
     require_admin_scope(&auth.0)?;
@@ -85,7 +84,7 @@ mod tests {
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
-        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -96,7 +95,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         )
     }
 
@@ -110,15 +109,15 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::nil(),
-            account: Uuid::nil(),
+            vault: 0i64,
+            account: 0i64,
         }
     }
 
     #[tokio::test]
     async fn test_delete_account_requires_admin() {
         let state = create_test_state();
-        let account_id = Uuid::new_v4();
+        let account_id = 999i64;
 
         let result = delete_account(
             infera_auth::extractor::OptionalAuth(None),
@@ -140,7 +139,7 @@ mod tests {
         let state = create_test_state();
 
         // Create test account
-        let account = Account::new("Test Account".to_string());
+        let account = Account::new(13131313131313i64, "Test Account".to_string());
         let created = state.store.create_account(account).await.unwrap();
 
         let result = delete_account(
@@ -164,11 +163,11 @@ mod tests {
         let state = create_test_state();
 
         // Create test account
-        let account = Account::new("Test Account".to_string());
+        let account = Account::new(14141414141414i64, "Test Account".to_string());
         let created_account = state.store.create_account(account).await.unwrap();
 
         // Create vault for this account
-        let vault = Vault::new(created_account.id, "Test Vault".to_string());
+        let vault = Vault::new(15151515151515i64, created_account.id, "Test Vault".to_string());
         let created_vault = state.store.create_vault(vault).await.unwrap();
 
         // Delete account
@@ -189,7 +188,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_account_not_found() {
         let state = create_test_state();
-        let account_id = Uuid::new_v4();
+        let account_id = 888i64;
 
         let result = delete_account(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),

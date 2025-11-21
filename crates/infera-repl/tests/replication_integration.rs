@@ -20,7 +20,7 @@ use tokio::{sync::RwLock, time::sleep};
 /// Helper to create a test relationship
 fn test_relationship(resource: &str, relation: &str, subject: &str) -> Relationship {
     Relationship {
-        vault: uuid::Uuid::nil(),
+        vault: 0,
         resource: resource.to_string(),
         relation: relation.to_string(),
         subject: subject.to_string(),

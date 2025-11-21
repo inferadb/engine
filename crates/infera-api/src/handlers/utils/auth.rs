@@ -1,7 +1,6 @@
 //! Authentication and authorization utility functions
 
 use infera_const::scopes::*;
-use uuid::Uuid;
 
 use crate::{ApiError, Result};
 
@@ -9,11 +8,11 @@ use crate::{ApiError, Result};
 ///
 /// # Arguments
 /// * `auth` - Optional authentication context
-/// * `default_vault` - Default vault UUID to use if no auth context
+/// * `default_vault` - Default vault ID to use if no auth context
 ///
 /// # Returns
-/// The vault UUID from the auth context, or the default vault
-pub fn get_vault(auth: &Option<infera_types::AuthContext>, default_vault: Uuid) -> Uuid {
+/// The vault ID from the auth context, or the default vault
+pub fn get_vault(auth: &Option<infera_types::AuthContext>, default_vault: i64) -> i64 {
     auth.as_ref().map(|ctx| ctx.vault).unwrap_or(default_vault)
 }
 
@@ -58,7 +57,7 @@ pub fn require_admin_scope(auth: &Option<infera_types::AuthContext>) -> Result<(
 /// Ok(()) if authorized, Err otherwise
 pub fn authorize_account_access(
     auth: &Option<infera_types::AuthContext>,
-    account_id: Uuid,
+    account_id: i64,
 ) -> Result<()> {
     match auth {
         None => Err(ApiError::Unauthorized("Authentication required".to_string())),
@@ -130,10 +129,10 @@ pub fn authorize_account_access(
 /// ```
 pub fn authorize_request(
     auth: &Option<infera_types::AuthContext>,
-    default_vault: Uuid,
+    default_vault: i64,
     auth_enabled: bool,
     scopes: &[&str],
-) -> Result<Uuid> {
+) -> Result<i64> {
     // Extract vault from auth context or use default
     let vault = get_vault(auth, default_vault);
 
@@ -185,15 +184,15 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap(),
-            account: Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap(),
+            vault: 1,
+            account: 2,
         }
     }
 
     #[test]
     fn test_authorize_request_with_auth_and_valid_scope() {
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
-        let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
+        let default_vault = 99i64;
 
         let result =
             authorize_request(&Some(auth_ctx.clone()), default_vault, true, &[SCOPE_CHECK]);
@@ -204,8 +203,8 @@ mod tests {
 
     #[test]
     fn test_authorize_request_uses_auth_vault_not_default() {
-        let auth_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
+        let auth_vault = 1i64;
+        let default_vault = 99i64;
 
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
 
@@ -220,7 +219,7 @@ mod tests {
     #[test]
     fn test_authorize_request_with_auth_and_invalid_scope() {
         let auth_ctx = create_test_auth_context(vec![SCOPE_READ.to_string()]);
-        let default_vault = Uuid::nil();
+        let default_vault = 0i64;
 
         let result = authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_WRITE]);
 
@@ -231,7 +230,7 @@ mod tests {
     #[test]
     fn test_authorize_request_with_multiple_scopes_any_match() {
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
-        let default_vault = Uuid::nil();
+        let default_vault = 0i64;
 
         let result =
             authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_EXPAND, SCOPE_CHECK]);
@@ -242,7 +241,7 @@ mod tests {
     #[test]
     fn test_authorize_request_with_multiple_scopes_none_match() {
         let auth_ctx = create_test_auth_context(vec![SCOPE_ADMIN.to_string()]);
-        let default_vault = Uuid::nil();
+        let default_vault = 0i64;
 
         let result =
             authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_EXPAND, SCOPE_CHECK]);
@@ -253,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_authorize_request_no_auth_when_required() {
-        let default_vault = Uuid::nil();
+        let default_vault = 0i64;
 
         let result = authorize_request(&None, default_vault, true, &[SCOPE_CHECK]);
 
@@ -263,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_authorize_request_no_auth_when_not_required() {
-        let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
+        let default_vault = 99i64;
 
         let result = authorize_request(&None, default_vault, false, &[]);
 
@@ -274,7 +273,7 @@ mod tests {
     #[test]
     fn test_authorize_request_empty_scopes() {
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
-        let default_vault = Uuid::nil();
+        let default_vault = 0i64;
 
         // Empty scopes = no scope check required
         let result = authorize_request(&Some(auth_ctx), default_vault, true, &[]);
@@ -285,8 +284,8 @@ mod tests {
     #[test]
     fn test_authorize_request_nil_vault_rejected() {
         let mut auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
-        auth_ctx.vault = Uuid::nil();
-        let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
+        auth_ctx.vault = 0i64;
+        let default_vault = 99i64;
 
         let result = authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_CHECK]);
 
@@ -296,8 +295,8 @@ mod tests {
 
     #[test]
     fn test_get_vault_with_auth() {
-        let vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
+        let vault = 1i64;
+        let default_vault = 99i64;
         let mut auth_ctx = create_test_auth_context(vec![]);
         auth_ctx.vault = vault;
 
@@ -308,7 +307,7 @@ mod tests {
 
     #[test]
     fn test_get_vault_without_auth_uses_default() {
-        let default_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000099").unwrap();
+        let default_vault = 99i64;
 
         let result = get_vault(&None, default_vault);
 
@@ -345,7 +344,7 @@ mod tests {
     #[test]
     fn test_authorize_account_access_as_admin() {
         let auth_ctx = create_test_auth_context(vec![SCOPE_ADMIN.to_string()]);
-        let account_id = Uuid::new_v4();
+        let account_id = 999i64;
 
         let result = authorize_account_access(&Some(auth_ctx), account_id);
 
@@ -354,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_authorize_account_access_as_owner() {
-        let account_id = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
+        let account_id = 2i64;
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
 
         let result = authorize_account_access(&Some(auth_ctx), account_id);
@@ -365,7 +364,7 @@ mod tests {
     #[test]
     fn test_authorize_account_access_denied() {
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
-        let other_account = Uuid::new_v4();
+        let other_account = 888i64;
 
         let result = authorize_account_access(&Some(auth_ctx), other_account);
 
@@ -375,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_authorize_account_access_no_auth() {
-        let account_id = Uuid::new_v4();
+        let account_id = 777i64;
 
         let result = authorize_account_access(&None, account_id);
 

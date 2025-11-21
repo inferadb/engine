@@ -32,7 +32,6 @@ use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::MemoryBackend;
 use infera_types::{EvaluateRequest, ExpandRequest, Relationship};
-use uuid::Uuid;
 
 /// Create test schema
 fn create_test_schema() -> Arc<Schema> {
@@ -55,8 +54,8 @@ fn create_test_schema() -> Arc<Schema> {
 async fn create_test_state() -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let vault = Uuid::new_v4();
-    let account = Uuid::new_v4();
+    let vault = 12121212121212i64;
+    let account = 13131313131313i64;
 
     let mut config = Config::default();
     config.cache.enabled = true;

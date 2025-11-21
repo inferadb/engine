@@ -7,7 +7,6 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
 
 // ============================================================================
 // Multi-Tenancy Types
@@ -36,19 +35,14 @@ pub use auth::{AuthContext, AuthMethod};
 /// All relationships are scoped to a specific Vault for multi-tenant isolation.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Relationship {
-    /// The vault this relationship belongs to
-    /// During deserialization (e.g., from API requests), this defaults to nil UUID
+    /// The vault this relationship belongs to (Snowflake ID from Management API)
+    /// During deserialization (e.g., from API requests), this defaults to 0
     /// and should be set by the API layer based on authentication context
-    #[serde(default = "default_vault")]
-    pub vault: Uuid,
+    #[serde(default)]
+    pub vault: i64,
     pub resource: String,
     pub relation: String,
     pub subject: String,
-}
-
-/// Default vault ID for deserialization
-fn default_vault() -> Uuid {
-    Uuid::nil()
 }
 
 impl Relationship {
@@ -464,7 +458,7 @@ pub struct UpdateAccountRequest {
 /// Account response with full details
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountResponse {
-    pub id: Uuid,
+    pub id: i64,
     pub name: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -495,14 +489,14 @@ pub struct UpdateVaultRequest {
     pub name: Option<String>,
     /// Optional new account owner (admin only)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub account: Option<Uuid>,
+    pub account: Option<i64>,
 }
 
 /// Vault response with full details
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaultResponse {
-    pub id: Uuid,
-    pub account: Uuid,
+    pub id: i64,
+    pub account: i64,
     pub name: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -611,7 +605,7 @@ mod tests {
     #[test]
     fn test_is_wildcard_subject() {
         let wildcard = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:*".to_string(),
@@ -619,7 +613,7 @@ mod tests {
         assert!(wildcard.is_wildcard_subject());
 
         let normal = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -630,7 +624,7 @@ mod tests {
     #[test]
     fn test_subject_type() {
         let rel = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -638,7 +632,7 @@ mod tests {
         assert_eq!(rel.subject_type(), Some("user"));
 
         let wildcard = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "group:*".to_string(),
@@ -649,7 +643,7 @@ mod tests {
     #[test]
     fn test_subject_id() {
         let rel = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -657,7 +651,7 @@ mod tests {
         assert_eq!(rel.subject_id(), Some("alice"));
 
         let wildcard = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:*".to_string(),
@@ -668,7 +662,7 @@ mod tests {
     #[test]
     fn test_matches_subject() {
         let wildcard = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:*".to_string(),
@@ -684,7 +678,7 @@ mod tests {
 
         // Exact match should work
         let exact = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -697,7 +691,7 @@ mod tests {
     fn test_validate_wildcard_placement() {
         // Valid: wildcard in subject
         let valid = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:*".to_string(),
@@ -706,7 +700,7 @@ mod tests {
 
         // Valid: no wildcard
         let valid_no_wildcard = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -715,7 +709,7 @@ mod tests {
 
         // Invalid: wildcard in resource
         let invalid_resource = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:*".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -724,7 +718,7 @@ mod tests {
 
         // Invalid: wildcard in relation
         let invalid_relation = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "view*".to_string(),
             subject: "user:alice".to_string(),
@@ -733,7 +727,7 @@ mod tests {
 
         // Invalid: wildcard not at end of subject
         let invalid_subject_position = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:*:subgroup".to_string(),
@@ -744,7 +738,7 @@ mod tests {
     #[test]
     fn test_wildcard_with_different_types() {
         let group_wildcard = Relationship {
-            vault: Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "group:*".to_string(),

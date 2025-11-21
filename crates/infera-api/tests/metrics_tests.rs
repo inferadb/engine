@@ -23,7 +23,6 @@ use tonic::{
     metadata::MetadataValue,
     transport::{Channel, Server},
 };
-use uuid::Uuid;
 
 fn create_test_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![TypeDef::new(
@@ -45,8 +44,8 @@ fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> 
         None, // No WASM host for tests
         Arc::new(config),
         jwks_cache,
-        Uuid::nil(),
-        Uuid::nil(),
+        0i64,
+        0i64,
     );
 
     let health_tracker = state.health_tracker.clone();

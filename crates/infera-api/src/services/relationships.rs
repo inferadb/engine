@@ -10,7 +10,6 @@ use infera_types::{
     Relationship, Revision,
 };
 use infera_wasm::WasmHost;
-use uuid::Uuid;
 
 use super::validation::{
     validate_delete_filter, validate_list_relationships_request, validate_relationship,
@@ -54,7 +53,7 @@ impl RelationshipService {
     #[tracing::instrument(skip(self, relationships), fields(vault = %vault, count = relationships.len()))]
     pub async fn write_relationships(
         &self,
-        vault: Uuid,
+        vault: i64,
         mut relationships: Vec<Relationship>,
     ) -> Result<Revision, ApiError> {
         if relationships.is_empty() {
@@ -103,7 +102,7 @@ impl RelationshipService {
     #[tracing::instrument(skip(self), fields(vault = %vault))]
     pub async fn delete_relationships(
         &self,
-        vault: Uuid,
+        vault: i64,
         filter: DeleteFilter,
         limit: Option<usize>,
     ) -> Result<DeleteResponse, ApiError> {
@@ -148,7 +147,7 @@ impl RelationshipService {
     #[tracing::instrument(skip(self), fields(vault = %vault))]
     pub async fn list_relationships(
         &self,
-        vault: Uuid,
+        vault: i64,
         request: ListRelationshipsRequest,
     ) -> Result<ListRelationshipsResponse, ApiError> {
         // Validate request
@@ -209,7 +208,7 @@ impl RelationshipService {
     /// # Arguments
     /// * `vault` - The vault ID to invalidate cache for
     #[tracing::instrument(skip(self), fields(vault = %vault))]
-    pub async fn invalidate_cache_for_vault(&self, vault: Uuid) {
+    pub async fn invalidate_cache_for_vault(&self, vault: i64) {
         if let Some(cache) = &self.cache {
             cache.invalidate_vault(vault).await;
             tracing::debug!("Cache invalidated for entire vault");
@@ -224,7 +223,7 @@ mod tests {
 
     use super::*;
 
-    async fn create_test_service() -> (RelationshipService, Uuid) {
+    async fn create_test_service() -> (RelationshipService, i64) {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
 
         let schema = Arc::new(Schema::new(vec![TypeDef {
@@ -236,7 +235,7 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let vault = Uuid::new_v4();
+        let vault = 12345678901234i64;
         let service = RelationshipService::new(store, schema, None, None);
 
         (service, vault)
@@ -398,8 +397,8 @@ mod tests {
             forbids: vec![],
         }]));
 
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 11111111111111i64;
+        let vault_b = 22222222222222i64;
 
         let service = RelationshipService::new(store, schema, None, None);
 

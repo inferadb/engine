@@ -4,9 +4,16 @@
 //! All formatting functions ensure consistent structure, localization, and compliance with
 //! the AuthZEN specification.
 
+use std::sync::atomic::{AtomicI64, Ordering};
+
 use infera_types::Decision;
 use serde_json::{Value, json};
-use uuid::Uuid;
+
+static ID_COUNTER: AtomicI64 = AtomicI64::new(1);
+
+fn generate_id() -> i64 {
+    ID_COUNTER.fetch_add(1, Ordering::SeqCst)
+}
 
 /// Formats an AuthZEN evaluation response with decision and context
 ///
@@ -49,7 +56,7 @@ pub fn format_evaluation_response(
     resource: &str,
 ) -> Value {
     let decision_bool = matches!(decision, Decision::Allow);
-    let evaluation_id = Uuid::new_v4();
+    let evaluation_id = generate_id();
 
     let reason = if decision_bool {
         format!("{} has {} permission on {}", subject, permission, resource)
@@ -136,7 +143,7 @@ pub fn format_evaluation_response_with_context(decision: bool, context: Value) -
 /// assert!(obj.get("error").is_some());
 /// ```
 pub fn format_error_context(error_message: &str) -> Value {
-    let error_id = Uuid::new_v4();
+    let error_id = generate_id();
 
     json!({
         "id": error_id.to_string(),
@@ -232,7 +239,7 @@ pub fn format_reason_admin(message: &str) -> Value {
 /// assert!(obj.get("reason_admin").is_some());
 /// ```
 pub fn create_context_with_reason(reason: &str) -> Value {
-    let id = Uuid::new_v4();
+    let id = generate_id();
 
     json!({
         "id": id.to_string(),

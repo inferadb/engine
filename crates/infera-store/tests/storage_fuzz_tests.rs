@@ -8,11 +8,9 @@ use std::sync::Arc;
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{Relationship, RelationshipKey, Revision};
 use proptest::prelude::*;
-use uuid::Uuid;
-
 // Test vault ID for all fuzz tests
-fn test_vault_id() -> Uuid {
-    Uuid::from_u128(0x0123456789abcdef0123456789abcdef)
+fn test_vault_id() -> i64 {
+    12345678901234i64
 }
 
 /// Generate arbitrary relationship data

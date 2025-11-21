@@ -8,7 +8,6 @@ use std::sync::Arc;
 use infera_store::{InferaStore, MemoryBackend};
 use infera_test_fixtures::test_relationship_with_vault;
 use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
-use uuid::Uuid;
 
 // Test constants for concurrent operations
 /// Number of concurrent write operations per vault in basic concurrency tests.
@@ -21,7 +20,7 @@ const CONCURRENT_WRITES_BASIC: usize = 100;
 const CONCURRENT_OPS_LOAD: usize = 200;
 
 /// Helper to create a relationship for a specific vault
-fn create_relationship(vault: Uuid, resource: &str, relation: &str, subject: &str) -> Relationship {
+fn create_relationship(vault: i64, resource: &str, relation: &str, subject: &str) -> Relationship {
     test_relationship_with_vault(vault, resource, relation, subject)
 }
 
@@ -32,8 +31,8 @@ fn create_relationship(vault: Uuid, resource: &str, relation: &str, subject: &st
 #[tokio::test]
 async fn test_relationships_written_to_vault_a_not_visible_in_vault_b() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let vault_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
+    let vault_a = 111111111111i64;
+    let vault_b = 222222222222i64;
 
     // Write to vault A
     store
@@ -95,9 +94,9 @@ async fn test_relationships_written_to_vault_a_not_visible_in_vault_b() {
 #[tokio::test]
 async fn test_concurrent_writes_to_different_vaults_dont_interfere() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let vault_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
-    let vault_c = Uuid::new_v4();
+    let vault_a = 333333333333i64;
+    let vault_b = 444444444444i64;
+    let vault_c = 555555555555i64;
 
     // Spawn concurrent writes
     let store_a = Arc::clone(&store);
@@ -181,8 +180,8 @@ async fn test_concurrent_writes_to_different_vaults_dont_interfere() {
 #[tokio::test]
 async fn test_revision_tokens_are_vault_scoped() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let vault_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
+    let vault_a = 666666666666i64;
+    let vault_b = 777777777777i64;
 
     // Write to vault A
     let rev_a1 = store
@@ -226,8 +225,8 @@ async fn test_revision_tokens_are_vault_scoped() {
 #[tokio::test]
 async fn test_delete_operations_only_affect_target_vault() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let vault_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
+    let vault_a = 888888888888i64;
+    let vault_b = 999999999999i64;
 
     // Write same relationship key to both vaults
     store
@@ -302,8 +301,8 @@ async fn test_no_cache_leakage_between_vaults() {
 #[tokio::test]
 async fn test_filter_based_operations_scoped_to_vault() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let vault_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
+    let vault_a = 111111111112i64;
+    let vault_b = 222222222223i64;
 
     // Write relationships to both vaults
     store
@@ -371,7 +370,7 @@ async fn test_100_vaults_with_concurrent_operations() {
     let ops_per_vault = 10;
 
     // Create 100 vaults
-    let vaults: Vec<Uuid> = (0..vault_count).map(|_| Uuid::new_v4()).collect();
+    let vaults: Vec<i64> = (0..vault_count).map(|i| 10000000000i64 + i as i64).collect();
 
     // Spawn concurrent operations for each vault
     let mut handles = vec![];
@@ -426,8 +425,8 @@ async fn test_100_vaults_with_concurrent_operations() {
 #[tokio::test]
 async fn test_vault_isolation_under_load() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let vault_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
+    let vault_a = 333333333334i64;
+    let vault_b = 444444444445i64;
 
     // Concurrent reads and writes to different vaults
     let store_a = Arc::clone(&store);

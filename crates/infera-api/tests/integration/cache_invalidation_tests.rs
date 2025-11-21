@@ -8,7 +8,6 @@
 //! - Vault isolation is maintained in cache operations
 
 use infera_types::{Decision, EvaluateRequest};
-use uuid::Uuid;
 
 use crate::{
     create_multi_vault_test_state, create_test_relationship, create_test_state,
@@ -19,7 +18,7 @@ use crate::{
 #[tokio::test]
 async fn test_cache_population_on_evaluation() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 11111111111111i64;
 
     // Write a relationship
     let relationships =
@@ -59,7 +58,7 @@ async fn test_cache_population_on_evaluation() {
 #[tokio::test]
 async fn test_cache_invalidation_on_write() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 22222222222222i64;
 
     // Write initial relationship
     let relationships =
@@ -107,7 +106,7 @@ async fn test_cache_invalidation_on_write() {
 #[tokio::test]
 async fn test_cache_invalidation_on_delete() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 33333333333333i64;
 
     // Write relationship
     let relationships =
@@ -160,7 +159,7 @@ async fn test_cache_invalidation_on_delete() {
 #[tokio::test]
 async fn test_selective_cache_invalidation() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 44444444444444i64;
 
     // Write relationships for multiple resources
     let relationships = vec![
@@ -240,7 +239,7 @@ async fn test_selective_cache_invalidation() {
 #[tokio::test]
 async fn test_bulk_cache_invalidation() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 55555555555555i64;
 
     // Write relationships
     let relationships = vec![
@@ -358,7 +357,7 @@ async fn test_vault_cache_isolation() {
 #[tokio::test]
 async fn test_resource_specific_invalidation_within_vault() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 66666666666666i64;
 
     // Write relationships for two resources
     let relationships = vec![
@@ -418,7 +417,7 @@ async fn test_resource_specific_invalidation_within_vault() {
 #[tokio::test]
 async fn test_multiple_writes_same_resource() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 77777777777777i64;
 
     // Initial write
     let relationships =
@@ -478,7 +477,7 @@ async fn test_multiple_writes_same_resource() {
 #[tokio::test]
 async fn test_vault_wide_invalidation() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 88888888888888i64;
 
     // Write multiple relationships for different resources
     let relationships = vec![

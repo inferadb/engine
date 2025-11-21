@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn test_change_creation() {
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -306,7 +306,7 @@ mod tests {
     #[test]
     fn test_change_with_metadata() {
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn test_resource_type_extraction() {
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -338,13 +338,13 @@ mod tests {
     #[test]
     fn test_filter_resource_type() {
         let relationship1 = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
         let relationship2 = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "folder:shared".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -361,13 +361,13 @@ mod tests {
     #[test]
     fn test_filter_relation() {
         let relationship1 = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
         let relationship2 = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "editor".to_string(),
             subject: "user:alice".to_string(),
@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn test_filter_operation() {
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -404,7 +404,7 @@ mod tests {
         let mut stream = feed.subscribe().await.unwrap();
 
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -425,7 +425,7 @@ mod tests {
         let mut stream2 = feed.subscribe().await.unwrap();
 
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -447,13 +447,13 @@ mod tests {
         let mut stream = feed.subscribe_filtered("doc".to_string()).await.unwrap();
 
         let relationship1 = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
         let relationship2 = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "folder:shared".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
@@ -484,7 +484,7 @@ mod tests {
         assert!(result.is_none());
 
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
@@ -508,7 +508,7 @@ mod tests {
         let _stream2 = feed.subscribe().await.unwrap();
 
         let relationship = Relationship {
-            vault: uuid::Uuid::nil(),
+            vault: 0,
             resource: "doc:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),

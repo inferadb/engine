@@ -17,7 +17,6 @@ use thiserror::Error;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer};
 use tracing::info;
-use uuid::Uuid;
 
 pub mod adapters;
 pub mod content_negotiation;
@@ -147,9 +146,9 @@ pub struct AppState {
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
     /// Default vault ID used when authentication is disabled
-    pub default_vault: Uuid,
+    pub default_vault: i64,
     /// Default account ID used when authentication is disabled
-    pub default_account: Uuid,
+    pub default_account: i64,
 
     // Shared cache for authorization decisions and expansions
     pub auth_cache: Arc<infera_cache::AuthCache>,
@@ -173,8 +172,8 @@ impl AppState {
         wasm_host: Option<Arc<infera_wasm::WasmHost>>,
         config: Arc<Config>,
         jwks_cache: Option<Arc<JwksCache>>,
-        default_vault: Uuid,
-        default_account: Uuid,
+        default_vault: i64,
+        default_account: i64,
     ) -> Self {
         let health_tracker = Arc::new(health::HealthTracker::new());
 
@@ -311,30 +310,42 @@ pub fn create_router(state: AppState) -> Result<Router> {
         .route("/access/v1/search/resource", post(handlers::authzen::search::post_search_resource))
         .route("/access/v1/search/subject", post(handlers::authzen::search::post_search_subject));
 
-    // Create VaultVerifier instance based on configuration
-    let vault_verifier: Arc<dyn infera_auth::VaultVerifier> = if state.config.auth.enabled
-        && !state.config.auth.management_api_url.is_empty()
-    {
-        // Use management API for vault verification
-        let management_client = infera_auth::ManagementClient::new(
-            state.config.auth.management_api_url.clone(),
-            state.config.auth.management_api_timeout_ms,
-        )
-        .map_err(|e| ApiError::Internal(format!("Failed to create management client: {}", e)))?;
+    // Create VaultVerifier and CertificateCache instances based on configuration
+    let (vault_verifier, cert_cache): (
+        Arc<dyn infera_auth::VaultVerifier>,
+        Option<Arc<infera_auth::CertificateCache>>,
+    ) = if state.config.auth.enabled && !state.config.auth.management_api_url.is_empty() {
+        // Use management API for vault verification and certificate fetching
+        let management_client = Arc::new(
+            infera_auth::ManagementClient::new(
+                state.config.auth.management_api_url.clone(),
+                state.config.auth.management_api_timeout_ms,
+            )
+            .map_err(|e| ApiError::Internal(format!("Failed to create management client: {}", e)))?,
+        );
 
         info!(
-            "Vault verification ENABLED - using management API at {}",
+            "Vault verification and certificate cache ENABLED - using management API at {}",
             state.config.auth.management_api_url
         );
-        Arc::new(infera_auth::ManagementApiVaultVerifier::new(
-            Arc::new(management_client),
+
+        let vault_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
+            Arc::clone(&management_client),
             std::time::Duration::from_secs(300), // 5 min vault cache TTL
             std::time::Duration::from_secs(600), // 10 min org cache TTL
-        ))
+        ));
+
+        let cert_cache = Arc::new(infera_auth::CertificateCache::new(
+            state.config.auth.management_api_url.clone(),
+            std::time::Duration::from_secs(300), // 5 min cert cache TTL
+            1000,                                 // Max 1000 cached certificates
+        ).map_err(|e| ApiError::Internal(format!("Failed to create certificate cache: {}", e)))?);
+
+        (vault_verifier, Some(cert_cache))
     } else {
         // Use no-op verifier when auth is disabled or management API not configured
         info!("Vault verification DISABLED - using no-op verifier");
-        Arc::new(infera_auth::NoOpVaultVerifier)
+        (Arc::new(infera_auth::NoOpVaultVerifier), None)
     };
 
     // Apply authentication middleware (either with JWT validation or default context)
@@ -351,6 +362,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
             // Apply auth middleware first, then vault validation middleware
             // Note: Layers are applied in reverse order, so vault validation runs after auth
             let vault_verifier_clone = Arc::clone(&vault_verifier);
+            let cert_cache_clone = cert_cache.clone();
             protected_routes
                 .layer(axum::middleware::from_fn(move |req, next| {
                     let verifier = Arc::clone(&vault_verifier_clone);
@@ -361,11 +373,13 @@ pub fn create_router(state: AppState) -> Result<Router> {
                 }))
                 .layer(axum::middleware::from_fn(move |req, next| {
                     let jwks_cache = Arc::clone(&jwks_cache);
+                    let cert_cache = cert_cache_clone.clone();
                     infera_auth::middleware::optional_auth_middleware(
                         auth_enabled,
                         default_vault,
                         default_account,
                         jwks_cache,
+                        cert_cache,
                         req,
                         next,
                     )
@@ -398,6 +412,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
                 default_vault,
                 default_account,
                 jwks_cache,
+                None, // No cert cache when auth is disabled
                 req,
                 next,
             )
@@ -485,8 +500,8 @@ pub async fn serve(
     wasm_host: Option<Arc<infera_wasm::WasmHost>>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
-    default_vault: Uuid,
-    default_account: Uuid,
+    default_vault: i64,
+    default_account: i64,
 ) -> anyhow::Result<()> {
     // Create AppState with services
     let state = AppState::new(
@@ -520,11 +535,15 @@ pub async fn serve(
     });
 
     // Serve with graceful shutdown
-    axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            shutdown_rx.await.ok();
-        })
-        .await?;
+    // Use into_make_service_with_connect_info to provide client IP for rate limiting
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(async {
+        shutdown_rx.await.ok();
+    })
+    .await?;
 
     Ok(())
 }
@@ -536,8 +555,8 @@ pub async fn serve_grpc(
     wasm_host: Option<Arc<infera_wasm::WasmHost>>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
-    default_vault: Uuid,
-    default_account: Uuid,
+    default_vault: i64,
+    default_account: i64,
 ) -> anyhow::Result<()> {
     use grpc::proto::infera_service_server::InferaServiceServer;
     use tonic::transport::Server;
@@ -625,8 +644,8 @@ pub async fn serve_both(
     wasm_host: Option<Arc<infera_wasm::WasmHost>>,
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
-    default_vault: Uuid,
-    default_account: Uuid,
+    default_vault: i64,
+    default_account: i64,
 ) -> anyhow::Result<()> {
     let rest_store = Arc::clone(&store);
     let rest_schema = Arc::clone(&schema);
@@ -676,8 +695,7 @@ mod tests {
     use infera_types::{UsersetNodeType, UsersetTree};
     use serde_json::json;
     use tower::ServiceExt;
-    use uuid::Uuid;
-
+    
     use super::*; // for `oneshot`
 
     fn create_test_state() -> AppState {
@@ -695,9 +713,9 @@ mod tests {
                 ),
             ],
         )]));
-        // Use a test vault ID
-        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let test_account = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
+        // Use test Snowflake IDs
+        let test_vault: i64 = 1;
+        let test_account: i64 = 2;
 
         let mut config = infera_config::Config::default();
         // Disable auth and rate limiting for tests

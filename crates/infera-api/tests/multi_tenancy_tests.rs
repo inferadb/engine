@@ -13,7 +13,6 @@ use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::Relationship;
-use uuid::Uuid;
 
 /// Create a test schema for multi-tenant testing
 fn create_test_schema() -> Arc<Schema> {
@@ -28,15 +27,15 @@ fn create_test_schema() -> Arc<Schema> {
 }
 
 /// Create test state with multiple vaults
-fn create_multi_vault_test_state() -> (AppState, Uuid, Uuid, Uuid, Uuid) {
+fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
     // Create two separate vault/account pairs for testing
-    let vault_a = Uuid::new_v4();
-    let account_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
-    let account_b = Uuid::new_v4();
+    let vault_a = 11111111111111i64;
+    let account_a = 22222222222222i64;
+    let vault_b = 33333333333333i64;
+    let account_b = 44444444444444i64;
 
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for simpler testing
@@ -340,10 +339,10 @@ async fn test_default_vault_fallback_when_auth_disabled() {
 #[tokio::test]
 async fn test_account_can_own_multiple_vaults() {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
-    let account = Uuid::new_v4();
-    let vault1 = Uuid::new_v4();
-    let vault2 = Uuid::new_v4();
-    let vault3 = Uuid::new_v4();
+    let account = 55555555555555i64;
+    let vault1 = 66666666666666i64;
+    let vault2 = 77777777777777i64;
+    let vault3 = 88888888888888i64;
 
     // Create the account first
     let account_obj = infera_types::Account {
@@ -396,9 +395,9 @@ async fn test_account_can_own_multiple_vaults() {
 #[tokio::test]
 async fn test_vault_belongs_to_one_account() {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
-    let account_a = Uuid::new_v4();
-    let account_b = Uuid::new_v4();
-    let vault_id = Uuid::new_v4();
+    let account_a = 99999999999991i64;
+    let account_b = 99999999999992i64;
+    let vault_id = 99999999999993i64;
 
     // Create accounts first
     store
@@ -444,10 +443,10 @@ async fn test_vault_belongs_to_one_account() {
 #[tokio::test]
 async fn test_account_cannot_access_other_accounts_vaults() {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
-    let account_a = Uuid::new_v4();
-    let account_b = Uuid::new_v4();
-    let vault_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
+    let account_a = 99999999999994i64;
+    let account_b = 99999999999995i64;
+    let vault_a = 99999999999996i64;
+    let vault_b = 99999999999997i64;
 
     // Create accounts first
     store

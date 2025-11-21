@@ -16,7 +16,6 @@ use axum::{
 use infera_const::scopes::SCOPE_WRITE;
 use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use super::get::RelationshipPath;
 use crate::{
@@ -53,7 +52,7 @@ pub struct DeleteResponse {
 /// This function handles the actual deletion and cache invalidation,
 /// ensuring consistent behavior across different API styles.
 async fn delete_relationships_internal(
-    vault: Uuid,
+    vault: i64,
     state: &AppState,
     request: DeleteRequest,
 ) -> Result<(Revision, usize)> {
@@ -399,7 +398,6 @@ mod tests {
     use infera_store::MemoryBackend;
     use infera_types::Relationship;
     use tower::ServiceExt;
-    use uuid::Uuid;
 
     use super::*;
     use crate::AppState;
@@ -419,7 +417,7 @@ mod tests {
         }]));
 
         // Use a test vault ID
-        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -452,7 +450,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         )
     }
 

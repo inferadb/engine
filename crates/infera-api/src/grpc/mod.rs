@@ -39,7 +39,6 @@
 //! ```
 
 use tonic::{Request, Response, Status};
-use uuid::Uuid;
 
 use crate::AppState;
 
@@ -60,9 +59,9 @@ use proto::{
 
 /// Get the vault ID for the current request
 /// TODO(Phase 2): Extract this from authentication context (JWT token)
-/// For Phase 1, we use a nil UUID as a placeholder for the default vault
-pub(crate) fn get_vault() -> Uuid {
-    Uuid::nil()
+/// For Phase 1, we use 0 as a placeholder for the default vault
+pub(crate) fn get_vault() -> i64 {
+    0
 }
 
 pub struct InferaServiceImpl {
@@ -207,7 +206,7 @@ mod tests {
             ],
         )]));
         // Use a test vault ID
-        let test_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
 
         let state = AppState::new(
@@ -217,7 +216,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         );
 
         // Set health tracker state for tests

@@ -488,15 +488,16 @@ pub async fn validate_oauth_jwt(
         // Parse scopes
         let scopes: Vec<String> = claims.scope.split_whitespace().map(|s| s.to_string()).collect();
 
-        // Extract vault and account UUIDs - both required for multi-tenancy
+        // Extract vault and account IDs (Snowflake IDs) - both required for multi-tenancy
         let vault_str = claims.vault.ok_or_else(|| AuthError::MissingClaim("vault".to_string()))?;
-        let vault = uuid::Uuid::parse_str(&vault_str)
-            .map_err(|_| AuthError::InvalidTokenFormat("Invalid vault UUID format".to_string()))?;
+        let vault: i64 = vault_str
+            .parse()
+            .map_err(|_| AuthError::InvalidTokenFormat("Invalid vault ID format".to_string()))?;
 
         let account_str =
             claims.account.ok_or_else(|| AuthError::MissingClaim("account".to_string()))?;
-        let account = uuid::Uuid::parse_str(&account_str).map_err(|_| {
-            AuthError::InvalidTokenFormat("Invalid account UUID format".to_string())
+        let account: i64 = account_str.parse().map_err(|_| {
+            AuthError::InvalidTokenFormat("Invalid account ID format".to_string())
         })?;
 
         // Create AuthContext

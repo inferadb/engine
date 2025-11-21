@@ -251,8 +251,9 @@ pub fn generate_oauth_jwt(
         jti: Some(uuid::Uuid::new_v4().to_string()),
         scope: scopes.join(" "),
         tenant_id: Some(tenant_id.to_string()),
-        vault: Some(uuid::Uuid::new_v4().to_string()),
-        account: Some(uuid::Uuid::new_v4().to_string()),
+        // Use Snowflake ID strings for vault/account
+        vault: Some("12345678901234".to_string()),
+        account: Some("98765432109876".to_string()),
     };
 
     let mut header = Header::new(Algorithm::EdDSA);

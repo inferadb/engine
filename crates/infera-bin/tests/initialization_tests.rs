@@ -8,7 +8,13 @@ use std::sync::Arc;
 use infera_bin::initialization;
 use infera_config::Config;
 use infera_store::{InferaStore, MemoryBackend};
-use uuid::Uuid;
+use std::sync::atomic::{AtomicI64, Ordering};
+
+static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
+
+fn generate_test_id() -> i64 {
+    TEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
+}
 
 /// Test that first startup creates default account and vault
 #[tokio::test]
@@ -21,8 +27,8 @@ async fn test_first_startup_creates_defaults() {
         .await
         .expect("Initialization should succeed");
 
-    assert_ne!(config1.default_vault, Uuid::nil(), "Vault should not be nil");
-    assert_ne!(config1.default_account, Uuid::nil(), "Account should not be nil");
+    assert_ne!(config1.default_vault, 0, "Vault should not be nil");
+    assert_ne!(config1.default_account, 0, "Account should not be nil");
 
     // Verify account exists
     let account =
@@ -57,8 +63,8 @@ async fn test_first_startup_creates_defaults() {
 #[tokio::test]
 async fn test_startup_with_config_values() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let account_id = Uuid::new_v4();
-    let vault_id = Uuid::new_v4();
+    let account_id = generate_test_id();
+    let vault_id = generate_test_id();
 
     let mut config = Config::default();
     config.multi_tenancy.default_account = Some(account_id.to_string());
@@ -89,8 +95,8 @@ async fn test_startup_with_config_values() {
 #[tokio::test]
 async fn test_startup_with_existing_account_and_vault() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let account_id = Uuid::new_v4();
-    let vault_id = Uuid::new_v4();
+    let account_id = generate_test_id();
+    let vault_id = generate_test_id();
 
     // Pre-create account with custom name
     let account = infera_types::Account::with_id(account_id, "My Custom Account".to_string());
@@ -133,9 +139,9 @@ async fn test_startup_with_existing_account_and_vault() {
 #[tokio::test]
 async fn test_vault_account_mismatch_error() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let account_id_a = Uuid::new_v4();
-    let account_id_b = Uuid::new_v4();
-    let vault_id = Uuid::new_v4();
+    let account_id_a = generate_test_id();
+    let account_id_b = generate_test_id();
+    let vault_id = generate_test_id();
 
     // Create account A
     let account_a = infera_types::Account::with_id(account_id_a, "Account A".to_string());

@@ -4,7 +4,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Authentication context extracted from validated JWT
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -33,11 +32,11 @@ pub struct AuthContext {
     /// JWT ID for replay protection (optional)
     pub jti: Option<String>,
 
-    /// Vault UUID for multi-tenancy isolation
-    pub vault: Uuid,
+    /// Vault ID for multi-tenancy isolation (Snowflake ID)
+    pub vault: i64,
 
-    /// Account UUID (vault owner)
-    pub account: Uuid,
+    /// Account ID (vault owner, Snowflake ID)
+    pub account: i64,
 }
 
 /// Authentication method used to verify the token
@@ -63,8 +62,8 @@ impl AuthContext {
     }
 
     /// Create a default AuthContext for when authentication is disabled
-    /// Uses the provided default vault and account UUIDs
-    pub fn default_unauthenticated(default_vault: Uuid, default_account: Uuid) -> Self {
+    /// Uses the provided default vault and account IDs
+    pub fn default_unauthenticated(default_vault: i64, default_account: i64) -> Self {
         Self {
             tenant_id: "default".to_string(),
             client_id: "system:unauthenticated".to_string(),
@@ -102,8 +101,8 @@ mod tests {
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(exp_offset_secs),
             jti: Some("test-jti".into()),
-            vault: Uuid::nil(),
-            account: Uuid::nil(),
+            vault: 0,
+            account: 0,
         }
     }
 

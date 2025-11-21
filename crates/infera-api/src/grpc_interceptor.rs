@@ -209,12 +209,14 @@ impl AuthInterceptor {
             let tenant_id = claims.extract_tenant_id()?;
             let scopes = claims.parse_scopes();
 
-            // Extract vault and account UUIDs
-            let vault_str = claims.vault.unwrap_or_else(|| uuid::Uuid::nil().to_string());
-            let vault = uuid::Uuid::parse_str(&vault_str).unwrap_or(uuid::Uuid::nil());
+            // Extract vault and account IDs
+            let vault = claims.vault.as_ref()
+                .and_then(|s| s.parse::<i64>().ok())
+                .unwrap_or(0);
 
-            let account_str = claims.account.unwrap_or_else(|| uuid::Uuid::nil().to_string());
-            let account = uuid::Uuid::parse_str(&account_str).unwrap_or(uuid::Uuid::nil());
+            let account = claims.account.as_ref()
+                .and_then(|s| s.parse::<i64>().ok())
+                .unwrap_or(0);
 
             return Ok(AuthContext {
                 tenant_id,

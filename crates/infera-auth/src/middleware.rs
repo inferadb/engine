@@ -17,7 +17,10 @@ use axum::{
 };
 use infera_types::{AuthContext, AuthMethod};
 
-use crate::{error::AuthError, jwks_cache::JwksCache, jwt::verify_with_jwks, metrics::AuthMetrics};
+use crate::{
+    certificate_cache::CertificateCache, error::AuthError, jwks_cache::JwksCache,
+    jwt::verify_with_cert_cache_or_jwks, metrics::AuthMetrics,
+};
 
 /// Helper to create unauthorized response with WWW-Authenticate header
 fn unauthorized_response(message: &str) -> Response {
@@ -152,10 +155,11 @@ pub fn require_any_scope(auth: &AuthContext, scopes: &[&str]) -> Result<(), Auth
 /// - 500 Internal Server Error: JWKS fetch or verification errors
 pub async fn auth_middleware(
     jwks_cache: Arc<JwksCache>,
+    cert_cache: Option<Arc<CertificateCache>>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
-    auth_middleware_impl(jwks_cache, None, request, next).await
+    auth_middleware_impl(jwks_cache, cert_cache, None, request, next).await
 }
 
 /// Axum middleware for JWT authentication with metrics
@@ -170,6 +174,7 @@ pub async fn auth_middleware(
 /// # Arguments
 ///
 /// * `jwks_cache` - The JWKS cache for verifying signatures
+/// * `cert_cache` - Optional certificate cache for Management API client JWTs
 /// * `metrics` - Prometheus metrics collector
 /// * `request` - The incoming HTTP request
 /// * `next` - The next layer in the middleware stack
@@ -179,16 +184,18 @@ pub async fn auth_middleware(
 /// Returns the response from the next layer, or an error response if authentication fails
 pub async fn auth_middleware_with_metrics(
     jwks_cache: Arc<JwksCache>,
+    cert_cache: Option<Arc<CertificateCache>>,
     metrics: Arc<AuthMetrics>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
-    auth_middleware_impl(jwks_cache, Some(metrics), request, next).await
+    auth_middleware_impl(jwks_cache, cert_cache, Some(metrics), request, next).await
 }
 
 /// Internal implementation of auth middleware with optional metrics
 async fn auth_middleware_impl(
     jwks_cache: Arc<JwksCache>,
+    cert_cache: Option<Arc<CertificateCache>>,
     metrics: Option<Arc<AuthMetrics>>,
     mut request: Request<Body>,
     next: Next,
@@ -204,11 +211,12 @@ async fn auth_middleware_impl(
         unauthorized_response(&e.to_string())
     })?;
 
-    // Verify JWT with JWKS and get validated claims
-    let claims = verify_with_jwks(&token, &jwks_cache).await.map_err(|e| {
+    // Verify JWT with certificate cache (if available) and JWKS fallback
+    let claims = verify_with_cert_cache_or_jwks(&token, cert_cache.as_deref(), &jwks_cache).await.map_err(|e| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
+        tracing::warn!(error = %e, "JWT verification failed");
         match e {
             AuthError::TokenExpired => unauthorized_response("Token expired"),
             AuthError::TokenNotYetValid => unauthorized_response("Token not yet valid"),
@@ -220,7 +228,14 @@ async fn auth_middleware_impl(
             AuthError::InvalidScope(msg) => {
                 (StatusCode::FORBIDDEN, format!("Invalid scope: {}", msg)).into_response()
             },
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+            // JWKS and other errors should return 401, not 500
+            AuthError::JwksError(msg) => unauthorized_response(&format!("Key validation failed: {}", msg)),
+            AuthError::InvalidIssuer(msg) => unauthorized_response(&format!("Invalid issuer: {}", msg)),
+            AuthError::MissingClaim(claim) => unauthorized_response(&format!("Missing claim: {}", claim)),
+            AuthError::MissingTenantId => unauthorized_response("Missing tenant_id claim"),
+            AuthError::UnsupportedAlgorithm(alg) => unauthorized_response(&format!("Unsupported algorithm: {}", alg)),
+            // For any other auth errors, return 401 with the error message
+            _ => unauthorized_response(&e.to_string()),
         }
     })?;
 
@@ -232,18 +247,18 @@ async fn auth_middleware_impl(
         (StatusCode::UNAUTHORIZED, e.to_string()).into_response()
     })?;
 
-    // Extract vault and account UUIDs from claims
+    // Extract vault and account IDs (Snowflake IDs) from claims
     let vault_str = claims.extract_vault().ok_or_else(|| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
         (StatusCode::UNAUTHORIZED, "Missing vault claim in JWT".to_string()).into_response()
     })?;
-    let vault = uuid::Uuid::parse_str(&vault_str).map_err(|_| {
+    let vault: i64 = vault_str.parse().map_err(|_| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
-        (StatusCode::UNAUTHORIZED, "Invalid vault UUID format".to_string()).into_response()
+        (StatusCode::UNAUTHORIZED, "Invalid vault ID format".to_string()).into_response()
     })?;
 
     let account_str = claims.extract_account().ok_or_else(|| {
@@ -252,11 +267,11 @@ async fn auth_middleware_impl(
         }
         (StatusCode::UNAUTHORIZED, "Missing account claim in JWT".to_string()).into_response()
     })?;
-    let account = uuid::Uuid::parse_str(&account_str).map_err(|_| {
+    let account: i64 = account_str.parse().map_err(|_| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
-        (StatusCode::UNAUTHORIZED, "Invalid account UUID format".to_string()).into_response()
+        (StatusCode::UNAUTHORIZED, "Invalid account ID format".to_string()).into_response()
     })?;
 
     // Parse scopes from space-separated string
@@ -293,7 +308,7 @@ async fn auth_middleware_impl(
 /// Validate vault access in AuthContext (basic validation only)
 ///
 /// This function performs basic vault-level access validation:
-/// 1. Ensures vault UUID is not nil
+/// 1. Ensures vault ID is not zero
 /// 2. Logs vault access for audit purposes
 ///
 /// For full validation including database checks, use
@@ -306,17 +321,17 @@ async fn auth_middleware_impl(
 /// # Errors
 ///
 /// Returns `AuthError::InvalidTokenFormat` if:
-/// - Vault UUID is nil (indicates missing/invalid vault claim)
+/// - Vault ID is zero (indicates missing/invalid vault claim)
 pub fn validate_vault_access(auth: &AuthContext) -> Result<(), AuthError> {
-    // Check if vault is nil UUID
-    if auth.vault.is_nil() {
+    // Check if vault is zero (unset)
+    if auth.vault == 0 {
         tracing::warn!(
             tenant_id = %auth.tenant_id,
             client_id = %auth.client_id,
-            "Vault access denied: nil UUID detected"
+            "Vault access denied: zero ID detected"
         );
         return Err(AuthError::InvalidTokenFormat(
-            "Invalid vault: vault UUID cannot be nil".to_string(),
+            "Invalid vault: vault ID cannot be zero".to_string(),
         ));
     }
 
@@ -404,6 +419,7 @@ pub async fn vault_validation_middleware(
 /// * `default_vault` - Default vault UUID to use when auth is disabled
 /// * `default_account` - Default account UUID to use when auth is disabled
 /// * `jwks_cache` - The JWKS cache for verifying signatures (only used if enabled)
+/// * `cert_cache` - Optional certificate cache for verifying Management API JWTs
 /// * `request` - The incoming HTTP request
 /// * `next` - The next layer in the middleware stack
 ///
@@ -417,9 +433,10 @@ pub async fn vault_validation_middleware(
 /// Production systems should always have authentication enabled.
 pub async fn optional_auth_middleware(
     enabled: bool,
-    default_vault: uuid::Uuid,
-    default_account: uuid::Uuid,
+    default_vault: i64,
+    default_account: i64,
     jwks_cache: Arc<JwksCache>,
+    cert_cache: Option<Arc<CertificateCache>>,
     mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
@@ -438,7 +455,7 @@ pub async fn optional_auth_middleware(
     }
 
     // Auth is enabled, delegate to standard middleware
-    auth_middleware(jwks_cache, request, next).await
+    auth_middleware(jwks_cache, cert_cache, request, next).await
 }
 
 #[cfg(test)]
@@ -458,8 +475,8 @@ mod tests {
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
-            vault: uuid::Uuid::nil(),
-            account: uuid::Uuid::nil(),
+            vault: 0,
+            account: 0,
         }
     }
 
@@ -572,8 +589,8 @@ mod tests {
 
     #[test]
     fn test_validate_vault_access_valid() {
-        let vault_id = uuid::Uuid::new_v4();
-        let account_id = uuid::Uuid::new_v4();
+        let vault_id: i64 = 12345678901234;
+        let account_id: i64 = 98765432109876;
 
         let auth = AuthContext {
             tenant_id: "test-tenant".to_string(),
@@ -602,15 +619,15 @@ mod tests {
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
-            vault: uuid::Uuid::nil(),
-            account: uuid::Uuid::new_v4(),
+            vault: 0,
+            account: 98765432109876,
         };
 
         let result = validate_vault_access(&auth);
         assert!(result.is_err());
         match result {
             Err(AuthError::InvalidTokenFormat(msg)) => {
-                assert!(msg.contains("vault") || msg.contains("nil"));
+                assert!(msg.contains("vault") || msg.contains("nil") || msg.contains("zero"));
             },
             _ => panic!("Expected InvalidTokenFormat error"),
         }
@@ -618,9 +635,9 @@ mod tests {
 
     #[test]
     fn test_validate_vault_access_with_default_vault() {
-        // Test that non-nil vaults pass validation
-        let default_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-        let account_id = uuid::Uuid::new_v4();
+        // Test that non-zero vaults pass validation
+        let default_vault: i64 = 1; // Default vault ID
+        let account_id: i64 = 98765432109876;
 
         let auth = AuthContext {
             tenant_id: "default".to_string(),

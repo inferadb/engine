@@ -5,7 +5,6 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 use futures::Stream;
 use infera_store::RelationshipStore;
 use infera_types::{ChangeEvent, Revision};
-use uuid::Uuid;
 
 use crate::ApiError;
 
@@ -45,7 +44,7 @@ impl WatchService {
     #[tracing::instrument(skip(self), fields(vault = %vault))]
     pub async fn watch_changes(
         &self,
-        vault: Uuid,
+        vault: i64,
         cursor: Option<String>,
         resource_type: Option<String>,
     ) -> std::result::Result<ChangeStream, ApiError> {
@@ -115,7 +114,7 @@ mod tests {
     #[tokio::test]
     async fn test_watch_changes() {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
-        let vault = Uuid::new_v4();
+        let vault = 12345678901234i64;
 
         let service = WatchService::new(Arc::clone(&store));
 
@@ -150,7 +149,7 @@ mod tests {
     #[tokio::test]
     async fn test_watch_with_resource_type_filter() {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
-        let vault = Uuid::new_v4();
+        let vault = 12345678901234i64;
 
         let service = WatchService::new(store);
 
@@ -164,8 +163,8 @@ mod tests {
     #[tokio::test]
     async fn test_vault_isolation() {
         let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a = 11111111111111i64;
+        let vault_b = 22222222222222i64;
 
         let service = WatchService::new(Arc::clone(&store));
 

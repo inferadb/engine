@@ -19,7 +19,6 @@ use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::MemoryBackend;
 use serde_json::json;
 use tower::ServiceExt;
-use uuid::Uuid;
 
 // Re-use the mock JWKS infrastructure from infera-auth tests
 mod common {
@@ -158,8 +157,8 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
         ],
     )]));
     // Use a test vault ID
-    let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    let test_account = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
+    let test_vault = 11111111111111i64;
+    let test_account = 22222222222222i64;
 
     let mut config = Config::default();
 

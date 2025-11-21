@@ -10,7 +10,6 @@ use infera_store::{MemoryBackend, RelationshipStore};
 pub use infera_types::Relationship;
 use infera_types::{Decision, EvaluateRequest};
 use infera_wasm::WasmHost;
-use uuid::Uuid;
 
 /// Test fixture for setting up a complete evaluation environment
 pub struct TestFixture {
@@ -26,7 +25,7 @@ impl TestFixture {
             store.clone() as Arc<dyn RelationshipStore>,
             Arc::new(schema),
             None,
-            Uuid::nil(),
+            0i64,
         );
 
         Self { store, evaluator }
@@ -39,7 +38,7 @@ impl TestFixture {
             store.clone() as Arc<dyn RelationshipStore>,
             Arc::new(schema),
             Some(wasm_host),
-            Uuid::nil(),
+            0i64,
         );
 
         Self { store, evaluator }
@@ -50,7 +49,7 @@ impl TestFixture {
         &self,
         relationships: Vec<Relationship>,
     ) -> anyhow::Result<()> {
-        self.store.write(Uuid::nil(), relationships).await?;
+        self.store.write(0i64, relationships).await?;
         Ok(())
     }
 
@@ -102,7 +101,7 @@ impl TestFixture {
 /// Helper function to create a relationship with vault set to nil
 pub fn relationship(resource: &str, relation: &str, subject: &str) -> Relationship {
     Relationship {
-        vault: Uuid::nil(),
+        vault: 0i64,
         resource: resource.to_string(),
         relation: relation.to_string(),
         subject: subject.to_string(),

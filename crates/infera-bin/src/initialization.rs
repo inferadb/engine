@@ -39,7 +39,6 @@ use anyhow::{Context, Result};
 use infera_config::Config;
 use infera_store::InferaStore;
 use infera_types::{Account, SystemConfig, Vault};
-use uuid::Uuid;
 
 /// Initialize system on first startup
 ///
@@ -92,11 +91,13 @@ pub async fn initialize_system(
             "Using default vault and account from configuration"
         );
 
-        // Parse UUIDs from config
-        let account_id = Uuid::parse_str(account_str)
-            .context("Failed to parse default_account UUID from config")?;
-        let vault_id =
-            Uuid::parse_str(vault_str).context("Failed to parse default_vault UUID from config")?;
+        // Parse i64 IDs from config
+        let account_id: i64 = account_str
+            .parse()
+            .context("Failed to parse default_account ID from config")?;
+        let vault_id: i64 = vault_str
+            .parse()
+            .context("Failed to parse default_vault ID from config")?;
 
         // Ensure account exists (create if needed)
         ensure_account_exists(store, account_id, "Default Account")
@@ -152,9 +153,9 @@ pub async fn initialize_system(
 
 /// Create a new default account
 ///
-/// Creates an account with the name "Default Account" and a random UUID.
+/// Creates an account with the name "Default Account" and ID 1.
 async fn create_default_account(store: &Arc<dyn InferaStore>) -> Result<Account> {
-    let account = Account::new("Default Account".to_string());
+    let account = Account::new(1, "Default Account".to_string());
 
     tracing::info!(
         account_id = %account.id,
@@ -169,9 +170,9 @@ async fn create_default_account(store: &Arc<dyn InferaStore>) -> Result<Account>
 
 /// Create a new default vault for the given account
 ///
-/// Creates a vault with the name "Default Vault" and a random UUID.
-async fn create_default_vault(store: &Arc<dyn InferaStore>, account_id: Uuid) -> Result<Vault> {
-    let vault = Vault::new(account_id, "Default Vault".to_string());
+/// Creates a vault with the name "Default Vault" and ID 1.
+async fn create_default_vault(store: &Arc<dyn InferaStore>, account_id: i64) -> Result<Vault> {
+    let vault = Vault::new(1, account_id, "Default Vault".to_string());
 
     tracing::info!(
         vault_id = %vault.id,
@@ -190,11 +191,11 @@ async fn create_default_vault(store: &Arc<dyn InferaStore>, account_id: Uuid) ->
 /// # Arguments
 ///
 /// * `store` - Storage backend
-/// * `account_id` - UUID of the account to ensure exists
+/// * `account_id` - ID of the account to ensure exists
 /// * `name` - Name to use if creating the account
 async fn ensure_account_exists(
     store: &Arc<dyn InferaStore>,
-    account_id: Uuid,
+    account_id: i64,
     name: &str,
 ) -> Result<()> {
     // Check if account already exists
@@ -228,13 +229,13 @@ async fn ensure_account_exists(
 /// # Arguments
 ///
 /// * `store` - Storage backend
-/// * `vault_id` - UUID of the vault to ensure exists
+/// * `vault_id` - ID of the vault to ensure exists
 /// * `account_id` - Account that should own the vault
 /// * `name` - Name to use if creating the vault
 async fn ensure_vault_exists(
     store: &Arc<dyn InferaStore>,
-    vault_id: Uuid,
-    account_id: Uuid,
+    vault_id: i64,
+    account_id: i64,
     name: &str,
 ) -> Result<()> {
     // Check if vault already exists

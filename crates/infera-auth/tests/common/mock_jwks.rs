@@ -101,8 +101,9 @@ pub fn generate_jwt_for_mock_jwks(tenant: &str, scopes: Vec<String>, exp_secs: i
         jti: Some(uuid::Uuid::new_v4().to_string()),
         scope: if scopes.is_empty() { String::new() } else { scopes.join(" ") },
         tenant_id: None,
-        vault: Some(uuid::Uuid::new_v4().to_string()),
-        account: Some(uuid::Uuid::new_v4().to_string()),
+        // Don't set vault/account for JWKS tests - tenant is extracted from "tenant:" prefix in iss
+        vault: None,
+        account: None,
     };
 
     let mut header = Header::new(Algorithm::EdDSA);

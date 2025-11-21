@@ -5,7 +5,6 @@ use std::{collections::HashSet, sync::Arc};
 use async_recursion::async_recursion;
 use infera_store::RelationshipStore;
 use infera_types::{RelationshipKey, Revision};
-use uuid::Uuid;
 
 use crate::{
     EvalError, Result,
@@ -24,7 +23,7 @@ pub struct GraphContext {
     pub revision: Revision,
 
     /// Vault ID for multi-tenant isolation
-    pub vault: Uuid,
+    pub vault: i64,
 
     /// Visited nodes for cycle detection
     pub visited: HashSet<String>,
@@ -38,7 +37,7 @@ impl GraphContext {
         schema: Arc<Schema>,
         store: Arc<dyn RelationshipStore>,
         revision: Revision,
-        vault: Uuid,
+        vault: i64,
     ) -> Self {
         Self {
             schema,
@@ -106,10 +105,9 @@ impl GraphContext {
 /// ```ignore
 /// use infera_core::graph::has_direct_relationship;
 /// use infera_types::Revision;
-/// use uuid::Uuid;
 ///
 /// # async {
-/// let vault_id = Uuid::new_v4();
+/// let vault_id = 1i64;
 /// let revision = Revision(u64::MAX); // Latest revision
 ///
 /// // Check if user:alice is a viewer of doc:readme
@@ -130,7 +128,7 @@ impl GraphContext {
 /// ```
 pub async fn has_direct_relationship(
     store: &dyn RelationshipStore,
-    vault: Uuid,
+    vault: i64,
     resource: &str,
     relation: &str,
     subject: &str,
@@ -194,10 +192,9 @@ pub async fn has_direct_relationship(
 /// ```ignore
 /// use infera_core::graph::get_users_with_relation;
 /// use infera_types::Revision;
-/// use uuid::Uuid;
 ///
 /// # async {
-/// let vault_id = Uuid::new_v4();
+/// let vault_id = 1i64;
 /// let revision = Revision(u64::MAX); // Latest revision
 ///
 /// // Get all users who can view doc:readme
@@ -217,7 +214,7 @@ pub async fn has_direct_relationship(
 /// ```
 pub async fn get_users_with_relation(
     store: &dyn RelationshipStore,
-    vault: Uuid,
+    vault: i64,
     resource: &str,
     relation: &str,
     revision: Revision,
@@ -268,10 +265,9 @@ pub async fn get_users_with_relation(
 /// ```ignore
 /// use infera_core::graph::prefetch_users_batch;
 /// use infera_types::Revision;
-/// use uuid::Uuid;
 ///
 /// # async {
-/// let vault_id = Uuid::new_v4();
+/// let vault_id = 1i64;
 /// let revision = Revision(u64::MAX);
 ///
 /// // Get all editors for multiple documents at once
@@ -297,7 +293,7 @@ pub async fn get_users_with_relation(
 /// ```
 pub async fn prefetch_users_batch(
     store: &dyn RelationshipStore,
-    vault: Uuid,
+    vault: i64,
     objects: &[String],
     relation: &str,
     revision: Revision,
@@ -500,20 +496,20 @@ mod tests {
             resource: "doc:readme".to_string(),
             relation: "reader".to_string(),
             subject: "user:alice".to_string(),
-            vault: Uuid::nil(),
+            vault: 0i64,
         };
 
-        let rev = store.write(Uuid::nil(), vec![relationship]).await.unwrap();
+        let rev = store.write(0i64, vec![relationship]).await.unwrap();
 
         let has_relationship =
-            has_direct_relationship(&store, Uuid::nil(), "doc:readme", "reader", "user:alice", rev)
+            has_direct_relationship(&store, 0i64, "doc:readme", "reader", "user:alice", rev)
                 .await
                 .unwrap();
 
         assert!(has_relationship);
 
         let no_relationship =
-            has_direct_relationship(&store, Uuid::nil(), "doc:readme", "reader", "user:bob", rev)
+            has_direct_relationship(&store, 0i64, "doc:readme", "reader", "user:bob", rev)
                 .await
                 .unwrap();
 
@@ -529,19 +525,19 @@ mod tests {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             },
             Relationship {
                 resource: "doc:readme".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
-                vault: Uuid::nil(),
+                vault: 0i64,
             },
         ];
 
-        let rev = store.write(Uuid::nil(), relationships).await.unwrap();
+        let rev = store.write(0i64, relationships).await.unwrap();
 
-        let users = get_users_with_relation(&store, Uuid::nil(), "doc:readme", "reader", rev)
+        let users = get_users_with_relation(&store, 0i64, "doc:readme", "reader", rev)
             .await
             .unwrap();
 
@@ -558,9 +554,9 @@ mod tests {
         )]);
 
         let store = Arc::new(MemoryBackend::new());
-        let rev = store.get_revision(Uuid::nil()).await.unwrap();
+        let rev = store.get_revision(0i64).await.unwrap();
 
-        let mut ctx = GraphContext::new(Arc::new(schema), store, rev, Uuid::nil());
+        let mut ctx = GraphContext::new(Arc::new(schema), store, rev, 0i64);
 
         // Manually create a cycle
         ctx.visit("doc:readme#reader".to_string());

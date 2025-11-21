@@ -41,13 +41,13 @@ pub async fn validate_vault_access_with_store(
     vault_store: &dyn VaultStore,
 ) -> Result<()> {
     // Basic validation first
-    if auth.vault.is_nil() {
+    if auth.vault == 0 {
         tracing::warn!(
             tenant_id = %auth.tenant_id,
             client_id = %auth.client_id,
-            "Vault access denied: nil UUID detected"
+            "Vault access denied: zero ID detected"
         );
-        return Err(ApiError::Forbidden("Invalid vault: vault UUID cannot be nil".to_string()));
+        return Err(ApiError::Forbidden("Invalid vault: vault ID cannot be zero".to_string()));
     }
 
     // Verify vault exists in database

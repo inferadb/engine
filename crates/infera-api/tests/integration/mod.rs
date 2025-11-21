@@ -13,7 +13,13 @@ use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::MemoryBackend;
 use infera_types::{AuthContext, AuthMethod, Relationship};
-use uuid::Uuid;
+use std::sync::atomic::{AtomicI64, Ordering};
+
+static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
+
+fn generate_test_id() -> i64 {
+    TEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
+}
 
 /// Standard test schema with document type
 pub fn create_test_schema() -> Arc<Schema> {
@@ -62,8 +68,8 @@ pub fn create_test_state() -> AppState {
 pub fn create_test_state_with_config(config: Config) -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let default_vault = Uuid::new_v4();
-    let default_account = Uuid::new_v4();
+    let default_vault = generate_test_id();
+    let default_account = generate_test_id();
 
     AppState::new(
         store,
@@ -77,14 +83,14 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
 }
 
 /// Create test AppState with multiple vaults for multi-tenancy testing
-pub fn create_multi_vault_test_state() -> (AppState, Uuid, Uuid, Uuid, Uuid) {
+pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
-    let vault_a = Uuid::new_v4();
-    let account_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
-    let account_b = Uuid::new_v4();
+    let vault_a = generate_test_id();
+    let account_a = generate_test_id();
+    let vault_b = generate_test_id();
+    let account_b = generate_test_id();
 
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for simpler testing
@@ -103,7 +109,7 @@ pub fn create_multi_vault_test_state() -> (AppState, Uuid, Uuid, Uuid, Uuid) {
 }
 
 /// Create mock AuthContext for testing
-pub fn create_mock_auth_context(vault: Uuid, account: Uuid, scopes: Vec<String>) -> AuthContext {
+pub fn create_mock_auth_context(vault: i64, account: i64, scopes: Vec<String>) -> AuthContext {
     AuthContext {
         tenant_id: "test_tenant".to_string(),
         client_id: "test_client".to_string(),
@@ -119,13 +125,13 @@ pub fn create_mock_auth_context(vault: Uuid, account: Uuid, scopes: Vec<String>)
 }
 
 /// Create mock admin AuthContext
-pub fn create_admin_auth_context(vault: Uuid, account: Uuid) -> AuthContext {
+pub fn create_admin_auth_context(vault: i64, account: i64) -> AuthContext {
     create_mock_auth_context(vault, account, vec!["inferadb.admin".to_string()])
 }
 
 /// Helper to create test relationship
 pub fn create_test_relationship(
-    vault: Uuid,
+    vault: i64,
     resource: &str,
     relation: &str,
     subject: &str,
@@ -141,7 +147,7 @@ pub fn create_test_relationship(
 /// Helper to write relationships to store
 pub async fn write_test_relationships(
     state: &AppState,
-    vault: Uuid,
+    vault: i64,
     relationships: Vec<Relationship>,
 ) -> Result<infera_types::Revision, Box<dyn std::error::Error>> {
     let revision = state.store.write(vault, relationships).await?;
@@ -188,7 +194,7 @@ mod tests {
     fn test_create_test_state() {
         let state = create_test_state();
         assert!(!state.config.auth.enabled);
-        assert!(state.default_vault != Uuid::nil());
+        assert!(state.default_vault != 0);
     }
 
     #[test]
@@ -202,8 +208,8 @@ mod tests {
 
     #[test]
     fn test_create_mock_auth_context() {
-        let vault = Uuid::new_v4();
-        let account = Uuid::new_v4();
+        let vault = 11111111111111i64;
+        let account = 22222222222222i64;
         let scopes = vec!["inferadb.check".to_string()];
 
         let auth = create_mock_auth_context(vault, account, scopes.clone());
@@ -216,8 +222,8 @@ mod tests {
 
     #[test]
     fn test_create_admin_auth_context() {
-        let vault = Uuid::new_v4();
-        let account = Uuid::new_v4();
+        let vault = 11111111111111i64;
+        let account = 22222222222222i64;
 
         let auth = create_admin_auth_context(vault, account);
 
@@ -228,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_create_test_relationship() {
-        let vault = Uuid::new_v4();
+        let vault = 11111111111111i64;
         let rel = create_test_relationship(vault, "doc:readme", "viewer", "user:alice");
 
         assert_eq!(rel.vault, vault);
@@ -240,7 +246,7 @@ mod tests {
     #[tokio::test]
     async fn test_write_test_relationships() {
         let state = create_test_state();
-        let vault = Uuid::new_v4();
+        let vault = 11111111111111i64;
 
         let relationships =
             vec![create_test_relationship(vault, "doc:readme", "viewer", "user:alice")];

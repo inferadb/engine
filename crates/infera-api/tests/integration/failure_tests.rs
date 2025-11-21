@@ -8,7 +8,6 @@
 //! - Empty result sets
 
 use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
-use uuid::Uuid;
 
 use crate::{
     create_test_config, create_test_relationship, create_test_state, write_test_relationships,
@@ -21,7 +20,7 @@ async fn test_cache_disabled_operations() {
     config.cache.enabled = false;
 
     let state = crate::create_test_state_with_config(config);
-    let vault = Uuid::new_v4();
+    let vault = 11111111111111i64;
 
     // Write relationships
     let relationships = vec![
@@ -48,7 +47,7 @@ async fn test_cache_disabled_operations() {
 #[tokio::test]
 async fn test_read_with_old_revision() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 22222222222222i64;
 
     // Write relationships
     let relationships = vec![create_test_relationship(vault, "doc:readme", "viewer", "user:alice")];
@@ -76,7 +75,7 @@ async fn test_read_with_old_revision() {
 #[tokio::test]
 async fn test_read_nonexistent_relationships() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 33333333333333i64;
 
     let key = RelationshipKey {
         resource: "doc:nonexistent".to_string(),
@@ -93,7 +92,7 @@ async fn test_read_nonexistent_relationships() {
 #[tokio::test]
 async fn test_delete_nonexistent_relationships() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 44444444444444i64;
 
     let filter = DeleteFilter {
         resource: Some("doc:nonexistent".to_string()),
@@ -109,7 +108,7 @@ async fn test_delete_nonexistent_relationships() {
 #[tokio::test]
 async fn test_multiple_deletes_same_data() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 55555555555555i64;
 
     // Write relationships
     let relationships = vec![create_test_relationship(vault, "doc:readme", "viewer", "user:alice")];
@@ -143,7 +142,7 @@ async fn test_multiple_deletes_same_data() {
 #[tokio::test]
 async fn test_delete_with_no_filter_fields() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 66666666666666i64;
 
     // Write some relationships
     let relationships = vec![
@@ -166,8 +165,8 @@ async fn test_delete_with_no_filter_fields() {
 #[tokio::test]
 async fn test_concurrent_writes_different_vaults() {
     let state = create_test_state();
-    let vault_a = Uuid::new_v4();
-    let vault_b = Uuid::new_v4();
+    let vault_a = 77777777777777i64;
+    let vault_b = 88888888888888i64;
 
     // Create write tasks for different vaults
     let state_clone = state.clone();
@@ -211,7 +210,7 @@ async fn test_concurrent_writes_different_vaults() {
 #[tokio::test]
 async fn test_high_volume_writes() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 99999999999999i64;
 
     // Write 100 relationships
     let relationships: Vec<Relationship> = (0..100)
@@ -243,7 +242,7 @@ async fn test_high_volume_writes() {
 #[tokio::test]
 async fn test_partial_filter_delete() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 10101010101010i64;
 
     // Write multiple relationships for same resource
     let relationships = vec![

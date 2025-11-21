@@ -7,7 +7,6 @@ use axum::{
     response::IntoResponse,
 };
 use infera_types::{CreateVaultRequest, Vault, VaultResponse};
-use uuid::Uuid;
 
 use crate::{
     ApiError, AppState,
@@ -59,7 +58,7 @@ pub async fn create_vault(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<Uuid>,
+    Path(account_id): Path<i64>,
     Json(request): Json<CreateVaultRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     // Check authorization (admin OR account owner)
@@ -76,8 +75,14 @@ pub async fn create_vault(
         .map_err(|e| ApiError::Internal(e.to_string()))?
         .ok_or_else(|| ApiError::UnknownTenant("Account not found".to_string()))?;
 
-    // Create vault with new UUID
-    let vault = Vault::new(account_id, request.name);
+    // Generate a unique ID using timestamp (nanoseconds since epoch)
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as i64)
+        .unwrap_or(1);
+
+    // Create vault with generated ID
+    let vault = Vault::new(id, account_id, request.name);
 
     // Store in database
     let created_vault =
@@ -110,7 +115,7 @@ mod tests {
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
-        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -121,7 +126,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         )
     }
 
@@ -135,12 +140,12 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::nil(),
-            account: Uuid::nil(),
+            vault: 0i64,
+            account: 0i64,
         }
     }
 
-    fn create_user_context(account_id: Uuid) -> infera_types::AuthContext {
+    fn create_user_context(account_id: i64) -> infera_types::AuthContext {
         infera_types::AuthContext {
             tenant_id: "test".to_string(),
             client_id: "test".to_string(),
@@ -150,7 +155,7 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::nil(),
+            vault: 0i64,
             account: account_id,
         }
     }
@@ -158,7 +163,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_vault_requires_auth() {
         let state = create_test_state();
-        let account_id = Uuid::new_v4();
+        let account_id = 999i64;
         let request = CreateVaultRequest { name: "Test Vault".to_string() };
 
         let result = create_vault(
@@ -182,7 +187,7 @@ mod tests {
         let state = create_test_state();
 
         // Create account
-        let account = Account::new("Test Account".to_string());
+        let account = Account::new(88888888888888i64, "Test Account".to_string());
         let created_account = state.store.create_account(account).await.unwrap();
 
         let request = CreateVaultRequest { name: "My Vault".to_string() };
@@ -207,11 +212,11 @@ mod tests {
         let state = create_test_state();
 
         // Create account
-        let account = Account::new("Other Account".to_string());
+        let account = Account::new(99999999999999i64, "Other Account".to_string());
         let created_account = state.store.create_account(account).await.unwrap();
 
         // Try to create vault with different account ID in auth context
-        let other_account_id = Uuid::new_v4();
+        let other_account_id = 888i64;
         let request = CreateVaultRequest { name: "Vault".to_string() };
 
         let result = create_vault(
@@ -235,7 +240,7 @@ mod tests {
         let state = create_test_state();
 
         // Create account
-        let account = Account::new("Any Account".to_string());
+        let account = Account::new(10101010101010i64, "Any Account".to_string());
         let created_account = state.store.create_account(account).await.unwrap();
 
         let request = CreateVaultRequest { name: "Admin Vault".to_string() };
@@ -258,7 +263,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_vault_account_not_found() {
         let state = create_test_state();
-        let account_id = Uuid::new_v4();
+        let account_id = 777i64;
         let request = CreateVaultRequest { name: "Vault".to_string() };
 
         let result = create_vault(
@@ -282,7 +287,7 @@ mod tests {
         let state = create_test_state();
 
         // Create account
-        let account = Account::new("Test Account".to_string());
+        let account = Account::new(12121212121212i64, "Test Account".to_string());
         let created_account = state.store.create_account(account).await.unwrap();
 
         let request = CreateVaultRequest { name: "".to_string() };

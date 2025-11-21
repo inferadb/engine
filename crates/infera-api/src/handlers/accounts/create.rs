@@ -54,8 +54,14 @@ pub async fn create_account(
     // Validate account name
     validate_account_name(&request.name)?;
 
-    // Create account with new UUID
-    let account = Account::new(request.name);
+    // Generate a unique ID using timestamp (nanoseconds since epoch)
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as i64)
+        .unwrap_or(1);
+
+    // Create account with generated ID
+    let account = Account::new(id, request.name);
 
     // Store in database
     let created_account =
@@ -81,7 +87,6 @@ mod tests {
     use infera_core::ipl::Schema;
     use infera_store::MemoryBackend;
     use infera_types::AuthMethod;
-    use uuid::Uuid;
 
     use super::*;
     use crate::{AppState, content_negotiation::ResponseFormat};
@@ -89,7 +94,7 @@ mod tests {
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
-        let test_vault = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -100,7 +105,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         )
     }
 
@@ -141,8 +146,8 @@ mod tests {
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
-            vault: Uuid::nil(),
-            account: Uuid::nil(),
+            vault: 0i64,
+            account: 0i64,
         };
 
         let result = create_account(

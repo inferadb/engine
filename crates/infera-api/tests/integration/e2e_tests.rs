@@ -9,7 +9,6 @@
 //! - Empty vault operations
 
 use infera_types::{Relationship, RelationshipKey, Revision};
-use uuid::Uuid;
 
 use crate::{
     create_multi_vault_test_state, create_test_relationship, create_test_state,
@@ -20,7 +19,7 @@ use crate::{
 #[tokio::test]
 async fn test_e2e_write_then_read() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 11111111111111i64;
 
     // Write relationships
     let relationships = vec![
@@ -92,7 +91,7 @@ async fn test_e2e_vault_isolation_same_resources() {
 #[tokio::test]
 async fn test_e2e_write_then_delete() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 22222222222222i64;
 
     // Write relationships
     let relationships = vec![
@@ -139,7 +138,7 @@ async fn test_e2e_write_then_delete() {
 #[tokio::test]
 async fn test_e2e_revision_consistency() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 33333333333333i64;
 
     // Write first batch
     let batch1 = vec![create_test_relationship(vault, "doc:v1", "viewer", "user:alice")];
@@ -181,7 +180,7 @@ async fn test_e2e_revision_consistency() {
 #[tokio::test]
 async fn test_e2e_bulk_write() {
     let state = create_test_state();
-    let vault = Uuid::new_v4();
+    let vault = 44444444444444i64;
 
     // Write many relationships in bulk
     let bulk_relationships: Vec<Relationship> = (0..50)
@@ -257,7 +256,7 @@ async fn test_e2e_independent_vault_operations() {
 #[tokio::test]
 async fn test_e2e_empty_vault_operations() {
     let state = create_test_state();
-    let empty_vault = Uuid::new_v4();
+    let empty_vault = 55555555555555i64;
 
     // Read from empty vault
     let key = RelationshipKey {

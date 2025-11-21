@@ -5,18 +5,18 @@
 
 mod common;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use common::mock_management::{
     MockManagementState, create_test_certificate, create_test_organization, create_test_vault,
-    generate_jwt_with_key, start_mock_management_server,
+    generate_jwt_with_key, generate_snowflake_id, start_mock_management_server,
 };
 use infera_auth::{
     certificate_cache::{CertificateCache, ParsedKeyId},
     management_client::{ManagementClient, OrgStatus},
     vault_verification::{ManagementApiVaultVerifier, VaultVerifier},
 };
-use uuid::Uuid;
+use std::sync::Arc;
 
 // ============================================================================
 // Certificate Cache Tests
@@ -26,8 +26,8 @@ use uuid::Uuid;
 async fn test_certificate_cache_fetch_and_cache() {
     // Setup mock server
     let state = MockManagementState::new();
-    let org_id = Uuid::new_v4();
-    let client_id = Uuid::new_v4();
+    let org_id = generate_snowflake_id();
+    let client_id = generate_snowflake_id();
     let (cert, _signing_key) = create_test_certificate(org_id, client_id);
     let cert_id = cert.id;
     state.add_certificate(cert);
@@ -35,10 +35,8 @@ async fn test_certificate_cache_fetch_and_cache() {
     let (base_url, _handle) = start_mock_management_server(state).await;
 
     // Create certificate cache
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000).expect("Failed to create management client"),
-    );
-    let cache = CertificateCache::new(management_client, Duration::from_secs(300), 100);
+    let cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
+        .expect("Failed to create certificate cache");
 
     // Fetch certificate (should cache miss, then fetch from API)
     let kid = format!("org-{}-client-{}-cert-{}", org_id, client_id, cert_id);
@@ -59,13 +57,11 @@ async fn test_certificate_cache_not_found() {
     let (base_url, _handle) = start_mock_management_server(state).await;
 
     // Create certificate cache
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000).expect("Failed to create management client"),
-    );
-    let cache = CertificateCache::new(management_client, Duration::from_secs(300), 100);
+    let cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
+        .expect("Failed to create certificate cache");
 
     // Try to fetch non-existent certificate
-    let kid = format!("org-{}-client-{}-cert-{}", Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+    let kid = format!("org-{}-client-{}-cert-{}", generate_snowflake_id(), generate_snowflake_id(), generate_snowflake_id());
     let result = cache.get_decoding_key(&kid).await;
 
     assert!(result.is_err());
@@ -80,17 +76,15 @@ async fn test_certificate_cache_invalid_kid_format() {
     let (base_url, _handle) = start_mock_management_server(state).await;
 
     // Create certificate cache
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000).expect("Failed to create management client"),
-    );
-    let cache = CertificateCache::new(management_client, Duration::from_secs(300), 100);
+    let cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
+        .expect("Failed to create certificate cache");
 
     // Try various invalid kid formats
     let invalid_kids = vec![
         "invalid-kid",
         "org-only",
-        "org-00000000-0000-0000-0000-000000000001",
-        "wrong-00000000-0000-0000-0000-000000000001-client-00000000-0000-0000-0000-000000000002-cert-00000000-0000-0000-0000-000000000003",
+        "org-12345",
+        "wrong-12345-client-67890-cert-11111",
     ];
 
     for kid in invalid_kids {
@@ -103,8 +97,8 @@ async fn test_certificate_cache_invalid_kid_format() {
 async fn test_certificate_cache_concurrent_requests() {
     // Setup mock server
     let state = MockManagementState::new();
-    let org_id = Uuid::new_v4();
-    let client_id = Uuid::new_v4();
+    let org_id = generate_snowflake_id();
+    let client_id = generate_snowflake_id();
     let (cert, _signing_key) = create_test_certificate(org_id, client_id);
     let cert_id = cert.id;
     state.add_certificate(cert);
@@ -112,10 +106,10 @@ async fn test_certificate_cache_concurrent_requests() {
     let (base_url, _handle) = start_mock_management_server(state).await;
 
     // Create certificate cache
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000).expect("Failed to create management client"),
+    let cache = std::sync::Arc::new(
+        CertificateCache::new(base_url, Duration::from_secs(300), 100)
+            .expect("Failed to create certificate cache")
     );
-    let cache = Arc::new(CertificateCache::new(management_client, Duration::from_secs(300), 100));
 
     let kid = format!("org-{}-client-{}-cert-{}", org_id, client_id, cert_id);
 
@@ -137,9 +131,9 @@ async fn test_certificate_cache_concurrent_requests() {
 
 #[test]
 fn test_parsed_key_id_valid() {
-    let org_id = Uuid::new_v4();
-    let client_id = Uuid::new_v4();
-    let cert_id = Uuid::new_v4();
+    let org_id = 11897886526013449i64;
+    let client_id = 11897886528110597i64;
+    let cert_id = 11897886528176133i64;
 
     let kid = format!("org-{}-client-{}-cert-{}", org_id, client_id, cert_id);
 
@@ -158,8 +152,8 @@ fn test_parsed_key_id_valid() {
 async fn test_vault_verification_success() {
     // Setup mock server
     let state = MockManagementState::new();
-    let org_id = Uuid::new_v4();
-    let account_id = Uuid::new_v4();
+    let org_id = generate_snowflake_id();
+    let account_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id, account_id);
     let vault_id = vault.id;
     state.add_vault(vault);
@@ -207,8 +201,8 @@ async fn test_vault_verification_not_found() {
     );
 
     // Try to verify non-existent vault
-    let vault_id = Uuid::new_v4();
-    let account_id = Uuid::new_v4();
+    let vault_id = generate_snowflake_id();
+    let account_id = generate_snowflake_id();
     let result = verifier.verify_vault(vault_id, account_id).await;
 
     assert!(result.is_err());
@@ -220,9 +214,9 @@ async fn test_vault_verification_not_found() {
 async fn test_vault_verification_account_mismatch() {
     // Setup mock server
     let state = MockManagementState::new();
-    let org_id = Uuid::new_v4();
-    let account_id = Uuid::new_v4();
-    let wrong_account_id = Uuid::new_v4();
+    let org_id = generate_snowflake_id();
+    let account_id = generate_snowflake_id();
+    let wrong_account_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id, account_id);
     let vault_id = vault.id;
     state.add_vault(vault);
@@ -253,8 +247,8 @@ async fn test_vault_verification_account_mismatch() {
 async fn test_vault_verification_caching() {
     // Setup mock server
     let state = MockManagementState::new();
-    let org_id = Uuid::new_v4();
-    let account_id = Uuid::new_v4();
+    let org_id = generate_snowflake_id();
+    let account_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id, account_id);
     let vault_id = vault.id;
     state.add_vault(vault);
@@ -291,9 +285,9 @@ async fn test_vault_verification_caching() {
 async fn test_vault_verification_cache_returns_error_for_mismatch() {
     // Setup mock server
     let state = MockManagementState::new();
-    let org_id = Uuid::new_v4();
-    let account_id = Uuid::new_v4();
-    let wrong_account_id = Uuid::new_v4();
+    let org_id = generate_snowflake_id();
+    let account_id = generate_snowflake_id();
+    let wrong_account_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id, account_id);
     let vault_id = vault.id;
     state.add_vault(vault);
@@ -400,7 +394,7 @@ async fn test_organization_verification_not_found() {
     );
 
     // Try to verify non-existent organization
-    let org_id = Uuid::new_v4();
+    let org_id = generate_snowflake_id();
     let result = verifier.verify_organization(org_id).await;
 
     assert!(result.is_err());
@@ -487,13 +481,13 @@ async fn test_jwt_authentication_full_flow() {
     state.add_organization(org);
 
     // Create vault
-    let account_id = Uuid::new_v4();
+    let account_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id, account_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
     // Create certificate
-    let client_id = Uuid::new_v4();
+    let client_id = generate_snowflake_id();
     let (cert, signing_key) = create_test_certificate(org_id, client_id);
     let cert_id = cert.id;
     state.add_certificate(cert);
@@ -502,11 +496,11 @@ async fn test_jwt_authentication_full_flow() {
 
     // Create management client and caches
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000).expect("Failed to create management client"),
+        ManagementClient::new(base_url.clone(), 5000).expect("Failed to create management client"),
     );
 
-    let cert_cache =
-        CertificateCache::new(management_client.clone(), Duration::from_secs(300), 100);
+    let cert_cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
+        .expect("Failed to create certificate cache");
 
     let vault_verifier = ManagementApiVaultVerifier::new(
         management_client,
@@ -558,8 +552,8 @@ async fn test_jwt_authentication_flow_vault_not_found() {
     );
 
     // Try to verify non-existent vault
-    let vault_id = Uuid::new_v4();
-    let account_id = Uuid::new_v4();
+    let vault_id = generate_snowflake_id();
+    let account_id = generate_snowflake_id();
     let result = vault_verifier.verify_vault(vault_id, account_id).await;
 
     assert!(result.is_err());
@@ -576,7 +570,7 @@ async fn test_jwt_authentication_flow_org_suspended() {
     state.add_organization(org);
 
     // Create vault
-    let account_id = Uuid::new_v4();
+    let account_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id, account_id);
     state.add_vault(vault);
 
@@ -609,8 +603,8 @@ async fn test_jwt_authentication_flow_account_mismatch() {
     let org_id = org.id;
     state.add_organization(org);
 
-    let account_id = Uuid::new_v4();
-    let wrong_account_id = Uuid::new_v4();
+    let account_id = generate_snowflake_id();
+    let wrong_account_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id, account_id);
     let vault_id = vault.id;
     state.add_vault(vault);
@@ -660,8 +654,8 @@ async fn test_management_client_get_organization() {
 #[tokio::test]
 async fn test_management_client_get_vault() {
     let state = MockManagementState::new();
-    let org_id = Uuid::new_v4();
-    let account_id = Uuid::new_v4();
+    let org_id = generate_snowflake_id();
+    let account_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id, account_id);
     let vault_id = vault.id;
     state.add_vault(vault);
@@ -678,29 +672,6 @@ async fn test_management_client_get_vault() {
 }
 
 #[tokio::test]
-async fn test_management_client_get_client_certificate() {
-    let state = MockManagementState::new();
-    let org_id = Uuid::new_v4();
-    let client_id = Uuid::new_v4();
-    let (cert, _key) = create_test_certificate(org_id, client_id);
-    let cert_id = cert.id;
-    state.add_certificate(cert);
-
-    let (base_url, _handle) = start_mock_management_server(state).await;
-
-    let client = ManagementClient::new(base_url, 5000).expect("Failed to create management client");
-
-    let cert_info = client
-        .get_client_certificate(org_id, client_id, cert_id)
-        .await
-        .expect("Failed to get certificate");
-
-    assert_eq!(cert_info.id, cert_id);
-    assert_eq!(cert_info.client_id, client_id);
-    assert_eq!(cert_info.algorithm, "EdDSA");
-}
-
-#[tokio::test]
 async fn test_management_client_timeout() {
     // Create client with very short timeout
     let state = MockManagementState::new();
@@ -710,6 +681,6 @@ async fn test_management_client_timeout() {
         ManagementClient::new(base_url.clone(), 1).expect("Failed to create management client");
 
     // This might timeout or succeed depending on timing, but shouldn't panic
-    let _result = client.get_organization(Uuid::new_v4()).await;
+    let _result = client.get_organization(generate_snowflake_id()).await;
     // We don't assert on the result because it's timing-dependent
 }

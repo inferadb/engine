@@ -8,20 +8,30 @@
 use std::{
     collections::HashMap,
     net::SocketAddr,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicI64, Ordering},
+    },
 };
 
 use axum::{Json, Router, extract::Path, http::StatusCode, response::IntoResponse, routing::get};
 use infera_auth::management_client::OrgStatus;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
-use uuid::Uuid;
+
+/// Counter for generating unique Snowflake-like IDs
+static ID_COUNTER: AtomicI64 = AtomicI64::new(11897886526013449);
+
+/// Generate a unique Snowflake-like ID for testing
+pub fn generate_snowflake_id() -> i64 {
+    ID_COUNTER.fetch_add(1, Ordering::Relaxed)
+}
 
 /// Mock Management API server state
 #[derive(Clone)]
 pub struct MockManagementState {
-    pub organizations: Arc<Mutex<HashMap<Uuid, MockOrganization>>>,
-    pub vaults: Arc<Mutex<HashMap<Uuid, MockVault>>>,
+    pub organizations: Arc<Mutex<HashMap<i64, MockOrganization>>>,
+    pub vaults: Arc<Mutex<HashMap<i64, MockVault>>>,
     pub certificates: Arc<Mutex<HashMap<CertificateKey, MockCertificate>>>,
 }
 
@@ -53,12 +63,12 @@ impl MockManagementState {
     }
 
     /// Remove an organization (simulate deletion)
-    pub fn remove_organization(&self, org_id: Uuid) {
+    pub fn remove_organization(&self, org_id: i64) {
         self.organizations.lock().unwrap().remove(&org_id);
     }
 
     /// Suspend an organization
-    pub fn suspend_organization(&self, org_id: Uuid) {
+    pub fn suspend_organization(&self, org_id: i64) {
         if let Some(org) = self.organizations.lock().unwrap().get_mut(&org_id) {
             org.status = OrgStatus::Suspended;
         }
@@ -81,15 +91,15 @@ impl Default for MockManagementState {
 /// Key for looking up certificates
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CertificateKey {
-    pub org_id: Uuid,
-    pub client_id: Uuid,
-    pub cert_id: Uuid,
+    pub org_id: i64,
+    pub client_id: i64,
+    pub cert_id: i64,
 }
 
 /// Mock organization data
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MockOrganization {
-    pub id: Uuid,
+    pub id: i64,
     pub name: String,
     #[serde(rename = "status")]
     pub status: OrgStatus,
@@ -98,26 +108,26 @@ pub struct MockOrganization {
 /// Mock vault data
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MockVault {
-    pub id: Uuid,
+    pub id: i64,
     pub name: String,
-    pub organization_id: Uuid,
-    pub account_id: Uuid,
+    pub organization_id: i64,
+    pub account_id: i64,
 }
 
 /// Mock certificate data
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MockCertificate {
-    pub id: Uuid,
+    pub id: i64,
     #[serde(skip)]
-    pub org_id: Uuid,
-    pub client_id: Uuid,
+    pub org_id: i64,
+    pub client_id: i64,
     pub public_key: String,
     pub algorithm: String,
 }
 
 /// Handler for GET /v1/organizations/{org_id}
 async fn get_organization(
-    Path(org_id): Path<Uuid>,
+    Path(org_id): Path<i64>,
     axum::extract::State(state): axum::extract::State<MockManagementState>,
 ) -> impl IntoResponse {
     let orgs = state.organizations.lock().unwrap();
@@ -130,7 +140,7 @@ async fn get_organization(
 
 /// Handler for GET /v1/vaults/{vault_id}
 async fn get_vault(
-    Path(vault_id): Path<Uuid>,
+    Path(vault_id): Path<i64>,
     axum::extract::State(state): axum::extract::State<MockManagementState>,
 ) -> impl IntoResponse {
     let vaults = state.vaults.lock().unwrap();
@@ -141,19 +151,60 @@ async fn get_vault(
     }
 }
 
-/// Handler for GET /v1/organizations/{org_id}/clients/{client_id}/certificates/{cert_id}
-async fn get_certificate(
-    Path((org_id, client_id, cert_id)): Path<(Uuid, Uuid, Uuid)>,
+/// JWK format for JWKS response
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct JwkResponse {
+    pub kty: String,
+    pub crv: String,
+    pub kid: String,
+    pub x: String,
+    #[serde(rename = "use")]
+    pub key_use: String,
+    pub alg: String,
+}
+
+/// JWKS response format
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct JwksResponse {
+    pub keys: Vec<JwkResponse>,
+}
+
+/// Handler for GET /v1/organizations/{org_id}/jwks.json
+async fn get_org_jwks(
+    Path(org_id): Path<i64>,
     axum::extract::State(state): axum::extract::State<MockManagementState>,
 ) -> impl IntoResponse {
-    let key = CertificateKey { org_id, client_id, cert_id };
-
     let certs = state.certificates.lock().unwrap();
 
-    match certs.get(&key) {
-        Some(cert) => (StatusCode::OK, Json(cert.clone())).into_response(),
-        None => StatusCode::NOT_FOUND.into_response(),
-    }
+    // Find all certificates for this org
+    let org_prefix = format!("org-{}-", org_id);
+    let keys: Vec<JwkResponse> = certs
+        .iter()
+        .filter(|(key, _)| key.org_id == org_id)
+        .map(|(key, cert)| {
+            // Convert base64 standard to base64url
+            let public_key_bytes = base64::Engine::decode(
+                &base64::engine::general_purpose::STANDARD,
+                &cert.public_key,
+            ).unwrap_or_default();
+
+            let x = base64::Engine::encode(
+                &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+                &public_key_bytes,
+            );
+
+            JwkResponse {
+                kty: "OKP".to_string(),
+                crv: "Ed25519".to_string(),
+                kid: format!("org-{}-client-{}-cert-{}", key.org_id, key.client_id, key.cert_id),
+                x,
+                key_use: "sig".to_string(),
+                alg: "EdDSA".to_string(),
+            }
+        })
+        .collect();
+
+    (StatusCode::OK, Json(JwksResponse { keys }))
 }
 
 /// Start a mock Management API server
@@ -163,10 +214,7 @@ pub async fn start_mock_management_server(state: MockManagementState) -> (String
     let app = Router::new()
         .route("/v1/organizations/{org_id}", get(get_organization))
         .route("/v1/vaults/{vault_id}", get(get_vault))
-        .route(
-            "/v1/organizations/{org_id}/clients/{client_id}/certificates/{cert_id}",
-            get(get_certificate),
-        )
+        .route("/v1/organizations/{org_id}/jwks.json", get(get_org_jwks))
         .with_state(state);
 
     // Bind to random port
@@ -185,18 +233,18 @@ pub async fn start_mock_management_server(state: MockManagementState) -> (String
 
 /// Helper to create a test organization
 pub fn create_test_organization(name: &str, status: OrgStatus) -> MockOrganization {
-    MockOrganization { id: Uuid::new_v4(), name: name.to_string(), status }
+    MockOrganization { id: generate_snowflake_id(), name: name.to_string(), status }
 }
 
 /// Helper to create a test vault
-pub fn create_test_vault(name: &str, org_id: Uuid, account_id: Uuid) -> MockVault {
-    MockVault { id: Uuid::new_v4(), name: name.to_string(), organization_id: org_id, account_id }
+pub fn create_test_vault(name: &str, org_id: i64, account_id: i64) -> MockVault {
+    MockVault { id: generate_snowflake_id(), name: name.to_string(), organization_id: org_id, account_id }
 }
 
 /// Helper to create a test certificate with Ed25519 key
 pub fn create_test_certificate(
-    org_id: Uuid,
-    client_id: Uuid,
+    org_id: i64,
+    client_id: i64,
 ) -> (MockCertificate, ed25519_dalek::SigningKey) {
     use ed25519_dalek::SigningKey;
     use rand_core::OsRng;
@@ -211,7 +259,7 @@ pub fn create_test_certificate(
     );
 
     let cert = MockCertificate {
-        id: Uuid::new_v4(),
+        id: generate_snowflake_id(),
         org_id,
         client_id,
         public_key: public_key_base64,
@@ -225,13 +273,14 @@ pub fn create_test_certificate(
 pub fn generate_jwt_with_key(
     signing_key: &ed25519_dalek::SigningKey,
     kid: &str,
-    vault: Uuid,
-    account: Uuid,
+    vault: i64,
+    account: i64,
     exp_secs: i64,
 ) -> String {
     use chrono::Utc;
     use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
     use serde::{Deserialize, Serialize};
+    use uuid::Uuid;
 
     #[derive(Debug, Serialize, Deserialize)]
     struct Claims {
@@ -312,8 +361,8 @@ mod tests {
     #[tokio::test]
     async fn test_mock_server_vault_endpoint() {
         let state = MockManagementState::new();
-        let org_id = Uuid::new_v4();
-        let account_id = Uuid::new_v4();
+        let org_id = generate_snowflake_id();
+        let account_id = generate_snowflake_id();
         let vault = create_test_vault("Test Vault", org_id, account_id);
         let vault_id = vault.id;
         state.add_vault(vault);
@@ -334,10 +383,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_mock_server_certificate_endpoint() {
+    async fn test_mock_server_jwks_endpoint() {
         let state = MockManagementState::new();
-        let org_id = Uuid::new_v4();
-        let client_id = Uuid::new_v4();
+        let org_id = generate_snowflake_id();
+        let client_id = generate_snowflake_id();
         let (cert, _key) = create_test_certificate(org_id, client_id);
         let cert_id = cert.id;
         state.add_certificate(cert);
@@ -346,18 +395,20 @@ mod tests {
 
         let client = reqwest::Client::new();
         let response = client
-            .get(format!(
-                "{}/v1/organizations/{}/clients/{}/certificates/{}",
-                base_url, org_id, client_id, cert_id
-            ))
+            .get(format!("{}/v1/organizations/{}/jwks.json", base_url, org_id))
             .send()
             .await
             .expect("Failed to send request");
 
         assert_eq!(response.status(), StatusCode::OK);
-        let cert_response: MockCertificate = response.json().await.unwrap();
-        assert_eq!(cert_response.id, cert_id);
-        assert_eq!(cert_response.algorithm, "EdDSA");
+        let jwks_response: JwksResponse = response.json().await.unwrap();
+        assert_eq!(jwks_response.keys.len(), 1);
+
+        let jwk = &jwks_response.keys[0];
+        assert_eq!(jwk.kid, format!("org-{}-client-{}-cert-{}", org_id, client_id, cert_id));
+        assert_eq!(jwk.kty, "OKP");
+        assert_eq!(jwk.crv, "Ed25519");
+        assert_eq!(jwk.alg, "EdDSA");
     }
 
     #[tokio::test]
@@ -367,7 +418,7 @@ mod tests {
 
         let client = reqwest::Client::new();
         let response = client
-            .get(format!("{}/v1/organizations/{}", base_url, Uuid::new_v4()))
+            .get(format!("{}/v1/organizations/{}", base_url, generate_snowflake_id()))
             .send()
             .await
             .expect("Failed to send request");
@@ -377,8 +428,8 @@ mod tests {
 
     #[test]
     fn test_create_test_certificate_generates_valid_key() {
-        let org_id = Uuid::new_v4();
-        let client_id = Uuid::new_v4();
+        let org_id = generate_snowflake_id();
+        let client_id = generate_snowflake_id();
         let (cert, _key) = create_test_certificate(org_id, client_id);
 
         assert_eq!(cert.org_id, org_id);
@@ -389,12 +440,12 @@ mod tests {
 
     #[test]
     fn test_generate_jwt_with_key() {
-        let org_id = Uuid::new_v4();
-        let client_id = Uuid::new_v4();
+        let org_id = generate_snowflake_id();
+        let client_id = generate_snowflake_id();
         let (cert, signing_key) = create_test_certificate(org_id, client_id);
 
-        let vault_id = Uuid::new_v4();
-        let account_id = Uuid::new_v4();
+        let vault_id = generate_snowflake_id();
+        let account_id = generate_snowflake_id();
         let kid = format!("org-{}-client-{}-cert-{}", org_id, client_id, cert.id);
 
         let jwt = generate_jwt_with_key(&signing_key, &kid, vault_id, account_id, 300);

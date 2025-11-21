@@ -1,9 +1,9 @@
-//! Certificate caching for JWT validation with Management API
+//! Certificate caching for JWT validation using JWKS
 //!
 //! This module provides certificate caching for Ed25519 public keys fetched from
-//! the Management API. It parses JWT `kid` headers in the format
+//! the Management API's JWKS endpoint. It parses JWT `kid` headers in the format
 //! `"org-{org_id}-client-{client_id}-cert-{cert_id}"` and fetches the corresponding
-//! certificate from the Management API.
+//! key from the organization's JWKS.
 
 use std::{sync::Arc, time::Duration};
 
@@ -11,82 +11,79 @@ use base64::Engine;
 use ed25519_dalek::{PUBLIC_KEY_LENGTH, VerifyingKey};
 use jsonwebtoken::DecodingKey;
 use moka::future::Cache;
-use uuid::Uuid;
+use reqwest::Client as HttpClient;
 
-use crate::{
-    management_client::{ManagementApiError, ManagementClient},
-    metrics::AuthMetrics,
-};
+use crate::metrics::AuthMetrics;
 
 /// Parsed key ID from JWT header
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParsedKeyId {
-    /// Organization UUID
-    pub org_id: Uuid,
-    /// Client UUID
-    pub client_id: Uuid,
-    /// Certificate UUID
-    pub cert_id: Uuid,
+    /// Organization ID (Snowflake ID)
+    pub org_id: i64,
+    /// Client ID (Snowflake ID)
+    pub client_id: i64,
+    /// Certificate ID (Snowflake ID)
+    pub cert_id: i64,
 }
 
 impl ParsedKeyId {
     /// Parse kid in format "org-{org_id}-client-{client_id}-cert-{cert_id}"
-    ///
-    /// # Arguments
-    ///
-    /// * `kid` - Key ID from JWT header
-    ///
-    /// # Returns
-    ///
-    /// Returns the parsed key ID components if the format is valid
-    ///
-    /// # Errors
-    ///
-    /// Returns `KeyIdParseError` if:
-    /// - The format is invalid (wrong number of parts or wrong prefixes)
-    /// - Any UUID component cannot be parsed
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use infera_auth::certificate_cache::ParsedKeyId;
-    /// # use uuid::Uuid;
-    /// let kid = "org-00000000-0000-0000-0000-000000000001-client-00000000-0000-0000-0000-000000000002-cert-00000000-0000-0000-0000-000000000003";
-    /// let parsed = ParsedKeyId::parse(kid).unwrap();
-    /// assert_eq!(parsed.org_id, Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap());
-    /// ```
     pub fn parse(kid: &str) -> Result<Self, KeyIdParseError> {
         let parts: Vec<&str> = kid.split('-').collect();
 
-        // Format: org-{UUID}-client-{UUID}-cert-{UUID}
-        // UUID is 5 parts (8-4-4-4-12 hex digits separated by -)
-        // So total: 1 + 5 + 1 + 5 + 1 + 5 = 18 parts
-        if parts.len() != 18 {
+        // Format: org-{snowflake_id}-client-{snowflake_id}-cert-{snowflake_id}
+        if parts.len() != 6 {
             return Err(KeyIdParseError::InvalidFormat);
         }
 
-        if parts[0] != "org" || parts[6] != "client" || parts[12] != "cert" {
+        if parts[0] != "org" || parts[2] != "client" || parts[4] != "cert" {
             return Err(KeyIdParseError::InvalidFormat);
         }
 
-        // Reconstruct UUIDs from their parts (each UUID is 5 dash-separated parts)
-        let org_id = Uuid::parse_str(&parts[1..6].join("-"))
-            .map_err(|_| KeyIdParseError::InvalidUuid("org_id"))?;
-        let client_id = Uuid::parse_str(&parts[7..12].join("-"))
-            .map_err(|_| KeyIdParseError::InvalidUuid("client_id"))?;
-        let cert_id = Uuid::parse_str(&parts[13..18].join("-"))
-            .map_err(|_| KeyIdParseError::InvalidUuid("cert_id"))?;
+        let org_id = parts[1].parse::<i64>()
+            .map_err(|_| KeyIdParseError::InvalidSnowflakeId("org_id"))?;
+        let client_id = parts[3].parse::<i64>()
+            .map_err(|_| KeyIdParseError::InvalidSnowflakeId("client_id"))?;
+        let cert_id = parts[5].parse::<i64>()
+            .map_err(|_| KeyIdParseError::InvalidSnowflakeId("cert_id"))?;
 
         Ok(Self { org_id, client_id, cert_id })
     }
+
+    /// Convert back to kid string format
+    pub fn to_kid(&self) -> String {
+        format!("org-{}-client-{}-cert-{}", self.org_id, self.client_id, self.cert_id)
+    }
 }
 
-/// Certificate cache with automatic fetching from management API
-///
-/// This cache stores Ed25519 public keys (as `DecodingKey` instances) fetched from
-/// the Management API. Keys are cached with a configurable TTL and maximum capacity.
+/// JWKS response from Management API
+#[derive(Debug, serde::Deserialize)]
+struct JwksResponse {
+    keys: Vec<Jwk>,
+}
+
+/// JSON Web Key from JWKS
+#[derive(Debug, serde::Deserialize)]
+struct Jwk {
+    /// Key ID
+    kid: String,
+    /// Key type (should be "OKP" for Ed25519)
+    kty: String,
+    /// Curve (should be "Ed25519")
+    #[serde(default)]
+    crv: Option<String>,
+    /// Base64url-encoded public key
+    #[serde(default)]
+    x: Option<String>,
+    /// Algorithm
+    #[serde(default)]
+    alg: Option<String>,
+}
+
+/// Certificate cache that fetches keys from JWKS
 pub struct CertificateCache {
-    management_client: Arc<ManagementClient>,
+    http_client: HttpClient,
+    management_api_url: String,
     cache: Cache<ParsedKeyId, Arc<DecodingKey>>,
     metrics: Option<Arc<AuthMetrics>>,
 }
@@ -96,86 +93,36 @@ impl CertificateCache {
     ///
     /// # Arguments
     ///
-    /// * `management_client` - Management API client for fetching certificates
+    /// * `management_api_url` - Base URL of the Management API (e.g., "http://management-api:8081")
     /// * `ttl` - Time-to-live for cached certificates
     /// * `max_capacity` - Maximum number of certificates to cache
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use infera_auth::certificate_cache::CertificateCache;
-    /// # use infera_auth::management_client::ManagementClient;
-    /// # use std::sync::Arc;
-    /// # use std::time::Duration;
-    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let management_client = Arc::new(ManagementClient::new(
-    ///     "https://api.inferadb.com".to_string(),
-    ///     5000,
-    /// )?);
-    ///
-    /// let cache = CertificateCache::new(
-    ///     management_client,
-    ///     Duration::from_secs(300),  // 5 minute TTL
-    ///     100,                        // Cache up to 100 certificates
-    /// );
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn new(management_client: Arc<ManagementClient>, ttl: Duration, max_capacity: u64) -> Self {
-        Self {
-            management_client,
+    pub fn new(management_api_url: String, ttl: Duration, max_capacity: u64) -> Result<Self, CertificateCacheError> {
+        let http_client = HttpClient::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| CertificateCacheError::HttpClientError(e.to_string()))?;
+
+        Ok(Self {
+            http_client,
+            management_api_url,
             cache: Cache::builder().time_to_live(ttl).max_capacity(max_capacity).build(),
             metrics: None,
-        }
+        })
     }
 
     /// Create a new certificate cache with metrics
-    ///
-    /// # Arguments
-    ///
-    /// * `management_client` - Management API client for fetching certificates
-    /// * `ttl` - Time-to-live for cached certificates
-    /// * `max_capacity` - Maximum number of certificates to cache
-    /// * `metrics` - Optional Prometheus metrics collector
     pub fn new_with_metrics(
-        management_client: Arc<ManagementClient>,
+        management_api_url: String,
         ttl: Duration,
         max_capacity: u64,
         metrics: Arc<AuthMetrics>,
-    ) -> Self {
-        Self {
-            management_client,
-            cache: Cache::builder().time_to_live(ttl).max_capacity(max_capacity).build(),
-            metrics: Some(metrics),
-        }
+    ) -> Result<Self, CertificateCacheError> {
+        let mut cache = Self::new(management_api_url, ttl, max_capacity)?;
+        cache.metrics = Some(metrics);
+        Ok(cache)
     }
 
-    /// Get decoding key for the given kid, fetching from management API if not cached
-    ///
-    /// This method:
-    /// 1. Parses the `kid` to extract org/client/cert IDs
-    /// 2. Checks the cache for an existing key
-    /// 3. If not cached, fetches the certificate from the Management API
-    /// 4. Validates the certificate (algorithm, key length)
-    /// 5. Converts the Ed25519 public key to a `DecodingKey`
-    /// 6. Caches the key for future use
-    ///
-    /// # Arguments
-    ///
-    /// * `kid` - Key ID from JWT header (format: "org-{org_id}-client-{client_id}-cert-{cert_id}")
-    ///
-    /// # Returns
-    ///
-    /// Returns an `Arc<DecodingKey>` that can be used to verify JWT signatures
-    ///
-    /// # Errors
-    ///
-    /// Returns `CertificateCacheError` if:
-    /// - The `kid` format is invalid
-    /// - The certificate is not found in the Management API
-    /// - The algorithm is not EdDSA
-    /// - The public key is invalid or has wrong length
-    /// - The Management API request fails
+    /// Get decoding key for the given kid, fetching from JWKS if not cached
     pub async fn get_decoding_key(
         &self,
         kid: &str,
@@ -184,7 +131,6 @@ impl CertificateCache {
 
         // Check cache first
         if let Some(key) = self.cache.get(&parsed_kid).await {
-            // Record cache hit
             if let Some(ref metrics) = self.metrics {
                 metrics.record_cache_hit("certificate");
             }
@@ -196,43 +142,84 @@ impl CertificateCache {
             metrics.record_cache_miss("certificate");
         }
 
-        // Fetch from management API
-        let cert = self
-            .management_client
-            .get_client_certificate(parsed_kid.org_id, parsed_kid.client_id, parsed_kid.cert_id)
+        // Fetch from JWKS endpoint
+        let jwks_url = format!("{}/v1/organizations/{}/jwks.json", self.management_api_url, parsed_kid.org_id);
+
+        tracing::debug!(
+            jwks_url = %jwks_url,
+            kid = %kid,
+            "Fetching JWKS from Management API"
+        );
+
+        let response = self.http_client
+            .get(&jwks_url)
+            .send()
             .await
             .map_err(|e| {
-                // Record API call status
+                tracing::error!(
+                    jwks_url = %jwks_url,
+                    error = %e,
+                    "Failed to fetch JWKS"
+                );
                 if let Some(ref metrics) = self.metrics {
-                    let status = match &e {
-                        ManagementApiError::NotFound(_) => 404,
-                        ManagementApiError::UnexpectedStatus(code) => *code,
-                        _ => 500,
-                    };
-                    metrics.record_management_api_call("get_client_certificate", status);
+                    metrics.record_management_api_call("get_jwks", 0);
                 }
-
-                match e {
-                    ManagementApiError::NotFound(_) => CertificateCacheError::CertificateNotFound,
-                    e => CertificateCacheError::ManagementApiError(e.to_string()),
-                }
+                CertificateCacheError::JwksFetchError(e.to_string())
             })?;
 
-        // Record successful API call
+        let status = response.status();
         if let Some(ref metrics) = self.metrics {
-            metrics.record_management_api_call("get_client_certificate", 200);
+            metrics.record_management_api_call("get_jwks", status.as_u16());
         }
 
-        // Verify algorithm
-        if cert.algorithm != "EdDSA" {
-            return Err(CertificateCacheError::UnsupportedAlgorithm(cert.algorithm));
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Err(CertificateCacheError::CertificateNotFound);
         }
 
-        // Decode base64 public key
-        let public_key_bytes =
-            base64::engine::general_purpose::STANDARD
-                .decode(&cert.public_key)
-                .map_err(|e| CertificateCacheError::InvalidPublicKey(e.to_string()))?;
+        if !status.is_success() {
+            return Err(CertificateCacheError::JwksFetchError(format!("HTTP {}", status)));
+        }
+
+        let jwks: JwksResponse = response.json().await
+            .map_err(|e| CertificateCacheError::JwksFetchError(e.to_string()))?;
+
+        tracing::debug!(
+            keys_count = jwks.keys.len(),
+            keys = ?jwks.keys.iter().map(|k| &k.kid).collect::<Vec<_>>(),
+            "JWKS response received"
+        );
+
+        // Find the key matching our kid
+        let target_kid = parsed_kid.to_kid();
+        let jwk = jwks.keys.into_iter()
+            .find(|k| k.kid == target_kid)
+            .ok_or_else(|| {
+                tracing::warn!(
+                    target_kid = %target_kid,
+                    "Certificate not found in JWKS"
+                );
+                CertificateCacheError::CertificateNotFound
+            })?;
+
+        // Validate key type
+        if jwk.kty != "OKP" {
+            return Err(CertificateCacheError::UnsupportedAlgorithm(format!("key type: {}", jwk.kty)));
+        }
+
+        if jwk.crv.as_deref() != Some("Ed25519") {
+            return Err(CertificateCacheError::UnsupportedAlgorithm(
+                format!("curve: {:?}", jwk.crv)
+            ));
+        }
+
+        let x = jwk.x.ok_or_else(|| {
+            CertificateCacheError::InvalidPublicKey("missing 'x' parameter".to_string())
+        })?;
+
+        // Decode base64url public key
+        let public_key_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(&x)
+            .map_err(|e| CertificateCacheError::InvalidPublicKey(e.to_string()))?;
 
         // Verify key length (Ed25519 public keys are 32 bytes)
         if public_key_bytes.len() != PUBLIC_KEY_LENGTH {
@@ -243,15 +230,16 @@ impl CertificateCache {
             )));
         }
 
-        // Create Ed25519 verifying key
-        let verifying_key =
-            VerifyingKey::from_bytes(public_key_bytes.as_slice().try_into().map_err(|_| {
+        // Validate it's a valid Ed25519 key
+        let _verifying_key = VerifyingKey::from_bytes(
+            public_key_bytes.as_slice().try_into().map_err(|_| {
                 CertificateCacheError::InvalidPublicKey("Failed to convert bytes".to_string())
-            })?)
-            .map_err(|e| CertificateCacheError::InvalidPublicKey(e.to_string()))?;
+            })?
+        ).map_err(|e| CertificateCacheError::InvalidPublicKey(e.to_string()))?;
 
         // Convert to jsonwebtoken DecodingKey
-        let decoding_key = DecodingKey::from_ed_der(verifying_key.as_bytes());
+        let decoding_key = DecodingKey::from_ed_components(&x)
+            .map_err(|e| CertificateCacheError::InvalidPublicKey(e.to_string()))?;
         let decoding_key = Arc::new(decoding_key);
 
         // Cache it
@@ -264,13 +252,13 @@ impl CertificateCache {
 /// Error parsing key ID from JWT header
 #[derive(Debug, thiserror::Error)]
 pub enum KeyIdParseError {
-    /// Invalid kid format (expected: org-{org_id}-client-{client_id}-cert-{cert_id})
+    /// Invalid kid format
     #[error("Invalid kid format (expected: org-{{org_id}}-client-{{client_id}}-cert-{{cert_id}})")]
     InvalidFormat,
 
-    /// Invalid UUID in key ID component
-    #[error("Invalid UUID in {0}")]
-    InvalidUuid(&'static str),
+    /// Invalid Snowflake ID
+    #[error("Invalid Snowflake ID in {0}")]
+    InvalidSnowflakeId(&'static str),
 }
 
 /// Error fetching or decoding certificate
@@ -280,21 +268,25 @@ pub enum CertificateCacheError {
     #[error("Invalid kid: {0}")]
     InvalidKeyId(#[from] KeyIdParseError),
 
-    /// Certificate not found in Management API
+    /// Certificate not found in JWKS
     #[error("Certificate not found")]
     CertificateNotFound,
 
-    /// Unsupported algorithm (only EdDSA is supported)
+    /// Unsupported algorithm
     #[error("Unsupported algorithm: {0}")]
     UnsupportedAlgorithm(String),
 
-    /// Invalid public key (wrong length, format, or encoding)
+    /// Invalid public key
     #[error("Invalid public key: {0}")]
     InvalidPublicKey(String),
 
-    /// Management API request failed
-    #[error("Management API error: {0}")]
-    ManagementApiError(String),
+    /// JWKS fetch failed
+    #[error("JWKS fetch error: {0}")]
+    JwksFetchError(String),
+
+    /// HTTP client creation failed
+    #[error("HTTP client error: {0}")]
+    HttpClientError(String),
 }
 
 #[cfg(test)]
@@ -303,36 +295,33 @@ mod tests {
 
     #[test]
     fn test_parse_valid_kid() {
-        let kid = "org-00000000-0000-0000-0000-000000000001-client-00000000-0000-0000-0000-000000000002-cert-00000000-0000-0000-0000-000000000003";
+        let kid = "org-11897886526013449-client-11897886528110597-cert-11897886528176133";
         let parsed = ParsedKeyId::parse(kid).unwrap();
 
-        assert_eq!(parsed.org_id, Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap());
-        assert_eq!(
-            parsed.client_id,
-            Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap()
-        );
-        assert_eq!(
-            parsed.cert_id,
-            Uuid::parse_str("00000000-0000-0000-0000-000000000003").unwrap()
-        );
+        assert_eq!(parsed.org_id, 11897886526013449i64);
+        assert_eq!(parsed.client_id, 11897886528110597i64);
+        assert_eq!(parsed.cert_id, 11897886528176133i64);
     }
 
     #[test]
     fn test_parse_invalid_format_wrong_prefix() {
-        let kid = "organization-00000000-0000-0000-0000-000000000001-client-00000000-0000-0000-0000-000000000002-cert-00000000-0000-0000-0000-000000000003";
+        let kid = "organization-11897886526013449-client-11897886528110597-cert-11897886528176133";
         assert!(matches!(ParsedKeyId::parse(kid), Err(KeyIdParseError::InvalidFormat)));
     }
 
     #[test]
-    fn test_parse_invalid_uuid() {
-        // Invalid UUID format (not valid hex digits)
-        let kid = "org-zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz-client-00000000-0000-0000-0000-000000000002-cert-00000000-0000-0000-0000-000000000003";
-        assert!(matches!(ParsedKeyId::parse(kid), Err(KeyIdParseError::InvalidUuid(_))));
+    fn test_parse_invalid_snowflake_id() {
+        let kid = "org-not_a_number-client-11897886528110597-cert-11897886528176133";
+        assert!(matches!(ParsedKeyId::parse(kid), Err(KeyIdParseError::InvalidSnowflakeId(_))));
     }
 
     #[test]
-    fn test_parse_too_few_parts() {
-        let kid = "org-client-cert";
-        assert!(matches!(ParsedKeyId::parse(kid), Err(KeyIdParseError::InvalidFormat)));
+    fn test_parsed_key_id_to_kid() {
+        let parsed = ParsedKeyId {
+            org_id: 123,
+            client_id: 456,
+            cert_id: 789,
+        };
+        assert_eq!(parsed.to_kid(), "org-123-client-456-cert-789");
     }
 }

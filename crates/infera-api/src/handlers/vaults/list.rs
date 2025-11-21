@@ -2,7 +2,6 @@
 
 use axum::extract::{Path, State};
 use infera_types::{ListVaultsResponse, VaultResponse};
-use uuid::Uuid;
 
 use crate::{
     ApiError, AppState,
@@ -48,7 +47,7 @@ pub async fn list_vaults(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<Uuid>,
+    Path(account_id): Path<i64>,
 ) -> Result<ResponseData<ListVaultsResponse>, ApiError> {
     // Check authorization (admin OR account owner)
     authorize_account_access(&auth.0, account_id)?;

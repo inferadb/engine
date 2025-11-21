@@ -131,7 +131,6 @@ mod tests {
     use infera_config::Config;
     use infera_store::MemoryBackend;
     use tower::ServiceExt;
-    use uuid::Uuid;
 
     use super::*;
     use crate::AppState;
@@ -140,7 +139,7 @@ mod tests {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(infera_core::ipl::Schema::new(vec![]));
         // Use a test vault ID
-        let test_vault = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -151,7 +150,7 @@ mod tests {
             config,
             None, // No JWKS cache for tests
             test_vault,
-            Uuid::nil(),
+            0i64,
         )
     }
 

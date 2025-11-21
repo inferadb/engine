@@ -109,8 +109,8 @@ mod tests {
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
-            vault: uuid::Uuid::nil(),
-            account: uuid::Uuid::nil(),
+            vault: 0,
+            account: 0,
         }
     }
 
