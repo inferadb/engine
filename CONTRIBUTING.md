@@ -117,6 +117,7 @@ Format: `type: subject`
 2. **Open a pull request** on GitHub
 
 3. **Describe your changes**:
+
     - What does this PR do?
     - Why is this change needed?
     - How has it been tested?
@@ -376,8 +377,8 @@ server/
 ## Getting Help
 
 - **Documentation**: See `docs/` directory
-- **Issues**: https://github.com/inferadb/server/issues
-- **Discussions**: https://github.com/inferadb/server/discussions
+- **Issues**: <https://github.com/inferadb/server/issues>
+- **Discussions**: <https://github.com/inferadb/server/discussions>
 - **Discord**: Join our community server (link TBD)
 
 ## Feature Requests
@@ -452,7 +453,7 @@ When optimizing performance:
 
 Instead:
 
-1. Email security@inferadb.io (or maintainer email)
+1. Email <security@inferadb.io> (or maintainer email)
 2. Include detailed description
 3. Wait for response before disclosure
 4. Allow time for fix before public disclosure

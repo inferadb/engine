@@ -25,8 +25,8 @@ node = "24"
 "npm:prettier" = "latest"    # Format Markdown, YAML, JSON, Rust
 
 # Optional analysis tools (install manually if needed)
-"cargo:cargo-expand" = "latest"   # Macro expansion (for `make expand`)
-"cargo:cargo-bloat" = "latest"    # Binary size analysis (for `make bloat`)
+"cargo:cargo-expand" = "latest" # Macro expansion (for `make expand`)
+"cargo:cargo-bloat" = "latest"  # Binary size analysis (for `make bloat`)
 
 # Protobuf compiler for gRPC
 protobuf = "latest"

@@ -40,10 +40,10 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 ## Operations & Monitoring
 
 - [Observability](operations/observability/README.md) - Comprehensive observability guide
-    - [Metrics](operations/observability/metrics.md) - Prometheus metrics reference
-    - [Distributed Tracing](operations/observability/tracing.md) - OpenTelemetry tracing setup
-    - [Structured Logging](operations/observability/logging.md) - Logging configuration and formats
-    - [Audit Logging](operations/observability/auditing.md) - Compliance and security audit trail
+  - [Metrics](operations/observability/metrics.md) - Prometheus metrics reference
+  - [Distributed Tracing](operations/observability/tracing.md) - OpenTelemetry tracing setup
+  - [Structured Logging](operations/observability/logging.md) - Logging configuration and formats
+  - [Audit Logging](operations/observability/auditing.md) - Compliance and security audit trail
 - [Performance Baselines](operations/performance.md) - Expected performance characteristics
 - [Service Level Objectives](operations/slos.md) - SLO definitions and error budgets
 - [Multi-Region Replication](operations/replication.md) - Active-active replication

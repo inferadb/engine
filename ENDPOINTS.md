@@ -1,17 +1,14 @@
 # InferaDB API Endpoints Reference
 
-Comprehensive mapping of InferaDB API endpoints compared to competitors (SpiceDB, OpenFGA, Oso, WorkOS FGA, Cedar/AVP).
-
-**Last Updated**: 2025-10-31
-**Version**: 0.1.0
+Comprehensive mapping of InferaDB API endpoints compared to alternatives (SpiceDB, OpenFGA, Oso, WorkOS FGA, Cedar/AVP).
 
 ---
 
 ## Table of Contents
 
 - [InferaDB Endpoints](#inferadb-endpoints)
-    - [gRPC API](#grpc-api)
-    - [REST/HTTP API](#resthttp-api)
+  - [gRPC API](#grpc-api)
+  - [REST/HTTP API](#resthttp-api)
 - [Endpoint Comparison Matrix](#endpoint-comparison-matrix)
 - [Detailed Endpoint Comparisons](#detailed-endpoint-comparisons)
 - [Missing Endpoints](#missing-endpoints)
@@ -479,7 +476,7 @@ response = client.batch_is_authorized(
 
 **Limits**: Up to 30 requests per batch
 
-**Key Insight**: InferaDB's streaming Check API provides **superior batch check capabilities** with no hard limits (competitors limit to 30-100 checks), progressive results, and the industry's **ONLY batch check + trace capability**.
+**Key Insight**: InferaDB's streaming Check API provides **superior batch check capabilities** with no hard limits (alternatives limit to 30-100 checks), progressive results, and the industry's **ONLY batch check + trace capability**.
 
 ---
 
@@ -744,7 +741,7 @@ Similar to SpiceDB's "contextual tuples" feature, but InferaDB provides:
 - **gRPC**: `crates/infera-api/src/grpc.rs:706-779` + proto definition in `crates/infera-api/proto/infera.proto:421-453`
 - **REST**: `crates/infera-api/src/lib.rs:766-839`
 
-#### Competitors
+#### Alternatives
 
 **SpiceDB**: Contextual tuples in `CheckPermissionRequest.context` field (mixed with regular checks)
 
@@ -756,7 +753,7 @@ Similar to SpiceDB's "contextual tuples" feature, but InferaDB provides:
 
 **Cedar/AVP**: No simulate endpoint (policy evaluation only)
 
-**Key Insight**: InferaDB's dedicated `/simulate` endpoint provides **clearer separation** between testing and production checks compared to competitors' inline contextual tuple approaches.
+**Key Insight**: InferaDB's dedicated `/simulate` endpoint provides **clearer separation** between testing and production checks compared to alternatives' inline contextual tuple approaches.
 
 ---
 
@@ -986,6 +983,7 @@ POST /delete-relationships
     ```
 
 - **Combined mode**: Both filter and exact relationships
+
     ```json
     {
         "filter": { "subject": "user:alice" },
@@ -1250,7 +1248,7 @@ response = client.list_policies(
 
 **Status**: ✅ **Streaming-only for progressive results**
 
-**Design Decision**: InferaDB uses a **streaming-only Expand API** for progressive user discovery and better performance with large usersets. This provides better scalability than competitors' buffered approaches.
+**Design Decision**: InferaDB uses a **streaming-only Expand API** for progressive user discovery and better performance with large usersets. This provides better scalability than alternatives' buffered approaches.
 
 **gRPC:**
 
@@ -1347,7 +1345,7 @@ POST /stores/{store_id}/expand
 
 **No expand concept** - Policy-based, not relationship graph
 
-**Key Insight**: InferaDB's expand with streaming is **superior to most competitors** for handling large usersets.
+**Key Insight**: InferaDB's expand with streaming is **superior to most alternatives** for handling large usersets.
 
 ---
 
@@ -1570,7 +1568,7 @@ for resource in all_resources:
 
 **Key Insight**: InferaDB missing this is a **SHOWSTOPPER**. This is the #1 most common authorization query in production systems.
 
-**Competitive advantage lost**: All competitors except Cedar have this. Cedar is different paradigm, so acceptable they don't have it.
+**Competitive advantage lost**: All alternatives except Cedar have this. Cedar is different paradigm, so acceptable they don't have it.
 
 ---
 
@@ -2119,7 +2117,7 @@ response = client.put_schema(
 - JSON schema format
 - Type checking
 
-**Key Insight**: InferaDB needs runtime schema management API for production use. Competitors all support dynamic schema updates.
+**Key Insight**: InferaDB needs runtime schema management API for production use. Alternatives all support dynamic schema updates.
 
 ---
 
@@ -2209,11 +2207,11 @@ Response:
 
 ### Critical Missing Endpoints (P0)
 
-These endpoints are present in **ALL or MOST** competitors but missing in InferaDB:
+These endpoints are present in **ALL or MOST** alternatives but missing in InferaDB:
 
 #### 1. **ListResources / ListObjects** ✅ IMPLEMENTED (Phase 1.1)
 
-**Present in:** InferaDB, SpiceDB, OpenFGA, Oso, WorkOS FGA (5/5 competitors)
+**Present in:** InferaDB, SpiceDB, OpenFGA, Oso, WorkOS FGA (5/5 alternatives)
 
 **What it does:** Returns all resources a user can access
 
@@ -2243,13 +2241,13 @@ These endpoints are present in **ALL or MOST** competitors but missing in Infera
 
 #### 2. **ReadRelationships / Read / ListWarrants** ✅ IMPLEMENTED
 
-**Present in:** SpiceDB, OpenFGA, Oso, WorkOS FGA, Cedar (5/5 competitors)
+**Present in:** SpiceDB, OpenFGA, Oso, WorkOS FGA, Cedar (5/5 alternatives)
 
 **What it does:** Query existing authorization relationships
 
 **InferaDB equivalent:** ✅ `ListRelationships` (gRPC + REST with streaming support)
 
-**Competitors' names:**
+**Alternatives' names:**
 
 - **SpiceDB**: `ReadRelationships`
 - **OpenFGA**: `Read` (`POST /stores/{store_id}/read`)
@@ -2333,7 +2331,7 @@ message DeleteFilter {
 
 #### 4. **BatchCheck / BatchAuthorize** ✅ IMPLEMENTED
 
-**Present in:** InferaDB, OpenFGA, Oso, WorkOS FGA, Cedar (5/5 competitors)
+**Present in:** InferaDB, OpenFGA, Oso, WorkOS FGA, Cedar (5/5 alternatives)
 
 **What it does:** Check multiple permissions in one API call
 
@@ -2341,7 +2339,7 @@ message DeleteFilter {
 
 **Status:** ✅ Fully implemented via streaming Check endpoint
 
-**Competitors' implementations:**
+**Alternatives' implementations:**
 
 - **SpiceDB**: ⚠️ No native batch, use pipelining
 - **OpenFGA**: `BatchCheck` (`POST /stores/{store_id}/batch-check`)
@@ -2367,7 +2365,7 @@ POST /batch-check (50 checks) → ~50ms total
 
 **InferaDB advantages:**
 
-- **No hard limits**: Stream-based (competitors limit to 30-100 checks)
+- **No hard limits**: Stream-based (alternatives limit to 30-100 checks)
 - **Progressive results**: See results as they're evaluated
 - **Unified API**: Same endpoint for single and batch (simpler)
 - **Robust errors**: Individual failures don't fail batch
@@ -2400,7 +2398,7 @@ message EvaluateResponse {
 
 **InferaDB current:** ⚡ WASM only (complex, requires Rust expertise)
 
-**Competitors' approaches:**
+**Alternatives' approaches:**
 
 **SpiceDB (CEL):**
 
@@ -2463,7 +2461,7 @@ type document {
 
 #### 6. **LookupSubjects / ListUsers** ✅ IMPLEMENTED (Phase 2.1)
 
-**Present in:** InferaDB, SpiceDB, OpenFGA, Oso, WorkOS FGA (5/5 competitors)
+**Present in:** InferaDB, SpiceDB, OpenFGA, Oso, WorkOS FGA (5/5 alternatives)
 
 **What it does:** Returns all subjects with access to a resource
 
@@ -2488,7 +2486,7 @@ type document {
 - Deduplication of subjects with multiple access paths
 - Snapshot isolation for consistency
 
-**Competitors:**
+**Alternatives:**
 
 - **SpiceDB**: `LookupSubjects`
 - **OpenFGA**: `ListUsers` (`POST /stores/{store_id}/list-users`)
@@ -2503,7 +2501,7 @@ type document {
 
 **What it does:** Stream relationship changes in real-time
 
-**Competitors:**
+**Alternatives:**
 
 - **SpiceDB**: `Watch` (gRPC streaming)
 - **OpenFGA**: `GET /changes/watch` (SSE)
@@ -2520,7 +2518,7 @@ type document {
 
 **Needed:** Runtime schema updates
 
-**Competitors:**
+**Alternatives:**
 
 - **SpiceDB**: `WriteSchema`, `ReadSchema`
 - **OpenFGA**: `POST /authorization-models`
@@ -2674,7 +2672,7 @@ POST /evaluate
 
 **Critical Gaps (1 endpoint):**
 
-- ⚠️ Native ABAC conditions (CRITICAL - 5/5 competitors, InferaDB WASM-only)
+- ⚠️ Native ABAC conditions (CRITICAL - 5/5 alternatives, InferaDB WASM-only)
 
 **Nice-to-Have (3 endpoints):**
 
@@ -2686,10 +2684,10 @@ POST /evaluate
 
 **Where InferaDB Leads:**
 
-- ✅ **Check API** - Unified streaming API for single/batch with optional trace, no hard limits (competitors limit 30-100)
+- ✅ **Check API** - Unified streaming API for single/batch with optional trace, no hard limits (alternatives limit 30-100)
 - ✅ **Batch Check + Trace** - Industry's ONLY platform with detailed trace on batch checks (unique competitive advantage)
-- ✅ **Simulate Endpoint** - Dedicated REST endpoint for what-if testing with ephemeral relationships (clearer than competitors' inline contextual tuples)
-- ✅ **Expand API** - Streaming-only for progressive results (competitors buffer all users)
+- ✅ **Simulate Endpoint** - Dedicated REST endpoint for what-if testing with ephemeral relationships (clearer than alternatives' inline contextual tuples)
+- ✅ **Expand API** - Streaming-only for progressive results (alternatives buffer all users)
 - ✅ **WriteRelationships** - Unified streaming API for single/batch writes (simpler API surface)
 - ✅ **DeleteRelationships** - Streaming API with comprehensive filter-based deletion (matches SpiceDB's capabilities)
 
@@ -2735,7 +2733,7 @@ POST /evaluate
 
 **See Also:**
 
-- [COMPARISON.md](./COMPARISON.md) - Full competitive analysis
+- [COMPARISON.md](./COMPARISON.md) - Full comparative analysis
 - [ROADMAP.md](./ROADMAP.md) - Implementation plan
 - [api/openapi.yaml](./api/openapi.yaml) - REST API specification
 - [crates/infera-api/proto/infera.proto](./crates/infera-api/proto/infera.proto) - gRPC specification

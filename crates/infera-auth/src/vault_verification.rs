@@ -209,11 +209,7 @@ impl VaultVerifier for NoOpVaultVerifier {
         organization_id: i64,
     ) -> Result<VaultInfo, VaultVerificationError> {
         // Create dummy vault info without verification
-        Ok(VaultInfo {
-            id: vault_id,
-            name: "unverified".to_string(),
-            organization_id,
-        })
+        Ok(VaultInfo { id: vault_id, name: "unverified".to_string(), organization_id })
     }
 
     async fn verify_organization(

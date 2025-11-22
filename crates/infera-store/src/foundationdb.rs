@@ -1489,7 +1489,7 @@ mod tests {
     #[tokio::test]
     async fn test_fdb_basic_operations() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         let relationship = Relationship {
             vault,
@@ -1520,8 +1520,8 @@ mod tests {
     #[tokio::test]
     async fn test_vault_isolation() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a: i64 = 1;
+        let vault_b: i64 = 2;
 
         // Write to vault A
         let rel_a = Relationship {
@@ -1570,7 +1570,7 @@ mod tests {
     #[tokio::test]
     async fn test_revision_mvcc() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         let key = RelationshipKey {
             resource: "doc:history".to_string(),
@@ -1625,7 +1625,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_by_filter_resource_only() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Setup: Create multiple relationships for same resource
         let rels = vec![
@@ -1681,7 +1681,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_by_filter_subject_only() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Setup: User alice has multiple permissions
         let rels = vec![
@@ -1729,7 +1729,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_by_filter_with_limit() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Setup: Create 5 relationships with same resource
         let rels: Vec<_> = (1..=5)
@@ -1764,7 +1764,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_by_filter_empty_filter() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Empty filter should error
         let filter = DeleteFilter { resource: None, relation: None, subject: None };
@@ -1775,7 +1775,7 @@ mod tests {
     #[tokio::test]
     async fn test_index_consistency_after_delete() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Write a relationship
         let rel = Relationship {
@@ -1811,7 +1811,7 @@ mod tests {
     #[tokio::test]
     async fn test_bulk_write_operations() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Write multiple relationships in one transaction
         let rels: Vec<_> = (1..=10)
@@ -1841,7 +1841,7 @@ mod tests {
     #[tokio::test]
     async fn test_read_query_variations() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Setup diverse relationships
         let rels = vec![
@@ -1906,7 +1906,7 @@ mod tests {
         use std::time::{SystemTime, UNIX_EPOCH};
 
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Create test relationships
         let rel1 = Relationship {
@@ -1970,7 +1970,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_resources_by_type() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Create relationships for different resource types
         let rels = vec![
@@ -2022,7 +2022,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_relationships() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Create diverse relationships
         let rels = vec![
@@ -2089,7 +2089,7 @@ mod tests {
     #[tokio::test]
     async fn test_edge_cases() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Test 1: Unicode strings
         let unicode_rel = Relationship {
@@ -2179,7 +2179,7 @@ mod tests {
     #[tokio::test]
     async fn test_concurrent_operations() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Test concurrent writes from multiple tasks
         let mut handles = vec![];
@@ -2224,7 +2224,7 @@ mod tests {
     #[tokio::test]
     async fn test_large_dataset_operations() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Write a large batch of relationships (100 relationships)
         let large_batch: Vec<_> = (0..100)
@@ -2272,8 +2272,8 @@ mod tests {
     #[tokio::test]
     async fn test_vault_isolation_comprehensive() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault_a = Uuid::new_v4();
-        let vault_b = Uuid::new_v4();
+        let vault_a: i64 = 1;
+        let vault_b: i64 = 2;
 
         // Create identical relationships in both vaults
         let rel = Relationship {
@@ -2317,7 +2317,7 @@ mod tests {
     #[tokio::test]
     async fn test_mvcc_with_interleaved_operations() {
         let store = FoundationDBBackend::new().await.unwrap();
-        let vault = Uuid::new_v4();
+        let vault: i64 = 1;
 
         // Rev 1: Alice is viewer
         let rel1 = Relationship {

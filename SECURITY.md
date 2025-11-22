@@ -174,23 +174,25 @@ All operations in InferaDB require specific scopes. Scopes follow the pattern `i
 **Grants access to:**
 
 - **Account Management:**
-    - `POST /v1/accounts` - Create accounts
-    - `GET /v1/accounts` - List all accounts
-    - `GET /v1/accounts/:id` - View any account
-    - `PATCH /v1/accounts/:id` - Update accounts
-    - `DELETE /v1/accounts/:id` - Delete accounts
+
+  - `POST /v1/accounts` - Create accounts
+  - `GET /v1/accounts` - List all accounts
+  - `GET /v1/accounts/:id` - View any account
+  - `PATCH /v1/accounts/:id` - Update accounts
+  - `DELETE /v1/accounts/:id` - Delete accounts
 
 - **Vault Management:**
-    - `POST /v1/accounts/:account_id/vaults` - Create vaults for any account
-    - `GET /v1/accounts/:account_id/vaults` - List vaults for any account
-    - `GET /v1/vaults/:id` - View any vault
-    - `PATCH /v1/vaults/:id` - Update any vault
-    - `DELETE /v1/vaults/:id` - Delete any vault
+
+  - `POST /v1/accounts/:account_id/vaults` - Create vaults for any account
+  - `GET /v1/accounts/:account_id/vaults` - List vaults for any account
+  - `GET /v1/vaults/:id` - View any vault
+  - `PATCH /v1/vaults/:id` - Update any vault
+  - `DELETE /v1/vaults/:id` - Delete any vault
 
 - **Cross-Tenant Operations:**
-    - Access to any account's resources
-    - Bypass account ownership checks
-    - Full system visibility
+  - Access to any account's resources
+  - Bypass account ownership checks
+  - Full system visibility
 
 **Warning:** The admin scope grants unrestricted access. Use with caution.
 
@@ -467,8 +469,8 @@ auth:
 
 For security issues or vulnerabilities, please contact:
 
-- **Email:** security@inferadb.com
-- **PGP Key:** Available at https://inferadb.com/.well-known/security.txt
+- **Email:** <security@inferadb.com>
+- **PGP Key:** Available at <https://inferadb.com/.well-known/security.txt>
 
 ---
 
@@ -509,7 +511,7 @@ Our CI pipeline includes comprehensive security automation:
 If you discover a security issue in our workflows or CI/CD pipeline:
 
 1. **Do NOT open a public issue** - This could expose attack vectors
-2. **Email security@inferadb.com** with:
+2. **Email <security@inferadb.com>** with:
     - Workflow file name and line number
     - Description of the vulnerability
     - Proof of concept (if safe to share)
@@ -540,7 +542,7 @@ InferaDB implements defense-in-depth for supply chain security:
 - Step Security Harden Runner on all workflows
 - Egress traffic monitoring and auditing
 - Real-time anomaly detection
-- Dashboard: https://app.stepsecurity.io
+- Dashboard: <https://app.stepsecurity.io>
 
 **Artifact Integrity:**
 
@@ -727,16 +729,16 @@ Our CI/CD pipeline supports:
 
 ### Resources
 
-- **Step Security Dashboard:** https://app.stepsecurity.io
-- **SLSA Framework:** https://slsa.dev
-- **RustSec Database:** https://rustsec.org
-- **Sigstore:** https://sigstore.dev
-- **OpenSSF Scorecard:** https://github.com/ossf/scorecard
-- **cargo-deny Docs:** https://embarkstudios.github.io/cargo-deny
+- **Step Security Dashboard:** <https://app.stepsecurity.io>
+- **SLSA Framework:** <https://slsa.dev>
+- **RustSec Database:** <https://rustsec.org>
+- **Sigstore:** <https://sigstore.dev>
+- **OpenSSF Scorecard:** <https://github.com/ossf/scorecard>
+- **cargo-deny Docs:** <https://embarkstudios.github.io/cargo-deny>
 
 ### Contact
 
-- **Security Issues:** security@inferadb.com
+- **Security Issues:** <security@inferadb.com>
 - **PGP Key:** [TODO: Add PGP key]
 - **Bug Bounty:** [TODO: Set up HackerOne/Bugcrowd]
 - **Response Time:** 48 hours (acknowledgment), 7 days (critical fixes)
