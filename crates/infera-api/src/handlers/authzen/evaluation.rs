@@ -77,7 +77,7 @@ pub async fn post_evaluation(
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
-            tenant_id = auth_ctx.tenant_id,
+            tenant_id = auth_ctx.organization,
             vault = %vault,
             "AuthZEN evaluation request with authentication"
         );
@@ -229,7 +229,7 @@ pub async fn post_evaluations(
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
-            tenant_id = auth_ctx.tenant_id,
+            tenant_id = auth_ctx.organization,
             vault = %vault,
             batch_size = batch_size,
             "AuthZEN batch evaluation request with authentication"

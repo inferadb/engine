@@ -508,7 +508,7 @@ pub async fn serve(
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: i64,
-    default_account: i64,
+    default_organization: i64,
 ) -> anyhow::Result<()> {
     // Create AppState with services
     let state = AppState::new(
@@ -518,7 +518,7 @@ pub async fn serve(
         config.clone(),
         jwks_cache,
         default_vault,
-        default_account,
+        default_organization,
     );
 
     // Mark service as ready to accept traffic
@@ -560,7 +560,7 @@ pub async fn serve_grpc(
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: i64,
-    default_account: i64,
+    default_organization: i64,
 ) -> anyhow::Result<()> {
     use grpc::proto::infera_service_server::InferaServiceServer;
     use tonic::transport::Server;
@@ -573,7 +573,7 @@ pub async fn serve_grpc(
         config.clone(),
         jwks_cache,
         default_vault,
-        default_account,
+        default_organization,
     );
 
     // Mark service as ready to accept traffic
@@ -649,7 +649,7 @@ pub async fn serve_both(
     config: Arc<Config>,
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: i64,
-    default_account: i64,
+    default_organization: i64,
 ) -> anyhow::Result<()> {
     let rest_store = Arc::clone(&store);
     let rest_schema = Arc::clone(&schema);
@@ -671,7 +671,7 @@ pub async fn serve_both(
             rest_config,
             rest_jwks_cache,
             default_vault,
-            default_account
+            default_organization
         ),
         serve_grpc(
             grpc_store,
@@ -680,7 +680,7 @@ pub async fn serve_both(
             grpc_config,
             grpc_jwks_cache,
             default_vault,
-            default_account
+            default_organization
         )
     )?;
 

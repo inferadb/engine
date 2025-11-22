@@ -8,10 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Authentication context extracted from validated JWT
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthContext {
-    /// Tenant identifier (extracted from iss or tenant_id claim)
-    pub tenant_id: String,
-
-    /// Client identifier (from sub or client_id claim)
+    /// Client identifier (from sub claim)
     pub client_id: String,
 
     /// Key ID used for verification (from kid header)
@@ -65,7 +62,6 @@ impl AuthContext {
     /// Uses the provided default vault and organization IDs
     pub fn default_unauthenticated(default_vault: i64, default_organization: i64) -> Self {
         Self {
-            tenant_id: "default".to_string(),
             client_id: "system:unauthenticated".to_string(),
             key_id: "default".to_string(),
             auth_method: AuthMethod::InternalServiceJwt,
@@ -93,7 +89,6 @@ mod tests {
 
     fn create_test_context(scopes: Vec<&str>, exp_offset_secs: i64) -> AuthContext {
         AuthContext {
-            tenant_id: "test-tenant".into(),
             client_id: "test-client".into(),
             key_id: "test-key-1".into(),
             auth_method: AuthMethod::PrivateKeyJwt,

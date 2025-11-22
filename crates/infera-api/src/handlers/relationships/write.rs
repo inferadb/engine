@@ -43,7 +43,7 @@ pub async fn write_relationships_handler(
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
             vault = %vault,
-            tenant_id = %auth_ctx.tenant_id,
+            tenant_id = %auth_ctx.organization,
             "Write request from tenant"
         );
     }

@@ -54,7 +54,7 @@ pub async fn watch_handler(
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        tracing::debug!("Watch request from tenant: {} (vault: {})", auth_ctx.tenant_id, vault);
+        tracing::debug!("Watch request from tenant: {} (vault: {})", auth_ctx.organization, vault);
     }
 
     // Parse cursor (base64 decode to revision)

@@ -111,7 +111,7 @@ pub async fn evaluate_stream_handler(
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
             "Streaming check request from tenant: {} (vault: {})",
-            auth_ctx.tenant_id,
+            auth_ctx.organization,
             vault
         );
     }

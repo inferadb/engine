@@ -176,7 +176,6 @@ mod tests {
 
     fn create_test_auth_context(scopes: Vec<String>) -> infera_types::AuthContext {
         infera_types::AuthContext {
-            tenant_id: "test_tenant".to_string(),
             client_id: "test_client".to_string(),
             key_id: "test_key".to_string(),
             auth_method: AuthMethod::PrivateKeyJwt,

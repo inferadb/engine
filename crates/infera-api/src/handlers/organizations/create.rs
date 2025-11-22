@@ -140,7 +140,6 @@ mod tests {
         let request = CreateOrganizationRequest { name: "".to_string() };
 
         let admin_ctx = infera_types::AuthContext {
-            tenant_id: "test".to_string(),
             client_id: "test".to_string(),
             key_id: "test".to_string(),
             auth_method: AuthMethod::PrivateKeyJwt,

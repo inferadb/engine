@@ -176,7 +176,6 @@ async fn get_org_jwks(
     let certs = state.certificates.lock().unwrap();
 
     // Find all certificates for this org
-    let org_prefix = format!("org-{}-", org_id);
     let keys: Vec<JwkResponse> = certs
         .iter()
         .filter(|(key, _)| key.org_id == org_id)

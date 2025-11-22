@@ -53,7 +53,11 @@ pub async fn simulate_handler(
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
-        tracing::debug!("Simulate request from tenant: {} (vault: {})", auth_ctx.tenant_id, vault);
+        tracing::debug!(
+            "Simulate request from tenant: {} (vault: {})",
+            auth_ctx.organization,
+            vault
+        );
     }
 
     // Validate context relationships

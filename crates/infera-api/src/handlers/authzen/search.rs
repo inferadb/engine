@@ -126,7 +126,7 @@ pub async fn post_search_resource(
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
-            tenant_id = auth_ctx.tenant_id,
+            tenant_id = auth_ctx.organization,
             vault = %vault,
             "AuthZEN resource search request with authentication"
         );
@@ -305,7 +305,7 @@ pub async fn post_search_subject(
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
-            tenant_id = auth_ctx.tenant_id,
+            tenant_id = auth_ctx.organization,
             vault = %vault,
             "AuthZEN subject search request with authentication"
         );

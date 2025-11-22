@@ -79,7 +79,7 @@ mod common {
                 let jwks = Arc::clone(&jwks);
                 warp::path!("tenants" / String / ".well-known" / "jwks.json")
                     .and(warp::get())
-                    .and_then(move |_tenant_id: String| {
+                    .and_then(move |_org_id: String| {
                         let jwks = Arc::clone(&jwks);
                         async move {
                             let jwks = jwks.read().await;
@@ -104,7 +104,7 @@ mod common {
 
         pub fn generate_tenant_jwt(
             &self,
-            tenant_id: &str,
+            org_id: &str,
             scopes: &[&str],
             expires_in_secs: i64,
         ) -> String {
@@ -124,8 +124,8 @@ mod common {
 
             let now = chrono::Utc::now().timestamp();
             let claims = Claims {
-                iss: format!("tenant:{}", tenant_id),
-                sub: format!("tenant:{}", tenant_id),
+                iss: format!("tenant:{}", org_id),
+                sub: format!("tenant:{}", org_id),
                 aud: "https://api.inferadb.com/evaluate".to_string(),
                 exp: now + expires_in_secs,
                 iat: now,

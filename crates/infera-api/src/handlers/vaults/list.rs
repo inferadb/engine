@@ -21,7 +21,7 @@ use crate::{
 /// - Requires either `inferadb.admin` scope OR account ownership
 ///
 /// # Path Parameters
-/// - `account_id`: Account UUID
+/// - `organization_id`: Account UUID
 ///
 /// # Response (200 OK)
 /// ```json

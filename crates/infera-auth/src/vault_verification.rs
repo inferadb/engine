@@ -13,11 +13,11 @@ use crate::{
 /// Trait for verifying vault and organization ownership
 #[async_trait]
 pub trait VaultVerifier: Send + Sync {
-    /// Verify vault exists and belongs to the specified account
+    /// Verify vault exists and belongs to the specified organization
     async fn verify_vault(
         &self,
         vault_id: i64,
-        account_id: i64,
+        organization_id: i64,
     ) -> Result<VaultInfo, VaultVerificationError>;
 
     /// Verify organization exists and is active
@@ -77,7 +77,7 @@ impl VaultVerifier for ManagementApiVaultVerifier {
     async fn verify_vault(
         &self,
         vault_id: i64,
-        account_id: i64,
+        organization_id: i64,
     ) -> Result<VaultInfo, VaultVerificationError> {
         // Check cache first
         if let Some(cached) = self.vault_cache.get(&vault_id).await {
@@ -86,13 +86,13 @@ impl VaultVerifier for ManagementApiVaultVerifier {
                 metrics.record_cache_hit("vault");
             }
 
-            if cached.account_id == account_id {
+            if cached.organization_id == organization_id {
                 return Ok((*cached).clone());
             } else {
                 return Err(VaultVerificationError::AccountMismatch {
                     vault_id,
-                    expected: account_id,
-                    actual: cached.account_id,
+                    expected: organization_id,
+                    actual: cached.organization_id,
                 });
             }
         }
@@ -126,11 +126,11 @@ impl VaultVerifier for ManagementApiVaultVerifier {
         }
 
         // Verify account ownership
-        if vault_info.account_id != account_id {
+        if vault_info.organization_id != organization_id {
             return Err(VaultVerificationError::AccountMismatch {
                 vault_id,
-                expected: account_id,
-                actual: vault_info.account_id,
+                expected: organization_id,
+                actual: vault_info.organization_id,
             });
         }
 
@@ -206,14 +206,13 @@ impl VaultVerifier for NoOpVaultVerifier {
     async fn verify_vault(
         &self,
         vault_id: i64,
-        account_id: i64,
+        organization_id: i64,
     ) -> Result<VaultInfo, VaultVerificationError> {
         // Create dummy vault info without verification
         Ok(VaultInfo {
             id: vault_id,
             name: "unverified".to_string(),
-            organization_id: 0,
-            account_id,
+            organization_id,
         })
     }
 

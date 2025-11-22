@@ -302,12 +302,8 @@ pub async fn validate_internal_jwt(
         .parse()
         .map_err(|_| AuthError::InvalidTokenFormat("Invalid organization ID format".to_string()))?;
 
-    // Use org_id for tenant_id in AuthContext
-    let tenant_id = organization_str.clone();
-
     // Create AuthContext with proper fields
     Ok(AuthContext {
-        tenant_id,
         client_id: claims.sub.clone(),
         key_id: kid,
         auth_method: AuthMethod::InternalServiceJwt,

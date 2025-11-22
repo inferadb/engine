@@ -240,7 +240,7 @@ async fn auth_middleware_impl(
             AuthError::MissingClaim(claim) => {
                 unauthorized_response(&format!("Missing claim: {}", claim))
             },
-            AuthError::MissingTenantId => unauthorized_response("Missing tenant_id claim"),
+            AuthError::MissingTenantId => unauthorized_response("Missing org_id claim"),
             AuthError::UnsupportedAlgorithm(alg) => {
                 unauthorized_response(&format!("Unsupported algorithm: {}", alg))
             },
@@ -249,15 +249,7 @@ async fn auth_middleware_impl(
         }
     })?;
 
-    // Extract organization ID from claims
-    let tenant_id = claims.extract_org_id().map_err(|e| {
-        if let Some(ref m) = metrics {
-            m.record_validation_failure("jwt");
-        }
-        (StatusCode::UNAUTHORIZED, e.to_string()).into_response()
-    })?;
-
-    // Extract vault and account IDs (Snowflake IDs) from claims
+    // Extract vault and organization IDs (Snowflake IDs) from claims
     let vault_str = claims.extract_vault_id().ok_or_else(|| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
@@ -289,7 +281,6 @@ async fn auth_middleware_impl(
 
     // Create AuthContext
     let auth_context = AuthContext {
-        tenant_id,
         client_id: claims.sub.clone(),
         key_id: String::new(), // Will be populated from JWT header kid in next iteration
         auth_method: AuthMethod::PrivateKeyJwt,
@@ -336,7 +327,7 @@ pub fn validate_vault_access(auth: &AuthContext) -> Result<(), AuthError> {
     // Check if vault is zero (unset)
     if auth.vault == 0 {
         tracing::warn!(
-            tenant_id = %auth.tenant_id,
+            organization = %auth.organization,
             client_id = %auth.client_id,
             "Vault access denied: zero ID detected"
         );
@@ -347,9 +338,8 @@ pub fn validate_vault_access(auth: &AuthContext) -> Result<(), AuthError> {
 
     // Log vault access for audit trail
     tracing::debug!(
-        tenant_id = %auth.tenant_id,
-        vault = %auth.vault,
         organization = %auth.organization,
+        vault = %auth.vault,
         client_id = %auth.client_id,
         "Vault access validated (basic)"
     );
@@ -404,7 +394,7 @@ pub async fn vault_validation_middleware(
         tracing::warn!(
             error = %e,
             vault = %auth.vault,
-            tenant_id = %auth.tenant_id,
+            organization = %auth.organization,
             "Vault validation failed"
         );
         (StatusCode::FORBIDDEN, format!("Vault access denied: {}", e)).into_response()
@@ -418,7 +408,7 @@ pub async fn vault_validation_middleware(
 ///
 /// When auth is disabled (auth.enabled = false), this middleware:
 /// - Logs a warning that authentication is disabled
-/// - Injects a default AuthContext with the provided vault/account
+/// - Injects a default AuthContext with the provided vault/organization
 /// - Passes the request through without token validation
 ///
 /// When auth is enabled, delegates to the standard auth_middleware.
@@ -427,7 +417,7 @@ pub async fn vault_validation_middleware(
 ///
 /// * `enabled` - Whether authentication is enabled
 /// * `default_vault` - Default vault UUID to use when auth is disabled
-/// * `default_account` - Default account UUID to use when auth is disabled
+/// * `default_organization` - Default organization UUID to use when auth is disabled
 /// * `jwks_cache` - The JWKS cache for verifying signatures (only used if enabled)
 /// * `cert_cache` - Optional certificate cache for verifying Management API JWTs
 /// * `request` - The incoming HTTP request
@@ -478,7 +468,6 @@ mod tests {
 
     fn create_test_auth_context(scopes: Vec<&str>) -> AuthContext {
         AuthContext {
-            tenant_id: "test".to_string(),
             client_id: "test-client".to_string(),
             key_id: "test-key-001".to_string(),
             auth_method: AuthMethod::PrivateKeyJwt,
@@ -601,10 +590,9 @@ mod tests {
     #[test]
     fn test_validate_vault_access_valid() {
         let vault_id: i64 = 12345678901234;
-        let account_id: i64 = 98765432109876;
+        let organization_id: i64 = 98765432109876;
 
         let auth = AuthContext {
-            tenant_id: "test-tenant".to_string(),
             client_id: "test-client".to_string(),
             key_id: "test-key-001".to_string(),
             auth_method: AuthMethod::PrivateKeyJwt,
@@ -613,7 +601,7 @@ mod tests {
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
             vault: vault_id,
-            organization: account_id,
+            organization: organization_id,
         };
 
         assert!(validate_vault_access(&auth).is_ok());
@@ -622,7 +610,6 @@ mod tests {
     #[test]
     fn test_validate_vault_access_nil_vault() {
         let auth = AuthContext {
-            tenant_id: "test-tenant".to_string(),
             client_id: "test-client".to_string(),
             key_id: "test-key-001".to_string(),
             auth_method: AuthMethod::PrivateKeyJwt,
@@ -648,10 +635,9 @@ mod tests {
     fn test_validate_vault_access_with_default_vault() {
         // Test that non-zero vaults pass validation
         let default_vault: i64 = 1; // Default vault ID
-        let account_id: i64 = 98765432109876;
+        let organization_id: i64 = 98765432109876;
 
         let auth = AuthContext {
-            tenant_id: "default".to_string(),
             client_id: "system:unauthenticated".to_string(),
             key_id: "default".to_string(),
             auth_method: AuthMethod::InternalServiceJwt,
@@ -660,7 +646,7 @@ mod tests {
             expires_at: Utc::now() + Duration::seconds(300),
             jti: None,
             vault: default_vault,
-            organization: account_id,
+            organization: organization_id,
         };
 
         assert!(validate_vault_access(&auth).is_ok());

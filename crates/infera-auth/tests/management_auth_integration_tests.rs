@@ -152,14 +152,14 @@ fn test_parsed_key_id_valid() {
 async fn test_vault_verification_success() {
     // Setup mock server
     let state = MockManagementState::new();
-    let org_id = generate_snowflake_id();
-    let account_id = generate_snowflake_id();
-    let vault = create_test_vault("Test Vault", org_id, account_id);
-    let vault_id = vault.id;
-    state.add_vault(vault);
 
     let org = create_test_organization("Test Org", OrgStatus::Active);
+    let org_id = org.id;
     state.add_organization(org);
+
+    let vault = create_test_vault("Test Vault", org_id);
+    let vault_id = vault.id;
+    state.add_vault(vault);
 
     let (base_url, _handle) = start_mock_management_server(state).await;
 
@@ -174,13 +174,10 @@ async fn test_vault_verification_success() {
     );
 
     // Verify vault (should succeed)
-    let vault_info = verifier
-        .verify_vault(vault_id, account_id)
-        .await
-        .expect("Vault verification should succeed");
+    let vault_info =
+        verifier.verify_vault(vault_id, org_id).await.expect("Vault verification should succeed");
 
     assert_eq!(vault_info.id, vault_id);
-    assert_eq!(vault_info.account_id, account_id);
     assert_eq!(vault_info.organization_id, org_id);
 }
 
@@ -202,8 +199,8 @@ async fn test_vault_verification_not_found() {
 
     // Try to verify non-existent vault
     let vault_id = generate_snowflake_id();
-    let account_id = generate_snowflake_id();
-    let result = verifier.verify_vault(vault_id, account_id).await;
+    let org_id = generate_snowflake_id();
+    let result = verifier.verify_vault(vault_id, org_id).await;
 
     assert!(result.is_err());
     let err_msg = result.unwrap_err().to_string();
@@ -215,9 +212,7 @@ async fn test_vault_verification_account_mismatch() {
     // Setup mock server
     let state = MockManagementState::new();
     let org_id = generate_snowflake_id();
-    let account_id = generate_snowflake_id();
-    let wrong_account_id = generate_snowflake_id();
-    let vault = create_test_vault("Test Vault", org_id, account_id);
+    let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
@@ -233,14 +228,15 @@ async fn test_vault_verification_account_mismatch() {
         Duration::from_secs(300),
     );
 
-    // Try to verify vault with wrong account ID
-    let result = verifier.verify_vault(vault_id, wrong_account_id).await;
+    // Try to verify vault with wrong organization ID
+    let wrong_org_id = generate_snowflake_id();
+    let result = verifier.verify_vault(vault_id, wrong_org_id).await;
 
     assert!(result.is_err());
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("Account mismatch"));
-    assert!(err_msg.contains(&account_id.to_string()));
-    assert!(err_msg.contains(&wrong_account_id.to_string()));
+    assert!(err_msg.contains(&org_id.to_string()));
+    assert!(err_msg.contains(&wrong_org_id.to_string()));
 }
 
 #[tokio::test]
@@ -248,8 +244,7 @@ async fn test_vault_verification_caching() {
     // Setup mock server
     let state = MockManagementState::new();
     let org_id = generate_snowflake_id();
-    let account_id = generate_snowflake_id();
-    let vault = create_test_vault("Test Vault", org_id, account_id);
+    let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
@@ -266,19 +261,15 @@ async fn test_vault_verification_caching() {
     );
 
     // First verification (cache miss)
-    let vault_info1 = verifier
-        .verify_vault(vault_id, account_id)
-        .await
-        .expect("First verification should succeed");
+    let vault_info1 =
+        verifier.verify_vault(vault_id, org_id).await.expect("First verification should succeed");
 
     // Second verification (cache hit)
-    let vault_info2 = verifier
-        .verify_vault(vault_id, account_id)
-        .await
-        .expect("Second verification should succeed");
+    let vault_info2 =
+        verifier.verify_vault(vault_id, org_id).await.expect("Second verification should succeed");
 
     assert_eq!(vault_info1.id, vault_info2.id);
-    assert_eq!(vault_info1.account_id, vault_info2.account_id);
+    assert_eq!(vault_info1.organization_id, vault_info2.organization_id);
 }
 
 #[tokio::test]
@@ -286,9 +277,7 @@ async fn test_vault_verification_cache_returns_error_for_mismatch() {
     // Setup mock server
     let state = MockManagementState::new();
     let org_id = generate_snowflake_id();
-    let account_id = generate_snowflake_id();
-    let wrong_account_id = generate_snowflake_id();
-    let vault = create_test_vault("Test Vault", org_id, account_id);
+    let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
@@ -304,11 +293,12 @@ async fn test_vault_verification_cache_returns_error_for_mismatch() {
         Duration::from_secs(300),
     );
 
-    // First verification with correct account (populates cache)
-    verifier.verify_vault(vault_id, account_id).await.expect("First verification should succeed");
+    // First verification with correct organization (populates cache)
+    verifier.verify_vault(vault_id, org_id).await.expect("First verification should succeed");
 
-    // Second verification with wrong account (should fail even from cache)
-    let result = verifier.verify_vault(vault_id, wrong_account_id).await;
+    // Second verification with wrong organization (should fail even from cache)
+    let wrong_org_id = generate_snowflake_id();
+    let result = verifier.verify_vault(vault_id, wrong_org_id).await;
 
     assert!(result.is_err());
     let err_msg = result.unwrap_err().to_string();
@@ -481,8 +471,7 @@ async fn test_jwt_authentication_full_flow() {
     state.add_organization(org);
 
     // Create vault
-    let account_id = generate_snowflake_id();
-    let vault = create_test_vault("Test Vault", org_id, account_id);
+    let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
@@ -510,7 +499,7 @@ async fn test_jwt_authentication_full_flow() {
 
     // Generate JWT
     let kid = format!("org-{}-client-{}-cert-{}", org_id, client_id, cert_id);
-    let jwt = generate_jwt_with_key(&signing_key, &kid, vault_id, account_id, 300);
+    let jwt = generate_jwt_with_key(&signing_key, &kid, vault_id, org_id, 300);
 
     // Step 1: Fetch certificate (for JWT verification)
     let _decoding_key =
@@ -518,10 +507,9 @@ async fn test_jwt_authentication_full_flow() {
 
     // Step 2: Verify vault ownership
     let vault_info =
-        vault_verifier.verify_vault(vault_id, account_id).await.expect("Failed to verify vault");
+        vault_verifier.verify_vault(vault_id, org_id).await.expect("Failed to verify vault");
 
     assert_eq!(vault_info.id, vault_id);
-    assert_eq!(vault_info.account_id, account_id);
     assert_eq!(vault_info.organization_id, org_id);
 
     // Step 3: Verify organization status
@@ -553,8 +541,8 @@ async fn test_jwt_authentication_flow_vault_not_found() {
 
     // Try to verify non-existent vault
     let vault_id = generate_snowflake_id();
-    let account_id = generate_snowflake_id();
-    let result = vault_verifier.verify_vault(vault_id, account_id).await;
+    let organization_id = generate_snowflake_id();
+    let result = vault_verifier.verify_vault(vault_id, organization_id).await;
 
     assert!(result.is_err());
 }
@@ -570,8 +558,7 @@ async fn test_jwt_authentication_flow_org_suspended() {
     state.add_organization(org);
 
     // Create vault
-    let account_id = generate_snowflake_id();
-    let vault = create_test_vault("Test Vault", org_id, account_id);
+    let vault = create_test_vault("Test Vault", org_id);
     state.add_vault(vault);
 
     let (base_url, _handle) = start_mock_management_server(state).await;
@@ -603,9 +590,7 @@ async fn test_jwt_authentication_flow_account_mismatch() {
     let org_id = org.id;
     state.add_organization(org);
 
-    let account_id = generate_snowflake_id();
-    let wrong_account_id = generate_snowflake_id();
-    let vault = create_test_vault("Test Vault", org_id, account_id);
+    let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
@@ -621,8 +606,9 @@ async fn test_jwt_authentication_flow_account_mismatch() {
         Duration::from_secs(300),
     );
 
-    // Try to verify vault with wrong account
-    let result = vault_verifier.verify_vault(vault_id, wrong_account_id).await;
+    // Try to verify vault with wrong organization ID
+    let wrong_org_id = generate_snowflake_id();
+    let result = vault_verifier.verify_vault(vault_id, wrong_org_id).await;
 
     assert!(result.is_err());
     let err_msg = result.unwrap_err().to_string();
@@ -655,8 +641,7 @@ async fn test_management_client_get_organization() {
 async fn test_management_client_get_vault() {
     let state = MockManagementState::new();
     let org_id = generate_snowflake_id();
-    let account_id = generate_snowflake_id();
-    let vault = create_test_vault("Test Vault", org_id, account_id);
+    let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
@@ -668,7 +653,6 @@ async fn test_management_client_get_vault() {
 
     assert_eq!(vault_info.id, vault_id);
     assert_eq!(vault_info.organization_id, org_id);
-    assert_eq!(vault_info.account_id, account_id);
 }
 
 #[tokio::test]

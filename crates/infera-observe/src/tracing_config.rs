@@ -7,7 +7,7 @@
 //!
 //! Authentication spans use the following semantic convention attributes:
 //! - `auth.method` - Authentication method (PrivateKeyJwt, OAuthAccessToken, InternalServiceJwt)
-//! - `auth.tenant_id` - Tenant identifier
+//! - `auth.org_id` - Tenant identifier
 //! - `auth.scopes` - Comma-separated list of scopes
 //! - `auth.result` - Authentication result (success/failure)
 //! - `auth.error_type` - Error type if authentication failed
@@ -33,7 +33,7 @@ use std::collections::HashMap;
 pub const AUTH_METHOD: &str = "auth.method";
 
 /// Semantic convention for tenant ID
-pub const AUTH_TENANT_ID: &str = "auth.tenant_id";
+pub const AUTH_TENANT_ID: &str = "auth.org_id";
 
 /// Semantic convention for authentication scopes
 pub const AUTH_SCOPES: &str = "auth.scopes";
@@ -104,14 +104,14 @@ impl OTelAuthConfig {
 ///
 /// * `span` - The tracing span to annotate
 /// * `method` - Authentication method
-/// * `tenant_id` - Tenant identifier (optional)
+/// * `org_id` - Tenant identifier (optional)
 /// * `scopes` - List of scopes (optional)
 /// * `result` - Authentication result ("success" or "failure")
 /// * `error_type` - Error type if authentication failed (optional)
 pub fn apply_auth_semantic_conventions(
     span: &tracing::Span,
     method: &str,
-    tenant_id: Option<&str>,
+    org_id: Option<&str>,
     scopes: Option<&[String]>,
     result: &str,
     error_type: Option<&str>,
@@ -119,7 +119,7 @@ pub fn apply_auth_semantic_conventions(
     span.record(AUTH_METHOD, method);
     span.record(AUTH_RESULT, result);
 
-    if let Some(tid) = tenant_id {
+    if let Some(tid) = org_id {
         span.record(AUTH_TENANT_ID, tid);
     }
 
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn test_semantic_conventions_constants() {
         assert_eq!(AUTH_METHOD, "auth.method");
-        assert_eq!(AUTH_TENANT_ID, "auth.tenant_id");
+        assert_eq!(AUTH_TENANT_ID, "auth.org_id");
         assert_eq!(AUTH_SCOPES, "auth.scopes");
         assert_eq!(AUTH_RESULT, "auth.result");
         assert_eq!(AUTH_ERROR_TYPE, "auth.error_type");
@@ -173,7 +173,7 @@ mod tests {
         let span = tracing::info_span!(
             "test_auth",
             auth.method = tracing::field::Empty,
-            auth.tenant_id = tracing::field::Empty,
+            auth.org_id = tracing::field::Empty,
             auth.scopes = tracing::field::Empty,
             auth.result = tracing::field::Empty,
         );

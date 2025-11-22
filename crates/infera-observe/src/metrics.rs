@@ -376,46 +376,46 @@ pub fn update_uptime(seconds: u64) {
 }
 
 /// Record an authentication attempt
-pub fn record_auth_attempt(method: &str, tenant_id: &str) {
+pub fn record_auth_attempt(method: &str, org_id: &str) {
     counter!(
         "inferadb_auth_attempts_total",
         "method" => method.to_string(),
-        "tenant_id" => tenant_id.to_string()
+        "org_id" => org_id.to_string()
     )
     .increment(1);
 }
 
 /// Record a successful authentication
-pub fn record_auth_success(method: &str, tenant_id: &str, duration_seconds: f64) {
+pub fn record_auth_success(method: &str, org_id: &str, duration_seconds: f64) {
     counter!(
         "inferadb_auth_success_total",
         "method" => method.to_string(),
-        "tenant_id" => tenant_id.to_string()
+        "org_id" => org_id.to_string()
     )
     .increment(1);
 
     histogram!(
         "inferadb_auth_duration_seconds",
         "method" => method.to_string(),
-        "tenant_id" => tenant_id.to_string()
+        "org_id" => org_id.to_string()
     )
     .record(duration_seconds);
 }
 
 /// Record a failed authentication
-pub fn record_auth_failure(method: &str, error_type: &str, tenant_id: &str, duration_seconds: f64) {
+pub fn record_auth_failure(method: &str, error_type: &str, org_id: &str, duration_seconds: f64) {
     counter!(
         "inferadb_auth_failure_total",
         "method" => method.to_string(),
         "error_type" => error_type.to_string(),
-        "tenant_id" => tenant_id.to_string()
+        "org_id" => org_id.to_string()
     )
     .increment(1);
 
     histogram!(
         "inferadb_auth_duration_seconds",
         "method" => method.to_string(),
-        "tenant_id" => tenant_id.to_string()
+        "org_id" => org_id.to_string()
     )
     .record(duration_seconds);
 }
@@ -441,31 +441,30 @@ pub fn record_jwt_validation_error(error_type: &str) {
 }
 
 /// Record a JWKS cache hit
-pub fn record_jwks_cache_hit(tenant_id: &str) {
-    counter!("inferadb_jwks_cache_hits_total", "tenant_id" => tenant_id.to_string()).increment(1);
+pub fn record_jwks_cache_hit(org_id: &str) {
+    counter!("inferadb_jwks_cache_hits_total", "org_id" => org_id.to_string()).increment(1);
 }
 
 /// Record a JWKS cache miss
-pub fn record_jwks_cache_miss(tenant_id: &str) {
-    counter!("inferadb_jwks_cache_misses_total", "tenant_id" => tenant_id.to_string()).increment(1);
+pub fn record_jwks_cache_miss(org_id: &str) {
+    counter!("inferadb_jwks_cache_misses_total", "org_id" => org_id.to_string()).increment(1);
 }
 
 /// Record a JWKS refresh operation
-pub fn record_jwks_refresh(tenant_id: &str, duration_seconds: f64, success: bool) {
-    counter!("inferadb_jwks_refresh_total", "tenant_id" => tenant_id.to_string()).increment(1);
+pub fn record_jwks_refresh(org_id: &str, duration_seconds: f64, success: bool) {
+    counter!("inferadb_jwks_refresh_total", "org_id" => org_id.to_string()).increment(1);
 
     if !success {
-        counter!("inferadb_jwks_refresh_errors_total", "tenant_id" => tenant_id.to_string())
-            .increment(1);
+        counter!("inferadb_jwks_refresh_errors_total", "org_id" => org_id.to_string()).increment(1);
     }
 
-    histogram!("inferadb_jwks_fetch_duration_seconds", "tenant_id" => tenant_id.to_string())
+    histogram!("inferadb_jwks_fetch_duration_seconds", "org_id" => org_id.to_string())
         .record(duration_seconds);
 }
 
 /// Record when stale JWKS is served (stale-while-revalidate)
-pub fn record_jwks_stale_served(tenant_id: &str) {
-    counter!("inferadb_jwks_stale_served_total", "tenant_id" => tenant_id.to_string()).increment(1);
+pub fn record_jwks_stale_served(org_id: &str) {
+    counter!("inferadb_jwks_stale_served_total", "org_id" => org_id.to_string()).increment(1);
 }
 
 /// Record an OAuth JWT validation attempt

@@ -71,7 +71,7 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
     let default_vault = generate_test_id();
-    let default_account = generate_test_id();
+    let default_organization = generate_test_id();
 
     AppState::new(
         store,
@@ -80,7 +80,7 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
         Arc::new(config),
         None, // No JWKS cache for tests
         default_vault,
-        default_account,
+        default_organization,
     )
 }
 
@@ -113,7 +113,6 @@ pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
 /// Create mock AuthContext for testing
 pub fn create_mock_auth_context(vault: i64, organization: i64, scopes: Vec<String>) -> AuthContext {
     AuthContext {
-        tenant_id: "test_tenant".to_string(),
         client_id: "test_client".to_string(),
         key_id: "test_key".to_string(),
         auth_method: AuthMethod::PrivateKeyJwt,

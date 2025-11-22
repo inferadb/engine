@@ -219,7 +219,7 @@ pub struct AppState {
     pub store: Arc<dyn infera_store::InferaStore>,
     pub config: Arc<Config>,
     pub default_vault: Uuid,
-    pub default_account: Uuid,
+    pub default_organization: Uuid,
 
     // Services
     pub evaluation_service: Arc<EvaluationService>,
@@ -237,7 +237,7 @@ impl AppState {
         wasm_host: Option<Arc<infera_wasm::WasmHost>>,
         config: Arc<Config>,
         default_vault: Uuid,
-        default_account: Uuid,
+        default_organization: Uuid,
     ) -> Self {
         let store_rs = Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>;
 
@@ -251,7 +251,7 @@ impl AppState {
             store,
             config,
             default_vault,
-            default_account,
+            default_organization,
         }
     }
 }

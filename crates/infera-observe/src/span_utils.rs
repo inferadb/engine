@@ -186,17 +186,17 @@ pub fn record_optimization(span: &Span, cost: usize, parallelizable: bool) {
 ///
 /// # Arguments
 /// * `method` - The authentication method (e.g., "tenant_jwt", "internal_jwt", "oauth_jwt")
-/// * `tenant_id` - The tenant identifier (if available)
+/// * `org_id` - The tenant identifier (if available)
 ///
 /// # Returns
 /// A tracing span configured for authentication
-pub fn auth_span(method: &str, tenant_id: Option<&str>) -> Span {
-    match tenant_id {
+pub fn auth_span(method: &str, org_id: Option<&str>) -> Span {
+    match org_id {
         Some(tid) => span!(
             Level::INFO,
             "authentication",
             method = method,
-            tenant_id = tid,
+            org_id = tid,
             duration_ms = tracing::field::Empty,
             result = tracing::field::Empty,
             error_type = tracing::field::Empty,
@@ -215,15 +215,15 @@ pub fn auth_span(method: &str, tenant_id: Option<&str>) -> Span {
 /// Create a span for JWKS fetch operations
 ///
 /// # Arguments
-/// * `tenant_id` - The tenant identifier
+/// * `org_id` - The tenant identifier
 ///
 /// # Returns
 /// A tracing span for JWKS fetch operations
-pub fn jwks_fetch_span(tenant_id: &str) -> Span {
+pub fn jwks_fetch_span(org_id: &str) -> Span {
     span!(
         Level::INFO,
         "jwks_fetch",
-        tenant_id = tenant_id,
+        org_id = org_id,
         cache_status = tracing::field::Empty,
         duration_ms = tracing::field::Empty,
         result = tracing::field::Empty,

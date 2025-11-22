@@ -95,7 +95,7 @@ Create or update your `config.yaml`:
 multi_tenancy:
     enabled: true
     # Optional: Specify default IDs (will be created if they don't exist)
-    # default_account: "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
+    # default_organization: "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
     # default_vault: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 
 auth:
@@ -679,6 +679,6 @@ curl http://localhost:9090/metrics | \
 
 For deployment assistance:
 
-- GitHub Issues: https://github.com/anthropics/inferadb/issues
-- Documentation: https://docs.infera.dev
-- Email: support@infera.dev
+- GitHub Issues: <https://github.com/anthropics/inferadb/issues>
+- Documentation: <https://docs.infera.dev>
+- Email: <support@infera.dev>

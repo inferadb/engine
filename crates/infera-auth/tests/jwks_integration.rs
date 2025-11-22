@@ -37,7 +37,7 @@ async fn test_jwks_cache_hit() {
     let keys1 = jwks_cache.get_jwks("acme").await.expect("Failed to fetch JWKS");
 
     // Verify cache was populated
-    let cache_key = JwksCacheKey { tenant_id: "acme".to_string() };
+    let cache_key = JwksCacheKey { org_id: "acme".to_string() };
     assert!(cache.get(&cache_key).await.is_some());
 
     // Second fetch - cache hit
@@ -220,18 +220,16 @@ async fn test_jwt_verification_with_jwks() {
     assert_eq!(claims.scope, "inferadb.evaluate".to_string());
 
     // Verify organization ID extraction from org_id claim
-    let tenant_id = claims.extract_org_id().expect("Failed to extract org ID");
-    assert_eq!(tenant_id, "acme");
+    let org_id = claims.extract_org_id().expect("Failed to extract org ID");
+    assert_eq!(org_id, "acme");
 
     // Create JWKS cache
     let cache = Arc::new(Cache::new(100));
     let jwks_cache = JwksCache::new(base_url, cache, Duration::from_secs(300)).unwrap();
 
     // Fetch the key used to sign this JWT
-    let key = jwks_cache
-        .get_key_by_id(&tenant_id, "acme-key-001")
-        .await
-        .expect("Failed to get signing key");
+    let key =
+        jwks_cache.get_key_by_id(&org_id, "acme-key-001").await.expect("Failed to get signing key");
 
     // Verify key structure
     assert_eq!(key.kty, "OKP");

@@ -66,7 +66,7 @@ pub async fn list_resources_stream_handler(
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
             "Streaming list resources request from tenant: {} (vault: {})",
-            auth_ctx.tenant_id,
+            auth_ctx.organization,
             vault
         );
     }

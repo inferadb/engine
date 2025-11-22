@@ -83,7 +83,7 @@ pub async fn initialize_system(
 
     // 2. Check if config file has default values
     if let (Some(organization_str), Some(vault_str)) =
-        (&config.multi_tenancy.default_account, &config.multi_tenancy.default_vault)
+        (&config.multi_tenancy.default_organization, &config.multi_tenancy.default_vault)
     {
         tracing::info!(
             organization_str = %organization_str,

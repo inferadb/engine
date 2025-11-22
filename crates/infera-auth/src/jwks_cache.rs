@@ -179,8 +179,8 @@ impl Jwk {
 /// Cache key for JWKS lookups
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct JwksCacheKey {
-    /// The tenant identifier
-    pub tenant_id: String,
+    /// The organization identifier
+    pub org_id: String,
 }
 
 /// Cached JWKS with metadata
@@ -272,38 +272,38 @@ impl JwksCache {
     }
 
     /// Get JWKS for a tenant (with caching and thundering-herd protection)
-    pub async fn get_jwks(&self, tenant_id: &str) -> Result<Vec<Jwk>, AuthError> {
-        let key = JwksCacheKey { tenant_id: tenant_id.to_string() };
+    pub async fn get_jwks(&self, org_id: &str) -> Result<Vec<Jwk>, AuthError> {
+        let key = JwksCacheKey { org_id: org_id.to_string() };
 
         // Check cache first
         if let Some(cached) = self.cache.get(&key).await {
             if cached.fetched_at.elapsed() < self.ttl {
-                tracing::debug!(tenant_id = %tenant_id, "JWKS cache hit");
-                infera_observe::metrics::record_jwks_cache_hit(tenant_id);
+                tracing::debug!(org_id = %org_id, "JWKS cache hit");
+                infera_observe::metrics::record_jwks_cache_hit(org_id);
                 return Ok(cached.keys);
             }
             // Stale but usable - spawn background refresh
-            tracing::info!(tenant_id = %tenant_id, "Serving stale JWKS, refreshing in background");
+            tracing::info!(org_id = %org_id, "Serving stale JWKS, refreshing in background");
             let cache_clone = self.cache.clone();
             let http_client = self.http_client.clone();
             let base_url = self.base_url.clone();
-            let tenant_id_clone = tenant_id.to_string();
+            let org_id_clone = org_id.to_string();
 
             tokio::spawn(async move {
-                match Self::fetch_jwks(&http_client, &base_url, &tenant_id_clone).await {
+                match Self::fetch_jwks(&http_client, &base_url, &org_id_clone).await {
                     Ok(keys) => {
                         let cached = CachedJwks { keys, fetched_at: Instant::now() };
                         cache_clone
-                            .insert(JwksCacheKey { tenant_id: tenant_id_clone.clone() }, cached)
+                            .insert(JwksCacheKey { org_id: org_id_clone.clone() }, cached)
                             .await;
                         tracing::debug!(
-                            tenant_id = %tenant_id_clone,
+                            org_id = %org_id_clone,
                             "Background JWKS refresh completed successfully"
                         );
                     },
                     Err(e) => {
                         tracing::warn!(
-                            tenant_id = %tenant_id_clone,
+                            org_id = %org_id_clone,
                             error = %e,
                             "Background JWKS refresh failed, continuing with stale cache"
                         );
@@ -317,7 +317,7 @@ impl JwksCache {
         // Thundering-herd protection
         let notify = {
             let mut in_flight = self.in_flight.write().await;
-            if let Some(existing) = in_flight.get(tenant_id) {
+            if let Some(existing) = in_flight.get(org_id) {
                 // Another task is already fetching, wait for it
                 let notify = existing.clone();
                 drop(in_flight);
@@ -332,19 +332,19 @@ impl JwksCache {
 
             // We're the first, create notify
             let notify = Arc::new(tokio::sync::Notify::new());
-            in_flight.insert(tenant_id.to_string(), notify.clone());
+            in_flight.insert(org_id.to_string(), notify.clone());
             notify
         };
 
         // Fetch from Control Plane
-        tracing::info!(tenant_id = %tenant_id, "JWKS cache miss, fetching from Control Plane");
-        infera_observe::metrics::record_jwks_cache_miss(tenant_id);
-        let result = Self::fetch_jwks(&self.http_client, &self.base_url, tenant_id).await;
+        tracing::info!(org_id = %org_id, "JWKS cache miss, fetching from Control Plane");
+        infera_observe::metrics::record_jwks_cache_miss(org_id);
+        let result = Self::fetch_jwks(&self.http_client, &self.base_url, org_id).await;
 
         // Clean up in-flight tracker and notify waiters
         {
             let mut in_flight = self.in_flight.write().await;
-            in_flight.remove(tenant_id);
+            in_flight.remove(org_id);
         }
         notify.notify_waiters();
 
@@ -356,11 +356,14 @@ impl JwksCache {
     }
 
     /// Get a specific key by ID using constant-time comparison
-    pub async fn get_key_by_id(&self, tenant_id: &str, kid: &str) -> Result<Jwk, AuthError> {
-        let keys = self.get_jwks(tenant_id).await?;
+    pub async fn get_key_by_id(&self, org_id: &str, kid: &str) -> Result<Jwk, AuthError> {
+        let keys = self.get_jwks(org_id).await?;
 
         keys.into_iter().find(|k| k.kid.as_bytes().ct_eq(kid.as_bytes()).into()).ok_or_else(|| {
-            AuthError::JwksError(format!("Key '{}' not found in tenant '{}' JWKS", kid, tenant_id))
+            AuthError::JwksError(format!(
+                "Key '{}' not found in organization '{}' JWKS",
+                kid, org_id
+            ))
         })
     }
 
@@ -368,19 +371,19 @@ impl JwksCache {
     async fn fetch_jwks(
         http_client: &reqwest::Client,
         base_url: &str,
-        tenant_id: &str,
+        org_id: &str,
     ) -> Result<Vec<Jwk>, AuthError> {
-        let url = format!("{}/jwks/{}.json", base_url, tenant_id);
+        let url = format!("{}/jwks/{}.json", base_url, org_id);
 
         let start = std::time::Instant::now();
-        let result = Self::fetch_jwks_inner(http_client, &url, tenant_id).await;
+        let result = Self::fetch_jwks_inner(http_client, &url, org_id).await;
         let duration = start.elapsed().as_secs_f64();
 
         let success = result.is_ok();
-        infera_observe::metrics::record_jwks_refresh(tenant_id, duration, success);
+        infera_observe::metrics::record_jwks_refresh(org_id, duration, success);
 
         if let Err(ref e) = result {
-            tracing::error!(tenant_id = %tenant_id, error = %e, "JWKS fetch failed");
+            tracing::error!(org_id = %org_id, error = %e, "JWKS fetch failed");
         }
 
         result
@@ -390,7 +393,7 @@ impl JwksCache {
     async fn fetch_jwks_inner(
         http_client: &reqwest::Client,
         url: &str,
-        _tenant_id: &str,
+        _org_id: &str,
     ) -> Result<Vec<Jwk>, AuthError> {
         let response = http_client
             .get(url)
@@ -424,9 +427,9 @@ mod tests {
 
     #[test]
     fn test_jwks_cache_key_equality() {
-        let key1 = JwksCacheKey { tenant_id: "acme".into() };
-        let key2 = JwksCacheKey { tenant_id: "acme".into() };
-        let key3 = JwksCacheKey { tenant_id: "other".into() };
+        let key1 = JwksCacheKey { org_id: "acme".into() };
+        let key2 = JwksCacheKey { org_id: "acme".into() };
+        let key3 = JwksCacheKey { org_id: "other".into() };
 
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);

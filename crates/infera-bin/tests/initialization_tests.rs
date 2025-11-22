@@ -30,34 +30,41 @@ async fn test_first_startup_creates_defaults() {
         .expect("Initialization should succeed");
 
     assert_ne!(config1.default_vault, 0, "Vault should not be nil");
-    assert_ne!(config1.default_account, 0, "Account should not be nil");
+    assert_ne!(config1.default_organization, 0, "Account should not be nil");
 
     // Verify account exists
-    let account =
-        store.get_account(config1.default_account).await.expect("Should retrieve account");
+    let account = store
+        .get_organization(config1.default_organization)
+        .await
+        .expect("Should retrieve account");
     assert!(account.is_some(), "Account should exist");
-    assert_eq!(account.unwrap().name, "Default Account", "Account name should match");
+    assert_eq!(account.unwrap().name, "Default Organization", "Account name should match");
 
     // Verify vault exists
     let vault = store.get_vault(config1.default_vault).await.expect("Should retrieve vault");
     assert!(vault.is_some(), "Vault should exist");
     let vault = vault.unwrap();
     assert_eq!(vault.name, "Default Vault", "Vault name should match");
-    assert_eq!(vault.account, config1.default_account, "Vault should belong to account");
+    assert_eq!(vault.organization, config1.default_organization, "Vault should belong to account");
 
     // Second call should return same config (idempotent)
     let config2 = initialization::initialize_system(&store, &config)
         .await
         .expect("Second initialization should succeed");
     assert_eq!(config1.default_vault, config2.default_vault, "Vault should be unchanged");
-    assert_eq!(config1.default_account, config2.default_account, "Account should be unchanged");
+    assert_eq!(
+        config1.default_organization, config2.default_organization,
+        "Account should be unchanged"
+    );
 
     // Verify no duplicate accounts/vaults created
-    let all_accounts = store.list_accounts(None).await.expect("Should list accounts");
+    let all_accounts = store.list_organizations(None).await.expect("Should list accounts");
     assert_eq!(all_accounts.len(), 1, "Should have exactly one account after two initializations");
 
-    let all_vaults =
-        store.list_vaults_for_account(config1.default_account).await.expect("Should list vaults");
+    let all_vaults = store
+        .list_vaults_for_organization(config1.default_organization)
+        .await
+        .expect("Should list vaults");
     assert_eq!(all_vaults.len(), 1, "Should have exactly one vault after two initializations");
 }
 
@@ -65,11 +72,11 @@ async fn test_first_startup_creates_defaults() {
 #[tokio::test]
 async fn test_startup_with_config_values() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let account_id = generate_test_id();
+    let organization_id = generate_test_id();
     let vault_id = generate_test_id();
 
     let mut config = Config::default();
-    config.multi_tenancy.default_account = Some(account_id.to_string());
+    config.multi_tenancy.default_organization = Some(organization_id.to_string());
     config.multi_tenancy.default_vault = Some(vault_id.to_string());
 
     // Should use config values
@@ -78,39 +85,44 @@ async fn test_startup_with_config_values() {
         .expect("Initialization should succeed");
 
     assert_eq!(system_config.default_vault, vault_id, "Should use vault from config");
-    assert_eq!(system_config.default_account, account_id, "Should use account from config");
+    assert_eq!(
+        system_config.default_organization, organization_id,
+        "Should use account from config"
+    );
 
     // Verify account was created
-    let account = store.get_account(account_id).await.expect("Should retrieve account");
+    let account = store.get_organization(organization_id).await.expect("Should retrieve account");
     assert!(account.is_some(), "Account should be created");
-    assert_eq!(account.unwrap().name, "Default Account", "Account should have default name");
+    assert_eq!(account.unwrap().name, "Default Organization", "Account should have default name");
 
     // Verify vault was created
     let vault = store.get_vault(vault_id).await.expect("Should retrieve vault");
     assert!(vault.is_some(), "Vault should be created");
     let vault = vault.unwrap();
     assert_eq!(vault.name, "Default Vault", "Vault should have default name");
-    assert_eq!(vault.account, account_id, "Vault should belong to account");
+    assert_eq!(vault.organization, organization_id, "Vault should belong to account");
 }
 
 /// Test startup with existing account and vault
 #[tokio::test]
 async fn test_startup_with_existing_account_and_vault() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let account_id = generate_test_id();
+    let organization_id = generate_test_id();
     let vault_id = generate_test_id();
 
     // Pre-create account with custom name
-    let account = infera_types::Account::with_id(account_id, "My Custom Account".to_string());
-    store.create_account(account).await.expect("Should create account");
+    let account =
+        infera_types::Organization::with_id(organization_id, "My Custom Account".to_string());
+    store.create_organization(account).await.expect("Should create account");
 
     // Pre-create vault with custom name
-    let vault = infera_types::Vault::with_id(vault_id, account_id, "My Custom Vault".to_string());
+    let vault =
+        infera_types::Vault::with_id(vault_id, organization_id, "My Custom Vault".to_string());
     store.create_vault(vault).await.expect("Should create vault");
 
     // Configure to use existing IDs
     let mut config = Config::default();
-    config.multi_tenancy.default_account = Some(account_id.to_string());
+    config.multi_tenancy.default_organization = Some(organization_id.to_string());
     config.multi_tenancy.default_vault = Some(vault_id.to_string());
 
     // Should use existing resources
@@ -119,11 +131,11 @@ async fn test_startup_with_existing_account_and_vault() {
         .expect("Initialization should succeed");
 
     assert_eq!(system_config.default_vault, vault_id, "Should use existing vault");
-    assert_eq!(system_config.default_account, account_id, "Should use existing account");
+    assert_eq!(system_config.default_organization, organization_id, "Should use existing account");
 
     // Verify original names preserved
     let account = store
-        .get_account(account_id)
+        .get_organization(organization_id)
         .await
         .expect("Should retrieve account")
         .expect("Account should exist");
@@ -141,21 +153,21 @@ async fn test_startup_with_existing_account_and_vault() {
 #[tokio::test]
 async fn test_vault_account_mismatch_error() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
-    let account_id_a = generate_test_id();
-    let account_id_b = generate_test_id();
+    let organization_id_a = generate_test_id();
+    let organization_id_b = generate_test_id();
     let vault_id = generate_test_id();
 
     // Create account A
-    let account_a = infera_types::Account::with_id(account_id_a, "Account A".to_string());
-    store.create_account(account_a).await.expect("Should create account A");
+    let account_a = infera_types::Organization::with_id(organization_id_a, "Account A".to_string());
+    store.create_organization(account_a).await.expect("Should create account A");
 
     // Create vault owned by account A
-    let vault = infera_types::Vault::with_id(vault_id, account_id_a, "Vault A".to_string());
+    let vault = infera_types::Vault::with_id(vault_id, organization_id_a, "Vault A".to_string());
     store.create_vault(vault).await.expect("Should create vault");
 
     // Try to initialize with account B owning the vault
     let mut config = Config::default();
-    config.multi_tenancy.default_account = Some(account_id_b.to_string());
+    config.multi_tenancy.default_organization = Some(organization_id_b.to_string());
     config.multi_tenancy.default_vault = Some(vault_id.to_string());
 
     // Should fail because vault belongs to different account
@@ -184,7 +196,7 @@ async fn test_invalid_uuid_in_config() {
     let store: Arc<dyn InferaStore> = Arc::new(MemoryBackend::new());
 
     let mut config = Config::default();
-    config.multi_tenancy.default_account = Some("not-a-uuid".to_string());
+    config.multi_tenancy.default_organization = Some("not-a-uuid".to_string());
     config.multi_tenancy.default_vault = Some("also-not-a-uuid".to_string());
 
     // Should return error for invalid UUID
@@ -222,7 +234,7 @@ async fn test_system_config_persistence() {
         "Stored vault should match"
     );
     assert_eq!(
-        stored_config.default_account, system_config.default_account,
+        stored_config.default_organization, system_config.default_organization,
         "Stored account should match"
     );
 }
@@ -259,13 +271,13 @@ async fn test_concurrent_initialization() {
     for config in &configs {
         assert_eq!(config.default_vault, first_config.default_vault, "All should have same vault");
         assert_eq!(
-            config.default_account, first_config.default_account,
+            config.default_organization, first_config.default_organization,
             "All should have same account"
         );
     }
 
     // Verify only one account and vault created
-    let all_accounts = store.list_accounts(None).await.expect("Should list accounts");
+    let all_accounts = store.list_organizations(None).await.expect("Should list accounts");
     assert_eq!(
         all_accounts.len(),
         1,
@@ -273,7 +285,7 @@ async fn test_concurrent_initialization() {
     );
 
     let all_vaults = store
-        .list_vaults_for_account(first_config.default_account)
+        .list_vaults_for_organization(first_config.default_organization)
         .await
         .expect("Should list vaults");
     assert_eq!(

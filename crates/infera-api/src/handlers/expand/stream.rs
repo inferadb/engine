@@ -47,7 +47,7 @@ pub async fn expand_handler(
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
             "Streaming expand request from tenant: {} (vault: {})",
-            auth_ctx.tenant_id,
+            auth_ctx.organization,
             vault
         );
     }

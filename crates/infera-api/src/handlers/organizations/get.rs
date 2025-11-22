@@ -90,7 +90,6 @@ mod tests {
 
     fn create_admin_context() -> infera_types::AuthContext {
         infera_types::AuthContext {
-            tenant_id: "test".to_string(),
             client_id: "test".to_string(),
             key_id: "test".to_string(),
             auth_method: infera_types::AuthMethod::PrivateKeyJwt,
@@ -105,7 +104,6 @@ mod tests {
 
     fn create_user_context(organization_id: i64) -> infera_types::AuthContext {
         infera_types::AuthContext {
-            tenant_id: "test".to_string(),
             client_id: "test".to_string(),
             key_id: "test".to_string(),
             auth_method: infera_types::AuthMethod::PrivateKeyJwt,

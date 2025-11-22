@@ -31,7 +31,7 @@ use infera_types::AuthContext;
 ///     Json(payload): Json<Value>,
 /// ) -> Result<Json<Value>> {
 ///     // auth is guaranteed to be present here
-///     println!("Authenticated as tenant: {}", auth.tenant_id);
+///     println!("Authenticated as organization: {}", auth.organization);
 ///     Ok(Json(payload))
 /// }
 /// ```
@@ -69,7 +69,7 @@ where
 ///     Json(payload): Json<Value>,
 /// ) -> Result<Json<Value>> {
 ///     if let Some(auth) = auth {
-///         println!("Authenticated as tenant: {}", auth.tenant_id);
+///         println!("Authenticated as organization: {}", auth.organization);
 ///     } else {
 ///         println!("Unauthenticated request");
 ///     }
@@ -101,7 +101,6 @@ mod tests {
 
     fn create_test_auth_context() -> AuthContext {
         AuthContext {
-            tenant_id: "test-tenant".to_string(),
             client_id: "test-client".to_string(),
             key_id: "test-key-001".to_string(),
             auth_method: AuthMethod::PrivateKeyJwt,
@@ -109,8 +108,8 @@ mod tests {
             issued_at: Utc::now(),
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
-            vault: 0,
-            organization: 0,
+            vault: 1,
+            organization: 12345,
         }
     }
 
@@ -125,7 +124,7 @@ mod tests {
 
         assert!(result.is_ok());
         let RequireAuth(extracted_auth) = result.unwrap();
-        assert_eq!(extracted_auth.tenant_id, "test-tenant");
+        assert_eq!(extracted_auth.organization, 12345);
     }
 
     #[tokio::test]
@@ -152,7 +151,7 @@ mod tests {
         assert!(result.is_ok());
         let OptionalAuth(extracted_auth) = result.unwrap();
         assert!(extracted_auth.is_some());
-        assert_eq!(extracted_auth.unwrap().tenant_id, "test-tenant");
+        assert_eq!(extracted_auth.unwrap().organization, 12345);
     }
 
     #[tokio::test]

@@ -54,7 +54,7 @@ async fn test_oauth_jwt_validation() {
     .expect("Failed to validate OAuth JWT");
 
     // Verify AuthContext extracted correctly
-    assert_eq!(auth_ctx.tenant_id, "98765432109876"); // org_id from JWT claims
+    assert_eq!(auth_ctx.organization, 98765432109876); // org_id from JWT claims
     assert_eq!(auth_ctx.auth_method, AuthMethod::OAuthAccessToken);
     assert_eq!(auth_ctx.scopes, vec!["read", "write"]);
     assert!(auth_ctx.client_id.starts_with("user-"));
@@ -254,6 +254,5 @@ async fn test_oauth_jwt_with_org_id() {
     .expect("Failed to validate OAuth JWT");
 
     // Should extract org_id from JWT claims
-    assert_eq!(auth_ctx.tenant_id, "98765432109876"); // org_id Snowflake ID
-    assert_eq!(auth_ctx.organization, 98765432109876); // parsed as i64
+    assert_eq!(auth_ctx.organization, 98765432109876); // org_id Snowflake ID parsed as i64
 }

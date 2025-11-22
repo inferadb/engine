@@ -129,10 +129,11 @@ impl AuthInterceptor {
         match &result {
             Ok(ctx) => {
                 let method = auth_method_to_string(&ctx.auth_method);
-                metrics::record_auth_attempt(&method, &ctx.tenant_id);
-                metrics::record_auth_success(&method, &ctx.tenant_id, duration);
+                let org_id_str = ctx.organization.to_string();
+                metrics::record_auth_attempt(&method, &org_id_str);
+                metrics::record_auth_success(&method, &org_id_str, duration);
                 tracing::info!(
-                    tenant_id = %ctx.tenant_id,
+                    organization = %ctx.organization,
                     method = %method,
                     duration_ms = duration * 1000.0,
                     "Authentication succeeded"
@@ -140,7 +141,7 @@ impl AuthInterceptor {
 
                 // Log audit event for successful authentication
                 log_audit_event(AuditEvent::AuthenticationSuccess {
-                    tenant_id: ctx.tenant_id.clone(),
+                    tenant_id: org_id_str,
                     method: method.clone(),
                     timestamp: Utc::now(),
                     ip_address: None, // TODO: Extract from gRPC metadata when available
@@ -148,10 +149,10 @@ impl AuthInterceptor {
             },
             Err(e) => {
                 let error_type = auth_error_type(e);
-                let tenant_id = "unknown";
+                let org_id = "unknown";
                 let method = "jwt"; // Default to JWT since we extracted a token
-                metrics::record_auth_attempt(method, tenant_id);
-                metrics::record_auth_failure(method, error_type, tenant_id, duration);
+                metrics::record_auth_attempt(method, org_id);
+                metrics::record_auth_failure(method, error_type, org_id, duration);
                 metrics::record_jwt_validation_error(error_type);
                 tracing::warn!(
                     error = %e,
@@ -162,7 +163,7 @@ impl AuthInterceptor {
 
                 // Log audit event for failed authentication
                 log_audit_event(AuditEvent::AuthenticationFailure {
-                    tenant_id: tenant_id.to_string(),
+                    tenant_id: org_id.to_string(),
                     method: method.to_string(),
                     error: e.to_string(),
                     timestamp: Utc::now(),
@@ -206,7 +207,6 @@ impl AuthInterceptor {
             };
 
             // Extract organization ID and create AuthContext
-            let tenant_id = claims.extract_org_id()?;
             let scopes = claims.parse_scopes();
 
             // Extract vault and organization IDs
@@ -216,7 +216,6 @@ impl AuthInterceptor {
                 claims.org_id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
 
             return Ok(AuthContext {
-                tenant_id,
                 client_id: claims.sub.clone(),
                 key_id: String::new(), // TODO: Extract from JWT header
                 auth_method: AuthMethod::PrivateKeyJwt,
@@ -285,7 +284,7 @@ fn auth_error_type(error: &AuthError) -> &'static str {
         AuthError::IntrospectionFailed(_) => "introspection_failed",
         AuthError::InvalidIntrospectionResponse(_) => "invalid_introspection_response",
         AuthError::TokenInactive => "token_inactive",
-        AuthError::MissingTenantId => "missing_tenant_id",
+        AuthError::MissingTenantId => "missing_org_id",
         AuthError::ReplayDetected => "replay_detected",
         AuthError::ReplayProtectionError(_) => "replay_protection_error",
         AuthError::TokenTooOld => "token_too_old",

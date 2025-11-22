@@ -450,10 +450,6 @@ pub async fn validate_oauth_jwt(
 
         let claims = token_data.claims;
 
-        // Extract org_id - look for it in the claims
-        // OAuth tokens should have it as org_id, or fall back to tenant_id for compatibility
-        let tenant_id = claims.extract_org_id().unwrap_or_else(|_| claims.sub.clone());
-
         // Parse scopes
         let scopes: Vec<String> = claims.scope.split_whitespace().map(|s| s.to_string()).collect();
 
@@ -472,7 +468,6 @@ pub async fn validate_oauth_jwt(
 
         // Create AuthContext
         let auth_context = AuthContext {
-            tenant_id,
             client_id: claims.sub.clone(),
             key_id: kid.unwrap_or("").to_string(),
             auth_method: AuthMethod::OAuthAccessToken,

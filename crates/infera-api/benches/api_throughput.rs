@@ -17,7 +17,6 @@ use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::MemoryBackend;
 use infera_types::{EvaluateRequest, ExpandRequest, ListRelationshipsRequest, Relationship};
-use uuid::Uuid;
 
 /// Create a test schema with realistic complexity
 fn create_test_schema() -> Arc<Schema> {
@@ -62,8 +61,8 @@ fn create_test_schema() -> Arc<Schema> {
 async fn create_test_state_with_data(num_relationships: usize) -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let vault = Uuid::new_v4();
-    let account = Uuid::new_v4();
+    let vault: i64 = 1;
+    let organization: i64 = 1;
 
     // Pre-populate with relationships
     let relationships: Vec<Relationship> = (0..num_relationships)
@@ -82,7 +81,7 @@ async fn create_test_state_with_data(num_relationships: usize) -> AppState {
     config.cache.max_capacity = 10000;
     config.auth.enabled = false;
 
-    AppState::new(store, schema, None, Arc::new(config), None, vault, account)
+    AppState::new(store, schema, None, Arc::new(config), None, vault, organization)
 }
 
 /// Benchmark: Authorization check (check if user has permission)

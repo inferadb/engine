@@ -17,12 +17,11 @@ use infera_types::{AuthContext, AuthMethod};
 ///
 /// ```
 /// let auth = test_auth_context();
-/// assert_eq!(auth.tenant_id, "test-tenant");
+/// assert_eq!(auth.organization, 12345);
 /// assert!(auth.has_scope("inferadb.check"));
 /// ```
 pub fn test_auth_context() -> AuthContext {
     AuthContext {
-        tenant_id: "test-tenant".to_string(),
         client_id: "test-client".to_string(),
         key_id: "test-key-1".to_string(),
         auth_method: AuthMethod::PrivateKeyJwt,
@@ -30,37 +29,36 @@ pub fn test_auth_context() -> AuthContext {
         issued_at: Utc::now(),
         expires_at: Utc::now() + Duration::hours(1),
         jti: Some("test-jti-123".to_string()),
-        vault: 0,
-        organization: 0,
+        vault: 1,
+        organization: 12345,
     }
 }
 
-/// Create a test AuthContext with custom tenant and scopes
+/// Create a test AuthContext with custom organization and scopes
 ///
 /// # Arguments
 ///
-/// * `tenant_id` - The tenant identifier
+/// * `org_id` - The organization ID (Snowflake ID)
 /// * `scopes` - List of scopes to grant
 ///
 /// # Example
 ///
 /// ```
-/// let auth = test_auth_context_with("acme", vec!["inferadb.check"]);
-/// assert_eq!(auth.tenant_id, "acme");
+/// let auth = test_auth_context_with(98765, vec!["inferadb.check"]);
+/// assert_eq!(auth.organization, 98765);
 /// assert!(auth.has_scope("inferadb.check"));
 /// ```
-pub fn test_auth_context_with(tenant_id: &str, scopes: Vec<&str>) -> AuthContext {
+pub fn test_auth_context_with(org_id: i64, scopes: Vec<&str>) -> AuthContext {
     AuthContext {
-        tenant_id: tenant_id.to_string(),
-        client_id: format!("{}-client", tenant_id),
-        key_id: format!("{}-key-1", tenant_id),
+        client_id: format!("client-{}", org_id),
+        key_id: format!("key-{}", org_id),
         auth_method: AuthMethod::PrivateKeyJwt,
         scopes: scopes.iter().map(|s| s.to_string()).collect(),
         issued_at: Utc::now(),
         expires_at: Utc::now() + Duration::hours(1),
         jti: Some(uuid::Uuid::new_v4().to_string()),
-        vault: 0,
-        organization: 0,
+        vault: 1,
+        organization: org_id,
     }
 }
 
@@ -68,27 +66,26 @@ pub fn test_auth_context_with(tenant_id: &str, scopes: Vec<&str>) -> AuthContext
 ///
 /// # Arguments
 ///
-/// * `tenant_id` - The tenant identifier
+/// * `org_id` - The organization ID (Snowflake ID)
 /// * `scopes` - List of scopes to grant
 ///
 /// # Example
 ///
 /// ```
-/// let auth = test_oauth_context("acme", vec!["inferadb.check"]);
+/// let auth = test_oauth_context(98765, vec!["inferadb.check"]);
 /// assert_eq!(auth.auth_method, AuthMethod::OAuthAccessToken);
 /// ```
-pub fn test_oauth_context(tenant_id: &str, scopes: Vec<&str>) -> AuthContext {
+pub fn test_oauth_context(org_id: i64, scopes: Vec<&str>) -> AuthContext {
     AuthContext {
-        tenant_id: tenant_id.to_string(),
-        client_id: format!("oauth-{}", tenant_id),
+        client_id: format!("oauth-{}", org_id),
         key_id: "oauth-key-1".to_string(),
         auth_method: AuthMethod::OAuthAccessToken,
         scopes: scopes.iter().map(|s| s.to_string()).collect(),
         issued_at: Utc::now(),
         expires_at: Utc::now() + Duration::hours(1),
         jti: Some(uuid::Uuid::new_v4().to_string()),
-        vault: 0,
-        organization: 0,
+        vault: 1,
+        organization: org_id,
     }
 }
 
@@ -102,7 +99,6 @@ pub fn test_oauth_context(tenant_id: &str, scopes: Vec<&str>) -> AuthContext {
 /// ```
 pub fn test_expired_context() -> AuthContext {
     AuthContext {
-        tenant_id: "test-tenant".to_string(),
         client_id: "test-client".to_string(),
         key_id: "test-key-1".to_string(),
         auth_method: AuthMethod::PrivateKeyJwt,
@@ -110,7 +106,7 @@ pub fn test_expired_context() -> AuthContext {
         issued_at: Utc::now() - Duration::hours(2),
         expires_at: Utc::now() - Duration::hours(1),
         jti: Some("expired-jti".to_string()),
-        vault: 0,
-        organization: 0,
+        vault: 1,
+        organization: 12345,
     }
 }

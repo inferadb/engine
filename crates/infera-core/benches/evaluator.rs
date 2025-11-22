@@ -7,7 +7,6 @@ use infera_core::{
 };
 use infera_store::{MemoryBackend, RelationshipStore};
 use infera_types::{EvaluateRequest, ExpandRequest, Relationship};
-use uuid::Uuid;
 
 fn create_complex_schema() -> Schema {
     Schema::new(vec![
@@ -55,7 +54,7 @@ fn create_complex_schema() -> Schema {
 async fn setup_evaluator_with_data(num_relationships: usize) -> Evaluator {
     let store = Arc::new(MemoryBackend::new());
     let schema = Arc::new(create_complex_schema());
-    let vault = Uuid::new_v4();
+    let vault: i64 = 1;
 
     // Create test data
     let mut relationships = Vec::new();
@@ -135,7 +134,7 @@ fn bench_complex_check(c: &mut Criterion) {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
             let schema = Arc::new(create_complex_schema());
-            let vault = Uuid::new_v4();
+            let vault: i64 = 1;
 
             // Create nested hierarchy
             let relationships = vec![
@@ -212,7 +211,7 @@ fn bench_parallel_expand(c: &mut Criterion) {
     c.bench_function("expand_parallel_4_branches", |b| {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
-            let vault = Uuid::new_v4();
+            let vault: i64 = 1;
 
             // Create schema with 4 independent branches
             let schema = Arc::new(Schema::new(vec![TypeDef::new(
@@ -271,7 +270,7 @@ fn bench_parallel_expand(c: &mut Criterion) {
     c.bench_function("expand_parallel_intersection", |b| {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
-            let vault = Uuid::new_v4();
+            let vault: i64 = 1;
 
             let schema = Arc::new(Schema::new(vec![TypeDef::new(
                 "doc".to_string(),
@@ -364,7 +363,7 @@ fn bench_expand_cache(c: &mut Criterion) {
     c.bench_function("expand_with_cache_hit", |b| {
         let evaluator = rt.block_on(async {
             let store = Arc::new(MemoryBackend::new());
-            let vault = Uuid::new_v4();
+            let vault: i64 = 1;
 
             let schema = Arc::new(Schema::new(vec![TypeDef::new(
                 "doc".to_string(),

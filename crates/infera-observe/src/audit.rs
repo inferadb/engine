@@ -55,7 +55,7 @@ pub struct AuditMetadata {
     pub request_id: Option<String>,
     /// Tenant ID (for multi-tenant deployments)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tenant_id: Option<String>,
+    pub org_id: Option<String>,
 }
 
 /// Authorization check audit details
@@ -384,7 +384,7 @@ mod tests {
             client_ip: Some("192.168.1.100".to_string()),
             user_agent: Some("InferaDB-Client/1.0".to_string()),
             request_id: Some("req-123".to_string()),
-            tenant_id: Some("tenant-1".to_string()),
+            org_id: Some("tenant-1".to_string()),
         };
 
         let details = AuditEventDetails::AuthorizationCheck(AuthorizationCheckDetails {
@@ -415,7 +415,7 @@ mod tests {
             client_ip: None,
             user_agent: None,
             request_id: None,
-            tenant_id: None,
+            org_id: None,
         };
 
         let details = AuditEventDetails::RelationshipWrite(RelationshipWriteDetails {
@@ -472,7 +472,7 @@ mod tests {
             client_ip: None,
             user_agent: None,
             request_id: None,
-            tenant_id: None,
+            org_id: None,
         };
 
         let details = AuditEventDetails::AuthorizationCheck(AuthorizationCheckDetails {

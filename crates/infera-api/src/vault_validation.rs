@@ -43,7 +43,7 @@ pub async fn validate_vault_access_with_store(
     // Basic validation first
     if auth.vault == 0 {
         tracing::warn!(
-            tenant_id = %auth.tenant_id,
+            tenant_id = %auth.organization,
             client_id = %auth.client_id,
             "Vault access denied: zero ID detected"
         );
@@ -65,7 +65,7 @@ pub async fn validate_vault_access_with_store(
         .ok_or_else(|| {
             tracing::warn!(
                 vault = %auth.vault,
-                tenant_id = %auth.tenant_id,
+                tenant_id = %auth.organization,
                 "Vault does not exist"
             );
             ApiError::Forbidden("Vault does not exist".to_string())
@@ -77,7 +77,7 @@ pub async fn validate_vault_access_with_store(
             vault = %auth.vault,
             vault_organization = %vault.organization,
             auth_organization = %auth.organization,
-            tenant_id = %auth.tenant_id,
+            tenant_id = %auth.organization,
             "Organization does not own vault"
         );
         return Err(ApiError::Forbidden(
@@ -87,7 +87,7 @@ pub async fn validate_vault_access_with_store(
 
     // Log successful validation
     tracing::debug!(
-        tenant_id = %auth.tenant_id,
+        tenant_id = %auth.organization,
         vault = %auth.vault,
         organization = %auth.organization,
         client_id = %auth.client_id,

@@ -63,7 +63,7 @@ pub async fn list_subjects_stream_handler(
     if let Some(ref auth_ctx) = auth.0 {
         tracing::debug!(
             "Streaming list subjects request from tenant: {} (vault: {})",
-            auth_ctx.tenant_id,
+            auth_ctx.organization,
             vault
         );
     }

@@ -46,8 +46,6 @@ pub struct VaultInfo {
     pub name: String,
     /// Organization Snowflake ID that owns this vault
     pub organization_id: i64,
-    /// Account Snowflake ID that owns this vault (same as organization_id)
-    pub account_id: i64,
 }
 
 impl ManagementClient {
