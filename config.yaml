@@ -103,6 +103,15 @@ auth:
   # WARNING: Never disable auth in production
   # enabled: false  # Uncomment to disable auth (NOT RECOMMENDED)
 
+  # JWKS (JSON Web Key Set) base URL for fetching public keys
+  # The server fetches Ed25519 public keys from: {jwks_base_url}/.well-known/jwks.json
+  # Format: "http://host:port" or "https://host:port"
+  # Do NOT include trailing slash or /.well-known/jwks.json suffix
+  # Environment: INFERA__AUTH__JWKS_BASE_URL
+  # Default: "https://auth.inferadb.com/.well-known" (production)
+  # Local/Integration: "http://localhost:8081" (management API)
+  # jwks_base_url: "http://localhost:8081"
+
   # Management API URL for token validation
   # The server calls this API to:
   #   - Fetch Ed25519 public keys for signature verification

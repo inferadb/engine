@@ -192,6 +192,7 @@ fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> 
         jwks_cache,
         0i64,
         0i64,
+        None, // No server identity for tests
     );
 
     let health_tracker = state.health_tracker.clone();

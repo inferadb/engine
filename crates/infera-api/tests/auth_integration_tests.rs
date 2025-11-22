@@ -169,6 +169,7 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
         jwks_cache,
         test_vault,
         test_account,
+        None, // No server identity for tests
     );
 
     let health_tracker = state.health_tracker.clone();

@@ -28,7 +28,7 @@ pub async fn watch(
     // Extract vault from request extensions (set by auth middleware)
     let vault = request
         .extensions()
-        .get::<AuthContext>()
+        .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
         .unwrap_or(service.state.default_vault);
 

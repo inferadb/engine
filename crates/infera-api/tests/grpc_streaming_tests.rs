@@ -43,6 +43,7 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
         None, // No JWKS cache for tests
         0i64,
         0i64,
+        None, // No server identity for tests
     );
 
     let health_tracker = state.health_tracker.clone();

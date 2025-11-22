@@ -251,6 +251,20 @@ pub struct AuthConfig {
     /// Whether to verify organization status against management API
     #[serde(default = "default_true")]
     pub management_verify_org_status: bool,
+
+    /// Server identity Ed25519 private key (PEM format) for signing server-to-management requests
+    /// This key is used to authenticate the server when making calls to the management API
+    /// If not provided, will be generated on startup and logged (not recommended for production)
+    pub server_identity_private_key: Option<String>,
+
+    /// Server identity key ID (kid) for JWKS
+    /// Used to identify the server's public key in its JWKS endpoint
+    #[serde(default = "default_server_identity_kid")]
+    pub server_identity_kid: String,
+
+    /// Server ID for JWT subject claim (sub: "server:{server_id}")
+    #[serde(default = "default_server_id")]
+    pub server_id: String,
 }
 
 fn default_auth_enabled() -> bool {
@@ -349,6 +363,14 @@ fn default_true() -> bool {
     true
 }
 
+fn default_server_identity_kid() -> String {
+    "server-default".to_string()
+}
+
+fn default_server_id() -> String {
+    "default".to_string()
+}
+
 /// Multi-tenancy configuration
 ///
 /// Controls default organization and vault used when authentication is disabled.
@@ -432,6 +454,9 @@ impl Default for AuthConfig {
             cert_cache_ttl_seconds: default_cert_cache_ttl(),
             management_verify_vault_ownership: default_true(),
             management_verify_org_status: default_true(),
+            server_identity_private_key: None,
+            server_identity_kid: default_server_identity_kid(),
+            server_id: default_server_id(),
         }
     }
 }

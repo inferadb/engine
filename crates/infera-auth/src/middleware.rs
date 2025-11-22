@@ -299,8 +299,8 @@ async fn auth_middleware_impl(
         m.record_validation_success("jwt");
     }
 
-    // Insert AuthContext into request extensions
-    request.extensions_mut().insert(auth_context);
+    // Insert AuthContext into request extensions (wrapped in Arc for efficiency)
+    request.extensions_mut().insert(Arc::new(auth_context));
 
     // Continue to next middleware/handler
     Ok(next.run(request).await)
@@ -383,7 +383,7 @@ pub async fn vault_validation_middleware(
     next: Next,
 ) -> Result<Response, Response> {
     // Extract AuthContext from request extensions
-    let auth = request.extensions().get::<AuthContext>().cloned().ok_or_else(|| {
+    let auth = request.extensions().get::<Arc<AuthContext>>().cloned().ok_or_else(|| {
         tracing::error!("AuthContext missing from request extensions");
         (StatusCode::INTERNAL_SERVER_ERROR, "Authentication context not found".to_string())
             .into_response()
@@ -450,7 +450,7 @@ pub async fn optional_auth_middleware(
         // Create default AuthContext for unauthenticated requests
         let auth_context =
             AuthContext::default_unauthenticated(default_vault, default_organization);
-        request.extensions_mut().insert(auth_context);
+        request.extensions_mut().insert(Arc::new(auth_context));
 
         return Ok(next.run(request).await);
     }

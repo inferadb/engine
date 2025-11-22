@@ -6,6 +6,8 @@
 //! - `RequireAuth`: Requires authentication, returns 401 if not present
 //! - `OptionalAuth`: Optional authentication, returns None if not present
 
+use std::sync::Arc;
+
 use axum::{
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
@@ -45,9 +47,11 @@ where
     type Rejection = Response;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts.extensions.get::<AuthContext>().cloned().map(RequireAuth).ok_or_else(|| {
-            (StatusCode::UNAUTHORIZED, "Authentication required but not present").into_response()
-        })
+        parts.extensions.get::<Arc<AuthContext>>()
+            .map(|arc| RequireAuth((**arc).clone()))
+            .ok_or_else(|| {
+                (StatusCode::UNAUTHORIZED, "Authentication required but not present").into_response()
+            })
     }
 }
 
@@ -86,7 +90,7 @@ where
     type Rejection = Response;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let auth = parts.extensions.get::<AuthContext>().cloned();
+        let auth = parts.extensions.get::<Arc<AuthContext>>().map(|arc| (**arc).clone());
         Ok(OptionalAuth(auth))
     }
 }
@@ -117,7 +121,7 @@ mod tests {
     async fn test_require_auth_with_context() {
         let auth = create_test_auth_context();
         let mut req = Request::builder().body(()).unwrap();
-        req.extensions_mut().insert(auth.clone());
+        req.extensions_mut().insert(Arc::new(auth.clone()));
 
         let (mut parts, _) = req.into_parts();
         let result = RequireAuth::from_request_parts(&mut parts, &()).await;
@@ -143,7 +147,7 @@ mod tests {
     async fn test_optional_auth_with_context() {
         let auth = create_test_auth_context();
         let mut req = Request::builder().body(()).unwrap();
-        req.extensions_mut().insert(auth.clone());
+        req.extensions_mut().insert(Arc::new(auth.clone()));
 
         let (mut parts, _) = req.into_parts();
         let result = OptionalAuth::from_request_parts(&mut parts, &()).await;

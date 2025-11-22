@@ -1,5 +1,7 @@
 //! gRPC expand handler - thin protocol adapter over ExpansionService
 
+use std::sync::Arc;
+
 use infera_types::{
     AuthContext, ExpandRequest as CoreExpandRequest, UsersetNodeType as CoreUsersetNodeType,
     UsersetTree,
@@ -26,7 +28,7 @@ pub async fn expand(
     // Extract vault from request extensions (set by auth middleware)
     let vault = request
         .extensions()
-        .get::<AuthContext>()
+        .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
         .unwrap_or(service.state.default_vault);
 

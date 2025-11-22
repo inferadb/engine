@@ -48,6 +48,7 @@ fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
         None,    // No JWKS cache for tests
         vault_a, // Default to vault A
         organization_a,
+        None, // No server identity for tests
     );
 
     (state, vault_a, organization_a, vault_b, organization_b)

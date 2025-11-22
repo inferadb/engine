@@ -1,5 +1,7 @@
 //! gRPC relationship handlers - thin protocol adapters over RelationshipService
 
+use std::sync::Arc;
+
 use infera_types::{AuthContext, DeleteFilter as CoreDeleteFilter, Relationship, Revision};
 use tonic::{Request, Response, Status};
 
@@ -21,7 +23,7 @@ pub async fn write_relationships(
     // Extract vault from request extensions (set by auth middleware)
     let vault = request
         .extensions()
-        .get::<AuthContext>()
+        .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
         .unwrap_or(service.state.default_vault);
 
@@ -68,7 +70,7 @@ pub async fn delete_relationships(
     // Extract vault from request extensions (set by auth middleware)
     let vault = request
         .extensions()
-        .get::<AuthContext>()
+        .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
         .unwrap_or(service.state.default_vault);
 

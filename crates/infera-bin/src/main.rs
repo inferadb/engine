@@ -111,6 +111,46 @@ async fn main() -> Result<()> {
         None
     };
 
+    // Initialize server identity for server-to-management authentication
+    let server_identity = if config.auth.enabled && !config.auth.management_api_url.is_empty() {
+        use infera_auth::ServerIdentity;
+
+        let identity = if let Some(ref pem) = config.auth.server_identity_private_key {
+            // Load from configured PEM
+            tracing::info!("Loading server identity from configuration");
+            ServerIdentity::from_pem(
+                config.auth.server_id.clone(),
+                config.auth.server_identity_kid.clone(),
+                pem,
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to load server identity from PEM: {}", e))?
+        } else {
+            // Generate new identity and log the PEM (for development)
+            tracing::warn!("No server identity configured - generating new Ed25519 keypair");
+            tracing::warn!("This should ONLY be used in development environments");
+            let identity = ServerIdentity::generate(
+                config.auth.server_id.clone(),
+                config.auth.server_identity_kid.clone(),
+            );
+            let pem = identity.to_pem();
+            tracing::warn!(
+                "Generated server identity PEM (save this to config for production):\n{}",
+                pem
+            );
+            identity
+        };
+
+        tracing::info!(
+            "Server identity initialized: server_id={}, kid={}",
+            identity.server_id,
+            identity.kid
+        );
+
+        Some(Arc::new(identity))
+    } else {
+        None
+    };
+
     // Start API server
     tracing::info!("Starting API server on {}:{}", config.server.host, config.server.port);
 
@@ -122,6 +162,7 @@ async fn main() -> Result<()> {
         jwks_cache,
         system_config.default_vault,
         system_config.default_organization,
+        server_identity,
     )
     .await?;
 

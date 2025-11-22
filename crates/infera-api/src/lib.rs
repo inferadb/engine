@@ -149,6 +149,8 @@ pub struct AppState {
     pub default_vault: i64,
     /// Default organization ID used when authentication is disabled
     pub default_organization: i64,
+    /// Server identity for signing server-to-management requests
+    pub server_identity: Option<Arc<infera_auth::ServerIdentity>>,
 
     // Shared cache for authorization decisions and expansions
     pub auth_cache: Arc<infera_cache::AuthCache>,
@@ -174,6 +176,7 @@ impl AppState {
         jwks_cache: Option<Arc<JwksCache>>,
         default_vault: i64,
         default_organization: i64,
+        server_identity: Option<Arc<infera_auth::ServerIdentity>>,
     ) -> Self {
         let health_tracker = Arc::new(health::HealthTracker::new());
 
@@ -238,6 +241,7 @@ impl AppState {
             health_tracker,
             default_vault,
             default_organization,
+            server_identity,
             auth_cache,
             evaluation_service,
             resource_service,
@@ -320,6 +324,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
             infera_auth::ManagementClient::new(
                 state.config.auth.management_api_url.clone(),
                 state.config.auth.management_api_timeout_ms,
+                state.server_identity.clone(),
             )
             .map_err(|e| {
                 ApiError::Internal(format!("Failed to create management client: {}", e))
@@ -370,6 +375,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
             // Note: Layers are applied in reverse order, so vault validation runs after auth
             let vault_verifier_clone = Arc::clone(&vault_verifier);
             let cert_cache_clone = cert_cache.clone();
+            let jwks_cache_clone = Arc::clone(&jwks_cache);
             protected_routes
                 .layer(axum::middleware::from_fn(move |req, next| {
                     let verifier = Arc::clone(&vault_verifier_clone);
@@ -379,17 +385,20 @@ pub fn create_router(state: AppState) -> Result<Router> {
                     }
                 }))
                 .layer(axum::middleware::from_fn(move |req, next| {
-                    let jwks_cache = Arc::clone(&jwks_cache);
+                    let jwks_cache = Arc::clone(&jwks_cache_clone);
                     let cert_cache = cert_cache_clone.clone();
-                    infera_auth::middleware::optional_auth_middleware(
-                        auth_enabled,
-                        default_vault,
-                        default_organization,
-                        jwks_cache,
-                        cert_cache,
-                        req,
-                        next,
-                    )
+                    async move {
+                        infera_auth::middleware::optional_auth_middleware(
+                            auth_enabled,
+                            default_vault,
+                            default_organization,
+                            jwks_cache,
+                            cert_cache,
+                            req,
+                            next,
+                        )
+                        .await
+                    }
                 }))
         } else {
             tracing::warn!("Authentication ENABLED but JWKS cache not initialized - skipping auth");
@@ -438,6 +447,11 @@ pub fn create_router(state: AppState) -> Result<Router> {
         .route(
             "/.well-known/authzen-configuration",
             get(handlers::authzen::well_known::get_authzen_configuration),
+        )
+        // JWKS endpoint for server identity public key (for management API to verify server JWTs)
+        .route(
+            "/.well-known/jwks.json",
+            get(handlers::jwks::get_server_jwks),
         )
         .merge(protected_routes)
         .with_state(state.clone());
@@ -509,6 +523,7 @@ pub async fn serve(
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: i64,
     default_organization: i64,
+    server_identity: Option<Arc<infera_auth::ServerIdentity>>,
 ) -> anyhow::Result<()> {
     // Create AppState with services
     let state = AppState::new(
@@ -519,6 +534,7 @@ pub async fn serve(
         jwks_cache,
         default_vault,
         default_organization,
+        server_identity,
     );
 
     // Mark service as ready to accept traffic
@@ -561,6 +577,7 @@ pub async fn serve_grpc(
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: i64,
     default_organization: i64,
+    server_identity: Option<Arc<infera_auth::ServerIdentity>>,
 ) -> anyhow::Result<()> {
     use grpc::proto::infera_service_server::InferaServiceServer;
     use tonic::transport::Server;
@@ -574,6 +591,7 @@ pub async fn serve_grpc(
         jwks_cache,
         default_vault,
         default_organization,
+        server_identity,
     );
 
     // Mark service as ready to accept traffic
@@ -650,18 +668,21 @@ pub async fn serve_both(
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: i64,
     default_organization: i64,
+    server_identity: Option<Arc<infera_auth::ServerIdentity>>,
 ) -> anyhow::Result<()> {
     let rest_store = Arc::clone(&store);
     let rest_schema = Arc::clone(&schema);
     let rest_wasm_host = wasm_host.clone();
     let rest_config = Arc::clone(&config);
     let rest_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
+    let rest_server_identity = server_identity.as_ref().map(Arc::clone);
 
     let grpc_store = Arc::clone(&store);
     let grpc_schema = Arc::clone(&schema);
     let grpc_wasm_host = wasm_host.clone();
     let grpc_config = Arc::clone(&config);
     let grpc_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
+    let grpc_server_identity = server_identity.as_ref().map(Arc::clone);
 
     tokio::try_join!(
         serve(
@@ -671,7 +692,8 @@ pub async fn serve_both(
             rest_config,
             rest_jwks_cache,
             default_vault,
-            default_organization
+            default_organization,
+            rest_server_identity
         ),
         serve_grpc(
             grpc_store,
@@ -680,7 +702,8 @@ pub async fn serve_both(
             grpc_config,
             grpc_jwks_cache,
             default_vault,
-            default_organization
+            default_organization,
+            grpc_server_identity
         )
     )?;
 

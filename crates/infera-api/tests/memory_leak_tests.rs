@@ -69,6 +69,7 @@ async fn create_test_state() -> AppState {
         None, // No JWKS cache for tests
         vault,
         account,
+        None, // No server identity for tests
     )
 }
 

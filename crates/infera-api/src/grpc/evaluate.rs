@@ -1,5 +1,7 @@
 //! gRPC evaluate handler - thin protocol adapter over EvaluationService
 
+use std::sync::Arc;
+
 use infera_core::DecisionTrace;
 use infera_types::{AuthContext, Decision, EvaluateRequest as CoreEvaluateRequest};
 use tonic::{Request, Response, Status};
@@ -29,7 +31,7 @@ pub async fn evaluate(
     // Extract vault from request extensions (set by auth middleware)
     let vault = request
         .extensions()
-        .get::<AuthContext>()
+        .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
         .unwrap_or(service.state.default_vault);
 

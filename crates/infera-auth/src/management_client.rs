@@ -3,15 +3,20 @@
 //! This module provides an HTTP client for communicating with the InferaDB Management API
 //! to validate vaults, organizations, and fetch client certificates for JWT verification.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::{Client as HttpClient, StatusCode};
 use serde::Deserialize;
 
+use crate::server_identity::ServerIdentity;
+
 /// Management API client for validating tokens and fetching metadata
 pub struct ManagementClient {
     http_client: HttpClient,
     base_url: String,
+    /// Optional server identity for signing server-to-management requests
+    server_identity: Option<Arc<ServerIdentity>>,
 }
 
 /// Organization information from management API
@@ -55,17 +60,39 @@ impl ManagementClient {
     ///
     /// * `base_url` - Base URL of the management API (e.g., "https://api.inferadb.com")
     /// * `timeout_ms` - Request timeout in milliseconds
+    /// * `server_identity` - Optional server identity for signing server-to-management requests
     ///
     /// # Errors
     ///
     /// Returns an error if the HTTP client cannot be created
-    pub fn new(base_url: String, timeout_ms: u64) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        base_url: String,
+        timeout_ms: u64,
+        server_identity: Option<Arc<ServerIdentity>>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let http_client = HttpClient::builder()
             .timeout(Duration::from_millis(timeout_ms))
             .pool_max_idle_per_host(10)
             .build()?;
 
-        Ok(Self { http_client, base_url })
+        Ok(Self {
+            http_client,
+            base_url,
+            server_identity,
+        })
+    }
+
+    /// Get authorization header for server-to-management requests
+    ///
+    /// Returns a JWT signed by the server's identity if configured,
+    /// otherwise returns None (request will be unauthenticated)
+    fn get_auth_header(&self) -> Option<String> {
+        self.server_identity.as_ref().and_then(|identity| {
+            identity
+                .sign_jwt(&self.base_url)
+                .ok()
+                .map(|jwt| format!("Bearer {}", jwt))
+        })
     }
 
     /// Fetch organization details
@@ -86,9 +113,14 @@ impl ManagementClient {
     ) -> Result<OrganizationInfo, ManagementApiError> {
         let url = format!("{}/v1/organizations/{}", self.base_url, org_id);
 
-        let response = self
-            .http_client
-            .get(&url)
+        let mut request = self.http_client.get(&url);
+
+        // Add authorization header if server identity is configured
+        if let Some(auth_header) = self.get_auth_header() {
+            request = request.header("Authorization", auth_header);
+        }
+
+        let response = request
             .send()
             .await
             .map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
@@ -121,9 +153,14 @@ impl ManagementClient {
     pub async fn get_vault(&self, vault_id: i64) -> Result<VaultInfo, ManagementApiError> {
         let url = format!("{}/v1/vaults/{}", self.base_url, vault_id);
 
-        let response = self
-            .http_client
-            .get(&url)
+        let mut request = self.http_client.get(&url);
+
+        // Add authorization header if server identity is configured
+        if let Some(auth_header) = self.get_auth_header() {
+            request = request.header("Authorization", auth_header);
+        }
+
+        let response = request
             .send()
             .await
             .map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;

@@ -53,6 +53,8 @@ pub mod oauth;
 pub mod oidc;
 /// Replay protection for JWT tokens
 pub mod replay;
+/// Server identity for server-to-management authentication
+pub mod server_identity;
 /// Enhanced JWT claim validation
 pub mod validation;
 /// Vault validation middleware
@@ -76,6 +78,7 @@ pub use metrics::AuthMetrics;
 pub use middleware::{validate_vault_access, vault_validation_middleware};
 pub use oauth::OAuthJwksClient;
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
+pub use server_identity::{Jwks as ServerJwks, ServerIdentity, SharedServerIdentity};
 #[cfg(feature = "replay-protection")]
 pub use replay::RedisReplayProtection;
 pub use replay::{InMemoryReplayProtection, ReplayProtection};

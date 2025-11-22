@@ -81,7 +81,7 @@ async fn create_test_state_with_data(num_relationships: usize) -> AppState {
     config.cache.max_capacity = 10000;
     config.auth.enabled = false;
 
-    AppState::new(store, schema, None, Arc::new(config), None, vault, organization)
+    AppState::new(store, schema, None, Arc::new(config), None, vault, organization, None)
 }
 
 /// Benchmark: Authorization check (check if user has permission)

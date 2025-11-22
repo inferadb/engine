@@ -327,8 +327,8 @@ fn auth_error_to_status(error: AuthError) -> Status {
 pub fn extract_auth<T>(request: &Request<T>) -> Result<AuthContext, Status> {
     request
         .extensions()
-        .get::<AuthContext>()
-        .cloned()
+        .get::<Arc<AuthContext>>()
+        .map(|arc| (**arc).clone())
         .ok_or_else(|| Status::unauthenticated("Missing authentication context"))
 }
 

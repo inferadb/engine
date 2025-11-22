@@ -1,5 +1,7 @@
 //! gRPC list handlers - thin protocol adapters over service layer
 
+use std::sync::Arc;
+
 use infera_types::{
     AuthContext, ListRelationshipsRequest as CoreListRelationshipsRequest,
     ListResourcesRequest as CoreListResourcesRequest,
@@ -33,7 +35,7 @@ pub async fn list_resources(
     // Extract vault from request extensions (set by auth middleware)
     let vault = request
         .extensions()
-        .get::<AuthContext>()
+        .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
         .unwrap_or(service.state.default_vault);
 
@@ -99,7 +101,7 @@ pub async fn list_relationships(
     // Extract vault from request extensions (set by auth middleware)
     let vault = request
         .extensions()
-        .get::<AuthContext>()
+        .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
         .unwrap_or(service.state.default_vault);
 
@@ -170,7 +172,7 @@ pub async fn list_subjects(
     // Extract vault from request extensions (set by auth middleware)
     let vault = request
         .extensions()
-        .get::<AuthContext>()
+        .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
         .unwrap_or(service.state.default_vault);
 

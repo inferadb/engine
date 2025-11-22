@@ -5,6 +5,7 @@
 pub mod authzen;
 pub mod evaluate;
 pub mod expand;
+pub mod jwks;
 pub mod organizations;
 pub mod relationships;
 pub mod resources;
