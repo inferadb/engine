@@ -180,7 +180,7 @@ pub fn verify_signature(
     algorithm: Algorithm,
 ) -> Result<JwtClaims, AuthError> {
     let mut validation = Validation::new(algorithm);
-    validation.validate_exp = false; // We do custom validation
+    validation.validate_exp = true; // Validate token expiration
     validation.validate_nbf = false;
     validation.validate_aud = false;
 
