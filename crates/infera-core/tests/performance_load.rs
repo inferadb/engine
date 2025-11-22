@@ -176,12 +176,8 @@ async fn test_sustained_throughput_100k_rps() {
     }
     store.write(0i64, relationships).await.expect("Failed to write relationships");
 
-    let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
 
     // Run for 10 seconds with high concurrency
     let duration = Duration::from_secs(10);
@@ -272,12 +268,8 @@ async fn test_latency_p99_under_10ms() {
             .expect("Failed to write");
     }
 
-    let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
 
     // Run 10k requests with moderate concurrency
     let num_requests = 10_000;
@@ -362,12 +354,8 @@ async fn test_spike_load() {
             .expect("Failed to write");
     }
 
-    let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
 
     println!("Starting spike test (100 RPS -> 10k RPS)...");
 
@@ -474,12 +462,8 @@ async fn test_stress_beyond_capacity() {
             .expect("Failed to write");
     }
 
-    let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
 
     println!("Starting stress test (gradually increasing load)...");
 
@@ -564,12 +548,8 @@ async fn test_soak_24h_simulation() {
             .expect("Failed to write");
     }
 
-    let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
 
     println!("Starting soak test (60s simulating 24h load pattern)...");
 
@@ -687,12 +667,8 @@ async fn test_large_graph_1m_relationships() {
     let population_duration = population_start.elapsed();
     println!("Population completed in {:?}", population_duration);
 
-    let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
 
     // Run performance test on large graph
     let num_requests = 1000;
@@ -784,12 +760,8 @@ async fn test_deep_nesting_10_levels() {
         .await
         .expect("Failed to write");
 
-    let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
 
     println!("Testing deep nesting (15 levels)...");
 
@@ -852,12 +824,8 @@ async fn test_wide_expansion_10k_users() {
         store.write(0i64, relationships).await.expect("Failed to write");
     }
 
-    let evaluator = Arc::new(Evaluator::new(
-        store as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    ));
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
 
     println!("Running expansion on 10k user resource...");
 

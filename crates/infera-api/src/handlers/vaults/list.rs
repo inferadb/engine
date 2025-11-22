@@ -6,7 +6,7 @@ use infera_types::{ListVaultsResponse, VaultResponse};
 use crate::{
     ApiError, AppState,
     content_negotiation::{AcceptHeader, ResponseData},
-    handlers::utils::auth::authorize_account_access,
+    handlers::utils::auth::authorize_organization_access,
 };
 
 /// List vaults for an account
@@ -47,19 +47,19 @@ pub async fn list_vaults(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<i64>,
+    Path(organization_id): Path<i64>,
 ) -> Result<ResponseData<ListVaultsResponse>, ApiError> {
-    // Check authorization (admin OR account owner)
-    authorize_account_access(&auth.0, account_id)?;
+    // Check authorization (admin OR organization owner)
+    authorize_organization_access(&auth.0, organization_id)?;
 
     // List vaults from storage
     let vaults = state
         .store
-        .list_vaults_for_account(account_id)
+        .list_vaults_for_organization(organization_id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    tracing::debug!(count = vaults.len(), account_id = %account_id, "Listed vaults");
+    tracing::debug!(count = vaults.len(), organization_id = %organization_id, "Listed vaults");
 
     // Convert to response
     let response =

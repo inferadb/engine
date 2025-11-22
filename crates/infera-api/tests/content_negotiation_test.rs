@@ -2,14 +2,15 @@
 
 mod integration;
 
+use std::sync::atomic::{AtomicI64, Ordering};
+
 use axum::{
     body::Body,
     http::{Request, StatusCode, header},
 };
-use infera_types::{Account, Vault, VaultResponse};
+use infera_types::{Organization, Vault, VaultResponse};
 use serde_json::json;
 use tower::ServiceExt;
-use std::sync::atomic::{AtomicI64, Ordering};
 
 static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
 
@@ -17,13 +18,18 @@ fn generate_test_id() -> i64 {
     TEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
 }
 
-/// Helper to create test app state with account
+/// Helper to create test app state with organization
 async fn create_test_state() -> infera_api::AppState {
     let state = integration::create_test_state();
 
-    // Create the default account
-    let account = Account::with_id(state.default_account, "Test Account".to_string());
-    state.store.create_account(account).await.expect("Failed to create test account");
+    // Create the default organization
+    let organization =
+        Organization::with_id(state.default_organization, "Test Organization".to_string());
+    state
+        .store
+        .create_organization(organization)
+        .await
+        .expect("Failed to create test organization");
 
     state
 }
@@ -35,7 +41,7 @@ async fn test_json_format_explicit() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with explicit JSON Accept header
@@ -65,7 +71,7 @@ async fn test_toon_format_explicit() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with TOON Accept header
@@ -99,7 +105,7 @@ async fn test_default_format_is_json() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with NO Accept header (should default to JSON)
@@ -123,7 +129,7 @@ async fn test_wildcard_accept_defaults_to_json() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with wildcard Accept header
@@ -148,7 +154,7 @@ async fn test_quality_value_priority_json_higher() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with JSON having higher priority
@@ -173,7 +179,7 @@ async fn test_quality_value_priority_toon_higher() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_account, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with TOON having higher priority
@@ -290,8 +296,8 @@ async fn test_multiple_endpoints_support_toon() {
 
     // Create test data
     let vault_id = generate_test_id();
-    let account_id = state.default_account;
-    let vault = Vault::with_id(vault_id, account_id, "Test Vault".to_string());
+    let organization_id = state.default_organization;
+    let vault = Vault::with_id(vault_id, organization_id, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Test vault endpoint
@@ -304,10 +310,10 @@ async fn test_multiple_endpoints_support_toon() {
     let response = app.clone().oneshot(request).await.unwrap();
     assert_eq!(response.headers().get(header::CONTENT_TYPE).unwrap(), "text/toon");
 
-    // Test account endpoint
+    // Test organization endpoint
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/accounts/{}", account_id))
+        .uri(format!("/v1/organizations/{}", organization_id))
         .header(header::ACCEPT, "text/toon")
         .body(Body::empty())
         .unwrap();

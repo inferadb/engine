@@ -289,20 +289,21 @@ pub async fn validate_internal_jwt(
     // Extract scopes from space-separated string
     let scopes: Vec<String> = claims.scope.split_whitespace().map(|s| s.to_string()).collect();
 
-    // Use tenant_id from claims if present, otherwise default to "internal"
-    let tenant_id = claims.tenant_id.unwrap_or_else(|| "internal".to_string());
-
-    // Extract vault and account IDs (Snowflake IDs) - both required for multi-tenancy
-    let vault_str = claims.vault.ok_or_else(|| AuthError::MissingClaim("vault".to_string()))?;
+    // Extract vault and organization IDs (Snowflake IDs) - both required for multi-tenancy
+    let vault_str =
+        claims.vault_id.ok_or_else(|| AuthError::MissingClaim("vault_id".to_string()))?;
     let vault: i64 = vault_str
         .parse()
         .map_err(|_| AuthError::InvalidTokenFormat("Invalid vault ID format".to_string()))?;
 
-    let account_str =
-        claims.account.ok_or_else(|| AuthError::MissingClaim("account".to_string()))?;
-    let account: i64 = account_str
+    let organization_str =
+        claims.org_id.ok_or_else(|| AuthError::MissingClaim("org_id".to_string()))?;
+    let organization: i64 = organization_str
         .parse()
-        .map_err(|_| AuthError::InvalidTokenFormat("Invalid account ID format".to_string()))?;
+        .map_err(|_| AuthError::InvalidTokenFormat("Invalid organization ID format".to_string()))?;
+
+    // Use org_id for tenant_id in AuthContext
+    let tenant_id = organization_str.clone();
 
     // Create AuthContext with proper fields
     Ok(AuthContext {
@@ -317,7 +318,7 @@ pub async fn validate_internal_jwt(
             .unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::hours(1)),
         jti: claims.jti,
         vault,
-        account,
+        organization,
     })
 }
 

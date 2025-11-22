@@ -40,12 +40,13 @@ impl ParsedKeyId {
             return Err(KeyIdParseError::InvalidFormat);
         }
 
-        let org_id = parts[1].parse::<i64>()
-            .map_err(|_| KeyIdParseError::InvalidSnowflakeId("org_id"))?;
-        let client_id = parts[3].parse::<i64>()
+        let org_id =
+            parts[1].parse::<i64>().map_err(|_| KeyIdParseError::InvalidSnowflakeId("org_id"))?;
+        let client_id = parts[3]
+            .parse::<i64>()
             .map_err(|_| KeyIdParseError::InvalidSnowflakeId("client_id"))?;
-        let cert_id = parts[5].parse::<i64>()
-            .map_err(|_| KeyIdParseError::InvalidSnowflakeId("cert_id"))?;
+        let cert_id =
+            parts[5].parse::<i64>().map_err(|_| KeyIdParseError::InvalidSnowflakeId("cert_id"))?;
 
         Ok(Self { org_id, client_id, cert_id })
     }
@@ -77,6 +78,7 @@ struct Jwk {
     x: Option<String>,
     /// Algorithm
     #[serde(default)]
+    #[allow(dead_code)]
     alg: Option<String>,
 }
 
@@ -96,7 +98,11 @@ impl CertificateCache {
     /// * `management_api_url` - Base URL of the Management API (e.g., "http://management-api:8081")
     /// * `ttl` - Time-to-live for cached certificates
     /// * `max_capacity` - Maximum number of certificates to cache
-    pub fn new(management_api_url: String, ttl: Duration, max_capacity: u64) -> Result<Self, CertificateCacheError> {
+    pub fn new(
+        management_api_url: String,
+        ttl: Duration,
+        max_capacity: u64,
+    ) -> Result<Self, CertificateCacheError> {
         let http_client = HttpClient::builder()
             .timeout(Duration::from_secs(10))
             .build()
@@ -143,7 +149,8 @@ impl CertificateCache {
         }
 
         // Fetch from JWKS endpoint
-        let jwks_url = format!("{}/v1/organizations/{}/jwks.json", self.management_api_url, parsed_kid.org_id);
+        let jwks_url =
+            format!("{}/v1/organizations/{}/jwks.json", self.management_api_url, parsed_kid.org_id);
 
         tracing::debug!(
             jwks_url = %jwks_url,
@@ -151,21 +158,17 @@ impl CertificateCache {
             "Fetching JWKS from Management API"
         );
 
-        let response = self.http_client
-            .get(&jwks_url)
-            .send()
-            .await
-            .map_err(|e| {
-                tracing::error!(
-                    jwks_url = %jwks_url,
-                    error = %e,
-                    "Failed to fetch JWKS"
-                );
-                if let Some(ref metrics) = self.metrics {
-                    metrics.record_management_api_call("get_jwks", 0);
-                }
-                CertificateCacheError::JwksFetchError(e.to_string())
-            })?;
+        let response = self.http_client.get(&jwks_url).send().await.map_err(|e| {
+            tracing::error!(
+                jwks_url = %jwks_url,
+                error = %e,
+                "Failed to fetch JWKS"
+            );
+            if let Some(ref metrics) = self.metrics {
+                metrics.record_management_api_call("get_jwks", 0);
+            }
+            CertificateCacheError::JwksFetchError(e.to_string())
+        })?;
 
         let status = response.status();
         if let Some(ref metrics) = self.metrics {
@@ -180,7 +183,9 @@ impl CertificateCache {
             return Err(CertificateCacheError::JwksFetchError(format!("HTTP {}", status)));
         }
 
-        let jwks: JwksResponse = response.json().await
+        let jwks: JwksResponse = response
+            .json()
+            .await
             .map_err(|e| CertificateCacheError::JwksFetchError(e.to_string()))?;
 
         tracing::debug!(
@@ -191,25 +196,27 @@ impl CertificateCache {
 
         // Find the key matching our kid
         let target_kid = parsed_kid.to_kid();
-        let jwk = jwks.keys.into_iter()
-            .find(|k| k.kid == target_kid)
-            .ok_or_else(|| {
-                tracing::warn!(
-                    target_kid = %target_kid,
-                    "Certificate not found in JWKS"
-                );
-                CertificateCacheError::CertificateNotFound
-            })?;
+        let jwk = jwks.keys.into_iter().find(|k| k.kid == target_kid).ok_or_else(|| {
+            tracing::warn!(
+                target_kid = %target_kid,
+                "Certificate not found in JWKS"
+            );
+            CertificateCacheError::CertificateNotFound
+        })?;
 
         // Validate key type
         if jwk.kty != "OKP" {
-            return Err(CertificateCacheError::UnsupportedAlgorithm(format!("key type: {}", jwk.kty)));
+            return Err(CertificateCacheError::UnsupportedAlgorithm(format!(
+                "key type: {}",
+                jwk.kty
+            )));
         }
 
         if jwk.crv.as_deref() != Some("Ed25519") {
-            return Err(CertificateCacheError::UnsupportedAlgorithm(
-                format!("curve: {:?}", jwk.crv)
-            ));
+            return Err(CertificateCacheError::UnsupportedAlgorithm(format!(
+                "curve: {:?}",
+                jwk.crv
+            )));
         }
 
         let x = jwk.x.ok_or_else(|| {
@@ -231,11 +238,11 @@ impl CertificateCache {
         }
 
         // Validate it's a valid Ed25519 key
-        let _verifying_key = VerifyingKey::from_bytes(
-            public_key_bytes.as_slice().try_into().map_err(|_| {
+        let _verifying_key =
+            VerifyingKey::from_bytes(public_key_bytes.as_slice().try_into().map_err(|_| {
                 CertificateCacheError::InvalidPublicKey("Failed to convert bytes".to_string())
-            })?
-        ).map_err(|e| CertificateCacheError::InvalidPublicKey(e.to_string()))?;
+            })?)
+            .map_err(|e| CertificateCacheError::InvalidPublicKey(e.to_string()))?;
 
         // Convert to jsonwebtoken DecodingKey
         let decoding_key = DecodingKey::from_ed_components(&x)
@@ -317,11 +324,7 @@ mod tests {
 
     #[test]
     fn test_parsed_key_id_to_kid() {
-        let parsed = ParsedKeyId {
-            org_id: 123,
-            client_id: 456,
-            cert_id: 789,
-        };
+        let parsed = ParsedKeyId { org_id: 123, client_id: 456, cert_id: 789 };
         assert_eq!(parsed.to_kid(), "org-123-client-456-cert-789");
     }
 }

@@ -136,7 +136,6 @@ async fn introspection_handler(
                 exp: None,
                 iat: None,
                 sub: None,
-                tenant_id: None,
             }),
         )
     }
@@ -205,7 +204,6 @@ pub async fn start_mock_oauth_server() -> (String, JoinHandle<()>, OAuthServerSt
                                     exp: None,
                                     iat: None,
                                     sub: None,
-                                    tenant_id: None,
                                 }),
                             )
                         }
@@ -250,10 +248,9 @@ pub fn generate_oauth_jwt(
         nbf: None,
         jti: Some(uuid::Uuid::new_v4().to_string()),
         scope: scopes.join(" "),
-        tenant_id: Some(tenant_id.to_string()),
-        // Use Snowflake ID strings for vault/account
-        vault: Some("12345678901234".to_string()),
-        account: Some("98765432109876".to_string()),
+        // Use Snowflake ID strings for vault/organization (per Management API spec)
+        vault_id: Some("12345678901234".to_string()),
+        org_id: Some("98765432109876".to_string()),
     };
 
     let mut header = Header::new(Algorithm::EdDSA);
@@ -392,7 +389,6 @@ mod tests {
             exp: Some(9999999999),
             iat: Some(1234567890),
             sub: Some("user-123".to_string()),
-            tenant_id: Some("acme".to_string()),
         };
 
         register_opaque_token(&state, &token, metadata.clone());
@@ -410,7 +406,7 @@ mod tests {
         let introspection: IntrospectionResponse =
             response.json().await.expect("Failed to parse JSON");
         assert!(introspection.active);
-        assert_eq!(introspection.tenant_id, Some("acme".to_string()));
+        assert_eq!(introspection.sub, Some("user-123".to_string()));
         assert_eq!(introspection.scope, Some("read write".to_string()));
     }
 }

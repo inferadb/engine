@@ -142,7 +142,6 @@ impl ManagementClient {
             status => Err(ManagementApiError::UnexpectedStatus(status.as_u16())),
         }
     }
-
 }
 
 /// Errors that can occur when interacting with the Management API

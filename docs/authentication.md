@@ -21,13 +21,12 @@ InferaDB uses **Ed25519-signed JWT tokens** for authentication. The system is de
 - **Management API**: Source of truth for users, organizations, vaults, and client credentials
 - **Server**: Policy evaluation engine that validates tokens and enforces vault isolation
 - **Stateless Authentication**: No session state - all information in JWT claims
-- **Multi-Tenant Isolation**: Complete data isolation using Accounts and Vaults
+- **Multi-Tenant Isolation**: Complete data isolation using Organizations and Vaults
 
 ### Key Concepts
 
-- **Organization**: Top-level entity representing a company or team
-- **Account**: Billing and resource grouping entity (one per organization)
-- **Vault**: Isolated namespace for relationship data and policies
+- **Organization**: Top-level entity representing a company or team that owns vaults
+- **Vault**: Isolated namespace for relationship data and policies (owned by an organization)
 - **Client**: Service identity with cryptographic credentials for API access
 - **Certificate**: Ed25519 public key registered for a client
 
@@ -38,7 +37,7 @@ InferaDB uses **Ed25519-signed JWT tokens** for authentication. The system is de
 │                     Client Application                       │
 │                                                              │
 │  1. Generate JWT with Ed25519 private key                   │
-│  2. Include vault UUID in claims                            │
+│  2. Include vault_id and org_id in claims                   │
 │  3. Sign with certificate's private key                     │
 └──────────────────────┬───────────────────────────────────────┘
                        │
@@ -50,7 +49,7 @@ InferaDB uses **Ed25519-signed JWT tokens** for authentication. The system is de
 │  1. Extract kid from JWT header                             │
 │  2. Fetch Ed25519 public key (cached 15min)                 │
 │  3. Verify JWT signature                                    │
-│  4. Validate claims (exp, iss, aud, vault, etc.)            │
+│  4. Validate claims (exp, iss, aud, vault_id, org_id)       │
 │  5. Verify vault ownership (cached 5min)                    │
 │  6. Verify organization status (cached 5min)                │
 │  7. Execute request in vault context                        │
@@ -72,18 +71,22 @@ InferaDB uses **Ed25519-signed JWT tokens** for authentication. The system is de
 
 InferaDB aggressively caches authentication data to minimize management API calls:
 
-| Data Type | Cache TTL | Purpose |
-|-----------|-----------|---------|
+| Data Type           | Cache TTL  | Purpose                |
+| ------------------- | ---------- | ---------------------- |
 | Ed25519 Public Keys | 15 minutes | Signature verification |
-| Vault Metadata | 5 minutes | Ownership validation |
-| Organization Status | 5 minutes | Active/suspended check |
+| Vault Metadata      | 5 minutes  | Ownership validation   |
+| Organization Status | 5 minutes  | Active/suspended check |
 
 **Benefits:**
-- >90% cache hit rate after warmup
+
+>
+
+- > 90% cache hit rate after warmup
 - <10% management API call rate under steady load
 - Continued operation during temporary management API outages
 
 **Trade-offs:**
+
 - Certificate revocation takes up to 15 minutes to propagate
 - Vault deletion takes up to 5 minutes to propagate
 - For immediate revocation, restart the server to clear caches
@@ -93,27 +96,29 @@ InferaDB aggressively caches authentication data to minimize management API call
 ### Prerequisites
 
 1. **Management API Running**: Authentication requires the management API
-   ```bash
-   cd management
-   make run
-   # Management API runs on http://localhost:8081
-   ```
+
+    ```bash
+    cd management
+    make run
+    # Management API runs on http://localhost:8081
+    ```
 
 2. **Ed25519 Key Pair**: You'll need to generate cryptographic keys
-   ```python
-   from cryptography.hazmat.primitives.asymmetric import ed25519
-   import base64
 
-   # Generate key pair
-   private_key = ed25519.Ed25519PrivateKey.generate()
-   public_key = private_key.public_key()
+    ```python
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+    import base64
 
-   # Export public key for certificate registration
-   public_key_bytes = public_key.public_bytes_raw()
-   public_key_b64 = base64.b64encode(public_key_bytes).decode()
+    # Generate key pair
+    private_key = ed25519.Ed25519PrivateKey.generate()
+    public_key = private_key.public_key()
 
-   print(f"Public Key (Base64): {public_key_b64}")
-   ```
+    # Export public key for certificate registration
+    public_key_bytes = public_key.public_bytes_raw()
+    public_key_b64 = base64.b64encode(public_key_bytes).decode()
+
+    print(f"Public Key (Base64): {public_key_b64}")
+    ```
 
 ### Step 1: Register User and Create Organization
 
@@ -130,10 +135,10 @@ curl -X POST http://localhost:8081/v1/auth/register \
 
 # Response:
 # {
-#   "id": "550e8400-e29b-41d4-a716-446655440000",
+#   "id": 123456789012345,  // Snowflake ID
 #   "name": "Alice Smith",
 #   "email": "alice@example.com",
-#   "organization_id": "660e8400-e29b-41d4-a716-446655440001",
+#   "organization_id": 234567890123456,  // Snowflake ID
 #   "created_at": "2025-01-15T10:00:00Z"
 # }
 ```
@@ -152,11 +157,11 @@ curl -X POST http://localhost:8081/v1/auth/login \
 # Response:
 # {
 #   "session_id": "sess_770e8400e29b41d4a716446655440002",
-#   "user_id": "550e8400-e29b-41d4-a716-446655440000"
+#   "user_id": 123456789012345  // Snowflake ID
 # }
 
 export SESSION_ID="sess_770e8400e29b41d4a716446655440002"
-export ORG_ID="660e8400-e29b-41d4-a716-446655440001"
+export ORG_ID="234567890123456"  # Snowflake ID
 ```
 
 ### Step 3: Create Vault
@@ -173,15 +178,13 @@ curl -X POST http://localhost:8081/v1/vaults \
 
 # Response:
 # {
-#   "id": "880e8400-e29b-41d4-a716-446655440003",
+#   "id": 345678901234567,  // Snowflake ID
 #   "name": "Production Vault",
-#   "organization_id": "660e8400-e29b-41d4-a716-446655440001",
-#   "account_id": "990e8400-e29b-41d4-a716-446655440004",
+#   "organization": 234567890123456,  // Snowflake ID of owning organization
 #   "created_at": "2025-01-15T10:05:00Z"
 # }
 
-export VAULT_ID="880e8400-e29b-41d4-a716-446655440003"
-export ACCOUNT_ID="990e8400-e29b-41d4-a716-446655440004"
+export VAULT_ID="345678901234567"
 ```
 
 ### Step 4: Create Client Credentials
@@ -197,13 +200,13 @@ curl -X POST http://localhost:8081/v1/organizations/$ORG_ID/clients \
 
 # Response:
 # {
-#   "id": "aa0e8400-e29b-41d4-a716-446655440005",
+#   "id": 456789012345678,  // Snowflake ID
 #   "name": "Production Service",
-#   "organization_id": "660e8400-e29b-41d4-a716-446655440001",
+#   "organization_id": 234567890123456,  // Snowflake ID
 #   "created_at": "2025-01-15T10:10:00Z"
 # }
 
-export CLIENT_ID="aa0e8400-e29b-41d4-a716-446655440005"
+export CLIENT_ID="456789012345678"
 ```
 
 ### Step 5: Register Certificate
@@ -220,14 +223,14 @@ curl -X POST http://localhost:8081/v1/organizations/$ORG_ID/clients/$CLIENT_ID/c
 
 # Response:
 # {
-#   "id": "bb0e8400-e29b-41d4-a716-446655440006",
+#   "id": 567890123456789,  // Snowflake ID
 #   "name": "Production Certificate",
-#   "kid": "org-660e8400-client-aa0e8400-cert-bb0e8400",
+#   "kid": "org-234567890123456-client-456789012345678-cert-567890123456789",
 #   "public_key": "...",
 #   "created_at": "2025-01-15T10:15:00Z"
 # }
 
-export CERT_KID="org-660e8400-client-aa0e8400-cert-bb0e8400"
+export CERT_KID="org-234567890123456-client-456789012345678-cert-567890123456789"
 ```
 
 ### Step 6: Generate and Use JWT
@@ -243,15 +246,16 @@ private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_bytes)
 
 # Create JWT claims
 claims = {
-    "iss": "http://localhost:8081/v1",
+    "iss": "https://api.inferadb.com",
     "sub": f"client:{CLIENT_ID}",
-    "aud": "http://localhost:8080",
+    "aud": "https://api.inferadb.com/evaluate",
     "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5),
     "iat": datetime.datetime.now(datetime.timezone.utc),
     "jti": str(uuid.uuid4()),
-    "vault": VAULT_ID,
-    "account": ACCOUNT_ID,
-    "scope": "read write"
+    "vault_id": str(VAULT_ID),  # Snowflake ID as string
+    "org_id": str(ORG_ID),       # Snowflake ID as string
+    "vault_role": "write",
+    "scope": "vault:read vault:write"
 }
 
 # Sign JWT
@@ -285,13 +289,14 @@ curl -X POST http://localhost:8080/v1/evaluate \
 
 ```json
 {
-  "alg": "EdDSA",
-  "typ": "JWT",
-  "kid": "org-{org_id}-client-{client_id}-cert-{cert_id}"
+    "alg": "EdDSA",
+    "typ": "JWT",
+    "kid": "org-{org_id}-client-{client_id}-cert-{cert_id}"
 }
 ```
 
 **Fields:**
+
 - `alg`: Must be `EdDSA` (Ed25519 signature algorithm)
 - `typ`: Must be `JWT`
 - `kid`: **Required** - Key ID in format `org-{org_id}-client-{client_id}-cert-{cert_id}`
@@ -300,31 +305,31 @@ curl -X POST http://localhost:8080/v1/evaluate \
 
 ```json
 {
-  "iss": "http://localhost:8081/v1",
-  "sub": "client:aa0e8400-e29b-41d4-a716-446655440005",
-  "aud": "http://localhost:8080",
-  "exp": 1736939100,
-  "iat": 1736938800,
-  "jti": "cc0e8400-e29b-41d4-a716-446655440007",
-  "vault": "880e8400-e29b-41d4-a716-446655440003",
-  "account": "990e8400-e29b-41d4-a716-446655440004",
-  "scope": "read write"
+    "iss": "https://api.inferadb.com",
+    "sub": "client:456789012345678",
+    "aud": "https://api.inferadb.com/evaluate",
+    "exp": 1736939100,
+    "iat": 1736938800,
+    "org_id": "234567890123456",
+    "vault_id": "345678901234567",
+    "vault_role": "write",
+    "scope": "vault:read vault:write"
 }
 ```
 
 **Required Claims:**
 
-| Claim | Type | Description | Example |
-|-------|------|-------------|---------|
-| `iss` | String | Issuer - Management API URL + `/v1` | `http://localhost:8081/v1` |
-| `sub` | String | Subject - Format: `client:{client_id}` | `client:aa0e8400-...` |
-| `aud` | String | Audience - InferaDB server URL | `http://localhost:8080` |
-| `exp` | Integer | Expiration timestamp (Unix seconds) | `1736939100` |
-| `iat` | Integer | Issued at timestamp (Unix seconds) | `1736938800` |
-| `jti` | String | JWT ID - Unique identifier (UUID v4) | `cc0e8400-...` |
-| `vault` | String | Vault UUID | `880e8400-...` |
-| `account` | String | Account UUID | `990e8400-...` |
-| `scope` | String | Space-separated scopes | `read write` |
+| Claim        | Type    | Description                               | Example                             |
+| ------------ | ------- | ----------------------------------------- | ----------------------------------- |
+| `iss`        | String  | Issuer - Management API URL               | `https://api.inferadb.com`          |
+| `sub`        | String  | Subject - Format: `client:{client_id}`    | `client:456789012345678`            |
+| `aud`        | String  | Audience - Server API evaluation endpoint | `https://api.inferadb.com/evaluate` |
+| `exp`        | Integer | Expiration timestamp (Unix seconds)       | `1736939100`                        |
+| `iat`        | Integer | Issued at timestamp (Unix seconds)        | `1736938800`                        |
+| `org_id`     | String  | Organization ID (Snowflake ID as string)  | `"234567890123456"`                 |
+| `vault_id`   | String  | Vault ID (Snowflake ID as string)         | `"345678901234567"`                 |
+| `vault_role` | String  | Permission level (read/write/admin)       | `"write"`                           |
+| `scope`      | String  | Space-separated permissions               | `"vault:read vault:write"`          |
 
 ### Validation Rules
 
@@ -333,22 +338,22 @@ The server validates tokens according to these rules:
 1. **Signature Verification**: Ed25519 signature must be valid using public key from certificate
 2. **Expiration**: Current time must be before `exp` claim
 3. **Issuer**: `iss` must match configured management API URL
-4. **Audience**: `aud` must match server's URL
-5. **Vault Ownership**: Vault must belong to the organization that owns the client
-6. **Account Ownership**: Account must own the vault
-7. **Organization Status**: Organization must be active (not suspended)
-8. **Token Reuse**: `jti` must be unique (when replay protection enabled)
+4. **Audience**: `aud` must match server's evaluation endpoint
+5. **Vault Ownership**: Vault must belong to the organization specified in `org_id`
+6. **Organization Status**: Organization must be active (not suspended)
+7. **Vault Role**: `vault_role` must have sufficient permissions for requested operation
 
 ### Token Lifetime Recommendations
 
-| Environment | Recommended TTL | Rationale |
-|-------------|-----------------|-----------|
-| Development | 1-5 minutes | Fast iteration, less risk |
-| Staging | 5 minutes | Match production behavior |
-| Production | 5 minutes | Balance security and performance |
-| CI/CD | 2 minutes | Short-lived automated processes |
+| Environment | Recommended TTL | Rationale                        |
+| ----------- | --------------- | -------------------------------- |
+| Development | 1-5 minutes     | Fast iteration, less risk        |
+| Staging     | 5 minutes       | Match production behavior        |
+| Production  | 5 minutes       | Balance security and performance |
+| CI/CD       | 2 minutes       | Short-lived automated processes  |
 
 **Why Short-Lived Tokens?**
+
 - Minimizes window for token theft/replay attacks
 - Reduces impact of leaked tokens
 - Simpler than complex revocation infrastructure
@@ -398,6 +403,7 @@ curl -X POST http://localhost:8081/v1/organizations/$ORG_ID/clients/$CLIENT_ID/d
 ```
 
 **Impact:**
+
 - All JWTs signed by this client's certificates become invalid
 - Takes up to 15 minutes to propagate (cache TTL)
 - For immediate effect, restart the server
@@ -413,6 +419,7 @@ curl -X DELETE http://localhost:8081/v1/organizations/$ORG_ID/clients/$CLIENT_ID
 ```
 
 **Propagation Time:**
+
 - Certificate cache TTL: 15 minutes
 - For immediate revocation: restart server or reduce `cert_cache_ttl_seconds`
 
@@ -430,38 +437,38 @@ InferaDB enforces strict multi-tenant isolation at the vault level.
 ### Example: Multi-Tenant SaaS Application
 
 ```
-Organization A (Acme Corp)
-├── Account: acct-acme
-├── Vault: vault-acme-prod
+Organization A (Acme Corp) - ID: 100000000000001
+├── Vault: Production (ID: 200000000000001)
 │   ├── Relationships: document:123#viewer@user:alice
 │   └── Policies: IPL schemas for Acme
-└── Client: client-acme-backend
-    └── Certificate: cert-acme-1
+└── Client: Acme Backend Service (ID: 300000000000001)
+    └── Certificate: cert-1 (ID: 400000000000001)
 
-Organization B (Beta Inc)
-├── Account: acct-beta
-├── Vault: vault-beta-prod
+Organization B (Beta Inc) - ID: 100000000000002
+├── Vault: Production (ID: 200000000000002)
 │   ├── Relationships: document:123#viewer@user:bob
 │   └── Policies: IPL schemas for Beta
-└── Client: client-beta-backend
-    └── Certificate: cert-beta-1
+└── Client: Beta Backend Service (ID: 300000000000002)
+    └── Certificate: cert-1 (ID: 400000000000002)
 ```
 
 **Isolation in Action:**
 
 ```python
-# Acme's JWT (vault: vault-acme-prod)
+# Acme's JWT (vault_id: 200000000000001, org_id: 100000000000001)
 acme_token = generate_jwt(
-    client_id="client-acme-backend",
-    vault_id="vault-acme-prod",
-    account_id="acct-acme"
+    client_id="300000000000001",
+    vault_id="200000000000001",
+    org_id="100000000000001",
+    vault_role="write"
 )
 
-# Beta's JWT (vault: vault-beta-prod)
+# Beta's JWT (vault_id: 200000000000002, org_id: 100000000000002)
 beta_token = generate_jwt(
-    client_id="client-beta-backend",
-    vault_id="vault-beta-prod",
-    account_id="acct-beta"
+    client_id="300000000000002",
+    vault_id="200000000000002",
+    org_id="100000000000002",
+    vault_role="write"
 )
 
 # Acme can check their document
@@ -484,9 +491,9 @@ response = check_permission(
 
 # Acme cannot use Beta's vault (cross-org protection)
 malicious_token = generate_jwt(
-    client_id="client-acme-backend",  # Acme's client
-    vault_id="vault-beta-prod",        # Beta's vault
-    account_id="acct-beta"
+    client_id="300000000000001",  # Acme's client
+    vault_id="200000000000002",   # Beta's vault
+    org_id="100000000000002"      # Beta's organization
 )
 # Result: 403 Forbidden (vault not owned by client's organization)
 ```
@@ -506,12 +513,14 @@ When a vault is deleted:
 ### 1. Private Key Management
 
 **DO:**
+
 - Generate Ed25519 keys using cryptographically secure libraries
 - Store private keys in secret management systems (Vault, AWS Secrets Manager, etc.)
 - Use environment variables or mounted secrets in containers
 - Rotate keys every 90 days minimum
 
 **DON'T:**
+
 - Commit private keys to version control
 - Share private keys between environments
 - Hardcode keys in application code
@@ -520,12 +529,14 @@ When a vault is deleted:
 ### 2. Token Generation
 
 **DO:**
+
 - Generate fresh `jti` (JWT ID) for every token using UUID v4
 - Set short expiration times (5 minutes recommended)
 - Use UTC timestamps for `iat` and `exp`
 - Include only necessary scopes in `scope` claim
 
 **DON'T:**
+
 - Reuse `jti` values (enables replay attacks)
 - Set `exp` more than 15 minutes in the future
 - Include sensitive data in JWT claims (they're not encrypted)
@@ -534,6 +545,7 @@ When a vault is deleted:
 ### 3. Certificate Management
 
 **DO:**
+
 - Use descriptive names for certificates (e.g., "Production-2025-Q1")
 - Maintain certificate inventory in your CMDB
 - Automate certificate rotation
@@ -541,6 +553,7 @@ When a vault is deleted:
 - Delete unused certificates promptly
 
 **DON'T:**
+
 - Share certificates between environments
 - Keep expired certificates registered
 - Rely on manual rotation processes
@@ -548,10 +561,12 @@ When a vault is deleted:
 ### 4. Scope Management
 
 **Current Scopes:**
+
 - `read`: Permission to evaluate policies, expand relationships, list resources
 - `write`: Permission to write/delete relationships
 
 **Best Practice:**
+
 ```python
 # Service that only checks permissions
 readonly_token = generate_jwt(scopes=["read"])
@@ -563,12 +578,14 @@ admin_token = generate_jwt(scopes=["read", "write"])
 ### 5. Network Security
 
 **DO:**
+
 - Use TLS for all communication (HTTPS)
 - Validate server certificates in production
 - Implement rate limiting at API gateway
 - Use VPC/private networks for management API
 
 **DON'T:**
+
 - Expose management API to public internet
 - Disable TLS certificate validation
 - Send tokens over unencrypted connections
@@ -576,12 +593,14 @@ admin_token = generate_jwt(scopes=["read", "write"])
 ### 6. Monitoring and Alerting
 
 **Metrics to Monitor:**
+
 - `infera_auth_failures_total` - Spike indicates attack or misconfiguration
 - `infera_auth_cache_hit_rate` - Should be >90%
 - `infera_auth_management_api_calls_total` - Should be <10% of request volume
 - `infera_auth_validation_duration_seconds` - Should be <10ms p99
 
 **Alert Conditions:**
+
 - Auth failure rate >5% for 5 minutes
 - Cache hit rate <80% for 10 minutes
 - Management API call rate >20% for 10 minutes
@@ -590,6 +609,7 @@ admin_token = generate_jwt(scopes=["read", "write"])
 ### 7. Incident Response
 
 **Compromised Private Key:**
+
 1. Immediately deactivate the client via management API
 2. Restart InferaDB servers to clear caches
 3. Generate new key pair
@@ -599,6 +619,7 @@ admin_token = generate_jwt(scopes=["read", "write"])
 7. Notify security team and affected customers
 
 **Suspicious Activity:**
+
 1. Check `infera_auth_failures_total` metrics
 2. Review server logs for 401/403 responses
 3. Correlate with management API audit logs
@@ -610,19 +631,22 @@ admin_token = generate_jwt(scopes=["read", "write"])
 ### Problem: 401 Unauthorized - Invalid signature
 
 **Symptoms:**
+
 ```json
 {
-  "error": "Unauthorized",
-  "message": "Invalid token signature"
+    "error": "Unauthorized",
+    "message": "Invalid token signature"
 }
 ```
 
 **Causes:**
+
 1. JWT signed with wrong private key
 2. Public key mismatch in certificate
 3. Malformed JWT structure
 
 **Solutions:**
+
 ```python
 # Verify you're using the correct key pair
 public_key_from_private = private_key.public_key()
@@ -637,19 +661,22 @@ print(f"Public key in certificate: {registered_public_key}")
 ### Problem: 403 Forbidden - Vault not found
 
 **Symptoms:**
+
 ```json
 {
-  "error": "Forbidden",
-  "message": "Vault not found or access denied"
+    "error": "Forbidden",
+    "message": "Vault not found or access denied"
 }
 ```
 
 **Causes:**
+
 1. Vault UUID in JWT doesn't exist
 2. Vault belongs to different organization
 3. Vault was recently deleted (cache not expired)
 
 **Solutions:**
+
 ```bash
 # Verify vault exists and belongs to your organization
 curl -X GET http://localhost:8081/v1/vaults/$VAULT_ID \
@@ -659,45 +686,52 @@ curl -X GET http://localhost:8081/v1/vaults/$VAULT_ID \
 # vault.organization_id should equal client.organization_id
 ```
 
-### Problem: 403 Forbidden - Account mismatch
+### Problem: 403 Forbidden - Organization mismatch
 
 **Symptoms:**
+
 ```json
 {
-  "error": "Forbidden",
-  "message": "Account does not own vault"
+    "error": "Forbidden",
+    "message": "Vault does not belong to this organization"
 }
 ```
 
 **Causes:**
-1. Account UUID in JWT doesn't match vault's owner
-2. Typo in account UUID
+
+1. `org_id` in JWT doesn't match vault's owner
+2. Typo in organization ID
+3. Client trying to access vault from different organization
 
 **Solutions:**
+
 ```bash
-# Get vault details to find correct account
+# Get vault details to find correct organization
 curl -X GET http://localhost:8081/v1/vaults/$VAULT_ID \
   -H "Authorization: Bearer $SESSION_ID"
 
-# Use vault.account_id in JWT claims
+# Use vault.organization in JWT org_id claim
 ```
 
 ### Problem: 503 Service Unavailable - Management API unreachable
 
 **Symptoms:**
+
 ```json
 {
-  "error": "Service Unavailable",
-  "message": "Cannot reach management API"
+    "error": "Service Unavailable",
+    "message": "Cannot reach management API"
 }
 ```
 
 **Causes:**
+
 1. Management API is down
 2. Network connectivity issues
 3. Incorrect `management_api_url` configuration
 
 **Solutions:**
+
 ```bash
 # Check management API health
 curl http://localhost:8081/health
@@ -712,12 +746,14 @@ grep management_api_url /path/to/config.yaml
 ### Problem: High latency on first request
 
 **Symptoms:**
+
 - First request takes 100-200ms
 - Subsequent requests take <10ms
 
 **Cause:** Cold cache - server fetches certificate and vault data from management API
 
 **Solution:** This is expected behavior. Performance improves after warmup:
+
 ```
 Request 1: 150ms (cache miss - fetch cert + vault)
 Request 2: 5ms (cache hit)
@@ -729,11 +765,13 @@ Request 100: 5ms (cache hit)
 ### Problem: Tokens work, then suddenly fail
 
 **Symptoms:**
+
 - Tokens worked previously
 - Now getting 401/403 errors
 - No code changes
 
 **Causes:**
+
 1. Certificate was deleted
 2. Client was deactivated
 3. Vault was deleted
@@ -741,6 +779,7 @@ Request 100: 5ms (cache hit)
 5. Cache expired after deletion
 
 **Solutions:**
+
 ```bash
 # Check client status
 curl http://localhost:8081/v1/organizations/$ORG_ID/clients/$CLIENT_ID \
@@ -765,10 +804,10 @@ When authentication fails, verify in order:
 - [ ] JWT header includes `kid` field
 - [ ] JWT is signed with Ed25519 private key
 - [ ] Public key in certificate matches private key
-- [ ] All required claims are present (`iss`, `sub`, `aud`, `exp`, `iat`, `jti`, `vault`, `account`, `scope`)
+- [ ] All required claims are present (`iss`, `sub`, `aud`, `exp`, `iat`, `org_id`, `vault_id`, `vault_role`, `scope`)
 - [ ] Token is not expired (`exp` > current time)
-- [ ] Vault UUID exists and belongs to client's organization
-- [ ] Account UUID owns the vault
+- [ ] Vault ID exists and belongs to client's organization
+- [ ] Organization ID matches vault owner
 - [ ] Client is active (not deactivated)
 - [ ] Certificate is registered and active
 - [ ] Organization is active (not suspended)

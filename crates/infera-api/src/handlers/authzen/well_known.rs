@@ -144,13 +144,9 @@ mod tests {
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         AppState::new(
-            store,
-            schema,
-            None, // No WASM host for tests
-            config,
-            None, // No JWKS cache for tests
-            test_vault,
-            0i64,
+            store, schema, None, // No WASM host for tests
+            config, None, // No JWKS cache for tests
+            test_vault, 0i64,
         )
     }
 

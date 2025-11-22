@@ -43,35 +43,35 @@ pub fn require_admin_scope(auth: &Option<infera_types::AuthContext>) -> Result<(
     }
 }
 
-/// Check if user has admin scope OR owns the specified account
+/// Check if user has admin scope OR owns the specified organization
 ///
-/// This function implements authorization for account-scoped resources:
-/// - Admins can access any account
-/// - Users can only access their own account
+/// This function implements authorization for organization-scoped resources:
+/// - Admins can access any organization
+/// - Users can only access their own organization
 ///
 /// # Arguments
 /// * `auth` - Optional authentication context
-/// * `account_id` - The account ID being accessed
+/// * `organization_id` - The organization ID being accessed
 ///
 /// # Returns
 /// Ok(()) if authorized, Err otherwise
-pub fn authorize_account_access(
+pub fn authorize_organization_access(
     auth: &Option<infera_types::AuthContext>,
-    account_id: i64,
+    organization_id: i64,
 ) -> Result<()> {
     match auth {
         None => Err(ApiError::Unauthorized("Authentication required".to_string())),
         Some(ctx) => {
-            // Admin can access any account
+            // Admin can access any organization
             if ctx.scopes.iter().any(|s| s == SCOPE_ADMIN) {
                 return Ok(());
             }
-            // User can access their own account
-            if ctx.account == account_id {
+            // User can access their own organization
+            if ctx.organization == organization_id {
                 return Ok(());
             }
             // Otherwise, deny
-            Err(ApiError::Forbidden("Access denied to this account".to_string()))
+            Err(ApiError::Forbidden("Access denied to this organization".to_string()))
         },
     }
 }
@@ -185,7 +185,7 @@ mod tests {
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
             vault: 1,
-            account: 2,
+            organization: 2,
         }
     }
 
@@ -342,41 +342,41 @@ mod tests {
     }
 
     #[test]
-    fn test_authorize_account_access_as_admin() {
+    fn test_authorize_organization_access_as_admin() {
         let auth_ctx = create_test_auth_context(vec![SCOPE_ADMIN.to_string()]);
-        let account_id = 999i64;
+        let organization_id = 999i64;
 
-        let result = authorize_account_access(&Some(auth_ctx), account_id);
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_authorize_account_access_as_owner() {
-        let account_id = 2i64;
-        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
-
-        let result = authorize_account_access(&Some(auth_ctx), account_id);
+        let result = authorize_organization_access(&Some(auth_ctx), organization_id);
 
         assert!(result.is_ok());
     }
 
     #[test]
-    fn test_authorize_account_access_denied() {
+    fn test_authorize_organization_access_as_owner() {
+        let organization_id = 2i64;
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
-        let other_account = 888i64;
 
-        let result = authorize_account_access(&Some(auth_ctx), other_account);
+        let result = authorize_organization_access(&Some(auth_ctx), organization_id);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_authorize_organization_access_denied() {
+        let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
+        let other_organization = 888i64;
+
+        let result = authorize_organization_access(&Some(auth_ctx), other_organization);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Forbidden(_)));
     }
 
     #[test]
-    fn test_authorize_account_access_no_auth() {
-        let account_id = 777i64;
+    fn test_authorize_organization_access_no_auth() {
+        let organization_id = 777i64;
 
-        let result = authorize_account_access(&None, account_id);
+        let result = authorize_organization_access(&None, organization_id);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Unauthorized(_)));

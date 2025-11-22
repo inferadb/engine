@@ -2,10 +2,10 @@
 //!
 //! This module contains all HTTP handlers for the InferaDB API.
 
-pub mod accounts;
 pub mod authzen;
 pub mod evaluate;
 pub mod expand;
+pub mod organizations;
 pub mod relationships;
 pub mod resources;
 pub mod simulate;

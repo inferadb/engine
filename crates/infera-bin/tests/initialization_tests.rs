@@ -3,12 +3,14 @@
 //! Tests first-startup initialization flow, config file integration,
 //! and subsequent startup behavior.
 
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicI64, Ordering},
+};
 
 use infera_bin::initialization;
 use infera_config::Config;
 use infera_store::{InferaStore, MemoryBackend};
-use std::sync::atomic::{AtomicI64, Ordering};
 
 static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
 

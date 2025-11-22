@@ -6,11 +6,11 @@ use std::{
 };
 
 use async_trait::async_trait;
-use infera_types::{Account, ChangeEvent, DeleteFilter, StoreError, SystemConfig, Vault};
+use infera_types::{ChangeEvent, DeleteFilter, Organization, StoreError, SystemConfig, Vault};
 use tokio::sync::RwLock;
 
 use crate::{
-    AccountStore, MetricsSnapshot, OpTimer, Relationship, RelationshipKey, RelationshipStore,
+    MetricsSnapshot, OpTimer, OrganizationStore, Relationship, RelationshipKey, RelationshipStore,
     Result, Revision, StoreMetrics, VaultStore,
 };
 
@@ -71,8 +71,8 @@ struct MemoryData {
     /// Vault-partitioned relationship storage
     vaults_data: HashMap<i64, VaultData>,
 
-    /// Account storage
-    accounts: HashMap<i64, Account>,
+    /// Organization storage
+    organizations: HashMap<i64, Organization>,
 
     /// Vault storage
     vaults: HashMap<i64, Vault>,
@@ -86,7 +86,7 @@ impl MemoryBackend {
         Self {
             data: Arc::new(RwLock::new(MemoryData {
                 vaults_data: HashMap::new(),
-                accounts: HashMap::new(),
+                organizations: HashMap::new(),
                 vaults: HashMap::new(),
                 system_config: None,
             })),
@@ -127,46 +127,46 @@ impl Default for MemoryBackend {
 }
 
 // ============================================================================
-// AccountStore Implementation
+// OrganizationStore Implementation
 // ============================================================================
 
 #[async_trait]
-impl AccountStore for MemoryBackend {
-    async fn create_account(&self, account: Account) -> Result<Account> {
+impl OrganizationStore for MemoryBackend {
+    async fn create_organization(&self, organization: Organization) -> Result<Organization> {
         let mut data = self.data.write().await;
 
         // Check for duplicate ID
-        if data.accounts.contains_key(&account.id) {
+        if data.organizations.contains_key(&organization.id) {
             return Err(StoreError::Conflict);
         }
 
-        data.accounts.insert(account.id, account.clone());
-        Ok(account)
+        data.organizations.insert(organization.id, organization.clone());
+        Ok(organization)
     }
 
-    async fn get_account(&self, id: i64) -> Result<Option<Account>> {
+    async fn get_organization(&self, id: i64) -> Result<Option<Organization>> {
         let data = self.data.read().await;
-        Ok(data.accounts.get(&id).cloned())
+        Ok(data.organizations.get(&id).cloned())
     }
 
-    async fn list_accounts(&self, limit: Option<usize>) -> Result<Vec<Account>> {
+    async fn list_organizations(&self, limit: Option<usize>) -> Result<Vec<Organization>> {
         let data = self.data.read().await;
-        let mut accounts: Vec<_> = data.accounts.values().cloned().collect();
-        accounts.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        let mut organizations: Vec<_> = data.organizations.values().cloned().collect();
+        organizations.sort_by(|a, b| a.created_at.cmp(&b.created_at));
 
         if let Some(limit) = limit {
-            accounts.truncate(limit);
+            organizations.truncate(limit);
         }
 
-        Ok(accounts)
+        Ok(organizations)
     }
 
-    async fn delete_account(&self, id: i64) -> Result<()> {
+    async fn delete_organization(&self, id: i64) -> Result<()> {
         let mut data = self.data.write().await;
 
-        // Find and delete all vaults owned by this account
+        // Find and delete all vaults owned by this organization
         let vaults: Vec<_> =
-            data.vaults.iter().filter(|(_, v)| v.account == id).map(|(id, _)| *id).collect();
+            data.vaults.iter().filter(|(_, v)| v.organization == id).map(|(id, _)| *id).collect();
 
         // Delete vault data
         for vault in vaults {
@@ -174,21 +174,21 @@ impl AccountStore for MemoryBackend {
             data.vaults_data.remove(&vault);
         }
 
-        // Delete account
-        data.accounts.remove(&id).ok_or(StoreError::NotFound)?;
+        // Delete organization
+        data.organizations.remove(&id).ok_or(StoreError::NotFound)?;
 
         Ok(())
     }
 
-    async fn update_account(&self, account: Account) -> Result<Account> {
+    async fn update_organization(&self, organization: Organization) -> Result<Organization> {
         let mut data = self.data.write().await;
 
-        if !data.accounts.contains_key(&account.id) {
+        if !data.organizations.contains_key(&organization.id) {
             return Err(StoreError::NotFound);
         }
 
-        data.accounts.insert(account.id, account.clone());
-        Ok(account)
+        data.organizations.insert(organization.id, organization.clone());
+        Ok(organization)
     }
 }
 
@@ -206,9 +206,9 @@ impl VaultStore for MemoryBackend {
             return Err(StoreError::Conflict);
         }
 
-        // Verify account exists
-        if !data.accounts.contains_key(&vault.account) {
-            return Err(StoreError::Internal("Account does not exist".to_string()));
+        // Verify organization exists
+        if !data.organizations.contains_key(&vault.organization) {
+            return Err(StoreError::Internal("Organization does not exist".to_string()));
         }
 
         data.vaults.insert(vault.id, vault.clone());
@@ -223,10 +223,10 @@ impl VaultStore for MemoryBackend {
         Ok(data.vaults.get(&id).cloned())
     }
 
-    async fn list_vaults_for_account(&self, account_id: i64) -> Result<Vec<Vault>> {
+    async fn list_vaults_for_organization(&self, organization_id: i64) -> Result<Vec<Vault>> {
         let data = self.data.read().await;
         let vaults: Vec<_> =
-            data.vaults.values().filter(|v| v.account == account_id).cloned().collect();
+            data.vaults.values().filter(|v| v.organization == organization_id).cloned().collect();
         Ok(vaults)
     }
 
@@ -784,29 +784,29 @@ impl crate::InferaStore for MemoryBackend {}
 mod tests {
     use super::*;
 
-    async fn create_test_account_and_vault(backend: &MemoryBackend) -> (Account, Vault) {
-        let account = Account::new(11111111111111i64, "Test Account".to_string());
-        let account = backend.create_account(account).await.unwrap();
+    async fn create_test_organization_and_vault(backend: &MemoryBackend) -> (Organization, Vault) {
+        let organization = Organization::new(11111111111111i64, "Test Organization".to_string());
+        let organization = backend.create_organization(organization).await.unwrap();
 
-        let vault = Vault::new(22222222222222i64, account.id, "Test Vault".to_string());
+        let vault = Vault::new(22222222222222i64, organization.id, "Test Vault".to_string());
         let vault = backend.create_vault(vault).await.unwrap();
 
-        (account, vault)
+        (organization, vault)
     }
 
     #[tokio::test]
     async fn test_vault_isolation() {
         let backend = MemoryBackend::new();
 
-        // Create two accounts with vaults
-        let account1 = Account::new(33333333333333i64, "Account 1".to_string());
-        let account1 = backend.create_account(account1).await.unwrap();
-        let vault1 = Vault::new(44444444444444i64, account1.id, "Vault 1".to_string());
+        // Create two organizations with vaults
+        let organization1 = Organization::new(33333333333333i64, "Organization 1".to_string());
+        let organization1 = backend.create_organization(organization1).await.unwrap();
+        let vault1 = Vault::new(44444444444444i64, organization1.id, "Vault 1".to_string());
         let vault1 = backend.create_vault(vault1).await.unwrap();
 
-        let account2 = Account::new(55555555555555i64, "Account 2".to_string());
-        let account2 = backend.create_account(account2).await.unwrap();
-        let vault2 = Vault::new(66666666666666i64, account2.id, "Vault 2".to_string());
+        let organization2 = Organization::new(55555555555555i64, "Organization 2".to_string());
+        let organization2 = backend.create_organization(organization2).await.unwrap();
+        let vault2 = Vault::new(66666666666666i64, organization2.id, "Vault 2".to_string());
         let vault2 = backend.create_vault(vault2).await.unwrap();
 
         // Write relationships to vault1
@@ -853,10 +853,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_account_cascade_delete() {
+    async fn test_organization_cascade_delete() {
         let backend = MemoryBackend::new();
 
-        let (account, vault) = create_test_account_and_vault(&backend).await;
+        let (organization, vault) = create_test_organization_and_vault(&backend).await;
 
         // Write some relationships
         let rel = Relationship {
@@ -868,26 +868,26 @@ mod tests {
 
         backend.write(vault.id, vec![rel]).await.unwrap();
 
-        // Delete account (should cascade)
-        backend.delete_account(account.id).await.unwrap();
+        // Delete organization (should cascade)
+        backend.delete_organization(organization.id).await.unwrap();
 
         // Verify vault is deleted
         let vault_result = backend.get_vault(vault.id).await.unwrap();
         assert!(vault_result.is_none());
 
-        // Verify account is deleted
-        let account_result = backend.get_account(account.id).await.unwrap();
-        assert!(account_result.is_none());
+        // Verify organization is deleted
+        let organization_result = backend.get_organization(organization.id).await.unwrap();
+        assert!(organization_result.is_none());
     }
 
     #[tokio::test]
     async fn test_system_config() {
         let backend = MemoryBackend::new();
 
-        let (account, vault) = create_test_account_and_vault(&backend).await;
+        let (organization, vault) = create_test_organization_and_vault(&backend).await;
 
         // Set system config
-        let config = SystemConfig::new(account.id, vault.id);
+        let config = SystemConfig::new(organization.id, vault.id);
         backend.set_system_config(config.clone()).await.unwrap();
 
         // Get system config
@@ -899,7 +899,7 @@ mod tests {
     async fn test_vault_mismatch_error() {
         let backend = MemoryBackend::new();
 
-        let (_, vault) = create_test_account_and_vault(&backend).await;
+        let (_, vault) = create_test_organization_and_vault(&backend).await;
 
         // Try to write relationship with wrong vault
         let wrong_vault = 999999i64;

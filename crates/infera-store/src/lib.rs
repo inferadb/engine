@@ -7,29 +7,29 @@ use infera_types::{
     ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult,
 };
 
-pub mod account_store;
 pub mod factory;
 #[cfg(feature = "fdb")]
 pub mod foundationdb;
 pub mod memory;
 pub mod metrics;
+pub mod organization_store;
 pub mod vault_store;
 
-pub use account_store::AccountStore;
 pub use factory::{BackendType, StorageConfig, StorageFactory};
 #[cfg(feature = "fdb")]
 pub use foundationdb::FoundationDBBackend;
 pub use memory::MemoryBackend;
 pub use metrics::{MetricsSnapshot, OpTimer, StoreMetrics};
+pub use organization_store::OrganizationStore;
 pub use vault_store::VaultStore;
 
 type Result<T> = StoreResult<T>;
 
 /// Combined store trait that provides all storage operations
 ///
-/// This trait combines RelationshipStore, AccountStore, and VaultStore
+/// This trait combines RelationshipStore, OrganizationStore, and VaultStore
 /// to allow use as a single trait object in API handlers.
-pub trait InferaStore: RelationshipStore + AccountStore + VaultStore + Send + Sync {}
+pub trait InferaStore: RelationshipStore + OrganizationStore + VaultStore + Send + Sync {}
 
 /// The abstract relationship store interface
 ///

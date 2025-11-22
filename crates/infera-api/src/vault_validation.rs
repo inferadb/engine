@@ -13,7 +13,7 @@ use crate::{ApiError, Result};
 /// This function performs comprehensive vault-level access validation:
 /// 1. Ensures vault UUID is not nil
 /// 2. Verifies vault exists in database
-/// 3. Verifies account owns the vault
+/// 3. Verifies organization owns the vault
 /// 4. Logs vault access for audit purposes
 ///
 /// # Arguments
@@ -26,7 +26,7 @@ use crate::{ApiError, Result};
 /// Returns `ApiError` if:
 /// - Vault UUID is nil
 /// - Vault does not exist in database
-/// - Account does not own the vault
+/// - Organization does not own the vault
 /// - Database error occurs
 ///
 /// # Example
@@ -71,23 +71,25 @@ pub async fn validate_vault_access_with_store(
             ApiError::Forbidden("Vault does not exist".to_string())
         })?;
 
-    // Verify account owns the vault
-    if vault.account != auth.account {
+    // Verify organization owns the vault
+    if vault.organization != auth.organization {
         tracing::warn!(
             vault = %auth.vault,
-            vault_account = %vault.account,
-            auth_account = %auth.account,
+            vault_organization = %vault.organization,
+            auth_organization = %auth.organization,
             tenant_id = %auth.tenant_id,
-            "Account does not own vault"
+            "Organization does not own vault"
         );
-        return Err(ApiError::Forbidden("Account does not have access to this vault".to_string()));
+        return Err(ApiError::Forbidden(
+            "Organization does not have access to this vault".to_string(),
+        ));
     }
 
     // Log successful validation
     tracing::debug!(
         tenant_id = %auth.tenant_id,
         vault = %auth.vault,
-        account = %auth.account,
+        organization = %auth.organization,
         client_id = %auth.client_id,
         "Vault access validated (with database verification)"
     );

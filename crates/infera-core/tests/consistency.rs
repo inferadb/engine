@@ -57,12 +57,8 @@ async fn test_write_then_read_different_evaluators() {
         0i64,
     );
 
-    let evaluator2 = Evaluator::new(
-        store.clone() as Arc<dyn RelationshipStore>,
-        Arc::new(schema),
-        None,
-        0i64,
-    );
+    let evaluator2 =
+        Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64);
 
     // Write through the store
     store
@@ -241,12 +237,8 @@ async fn test_evaluator_concurrent_reads() {
         let store_clone = store.clone();
         let schema_clone = Arc::new(schema.clone());
         set.spawn(async move {
-            let evaluator = Evaluator::new(
-                store_clone as Arc<dyn RelationshipStore>,
-                schema_clone,
-                None,
-                0i64,
-            );
+            let evaluator =
+                Evaluator::new(store_clone as Arc<dyn RelationshipStore>, schema_clone, None, 0i64);
 
             let request = EvaluateRequest {
                 subject: if i % 2 == 0 { "user:alice".to_string() } else { "user:bob".to_string() },
@@ -337,12 +329,8 @@ async fn test_concurrent_write_and_read() {
         let store_clone = store.clone();
         let schema_clone = Arc::new(schema.clone());
         read_set.spawn(async move {
-            let evaluator = Evaluator::new(
-                store_clone as Arc<dyn RelationshipStore>,
-                schema_clone,
-                None,
-                0i64,
-            );
+            let evaluator =
+                Evaluator::new(store_clone as Arc<dyn RelationshipStore>, schema_clone, None, 0i64);
 
             let request = EvaluateRequest {
                 subject: format!("subject:writer{}", i),
@@ -457,12 +445,8 @@ async fn test_read_your_own_writes() {
                 .expect("Write failed");
 
             // Immediately read what we just wrote
-            let evaluator = Evaluator::new(
-                store_clone as Arc<dyn RelationshipStore>,
-                schema_clone,
-                None,
-                0i64,
-            );
+            let evaluator =
+                Evaluator::new(store_clone as Arc<dyn RelationshipStore>, schema_clone, None, 0i64);
 
             let request = EvaluateRequest {
                 subject: format!("subject:user{}", i),
@@ -556,8 +540,7 @@ async fn test_conflicting_writes_both_preserved() {
 
     // Both users should have access (both relationships should exist)
     let schema = Arc::new(create_simple_schema());
-    let evaluator =
-        Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None, 0i64);
+    let evaluator = Evaluator::new(store.clone() as Arc<dyn RelationshipStore>, schema, None, 0i64);
 
     let alice_req = EvaluateRequest {
         subject: "user:alice".to_string(),
@@ -593,10 +576,7 @@ async fn test_cross_region_consistency() {
         vault: 0i64,
     };
 
-    region_a
-        .write(0i64, vec![relationship.clone()])
-        .await
-        .expect("Failed to write in region A");
+    region_a.write(0i64, vec![relationship.clone()]).await.expect("Failed to write in region A");
 
     // Simulate replication to region B
     region_b.write(0i64, vec![relationship]).await.expect("Failed to replicate to region B");
@@ -604,8 +584,7 @@ async fn test_cross_region_consistency() {
     // Both regions should have consistent views
     let schema = Arc::new(create_simple_schema());
 
-    let eval_a =
-        Evaluator::new(region_a as Arc<dyn RelationshipStore>, schema.clone(), None, 0i64);
+    let eval_a = Evaluator::new(region_a as Arc<dyn RelationshipStore>, schema.clone(), None, 0i64);
     let eval_b = Evaluator::new(region_b as Arc<dyn RelationshipStore>, schema, None, 0i64);
 
     let request = EvaluateRequest {

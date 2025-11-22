@@ -6,14 +6,16 @@
 //! - Mock authentication
 //! - Test state builders
 
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicI64, Ordering},
+};
 
 use infera_api::AppState;
 use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::MemoryBackend;
 use infera_types::{AuthContext, AuthMethod, Relationship};
-use std::sync::atomic::{AtomicI64, Ordering};
 
 static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
 
@@ -88,9 +90,9 @@ pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let schema = create_test_schema();
 
     let vault_a = generate_test_id();
-    let account_a = generate_test_id();
+    let organization_a = generate_test_id();
     let vault_b = generate_test_id();
-    let account_b = generate_test_id();
+    let organization_b = generate_test_id();
 
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for simpler testing
@@ -102,14 +104,14 @@ pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
         Arc::new(config),
         None,    // No JWKS cache for tests
         vault_a, // Default to vault A
-        account_a,
+        organization_a,
     );
 
-    (state, vault_a, account_a, vault_b, account_b)
+    (state, vault_a, organization_a, vault_b, organization_b)
 }
 
 /// Create mock AuthContext for testing
-pub fn create_mock_auth_context(vault: i64, account: i64, scopes: Vec<String>) -> AuthContext {
+pub fn create_mock_auth_context(vault: i64, organization: i64, scopes: Vec<String>) -> AuthContext {
     AuthContext {
         tenant_id: "test_tenant".to_string(),
         client_id: "test_client".to_string(),
@@ -120,13 +122,13 @@ pub fn create_mock_auth_context(vault: i64, account: i64, scopes: Vec<String>) -
         expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
         jti: Some("test_jti".to_string()),
         vault,
-        account,
+        organization,
     }
 }
 
 /// Create mock admin AuthContext
-pub fn create_admin_auth_context(vault: i64, account: i64) -> AuthContext {
-    create_mock_auth_context(vault, account, vec!["inferadb.admin".to_string()])
+pub fn create_admin_auth_context(vault: i64, organization: i64) -> AuthContext {
+    create_mock_auth_context(vault, organization, vec!["inferadb.admin".to_string()])
 }
 
 /// Helper to create test relationship
@@ -199,23 +201,24 @@ mod tests {
 
     #[test]
     fn test_create_multi_vault_test_state() {
-        let (state, vault_a, account_a, vault_b, account_b) = create_multi_vault_test_state();
+        let (state, vault_a, organization_a, vault_b, organization_b) =
+            create_multi_vault_test_state();
         assert_ne!(vault_a, vault_b);
-        assert_ne!(account_a, account_b);
+        assert_ne!(organization_a, organization_b);
         assert_eq!(state.default_vault, vault_a);
-        assert_eq!(state.default_account, account_a);
+        assert_eq!(state.default_organization, organization_a);
     }
 
     #[test]
     fn test_create_mock_auth_context() {
         let vault = 11111111111111i64;
-        let account = 22222222222222i64;
+        let organization = 22222222222222i64;
         let scopes = vec!["inferadb.check".to_string()];
 
-        let auth = create_mock_auth_context(vault, account, scopes.clone());
+        let auth = create_mock_auth_context(vault, organization, scopes.clone());
 
         assert_eq!(auth.vault, vault);
-        assert_eq!(auth.account, account);
+        assert_eq!(auth.organization, organization);
         assert_eq!(auth.scopes, scopes);
         assert_eq!(auth.auth_method, AuthMethod::PrivateKeyJwt);
     }
@@ -223,12 +226,12 @@ mod tests {
     #[test]
     fn test_create_admin_auth_context() {
         let vault = 11111111111111i64;
-        let account = 22222222222222i64;
+        let organization = 22222222222222i64;
 
-        let auth = create_admin_auth_context(vault, account);
+        let auth = create_admin_auth_context(vault, organization);
 
         assert_eq!(auth.vault, vault);
-        assert_eq!(auth.account, account);
+        assert_eq!(auth.organization, organization);
         assert!(auth.scopes.contains(&"inferadb.admin".to_string()));
     }
 

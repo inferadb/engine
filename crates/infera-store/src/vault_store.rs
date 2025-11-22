@@ -14,8 +14,8 @@ pub trait VaultStore: Send + Sync {
     /// Get a vault by ID
     async fn get_vault(&self, id: i64) -> StoreResult<Option<Vault>>;
 
-    /// List all vaults for an account
-    async fn list_vaults_for_account(&self, account_id: i64) -> StoreResult<Vec<Vault>>;
+    /// List all vaults for an organization
+    async fn list_vaults_for_organization(&self, organization_id: i64) -> StoreResult<Vec<Vault>>;
 
     /// Delete a vault (cascades to relationships)
     async fn delete_vault(&self, id: i64) -> StoreResult<()>;

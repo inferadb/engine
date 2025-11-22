@@ -5,7 +5,7 @@
 
 mod common;
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use common::mock_management::{
     MockManagementState, create_test_certificate, create_test_organization, create_test_vault,
@@ -16,7 +16,6 @@ use infera_auth::{
     management_client::{ManagementClient, OrgStatus},
     vault_verification::{ManagementApiVaultVerifier, VaultVerifier},
 };
-use std::sync::Arc;
 
 // ============================================================================
 // Certificate Cache Tests
@@ -61,7 +60,12 @@ async fn test_certificate_cache_not_found() {
         .expect("Failed to create certificate cache");
 
     // Try to fetch non-existent certificate
-    let kid = format!("org-{}-client-{}-cert-{}", generate_snowflake_id(), generate_snowflake_id(), generate_snowflake_id());
+    let kid = format!(
+        "org-{}-client-{}-cert-{}",
+        generate_snowflake_id(),
+        generate_snowflake_id(),
+        generate_snowflake_id()
+    );
     let result = cache.get_decoding_key(&kid).await;
 
     assert!(result.is_err());
@@ -80,12 +84,8 @@ async fn test_certificate_cache_invalid_kid_format() {
         .expect("Failed to create certificate cache");
 
     // Try various invalid kid formats
-    let invalid_kids = vec![
-        "invalid-kid",
-        "org-only",
-        "org-12345",
-        "wrong-12345-client-67890-cert-11111",
-    ];
+    let invalid_kids =
+        vec!["invalid-kid", "org-only", "org-12345", "wrong-12345-client-67890-cert-11111"];
 
     for kid in invalid_kids {
         let result = cache.get_decoding_key(kid).await;
@@ -108,7 +108,7 @@ async fn test_certificate_cache_concurrent_requests() {
     // Create certificate cache
     let cache = std::sync::Arc::new(
         CertificateCache::new(base_url, Duration::from_secs(300), 100)
-            .expect("Failed to create certificate cache")
+            .expect("Failed to create certificate cache"),
     );
 
     let kid = format!("org-{}-client-{}-cert-{}", org_id, client_id, cert_id);

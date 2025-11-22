@@ -12,10 +12,10 @@ use thiserror::Error;
 // Multi-Tenancy Types
 // ============================================================================
 
-pub mod account;
+pub mod organization;
 pub mod vault;
 
-pub use account::Account;
+pub use organization::Organization;
 pub use vault::{SystemConfig, Vault};
 
 // ============================================================================
@@ -438,36 +438,36 @@ pub struct ListSubjectsResponse {
 }
 
 // ============================================================================
-// Request/Response Types - Account Management
+// Request/Response Types - Organization Management
 // ============================================================================
 
-/// Request to create a new account
+/// Request to create a new organization
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateAccountRequest {
-    /// Account name (must be non-empty, max 255 characters)
+pub struct CreateOrganizationRequest {
+    /// Organization name (must be non-empty, max 255 characters)
     pub name: String,
 }
 
-/// Request to update an existing account
+/// Request to update an existing organization
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UpdateAccountRequest {
-    /// New account name (must be non-empty, max 255 characters)
+pub struct UpdateOrganizationRequest {
+    /// New organization name (must be non-empty, max 255 characters)
     pub name: String,
 }
 
-/// Account response with full details
+/// Organization response with full details
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AccountResponse {
+pub struct OrganizationResponse {
     pub id: i64,
     pub name: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// Response containing a list of accounts
+/// Response containing a list of organizations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ListAccountsResponse {
-    pub accounts: Vec<AccountResponse>,
+pub struct ListOrganizationsResponse {
+    pub organizations: Vec<OrganizationResponse>,
 }
 
 // ============================================================================
@@ -487,16 +487,16 @@ pub struct UpdateVaultRequest {
     /// Optional new vault name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    /// Optional new account owner (admin only)
+    /// Optional new organization owner (admin only)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub account: Option<i64>,
+    pub organization: Option<i64>,
 }
 
 /// Vault response with full details
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaultResponse {
     pub id: i64,
-    pub account: i64,
+    pub organization: i64,
     pub name: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -508,13 +508,13 @@ pub struct ListVaultsResponse {
     pub vaults: Vec<VaultResponse>,
 }
 
-impl From<Account> for AccountResponse {
-    fn from(account: Account) -> Self {
+impl From<Organization> for OrganizationResponse {
+    fn from(organization: Organization) -> Self {
         Self {
-            id: account.id,
-            name: account.name,
-            created_at: account.created_at,
-            updated_at: account.updated_at,
+            id: organization.id,
+            name: organization.name,
+            created_at: organization.created_at,
+            updated_at: organization.updated_at,
         }
     }
 }
@@ -523,7 +523,7 @@ impl From<Vault> for VaultResponse {
     fn from(vault: Vault) -> Self {
         Self {
             id: vault.id,
-            account: vault.account,
+            organization: vault.organization,
             name: vault.name,
             created_at: vault.created_at,
             updated_at: vault.updated_at,

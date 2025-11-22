@@ -1,27 +1,27 @@
-//! Get account handler
+//! Get organization handler
 
 use axum::extract::{Path, State};
-use infera_types::AccountResponse;
+use infera_types::OrganizationResponse;
 
 use crate::{
     ApiError, AppState,
     content_negotiation::{AcceptHeader, ResponseData},
-    handlers::utils::auth::authorize_account_access,
+    handlers::utils::auth::authorize_organization_access,
 };
 
-/// Get an account by ID
+/// Get an organization by ID
 ///
-/// This endpoint allows users to retrieve account details.
+/// This endpoint allows users to retrieve organization details.
 /// Authorization rules:
-/// - Administrators (with `inferadb.admin` scope) can view any account
-/// - Users can only view their own account
+/// - Administrators (with `inferadb.admin` scope) can view any organization
+/// - Users can only view their own organization
 ///
 /// # Authorization
 /// - Requires authentication
-/// - Requires either `inferadb.admin` scope OR account ownership
+/// - Requires either `inferadb.admin` scope OR organization ownership
 ///
 /// # Path Parameters
-/// - `id`: Account UUID
+/// - `id`: Organization UUID
 ///
 /// # Response (200 OK)
 /// ```json
@@ -35,30 +35,30 @@ use crate::{
 ///
 /// # Errors
 /// - 401 Unauthorized: No authentication provided
-/// - 403 Forbidden: Not authorized to view this account
-/// - 404 Not Found: Account does not exist
+/// - 403 Forbidden: Not authorized to view this organization
+/// - 404 Not Found: Organization does not exist
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
-pub async fn get_account(
+pub async fn get_organization(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<i64>,
-) -> Result<ResponseData<AccountResponse>, ApiError> {
-    // Check authorization (admin OR account owner)
-    authorize_account_access(&auth.0, account_id)?;
+    Path(organization_id): Path<i64>,
+) -> Result<ResponseData<OrganizationResponse>, ApiError> {
+    // Check authorization (admin OR organization owner)
+    authorize_organization_access(&auth.0, organization_id)?;
 
-    // Get account from storage
-    let account = state
+    // Get organization from storage
+    let organization = state
         .store
-        .get_account(account_id)
+        .get_organization(organization_id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?
-        .ok_or_else(|| ApiError::UnknownTenant("Account not found".to_string()))?;
+        .ok_or_else(|| ApiError::UnknownTenant("Organization not found".to_string()))?;
 
-    tracing::debug!(account_id = %account.id, account_name = %account.name, "Account retrieved");
+    tracing::debug!(organization_id = %organization.id, organization_name = %organization.name, "Organization retrieved");
 
-    Ok(ResponseData::new(AccountResponse::from(account), format))
+    Ok(ResponseData::new(OrganizationResponse::from(organization), format))
 }
 
 #[cfg(test)]
@@ -69,7 +69,7 @@ mod tests {
     use infera_const::scopes::{SCOPE_ADMIN, SCOPE_CHECK, SCOPE_WRITE};
     use infera_core::ipl::Schema;
     use infera_store::MemoryBackend;
-    use infera_types::Account;
+    use infera_types::Organization;
 
     use super::*;
     use crate::content_negotiation::ResponseFormat;
@@ -82,13 +82,9 @@ mod tests {
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         AppState::new(
-            store,
-            schema,
-            None, // No WASM host for tests
-            config,
-            None, // No JWKS cache for tests
-            test_vault,
-            0i64,
+            store, schema, None, // No WASM host for tests
+            config, None, // No JWKS cache for tests
+            test_vault, 0i64,
         )
     }
 
@@ -103,11 +99,11 @@ mod tests {
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
             vault: 0i64,
-            account: 0i64,
+            organization: 0i64,
         }
     }
 
-    fn create_user_context(account_id: i64) -> infera_types::AuthContext {
+    fn create_user_context(organization_id: i64) -> infera_types::AuthContext {
         infera_types::AuthContext {
             tenant_id: "test".to_string(),
             client_id: "test".to_string(),
@@ -118,20 +114,20 @@ mod tests {
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
             vault: 0i64,
-            account: account_id,
+            organization: organization_id,
         }
     }
 
     #[tokio::test]
-    async fn test_get_account_requires_auth() {
+    async fn test_get_organization_requires_auth() {
         let state = create_test_state();
-        let account_id = 999i64;
+        let organization_id = 999i64;
 
-        let result = get_account(
+        let result = get_organization(
             infera_auth::extractor::OptionalAuth(None),
             AcceptHeader(ResponseFormat::Json),
             State(state),
-            Path(account_id),
+            Path(organization_id),
         )
         .await;
 
@@ -143,14 +139,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_account_admin_can_view_any() {
+    async fn test_get_organization_admin_can_view_any() {
         let state = create_test_state();
 
-        // Create test account
-        let account = Account::new(11111111111111i64, "Test Account".to_string());
-        let created = state.store.create_account(account).await.unwrap();
+        // Create test organization
+        let organization = Organization::new(11111111111111i64, "Test Organization".to_string());
+        let created = state.store.create_organization(organization).await.unwrap();
 
-        let result = get_account(
+        let result = get_organization(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
@@ -160,18 +156,18 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.data.id, created.id);
-        assert_eq!(result.data.name, "Test Account");
+        assert_eq!(result.data.name, "Test Organization");
     }
 
     #[tokio::test]
-    async fn test_get_account_user_can_view_own() {
+    async fn test_get_organization_user_can_view_own() {
         let state = create_test_state();
 
-        // Create test account
-        let account = Account::new(22222222222222i64, "My Account".to_string());
-        let created = state.store.create_account(account).await.unwrap();
+        // Create test organization
+        let organization = Organization::new(22222222222222i64, "My Organization".to_string());
+        let created = state.store.create_organization(organization).await.unwrap();
 
-        let result = get_account(
+        let result = get_organization(
             infera_auth::extractor::OptionalAuth(Some(create_user_context(created.id))),
             AcceptHeader(ResponseFormat::Json),
             State(state),
@@ -184,18 +180,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_account_user_cannot_view_other() {
+    async fn test_get_organization_user_cannot_view_other() {
         let state = create_test_state();
 
-        // Create test account
-        let account = Account::new(33333333333333i64, "Other Account".to_string());
-        let created = state.store.create_account(account).await.unwrap();
+        // Create test organization
+        let organization = Organization::new(33333333333333i64, "Other Organization".to_string());
+        let created = state.store.create_organization(organization).await.unwrap();
 
-        // Try to access with different account ID
-        let other_account_id = 777i64;
+        // Try to access with different organization ID
+        let other_organization_id = 777i64;
 
-        let result = get_account(
-            infera_auth::extractor::OptionalAuth(Some(create_user_context(other_account_id))),
+        let result = get_organization(
+            infera_auth::extractor::OptionalAuth(Some(create_user_context(other_organization_id))),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created.id),
@@ -210,15 +206,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_account_not_found() {
+    async fn test_get_organization_not_found() {
         let state = create_test_state();
-        let account_id = 666i64;
+        let organization_id = 666i64;
 
-        let result = get_account(
+        let result = get_organization(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
-            Path(account_id),
+            Path(organization_id),
         )
         .await;
 

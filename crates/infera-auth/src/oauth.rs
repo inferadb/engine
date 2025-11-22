@@ -204,10 +204,6 @@ pub struct IntrospectionResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iat: Option<u64>,
 
-    /// Tenant ID (custom claim)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tenant_id: Option<String>,
-
     /// Subject identifier
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sub: Option<String>,
@@ -374,33 +370,6 @@ pub fn is_jwt(token: &str) -> bool {
     parts.len() == 3
 }
 
-/// Extract tenant_id from OAuth token claims
-///
-/// OAuth tokens MUST have an explicit tenant_id claim. Unlike tenant JWTs
-/// which can extract the tenant from the issuer, OAuth tokens must provide
-/// the tenant_id explicitly.
-///
-/// # Arguments
-///
-/// * `claims` - The JWT claims from the OAuth token
-///
-/// # Returns
-///
-/// The tenant_id string
-///
-/// # Errors
-///
-/// Returns `AuthError::MissingTenantId` if:
-/// - The `tenant_id` claim is missing
-/// - The `tenant_id` claim is empty
-pub fn extract_tenant_from_oauth(claims: &JwtClaims) -> Result<String, AuthError> {
-    match &claims.tenant_id {
-        Some(tenant_id) if !tenant_id.is_empty() => Ok(tenant_id.clone()),
-        Some(_) => Err(AuthError::MissingTenantId),
-        None => Err(AuthError::MissingTenantId),
-    }
-}
-
 /// Validate an OAuth JWT and create AuthContext
 ///
 /// # Arguments
@@ -481,23 +450,24 @@ pub async fn validate_oauth_jwt(
 
         let claims = token_data.claims;
 
-        // Extract tenant_id - look for it in the claims
-        // OAuth tokens might have it as a custom claim or in the sub
-        let tenant_id = claims.extract_tenant_id().unwrap_or_else(|_| claims.sub.clone());
+        // Extract org_id - look for it in the claims
+        // OAuth tokens should have it as org_id, or fall back to tenant_id for compatibility
+        let tenant_id = claims.extract_org_id().unwrap_or_else(|_| claims.sub.clone());
 
         // Parse scopes
         let scopes: Vec<String> = claims.scope.split_whitespace().map(|s| s.to_string()).collect();
 
-        // Extract vault and account IDs (Snowflake IDs) - both required for multi-tenancy
-        let vault_str = claims.vault.ok_or_else(|| AuthError::MissingClaim("vault".to_string()))?;
+        // Extract vault and organization IDs (Snowflake IDs) - both required for multi-tenancy
+        let vault_str =
+            claims.vault_id.ok_or_else(|| AuthError::MissingClaim("vault_id".to_string()))?;
         let vault: i64 = vault_str
             .parse()
             .map_err(|_| AuthError::InvalidTokenFormat("Invalid vault ID format".to_string()))?;
 
-        let account_str =
-            claims.account.ok_or_else(|| AuthError::MissingClaim("account".to_string()))?;
-        let account: i64 = account_str.parse().map_err(|_| {
-            AuthError::InvalidTokenFormat("Invalid account ID format".to_string())
+        let organization_str =
+            claims.org_id.ok_or_else(|| AuthError::MissingClaim("org_id".to_string()))?;
+        let organization: i64 = organization_str.parse().map_err(|_| {
+            AuthError::InvalidTokenFormat("Invalid organization ID format".to_string())
         })?;
 
         // Create AuthContext
@@ -513,7 +483,7 @@ pub async fn validate_oauth_jwt(
                 .unwrap_or_else(|| Utc::now() + chrono::Duration::seconds(300)),
             jti: claims.jti.clone(),
             vault,
-            account,
+            organization,
         };
 
         Ok(auth_context)
@@ -681,7 +651,6 @@ mod tests {
             "token_type": "Bearer",
             "exp": 1735689600,
             "iat": 1735686000,
-            "tenant_id": "acme",
             "sub": "user123"
         }"#;
 
@@ -689,7 +658,7 @@ mod tests {
         assert!(response.active);
         assert_eq!(response.scope, Some("read write".to_string()));
         assert_eq!(response.client_id, Some("client123".to_string()));
-        assert_eq!(response.tenant_id, Some("acme".to_string()));
+        assert_eq!(response.sub, Some("user123".to_string()));
     }
 
     #[test]
@@ -699,7 +668,7 @@ mod tests {
         let response: IntrospectionResponse = serde_json::from_str(json).unwrap();
         assert!(!response.active);
         assert!(response.scope.is_none());
-        assert!(response.tenant_id.is_none());
+        assert!(response.sub.is_none());
     }
 
     #[tokio::test]
@@ -732,68 +701,5 @@ mod tests {
 
         // Hash should be SHA-256 length (64 hex chars)
         assert_eq!(hash1.len(), 64);
-    }
-
-    #[test]
-    fn test_extract_tenant_from_oauth_with_valid_tenant_id() {
-        let claims = JwtClaims {
-            iss: "https://oauth.example.com".to_string(),
-            sub: "user123".to_string(),
-            aud: "api".to_string(),
-            exp: 9999999999,
-            iat: 1234567890,
-            nbf: None,
-            jti: None,
-            scope: "read write".to_string(),
-            tenant_id: Some("acme-corp".to_string()),
-            vault: None,
-            account: None,
-        };
-
-        let result = extract_tenant_from_oauth(&claims);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "acme-corp");
-    }
-
-    #[test]
-    fn test_extract_tenant_from_oauth_with_missing_tenant_id() {
-        let claims = JwtClaims {
-            iss: "https://oauth.example.com".to_string(),
-            sub: "user123".to_string(),
-            aud: "api".to_string(),
-            exp: 9999999999,
-            iat: 1234567890,
-            nbf: None,
-            jti: None,
-            scope: "read write".to_string(),
-            tenant_id: None,
-            vault: None,
-            account: None,
-        };
-
-        let result = extract_tenant_from_oauth(&claims);
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), AuthError::MissingTenantId));
-    }
-
-    #[test]
-    fn test_extract_tenant_from_oauth_with_empty_tenant_id() {
-        let claims = JwtClaims {
-            iss: "https://oauth.example.com".to_string(),
-            sub: "user123".to_string(),
-            aud: "api".to_string(),
-            exp: 9999999999,
-            iat: 1234567890,
-            nbf: None,
-            jti: None,
-            scope: "read write".to_string(),
-            tenant_id: Some("".to_string()),
-            vault: None,
-            account: None,
-        };
-
-        let result = extract_tenant_from_oauth(&claims);
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), AuthError::MissingTenantId));
     }
 }

@@ -7,7 +7,7 @@ use axum::{
 
 use crate::{
     ApiError, AppState, content_negotiation::AcceptHeader,
-    handlers::utils::auth::authorize_account_access,
+    handlers::utils::auth::authorize_organization_access,
 };
 
 /// Delete a vault
@@ -50,13 +50,13 @@ pub async fn delete_vault(
         .map_err(|e| ApiError::Internal(e.to_string()))?
         .ok_or_else(|| ApiError::UnknownTenant("Vault not found".to_string()))?;
 
-    // Check authorization (admin OR vault's account owner)
-    authorize_account_access(&auth.0, vault.account)?;
+    // Check authorization (admin OR vault's organization owner)
+    authorize_organization_access(&auth.0, vault.organization)?;
 
     tracing::info!(
         vault_id = %vault.id,
         vault_name = %vault.name,
-        account_id = %vault.account,
+        organization_id = %vault.organization,
         "Deleting vault (will cascade to relationships)"
     );
 

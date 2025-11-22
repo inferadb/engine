@@ -111,7 +111,6 @@ pub struct MockVault {
     pub id: i64,
     pub name: String,
     pub organization_id: i64,
-    pub account_id: i64,
 }
 
 /// Mock certificate data
@@ -186,7 +185,8 @@ async fn get_org_jwks(
             let public_key_bytes = base64::Engine::decode(
                 &base64::engine::general_purpose::STANDARD,
                 &cert.public_key,
-            ).unwrap_or_default();
+            )
+            .unwrap_or_default();
 
             let x = base64::Engine::encode(
                 &base64::engine::general_purpose::URL_SAFE_NO_PAD,
@@ -237,8 +237,8 @@ pub fn create_test_organization(name: &str, status: OrgStatus) -> MockOrganizati
 }
 
 /// Helper to create a test vault
-pub fn create_test_vault(name: &str, org_id: i64, account_id: i64) -> MockVault {
-    MockVault { id: generate_snowflake_id(), name: name.to_string(), organization_id: org_id, account_id }
+pub fn create_test_vault(name: &str, org_id: i64) -> MockVault {
+    MockVault { id: generate_snowflake_id(), name: name.to_string(), organization_id: org_id }
 }
 
 /// Helper to create a test certificate with Ed25519 key
@@ -274,7 +274,7 @@ pub fn generate_jwt_with_key(
     signing_key: &ed25519_dalek::SigningKey,
     kid: &str,
     vault: i64,
-    account: i64,
+    organization: i64,
     exp_secs: i64,
 ) -> String {
     use chrono::Utc;
@@ -291,7 +291,7 @@ pub fn generate_jwt_with_key(
         iat: u64,
         jti: String,
         vault: String,
-        account: String,
+        organization: String,
     }
 
     let now = Utc::now().timestamp();
@@ -303,7 +303,7 @@ pub fn generate_jwt_with_key(
         iat: now as u64,
         jti: Uuid::new_v4().to_string(),
         vault: vault.to_string(),
-        account: account.to_string(),
+        organization: organization.to_string(),
     };
 
     let mut header = Header::new(Algorithm::EdDSA);
@@ -362,8 +362,7 @@ mod tests {
     async fn test_mock_server_vault_endpoint() {
         let state = MockManagementState::new();
         let org_id = generate_snowflake_id();
-        let account_id = generate_snowflake_id();
-        let vault = create_test_vault("Test Vault", org_id, account_id);
+        let vault = create_test_vault("Test Vault", org_id);
         let vault_id = vault.id;
         state.add_vault(vault);
 
@@ -445,10 +444,10 @@ mod tests {
         let (cert, signing_key) = create_test_certificate(org_id, client_id);
 
         let vault_id = generate_snowflake_id();
-        let account_id = generate_snowflake_id();
+        let organization_id = generate_snowflake_id();
         let kid = format!("org-{}-client-{}-cert-{}", org_id, client_id, cert.id);
 
-        let jwt = generate_jwt_with_key(&signing_key, &kid, vault_id, account_id, 300);
+        let jwt = generate_jwt_with_key(&signing_key, &kid, vault_id, organization_id, 300);
 
         // JWT should have 3 parts
         assert_eq!(jwt.split('.').count(), 3);

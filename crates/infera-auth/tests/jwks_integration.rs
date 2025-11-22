@@ -219,8 +219,8 @@ async fn test_jwt_verification_with_jwks() {
     assert_eq!(claims.sub, "tenant:acme");
     assert_eq!(claims.scope, "inferadb.evaluate".to_string());
 
-    // Verify tenant extraction
-    let tenant_id = claims.extract_tenant_id().expect("Failed to extract tenant");
+    // Verify organization ID extraction from org_id claim
+    let tenant_id = claims.extract_org_id().expect("Failed to extract org ID");
     assert_eq!(tenant_id, "acme");
 
     // Create JWKS cache

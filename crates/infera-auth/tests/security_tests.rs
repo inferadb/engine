@@ -42,9 +42,8 @@ fn test_claims(exp: u64, iat: u64, nbf: Option<u64>, jti: Option<String>) -> Jwt
         nbf,
         jti,
         scope: "inferadb.check inferadb.write".into(),
-        tenant_id: None,
-        vault: None,
-        account: None,
+        vault_id: None,
+        org_id: None,
     }
 }
 

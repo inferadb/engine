@@ -1,31 +1,31 @@
-//! Update account handler
+//! Update organization handler
 
 use axum::extract::{Path, State};
-use infera_types::{AccountResponse, UpdateAccountRequest};
+use infera_types::{OrganizationResponse, UpdateOrganizationRequest};
 
 use crate::{
     ApiError, AppState,
     content_negotiation::{AcceptHeader, ResponseData},
     handlers::utils::auth::require_admin_scope,
-    validation::validate_account_name,
+    validation::validate_organization_name,
 };
 
-/// Update an account
+/// Update an organization
 ///
-/// This endpoint allows administrators to update account details.
-/// Only users with the `inferadb.admin` scope can update accounts.
+/// This endpoint allows administrators to update organization details.
+/// Only users with the `inferadb.admin` scope can update organizations.
 ///
 /// # Authorization
 /// - Requires authentication
 /// - Requires `inferadb.admin` scope
 ///
 /// # Path Parameters
-/// - `id`: Account UUID
+/// - `id`: Organization UUID
 ///
 /// # Request Body
 /// ```json
 /// {
-///   "name": "New Account Name"
+///   "name": "New Organization Name"
 /// }
 /// ```
 ///
@@ -33,7 +33,7 @@ use crate::{
 /// ```json
 /// {
 ///   "id": "550e8400-e29b-41d4-a716-446655440000",
-///   "name": "New Account Name",
+///   "name": "New Organization Name",
 ///   "created_at": "2025-11-02T10:00:00Z",
 ///   "updated_at": "2025-11-02T11:00:00Z"
 /// }
@@ -42,46 +42,49 @@ use crate::{
 /// # Errors
 /// - 401 Unauthorized: No authentication provided
 /// - 403 Forbidden: Missing `inferadb.admin` scope
-/// - 404 Not Found: Account does not exist
-/// - 400 Bad Request: Invalid account name
+/// - 404 Not Found: Organization does not exist
+/// - 400 Bad Request: Invalid organization name
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
-pub async fn update_account(
+pub async fn update_organization(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<i64>,
-    axum::Json(request): axum::Json<UpdateAccountRequest>,
-) -> Result<ResponseData<AccountResponse>, ApiError> {
+    Path(organization_id): Path<i64>,
+    axum::Json(request): axum::Json<UpdateOrganizationRequest>,
+) -> Result<ResponseData<OrganizationResponse>, ApiError> {
     // Require admin scope
     require_admin_scope(&auth.0)?;
 
     // Validate new name
-    validate_account_name(&request.name)?;
+    validate_organization_name(&request.name)?;
 
-    // Get existing account
-    let mut account = state
+    // Get existing organization
+    let mut organization = state
         .store
-        .get_account(account_id)
+        .get_organization(organization_id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?
-        .ok_or_else(|| ApiError::UnknownTenant("Account not found".to_string()))?;
+        .ok_or_else(|| ApiError::UnknownTenant("Organization not found".to_string()))?;
 
     // Update fields
-    account.name = request.name;
-    account.updated_at = chrono::Utc::now();
+    organization.name = request.name;
+    organization.updated_at = chrono::Utc::now();
 
     // Save to storage
-    let updated_account =
-        state.store.update_account(account).await.map_err(|e| ApiError::Internal(e.to_string()))?;
+    let updated_organization = state
+        .store
+        .update_organization(organization)
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     tracing::info!(
-        account_id = %updated_account.id,
-        new_name = %updated_account.name,
-        "Account updated"
+        organization_id = %updated_organization.id,
+        new_name = %updated_organization.name,
+        "Organization updated"
     );
 
-    Ok(ResponseData::new(AccountResponse::from(updated_account), format))
+    Ok(ResponseData::new(OrganizationResponse::from(updated_organization), format))
 }
 
 #[cfg(test)]
@@ -92,7 +95,7 @@ mod tests {
     use infera_const::scopes::SCOPE_ADMIN;
     use infera_core::ipl::Schema;
     use infera_store::MemoryBackend;
-    use infera_types::Account;
+    use infera_types::Organization;
 
     use super::*;
     use crate::content_negotiation::ResponseFormat;
@@ -105,13 +108,9 @@ mod tests {
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         AppState::new(
-            store,
-            schema,
-            None, // No WASM host for tests
-            config,
-            None, // No JWKS cache for tests
-            test_vault,
-            0i64,
+            store, schema, None, // No WASM host for tests
+            config, None, // No JWKS cache for tests
+            test_vault, 0i64,
         )
     }
 
@@ -126,21 +125,21 @@ mod tests {
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
             vault: 0i64,
-            account: 0i64,
+            organization: 0i64,
         }
     }
 
     #[tokio::test]
-    async fn test_update_account_requires_admin() {
+    async fn test_update_organization_requires_admin() {
         let state = create_test_state();
-        let account_id = 999i64;
-        let request = UpdateAccountRequest { name: "New Name".to_string() };
+        let organization_id = 999i64;
+        let request = UpdateOrganizationRequest { name: "New Name".to_string() };
 
-        let result = update_account(
+        let result = update_organization(
             infera_auth::extractor::OptionalAuth(None),
             AcceptHeader(ResponseFormat::Json),
             State(state),
-            Path(account_id),
+            Path(organization_id),
             axum::Json(request),
         )
         .await;
@@ -153,16 +152,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_account_success() {
+    async fn test_update_organization_success() {
         let state = create_test_state();
 
-        // Create test account
-        let account = Account::new(44444444444444i64, "Old Name".to_string());
-        let created = state.store.create_account(account).await.unwrap();
+        // Create test organization
+        let organization = Organization::new(44444444444444i64, "Old Name".to_string());
+        let created = state.store.create_organization(organization).await.unwrap();
 
-        let request = UpdateAccountRequest { name: "New Name".to_string() };
+        let request = UpdateOrganizationRequest { name: "New Name".to_string() };
 
-        let result = update_account(
+        let result = update_organization(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state.clone()),
@@ -176,21 +175,21 @@ mod tests {
         assert_eq!(result.data.id, created.id);
 
         // Verify it's actually updated in storage
-        let stored = state.store.get_account(created.id).await.unwrap().unwrap();
+        let stored = state.store.get_organization(created.id).await.unwrap().unwrap();
         assert_eq!(stored.name, "New Name");
     }
 
     #[tokio::test]
-    async fn test_update_account_not_found() {
+    async fn test_update_organization_not_found() {
         let state = create_test_state();
-        let account_id = 555i64;
-        let request = UpdateAccountRequest { name: "New Name".to_string() };
+        let organization_id = 555i64;
+        let request = UpdateOrganizationRequest { name: "New Name".to_string() };
 
-        let result = update_account(
+        let result = update_organization(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
-            Path(account_id),
+            Path(organization_id),
             axum::Json(request),
         )
         .await;
@@ -203,16 +202,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_account_validates_name() {
+    async fn test_update_organization_validates_name() {
         let state = create_test_state();
 
-        // Create test account
-        let account = Account::new(55555555555555i64, "Old Name".to_string());
-        let created = state.store.create_account(account).await.unwrap();
+        // Create test organization
+        let organization = Organization::new(55555555555555i64, "Old Name".to_string());
+        let created = state.store.create_organization(organization).await.unwrap();
 
-        let request = UpdateAccountRequest { name: "".to_string() };
+        let request = UpdateOrganizationRequest { name: "".to_string() };
 
-        let result = update_account(
+        let result = update_organization(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
@@ -224,7 +223,7 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             ApiError::InvalidRequest(msg) => {
-                assert!(msg.contains("Account name cannot be empty"));
+                assert!(msg.contains("Organization name cannot be empty"));
             },
             e => panic!("Expected InvalidRequest, got {:?}", e),
         }

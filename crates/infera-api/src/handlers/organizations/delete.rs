@@ -1,4 +1,4 @@
-//! Delete account handler
+//! Delete organization handler
 
 use axum::{
     extract::{Path, State},
@@ -10,13 +10,13 @@ use crate::{
     handlers::utils::auth::require_admin_scope,
 };
 
-/// Delete an account
+/// Delete an organization
 ///
-/// This endpoint allows administrators to delete accounts.
-/// Only users with the `inferadb.admin` scope can delete accounts.
+/// This endpoint allows administrators to delete organizations.
+/// Only users with the `inferadb.admin` scope can delete organizations.
 ///
-/// **WARNING**: Deleting an account will cascade delete:
-/// - All vaults owned by the account
+/// **WARNING**: Deleting an organization will cascade delete:
+/// - All vaults owned by the organization
 /// - All relationships in those vaults
 ///
 /// This operation is irreversible.
@@ -26,44 +26,48 @@ use crate::{
 /// - Requires `inferadb.admin` scope
 ///
 /// # Path Parameters
-/// - `id`: Account UUID
+/// - `id`: Organization UUID
 ///
 /// # Response
-/// - 204 No Content: Account deleted successfully
+/// - 204 No Content: Organization deleted successfully
 ///
 /// # Errors
 /// - 401 Unauthorized: No authentication provided
 /// - 403 Forbidden: Missing `inferadb.admin` scope
-/// - 404 Not Found: Account does not exist
+/// - 404 Not Found: Organization does not exist
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
-pub async fn delete_account(
+pub async fn delete_organization(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(_format): AcceptHeader,
     State(state): State<AppState>,
-    Path(account_id): Path<i64>,
+    Path(organization_id): Path<i64>,
 ) -> Result<StatusCode, ApiError> {
     // Require admin scope
     require_admin_scope(&auth.0)?;
 
-    // Verify account exists first (better error message for 404)
-    let account = state
+    // Verify organization exists first (better error message for 404)
+    let organization = state
         .store
-        .get_account(account_id)
+        .get_organization(organization_id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?
-        .ok_or_else(|| ApiError::UnknownTenant("Account not found".to_string()))?;
+        .ok_or_else(|| ApiError::UnknownTenant("Organization not found".to_string()))?;
 
     tracing::info!(
-        account_id = %account.id,
-        account_name = %account.name,
-        "Deleting account (will cascade to vaults and relationships)"
+        organization_id = %organization.id,
+        organization_name = %organization.name,
+        "Deleting organization (will cascade to vaults and relationships)"
     );
 
-    // Delete account (cascades to vaults and relationships)
-    state.store.delete_account(account_id).await.map_err(|e| ApiError::Internal(e.to_string()))?;
+    // Delete organization (cascades to vaults and relationships)
+    state
+        .store
+        .delete_organization(organization_id)
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    tracing::info!(account_id = %account_id, "Account deleted");
+    tracing::info!(organization_id = %organization_id, "Organization deleted");
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -76,7 +80,7 @@ mod tests {
     use infera_const::scopes::SCOPE_ADMIN;
     use infera_core::ipl::Schema;
     use infera_store::MemoryBackend;
-    use infera_types::{Account, Vault};
+    use infera_types::{Organization, Vault};
 
     use super::*;
     use crate::content_negotiation::ResponseFormat;
@@ -89,13 +93,9 @@ mod tests {
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         AppState::new(
-            store,
-            schema,
-            None, // No WASM host for tests
-            config,
-            None, // No JWKS cache for tests
-            test_vault,
-            0i64,
+            store, schema, None, // No WASM host for tests
+            config, None, // No JWKS cache for tests
+            test_vault, 0i64,
         )
     }
 
@@ -110,20 +110,20 @@ mod tests {
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
             vault: 0i64,
-            account: 0i64,
+            organization: 0i64,
         }
     }
 
     #[tokio::test]
-    async fn test_delete_account_requires_admin() {
+    async fn test_delete_organization_requires_admin() {
         let state = create_test_state();
-        let account_id = 999i64;
+        let organization_id = 999i64;
 
-        let result = delete_account(
+        let result = delete_organization(
             infera_auth::extractor::OptionalAuth(None),
             AcceptHeader(ResponseFormat::Json),
             State(state),
-            Path(account_id),
+            Path(organization_id),
         )
         .await;
 
@@ -135,14 +135,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delete_account_success() {
+    async fn test_delete_organization_success() {
         let state = create_test_state();
 
-        // Create test account
-        let account = Account::new(13131313131313i64, "Test Account".to_string());
-        let created = state.store.create_account(account).await.unwrap();
+        // Create test organization
+        let organization = Organization::new(13131313131313i64, "Test Organization".to_string());
+        let created = state.store.create_organization(organization).await.unwrap();
 
-        let result = delete_account(
+        let result = delete_organization(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state.clone()),
@@ -154,28 +154,29 @@ mod tests {
         assert_eq!(result, StatusCode::NO_CONTENT);
 
         // Verify it's actually deleted
-        let retrieved = state.store.get_account(created.id).await.unwrap();
+        let retrieved = state.store.get_organization(created.id).await.unwrap();
         assert!(retrieved.is_none());
     }
 
     #[tokio::test]
-    async fn test_delete_account_cascades_to_vaults() {
+    async fn test_delete_organization_cascades_to_vaults() {
         let state = create_test_state();
 
-        // Create test account
-        let account = Account::new(14141414141414i64, "Test Account".to_string());
-        let created_account = state.store.create_account(account).await.unwrap();
+        // Create test organization
+        let organization = Organization::new(14141414141414i64, "Test Organization".to_string());
+        let created_organization = state.store.create_organization(organization).await.unwrap();
 
-        // Create vault for this account
-        let vault = Vault::new(15151515151515i64, created_account.id, "Test Vault".to_string());
+        // Create vault for this organization
+        let vault =
+            Vault::new(15151515151515i64, created_organization.id, "Test Vault".to_string());
         let created_vault = state.store.create_vault(vault).await.unwrap();
 
-        // Delete account
-        delete_account(
+        // Delete organization
+        delete_organization(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state.clone()),
-            Path(created_account.id),
+            Path(created_organization.id),
         )
         .await
         .unwrap();
@@ -186,15 +187,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delete_account_not_found() {
+    async fn test_delete_organization_not_found() {
         let state = create_test_state();
-        let account_id = 888i64;
+        let organization_id = 888i64;
 
-        let result = delete_account(
+        let result = delete_organization(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
-            Path(account_id),
+            Path(organization_id),
         )
         .await;
 

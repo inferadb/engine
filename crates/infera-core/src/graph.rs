@@ -537,9 +537,8 @@ mod tests {
 
         let rev = store.write(0i64, relationships).await.unwrap();
 
-        let users = get_users_with_relation(&store, 0i64, "doc:readme", "reader", rev)
-            .await
-            .unwrap();
+        let users =
+            get_users_with_relation(&store, 0i64, "doc:readme", "reader", rev).await.unwrap();
 
         assert_eq!(users.len(), 2);
         assert!(users.contains(&"user:alice".to_string()));

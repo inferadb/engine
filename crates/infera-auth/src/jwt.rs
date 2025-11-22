@@ -7,13 +7,29 @@ use subtle::ConstantTimeEq;
 use crate::{error::AuthError, validation::validate_algorithm};
 
 /// JWT claims structure
+///
+/// Per the Management API specification, JWTs should have the following structure:
+///
+/// ```json
+/// {
+///   "iss": "https://api.inferadb.com",
+///   "sub": "client:<client_id>",
+///   "aud": "https://api.inferadb.com/evaluate",
+///   "exp": 1234567890,
+///   "iat": 1234567800,
+///   "org_id": "<organization_id>",
+///   "vault_id": "<vault_id>",
+///   "vault_role": "write",
+///   "scope": "vault:read vault:write"
+/// }
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JwtClaims {
-    /// Issuer
+    /// Issuer - Should be the Management API URL (e.g., "https://api.inferadb.com")
     pub iss: String,
-    /// Subject
+    /// Subject - Client identifier (e.g., "client:<client_id>")
     pub sub: String,
-    /// Audience
+    /// Audience - Target service (e.g., "https://api.inferadb.com/evaluate")
     pub aud: String,
     /// Expiration time (seconds since epoch)
     pub exp: u64,
@@ -25,50 +41,38 @@ pub struct JwtClaims {
     /// JWT ID (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jti: Option<String>,
-    /// Space-separated scopes
+    /// Space-separated scopes (e.g., "vault:read vault:write")
     pub scope: String,
-    /// Tenant ID (for OAuth tokens)
+    /// Vault ID (Snowflake ID as string for multi-tenancy isolation)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tenant_id: Option<String>,
-    /// Vault ID (Snowflake ID for multi-tenancy isolation)
+    pub vault_id: Option<String>,
+    /// Organization ID (Snowflake ID as string - primary identifier per Management API spec)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub vault: Option<String>,
-    /// Account ID (Snowflake ID of vault owner)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub account: Option<String>,
+    pub org_id: Option<String>,
 }
 
 impl JwtClaims {
-    /// Extract tenant ID from claims
-    /// For tenant JWTs: parse from "tenant:acme" format in iss
-    /// For OAuth tokens: use tenant_id claim
-    /// For Management API client JWTs: use account claim (organization/account ID)
-    pub fn extract_tenant_id(&self) -> Result<String, AuthError> {
-        // First check explicit tenant_id claim (OAuth tokens)
-        if let Some(ref tenant_id) = self.tenant_id {
-            if !tenant_id.is_empty() {
-                return Ok(tenant_id.clone());
+    /// Extract organization ID from claims
+    ///
+    /// Per the Management API specification, the organization ID is stored in the `org_id` claim.
+    ///
+    /// # Returns
+    ///
+    /// The organization ID as a string
+    ///
+    /// # Errors
+    ///
+    /// Returns `AuthError::MissingClaim` if the `org_id` claim is missing or empty
+    pub fn extract_org_id(&self) -> Result<String, AuthError> {
+        // Extract org_id claim (Management API client JWTs - per spec)
+        // The org_id claim contains the organization ID (Snowflake ID as string)
+        if let Some(ref org_id) = self.org_id {
+            if !org_id.is_empty() {
+                return Ok(org_id.clone());
             }
         }
 
-        // Check account claim (Management API client JWTs)
-        // The account claim contains the organization/account ID
-        if let Some(ref account) = self.account {
-            if !account.is_empty() {
-                return Ok(account.clone());
-            }
-        }
-
-        // Fall back to parsing from issuer (tenant JWTs)
-        if let Some(tenant) = self.iss.strip_prefix("tenant:") {
-            if !tenant.is_empty() {
-                return Ok(tenant.to_string());
-            }
-        }
-
-        Err(AuthError::MissingClaim(
-            "tenant_id (could not extract from iss, tenant_id, or account claim)".into(),
-        ))
+        Err(AuthError::MissingClaim("org_id".into()))
     }
 
     /// Parse scopes from space-separated string
@@ -78,14 +82,14 @@ impl JwtClaims {
 
     /// Extract vault ID (Snowflake ID) from claims
     /// Returns None if not present
-    pub fn extract_vault(&self) -> Option<String> {
-        self.vault.clone()
+    pub fn extract_vault_id(&self) -> Option<String> {
+        self.vault_id.clone()
     }
 
-    /// Extract account ID (Snowflake ID) from claims
+    /// Extract organization ID (Snowflake ID) from claims
     /// Returns None if not present
-    pub fn extract_account(&self) -> Option<String> {
-        self.account.clone()
+    pub fn extract_organization(&self) -> Option<String> {
+        self.org_id.clone()
     }
 }
 
@@ -189,7 +193,7 @@ pub fn verify_signature(
 ///
 /// This is the primary JWT verification function that:
 /// 1. Decodes the JWT header to extract the key ID (`kid`) and algorithm
-/// 2. Extracts the tenant ID from the JWT claims
+/// 2. Extracts the organization ID from the JWT claims
 /// 3. Fetches the corresponding public key from the JWKS cache
 /// 4. Verifies the JWT signature using the public key
 ///
@@ -207,7 +211,7 @@ pub fn verify_signature(
 /// # Errors
 ///
 /// Returns an error if:
-/// - The JWT is malformed or missing required fields (`kid`, tenant ID)
+/// - The JWT is malformed or missing required fields (`kid`, org_id)
 /// - The algorithm is not supported (only EdDSA and RS256 are allowed)
 /// - The key cannot be found in JWKS (even after refresh)
 /// - The signature is invalid
@@ -234,7 +238,7 @@ pub fn verify_signature(
 /// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6ImFjbWUta2V5LTAwMSJ9...";
 /// let claims = verify_with_jwks(token, &jwks_cache).await?;
 ///
-/// println!("Verified claims for tenant: {}", claims.iss);
+/// println!("Verified claims for organization: {}", claims.org_id.unwrap_or_default());
 /// # Ok(())
 /// # }
 /// ```
@@ -253,9 +257,9 @@ pub async fn verify_with_jwks(
     let alg_str = format!("{:?}", header.alg);
     validate_algorithm(&alg_str, &["EdDSA".to_string(), "RS256".to_string()])?;
 
-    // 2. Decode claims without verification to extract tenant ID
+    // 2. Decode claims without verification to extract organization ID
     let claims = decode_jwt_claims(token)?;
-    let tenant_id = claims.extract_tenant_id()?;
+    let tenant_id = claims.extract_org_id()?;
 
     // 3. Get key from JWKS cache
     let jwk = match jwks_cache.get_key_by_id(&tenant_id, &kid).await {
@@ -317,7 +321,7 @@ pub async fn verify_with_jwks(
 /// # Errors
 ///
 /// Returns an error if:
-/// - The JWT is malformed or missing required fields (`kid`, tenant ID)
+/// - The JWT is malformed or missing required fields (`kid`, org_id)
 /// - The algorithm is not supported (only EdDSA and RS256 are allowed)
 /// - Neither certificate cache nor JWKS can verify the token
 /// - The signature is invalid
@@ -352,7 +356,7 @@ pub async fn verify_with_jwks(
 /// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6Im9yZy0uLi4ifQ...";
 /// let claims = verify_with_cert_cache_or_jwks(token, Some(&cert_cache), &jwks_cache).await?;
 ///
-/// println!("Verified claims for tenant: {}", claims.iss);
+/// println!("Verified claims for organization: {}", claims.org_id.unwrap_or_default());
 /// # Ok(())
 /// # }
 /// ```
@@ -413,26 +417,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_extract_tenant_id_from_issuer() {
+    fn test_extract_org_id_from_org_id_claim() {
         let claims = JwtClaims {
-            iss: "tenant:acme".into(),
-            sub: "test".into(),
-            aud: "test".into(),
+            iss: "https://api.inferadb.com".into(),
+            sub: "client:test-client".into(),
+            aud: "https://api.inferadb.com/evaluate".into(),
             exp: 1000000000,
             iat: 1000000000,
             nbf: None,
             jti: None,
-            scope: "inferadb.check".into(),
-            tenant_id: None,
-            vault: None,
-            account: None,
+            scope: "vault:read vault:write".into(),
+            vault_id: Some("123456789".into()),
+            org_id: Some("987654321".into()),
         };
 
-        assert_eq!(claims.extract_tenant_id().unwrap(), "acme");
+        assert_eq!(claims.extract_org_id().unwrap(), "987654321");
     }
 
     #[test]
-    fn test_extract_tenant_id_from_claim() {
+    fn test_extract_org_id_missing() {
         let claims = JwtClaims {
             iss: "https://auth.example.com".into(),
             sub: "test".into(),
@@ -442,31 +445,29 @@ mod tests {
             nbf: None,
             jti: None,
             scope: "inferadb.check".into(),
-            tenant_id: Some("acme".into()),
-            vault: None,
-            account: None,
+            vault_id: None,
+            org_id: None,
         };
 
-        assert_eq!(claims.extract_tenant_id().unwrap(), "acme");
+        assert!(claims.extract_org_id().is_err());
     }
 
     #[test]
-    fn test_extract_tenant_id_missing() {
+    fn test_extract_org_id_empty() {
         let claims = JwtClaims {
-            iss: "https://auth.example.com".into(),
-            sub: "test".into(),
-            aud: "test".into(),
+            iss: "https://api.inferadb.com".into(),
+            sub: "client:test-client".into(),
+            aud: "https://api.inferadb.com/evaluate".into(),
             exp: 1000000000,
             iat: 1000000000,
             nbf: None,
             jti: None,
-            scope: "inferadb.check".into(),
-            tenant_id: None,
-            vault: None,
-            account: None,
+            scope: "vault:read vault:write".into(),
+            vault_id: Some("123456789".into()),
+            org_id: Some("".into()),
         };
 
-        assert!(claims.extract_tenant_id().is_err());
+        assert!(claims.extract_org_id().is_err());
     }
 
     #[test]
@@ -480,9 +481,8 @@ mod tests {
             nbf: None,
             jti: None,
             scope: "inferadb.check inferadb.write inferadb.expand".into(),
-            tenant_id: None,
-            vault: None,
-            account: None,
+            vault_id: None,
+            org_id: None,
         };
 
         let scopes = claims.parse_scopes();
@@ -503,9 +503,8 @@ mod tests {
             nbf: None,
             jti: None,
             scope: "".into(),
-            tenant_id: None,
-            vault: None,
-            account: None,
+            vault_id: None,
+            org_id: None,
         };
 
         let scopes = claims.parse_scopes();

@@ -199,19 +199,19 @@ pub fn validate_authzen_subject_search_request(
     Ok(())
 }
 
-/// Validates an account name
+/// Validates an organization name
 ///
 /// Checks that:
 /// - Name is non-empty
 /// - Name is not longer than 255 characters
 /// - Name does not contain invalid characters
-pub fn validate_account_name(name: &str) -> Result<(), ApiError> {
+pub fn validate_organization_name(name: &str) -> Result<(), ApiError> {
     if name.is_empty() {
-        return Err(ApiError::InvalidRequest("Account name cannot be empty".to_string()));
+        return Err(ApiError::InvalidRequest("Organization name cannot be empty".to_string()));
     }
     if name.len() > 255 {
         return Err(ApiError::InvalidRequest(format!(
-            "Account name too long (max 255 characters, got {})",
+            "Organization name too long (max 255 characters, got {})",
             name.len()
         )));
     }
@@ -497,28 +497,28 @@ mod tests {
         assert!(validate_authzen_subject_search_request(&request).is_ok());
     }
 
-    // Account name validation tests
+    // Organization name validation tests
 
     #[test]
-    fn test_validate_account_name_valid() {
-        assert!(validate_account_name("Acme Corp").is_ok());
-        assert!(validate_account_name("A").is_ok());
-        assert!(validate_account_name(&"a".repeat(255)).is_ok());
+    fn test_validate_organization_name_valid() {
+        assert!(validate_organization_name("Acme Corp").is_ok());
+        assert!(validate_organization_name("A").is_ok());
+        assert!(validate_organization_name(&"a".repeat(255)).is_ok());
     }
 
     #[test]
-    fn test_validate_account_name_empty() {
-        let result = validate_account_name("");
+    fn test_validate_organization_name_empty() {
+        let result = validate_organization_name("");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Account name cannot be empty"));
+        assert!(result.unwrap_err().to_string().contains("Organization name cannot be empty"));
     }
 
     #[test]
-    fn test_validate_account_name_too_long() {
+    fn test_validate_organization_name_too_long() {
         let long_name = "a".repeat(256);
-        let result = validate_account_name(&long_name);
+        let result = validate_organization_name(&long_name);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Account name too long"));
+        assert!(result.unwrap_err().to_string().contains("Organization name too long"));
     }
 
     // Vault name validation tests

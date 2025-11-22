@@ -78,22 +78,22 @@ pub async fn update_vault(
         vault.name = new_name;
     }
 
-    // Update account if provided (vault transfer)
-    if let Some(new_account) = request.account {
-        // Verify new account exists
+    // Update organization if provided (vault transfer)
+    if let Some(new_organization) = request.organization {
+        // Verify new organization exists
         state
             .store
-            .get_account(new_account)
+            .get_organization(new_organization)
             .await
             .map_err(|e| ApiError::Internal(e.to_string()))?
-            .ok_or_else(|| ApiError::UnknownTenant("New account not found".to_string()))?;
+            .ok_or_else(|| ApiError::UnknownTenant("New organization not found".to_string()))?;
 
-        vault.account = new_account;
+        vault.organization = new_organization;
         tracing::info!(
             vault_id = %vault.id,
-            old_account = %vault.account,
-            new_account = %new_account,
-            "Transferring vault to new account"
+            old_organization = %vault.organization,
+            new_organization = %new_organization,
+            "Transferring vault to new organization"
         );
     }
 

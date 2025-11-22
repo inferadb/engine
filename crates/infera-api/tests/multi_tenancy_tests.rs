@@ -31,11 +31,11 @@ fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
-    // Create two separate vault/account pairs for testing
+    // Create two separate vault/organization pairs for testing
     let vault_a = 11111111111111i64;
-    let account_a = 22222222222222i64;
+    let organization_a = 22222222222222i64;
     let vault_b = 33333333333333i64;
-    let account_b = 44444444444444i64;
+    let organization_b = 44444444444444i64;
 
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for simpler testing
@@ -47,10 +47,10 @@ fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
         Arc::new(config),
         None,    // No JWKS cache for tests
         vault_a, // Default to vault A
-        account_a,
+        organization_a,
     );
 
-    (state, vault_a, account_a, vault_b, account_b)
+    (state, vault_a, organization_a, vault_b, organization_b)
 }
 
 // =============================================================================
@@ -283,14 +283,14 @@ async fn test_vault_scoped_listing() {
 
 #[tokio::test]
 async fn test_default_vault_fallback_when_auth_disabled() {
-    let (state, vault_a, account_a, ..) = create_multi_vault_test_state();
+    let (state, vault_a, organization_a, ..) = create_multi_vault_test_state();
     let store = Arc::clone(&state.store);
 
-    // Create the account and vault in the store first
+    // Create the organization and vault in the store first
     store
-        .create_account(infera_types::Account {
-            id: account_a,
-            name: "Test Account".to_string(),
+        .create_organization(infera_types::Organization {
+            id: organization_a,
+            name: "Test Organization".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         })
@@ -300,7 +300,7 @@ async fn test_default_vault_fallback_when_auth_disabled() {
     store
         .create_vault(infera_types::Vault {
             id: vault_a,
-            account: account_a,
+            organization: organization_a,
             name: "Test Vault".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
@@ -333,30 +333,30 @@ async fn test_default_vault_fallback_when_auth_disabled() {
 }
 
 // =============================================================================
-// 3. Account-Vault Relationship
+// 3. Organization-Vault Relationship
 // =============================================================================
 
 #[tokio::test]
-async fn test_account_can_own_multiple_vaults() {
+async fn test_organization_can_own_multiple_vaults() {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
-    let account = 55555555555555i64;
+    let organization = 55555555555555i64;
     let vault1 = 66666666666666i64;
     let vault2 = 77777777777777i64;
     let vault3 = 88888888888888i64;
 
-    // Create the account first
-    let account_obj = infera_types::Account {
-        id: account,
-        name: "Test Account".to_string(),
+    // Create the organization first
+    let organization_obj = infera_types::Organization {
+        id: organization,
+        name: "Test Organization".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     };
-    store.create_account(account_obj).await.unwrap();
+    store.create_organization(organization_obj).await.unwrap();
 
-    // Create three vaults for the same account
+    // Create three vaults for the same organization
     let vault_obj_1 = infera_types::Vault {
         id: vault1,
-        account,
+        organization,
         name: "Vault 1".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -364,7 +364,7 @@ async fn test_account_can_own_multiple_vaults() {
 
     let vault_obj_2 = infera_types::Vault {
         id: vault2,
-        account,
+        organization,
         name: "Vault 2".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -372,7 +372,7 @@ async fn test_account_can_own_multiple_vaults() {
 
     let vault_obj_3 = infera_types::Vault {
         id: vault3,
-        account,
+        organization,
         name: "Vault 3".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -382,10 +382,10 @@ async fn test_account_can_own_multiple_vaults() {
     store.create_vault(vault_obj_2).await.unwrap();
     store.create_vault(vault_obj_3).await.unwrap();
 
-    // Verify all vaults belong to the same account
-    let vaults = store.list_vaults_for_account(account).await.unwrap();
+    // Verify all vaults belong to the same organization
+    let vaults = store.list_vaults_for_organization(organization).await.unwrap();
     assert_eq!(vaults.len(), 3);
-    assert!(vaults.iter().all(|v| v.account == account));
+    assert!(vaults.iter().all(|v| v.organization == organization));
 
     // Verify each vault has unique ID
     let vault_ids: std::collections::HashSet<_> = vaults.iter().map(|v| v.id).collect();
@@ -393,17 +393,17 @@ async fn test_account_can_own_multiple_vaults() {
 }
 
 #[tokio::test]
-async fn test_vault_belongs_to_one_account() {
+async fn test_vault_belongs_to_one_organization() {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
-    let account_a = 99999999999991i64;
-    let account_b = 99999999999992i64;
+    let organization_a = 99999999999991i64;
+    let organization_b = 99999999999992i64;
     let vault_id = 99999999999993i64;
 
-    // Create accounts first
+    // Create organizations first
     store
-        .create_account(infera_types::Account {
-            id: account_a,
-            name: "Account A".to_string(),
+        .create_organization(infera_types::Organization {
+            id: organization_a,
+            name: "Organization A".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         })
@@ -411,19 +411,19 @@ async fn test_vault_belongs_to_one_account() {
         .unwrap();
 
     store
-        .create_account(infera_types::Account {
-            id: account_b,
-            name: "Account B".to_string(),
+        .create_organization(infera_types::Organization {
+            id: organization_b,
+            name: "Organization B".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         })
         .await
         .unwrap();
 
-    // Create vault for account A
+    // Create vault for organization A
     let vault = infera_types::Vault {
         id: vault_id,
-        account: account_a,
+        organization: organization_a,
         name: "Test Vault".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -431,28 +431,28 @@ async fn test_vault_belongs_to_one_account() {
 
     store.create_vault(vault).await.unwrap();
 
-    // Verify vault belongs to account A
+    // Verify vault belongs to organization A
     let vault_retrieved = store.get_vault(vault_id).await.unwrap().unwrap();
-    assert_eq!(vault_retrieved.account, account_a);
+    assert_eq!(vault_retrieved.organization, organization_a);
 
-    // Verify vault does NOT appear in account B's vaults
-    let account_b_vaults = store.list_vaults_for_account(account_b).await.unwrap();
-    assert_eq!(account_b_vaults.len(), 0);
+    // Verify vault does NOT appear in organization B's vaults
+    let organization_b_vaults = store.list_vaults_for_organization(organization_b).await.unwrap();
+    assert_eq!(organization_b_vaults.len(), 0);
 }
 
 #[tokio::test]
-async fn test_account_cannot_access_other_accounts_vaults() {
+async fn test_organization_cannot_access_other_organizations_vaults() {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
-    let account_a = 99999999999994i64;
-    let account_b = 99999999999995i64;
+    let organization_a = 99999999999994i64;
+    let organization_b = 99999999999995i64;
     let vault_a = 99999999999996i64;
     let vault_b = 99999999999997i64;
 
-    // Create accounts first
+    // Create organizations first
     store
-        .create_account(infera_types::Account {
-            id: account_a,
-            name: "Account A".to_string(),
+        .create_organization(infera_types::Organization {
+            id: organization_a,
+            name: "Organization A".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         })
@@ -460,20 +460,20 @@ async fn test_account_cannot_access_other_accounts_vaults() {
         .unwrap();
 
     store
-        .create_account(infera_types::Account {
-            id: account_b,
-            name: "Account B".to_string(),
+        .create_organization(infera_types::Organization {
+            id: organization_b,
+            name: "Organization B".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         })
         .await
         .unwrap();
 
-    // Create vaults for different accounts
+    // Create vaults for different organizations
     store
         .create_vault(infera_types::Vault {
             id: vault_a,
-            account: account_a,
+            organization: organization_a,
             name: "Vault A".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
@@ -484,7 +484,7 @@ async fn test_account_cannot_access_other_accounts_vaults() {
     store
         .create_vault(infera_types::Vault {
             id: vault_b,
-            account: account_b,
+            organization: organization_b,
             name: "Vault B".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
@@ -492,15 +492,15 @@ async fn test_account_cannot_access_other_accounts_vaults() {
         .await
         .unwrap();
 
-    // Account A should only see their vault
-    let account_a_vaults = store.list_vaults_for_account(account_a).await.unwrap();
-    assert_eq!(account_a_vaults.len(), 1);
-    assert_eq!(account_a_vaults[0].id, vault_a);
+    // Organization A should only see their vault
+    let organization_a_vaults = store.list_vaults_for_organization(organization_a).await.unwrap();
+    assert_eq!(organization_a_vaults.len(), 1);
+    assert_eq!(organization_a_vaults[0].id, vault_a);
 
-    // Account B should only see their vault
-    let account_b_vaults = store.list_vaults_for_account(account_b).await.unwrap();
-    assert_eq!(account_b_vaults.len(), 1);
-    assert_eq!(account_b_vaults[0].id, vault_b);
+    // Organization B should only see their vault
+    let organization_b_vaults = store.list_vaults_for_organization(organization_b).await.unwrap();
+    assert_eq!(organization_b_vaults.len(), 1);
+    assert_eq!(organization_b_vaults[0].id, vault_b);
 }
 
 // =============================================================================

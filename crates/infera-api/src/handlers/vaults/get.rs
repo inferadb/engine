@@ -6,7 +6,7 @@ use infera_types::VaultResponse;
 use crate::{
     ApiError, AppState,
     content_negotiation::{AcceptHeader, ResponseData},
-    handlers::utils::auth::authorize_account_access,
+    handlers::utils::auth::authorize_organization_access,
 };
 
 /// Get a vault by ID
@@ -54,8 +54,8 @@ pub async fn get_vault(
         .map_err(|e| ApiError::Internal(e.to_string()))?
         .ok_or_else(|| ApiError::UnknownTenant("Vault not found".to_string()))?;
 
-    // Check authorization (admin OR vault's account owner)
-    authorize_account_access(&auth.0, vault.account)?;
+    // Check authorization (admin OR vault's organization owner)
+    authorize_organization_access(&auth.0, vault.organization)?;
 
     tracing::debug!(vault_id = %vault.id, vault_name = %vault.name, "Vault retrieved");
 

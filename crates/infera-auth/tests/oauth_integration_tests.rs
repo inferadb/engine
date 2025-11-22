@@ -54,7 +54,7 @@ async fn test_oauth_jwt_validation() {
     .expect("Failed to validate OAuth JWT");
 
     // Verify AuthContext extracted correctly
-    assert_eq!(auth_ctx.tenant_id, "acme");
+    assert_eq!(auth_ctx.tenant_id, "98765432109876"); // org_id from JWT claims
     assert_eq!(auth_ctx.auth_method, AuthMethod::OAuthAccessToken);
     assert_eq!(auth_ctx.scopes, vec!["read", "write"]);
     assert!(auth_ctx.client_id.starts_with("user-"));
@@ -145,7 +145,6 @@ async fn test_token_introspection_active() {
         exp: Some(9999999999),
         iat: Some(1234567890),
         sub: Some("user-123".to_string()),
-        tenant_id: Some("acme".to_string()),
     };
     register_opaque_token(&state, &token, metadata.clone());
 
@@ -160,7 +159,7 @@ async fn test_token_introspection_active() {
 
     // Verify result
     assert!(result.active);
-    assert_eq!(result.tenant_id, Some("acme".to_string()));
+    assert_eq!(result.sub, Some("user-123".to_string()));
     assert_eq!(result.scope, Some("read write".to_string()));
     assert_eq!(result.client_id, Some("test-client".to_string()));
 }
@@ -184,7 +183,7 @@ async fn test_token_introspection_inactive() {
 
     // Verify inactive response
     assert!(!result.active);
-    assert_eq!(result.tenant_id, None);
+    assert_eq!(result.sub, None);
     assert_eq!(result.scope, None);
 }
 
@@ -204,7 +203,6 @@ async fn test_token_introspection_caching() {
         exp: Some(9999999999),
         iat: Some(1234567890),
         sub: Some("user-456".to_string()),
-        tenant_id: Some("cacheco".to_string()),
     };
     register_opaque_token(&state, &token, metadata);
 
@@ -225,19 +223,17 @@ async fn test_token_introspection_caching() {
 
     // Both results should be identical
     assert_eq!(result1.active, result2.active);
-    assert_eq!(result1.tenant_id, result2.tenant_id);
+    assert_eq!(result1.sub, result2.sub);
     assert_eq!(result1.scope, result2.scope);
 }
 
-/// Test OAuth JWT without tenant_id claim
+/// Test OAuth JWT with org_id claim
 #[tokio::test]
-async fn test_oauth_jwt_missing_tenant_id() {
-    // This test verifies behavior when OAuth JWT is missing tenant_id
-    // In the current implementation, extract_tenant_id() falls back to using sub
-    // So this test verifies that fallback works correctly
+async fn test_oauth_jwt_with_org_id() {
+    // This test verifies behavior when OAuth JWT has org_id claim (Management API spec)
     let (base_url, _handle, _state) = start_mock_oauth_server().await;
 
-    // Generate OAuth JWT (has tenant_id but test verifies fallback behavior works)
+    // Generate OAuth JWT with org_id
     let token = generate_oauth_jwt(&base_url, "acme", vec!["read"], 300);
 
     // Create OAuth client
@@ -257,6 +253,7 @@ async fn test_oauth_jwt_missing_tenant_id() {
     .await
     .expect("Failed to validate OAuth JWT");
 
-    // Should use tenant_id if present, or fall back to sub
-    assert!(!auth_ctx.tenant_id.is_empty());
+    // Should extract org_id from JWT claims
+    assert_eq!(auth_ctx.tenant_id, "98765432109876"); // org_id Snowflake ID
+    assert_eq!(auth_ctx.organization, 98765432109876); // parsed as i64
 }

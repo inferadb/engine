@@ -147,8 +147,8 @@ pub struct AppState {
     pub health_tracker: Arc<health::HealthTracker>,
     /// Default vault ID used when authentication is disabled
     pub default_vault: i64,
-    /// Default account ID used when authentication is disabled
-    pub default_account: i64,
+    /// Default organization ID used when authentication is disabled
+    pub default_organization: i64,
 
     // Shared cache for authorization decisions and expansions
     pub auth_cache: Arc<infera_cache::AuthCache>,
@@ -173,7 +173,7 @@ impl AppState {
         config: Arc<Config>,
         jwks_cache: Option<Arc<JwksCache>>,
         default_vault: i64,
-        default_account: i64,
+        default_organization: i64,
     ) -> Self {
         let health_tracker = Arc::new(health::HealthTracker::new());
 
@@ -237,7 +237,7 @@ impl AppState {
             jwks_cache,
             health_tracker,
             default_vault,
-            default_account,
+            default_organization,
             auth_cache,
             evaluation_service,
             resource_service,
@@ -281,21 +281,21 @@ pub fn create_router(state: AppState) -> Result<Router> {
         )
         .route("/v1/simulate", post(simulate_handler))
         .route("/v1/watch", post(watch_handler))
-        // Account management routes
+        // Organization management routes
         .route(
-            "/v1/accounts",
-            post(handlers::accounts::create::create_account)
-                .get(handlers::accounts::list::list_accounts),
+            "/v1/organizations",
+            post(handlers::organizations::create::create_organization)
+                .get(handlers::organizations::list::list_organizations),
         )
         .route(
-            "/v1/accounts/{id}",
-            axum::routing::get(handlers::accounts::get::get_account)
-                .patch(handlers::accounts::update::update_account)
-                .delete(handlers::accounts::delete::delete_account),
+            "/v1/organizations/{id}",
+            axum::routing::get(handlers::organizations::get::get_organization)
+                .patch(handlers::organizations::update::update_organization)
+                .delete(handlers::organizations::delete::delete_organization),
         )
         // Vault management routes
         .route(
-            "/v1/accounts/{account_id}/vaults",
+            "/v1/organizations/{organization_id}/vaults",
             post(handlers::vaults::create::create_vault).get(handlers::vaults::list::list_vaults),
         )
         .route(
@@ -321,7 +321,9 @@ pub fn create_router(state: AppState) -> Result<Router> {
                 state.config.auth.management_api_url.clone(),
                 state.config.auth.management_api_timeout_ms,
             )
-            .map_err(|e| ApiError::Internal(format!("Failed to create management client: {}", e)))?,
+            .map_err(|e| {
+                ApiError::Internal(format!("Failed to create management client: {}", e))
+            })?,
         );
 
         info!(
@@ -335,11 +337,16 @@ pub fn create_router(state: AppState) -> Result<Router> {
             std::time::Duration::from_secs(600), // 10 min org cache TTL
         ));
 
-        let cert_cache = Arc::new(infera_auth::CertificateCache::new(
-            state.config.auth.management_api_url.clone(),
-            std::time::Duration::from_secs(300), // 5 min cert cache TTL
-            1000,                                 // Max 1000 cached certificates
-        ).map_err(|e| ApiError::Internal(format!("Failed to create certificate cache: {}", e)))?);
+        let cert_cache = Arc::new(
+            infera_auth::CertificateCache::new(
+                state.config.auth.management_api_url.clone(),
+                std::time::Duration::from_secs(300), // 5 min cert cache TTL
+                1000,                                // Max 1000 cached certificates
+            )
+            .map_err(|e| {
+                ApiError::Internal(format!("Failed to create certificate cache: {}", e))
+            })?,
+        );
 
         (vault_verifier, Some(cert_cache))
     } else {
@@ -355,9 +362,9 @@ pub fn create_router(state: AppState) -> Result<Router> {
             let jwks_cache = Arc::clone(jwks_cache);
             let auth_enabled = state.config.auth.enabled;
 
-            // Use default vault and account from AppState
+            // Use default vault and organization from AppState
             let default_vault = state.default_vault;
-            let default_account = state.default_account;
+            let default_organization = state.default_organization;
 
             // Apply auth middleware first, then vault validation middleware
             // Note: Layers are applied in reverse order, so vault validation runs after auth
@@ -377,7 +384,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
                     infera_auth::middleware::optional_auth_middleware(
                         auth_enabled,
                         default_vault,
-                        default_account,
+                        default_organization,
                         jwks_cache,
                         cert_cache,
                         req,
@@ -393,9 +400,9 @@ pub fn create_router(state: AppState) -> Result<Router> {
         tracing::warn!("Authentication DISABLED - using default vault for all requests");
         let auth_enabled = false;
 
-        // Use default vault and account from AppState
+        // Use default vault and organization from AppState
         let default_vault = state.default_vault;
-        let default_account = state.default_account;
+        let default_organization = state.default_organization;
 
         // Create a dummy JWKS cache (not used when auth is disabled)
         let dummy_jwks_cache = Arc::new(infera_auth::jwks_cache::JwksCache::new(
@@ -410,7 +417,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
             infera_auth::middleware::optional_auth_middleware(
                 auth_enabled,
                 default_vault,
-                default_account,
+                default_organization,
                 jwks_cache,
                 None, // No cert cache when auth is disabled
                 req,
@@ -536,14 +543,11 @@ pub async fn serve(
 
     // Serve with graceful shutdown
     // Use into_make_service_with_connect_info to provide client IP for rate limiting
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-    )
-    .with_graceful_shutdown(async {
-        shutdown_rx.await.ok();
-    })
-    .await?;
+    axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>())
+        .with_graceful_shutdown(async {
+            shutdown_rx.await.ok();
+        })
+        .await?;
 
     Ok(())
 }
@@ -695,7 +699,7 @@ mod tests {
     use infera_types::{UsersetNodeType, UsersetTree};
     use serde_json::json;
     use tower::ServiceExt;
-    
+
     use super::*; // for `oneshot`
 
     fn create_test_state() -> AppState {

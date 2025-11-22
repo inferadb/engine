@@ -20,13 +20,11 @@ pub struct InternalClaims {
     pub iat: u64,
     pub scope: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tenant_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub jti: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub vault: Option<String>,
+    pub vault_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub account: Option<String>,
+    pub org_id: Option<String>,
 }
 
 impl InternalClaims {
@@ -41,10 +39,9 @@ impl InternalClaims {
             exp: now + 3600, // 1 hour from now
             iat: now,
             scope: "inferadb.admin".to_string(),
-            tenant_id: Some("internal".to_string()),
             jti: Some(uuid::Uuid::new_v4().to_string()),
-            vault: Some("12345678901234".to_string()),
-            account: Some("98765432109876".to_string()),
+            vault_id: Some("12345678901234".to_string()),
+            org_id: Some("98765432109876".to_string()),
         }
     }
 
@@ -58,10 +55,9 @@ impl InternalClaims {
             exp: now - 3600, // 1 hour ago
             iat: now - 7200,
             scope: "inferadb.admin".to_string(),
-            tenant_id: Some("internal".to_string()),
             jti: Some(uuid::Uuid::new_v4().to_string()),
-            vault: Some("12345678901234".to_string()),
-            account: Some("98765432109876".to_string()),
+            vault_id: Some("12345678901234".to_string()),
+            org_id: Some("98765432109876".to_string()),
         }
     }
 

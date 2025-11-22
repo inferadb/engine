@@ -57,12 +57,12 @@ async fn main() -> Result<()> {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     tracing::info!("Using in-memory storage backend");
 
-    // Initialize system (create default account/vault if needed)
+    // Initialize system (create default organization/vault if needed)
     let system_config = initialization::initialize_system(&store, &config).await?;
     tracing::info!(
-        "Using default vault {} for account {}",
+        "Using default vault {} for organization {}",
         system_config.default_vault,
-        system_config.default_account
+        system_config.default_organization
     );
 
     // Initialize WASM host
@@ -121,7 +121,7 @@ async fn main() -> Result<()> {
         config,
         jwks_cache,
         system_config.default_vault,
-        system_config.default_account,
+        system_config.default_organization,
     )
     .await?;
 

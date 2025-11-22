@@ -21,7 +21,7 @@
 //!
 //! // Decode and validate a JWT
 //! let claims = jwt::decode_jwt_claims(token)?;
-//! let tenant_id = claims.extract_tenant_id()?;
+//! let org_id = claims.extract_org_id()?;
 //! ```
 
 #![deny(unsafe_code)]

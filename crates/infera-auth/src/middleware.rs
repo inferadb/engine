@@ -212,7 +212,9 @@ async fn auth_middleware_impl(
     })?;
 
     // Verify JWT with certificate cache (if available) and JWKS fallback
-    let claims = verify_with_cert_cache_or_jwks(&token, cert_cache.as_deref(), &jwks_cache).await.map_err(|e| {
+    let claims = verify_with_cert_cache_or_jwks(&token, cert_cache.as_deref(), &jwks_cache)
+        .await
+        .map_err(|e| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
@@ -229,18 +231,26 @@ async fn auth_middleware_impl(
                 (StatusCode::FORBIDDEN, format!("Invalid scope: {}", msg)).into_response()
             },
             // JWKS and other errors should return 401, not 500
-            AuthError::JwksError(msg) => unauthorized_response(&format!("Key validation failed: {}", msg)),
-            AuthError::InvalidIssuer(msg) => unauthorized_response(&format!("Invalid issuer: {}", msg)),
-            AuthError::MissingClaim(claim) => unauthorized_response(&format!("Missing claim: {}", claim)),
+            AuthError::JwksError(msg) => {
+                unauthorized_response(&format!("Key validation failed: {}", msg))
+            },
+            AuthError::InvalidIssuer(msg) => {
+                unauthorized_response(&format!("Invalid issuer: {}", msg))
+            },
+            AuthError::MissingClaim(claim) => {
+                unauthorized_response(&format!("Missing claim: {}", claim))
+            },
             AuthError::MissingTenantId => unauthorized_response("Missing tenant_id claim"),
-            AuthError::UnsupportedAlgorithm(alg) => unauthorized_response(&format!("Unsupported algorithm: {}", alg)),
+            AuthError::UnsupportedAlgorithm(alg) => {
+                unauthorized_response(&format!("Unsupported algorithm: {}", alg))
+            },
             // For any other auth errors, return 401 with the error message
             _ => unauthorized_response(&e.to_string()),
         }
     })?;
 
-    // Extract tenant ID from claims
-    let tenant_id = claims.extract_tenant_id().map_err(|e| {
+    // Extract organization ID from claims
+    let tenant_id = claims.extract_org_id().map_err(|e| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
@@ -248,11 +258,11 @@ async fn auth_middleware_impl(
     })?;
 
     // Extract vault and account IDs (Snowflake IDs) from claims
-    let vault_str = claims.extract_vault().ok_or_else(|| {
+    let vault_str = claims.extract_vault_id().ok_or_else(|| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
-        (StatusCode::UNAUTHORIZED, "Missing vault claim in JWT".to_string()).into_response()
+        (StatusCode::UNAUTHORIZED, "Missing vault_id claim in JWT".to_string()).into_response()
     })?;
     let vault: i64 = vault_str.parse().map_err(|_| {
         if let Some(ref m) = metrics {
@@ -261,17 +271,17 @@ async fn auth_middleware_impl(
         (StatusCode::UNAUTHORIZED, "Invalid vault ID format".to_string()).into_response()
     })?;
 
-    let account_str = claims.extract_account().ok_or_else(|| {
+    let organization_str = claims.extract_organization().ok_or_else(|| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
-        (StatusCode::UNAUTHORIZED, "Missing account claim in JWT".to_string()).into_response()
+        (StatusCode::UNAUTHORIZED, "Missing org_id claim in JWT".to_string()).into_response()
     })?;
-    let account: i64 = account_str.parse().map_err(|_| {
+    let organization: i64 = organization_str.parse().map_err(|_| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
-        (StatusCode::UNAUTHORIZED, "Invalid account ID format".to_string()).into_response()
+        (StatusCode::UNAUTHORIZED, "Invalid organization ID format".to_string()).into_response()
     })?;
 
     // Parse scopes from space-separated string
@@ -290,7 +300,7 @@ async fn auth_middleware_impl(
             .unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::seconds(300)),
         jti: claims.jti.clone(),
         vault,
-        account,
+        organization,
     };
 
     // Record successful validation
@@ -339,7 +349,7 @@ pub fn validate_vault_access(auth: &AuthContext) -> Result<(), AuthError> {
     tracing::debug!(
         tenant_id = %auth.tenant_id,
         vault = %auth.vault,
-        account = %auth.account,
+        organization = %auth.organization,
         client_id = %auth.client_id,
         "Vault access validated (basic)"
     );
@@ -434,7 +444,7 @@ pub async fn vault_validation_middleware(
 pub async fn optional_auth_middleware(
     enabled: bool,
     default_vault: i64,
-    default_account: i64,
+    default_organization: i64,
     jwks_cache: Arc<JwksCache>,
     cert_cache: Option<Arc<CertificateCache>>,
     mut request: Request<Body>,
@@ -442,13 +452,14 @@ pub async fn optional_auth_middleware(
 ) -> Result<Response, Response> {
     if !enabled {
         tracing::warn!(
-            "Authentication is DISABLED - using default vault {} and account {}",
+            "Authentication is DISABLED - using default vault {} and organization {}",
             default_vault,
-            default_account
+            default_organization
         );
 
         // Create default AuthContext for unauthenticated requests
-        let auth_context = AuthContext::default_unauthenticated(default_vault, default_account);
+        let auth_context =
+            AuthContext::default_unauthenticated(default_vault, default_organization);
         request.extensions_mut().insert(auth_context);
 
         return Ok(next.run(request).await);
@@ -476,7 +487,7 @@ mod tests {
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
             vault: 0,
-            account: 0,
+            organization: 0,
         }
     }
 
@@ -602,7 +613,7 @@ mod tests {
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
             vault: vault_id,
-            account: account_id,
+            organization: account_id,
         };
 
         assert!(validate_vault_access(&auth).is_ok());
@@ -620,7 +631,7 @@ mod tests {
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
             vault: 0,
-            account: 98765432109876,
+            organization: 98765432109876,
         };
 
         let result = validate_vault_access(&auth);
@@ -649,7 +660,7 @@ mod tests {
             expires_at: Utc::now() + Duration::seconds(300),
             jti: None,
             vault: default_vault,
-            account: account_id,
+            organization: account_id,
         };
 
         assert!(validate_vault_access(&auth).is_ok());

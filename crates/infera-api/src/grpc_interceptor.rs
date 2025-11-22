@@ -205,18 +205,15 @@ impl AuthInterceptor {
                 },
             };
 
-            // Extract tenant ID and create AuthContext
-            let tenant_id = claims.extract_tenant_id()?;
+            // Extract organization ID and create AuthContext
+            let tenant_id = claims.extract_org_id()?;
             let scopes = claims.parse_scopes();
 
-            // Extract vault and account IDs
-            let vault = claims.vault.as_ref()
-                .and_then(|s| s.parse::<i64>().ok())
-                .unwrap_or(0);
+            // Extract vault and organization IDs
+            let vault = claims.vault_id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
 
-            let account = claims.account.as_ref()
-                .and_then(|s| s.parse::<i64>().ok())
-                .unwrap_or(0);
+            let organization =
+                claims.org_id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
 
             return Ok(AuthContext {
                 tenant_id,
@@ -229,7 +226,7 @@ impl AuthInterceptor {
                     .unwrap_or_else(|| Utc::now() + Duration::seconds(300)),
                 jti: claims.jti.clone(),
                 vault,
-                account,
+                organization,
             });
         }
 

@@ -1,19 +1,19 @@
-//! Create account handler
+//! Create organization handler
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
-use infera_types::{Account, AccountResponse, CreateAccountRequest};
+use infera_types::{CreateOrganizationRequest, Organization, OrganizationResponse};
 
 use crate::{
     ApiError, AppState,
     content_negotiation::{AcceptHeader, ResponseData},
     handlers::utils::auth::require_admin_scope,
-    validation::validate_account_name,
+    validation::validate_organization_name,
 };
 
-/// Create a new account
+/// Create a new organization
 ///
-/// This endpoint allows administrators to create new accounts.
-/// Only users with the `inferadb.admin` scope can create accounts.
+/// This endpoint allows administrators to create new organizations.
+/// Only users with the `inferadb.admin` scope can create organizations.
 ///
 /// # Authorization
 /// - Requires authentication
@@ -39,20 +39,20 @@ use crate::{
 /// # Errors
 /// - 401 Unauthorized: No authentication provided
 /// - 403 Forbidden: Missing `inferadb.admin` scope
-/// - 400 Bad Request: Invalid account name
+/// - 400 Bad Request: Invalid organization name
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
-pub async fn create_account(
+pub async fn create_organization(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
-    axum::Json(request): axum::Json<CreateAccountRequest>,
+    axum::Json(request): axum::Json<CreateOrganizationRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     // Require admin scope
     require_admin_scope(&auth.0)?;
 
-    // Validate account name
-    validate_account_name(&request.name)?;
+    // Validate organization name
+    validate_organization_name(&request.name)?;
 
     // Generate a unique ID using timestamp (nanoseconds since epoch)
     let id = std::time::SystemTime::now()
@@ -60,21 +60,27 @@ pub async fn create_account(
         .map(|d| d.as_nanos() as i64)
         .unwrap_or(1);
 
-    // Create account with generated ID
-    let account = Account::new(id, request.name);
+    // Create organization with generated ID
+    let organization = Organization::new(id, request.name);
 
     // Store in database
-    let created_account =
-        state.store.create_account(account).await.map_err(|e| ApiError::Internal(e.to_string()))?;
+    let created_organization = state
+        .store
+        .create_organization(organization)
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     tracing::info!(
-        account_id = %created_account.id,
-        account_name = %created_account.name,
-        "Account created"
+        organization_id = %created_organization.id,
+        organization_name = %created_organization.name,
+        "Organization created"
     );
 
     // Convert to response and return 201 Created
-    Ok((StatusCode::CREATED, ResponseData::new(AccountResponse::from(created_account), format)))
+    Ok((
+        StatusCode::CREATED,
+        ResponseData::new(OrganizationResponse::from(created_organization), format),
+    ))
 }
 
 #[cfg(test)]
@@ -99,23 +105,19 @@ mod tests {
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         AppState::new(
-            store,
-            schema,
-            None, // No WASM host for tests
-            config,
-            None, // No JWKS cache for tests
-            test_vault,
-            0i64,
+            store, schema, None, // No WASM host for tests
+            config, None, // No JWKS cache for tests
+            test_vault, 0i64,
         )
     }
 
     #[tokio::test]
-    async fn test_create_account_requires_auth() {
+    async fn test_create_organization_requires_auth() {
         let state = create_test_state();
 
-        let request = CreateAccountRequest { name: "Test Account".to_string() };
+        let request = CreateOrganizationRequest { name: "Test Organization".to_string() };
 
-        let result = create_account(
+        let result = create_organization(
             infera_auth::extractor::OptionalAuth(None),
             AcceptHeader(ResponseFormat::Json),
             State(state),
@@ -132,10 +134,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_account_validates_name() {
+    async fn test_create_organization_validates_name() {
         let state = create_test_state();
 
-        let request = CreateAccountRequest { name: "".to_string() };
+        let request = CreateOrganizationRequest { name: "".to_string() };
 
         let admin_ctx = infera_types::AuthContext {
             tenant_id: "test".to_string(),
@@ -147,10 +149,10 @@ mod tests {
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
             vault: 0i64,
-            account: 0i64,
+            organization: 0i64,
         };
 
-        let result = create_account(
+        let result = create_organization(
             infera_auth::extractor::OptionalAuth(Some(admin_ctx)),
             AcceptHeader(ResponseFormat::Json),
             State(state),
@@ -161,7 +163,7 @@ mod tests {
         assert!(result.is_err());
         match result {
             Err(ApiError::InvalidRequest(msg)) => {
-                assert!(msg.contains("Account name cannot be empty"));
+                assert!(msg.contains("Organization name cannot be empty"));
             },
             Err(e) => panic!("Expected InvalidRequest, got {:?}", e),
             Ok(_) => panic!("Expected error"),

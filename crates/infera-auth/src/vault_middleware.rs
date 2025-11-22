@@ -33,8 +33,8 @@ pub async fn vault_validation_middleware(
                 return next.run(req).await;
             }
 
-            // Verify vault exists and belongs to account
-            match verifier.verify_vault(auth_ctx.vault, auth_ctx.account).await {
+            // Verify vault exists and belongs to organization
+            match verifier.verify_vault(auth_ctx.vault, auth_ctx.organization).await {
                 Ok(vault_info) => {
                     // Verify organization is active
                     if let Err(e) = verifier.verify_organization(vault_info.organization_id).await {
@@ -54,7 +54,7 @@ pub async fn vault_validation_middleware(
                 Err(e) => {
                     error!(
                         vault_id = %auth_ctx.vault,
-                        account_id = %auth_ctx.account,
+                        organization_id = %auth_ctx.organization,
                         error = %e,
                         "Vault verification failed"
                     );
@@ -64,7 +64,7 @@ pub async fn vault_validation_middleware(
                             (StatusCode::NOT_FOUND, "Vault not found")
                         },
                         VaultVerificationError::AccountMismatch { .. } => {
-                            (StatusCode::FORBIDDEN, "Vault does not belong to this account")
+                            (StatusCode::FORBIDDEN, "Vault does not belong to this organization")
                         },
                         VaultVerificationError::OrganizationNotFound(_) => {
                             (StatusCode::NOT_FOUND, "Organization not found")

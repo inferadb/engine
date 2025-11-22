@@ -110,7 +110,7 @@ mod tests {
             expires_at: Utc::now() + Duration::seconds(300),
             jti: Some("test-jti".to_string()),
             vault: 0,
-            account: 0,
+            organization: 0,
         }
     }
 

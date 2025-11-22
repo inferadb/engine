@@ -1,7 +1,7 @@
-//! List accounts handler
+//! List organizations handler
 
 use axum::extract::{Query, State};
-use infera_types::{AccountResponse, ListAccountsResponse};
+use infera_types::{ListOrganizationsResponse, OrganizationResponse};
 use serde::Deserialize;
 
 use crate::{
@@ -10,29 +10,29 @@ use crate::{
     handlers::utils::auth::require_admin_scope,
 };
 
-/// Query parameters for listing accounts
+/// Query parameters for listing organizations
 #[derive(Debug, Deserialize)]
 pub struct ListQueryParams {
-    /// Optional limit on number of accounts to return
+    /// Optional limit on number of organizations to return
     pub limit: Option<usize>,
 }
 
-/// List all accounts
+/// List all organizations
 ///
-/// This endpoint allows administrators to list all accounts in the system.
-/// Only users with the `inferadb.admin` scope can list accounts.
+/// This endpoint allows administrators to list all organizations in the system.
+/// Only users with the `inferadb.admin` scope can list organizations.
 ///
 /// # Authorization
 /// - Requires authentication
 /// - Requires `inferadb.admin` scope
 ///
 /// # Query Parameters
-/// - `limit` (optional): Maximum number of accounts to return
+/// - `limit` (optional): Maximum number of organizations to return
 ///
 /// # Response (200 OK)
 /// ```json
 /// {
-///   "accounts": [
+///   "organizations": [
 ///     {
 ///       "id": "550e8400-e29b-41d4-a716-446655440000",
 ///       "name": "Acme Corp",
@@ -48,27 +48,27 @@ pub struct ListQueryParams {
 /// - 403 Forbidden: Missing `inferadb.admin` scope
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
-pub async fn list_accounts(
+pub async fn list_organizations(
     auth: infera_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Query(params): Query<ListQueryParams>,
-) -> Result<ResponseData<ListAccountsResponse>, ApiError> {
+) -> Result<ResponseData<ListOrganizationsResponse>, ApiError> {
     // Require admin scope
     require_admin_scope(&auth.0)?;
 
-    // List accounts from storage
-    let accounts = state
+    // List organizations from storage
+    let organizations = state
         .store
-        .list_accounts(params.limit)
+        .list_organizations(params.limit)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    tracing::debug!(count = accounts.len(), "Listed accounts");
+    tracing::debug!(count = organizations.len(), "Listed organizations");
 
     // Convert to response
-    let response = ListAccountsResponse {
-        accounts: accounts.into_iter().map(AccountResponse::from).collect(),
+    let response = ListOrganizationsResponse {
+        organizations: organizations.into_iter().map(OrganizationResponse::from).collect(),
     };
 
     Ok(ResponseData::new(response, format))
@@ -82,7 +82,7 @@ mod tests {
     use infera_const::scopes::SCOPE_ADMIN;
     use infera_core::ipl::Schema;
     use infera_store::MemoryBackend;
-    use infera_types::Account;
+    use infera_types::Organization;
 
     use super::*;
     use crate::content_negotiation::ResponseFormat;
@@ -95,13 +95,9 @@ mod tests {
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         AppState::new(
-            store,
-            schema,
-            None, // No WASM host for tests
-            config,
-            None, // No JWKS cache for tests
-            test_vault,
-            0i64,
+            store, schema, None, // No WASM host for tests
+            config, None, // No JWKS cache for tests
+            test_vault, 0i64,
         )
     }
 
@@ -116,16 +112,16 @@ mod tests {
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             jti: None,
             vault: 0i64,
-            account: 0i64,
+            organization: 0i64,
         }
     }
 
     #[tokio::test]
-    async fn test_list_accounts_requires_admin() {
+    async fn test_list_organizations_requires_admin() {
         let state = create_test_state();
         let params = Query(ListQueryParams { limit: None });
 
-        let result = list_accounts(
+        let result = list_organizations(
             infera_auth::extractor::OptionalAuth(None),
             AcceptHeader(ResponseFormat::Json),
             State(state),
@@ -141,18 +137,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_accounts_success() {
+    async fn test_list_organizations_success() {
         let state = create_test_state();
 
-        // Create test accounts
-        let account1 = Account::new(66666666666666i64, "Account 1".to_string());
-        let account2 = Account::new(77777777777777i64, "Account 2".to_string());
-        state.store.create_account(account1).await.unwrap();
-        state.store.create_account(account2).await.unwrap();
+        // Create test organizations
+        let organization1 = Organization::new(66666666666666i64, "Organization 1".to_string());
+        let organization2 = Organization::new(77777777777777i64, "Organization 2".to_string());
+        state.store.create_organization(organization1).await.unwrap();
+        state.store.create_organization(organization2).await.unwrap();
 
         let params = Query(ListQueryParams { limit: None });
 
-        let result = list_accounts(
+        let result = list_organizations(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
@@ -161,22 +157,22 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(result.data.accounts.len(), 2);
+        assert_eq!(result.data.organizations.len(), 2);
     }
 
     #[tokio::test]
-    async fn test_list_accounts_with_limit() {
+    async fn test_list_organizations_with_limit() {
         let state = create_test_state();
 
-        // Create test accounts
+        // Create test organizations
         for i in 0..5 {
-            let account = Account::new(i as i64, format!("Account {}", i));
-            state.store.create_account(account).await.unwrap();
+            let organization = Organization::new(i as i64, format!("Organization {}", i));
+            state.store.create_organization(organization).await.unwrap();
         }
 
         let params = Query(ListQueryParams { limit: Some(3) });
 
-        let result = list_accounts(
+        let result = list_organizations(
             infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
@@ -185,6 +181,6 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(result.data.accounts.len(), 3);
+        assert_eq!(result.data.organizations.len(), 3);
     }
 }
