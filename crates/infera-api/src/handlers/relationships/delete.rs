@@ -446,8 +446,7 @@ mod tests {
         AppState::new(
             store, schema, None, // No WASM host for tests
             config, None, // No JWKS cache for tests
-            test_vault, 0i64,
-            None, // No server identity for tests
+            test_vault, 0i64, None, // No server identity for tests
         )
     }
 

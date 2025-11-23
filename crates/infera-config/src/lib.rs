@@ -414,6 +414,93 @@ pub struct MultiTenancyConfig {
     pub default_organization: Option<String>,
 }
 
+impl Config {
+    /// Validate configuration at startup
+    ///
+    /// This method performs comprehensive validation of all configuration values,
+    /// catching errors early before they cause runtime failures.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        // Validate server config
+        if self.server.port == 0 {
+            anyhow::bail!("server.port cannot be 0");
+        }
+        if self.server.worker_threads == 0 {
+            anyhow::bail!("server.worker_threads must be greater than 0");
+        }
+
+        // Validate store backend
+        if self.store.backend != "memory" && self.store.backend != "foundationdb" {
+            anyhow::bail!(
+                "Invalid store.backend: '{}'. Must be 'memory' or 'foundationdb'",
+                self.store.backend
+            );
+        }
+
+        // Validate FoundationDB configuration
+        if self.store.backend == "foundationdb" && self.store.connection_string.is_none() {
+            anyhow::bail!("store.connection_string is required when using FoundationDB backend");
+        }
+
+        // Validate authentication config (delegates to AuthConfig::validate)
+        if self.auth.enabled {
+            self.auth.validate().map_err(|e| anyhow::anyhow!(e))?;
+
+            // Additional validation for management API URL format
+            if !self.auth.management_api_url.starts_with("http://")
+                && !self.auth.management_api_url.starts_with("https://")
+            {
+                anyhow::bail!(
+                    "auth.management_api_url must start with http:// or https://, got: {}",
+                    self.auth.management_api_url
+                );
+            }
+            if self.auth.management_api_url.ends_with('/') {
+                anyhow::bail!(
+                    "auth.management_api_url must not end with trailing slash: {}",
+                    self.auth.management_api_url
+                );
+            }
+
+            // Validate JWKS base URL format
+            if !self.auth.jwks_base_url.starts_with("http://")
+                && !self.auth.jwks_base_url.starts_with("https://")
+            {
+                anyhow::bail!(
+                    "auth.jwks_base_url must start with http:// or https://, got: {}",
+                    self.auth.jwks_base_url
+                );
+            }
+            if self.auth.jwks_base_url.ends_with('/') {
+                anyhow::bail!(
+                    "auth.jwks_base_url must not end with trailing slash: {}",
+                    self.auth.jwks_base_url
+                );
+            }
+
+            // Validate server identity configuration
+            if self.auth.server_identity_kid.is_empty() {
+                anyhow::bail!("auth.server_identity_kid cannot be empty when auth is enabled");
+            }
+            if self.auth.server_id.is_empty() {
+                anyhow::bail!("auth.server_id cannot be empty when auth is enabled");
+            }
+        }
+
+        // Validate cache TTL values are reasonable
+        if self.auth.jwks_cache_ttl == 0 {
+            tracing::warn!("auth.jwks_cache_ttl is 0. This will cause frequent JWKS fetches.");
+        }
+        if self.auth.jwks_cache_ttl > 3600 {
+            tracing::warn!(
+                ttl = self.auth.jwks_cache_ttl,
+                "auth.jwks_cache_ttl is very high (>1 hour). Consider using a lower TTL for security."
+            );
+        }
+
+        Ok(())
+    }
+}
+
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {

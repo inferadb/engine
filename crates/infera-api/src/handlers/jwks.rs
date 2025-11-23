@@ -2,7 +2,7 @@
 //!
 //! Provides the server's public key for JWT verification by the management API
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 
 use crate::{ApiError, AppState};
 
@@ -10,9 +10,7 @@ use crate::{ApiError, AppState};
 ///
 /// Returns the server's public key in JWKS format for JWT verification.
 /// This endpoint is used by the management API to verify JWTs signed by this server.
-pub async fn get_server_jwks(
-    State(state): State<AppState>,
-) -> Result<impl IntoResponse, ApiError> {
+pub async fn get_server_jwks(State(state): State<AppState>) -> Result<impl IntoResponse, ApiError> {
     let identity = state
         .server_identity
         .as_ref()

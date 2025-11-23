@@ -485,7 +485,8 @@ async fn test_jwt_authentication_full_flow() {
 
     // Create management client and caches
     let management_client = Arc::new(
-        ManagementClient::new(base_url.clone(), 5000, None).expect("Failed to create management client"),
+        ManagementClient::new(base_url.clone(), 5000, None)
+            .expect("Failed to create management client"),
     );
 
     let cert_cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
@@ -628,7 +629,8 @@ async fn test_management_client_get_organization() {
 
     let (base_url, _handle) = start_mock_management_server(state).await;
 
-    let client = ManagementClient::new(base_url, 5000, None).expect("Failed to create management client");
+    let client =
+        ManagementClient::new(base_url, 5000, None).expect("Failed to create management client");
 
     let org_info = client.get_organization(org_id).await.expect("Failed to get organization");
 
@@ -647,7 +649,8 @@ async fn test_management_client_get_vault() {
 
     let (base_url, _handle) = start_mock_management_server(state).await;
 
-    let client = ManagementClient::new(base_url, 5000, None).expect("Failed to create management client");
+    let client =
+        ManagementClient::new(base_url, 5000, None).expect("Failed to create management client");
 
     let vault_info = client.get_vault(vault_id).await.expect("Failed to get vault");
 
@@ -661,8 +664,8 @@ async fn test_management_client_timeout() {
     let state = MockManagementState::new();
     let (base_url, _handle) = start_mock_management_server(state).await;
 
-    let client =
-        ManagementClient::new(base_url.clone(), 1, None).expect("Failed to create management client");
+    let client = ManagementClient::new(base_url.clone(), 1, None)
+        .expect("Failed to create management client");
 
     // This might timeout or succeed depending on timing, but shouldn't panic
     let _result = client.get_organization(generate_snowflake_id()).await;

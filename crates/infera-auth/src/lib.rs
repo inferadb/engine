@@ -81,10 +81,10 @@ pub use metrics::AuthMetrics;
 pub use middleware::{validate_vault_access, vault_validation_middleware};
 pub use oauth::OAuthJwksClient;
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
-pub use server_identity::{Jwks as ServerJwks, ServerIdentity, SharedServerIdentity};
 #[cfg(feature = "replay-protection")]
 pub use replay::RedisReplayProtection;
 pub use replay::{InMemoryReplayProtection, ReplayProtection};
+pub use server_identity::{Jwks as ServerJwks, ServerIdentity, SharedServerIdentity};
 pub use vault_middleware::vault_validation_middleware as enhanced_vault_validation_middleware;
 pub use vault_verification::{
     ManagementApiVaultVerifier, NoOpVaultVerifier, VaultVerificationError, VaultVerifier,

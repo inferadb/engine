@@ -47,10 +47,13 @@ where
     type Rejection = Response;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts.extensions.get::<Arc<AuthContext>>()
+        parts
+            .extensions
+            .get::<Arc<AuthContext>>()
             .map(|arc| RequireAuth((**arc).clone()))
             .ok_or_else(|| {
-                (StatusCode::UNAUTHORIZED, "Authentication required but not present").into_response()
+                (StatusCode::UNAUTHORIZED, "Authentication required but not present")
+                    .into_response()
             })
     }
 }

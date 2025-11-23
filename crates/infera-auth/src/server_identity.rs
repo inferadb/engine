@@ -3,10 +3,11 @@
 //! This module handles the server's Ed25519 keypair used to sign JWTs when
 //! making authenticated requests to the management API.
 
-use ed25519_dalek::{SigningKey, VerifyingKey};
-use jsonwebtoken::{encode, EncodingKey, Header};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+use ed25519_dalek::{SigningKey, VerifyingKey};
+use jsonwebtoken::{EncodingKey, Header, encode};
+use serde::{Deserialize, Serialize};
 
 /// Server identity containing Ed25519 keypair for signing JWTs
 #[derive(Clone)]
@@ -41,6 +42,7 @@ struct ServerJwtClaims {
 /// JWKS (JSON Web Key Set) response
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Jwks {
+    /// Array of JWK public keys
     pub keys: Vec<Jwk>,
 }
 
@@ -74,12 +76,7 @@ impl ServerIdentity {
         let signing_key = SigningKey::from_bytes(&secret_bytes);
         let verifying_key = signing_key.verifying_key();
 
-        Self {
-            server_id,
-            kid,
-            signing_key,
-            verifying_key,
-        }
+        Self { server_id, kid, signing_key, verifying_key }
     }
 
     /// Create server identity from an existing Ed25519 private key (PEM format)
@@ -105,12 +102,7 @@ impl ServerIdentity {
         let signing_key = SigningKey::from_bytes(&private_key_bytes);
         let verifying_key = signing_key.verifying_key();
 
-        Ok(Self {
-            server_id,
-            kid,
-            signing_key,
-            verifying_key,
-        })
+        Ok(Self { server_id, kid, signing_key, verifying_key })
     }
 
     /// Export the private key as PEM format (for saving to config)
@@ -118,7 +110,8 @@ impl ServerIdentity {
         let key_bytes = self.signing_key.to_bytes();
 
         // PKCS#8 format for Ed25519 private key
-        // This is a simplified version - in production you might want to use a proper PKCS#8 encoder
+        // This is a simplified version - in production you might want to use a proper PKCS#8
+        // encoder
         let mut pkcs8_bytes = vec![
             0x30, 0x2e, // SEQUENCE, length 46
             0x02, 0x01, 0x00, // INTEGER 0 (version)
@@ -155,13 +148,12 @@ impl ServerIdentity {
         let encoding_key = EncodingKey::from_ed_pem(pem.as_bytes())
             .map_err(|e| format!("Failed to create encoding key: {}", e))?;
 
-        encode(&header, &claims, &encoding_key)
-            .map_err(|e| format!("Failed to sign JWT: {}", e))
+        encode(&header, &claims, &encoding_key).map_err(|e| format!("Failed to sign JWT: {}", e))
     }
 
     /// Get the JWKS representation of the public key
     pub fn to_jwks(&self) -> Jwks {
-        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+        use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 
         let public_key_bytes = self.verifying_key.as_bytes();
         let x = URL_SAFE_NO_PAD.encode(public_key_bytes);

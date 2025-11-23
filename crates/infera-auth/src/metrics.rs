@@ -111,6 +111,8 @@ impl AuthMetrics {
     pub fn record_cache_invalidation(&self, cache_type: &str, reason: &str) {
         // Use cache_misses_total with a special label pattern for invalidations
         // This allows monitoring invalidation rates without adding a new metric
-        self.cache_misses_total.with_label_values(&[&format!("{}_invalidation_{}", cache_type, reason)]).inc();
+        self.cache_misses_total
+            .with_label_values(&[&format!("{}_invalidation_{}", cache_type, reason)])
+            .inc();
     }
 }

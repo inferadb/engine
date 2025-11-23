@@ -5,12 +5,7 @@
 
 use std::sync::Arc;
 
-use axum::{
-    Extension,
-    extract::Path,
-    http::StatusCode,
-    response::IntoResponse,
-};
+use axum::{Extension, extract::Path, http::StatusCode, response::IntoResponse};
 use infera_auth::ManagementApiVaultVerifier;
 
 /// Invalidate vault cache for a specific vault
@@ -109,22 +104,19 @@ pub async fn clear_all_caches(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::Duration;
+
     use axum::{body::Body, http::Request};
     use infera_auth::ManagementClient;
-    use std::time::Duration;
     use tower::ServiceExt;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_invalidate_vault_cache_handler() {
         // Create a test vault verifier
         let client = Arc::new(
-            ManagementClient::new(
-                "http://localhost:8081".to_string(),
-                5000,
-                None,
-            )
-            .unwrap()
+            ManagementClient::new("http://localhost:8081".to_string(), 5000, None).unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,
@@ -134,7 +126,10 @@ mod tests {
 
         // Create a simple router for testing
         let app = axum::Router::new()
-            .route("/internal/cache/invalidate/vault/{vault_id}", axum::routing::post(invalidate_vault_cache))
+            .route(
+                "/internal/cache/invalidate/vault/{vault_id}",
+                axum::routing::post(invalidate_vault_cache),
+            )
             .layer(Extension(verifier));
 
         // Make request
@@ -144,7 +139,7 @@ mod tests {
                     .method("POST")
                     .uri("/internal/cache/invalidate/vault/123456789")
                     .body(Body::empty())
-                    .unwrap()
+                    .unwrap(),
             )
             .await
             .unwrap();
@@ -155,12 +150,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalidate_organization_cache_handler() {
         let client = Arc::new(
-            ManagementClient::new(
-                "http://localhost:8081".to_string(),
-                5000,
-                None,
-            )
-            .unwrap()
+            ManagementClient::new("http://localhost:8081".to_string(), 5000, None).unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,
@@ -169,7 +159,10 @@ mod tests {
         ));
 
         let app = axum::Router::new()
-            .route("/internal/cache/invalidate/organization/{org_id}", axum::routing::post(invalidate_organization_cache))
+            .route(
+                "/internal/cache/invalidate/organization/{org_id}",
+                axum::routing::post(invalidate_organization_cache),
+            )
             .layer(Extension(verifier));
 
         let response = app
@@ -178,7 +171,7 @@ mod tests {
                     .method("POST")
                     .uri("/internal/cache/invalidate/organization/987654321")
                     .body(Body::empty())
-                    .unwrap()
+                    .unwrap(),
             )
             .await
             .unwrap();
@@ -189,12 +182,7 @@ mod tests {
     #[tokio::test]
     async fn test_clear_all_caches_handler() {
         let client = Arc::new(
-            ManagementClient::new(
-                "http://localhost:8081".to_string(),
-                5000,
-                None,
-            )
-            .unwrap()
+            ManagementClient::new("http://localhost:8081".to_string(), 5000, None).unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,
@@ -212,7 +200,7 @@ mod tests {
                     .method("POST")
                     .uri("/internal/cache/invalidate/all")
                     .body(Body::empty())
-                    .unwrap()
+                    .unwrap(),
             )
             .await
             .unwrap();

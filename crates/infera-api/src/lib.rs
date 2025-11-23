@@ -356,7 +356,8 @@ pub fn create_router(state: AppState) -> Result<Router> {
         );
 
         // Keep both trait object and concrete type references
-        let vault_verifier_trait: Arc<dyn infera_auth::VaultVerifier> = Arc::clone(&mgmt_verifier) as Arc<dyn infera_auth::VaultVerifier>;
+        let vault_verifier_trait: Arc<dyn infera_auth::VaultVerifier> =
+            Arc::clone(&mgmt_verifier) as Arc<dyn infera_auth::VaultVerifier>;
 
         (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
     } else {
@@ -379,24 +380,29 @@ pub fn create_router(state: AppState) -> Result<Router> {
         // Create internal router with Management JWT auth middleware and vault verifier extension
         let mgmt_cache_clone = Arc::clone(&management_jwks_cache);
         let verifier_clone = Arc::clone(verifier);
-        Some(Router::new()
-            .route("/internal/cache/invalidate/vault/{vault_id}",
-                post(handlers::internal::invalidate_vault_cache))
-            .route("/internal/cache/invalidate/organization/{org_id}",
-                post(handlers::internal::invalidate_organization_cache))
-            .route("/internal/cache/invalidate/all",
-                post(handlers::internal::clear_all_caches))
-            // Add vault verifier as Extension for handlers
-            .layer(Extension(verifier_clone))
-            // Apply Management JWT auth middleware
-            .layer(axum::middleware::from_fn(move |req, next| {
-                let cache = Arc::clone(&mgmt_cache_clone);
-                async move {
-                    infera_auth::management_auth_middleware(cache, req, next).await
-                }
-            })))
+        Some(
+            Router::new()
+                .route(
+                    "/internal/cache/invalidate/vault/{vault_id}",
+                    post(handlers::internal::invalidate_vault_cache),
+                )
+                .route(
+                    "/internal/cache/invalidate/organization/{org_id}",
+                    post(handlers::internal::invalidate_organization_cache),
+                )
+                .route("/internal/cache/invalidate/all", post(handlers::internal::clear_all_caches))
+                // Add vault verifier as Extension for handlers
+                .layer(Extension(verifier_clone))
+                // Apply Management JWT auth middleware
+                .layer(axum::middleware::from_fn(move |req, next| {
+                    let cache = Arc::clone(&mgmt_cache_clone);
+                    async move { infera_auth::management_auth_middleware(cache, req, next).await }
+                })),
+        )
     } else {
-        info!("Internal cache invalidation endpoints DISABLED (auth disabled or management API not configured)");
+        info!(
+            "Internal cache invalidation endpoints DISABLED (auth disabled or management API not configured)"
+        );
         None
     };
 
@@ -489,10 +495,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
             get(handlers::authzen::well_known::get_authzen_configuration),
         )
         // JWKS endpoint for server identity public key (for management API to verify server JWTs)
-        .route(
-            "/.well-known/jwks.json",
-            get(handlers::jwks::get_server_jwks),
-        )
+        .route("/.well-known/jwks.json", get(handlers::jwks::get_server_jwks))
         .merge(protected_routes);
 
     // Merge internal routes if enabled

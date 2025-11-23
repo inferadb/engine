@@ -44,8 +44,8 @@ async fn main() -> Result<()> {
         config.server.port = port;
     }
 
-    // Validate authentication configuration
-    if let Err(e) = config.auth.validate() {
+    // Validate configuration
+    if let Err(e) = config.validate() {
         eprintln!("Configuration validation error: {}", e);
         std::process::exit(1);
     }

@@ -3,8 +3,7 @@
 //! This module provides an HTTP client for communicating with the InferaDB Management API
 //! to validate vaults, organizations, and fetch client certificates for JWT verification.
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use reqwest::{Client as HttpClient, StatusCode};
 use serde::Deserialize;
@@ -75,11 +74,7 @@ impl ManagementClient {
             .pool_max_idle_per_host(10)
             .build()?;
 
-        Ok(Self {
-            http_client,
-            base_url,
-            server_identity,
-        })
+        Ok(Self { http_client, base_url, server_identity })
     }
 
     /// Get authorization header for server-to-management requests
@@ -88,10 +83,7 @@ impl ManagementClient {
     /// otherwise returns None (request will be unauthenticated)
     fn get_auth_header(&self) -> Option<String> {
         self.server_identity.as_ref().and_then(|identity| {
-            identity
-                .sign_jwt(&self.base_url)
-                .ok()
-                .map(|jwt| format!("Bearer {}", jwt))
+            identity.sign_jwt(&self.base_url).ok().map(|jwt| format!("Bearer {}", jwt))
         })
     }
 
@@ -120,10 +112,8 @@ impl ManagementClient {
             request = request.header("Authorization", auth_header);
         }
 
-        let response = request
-            .send()
-            .await
-            .map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
+        let response =
+            request.send().await.map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
 
         match response.status() {
             StatusCode::OK => {
@@ -160,10 +150,8 @@ impl ManagementClient {
             request = request.header("Authorization", auth_header);
         }
 
-        let response = request
-            .send()
-            .await
-            .map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
+        let response =
+            request.send().await.map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
 
         match response.status() {
             StatusCode::OK => {

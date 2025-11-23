@@ -1,7 +1,8 @@
 //! Management API JWT authentication middleware
 //!
 //! This module provides authentication for requests FROM the Management API TO the server.
-//! This is the reverse of the normal flow where the server validates client JWTs issued by Management.
+//! This is the reverse of the normal flow where the server validates client JWTs issued by
+//! Management.
 //!
 //! The Management API uses this to authenticate when calling server internal endpoints
 //! (like cache invalidation callbacks).
@@ -18,11 +19,7 @@ use axum::{
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    error::AuthError,
-    jwt::decode_jwt_header,
-    middleware::extract_bearer_token,
-};
+use crate::{error::AuthError, jwt::decode_jwt_header, middleware::extract_bearer_token};
 
 /// Management context attached to requests authenticated by Management API
 #[derive(Clone, Debug)]
@@ -69,10 +66,9 @@ impl ManagementJwk {
         match self.kty.as_str() {
             "OKP" => {
                 // EdDSA key
-                let x = self
-                    .x
-                    .as_ref()
-                    .ok_or_else(|| AuthError::JwksError("Missing x parameter for OKP key".into()))?;
+                let x = self.x.as_ref().ok_or_else(|| {
+                    AuthError::JwksError("Missing x parameter for OKP key".into())
+                })?;
 
                 let crv = self.crv.as_ref().ok_or_else(|| {
                     AuthError::JwksError("Missing crv parameter for OKP key".into())
@@ -82,7 +78,7 @@ impl ManagementJwk {
                     return Err(AuthError::JwksError(format!("Unsupported curve: {}", crv)));
                 }
 
-                use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+                use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
                 let x_bytes = URL_SAFE_NO_PAD
                     .decode(x)
                     .map_err(|e| AuthError::JwksError(format!("Invalid base64 in x: {}", e)))?;
@@ -91,14 +87,12 @@ impl ManagementJwk {
             },
             "RSA" => {
                 // RSA key
-                let n = self
-                    .n
-                    .as_ref()
-                    .ok_or_else(|| AuthError::JwksError("Missing n parameter for RSA key".into()))?;
-                let e = self
-                    .e
-                    .as_ref()
-                    .ok_or_else(|| AuthError::JwksError("Missing e parameter for RSA key".into()))?;
+                let n = self.n.as_ref().ok_or_else(|| {
+                    AuthError::JwksError("Missing n parameter for RSA key".into())
+                })?;
+                let e = self.e.as_ref().ok_or_else(|| {
+                    AuthError::JwksError("Missing e parameter for RSA key".into())
+                })?;
 
                 Ok(jsonwebtoken::DecodingKey::from_rsa_components(n, e)?)
             },
@@ -150,12 +144,10 @@ impl ManagementJwksCache {
             "Fetching Management API JWKS"
         );
 
-        let response = self
-            .http_client
-            .get(&jwks_url)
-            .send()
-            .await
-            .map_err(|e| AuthError::JwksError(format!("Failed to fetch Management JWKS: {}", e)))?;
+        let response =
+            self.http_client.get(&jwks_url).send().await.map_err(|e| {
+                AuthError::JwksError(format!("Failed to fetch Management JWKS: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(AuthError::JwksError(format!(
@@ -168,10 +160,7 @@ impl ManagementJwksCache {
             AuthError::JwksError(format!("Failed to parse Management JWKS JSON: {}", e))
         })?;
 
-        tracing::info!(
-            key_count = jwks.keys.len(),
-            "Successfully fetched Management API JWKS"
-        );
+        tracing::info!(key_count = jwks.keys.len(), "Successfully fetched Management API JWKS");
 
         Ok(jwks)
     }
@@ -202,13 +191,9 @@ impl ManagementJwksCache {
     async fn get_key(&self, kid: &str) -> Result<ManagementJwk, AuthError> {
         let jwks = self.get_jwks().await?;
 
-        jwks.keys
-            .iter()
-            .find(|k| k.kid == kid)
-            .cloned()
-            .ok_or_else(|| {
-                AuthError::JwksError(format!("Management key '{}' not found in JWKS", kid))
-            })
+        jwks.keys.iter().find(|k| k.kid == kid).cloned().ok_or_else(|| {
+            AuthError::JwksError(format!("Management key '{}' not found in JWKS", kid))
+        })
     }
 
     /// Verify a JWT from the Management API
@@ -227,14 +212,16 @@ impl ManagementJwksCache {
         // Decode header to get key ID
         let header = decode_jwt_header(token)?;
 
-        let kid =
-            header.kid.ok_or_else(|| {
-                AuthError::InvalidTokenFormat("Management JWT missing kid".into())
-            })?;
+        let kid = header
+            .kid
+            .ok_or_else(|| AuthError::InvalidTokenFormat("Management JWT missing kid".into()))?;
 
         // Validate algorithm
         let alg_str = format!("{:?}", header.alg);
-        crate::validation::validate_algorithm(&alg_str, &["EdDSA".to_string(), "RS256".to_string()])?;
+        crate::validation::validate_algorithm(
+            &alg_str,
+            &["EdDSA".to_string(), "RS256".to_string()],
+        )?;
 
         // Get key from JWKS
         let jwk = self.get_key(&kid).await?;
@@ -246,8 +233,9 @@ impl ManagementJwksCache {
         validation.validate_nbf = false;
         validation.validate_aud = false;
 
-        let token_data = jsonwebtoken::decode::<ManagementJwtClaims>(token, &decoding_key, &validation)
-            .map_err(|e| AuthError::InvalidTokenFormat(format!("JWT error: {}", e)))?;
+        let token_data =
+            jsonwebtoken::decode::<ManagementJwtClaims>(token, &decoding_key, &validation)
+                .map_err(|e| AuthError::InvalidTokenFormat(format!("JWT error: {}", e)))?;
 
         let mgmt_claims = token_data.claims;
 
@@ -344,8 +332,7 @@ pub async fn management_auth_middleware(
             error = %e,
             "Management authentication failed: missing or invalid token"
         );
-        (StatusCode::UNAUTHORIZED, format!("Invalid Management API token: {}", e))
-            .into_response()
+        (StatusCode::UNAUTHORIZED, format!("Invalid Management API token: {}", e)).into_response()
     })?;
 
     // Verify JWT
@@ -420,10 +407,7 @@ mod tests {
             jti: Some("test-jti".to_string()),
         };
 
-        assert!(matches!(
-            validate_management_claims(&claims),
-            Err(AuthError::TokenExpired)
-        ));
+        assert!(matches!(validate_management_claims(&claims), Err(AuthError::TokenExpired)));
     }
 
     #[test]
