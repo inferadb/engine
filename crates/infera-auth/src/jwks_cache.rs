@@ -10,8 +10,8 @@
 //!
 //! ## Architecture
 //!
-//! The JWKS cache fetches public keys from a Control Plane endpoint at
-//! `{base_url}/{tenant_id}/.well-known/jwks.json`. Keys are cached using a Moka cache
+//! The JWKS cache fetches public keys from a Management API endpoint at
+//! `{base_url}/v1/organizations/{org_id}/jwks.json`. Keys are cached using a Moka cache
 //! with configurable TTL (typically 5 minutes).
 //!
 //! ## Example Usage
@@ -373,7 +373,7 @@ impl JwksCache {
         base_url: &str,
         org_id: &str,
     ) -> Result<Vec<Jwk>, AuthError> {
-        let url = format!("{}/jwks/{}.json", base_url, org_id);
+        let url = format!("{}/v1/organizations/{}/jwks.json", base_url, org_id);
 
         let start = std::time::Instant::now();
         let result = Self::fetch_jwks_inner(http_client, &url, org_id).await;

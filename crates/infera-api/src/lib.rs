@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -315,9 +315,11 @@ pub fn create_router(state: AppState) -> Result<Router> {
         .route("/access/v1/search/subject", post(handlers::authzen::search::post_search_subject));
 
     // Create VaultVerifier and CertificateCache instances based on configuration
-    let (vault_verifier, cert_cache): (
+    // Also keep a reference to the concrete ManagementApiVaultVerifier for cache invalidation
+    let (vault_verifier, cert_cache, mgmt_vault_verifier): (
         Arc<dyn infera_auth::VaultVerifier>,
         Option<Arc<infera_auth::CertificateCache>>,
+        Option<Arc<infera_auth::ManagementApiVaultVerifier>>,
     ) = if state.config.auth.enabled && !state.config.auth.management_api_url.is_empty() {
         // Use management API for vault verification and certificate fetching
         let management_client = Arc::new(
@@ -336,7 +338,7 @@ pub fn create_router(state: AppState) -> Result<Router> {
             state.config.auth.management_api_url
         );
 
-        let vault_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
+        let mgmt_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
             Arc::clone(&management_client),
             std::time::Duration::from_secs(300), // 5 min vault cache TTL
             std::time::Duration::from_secs(600), // 10 min org cache TTL
@@ -353,11 +355,49 @@ pub fn create_router(state: AppState) -> Result<Router> {
             })?,
         );
 
-        (vault_verifier, Some(cert_cache))
+        // Keep both trait object and concrete type references
+        let vault_verifier_trait: Arc<dyn infera_auth::VaultVerifier> = Arc::clone(&mgmt_verifier) as Arc<dyn infera_auth::VaultVerifier>;
+
+        (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
     } else {
         // Use no-op verifier when auth is disabled or management API not configured
         info!("Vault verification DISABLED - using no-op verifier");
-        (Arc::new(infera_auth::NoOpVaultVerifier), None)
+        (Arc::new(infera_auth::NoOpVaultVerifier), None, None)
+    };
+
+    // Create internal routes for cache invalidation (protected by Management JWT)
+    let internal_routes = if let Some(ref verifier) = mgmt_vault_verifier {
+        // Internal routes only enabled when auth is enabled and management API is configured
+        info!("Internal cache invalidation endpoints ENABLED");
+
+        // Create Management JWKS cache for verifying Management API JWTs
+        let management_jwks_cache = Arc::new(infera_auth::ManagementJwksCache::new(
+            state.config.auth.management_api_url.clone(),
+            std::time::Duration::from_secs(900), // 15 minutes TTL
+        ));
+
+        // Create internal router with Management JWT auth middleware and vault verifier extension
+        let mgmt_cache_clone = Arc::clone(&management_jwks_cache);
+        let verifier_clone = Arc::clone(verifier);
+        Some(Router::new()
+            .route("/internal/cache/invalidate/vault/{vault_id}",
+                post(handlers::internal::invalidate_vault_cache))
+            .route("/internal/cache/invalidate/organization/{org_id}",
+                post(handlers::internal::invalidate_organization_cache))
+            .route("/internal/cache/invalidate/all",
+                post(handlers::internal::clear_all_caches))
+            // Add vault verifier as Extension for handlers
+            .layer(Extension(verifier_clone))
+            // Apply Management JWT auth middleware
+            .layer(axum::middleware::from_fn(move |req, next| {
+                let cache = Arc::clone(&mgmt_cache_clone);
+                async move {
+                    infera_auth::management_auth_middleware(cache, req, next).await
+                }
+            })))
+    } else {
+        info!("Internal cache invalidation endpoints DISABLED (auth disabled or management API not configured)");
+        None
     };
 
     // Apply authentication middleware (either with JWT validation or default context)
@@ -435,9 +475,9 @@ pub fn create_router(state: AppState) -> Result<Router> {
         }))
     };
 
-    // Combine health endpoints and public discovery with protected routes
+    // Combine health endpoints, public discovery, internal routes, and protected routes
     // Note: AuthZEN /access/v1/* endpoints are now in protected_routes for vault isolation
-    let router = Router::new()
+    let mut router = Router::new()
         .route("/health", get(health::health_check_handler))
         .route("/health/live", get(health::liveness_handler))
         .route("/health/ready", get(health::readiness_handler))
@@ -453,8 +493,14 @@ pub fn create_router(state: AppState) -> Result<Router> {
             "/.well-known/jwks.json",
             get(handlers::jwks::get_server_jwks),
         )
-        .merge(protected_routes)
-        .with_state(state.clone());
+        .merge(protected_routes);
+
+    // Merge internal routes if enabled
+    if let Some(internal) = internal_routes {
+        router = router.merge(internal);
+    }
+
+    let router = router.with_state(state.clone());
 
     // Add CORS, compression, and rate limiting layers
     // Note: Rate limiting is applied to all routes except /health (which is separate)

@@ -70,6 +70,82 @@ impl ManagementApiVaultVerifier {
             metrics: Some(metrics),
         }
     }
+
+    /// Invalidate a specific vault from the cache
+    ///
+    /// This is called when the management API notifies us that a vault has been
+    /// updated or deleted. The next request will fetch fresh data from the management API.
+    ///
+    /// # Arguments
+    ///
+    /// * `vault_id` - The Snowflake ID of the vault to invalidate
+    pub async fn invalidate_vault(&self, vault_id: i64) {
+        self.vault_cache.invalidate(&vault_id).await;
+
+        // Record manual invalidation metric
+        if let Some(ref metrics) = self.metrics {
+            metrics.record_cache_invalidation("vault", "manual");
+        }
+
+        tracing::info!(
+            vault_id = %vault_id,
+            event_type = "cache.invalidation",
+            cache_type = "vault",
+            reason = "manual",
+            "Vault cache entry invalidated"
+        );
+    }
+
+    /// Invalidate a specific organization from the cache
+    ///
+    /// This is called when the management API notifies us that an organization has been
+    /// updated or deleted. The next request will fetch fresh data from the management API.
+    ///
+    /// # Arguments
+    ///
+    /// * `org_id` - The Snowflake ID of the organization to invalidate
+    pub async fn invalidate_organization(&self, org_id: i64) {
+        self.org_cache.invalidate(&org_id).await;
+
+        // Record manual invalidation metric
+        if let Some(ref metrics) = self.metrics {
+            metrics.record_cache_invalidation("organization", "manual");
+        }
+
+        tracing::info!(
+            org_id = %org_id,
+            event_type = "cache.invalidation",
+            cache_type = "organization",
+            reason = "manual",
+            "Organization cache entry invalidated"
+        );
+    }
+
+    /// Clear all caches (vaults and organizations)
+    ///
+    /// This is a nuclear option for troubleshooting or after major management API changes.
+    /// Use sparingly as it will cause a temporary spike in management API requests.
+    pub async fn clear_all_caches(&self) {
+        let vault_count = self.vault_cache.entry_count();
+        let org_count = self.org_cache.entry_count();
+
+        self.vault_cache.invalidate_all();
+        self.org_cache.invalidate_all();
+
+        // Record manual invalidation metric
+        if let Some(ref metrics) = self.metrics {
+            metrics.record_cache_invalidation("all", "manual");
+        }
+
+        tracing::warn!(
+            vault_cache_entries = vault_count,
+            org_cache_entries = org_count,
+            event_type = "cache.invalidation",
+            cache_type = "all",
+            reason = "manual",
+            "All caches cleared"
+        );
+    }
 }
 
 #[async_trait]

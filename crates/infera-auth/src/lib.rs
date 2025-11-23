@@ -41,6 +41,8 @@ pub mod internal;
 pub mod jwks_cache;
 /// JWT validation and claims
 pub mod jwt;
+/// Management API JWT authentication (reverse: Management -> Server)
+pub mod management_auth;
 /// Management API client
 pub mod management_client;
 /// Prometheus metrics for authentication operations
@@ -71,6 +73,7 @@ pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
 pub use internal::{InternalJwks, InternalJwksLoader};
 pub use jwks_cache::{Jwk, JwksCache};
+pub use management_auth::{ManagementContext, ManagementJwksCache, management_auth_middleware};
 pub use management_client::{
     ManagementApiError, ManagementClient, OrgStatus, OrganizationInfo, VaultInfo,
 };
