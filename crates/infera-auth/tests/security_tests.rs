@@ -86,6 +86,9 @@ fn default_config() -> AuthConfig {
         cert_cache_ttl_seconds: 300,
         management_verify_vault_ownership: false,
         management_verify_org_status: false,
+        server_identity_private_key: None,
+        server_identity_kid: "server-default".into(),
+        server_id: "default".into(),
     }
 }
 

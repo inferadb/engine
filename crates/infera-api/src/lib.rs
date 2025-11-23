@@ -805,6 +805,7 @@ mod tests {
             None, // No JWKS cache for tests
             test_vault,
             test_account,
+            None, // No server identity for tests
         );
 
         state.health_tracker.set_ready(true);

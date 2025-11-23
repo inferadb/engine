@@ -134,7 +134,7 @@ mod tests {
 
         // Create a simple router for testing
         let app = axum::Router::new()
-            .route("/internal/cache/invalidate/vault/:vault_id", axum::routing::post(invalidate_vault_cache))
+            .route("/internal/cache/invalidate/vault/{vault_id}", axum::routing::post(invalidate_vault_cache))
             .layer(Extension(verifier));
 
         // Make request
@@ -169,7 +169,7 @@ mod tests {
         ));
 
         let app = axum::Router::new()
-            .route("/internal/cache/invalidate/organization/:org_id", axum::routing::post(invalidate_organization_cache))
+            .route("/internal/cache/invalidate/organization/{org_id}", axum::routing::post(invalidate_organization_cache))
             .layer(Extension(verifier));
 
         let response = app
