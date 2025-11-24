@@ -203,7 +203,7 @@ config:
 
 # Service discovery configuration
 discovery:
-  # Discovery mode: "static", "kubernetes_service"
+  # Discovery mode: "static", "kubernetes_service", "tailscale"
   mode: "kubernetes_service"
 
   # Management API discovery
@@ -218,6 +218,58 @@ discovery:
 
     # Refresh interval for discovery (seconds)
     refreshInterval: 30
+
+  # Tailscale multi-region configuration (when mode = tailscale)
+  tailscale:
+    # Enable Tailscale sidecar
+    enabled: false
+
+    # Local cluster name (e.g., "us-west-1")
+    localCluster: "primary"
+
+    # Remote clusters to discover via Tailscale mesh
+    # remoteClusters:
+    # - name: "eu-west-1"
+    #   tailscaleDomain: "eu-west-1.ts.net"
+    #   serviceName: "inferadb-management-api"
+    #   port: 3000
+    # - name: "ap-southeast-1"
+    #   tailscaleDomain: "ap-southeast-1.ts.net"
+    #   serviceName: "inferadb-management-api"
+    #   port: 3000
+    remoteClusters: []
+
+    # Tailscale auth key (reference to secret)
+    authKey:
+      # Use existing secret
+      existingSecret: "tailscale-auth"
+      key: "authkey"
+      # Or provide directly (not recommended for production)
+      value: ""
+
+    # Tailscale sidecar image
+    image:
+      repository: tailscale/tailscale
+      tag: "v1.56.1"
+      pullPolicy: IfNotPresent
+
+    # Resource limits for Tailscale sidecar
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+    # Additional Tailscale arguments
+    extraArgs: "--accept-routes"
+
+    # Accept DNS from Tailscale
+    acceptDNS: false
+
+    # Advertise routes
+    advertiseRoutes: ""
 
 # Secrets (use external secret manager in production)
 secrets:

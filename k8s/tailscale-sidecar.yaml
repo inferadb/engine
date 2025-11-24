@@ -1,0 +1,213 @@
+# Tailscale sidecar configuration for InferaDB Server
+#
+# This manifest adds a Tailscale sidecar container to the server deployment,
+# enabling multi-region mesh networking via Tailscale VPN.
+#
+# Prerequisites:
+# 1. Create a Tailscale auth key: https://login.tailscale.com/admin/settings/keys
+# 2. Store the auth key in a Kubernetes secret:
+#    kubectl create secret generic tailscale-auth \
+#      --from-literal=authkey=tskey-auth-xxx-yyy \
+#      --namespace=inferadb
+#
+# Usage:
+# Add the sidecar container to your deployment's pod spec:
+#   spec:
+#     template:
+#       spec:
+#         containers:
+#         - name: inferadb-server
+#           # ... existing server container config ...
+#         - name: tailscale
+#           # ... use configuration from this file ...
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tailscale-sidecar-config
+  namespace: inferadb
+  labels:
+    app.kubernetes.io/component: tailscale
+    app.kubernetes.io/part-of: inferadb
+data:
+  # Tailscale configuration
+  # These settings can be customized per deployment
+  TS_USERSPACE: "true"
+  TS_KUBE_SECRET: "tailscale-state"
+  TS_EXTRA_ARGS: "--accept-routes --advertise-routes=10.0.0.0/8"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tailscale-auth
+  namespace: inferadb
+  labels:
+    app.kubernetes.io/component: tailscale
+    app.kubernetes.io/part-of: inferadb
+type: Opaque
+stringData:
+  # IMPORTANT: Replace this with your actual Tailscale auth key
+  # Generate at: https://login.tailscale.com/admin/settings/keys
+  #
+  # For production, use External Secrets Operator or similar:
+  # apiVersion: external-secrets.io/v1beta1
+  # kind: ExternalSecret
+  # metadata:
+  #   name: tailscale-auth
+  # spec:
+  #   secretStoreRef:
+  #     name: vault-backend
+  #   target:
+  #     name: tailscale-auth
+  #   data:
+  #   - secretKey: authkey
+  #     remoteRef:
+  #       key: tailscale/inferadb/authkey
+  authkey: "tskey-auth-REPLACE-ME"
+
+---
+# Example deployment patch with Tailscale sidecar
+# Apply this to your existing deployment or use Kustomize strategic merge patch
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inferadb-server-with-tailscale
+  namespace: inferadb
+spec:
+  template:
+    spec:
+      # Service account with RBAC permissions for Tailscale state management
+      serviceAccountName: inferadb-server
+
+      # Optional: Use a dedicated node pool for Tailscale-enabled pods
+      # nodeSelector:
+      #   tailscale: "true"
+
+      containers:
+      # Main application container (existing)
+      - name: inferadb-server
+        image: inferadb:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8081
+          name: grpc
+        # ... other container configuration ...
+
+      # Tailscale sidecar container
+      - name: tailscale
+        image: tailscale/tailscale:v1.56.1
+        imagePullPolicy: IfNotPresent
+
+        env:
+        # Tailscale auth key from secret
+        - name: TS_AUTHKEY
+          valueFrom:
+            secretKeyRef:
+              name: tailscale-auth
+              key: authkey
+
+        # Kubernetes secret for storing Tailscale state
+        - name: TS_KUBE_SECRET
+          value: "tailscale-state"
+
+        # Userspace networking (no kernel modules required)
+        - name: TS_USERSPACE
+          value: "true"
+
+        # Hostname for this pod in Tailscale network
+        - name: TS_HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+
+        # Accept DNS configuration from Tailscale
+        - name: TS_ACCEPT_DNS
+          value: "false"  # Set to "true" to use Tailscale DNS
+
+        # Additional Tailscale arguments
+        - name: TS_EXTRA_ARGS
+          value: "--accept-routes"
+
+        # State directory
+        - name: TS_STATE_DIR
+          value: "/var/lib/tailscale"
+
+        # Security context for Tailscale sidecar
+        securityContext:
+          # Tailscale requires NET_ADMIN capability for userspace networking
+          capabilities:
+            add:
+            - NET_ADMIN
+
+        # Resource limits for Tailscale sidecar
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+
+        # Volume mounts for Tailscale state
+        volumeMounts:
+        - name: tailscale-state
+          mountPath: /var/lib/tailscale
+
+        # Liveness probe
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - tailscale status
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # Readiness probe
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - tailscale status --json | grep -q '"BackendState":"Running"'
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+      # Volumes
+      volumes:
+      - name: tailscale-state
+        emptyDir: {}
+
+---
+# RBAC permissions for Tailscale to manage its state in Kubernetes secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tailscale-state-manager
+  namespace: inferadb
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+  resourceNames: ["tailscale-state"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tailscale-state-manager
+  namespace: inferadb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tailscale-state-manager
+subjects:
+- kind: ServiceAccount
+  name: inferadb-server
+  namespace: inferadb

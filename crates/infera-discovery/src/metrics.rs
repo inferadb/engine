@@ -30,6 +30,27 @@ pub fn init_discovery_metrics() {
         "inferadb_discovery_operations_total",
         "Total discovery operations with result status"
     );
+
+    // Tailscale-specific metrics
+    describe_counter!(
+        "inferadb_tailscale_dns_resolutions_total",
+        "Total Tailscale MagicDNS resolution attempts with result status"
+    );
+
+    describe_gauge!(
+        "inferadb_tailscale_discovered_endpoints",
+        "Number of endpoints discovered via Tailscale per cluster"
+    );
+
+    describe_counter!(
+        "inferadb_tailscale_cluster_discovery_failures_total",
+        "Total failures when discovering a specific Tailscale cluster"
+    );
+
+    describe_gauge!(
+        "inferadb_tailscale_clusters_total",
+        "Total number of configured Tailscale clusters"
+    );
 }
 
 /// Record a load balancing request
@@ -52,4 +73,38 @@ pub fn record_failover(from: &str, to: &str) {
 /// Record a discovery operation
 pub fn record_discovery_operation(result: &str) {
     counter!("inferadb_discovery_operations_total", "result" => result.to_string()).increment(1);
+}
+
+/// Record a Tailscale DNS resolution attempt
+pub fn record_tailscale_dns_resolution(hostname: &str, result: &str) {
+    counter!(
+        "inferadb_tailscale_dns_resolutions_total",
+        "hostname" => hostname.to_string(),
+        "result" => result.to_string()
+    )
+    .increment(1);
+}
+
+/// Set the number of discovered Tailscale endpoints for a cluster
+pub fn set_tailscale_discovered_endpoints(cluster: &str, count: i64) {
+    gauge!(
+        "inferadb_tailscale_discovered_endpoints",
+        "cluster" => cluster.to_string()
+    )
+    .set(count as f64);
+}
+
+/// Record a Tailscale cluster discovery failure
+pub fn record_tailscale_cluster_failure(cluster: &str, reason: &str) {
+    counter!(
+        "inferadb_tailscale_cluster_discovery_failures_total",
+        "cluster" => cluster.to_string(),
+        "reason" => reason.to_string()
+    )
+    .increment(1);
+}
+
+/// Set the total number of configured Tailscale clusters
+pub fn set_tailscale_clusters_total(count: i64) {
+    gauge!("inferadb_tailscale_clusters_total").set(count as f64);
 }
