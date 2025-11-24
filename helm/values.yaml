@@ -201,6 +201,24 @@ config:
   # Optional: provide full config file as YAML string
   configFile: ""
 
+# Service discovery configuration
+discovery:
+  # Discovery mode: "static", "kubernetes_service"
+  mode: "kubernetes_service"
+
+  # Management API discovery
+  managementApi:
+    # Kubernetes service name (when mode = kubernetes_service)
+    serviceName: "inferadb-management-api"
+    namespace: "inferadb"
+    port: 3000
+
+    # Static URL (when mode = static)
+    staticUrl: "http://localhost:8081"
+
+    # Refresh interval for discovery (seconds)
+    refreshInterval: 30
+
 # Secrets (use external secret manager in production)
 secrets:
   # JWKS URL for JWT validation

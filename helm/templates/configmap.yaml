@@ -61,6 +61,19 @@ data:
   INFERA__OBSERVABILITY__LOG_LEVEL: "{{ .Values.config.observability.logLevel }}"
   INFERA__OBSERVABILITY__LOG_FORMAT: "{{ .Values.config.observability.logFormat }}"
 
+  # Service discovery configuration
+  {{- if .Values.discovery }}
+  INFERA__AUTH__MANAGEMENT_API__DISCOVERY_MODE: "{{ .Values.discovery.mode }}"
+  {{- if eq .Values.discovery.mode "static" }}
+  INFERA__AUTH__MANAGEMENT_API__STATIC_URL: "{{ .Values.discovery.managementApi.staticUrl }}"
+  {{- else if eq .Values.discovery.mode "kubernetes_service" }}
+  INFERA__AUTH__MANAGEMENT_API__SERVICE_NAME: "{{ .Values.discovery.managementApi.serviceName }}"
+  INFERA__AUTH__MANAGEMENT_API__NAMESPACE: "{{ .Values.discovery.managementApi.namespace }}"
+  INFERA__AUTH__MANAGEMENT_API__PORT: "{{ .Values.discovery.managementApi.port }}"
+  INFERA__AUTH__MANAGEMENT_API__REFRESH_INTERVAL_SECONDS: "{{ .Values.discovery.managementApi.refreshInterval }}"
+  {{- end }}
+  {{- end }}
+
   {{- if .Values.config.configFile }}
   config.yaml: |
     {{- .Values.config.configFile | nindent 4 }}
