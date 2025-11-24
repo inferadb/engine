@@ -26,6 +26,9 @@ tracing = { workspace = true }
 # Error handling
 thiserror = { workspace = true }
 
+# Metrics
+metrics = { workspace = true }
+
 # URL parsing
 url = "2.5"
 

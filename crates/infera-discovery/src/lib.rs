@@ -12,10 +12,15 @@ use serde::{Deserialize, Serialize};
 pub mod config;
 pub mod error;
 pub mod kubernetes;
+pub mod lb_client;
+pub mod metrics;
+pub mod refresh;
 
 pub use config::{DiscoveryConfig, DiscoveryMode};
 pub use error::{DiscoveryError, Result};
 pub use kubernetes::KubernetesServiceDiscovery;
+pub use lb_client::LoadBalancingClient;
+pub use refresh::DiscoveryRefresher;
 
 /// Represents a discovered service endpoint
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
