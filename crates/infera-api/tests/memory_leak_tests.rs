@@ -61,16 +61,13 @@ async fn create_test_state() -> AppState {
     config.cache.enabled = true;
     config.cache.max_capacity = 10000;
 
-    AppState::new(
-        store,
-        schema,
-        None, // No WASM host for tests
-        Arc::new(config),
-        None, // No JWKS cache for tests
-        vault,
-        account,
-        None, // No server identity for tests
-    )
+    AppState::builder(store, schema, Arc::new(config))
+        .wasm_host(None)
+        .jwks_cache(None)
+        .default_vault(vault)
+        .default_organization(account)
+        .server_identity(None)
+        .build()
 }
 
 /// Test: Repeated authorization checks should not leak memory

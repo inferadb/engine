@@ -442,11 +442,13 @@ mod tests {
             .await
             .unwrap();
 
-        AppState::new(
-            store, schema, None, // No WASM host for tests
-            config, None, // No JWKS cache for tests
-            test_vault, 0i64, None, // No server identity for tests
-        )
+        AppState::builder(store, schema, config)
+            .wasm_host(None)
+            .jwks_cache(None)
+            .default_vault(test_vault)
+            .default_organization(0i64)
+            .server_identity(None)
+            .build()
     }
 
     #[tokio::test]

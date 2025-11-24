@@ -154,17 +154,18 @@ async fn main() -> Result<()> {
     // Start API server
     tracing::info!("Starting API server on {}:{}", config.server.host, config.server.port);
 
-    infera_api::serve(
+    let components = infera_api::ServerComponents {
         store,
         schema,
         wasm_host,
         config,
         jwks_cache,
-        system_config.default_vault,
-        system_config.default_organization,
+        default_vault: system_config.default_vault,
+        default_organization: system_config.default_organization,
         server_identity,
-    )
-    .await?;
+    };
+
+    infera_api::serve(components).await?;
 
     Ok(())
 }

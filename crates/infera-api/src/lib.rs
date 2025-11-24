@@ -138,6 +138,13 @@ struct ErrorResponse {
 
 pub type Result<T> = std::result::Result<T, ApiError>;
 
+/// Type alias for vault verifier components tuple
+type VaultVerifierComponents = (
+    Arc<dyn infera_auth::VaultVerifier>,
+    Option<Arc<infera_auth::CertificateCache>>,
+    Option<Arc<infera_auth::ManagementApiVaultVerifier>>,
+);
+
 /// Application state
 #[derive(Clone)]
 pub struct AppState {
@@ -164,27 +171,95 @@ pub struct AppState {
     pub watch_service: Arc<services::WatchService>,
 }
 
-impl AppState {
-    /// Creates a new AppState with services
-    ///
-    /// This is a convenience constructor that creates all services from the provided components.
+/// Builder for AppState to avoid too many function arguments
+pub struct AppStateBuilder {
+    store: Arc<dyn infera_store::InferaStore>,
+    schema: Arc<infera_core::ipl::Schema>,
+    config: Arc<Config>,
+    wasm_host: Option<Arc<infera_wasm::WasmHost>>,
+    jwks_cache: Option<Arc<JwksCache>>,
+    default_vault: i64,
+    default_organization: i64,
+    server_identity: Option<Arc<infera_auth::ServerIdentity>>,
+}
+
+impl AppStateBuilder {
+    /// Create a new AppStateBuilder with required parameters
     pub fn new(
         store: Arc<dyn infera_store::InferaStore>,
         schema: Arc<infera_core::ipl::Schema>,
-        wasm_host: Option<Arc<infera_wasm::WasmHost>>,
         config: Arc<Config>,
-        jwks_cache: Option<Arc<JwksCache>>,
-        default_vault: i64,
-        default_organization: i64,
+    ) -> Self {
+        Self {
+            store,
+            schema,
+            config,
+            wasm_host: None,
+            jwks_cache: None,
+            default_vault: 0,
+            default_organization: 0,
+            server_identity: None,
+        }
+    }
+
+    /// Set the WASM host
+    pub fn wasm_host(mut self, wasm_host: Option<Arc<infera_wasm::WasmHost>>) -> Self {
+        self.wasm_host = wasm_host;
+        self
+    }
+
+    /// Set the JWKS cache
+    pub fn jwks_cache(mut self, jwks_cache: Option<Arc<JwksCache>>) -> Self {
+        self.jwks_cache = jwks_cache;
+        self
+    }
+
+    /// Set the default vault ID
+    pub fn default_vault(mut self, default_vault: i64) -> Self {
+        self.default_vault = default_vault;
+        self
+    }
+
+    /// Set the default organization ID
+    pub fn default_organization(mut self, default_organization: i64) -> Self {
+        self.default_organization = default_organization;
+        self
+    }
+
+    /// Set the server identity
+    pub fn server_identity(
+        mut self,
         server_identity: Option<Arc<infera_auth::ServerIdentity>>,
     ) -> Self {
+        self.server_identity = server_identity;
+        self
+    }
+
+    /// Build the AppState
+    pub fn build(self) -> AppState {
+        AppState::from_builder(self)
+    }
+}
+
+impl AppState {
+    /// Creates a new AppState builder
+    pub fn builder(
+        store: Arc<dyn infera_store::InferaStore>,
+        schema: Arc<infera_core::ipl::Schema>,
+        config: Arc<Config>,
+    ) -> AppStateBuilder {
+        AppStateBuilder::new(store, schema, config)
+    }
+
+    /// Internal constructor from builder
+    fn from_builder(builder: AppStateBuilder) -> Self {
         let health_tracker = Arc::new(health::HealthTracker::new());
 
         // Create shared cache
-        let auth_cache = if config.cache.enabled {
+        let auth_cache = if builder.config.cache.enabled {
             Arc::new(infera_cache::AuthCache::new(
-                config.cache.max_capacity,
-                std::time::Duration::from_secs(config.cache.ttl_seconds),
+                builder.config.cache.max_capacity,
+                std::time::Duration::from_secs(builder.config.cache.ttl_seconds),
             ))
         } else {
             // Create a minimal cache that won't be used
@@ -192,56 +267,57 @@ impl AppState {
         };
 
         // Determine which cache to pass to services
-        let service_cache = if config.cache.enabled { Some(Arc::clone(&auth_cache)) } else { None };
+        let service_cache =
+            if builder.config.cache.enabled { Some(Arc::clone(&auth_cache)) } else { None };
 
         // Create services with shared cache
         let evaluation_service = Arc::new(services::EvaluationService::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
+            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.schema),
+            builder.wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let resource_service = Arc::new(services::ResourceService::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
+            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.schema),
+            builder.wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let subject_service = Arc::new(services::SubjectService::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
+            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.schema),
+            builder.wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let relationship_service = Arc::new(services::RelationshipService::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
+            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.schema),
+            builder.wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let expansion_service = Arc::new(services::ExpansionService::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
+            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.schema),
+            builder.wasm_host.clone(),
             service_cache,
         ));
 
         let watch_service = Arc::new(services::WatchService::new(
-            Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>
+            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>
         ));
 
         Self {
-            store,
-            config,
-            jwks_cache,
+            store: builder.store,
+            config: builder.config,
+            jwks_cache: builder.jwks_cache,
             health_tracker,
-            default_vault,
-            default_organization,
-            server_identity,
+            default_vault: builder.default_vault,
+            default_organization: builder.default_organization,
+            server_identity: builder.server_identity,
             auth_cache,
             evaluation_service,
             resource_service,
@@ -316,55 +392,52 @@ pub fn create_router(state: AppState) -> Result<Router> {
 
     // Create VaultVerifier and CertificateCache instances based on configuration
     // Also keep a reference to the concrete ManagementApiVaultVerifier for cache invalidation
-    let (vault_verifier, cert_cache, mgmt_vault_verifier): (
-        Arc<dyn infera_auth::VaultVerifier>,
-        Option<Arc<infera_auth::CertificateCache>>,
-        Option<Arc<infera_auth::ManagementApiVaultVerifier>>,
-    ) = if state.config.auth.enabled && !state.config.auth.management_api_url.is_empty() {
-        // Use management API for vault verification and certificate fetching
-        let management_client = Arc::new(
-            infera_auth::ManagementClient::new(
-                state.config.auth.management_api_url.clone(),
-                state.config.auth.management_api_timeout_ms,
-                state.server_identity.clone(),
-            )
-            .map_err(|e| {
-                ApiError::Internal(format!("Failed to create management client: {}", e))
-            })?,
-        );
+    let (vault_verifier, cert_cache, mgmt_vault_verifier): VaultVerifierComponents =
+        if state.config.auth.enabled && !state.config.auth.management_api_url.is_empty() {
+            // Use management API for vault verification and certificate fetching
+            let management_client = Arc::new(
+                infera_auth::ManagementClient::new(
+                    state.config.auth.management_api_url.clone(),
+                    state.config.auth.management_api_timeout_ms,
+                    state.server_identity.clone(),
+                )
+                .map_err(|e| {
+                    ApiError::Internal(format!("Failed to create management client: {}", e))
+                })?,
+            );
 
-        info!(
-            "Vault verification and certificate cache ENABLED - using management API at {}",
-            state.config.auth.management_api_url
-        );
+            info!(
+                "Vault verification and certificate cache ENABLED - using management API at {}",
+                state.config.auth.management_api_url
+            );
 
-        let mgmt_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
-            Arc::clone(&management_client),
-            std::time::Duration::from_secs(300), // 5 min vault cache TTL
-            std::time::Duration::from_secs(600), // 10 min org cache TTL
-        ));
+            let mgmt_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
+                Arc::clone(&management_client),
+                std::time::Duration::from_secs(300), // 5 min vault cache TTL
+                std::time::Duration::from_secs(600), // 10 min org cache TTL
+            ));
 
-        let cert_cache = Arc::new(
-            infera_auth::CertificateCache::new(
-                state.config.auth.management_api_url.clone(),
-                std::time::Duration::from_secs(300), // 5 min cert cache TTL
-                1000,                                // Max 1000 cached certificates
-            )
-            .map_err(|e| {
-                ApiError::Internal(format!("Failed to create certificate cache: {}", e))
-            })?,
-        );
+            let cert_cache = Arc::new(
+                infera_auth::CertificateCache::new(
+                    state.config.auth.management_api_url.clone(),
+                    std::time::Duration::from_secs(300), // 5 min cert cache TTL
+                    1000,                                // Max 1000 cached certificates
+                )
+                .map_err(|e| {
+                    ApiError::Internal(format!("Failed to create certificate cache: {}", e))
+                })?,
+            );
 
-        // Keep both trait object and concrete type references
-        let vault_verifier_trait: Arc<dyn infera_auth::VaultVerifier> =
-            Arc::clone(&mgmt_verifier) as Arc<dyn infera_auth::VaultVerifier>;
+            // Keep both trait object and concrete type references
+            let vault_verifier_trait: Arc<dyn infera_auth::VaultVerifier> =
+                Arc::clone(&mgmt_verifier) as Arc<dyn infera_auth::VaultVerifier>;
 
-        (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
-    } else {
-        // Use no-op verifier when auth is disabled or management API not configured
-        info!("Vault verification DISABLED - using no-op verifier");
-        (Arc::new(infera_auth::NoOpVaultVerifier), None, None)
-    };
+            (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
+        } else {
+            // Use no-op verifier when auth is disabled or management API not configured
+            info!("Vault verification DISABLED - using no-op verifier");
+            (Arc::new(infera_auth::NoOpVaultVerifier), None, None)
+        };
 
     // Create internal routes for cache invalidation (protected by Management JWT)
     let internal_routes = if let Some(ref verifier) = mgmt_vault_verifier {
@@ -563,28 +636,39 @@ async fn shutdown_signal() {
     info!("Shutdown signal received, draining connections...");
 }
 
+/// Configuration for starting server components
+pub struct ServerComponents {
+    pub store: Arc<dyn infera_store::InferaStore>,
+    pub schema: Arc<infera_core::ipl::Schema>,
+    pub wasm_host: Option<Arc<infera_wasm::WasmHost>>,
+    pub config: Arc<Config>,
+    pub jwks_cache: Option<Arc<JwksCache>>,
+    pub default_vault: i64,
+    pub default_organization: i64,
+    pub server_identity: Option<Arc<infera_auth::ServerIdentity>>,
+}
+
+impl ServerComponents {
+    /// Create AppState from components
+    fn create_app_state(&self) -> AppState {
+        AppState::builder(
+            Arc::clone(&self.store),
+            Arc::clone(&self.schema),
+            Arc::clone(&self.config),
+        )
+        .wasm_host(self.wasm_host.clone())
+        .jwks_cache(self.jwks_cache.clone())
+        .default_vault(self.default_vault)
+        .default_organization(self.default_organization)
+        .server_identity(self.server_identity.clone())
+        .build()
+    }
+}
+
 /// Start the REST API server
-pub async fn serve(
-    store: Arc<dyn infera_store::InferaStore>,
-    schema: Arc<infera_core::ipl::Schema>,
-    wasm_host: Option<Arc<infera_wasm::WasmHost>>,
-    config: Arc<Config>,
-    jwks_cache: Option<Arc<JwksCache>>,
-    default_vault: i64,
-    default_organization: i64,
-    server_identity: Option<Arc<infera_auth::ServerIdentity>>,
-) -> anyhow::Result<()> {
+pub async fn serve(components: ServerComponents) -> anyhow::Result<()> {
     // Create AppState with services
-    let state = AppState::new(
-        store,
-        schema,
-        wasm_host,
-        config.clone(),
-        jwks_cache,
-        default_vault,
-        default_organization,
-        server_identity,
-    );
+    let state = components.create_app_state();
 
     // Mark service as ready to accept traffic
     state.health_tracker.set_ready(true);
@@ -592,7 +676,7 @@ pub async fn serve(
 
     let app = create_router(state)?;
 
-    let addr = format!("{}:{}", config.server.host, config.server.port);
+    let addr = format!("{}:{}", components.config.server.host, components.config.server.port);
     info!("Starting REST API server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -618,30 +702,12 @@ pub async fn serve(
 }
 
 /// Start the gRPC server
-pub async fn serve_grpc(
-    store: Arc<dyn infera_store::InferaStore>,
-    schema: Arc<infera_core::ipl::Schema>,
-    wasm_host: Option<Arc<infera_wasm::WasmHost>>,
-    config: Arc<Config>,
-    jwks_cache: Option<Arc<JwksCache>>,
-    default_vault: i64,
-    default_organization: i64,
-    server_identity: Option<Arc<infera_auth::ServerIdentity>>,
-) -> anyhow::Result<()> {
+pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     use grpc::proto::infera_service_server::InferaServiceServer;
     use tonic::transport::Server;
 
     // Create AppState with services
-    let state = AppState::new(
-        store,
-        schema,
-        wasm_host,
-        config.clone(),
-        jwks_cache,
-        default_vault,
-        default_organization,
-        server_identity,
-    );
+    let state = components.create_app_state();
 
     // Mark service as ready to accept traffic
     state.health_tracker.set_ready(true);
@@ -650,8 +716,8 @@ pub async fn serve_grpc(
     let service = grpc::InferaServiceImpl::new(state.clone());
 
     // Use port + 1 for gRPC by default
-    let grpc_port = config.server.port + 1;
-    let addr = format!("{}:{}", config.server.host, grpc_port).parse()?;
+    let grpc_port = components.config.server.port + 1;
+    let addr = format!("{}:{}", components.config.server.host, grpc_port).parse()?;
 
     // Set up reflection service
     let file_descriptor_set = tonic::include_file_descriptor_set!("infera_descriptor");
@@ -662,14 +728,14 @@ pub async fn serve_grpc(
     info!("gRPC reflection enabled");
 
     // Set up authentication if enabled
-    if config.auth.enabled {
+    if components.config.auth.enabled {
         if let Some(cache) = state.jwks_cache.as_ref() {
             info!("Starting gRPC server on {} with authentication enabled", addr);
 
             // Try to load internal JWKS if configured
             let internal_loader = infera_auth::InternalJwksLoader::from_config(
-                config.auth.internal_jwks_path.as_deref(),
-                config.auth.internal_jwks_env.as_deref(),
+                components.config.auth.internal_jwks_path.as_deref(),
+                components.config.auth.internal_jwks_env.as_deref(),
             )
             .ok()
             .map(Arc::new);
@@ -682,7 +748,7 @@ pub async fn serve_grpc(
             let interceptor = grpc_interceptor::AuthInterceptor::new(
                 Arc::clone(cache),
                 internal_loader,
-                Arc::new(config.auth.clone()),
+                Arc::new(components.config.auth.clone()),
             );
 
             // Add service with interceptor and reflection
@@ -709,52 +775,32 @@ pub async fn serve_grpc(
 }
 
 /// Start both REST and gRPC servers concurrently
-pub async fn serve_both(
-    store: Arc<dyn infera_store::InferaStore>,
-    schema: Arc<infera_core::ipl::Schema>,
-    wasm_host: Option<Arc<infera_wasm::WasmHost>>,
-    config: Arc<Config>,
-    jwks_cache: Option<Arc<JwksCache>>,
-    default_vault: i64,
-    default_organization: i64,
-    server_identity: Option<Arc<infera_auth::ServerIdentity>>,
-) -> anyhow::Result<()> {
-    let rest_store = Arc::clone(&store);
-    let rest_schema = Arc::clone(&schema);
-    let rest_wasm_host = wasm_host.clone();
-    let rest_config = Arc::clone(&config);
-    let rest_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
-    let rest_server_identity = server_identity.as_ref().map(Arc::clone);
+pub async fn serve_both(components: ServerComponents) -> anyhow::Result<()> {
+    // Clone components for REST server
+    let rest_components = ServerComponents {
+        store: Arc::clone(&components.store),
+        schema: Arc::clone(&components.schema),
+        wasm_host: components.wasm_host.clone(),
+        config: Arc::clone(&components.config),
+        jwks_cache: components.jwks_cache.clone(),
+        default_vault: components.default_vault,
+        default_organization: components.default_organization,
+        server_identity: components.server_identity.clone(),
+    };
 
-    let grpc_store = Arc::clone(&store);
-    let grpc_schema = Arc::clone(&schema);
-    let grpc_wasm_host = wasm_host.clone();
-    let grpc_config = Arc::clone(&config);
-    let grpc_jwks_cache = jwks_cache.as_ref().map(Arc::clone);
-    let grpc_server_identity = server_identity.as_ref().map(Arc::clone);
+    // Clone components for gRPC server
+    let grpc_components = ServerComponents {
+        store: Arc::clone(&components.store),
+        schema: Arc::clone(&components.schema),
+        wasm_host: components.wasm_host.clone(),
+        config: Arc::clone(&components.config),
+        jwks_cache: components.jwks_cache.clone(),
+        default_vault: components.default_vault,
+        default_organization: components.default_organization,
+        server_identity: components.server_identity.clone(),
+    };
 
-    tokio::try_join!(
-        serve(
-            rest_store,
-            rest_schema,
-            rest_wasm_host,
-            rest_config,
-            rest_jwks_cache,
-            default_vault,
-            default_organization,
-            rest_server_identity
-        ),
-        serve_grpc(
-            grpc_store,
-            grpc_schema,
-            grpc_wasm_host,
-            grpc_config,
-            grpc_jwks_cache,
-            default_vault,
-            default_organization,
-            grpc_server_identity
-        )
-    )?;
+    tokio::try_join!(serve(rest_components), serve_grpc(grpc_components))?;
 
     Ok(())
 }
@@ -772,7 +818,7 @@ mod tests {
     use serde_json::json;
     use tower::ServiceExt;
 
-    use super::*; // for `oneshot`
+    use super::*;
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -799,22 +845,13 @@ mod tests {
         config.server.rate_limiting_enabled = false;
         let config = Arc::new(config);
 
-        // Use AppState::new() to create state with all services
-        let state = AppState::new(
-            store,
-            schema,
-            None, // No WASM host for tests
-            config,
-            None, // No JWKS cache for tests
-            test_vault,
-            test_account,
-            None, // No server identity for tests
-        );
-
-        state.health_tracker.set_ready(true);
-        state.health_tracker.set_startup_complete(true);
-
-        state
+        AppState::builder(store, schema, config)
+            .wasm_host(None)
+            .jwks_cache(None)
+            .default_vault(test_vault)
+            .default_organization(test_account)
+            .server_identity(None)
+            .build()
     }
 
     /// Helper function to parse SSE response and extract evaluation results

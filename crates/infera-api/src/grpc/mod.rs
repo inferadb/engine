@@ -209,11 +209,13 @@ mod tests {
         let test_vault = 1i64;
         let config = Arc::new(Config::default());
 
-        let state = AppState::new(
-            store, schema, None, // No WASM host for tests
-            config, None, // No JWKS cache for tests
-            test_vault, 0i64, None, // No server identity for tests
-        );
+        let state = AppState::builder(store, schema, config)
+            .wasm_host(None)
+            .jwks_cache(None)
+            .default_vault(test_vault)
+            .default_organization(0i64)
+            .server_identity(None)
+            .build();
 
         // Set health tracker state for tests
         state.health_tracker.set_ready(true);

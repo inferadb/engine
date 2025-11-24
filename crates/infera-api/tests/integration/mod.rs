@@ -73,16 +73,13 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
     let default_vault = generate_test_id();
     let default_organization = generate_test_id();
 
-    AppState::new(
-        store,
-        schema,
-        None, // No WASM host for tests
-        Arc::new(config),
-        None, // No JWKS cache for tests
-        default_vault,
-        default_organization,
-        None, // No server identity for tests
-    )
+    AppState::builder(store, schema, Arc::new(config))
+        .wasm_host(None)
+        .jwks_cache(None)
+        .default_vault(default_vault)
+        .default_organization(default_organization)
+        .server_identity(None)
+        .build()
 }
 
 /// Create test AppState with multiple vaults for multi-tenancy testing
@@ -98,16 +95,13 @@ pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for simpler testing
 
-    let state = AppState::new(
-        store,
-        schema,
-        None, // No WASM host for tests
-        Arc::new(config),
-        None,    // No JWKS cache for tests
-        vault_a, // Default to vault A
-        organization_a,
-        None, // No server identity for tests
-    );
+    let state = AppState::builder(store, schema, Arc::new(config))
+        .wasm_host(None)
+        .jwks_cache(None)
+        .default_vault(vault_a)
+        .default_organization(organization_a)
+        .server_identity(None)
+        .build();
 
     (state, vault_a, organization_a, vault_b, organization_b)
 }

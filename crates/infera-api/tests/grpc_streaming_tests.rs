@@ -35,16 +35,13 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     let mut config = Config::default();
     config.auth.enabled = false; // Disable auth for tests
 
-    let state = AppState::new(
-        store,
-        schema,
-        None, // No WASM host for tests
-        Arc::new(config),
-        None, // No JWKS cache for tests
-        0i64,
-        0i64,
-        None, // No server identity for tests
-    );
+    let state = AppState::builder(store, schema, Arc::new(config))
+        .wasm_host(None)
+        .jwks_cache(None)
+        .default_vault(0i64)
+        .default_organization(0i64)
+        .server_identity(None)
+        .build();
 
     let health_tracker = state.health_tracker.clone();
     health_tracker.set_ready(true);
