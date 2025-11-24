@@ -1,48 +1,43 @@
+---
+# ServiceAccount for InferaDB Server
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: inferadb
+  name: inferadb-server
+  namespace: inferadb
   labels:
-    app: inferadb
-    component: server
+    app.kubernetes.io/name: inferadb-server
+    app.kubernetes.io/component: authorization-engine
 
 ---
+# ClusterRole for service discovery
+# Allows reading Endpoints resources across all namespaces
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
-  name: inferadb
+  name: inferadb-server-discovery
   labels:
-    app: inferadb
-    component: server
+    app.kubernetes.io/name: inferadb-server
+    app.kubernetes.io/component: authorization-engine
 rules:
-  # Allow reading ConfigMaps for configuration
   - apiGroups: [""]
-    resources: ["configmaps"]
+    resources: ["endpoints"]
     verbs: ["get", "list", "watch"]
 
-  # Allow reading Secrets
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "list"]
-
-  # Allow reading pod information for health checks
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["get", "list"]
-
 ---
+# ClusterRoleBinding for service discovery
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
-  name: inferadb
+  name: inferadb-server-discovery
   labels:
-    app: inferadb
-    component: server
+    app.kubernetes.io/name: inferadb-server
+    app.kubernetes.io/component: authorization-engine
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: inferadb
+  kind: ClusterRole
+  name: inferadb-server-discovery
 subjects:
   - kind: ServiceAccount
-    name: inferadb
-    # namespace will be set by kustomization.yaml
+    name: inferadb-server
+    namespace: inferadb

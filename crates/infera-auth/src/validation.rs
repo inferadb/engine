@@ -271,6 +271,7 @@ mod tests {
             server_identity_private_key: None,
             server_identity_kid: "server-default".into(),
             server_id: "default".into(),
+            discovery: Default::default(),
         }
     }
 

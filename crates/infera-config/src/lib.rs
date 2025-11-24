@@ -265,6 +265,50 @@ pub struct AuthConfig {
     /// Server ID for JWT subject claim (sub: "server:{server_id}")
     #[serde(default = "default_server_id")]
     pub server_id: String,
+
+    /// Service discovery configuration for management API
+    #[serde(default)]
+    pub discovery: DiscoveryConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveryConfig {
+    /// Discovery mode (none or kubernetes)
+    #[serde(default)]
+    pub mode: DiscoveryMode,
+
+    /// Cache TTL for discovered endpoints (in seconds)
+    #[serde(default = "default_discovery_cache_ttl")]
+    pub cache_ttl_seconds: u64,
+
+    /// Whether to enable health checking of endpoints
+    #[serde(default = "default_discovery_health_check")]
+    pub enable_health_check: bool,
+
+    /// Health check interval (in seconds)
+    #[serde(default = "default_discovery_health_check_interval")]
+    pub health_check_interval_seconds: u64,
+}
+
+impl Default for DiscoveryConfig {
+    fn default() -> Self {
+        Self {
+            mode: DiscoveryMode::None,
+            cache_ttl_seconds: default_discovery_cache_ttl(),
+            enable_health_check: default_discovery_health_check(),
+            health_check_interval_seconds: default_discovery_health_check_interval(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscoveryMode {
+    /// No service discovery - use service URL directly
+    #[default]
+    None,
+    /// Kubernetes service discovery - resolve to pod IPs
+    Kubernetes,
 }
 
 fn default_auth_enabled() -> bool {
@@ -369,6 +413,18 @@ fn default_server_identity_kid() -> String {
 
 fn default_server_id() -> String {
     "default".to_string()
+}
+
+fn default_discovery_cache_ttl() -> u64 {
+    300 // 5 minutes
+}
+
+fn default_discovery_health_check() -> bool {
+    false
+}
+
+fn default_discovery_health_check_interval() -> u64 {
+    30 // 30 seconds
 }
 
 /// Multi-tenancy configuration
@@ -544,6 +600,7 @@ impl Default for AuthConfig {
             server_identity_private_key: None,
             server_identity_kid: default_server_identity_kid(),
             server_id: default_server_id(),
+            discovery: DiscoveryConfig::default(),
         }
     }
 }
