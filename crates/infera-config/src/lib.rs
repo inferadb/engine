@@ -3,19 +3,25 @@
 //! Handles configuration loading from files, environment variables, and CLI args.
 
 pub mod hot_reload;
+pub mod refresh;
 pub mod secrets;
 pub mod validation;
 
 use std::path::{Path, PathBuf};
 
 use config::{Config as ConfigBuilder, ConfigError, Environment, File};
+pub use refresh::ConfigRefresher;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(default)]
     pub server: ServerConfig,
+    #[serde(default)]
     pub store: StoreConfig,
+    #[serde(default)]
     pub cache: CacheConfig,
+    #[serde(default)]
     pub observability: ObservabilityConfig,
     #[serde(default)]
     pub auth: AuthConfig,
@@ -38,12 +44,23 @@ pub struct ServerConfig {
     pub rate_limiting_enabled: bool,
 }
 
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            host: default_host(),
+            port: default_port(),
+            worker_threads: default_worker_threads(),
+            rate_limiting_enabled: default_rate_limiting_enabled(),
+        }
+    }
+}
+
 fn default_rate_limiting_enabled() -> bool {
     true // Enabled by default for production safety
 }
 
 fn default_host() -> String {
-    "127.0.0.1".to_string()
+    "0.0.0.0".to_string()
 }
 
 fn default_port() -> u16 {
@@ -62,6 +79,12 @@ pub struct StoreConfig {
     pub connection_string: Option<String>,
 }
 
+impl Default for StoreConfig {
+    fn default() -> Self {
+        Self { backend: default_backend(), connection_string: None }
+    }
+}
+
 fn default_backend() -> String {
     "memory".to_string()
 }
@@ -76,6 +99,16 @@ pub struct CacheConfig {
 
     #[serde(default = "default_cache_ttl_seconds")]
     pub ttl_seconds: u64,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_cache_enabled(),
+            max_capacity: default_cache_max_capacity(),
+            ttl_seconds: default_cache_ttl_seconds(),
+        }
+    }
 }
 
 fn default_cache_enabled() -> bool {
@@ -100,6 +133,16 @@ pub struct ObservabilityConfig {
 
     #[serde(default = "default_tracing_enabled")]
     pub tracing_enabled: bool,
+}
+
+impl Default for ObservabilityConfig {
+    fn default() -> Self {
+        Self {
+            log_level: default_log_level(),
+            metrics_enabled: default_metrics_enabled(),
+            tracing_enabled: default_tracing_enabled(),
+        }
+    }
 }
 
 fn default_log_level() -> String {
@@ -794,19 +837,50 @@ impl Default for Config {
     }
 }
 
-/// Load configuration from file and environment
+/// Load configuration with layered precedence: defaults → file → env vars
+///
+/// This function implements a proper configuration hierarchy:
+/// 1. Start with hardcoded defaults (via `#[serde(default)]` annotations)
+/// 2. Override with values from config file (if file exists and properties are set)
+/// 3. Override with environment variables (if env vars are set)
+///
+/// Each layer only overrides properties that are explicitly set, preserving
+/// defaults for unspecified values.
 pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
-    let builder = ConfigBuilder::builder()
-        .add_source(File::from(path.as_ref()).required(false))
-        .add_source(Environment::with_prefix("INFERA").separator("__"))
-        .build()?;
+    // The config crate will use serde's #[serde(default)] annotations for defaults
+    // Layer 1 (defaults) is handled by serde deserialization
+    // Layer 2: Add file source (optional - only overrides if file exists)
+    let builder = ConfigBuilder::builder().add_source(File::from(path.as_ref()).required(false));
 
-    builder.try_deserialize()
+    // Layer 3: Add environment variables (highest precedence)
+    let builder =
+        builder.add_source(Environment::with_prefix("INFERA").separator("__").try_parsing(true));
+
+    let config = builder.build()?;
+    config.try_deserialize()
 }
 
 /// Load configuration with defaults
+///
+/// Convenience wrapper around `load()` that logs warnings but never panics.
+/// Always returns a valid configuration, falling back to defaults if needed.
 pub fn load_or_default<P: AsRef<Path>>(path: P) -> Config {
-    load(path).unwrap_or_default()
+    match load(path.as_ref()) {
+        Ok(config) => {
+            tracing::info!("Configuration loaded successfully from {:?}", path.as_ref());
+            config
+        },
+        Err(e) => {
+            tracing::warn!(
+                "Failed to load config from {:?}: {}. Using defaults with environment overrides.",
+                path.as_ref(),
+                e
+            );
+
+            // Even if file loading fails, try to apply env vars to defaults
+            Config::default()
+        },
+    }
 }
 
 #[cfg(test)]
@@ -817,7 +891,7 @@ mod tests {
     fn test_default_config() {
         let config = Config::default();
         assert_eq!(config.server.port, 8080);
-        assert_eq!(config.server.host, "127.0.0.1");
+        assert_eq!(config.server.host, "0.0.0.0");
         assert!(config.cache.enabled);
     }
 

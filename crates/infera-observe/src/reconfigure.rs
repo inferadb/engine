@@ -2,9 +2,10 @@
 //!
 //! Allows runtime reconfiguration of log levels and filters without restarting the service.
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use anyhow::Result;
+use parking_lot::RwLock;
 use tracing::Level;
 use tracing_subscriber::{EnvFilter, Registry, reload};
 
@@ -37,10 +38,7 @@ impl LogReconfigHandle {
     pub fn set_filter(&self, filter: &str) -> Result<()> {
         let new_filter = EnvFilter::try_new(filter)?;
 
-        let handle = self
-            .filter_handle
-            .read()
-            .map_err(|e| anyhow::anyhow!("Failed to acquire read lock: {}", e))?;
+        let handle = self.filter_handle.read();
 
         handle.reload(new_filter).map_err(|e| anyhow::anyhow!("Failed to reload filter: {}", e))?;
 
@@ -143,10 +141,7 @@ impl LogReconfigManager {
         }
 
         // Add to history
-        let mut history = self
-            .history
-            .write()
-            .map_err(|e| anyhow::anyhow!("Failed to acquire write lock: {}", e))?;
+        let mut history = self.history.write();
         history.push(snapshot);
 
         // Limit history size
@@ -159,7 +154,7 @@ impl LogReconfigManager {
 
     /// Get configuration history
     pub fn get_history(&self) -> Vec<LogConfigSnapshot> {
-        self.history.read().map(|h| h.clone()).unwrap_or_default()
+        self.history.read().clone()
     }
 
     /// Restore from snapshot file

@@ -43,6 +43,7 @@ infera-cache = { path = "../infera-cache" }
 infera-config = { path = "../infera-config" }
 infera-const = { path = "../infera-const" }
 infera-core = { path = "../infera-core" }
+infera-discovery = { path = "../infera-discovery" }
 infera-observe = { path = "../infera-observe" }
 infera-store = { path = "../infera-store" }
 infera-types = { path = "../infera-types" }

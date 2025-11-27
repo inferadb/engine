@@ -330,7 +330,7 @@ impl AppState {
 }
 
 /// Create the API router
-pub fn create_router(state: AppState) -> Result<Router> {
+pub async fn create_router(state: AppState) -> Result<Router> {
     // Configure rate limiting: 1000 requests per minute per IP
     // Based on docs/RATE_LIMITING.md recommendations
     let governor_conf = Arc::new(
@@ -394,22 +394,101 @@ pub fn create_router(state: AppState) -> Result<Router> {
     // Also keep a reference to the concrete ManagementApiVaultVerifier for cache invalidation
     let (vault_verifier, cert_cache, mgmt_vault_verifier): VaultVerifierComponents =
         if state.config.auth.enabled && !state.config.auth.management_api_url.is_empty() {
-            // Use management API for vault verification and certificate fetching
-            let management_client = Arc::new(
-                infera_auth::ManagementClient::new(
-                    state.config.auth.management_api_url.clone(),
-                    state.config.auth.management_api_timeout_ms,
-                    state.server_identity.clone(),
-                )
-                .map_err(|e| {
-                    ApiError::Internal(format!("Failed to create management client: {}", e))
-                })?,
-            );
+            // Check if discovery is enabled for Management API
+            let management_client = if matches!(
+                state.config.auth.discovery.mode,
+                infera_config::DiscoveryMode::Kubernetes
+                    | infera_config::DiscoveryMode::Tailscale { .. }
+            ) {
+                // Discovery enabled - create discovery service and load balancing client
+                info!(
+                    "Management API discovery ENABLED - mode: {:?}",
+                    state.config.auth.discovery.mode
+                );
 
-            info!(
-                "Vault verification and certificate cache ENABLED - using management API at {}",
-                state.config.auth.management_api_url
-            );
+                // Create discovery service based on mode
+                let discovery: Arc<dyn infera_discovery::EndpointDiscovery> =
+                    match &state.config.auth.discovery.mode {
+                        infera_config::DiscoveryMode::Kubernetes => Arc::new(
+                            infera_discovery::KubernetesServiceDiscovery::new().await.map_err(
+                                |e| {
+                                    ApiError::Internal(format!(
+                                        "Failed to create Kubernetes discovery: {}",
+                                        e
+                                    ))
+                                },
+                            )?,
+                        ),
+                        infera_config::DiscoveryMode::Tailscale { .. } => {
+                            return Err(ApiError::Internal(
+                                "Tailscale discovery not yet implemented".into(),
+                            ));
+                        },
+                        infera_config::DiscoveryMode::None => unreachable!(),
+                    };
+
+                // Perform initial discovery to get endpoints
+                let initial_endpoints =
+                    discovery.discover(&state.config.auth.management_api_url).await.map_err(
+                        |e| ApiError::Internal(format!("Initial endpoint discovery failed: {}", e)),
+                    )?;
+
+                info!("Discovered {} Management API endpoints", initial_endpoints.len());
+
+                // Create load balancing client with discovered endpoints
+                let lb_client =
+                    Arc::new(infera_discovery::LoadBalancingClient::new(initial_endpoints));
+
+                // Create discovery refresher for background updates
+                let refresher = Arc::new(infera_discovery::DiscoveryRefresher::new(
+                    Arc::clone(&discovery),
+                    Arc::clone(&lb_client),
+                    state.config.auth.discovery.cache_ttl_seconds,
+                    state.config.auth.management_api_url.clone(),
+                ));
+
+                // Spawn background refresh task
+                Arc::clone(&refresher).spawn();
+                info!(
+                    "Discovery refresh task spawned (interval: {}s)",
+                    state.config.auth.discovery.cache_ttl_seconds
+                );
+
+                // Create ManagementClient with load balancing
+                Arc::new(
+                    infera_auth::ManagementClient::new_with_load_balancing(
+                        state.config.auth.management_api_url.clone(),
+                        state.config.auth.management_api_timeout_ms,
+                        lb_client,
+                        state.server_identity.clone(),
+                    )
+                    .map_err(|e| {
+                        ApiError::Internal(format!(
+                            "Failed to create load-balanced management client: {}",
+                            e
+                        ))
+                    })?,
+                )
+            } else {
+                // Discovery disabled - use static URL (Kubernetes service handles load balancing)
+                info!(
+                    "Management API discovery DISABLED - using static URL: {}",
+                    state.config.auth.management_api_url
+                );
+
+                Arc::new(
+                    infera_auth::ManagementClient::new(
+                        state.config.auth.management_api_url.clone(),
+                        state.config.auth.management_api_timeout_ms,
+                        state.server_identity.clone(),
+                    )
+                    .map_err(|e| {
+                        ApiError::Internal(format!("Failed to create management client: {}", e))
+                    })?,
+                )
+            };
+
+            info!("Vault verification and certificate cache ENABLED");
 
             let mgmt_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
                 Arc::clone(&management_client),
@@ -674,7 +753,7 @@ pub async fn serve(components: ServerComponents) -> anyhow::Result<()> {
     state.health_tracker.set_ready(true);
     state.health_tracker.set_startup_complete(true);
 
-    let app = create_router(state)?;
+    let app = create_router(state).await?;
 
     let addr = format!("{}:{}", components.config.server.host, components.config.server.port);
     info!("Starting REST API server on {}", addr);
@@ -914,7 +993,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_check() {
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         let response = app
             .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
@@ -926,7 +1005,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_check_deny() {
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         // New batch format with array of checks
         let request_body = json!({
@@ -965,7 +1044,7 @@ mod tests {
     #[tokio::test]
     async fn test_write_and_check() {
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // First, write a relationship
         let write_request = json!({
@@ -1031,7 +1110,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_write_validation_empty_relationships() {
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         let write_request = json!({
             "relationships": []
@@ -1054,7 +1133,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_write_validation_invalid_object_format() {
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         let write_request = json!({
             "relationships": [{
@@ -1081,7 +1160,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_expand() {
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         let expand_request = json!({
             "resource": "doc:readme",
@@ -1116,7 +1195,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete() {
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // First, write a relationship
         let write_request = json!({
@@ -1234,7 +1313,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_validation_empty_relationships() {
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         // Empty request with no filter and no relationships should fail
         let delete_request = json!({});
@@ -1256,7 +1335,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_validation_invalid_format() {
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         let delete_request = json!({
             "relationships": [{
@@ -1284,7 +1363,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_batch() {
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // Write multiple relationships
         let write_request = json!({
@@ -1358,7 +1437,7 @@ mod tests {
         let state = create_test_state();
         assert!(!state.config.server.rate_limiting_enabled);
 
-        let app = create_router(state).unwrap();
+        let app = create_router(state).await.unwrap();
 
         let request_body = json!({
             "evaluations": [{
@@ -1393,7 +1472,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_lookup_resources_validation() {
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         // Test empty subject
         let list_request = json!({
@@ -1465,7 +1544,7 @@ mod tests {
     async fn test_delete_by_filter_subject() {
         // Test user offboarding scenario: delete all relationships for a subject
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // Write relationships for alice across multiple resources
         let write_request = json!({
@@ -1588,7 +1667,7 @@ mod tests {
     async fn test_delete_by_filter_resource() {
         // Test resource cleanup scenario: delete all relationships for a resource
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // Write relationships with multiple subjects for the same resource
         let write_request = json!({
@@ -1711,7 +1790,7 @@ mod tests {
     async fn test_delete_by_filter_with_limit() {
         // Test deletion with explicit limit
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // Write multiple relationships for the same subject
         let write_request = json!({
@@ -1778,7 +1857,7 @@ mod tests {
     async fn test_delete_by_filter_combined_fields() {
         // Test deletion with multiple filter fields
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // Write relationships with various combinations
         let write_request = json!({
@@ -1844,7 +1923,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_filter_empty_validation() {
         // Test that empty filter is rejected
-        let app = create_router(create_test_state()).unwrap();
+        let app = create_router(create_test_state()).await.unwrap();
 
         let delete_request = json!({
             "filter": {}
@@ -1870,7 +1949,7 @@ mod tests {
     async fn test_batch_check() {
         // Test new batch check functionality - multiple checks in single request
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // Write some relationships
         let write_request = json!({
@@ -1968,7 +2047,7 @@ mod tests {
     async fn test_check_with_trace() {
         // Test unified Check API with trace flag
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // Write a relationship
         let write_request = json!({
@@ -2035,7 +2114,7 @@ mod tests {
     async fn test_delete_combined_filter_and_exact() {
         // Test deletion with both filter and exact relationships
         let state = create_test_state();
-        let app = create_router(state.clone()).unwrap();
+        let app = create_router(state.clone()).await.unwrap();
 
         // Write multiple relationships
         let write_request = json!({

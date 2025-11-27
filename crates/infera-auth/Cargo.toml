@@ -39,6 +39,7 @@ redis = { version = "0.32.7", features = [
 
 # Internal dependencies
 infera-config = { path = "../infera-config" }
+infera-discovery = { path = "../infera-discovery" }
 infera-observe = { path = "../infera-observe" }
 infera-types = { path = "../infera-types" }
 

@@ -9,11 +9,8 @@
 # ============================================================================
 # Stage 1: Builder - Build the application
 # ============================================================================
-FROM rust:1-slim AS builder
+FROM rustlang/rust:nightly-bookworm-slim AS builder
 WORKDIR /app
-
-# Use nightly Rust (required for some dependencies)
-RUN rustup default nightly
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -33,9 +30,9 @@ RUN cargo build --release --bin inferadb-server
 RUN strip /app/target/release/inferadb-server
 
 # ============================================================================
-# Stage 2: Runtime - Minimal distroless image
+# Stage 2: Runtime - Minimal Debian slim image
 # ============================================================================
-FROM gcr.io/distroless/cc-debian12:latest
+FROM debian:bookworm-slim
 
 # Metadata labels
 LABEL org.opencontainers.image.title="InferaDB"
@@ -45,7 +42,16 @@ LABEL org.opencontainers.image.licenses="BSL-1.1"
 LABEL org.opencontainers.image.source="https://github.com/inferadb/inferadb"
 LABEL org.opencontainers.image.documentation="https://docs.inferadb.com"
 
-# Create non-root user (distroless uses uid/gid 65532:65532 for 'nonroot')
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -r -u 65532 -s /sbin/nologin nonroot
+
 USER nonroot:nonroot
 
 WORKDIR /app

@@ -180,7 +180,7 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
 async fn test_auth_disabled_allows_unauthenticated_requests() {
     // When auth is disabled, requests should work without tokens
     let state = create_test_state_with_auth(None);
-    let app = create_router(state).unwrap();
+    let app = create_router(state).await.unwrap();
 
     let check_request = json!({
         "evaluations": [{
@@ -226,7 +226,7 @@ async fn test_missing_authorization_header() {
     );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state).unwrap();
+    let app = create_router(state).await.unwrap();
 
     let check_request = json!({
         "evaluations": [{
@@ -275,7 +275,7 @@ async fn test_malformed_authorization_header() {
     );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state).unwrap();
+    let app = create_router(state).await.unwrap();
 
     let check_request = json!({
         "evaluations": [{
@@ -333,7 +333,7 @@ async fn test_health_endpoint_unauthenticated() {
     );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state).unwrap();
+    let app = create_router(state).await.unwrap();
 
     let response =
         app.oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap()).await.unwrap();
@@ -364,7 +364,7 @@ async fn test_invalid_jwt_format() {
     );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state).unwrap();
+    let app = create_router(state).await.unwrap();
 
     let check_request = json!({
         "evaluations": [{

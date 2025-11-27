@@ -191,7 +191,7 @@ mod tests {
         let config: AuthZENConfiguration = serde_json::from_slice(&body).unwrap();
 
         // Verify required fields
-        assert!(config.issuer.contains("127.0.0.1"));
+        assert!(config.issuer.contains("0.0.0.0"));
         assert!(config.access_evaluation_endpoint.ends_with("/access/v1/evaluation"));
         assert!(config.access_evaluations_endpoint.ends_with("/access/v1/evaluations"));
     }
