@@ -28,6 +28,12 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize Rustls crypto provider (must be done before any TLS operations)
+    // We use aws-lc-rs for FIPS compliance and better performance
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .map_err(|_| anyhow::anyhow!("Failed to install default crypto provider"))?;
+
     // Parse command-line arguments
     let args = Args::parse();
 
