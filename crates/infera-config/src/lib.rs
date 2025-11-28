@@ -31,17 +31,22 @@ pub struct Config {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
+    // Public server (client-facing)
     #[serde(default = "default_host")]
     pub host: String,
 
     #[serde(default = "default_port")]
     pub port: u16,
 
+    // Internal server (server-to-server communication)
+    #[serde(default = "default_internal_host")]
+    pub internal_host: String,
+
+    #[serde(default = "default_internal_port")]
+    pub internal_port: u16,
+
     #[serde(default = "default_worker_threads")]
     pub worker_threads: usize,
-
-    #[serde(default = "default_rate_limiting_enabled")]
-    pub rate_limiting_enabled: bool,
 }
 
 impl Default for ServerConfig {
@@ -49,14 +54,11 @@ impl Default for ServerConfig {
         Self {
             host: default_host(),
             port: default_port(),
+            internal_host: default_internal_host(),
+            internal_port: default_internal_port(),
             worker_threads: default_worker_threads(),
-            rate_limiting_enabled: default_rate_limiting_enabled(),
         }
     }
-}
-
-fn default_rate_limiting_enabled() -> bool {
-    true // Enabled by default for production safety
 }
 
 fn default_host() -> String {
@@ -65,6 +67,14 @@ fn default_host() -> String {
 
 fn default_port() -> u16 {
     8080
+}
+
+fn default_internal_host() -> String {
+    "0.0.0.0".to_string() // Bind to all interfaces, restrict via network policies
+}
+
+fn default_internal_port() -> u16 {
+    9090 // Internal server-to-server port
 }
 
 fn default_worker_threads() -> usize {
@@ -455,7 +465,10 @@ fn default_internal_audience() -> String {
 }
 
 fn default_management_api_url() -> String {
-    "http://localhost:8081".to_string()
+    // Management API internal server port (server-to-server communication)
+    // This should point to the Management API's internal_port (default 9091)
+    // NOT the public http_port (default 3000)
+    "http://localhost:9091".to_string()
 }
 
 fn default_management_api_timeout() -> u64 {
@@ -817,8 +830,9 @@ impl Default for Config {
             server: ServerConfig {
                 host: default_host(),
                 port: default_port(),
+                internal_host: default_internal_host(),
+                internal_port: default_internal_port(),
                 worker_threads: default_worker_threads(),
-                rate_limiting_enabled: default_rate_limiting_enabled(),
             },
             store: StoreConfig { backend: default_backend(), connection_string: None },
             cache: CacheConfig {

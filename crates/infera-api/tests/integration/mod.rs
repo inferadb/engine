@@ -40,7 +40,6 @@ pub fn create_test_schema() -> Arc<Schema> {
 pub fn create_test_config() -> Config {
     let mut config = Config::default();
     config.auth.enabled = false;
-    config.server.rate_limiting_enabled = false;
     config.cache.enabled = true;
     config.cache.max_capacity = 1000;
     config.cache.ttl_seconds = 300;
@@ -57,7 +56,6 @@ pub fn create_test_config_with_auth() -> Config {
 /// Create test configuration with rate limiting enabled
 pub fn create_test_config_with_rate_limiting() -> Config {
     let mut config = create_test_config();
-    config.server.rate_limiting_enabled = true;
     config
 }
 
@@ -171,7 +169,6 @@ mod tests {
     fn test_create_test_config() {
         let config = create_test_config();
         assert!(!config.auth.enabled);
-        assert!(!config.server.rate_limiting_enabled);
         assert!(config.cache.enabled);
     }
 
@@ -184,7 +181,6 @@ mod tests {
     #[test]
     fn test_create_test_config_with_rate_limiting() {
         let config = create_test_config_with_rate_limiting();
-        assert!(config.server.rate_limiting_enabled);
     }
 
     #[test]

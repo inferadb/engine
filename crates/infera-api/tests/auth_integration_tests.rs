@@ -159,7 +159,6 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
 
     // Enable auth for these tests but disable rate limiting
     config.auth.enabled = jwks_cache.is_some();
-    config.server.rate_limiting_enabled = false;
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)

@@ -11,11 +11,8 @@ data:
   INFERA__SERVER__WORKER_THREADS: "{{ .Values.config.server.workerThreads }}"
   INFERA__SERVER__MAX_CONNECTIONS: "{{ .Values.config.server.maxConnections }}"
   INFERA__SERVER__REQUEST_TIMEOUT: "{{ .Values.config.server.requestTimeout }}"
-  INFERA__SERVER__RATE_LIMITING_ENABLED: "{{ .Values.config.server.rateLimitingEnabled }}"
-  {{- if .Values.config.server.rateLimitingEnabled }}
   INFERA__SERVER__RATE_LIMIT_REQUESTS: "{{ .Values.config.server.rateLimitRequests }}"
   INFERA__SERVER__RATE_LIMIT_PERIOD: "{{ .Values.config.server.rateLimitPeriod }}"
-  {{- end }}
 
   # Storage configuration
   INFERA__STORE__BACKEND: "{{ .Values.config.store.backend }}"

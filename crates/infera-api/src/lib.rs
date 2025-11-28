@@ -138,13 +138,6 @@ struct ErrorResponse {
 
 pub type Result<T> = std::result::Result<T, ApiError>;
 
-/// Type alias for vault verifier components tuple
-type VaultVerifierComponents = (
-    Arc<dyn infera_auth::VaultVerifier>,
-    Option<Arc<infera_auth::CertificateCache>>,
-    Option<Arc<infera_auth::ManagementApiVaultVerifier>>,
-);
-
 /// Application state
 #[derive(Clone)]
 pub struct AppState {
@@ -329,8 +322,12 @@ impl AppState {
     }
 }
 
-/// Create the API router
-pub async fn create_router(state: AppState) -> Result<Router> {
+/// Create public routes (client-facing endpoints)
+/// These routes accept client JWTs and handle authorization requests
+pub async fn public_routes(components: ServerComponents) -> Result<Router> {
+    // Create AppState with services
+    let state = components.create_app_state();
+
     // Configure rate limiting: 1000 requests per minute per IP
     // Based on docs/RATE_LIMITING.md recommendations
     let governor_conf = Arc::new(
@@ -390,9 +387,15 @@ pub async fn create_router(state: AppState) -> Result<Router> {
         .route("/access/v1/search/resource", post(handlers::authzen::search::post_search_resource))
         .route("/access/v1/search/subject", post(handlers::authzen::search::post_search_subject));
 
+    // Type alias for complex auth components tuple (reduces clippy::type_complexity)
+    type AuthComponents = (
+        Arc<dyn infera_auth::VaultVerifier>,
+        Option<Arc<infera_auth::CertificateCache>>,
+        Option<Arc<infera_auth::ManagementApiVaultVerifier>>,
+    );
+
     // Create VaultVerifier and CertificateCache instances based on configuration
-    // Also keep a reference to the concrete ManagementApiVaultVerifier for cache invalidation
-    let (vault_verifier, cert_cache, mgmt_vault_verifier): VaultVerifierComponents =
+    let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents =
         if state.config.auth.enabled && !state.config.auth.management_api_url.is_empty() {
             // Check if discovery is enabled for Management API
             let management_client = if matches!(
@@ -515,48 +518,12 @@ pub async fn create_router(state: AppState) -> Result<Router> {
         } else {
             // Use no-op verifier when auth is disabled or management API not configured
             info!("Vault verification DISABLED - using no-op verifier");
-            (Arc::new(infera_auth::NoOpVaultVerifier), None, None)
+            (
+                Arc::new(infera_auth::NoOpVaultVerifier) as Arc<dyn infera_auth::VaultVerifier>,
+                None,
+                None,
+            )
         };
-
-    // Create internal routes for cache invalidation (protected by Management JWT)
-    let internal_routes = if let Some(ref verifier) = mgmt_vault_verifier {
-        // Internal routes only enabled when auth is enabled and management API is configured
-        info!("Internal cache invalidation endpoints ENABLED");
-
-        // Create Management JWKS cache for verifying Management API JWTs
-        let management_jwks_cache = Arc::new(infera_auth::ManagementJwksCache::new(
-            state.config.auth.management_api_url.clone(),
-            std::time::Duration::from_secs(900), // 15 minutes TTL
-        ));
-
-        // Create internal router with Management JWT auth middleware and vault verifier extension
-        let mgmt_cache_clone = Arc::clone(&management_jwks_cache);
-        let verifier_clone = Arc::clone(verifier);
-        Some(
-            Router::new()
-                .route(
-                    "/internal/cache/invalidate/vault/{vault_id}",
-                    post(handlers::internal::invalidate_vault_cache),
-                )
-                .route(
-                    "/internal/cache/invalidate/organization/{org_id}",
-                    post(handlers::internal::invalidate_organization_cache),
-                )
-                .route("/internal/cache/invalidate/all", post(handlers::internal::clear_all_caches))
-                // Add vault verifier as Extension for handlers
-                .layer(Extension(verifier_clone))
-                // Apply Management JWT auth middleware
-                .layer(axum::middleware::from_fn(move |req, next| {
-                    let cache = Arc::clone(&mgmt_cache_clone);
-                    async move { infera_auth::management_auth_middleware(cache, req, next).await }
-                })),
-        )
-    } else {
-        info!(
-            "Internal cache invalidation endpoints DISABLED (auth disabled or management API not configured)"
-        );
-        None
-    };
 
     // Apply authentication middleware (either with JWT validation or default context)
     let protected_routes = if state.config.auth.enabled {
@@ -633,9 +600,9 @@ pub async fn create_router(state: AppState) -> Result<Router> {
         }))
     };
 
-    // Combine health endpoints, public discovery, internal routes, and protected routes
+    // Combine health endpoints, public discovery, and protected routes
     // Note: AuthZEN /access/v1/* endpoints are now in protected_routes for vault isolation
-    let mut router = Router::new()
+    let router = Router::new()
         .route("/health", get(health::health_check_handler))
         .route("/health/live", get(health::liveness_handler))
         .route("/health/ready", get(health::readiness_handler))
@@ -646,20 +613,13 @@ pub async fn create_router(state: AppState) -> Result<Router> {
             "/.well-known/authzen-configuration",
             get(handlers::authzen::well_known::get_authzen_configuration),
         )
-        // JWKS endpoint for server identity public key (for management API to verify server JWTs)
-        .route("/.well-known/jwks.json", get(handlers::jwks::get_server_jwks))
-        .merge(protected_routes);
-
-    // Merge internal routes if enabled
-    if let Some(internal) = internal_routes {
-        router = router.merge(internal);
-    }
-
-    let router = router.with_state(state.clone());
+        .merge(protected_routes)
+        .with_state(state.clone());
 
     // Add CORS, compression, and rate limiting layers
     // Note: Rate limiting is applied to all routes except /health (which is separate)
     let router = router
+        .layer(governor_layer)
         .layer(
             CorsLayer::new()
                 .allow_origin(tower_http::cors::Any)
@@ -668,51 +628,124 @@ pub async fn create_router(state: AppState) -> Result<Router> {
         )
         .layer(CompressionLayer::new());
 
-    // Add rate limiting if enabled
-    let router = if state.config.server.rate_limiting_enabled {
-        info!("Rate limiting ENABLED - applying governor layer");
-        router.layer(governor_layer)
-    } else {
-        info!("Rate limiting DISABLED - skipping governor layer");
-        router
-    };
-
     Ok(router)
 }
 
 // Health check handlers moved to health.rs module
 
-/// Graceful shutdown signal handler
-///
-/// Waits for SIGTERM (Kubernetes) or SIGINT (Ctrl+C) and initiates graceful shutdown.
-async fn shutdown_signal() {
-    use tokio::signal;
+/// Create internal routes (server-to-server communication)
+/// Exposes JWKS endpoint (no auth) and privileged cache invalidation endpoints (Management JWT
+/// auth)
+pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
+    // Create AppState
+    let state = components.create_app_state();
 
-    let ctrl_c = async {
-        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+    // JWKS endpoint (public - no authentication required)
+    // Management API fetches server public keys from here
+    let jwks_routes = Router::new()
+        .route("/.well-known/jwks.json", get(handlers::jwks::get_server_jwks))
+        .with_state(state.clone());
+
+    // Privileged cache invalidation routes (require Management API JWT authentication)
+    // These are only enabled when auth is enabled and management API is configured
+    let privileged_routes = if state.config.auth.enabled
+        && !state.config.auth.management_api_url.is_empty()
+    {
+        info!("Internal cache invalidation endpoints ENABLED");
+
+        // Create Management JWKS cache for verifying Management API JWTs
+        let management_jwks_cache = Arc::new(infera_auth::ManagementJwksCache::new(
+            state.config.auth.management_api_url.clone(),
+            std::time::Duration::from_secs(900), // 15 minutes TTL
+        ));
+
+        // Create ManagementApiVaultVerifier for cache invalidation handlers
+        // This requires creating a ManagementClient first
+        let management_client = Arc::new(
+            infera_auth::ManagementClient::new(
+                state.config.auth.management_api_url.clone(),
+                state.config.auth.management_api_timeout_ms,
+                state.server_identity.clone(),
+            )
+            .map_err(|e| {
+                ApiError::Internal(format!("Failed to create management client: {}", e))
+            })?,
+        );
+
+        let mgmt_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
+            Arc::clone(&management_client),
+            std::time::Duration::from_secs(300), // 5 min vault cache TTL
+            std::time::Duration::from_secs(600), // 10 min org cache TTL
+        ));
+
+        // Create internal router with Management JWT auth middleware and vault verifier extension
+        let mgmt_cache_clone = Arc::clone(&management_jwks_cache);
+        let verifier_clone = Arc::clone(&mgmt_verifier);
+        Some(
+            Router::new()
+                .route(
+                    "/internal/cache/invalidate/vault/{vault_id}",
+                    post(handlers::internal::invalidate_vault_cache),
+                )
+                .route(
+                    "/internal/cache/invalidate/organization/{org_id}",
+                    post(handlers::internal::invalidate_organization_cache),
+                )
+                .route("/internal/cache/invalidate/all", post(handlers::internal::clear_all_caches))
+                // Add vault verifier as Extension for handlers
+                .layer(Extension(verifier_clone))
+                // Apply Management JWT auth middleware
+                .layer(axum::middleware::from_fn(move |req, next| {
+                    let cache = Arc::clone(&mgmt_cache_clone);
+                    async move { infera_auth::management_auth_middleware(cache, req, next).await }
+                }))
+                .with_state(state.clone()),
+        )
+    } else {
+        info!(
+            "Internal cache invalidation endpoints DISABLED (auth disabled or management API not configured)"
+        );
+        None
     };
 
-    #[cfg(unix)]
-    let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM handler")
-            .recv()
-            .await;
+    // Combine JWKS (no auth) and privileged routes (Management JWT auth)
+    let router = if let Some(privileged) = privileged_routes {
+        jwks_routes.merge(privileged)
+    } else {
+        jwks_routes
     };
 
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
+    Ok(router)
+}
 
-    tokio::select! {
-        _ = ctrl_c => {
-            info!("Received SIGINT (Ctrl+C), initiating graceful shutdown");
-        }
-        _ = terminate => {
-            info!("Received SIGTERM, initiating graceful shutdown");
-        }
-    }
+/// Serve the public router on the configured address
+pub async fn serve_public(
+    components: ServerComponents,
+    listener: tokio::net::TcpListener,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) -> anyhow::Result<()> {
+    let router = public_routes(components).await?;
 
-    info!("Shutdown signal received, draining connections...");
+    axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>())
+        .with_graceful_shutdown(shutdown)
+        .await?;
+
+    Ok(())
+}
+
+/// Serve the internal router on the configured address
+pub async fn serve_internal(
+    components: ServerComponents,
+    listener: tokio::net::TcpListener,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) -> anyhow::Result<()> {
+    let router = internal_routes(components).await?;
+
+    axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>())
+        .with_graceful_shutdown(shutdown)
+        .await?;
+
+    Ok(())
 }
 
 /// Configuration for starting server components
@@ -742,42 +775,6 @@ impl ServerComponents {
         .server_identity(self.server_identity.clone())
         .build()
     }
-}
-
-/// Start the REST API server
-pub async fn serve(components: ServerComponents) -> anyhow::Result<()> {
-    // Create AppState with services
-    let state = components.create_app_state();
-
-    // Mark service as ready to accept traffic
-    state.health_tracker.set_ready(true);
-    state.health_tracker.set_startup_complete(true);
-
-    let app = create_router(state).await?;
-
-    let addr = format!("{}:{}", components.config.server.host, components.config.server.port);
-    info!("Starting REST API server on {}", addr);
-
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-
-    // Setup graceful shutdown
-    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-
-    // Spawn task to handle shutdown signals
-    tokio::spawn(async move {
-        shutdown_signal().await;
-        let _ = shutdown_tx.send(());
-    });
-
-    // Serve with graceful shutdown
-    // Use into_make_service_with_connect_info to provide client IP for rate limiting
-    axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>())
-        .with_graceful_shutdown(async {
-            shutdown_rx.await.ok();
-        })
-        .await?;
-
-    Ok(())
 }
 
 /// Start the gRPC server
@@ -853,35 +850,40 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Start both REST and gRPC servers concurrently
-pub async fn serve_both(components: ServerComponents) -> anyhow::Result<()> {
-    // Clone components for REST server
-    let rest_components = ServerComponents {
-        store: Arc::clone(&components.store),
-        schema: Arc::clone(&components.schema),
-        wasm_host: components.wasm_host.clone(),
-        config: Arc::clone(&components.config),
-        jwks_cache: components.jwks_cache.clone(),
-        default_vault: components.default_vault,
-        default_organization: components.default_organization,
-        server_identity: components.server_identity.clone(),
+/// Test helper function for backwards compatibility
+/// Creates a router directly from AppState for integration tests
+pub async fn create_router(state: AppState) -> Result<Router> {
+    use axum::routing::{get, post};
+    use handlers::{
+        evaluate::stream::evaluate_stream_handler,
+        expand::stream::expand_handler,
+        relationships::{
+            delete::delete_relationships_handler, list::list_relationships_stream_handler,
+            write::write_relationships_handler,
+        },
+        resources::list::list_resources_stream_handler,
+        subjects::list::list_subjects_stream_handler,
     };
 
-    // Clone components for gRPC server
-    let grpc_components = ServerComponents {
-        store: Arc::clone(&components.store),
-        schema: Arc::clone(&components.schema),
-        wasm_host: components.wasm_host.clone(),
-        config: Arc::clone(&components.config),
-        jwks_cache: components.jwks_cache.clone(),
-        default_vault: components.default_vault,
-        default_organization: components.default_organization,
-        server_identity: components.server_identity.clone(),
-    };
+    // Create a simple router for tests (without rate limiting)
+    let router = Router::new()
+        .route("/v1/evaluate", post(evaluate_stream_handler))
+        .route("/v1/expand", post(expand_handler))
+        .route("/v1/resources/list", post(list_resources_stream_handler))
+        .route("/v1/relationships/list", post(list_relationships_stream_handler))
+        .route("/v1/subjects/list", post(list_subjects_stream_handler))
+        .route("/v1/relationships/write", post(write_relationships_handler))
+        .route("/v1/relationships/delete", post(delete_relationships_handler))
+        .route(
+            "/v1/relationships/:resource/:relation/:subject",
+            get(handlers::relationships::get::get_relationship),
+        )
+        .route("/health", get(health::health_check_handler))
+        .route("/health/ready", get(health::readiness_handler))
+        .route("/health/startup", get(health::startup_handler))
+        .with_state(state);
 
-    tokio::try_join!(serve(rest_components), serve_grpc(grpc_components))?;
-
-    Ok(())
+    Ok(router)
 }
 
 #[cfg(test)]
@@ -921,7 +923,6 @@ mod tests {
         let mut config = infera_config::Config::default();
         // Disable auth and rate limiting for tests
         config.auth.enabled = false;
-        config.server.rate_limiting_enabled = false;
         let config = Arc::new(config);
 
         AppState::builder(store, schema, config)
@@ -989,6 +990,24 @@ mod tests {
         }
 
         (users, summary)
+    }
+
+    /// Helper function for tests to create a router from AppState
+    async fn create_router(state: AppState) -> Result<Router> {
+        // Create components from state
+        let components = ServerComponents {
+            store: Arc::clone(&state.store),
+            schema: Arc::new(infera_core::ipl::Schema::new(vec![])), /* Dummy schema, state has
+                                                                      * the real one */
+            wasm_host: None,
+            config: Arc::clone(&state.config),
+            jwks_cache: state.jwks_cache.clone(),
+            default_vault: state.default_vault,
+            default_organization: state.default_organization,
+            server_identity: state.server_identity.clone(),
+        };
+
+        public_routes(components).await
     }
 
     #[tokio::test]
@@ -1430,45 +1449,6 @@ mod tests {
         let delete_response: DeleteResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(delete_response.relationships_deleted, 2);
     }
-
-    #[tokio::test]
-    async fn test_rate_limiting_disabled() {
-        // Verify rate limiting can be disabled in configuration
-        let state = create_test_state();
-        assert!(!state.config.server.rate_limiting_enabled);
-
-        let app = create_router(state).await.unwrap();
-
-        let request_body = json!({
-            "evaluations": [{
-                "subject": "user:alice",
-                "resource": "doc:readme",
-                "permission": "reader",
-                "context": null
-            }]
-        });
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/v1/evaluate")
-                    .header("content-type", "application/json")
-                    .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        // Should succeed with rate limiting disabled
-        assert_eq!(response.status(), StatusCode::OK);
-    }
-
-    // Note: Full rate limiting integration tests require a running HTTP server
-    // with actual TCP connections to properly test IP-based rate limiting.
-    // The tower-governor middleware is configured and enabled by default
-    // in production (server.rate_limiting_enabled = true).
-    // See docs/RATE_LIMITING.md for manual testing procedures.
 
     #[tokio::test]
     async fn test_lookup_resources_validation() {

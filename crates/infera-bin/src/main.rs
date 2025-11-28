@@ -157,21 +157,99 @@ async fn main() -> Result<()> {
         None
     };
 
-    // Start API server
-    tracing::info!("Starting API server on {}:{}", config.server.host, config.server.port);
+    // Start dual-server architecture: public and internal servers on separate ports
+    tracing::info!(
+        "Starting dual-server mode - Public: {}:{}, Internal: {}:{}",
+        config.server.host,
+        config.server.port,
+        config.server.internal_host,
+        config.server.internal_port
+    );
 
-    let components = infera_api::ServerComponents {
-        store,
-        schema,
-        wasm_host,
-        config,
-        jwks_cache,
+    // Clone components for each server
+    let public_components = infera_api::ServerComponents {
+        store: Arc::clone(&store),
+        schema: Arc::clone(&schema),
+        wasm_host: wasm_host.clone(),
+        config: Arc::clone(&config),
+        jwks_cache: jwks_cache.clone(),
         default_vault: system_config.default_vault,
         default_organization: system_config.default_organization,
-        server_identity,
+        server_identity: server_identity.clone(),
     };
 
-    infera_api::serve(components).await?;
+    let internal_components = infera_api::ServerComponents {
+        store: Arc::clone(&store),
+        schema: Arc::clone(&schema),
+        wasm_host: wasm_host.clone(),
+        config: Arc::clone(&config),
+        jwks_cache: jwks_cache.clone(),
+        default_vault: system_config.default_vault,
+        default_organization: system_config.default_organization,
+        server_identity: server_identity.clone(),
+    };
+
+    // Bind listeners
+    let public_addr = format!("{}:{}", config.server.host, config.server.port);
+    let internal_addr = format!("{}:{}", config.server.internal_host, config.server.internal_port);
+
+    tracing::info!("Binding public server to {}", public_addr);
+    let public_listener = tokio::net::TcpListener::bind(&public_addr).await?;
+
+    tracing::info!("Binding internal server to {}", internal_addr);
+    let internal_listener = tokio::net::TcpListener::bind(&internal_addr).await?;
+
+    // Setup graceful shutdown
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel::<()>(2);
+    let mut shutdown_rx_internal = shutdown_tx.subscribe();
+
+    // Spawn task to handle shutdown signals
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        let _ = shutdown_tx.send(());
+    });
+
+    // Start both servers concurrently
+    tracing::info!("Starting public and internal servers concurrently");
+    tokio::try_join!(
+        infera_api::serve_public(public_components, public_listener, async move {
+            shutdown_rx.recv().await.ok();
+        }),
+        infera_api::serve_internal(internal_components, internal_listener, async move {
+            shutdown_rx_internal.recv().await.ok();
+        })
+    )?;
 
     Ok(())
+}
+
+/// Graceful shutdown signal handler
+async fn shutdown_signal() {
+    use tokio::signal;
+
+    let ctrl_c = async {
+        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            tracing::info!("Received SIGINT (Ctrl+C), initiating graceful shutdown");
+        }
+        _ = terminate => {
+            tracing::info!("Received SIGTERM, initiating graceful shutdown");
+        }
+    }
+
+    tracing::info!("Shutdown signal received, draining connections...");
 }

@@ -132,12 +132,15 @@ let cert_id = parts[5].parse::<i64>()?;
 
 ### 2. Fetch Client Certificate
 
-The server fetches the Ed25519 public key from the Management API:
+The server fetches the Ed25519 public key from the Management API's **internal server** (port 9091):
 
 ```http
 GET /v1/organizations/{org_id}/clients/{client_id}/certificates/{cert_id}
 Authorization: Bearer {server_jwt}
+Host: localhost:9091
 ```
+
+This request is made to the Management API's **internal port** (9091), not the public port (3000), as it's a privileged server-to-server operation.
 
 **Caching**: Certificates are cached for 15 minutes (900 seconds) to minimize API calls.
 
@@ -181,12 +184,15 @@ if token_data.claims.org_id.is_none() || token_data.claims.vault_id.is_none() {
 
 ### 5. Verify Vault Ownership
 
-The server verifies that the vault belongs to the organization:
+The server verifies that the vault belongs to the organization using the Management API's **privileged internal endpoint**:
 
 ```http
-GET /v1/vaults/{vault_id}
+GET /internal/vaults/{vault_id}
 Authorization: Bearer {server_jwt}
+Host: localhost:9091
 ```
+
+This endpoint is served on the Management API's **internal server** (port 9091) and requires a valid server JWT, but performs **no permission checks**. It's designed specifically for server-to-server verification.
 
 ```rust
 let vault = management_client.get_vault(vault_id).await?;
@@ -200,12 +206,15 @@ if vault.organization_id != org_id {
 
 ### 6. Verify Organization Status
 
-The server checks that the organization is active:
+The server checks that the organization is active using the Management API's **privileged internal endpoint**:
 
 ```http
-GET /v1/organizations/{org_id}
+GET /internal/organizations/{org_id}
 Authorization: Bearer {server_jwt}
+Host: localhost:9091
 ```
+
+This endpoint is served on the Management API's **internal server** (port 9091) and requires a valid server JWT, but performs **no permission checks**. It's designed specifically for server-to-server verification.
 
 ```rust
 let org = management_client.get_organization(org_id).await?;
@@ -234,7 +243,16 @@ let result = policy_engine.evaluate(
 
 ## Server-to-Management Authentication
 
-The Server API makes authenticated requests to the Management API for verification operations. This uses **bidirectional JWT authentication** where the server has its own Ed25519 keypair.
+The Server API makes authenticated requests to the Management API's **internal server** (port 9091) for verification operations. This uses **bidirectional JWT authentication** where the server has its own Ed25519 keypair.
+
+### Dual-Server Architecture
+
+The Management API runs **two separate HTTP servers**:
+
+- **Public Server** (port 3000): User-facing API with session authentication and permission checks
+- **Internal Server** (port 9091): Server-to-server API with JWT authentication for privileged operations
+
+The Server API **exclusively communicates with the internal server** on port 9091, which provides privileged endpoints without permission checks specifically for server-to-server verification.
 
 ### Server Identity
 
@@ -243,7 +261,8 @@ The server configures its identity on startup:
 ```yaml
 auth:
     enabled: true
-    management_api_url: "http://localhost:8081"
+    # IMPORTANT: Points to Management API's INTERNAL port (9091), not public port (3000)
+    management_api_url: "http://localhost:9091"
     # Server identity for server-to-management requests
     server_identity_private_key: |
         -----BEGIN PRIVATE KEY-----
@@ -303,14 +322,26 @@ Response:
 }
 ```
 
-### Management API Dual Authentication
+### Management API Privileged Endpoints
 
-The Management API accepts **both** user session tokens and server JWTs on these endpoints:
+The Management API provides **dedicated server-to-server endpoints** on the internal server (port 9091) for the Server API's verification operations:
 
-- `GET /v1/organizations/{org_id}` - Organization status lookup
-- `GET /v1/vaults/{vault_id}` - Vault ownership verification
+**Internal Endpoints** (port 9091, server JWT required):
 
-This allows the server to make authenticated verification calls while users can access the same endpoints via session tokens.
+- `GET /internal/organizations/{org_id}` - Organization status lookup (no permission checks)
+- `GET /internal/vaults/{vault_id}` - Vault ownership verification (no permission checks)
+
+**Public Endpoints** (port 3000, session authentication required):
+
+- `GET /v1/organizations/{org_id}` - Organization details (requires membership)
+- `GET /v1/vaults/{vault_id}` - Vault details (requires vault access)
+
+The Server API **exclusively uses the internal endpoints** for verification, which are isolated from the public API and don't perform permission checks. This separation provides:
+
+1. **Network Isolation**: Internal endpoints only accessible via internal network
+2. **No Permission Bypass**: Public endpoints enforce permissions; internal endpoints are isolated
+3. **Performance**: Privileged endpoints skip expensive permission checks
+4. **Security**: Different attack surface for user vs server requests
 
 ## Caching Strategy
 
@@ -339,7 +370,8 @@ The Server API aggressively caches authentication data to minimize latency and M
 ```yaml
 auth:
     enabled: true
-    management_api_url: "http://localhost:8081"
+    # IMPORTANT: Points to Management API's INTERNAL port (9091)
+    management_api_url: "http://localhost:9091"
     management_api_timeout_ms: 5000
 
     # Cache TTLs

@@ -39,7 +39,6 @@ server:
     host: "0.0.0.0"
     port: 8080
     worker_threads: 4
-    rate_limiting_enabled: true
 
 store:
     backend: "memory"
@@ -67,7 +66,6 @@ auth:
         "host": "0.0.0.0",
         "port": 8080,
         "worker_threads": 4,
-        "rate_limiting_enabled": true
     },
     "store": {
         "backend": "memory",
@@ -104,7 +102,6 @@ All configuration options can be set via environment variables using the `INFERA
 export INFERA__SERVER__HOST="0.0.0.0"
 export INFERA__SERVER__PORT=8080
 export INFERA__SERVER__WORKER_THREADS=4
-export INFERA__SERVER__RATE_LIMITING_ENABLED=true
 
 # Store configuration
 export INFERA__STORE__BACKEND="memory"
@@ -146,7 +143,6 @@ Controls HTTP/gRPC server behavior.
 | `host`                  | string  | `"127.0.0.1"` | Server bind address                 |
 | `port`                  | integer | `8080`        | HTTP server port (gRPC uses port+1) |
 | `worker_threads`        | integer | CPU count     | Number of Tokio worker threads      |
-| `rate_limiting_enabled` | boolean | `true`        | Enable rate limiting middleware     |
 
 ### Examples
 
@@ -157,7 +153,6 @@ server:
     host: "127.0.0.1"
     port: 8080
     worker_threads: 2
-    rate_limiting_enabled: false
 ```
 
 **Production** (all interfaces):
@@ -167,7 +162,6 @@ server:
     host: "0.0.0.0"
     port: 8080
     worker_threads: 8
-    rate_limiting_enabled: true
 ```
 
 ### Environment Variables
@@ -176,7 +170,6 @@ server:
 export INFERA__SERVER__HOST="0.0.0.0"
 export INFERA__SERVER__PORT=8080
 export INFERA__SERVER__WORKER_THREADS=8
-export INFERA__SERVER__RATE_LIMITING_ENABLED=true
 ```
 
 ### Recommendations
@@ -502,7 +495,6 @@ server:
     host: "127.0.0.1"
     port: 8080
     worker_threads: 2
-    rate_limiting_enabled: false
 
 store:
     backend: "memory"
@@ -530,7 +522,6 @@ server:
     host: "0.0.0.0"
     port: 8080
     worker_threads: 8
-    rate_limiting_enabled: true
 
 store:
     backend: "foundationdb"
@@ -562,7 +553,6 @@ server:
     host: "127.0.0.1"
     port: 8080
     worker_threads: 1
-    rate_limiting_enabled: false
 
 store:
     backend: "memory"

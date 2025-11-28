@@ -14,15 +14,33 @@
 # =============================================================================
 
 server:
+  # Public server (client-facing traffic)
   # Host address to bind to
   # "127.0.0.1" - localhost only (development)
   # "0.0.0.0" - all interfaces (production)
   host: "127.0.0.1"
 
-  # Port to listen on
+  # Port to listen on for client requests
   # Default: 8080
   # Environment: INFERA__SERVER__PORT
   port: 8080
+
+  # Internal server (server-to-server communication)
+  # Always enabled for network-level security isolation
+  # Runs a separate HTTP server for internal endpoints:
+  #   - /.well-known/jwks.json (JWKS endpoint for Management API)
+  #   - /internal/cache/invalidate/* (cache invalidation endpoints)
+
+  # Host address for internal server
+  # Default: "0.0.0.0" (bind to all interfaces, restrict via network policies)
+  # Environment: INFERA__SERVER__INTERNAL_HOST
+  internal_host: "0.0.0.0"
+
+  # Port for internal server (JWKS endpoint, cache invalidation APIs)
+  # Default: 9090
+  # Environment: INFERA__SERVER__INTERNAL_PORT
+  # Important: Management API should use this port for JWKS fetching
+  internal_port: 9090
 
   # Number of worker threads for async runtime
   # Default: Number of CPU cores
@@ -112,15 +130,22 @@ auth:
   # Local/Integration: "http://localhost:8081" (management API)
   # jwks_base_url: "http://localhost:8081"
 
-  # Management API URL for token validation
-  # The server calls this API to:
+  # Management API URL for token validation (server-to-server communication)
+  # IMPORTANT: This should point to the Management API's INTERNAL port (default: 9091)
+  # NOT the public port (default: 3000)
+  #
+  # The server calls the /internal/* endpoints on this URL to:
   #   - Fetch Ed25519 public keys for signature verification
-  #   - Validate vault ownership
-  #   - Check organization status
+  #   - Validate vault ownership (GET /internal/vaults/{vault})
+  #   - Check organization status (GET /internal/organizations/{org})
+  #
   # Format: "http://host:port" or "https://host:port"
-  # Do NOT include trailing slash or /v1 suffix
+  # Do NOT include trailing slash
   # Environment: INFERA__AUTH__MANAGEMENT_API_URL
-  management_api_url: "http://localhost:8081"
+  #
+  # Development: "http://localhost:9091" (Management API internal port)
+  # Production: "http://management-internal:9091" (Kubernetes service)
+  management_api_url: "http://localhost:9091"
 
   # Management API request timeout (milliseconds)
   # Recommendation: 5000ms (5 seconds)
@@ -184,7 +209,7 @@ auth:
 #   metrics_enabled: true
 #   tracing_enabled: false
 # auth:
-#   management_api_url: "http://localhost:8081"
+#   management_api_url: "http://localhost:9091"
 #   management_api_timeout_ms: 5000
 #   management_cache_ttl_seconds: 60
 #   cert_cache_ttl_seconds: 60

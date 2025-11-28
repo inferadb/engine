@@ -174,7 +174,7 @@ impl ManagementClient {
         org_id: i64,
     ) -> Result<OrganizationInfo, ManagementApiError> {
         let base_url = self.get_base_url();
-        let url = format!("{}/v1/organizations/{}", base_url, org_id);
+        let url = format!("{}/internal/organizations/{}", base_url, org_id);
 
         let mut request = self.http_client.get(&url);
 
@@ -223,7 +223,7 @@ impl ManagementClient {
     /// - The response cannot be parsed
     pub async fn get_vault(&self, vault_id: i64) -> Result<VaultInfo, ManagementApiError> {
         let base_url = self.get_base_url();
-        let url = format!("{}/v1/vaults/{}", base_url, vault_id);
+        let url = format!("{}/internal/vaults/{}", base_url, vault_id);
 
         let mut request = self.http_client.get(&url);
 

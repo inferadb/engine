@@ -8,7 +8,6 @@ metadata:
 data:
   # Environment variables
   INFERA__SERVER__WORKER_THREADS: "4"
-  INFERA__SERVER__RATE_LIMITING_ENABLED: "true"
 
   INFERA__STORE__BACKEND: "foundationdb"
   INFERA__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
@@ -36,7 +35,6 @@ data:
       host: "0.0.0.0"
       port: 8080
       worker_threads: 4
-      rate_limiting_enabled: true
 
     store:
       backend: "foundationdb"

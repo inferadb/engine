@@ -148,8 +148,9 @@ mod tests {
         let config = ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 0,
+            internal_host: "0.0.0.0".to_string(),
+            internal_port: 9090,
             worker_threads: 4,
-            rate_limiting_enabled: true,
         };
         assert!(matches!(validate_server(&config), Err(ValidationError::InvalidPort(0))));
     }
@@ -159,8 +160,9 @@ mod tests {
         let config = ServerConfig {
             host: "".to_string(),
             port: 8080,
+            internal_host: "0.0.0.0".to_string(),
+            internal_port: 9090,
             worker_threads: 4,
-            rate_limiting_enabled: true,
         };
         assert!(matches!(validate_server(&config), Err(ValidationError::InvalidHost(_))));
     }
@@ -170,8 +172,9 @@ mod tests {
         let config = ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 8080,
+            internal_host: "0.0.0.0".to_string(),
+            internal_port: 9090,
             worker_threads: 0,
-            rate_limiting_enabled: true,
         };
         assert!(matches!(validate_server(&config), Err(ValidationError::InvalidWorkerThreads(0))));
     }
@@ -256,8 +259,9 @@ mod tests {
             server: ServerConfig {
                 host: "".to_string(),
                 port: 0,
+                internal_host: "0.0.0.0".to_string(),
+                internal_port: 9090,
                 worker_threads: 0,
-                rate_limiting_enabled: true,
             },
             store: StoreConfig { backend: "invalid".to_string(), connection_string: None },
             cache: CacheConfig { enabled: true, max_capacity: 0, ttl_seconds: 0 },
