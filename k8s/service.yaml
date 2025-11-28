@@ -21,9 +21,9 @@ spec:
       port: 8081
       targetPort: grpc
       protocol: TCP
-    - name: metrics
+    - name: internal
       port: 9090
-      targetPort: metrics
+      targetPort: internal
       protocol: TCP
   selector:
     app: inferadb
@@ -49,6 +49,10 @@ spec:
     - name: grpc
       port: 8081
       targetPort: grpc
+      protocol: TCP
+    - name: internal
+      port: 9090
+      targetPort: internal
       protocol: TCP
   selector:
     app: inferadb

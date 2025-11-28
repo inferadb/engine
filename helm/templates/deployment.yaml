@@ -51,8 +51,8 @@ spec:
         - name: grpc
           containerPort: {{ add .Values.config.server.port 1 }}
           protocol: TCP
-        - name: metrics
-          containerPort: {{ .Values.service.metricsPort }}
+        - name: internal
+          containerPort: {{ .Values.config.server.internalPort }}
           protocol: TCP
         envFrom:
         - configMapRef:

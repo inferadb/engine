@@ -31,10 +31,13 @@ spec:
       {{- if and (eq .Values.service.type "NodePort") .Values.service.grpcNodePort }}
       nodePort: {{ .Values.service.grpcNodePort }}
       {{- end }}
-    - port: 9090
-      targetPort: metrics
+    - port: {{ .Values.service.internalPort }}
+      targetPort: internal
       protocol: TCP
-      name: metrics
+      name: internal
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.internalNodePort }}
+      nodePort: {{ .Values.service.internalNodePort }}
+      {{- end }}
   selector:
     {{- include "inferadb.selectorLabels" . | nindent 4 }}
 ---
@@ -58,6 +61,10 @@ spec:
       targetPort: grpc
       protocol: TCP
       name: grpc
+    - port: {{ .Values.service.internalPort }}
+      targetPort: internal
+      protocol: TCP
+      name: internal
   selector:
     {{- include "inferadb.selectorLabels" . | nindent 4 }}
 {{- end }}

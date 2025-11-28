@@ -70,8 +70,8 @@ spec:
             - name: grpc
               containerPort: 8081
               protocol: TCP
-            - name: metrics
-              containerPort: 8080
+            - name: internal
+              containerPort: 9090
               protocol: TCP
 
           env:
@@ -83,6 +83,10 @@ spec:
               value: "0.0.0.0"
             - name: INFERA__SERVER__PORT
               value: "8080"
+            - name: INFERA__SERVER__INTERNAL_HOST
+              value: "0.0.0.0"
+            - name: INFERA__SERVER__INTERNAL_PORT
+              value: "9090"
             - name: INFERA__OBSERVABILITY__METRICS_ENABLED
               value: "true"
             - name: INFERA__OBSERVABILITY__TRACING_ENABLED

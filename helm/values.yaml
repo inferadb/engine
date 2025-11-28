@@ -50,11 +50,12 @@ service:
   type: ClusterIP
   port: 8080
   grpcPort: 8081
-  metricsPort: 9090
+  internalPort: 9090  # Internal server port for server-to-server communication
   annotations: {}
   sessionAffinity: None
   # nodePort: 30080  # Only used when service.type is NodePort
   # grpcNodePort: 30081
+  # internalNodePort: 30090
   # loadBalancerIP: ""  # Only used when service.type is LoadBalancer
   headless:
     enabled: false # Enable for StatefulSet deployments
@@ -140,6 +141,8 @@ config:
   server:
     host: "0.0.0.0"
     port: 8080
+    internalHost: "0.0.0.0"
+    internalPort: 9090
     workerThreads: 4
     maxConnections: 10000
     requestTimeout: 30
