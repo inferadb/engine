@@ -1,0 +1,65 @@
+# InferaDB Server Configuration - Production Template
+#
+# This is a template for production deployment. Replace all placeholder values
+# (marked with <...>) with your actual production values.
+#
+# SECURITY: Do not commit this file with real credentials to version control.
+# Use environment variables or a secrets management system in production.
+
+server:
+  # Public server binding (client-facing traffic)
+  host: "0.0.0.0"
+  port: 8080
+
+  # Internal server (server-to-server communication)
+  internal_host: "0.0.0.0"
+  internal_port: 9090
+
+  # Worker threads (recommended: number of CPU cores)
+  worker_threads: 16
+
+store:
+  # Use FoundationDB for production
+  backend: "foundationdb"
+  
+  # FoundationDB cluster file path
+  # This file contains the connection string for your FDB cluster
+  connection_string: "fdb:cluster_file=/etc/foundationdb/fdb.cluster"
+
+cache:
+  enabled: true
+  max_capacity: 1000000  # 1M entries for high-throughput
+  ttl_seconds: 300
+
+observability:
+  # Log level: trace, debug, info, warn, error
+  log_level: "info"
+
+  # Enable Prometheus metrics
+  metrics_enabled: true
+
+  # Enable distributed tracing
+  tracing_enabled: true
+
+  # OTLP endpoint for distributed tracing
+  otlp_endpoint: "http://otel-collector:4317"
+
+auth:
+  # Management API URL for token validation (server-to-server communication)
+  # IMPORTANT: This should point to the Management API's INTERNAL port (default: 9091)
+  # In production, use internal Kubernetes service name or private endpoint
+  # Example: "http://management-internal.inferadb.svc.cluster.local:9091"
+  management_api_url: "http://management-internal:9091"
+  
+  management_api_timeout_ms: 5000
+  management_cache_ttl_seconds: 600  # Longer cache for performance
+  cert_cache_ttl_seconds: 1800  # 30 minutes
+  management_verify_vault_ownership: true
+  management_verify_org_status: true
+
+  # Optional: Enable JWT replay protection (requires Redis)
+  # Prevents reuse of JWT tokens by tracking jti claims
+  # replay_protection: true
+  # redis_url: "redis://redis-cluster:6379"
+  # redis_key_prefix: "infera:jti:"
+  # redis_ttl_seconds: 300

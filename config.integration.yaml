@@ -1,0 +1,35 @@
+# InferaDB Server Configuration - Integration Tests
+# This config is optimized for Docker container E2E testing
+
+server:
+  # Public server binding
+  host: "0.0.0.0"  # Bind to all interfaces for Docker
+  port: 8080  # Match docker-compose exposed port
+
+  # Internal server (server-to-server communication)
+  internal_host: "0.0.0.0"
+  internal_port: 9090
+
+  worker_threads: 2  # Reduced for test environment
+
+store:
+  backend: "memory"  # In-memory for fast tests
+
+cache:
+  enabled: true
+  max_capacity: 1000  # Small cache for tests
+  ttl_seconds: 60
+
+observability:
+  log_level: "debug"  # Verbose logging for tests
+  metrics_enabled: true
+  tracing_enabled: false
+
+auth:
+  # Management API URL - Docker service name
+  management_api_url: "http://management-api:9091"
+  management_api_timeout_ms: 10000  # Higher timeout for CI
+  management_cache_ttl_seconds: 30  # Short cache for tests
+  cert_cache_ttl_seconds: 60
+  management_verify_vault_ownership: true
+  management_verify_org_status: true

@@ -2,7 +2,7 @@
 //!
 //! Exposes REST and gRPC endpoints for authorization checks (AuthZEN-compatible).
 
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
     Extension, Json, Router,
@@ -14,7 +14,7 @@ use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
 use serde::Serialize;
 use thiserror::Error;
-use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
+use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder, key_extractor::KeyExtractor};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer};
 use tracing::info;
 
@@ -322,6 +322,29 @@ impl AppState {
     }
 }
 
+/// Custom key extractor for rate limiting that provides a fallback IP for tests
+/// In production, extracts the peer IP from the connection
+/// In tests (where there's no peer connection), uses a default IP
+#[derive(Clone, Default)]
+struct SmartIpKeyExtractor;
+
+impl KeyExtractor for SmartIpKeyExtractor {
+    type Key = SocketAddr;
+
+    fn extract<T>(
+        &self,
+        req: &axum::http::Request<T>,
+    ) -> std::result::Result<Self::Key, tower_governor::errors::GovernorError> {
+        // Try to get peer IP from connection info extension
+        // If not available (e.g., in tests), use a fallback IP
+        Ok(req
+            .extensions()
+            .get::<axum::extract::ConnectInfo<SocketAddr>>()
+            .map(|connect_info| connect_info.0)
+            .unwrap_or_else(|| "127.0.0.1:0".parse().unwrap()))
+    }
+}
+
 /// Create public routes (client-facing endpoints)
 /// These routes accept client JWTs and handle authorization requests
 pub async fn public_routes(components: ServerComponents) -> Result<Router> {
@@ -330,11 +353,12 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
     // Configure rate limiting: 1000 requests per minute per IP
     // Based on docs/RATE_LIMITING.md recommendations
+    // Uses custom key extractor that works in both production and tests
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
             .per_second(1000 / 60) // 1000 requests per minute = ~16.67 per second
             .burst_size(2000) // Allow bursts up to 2000 requests
-            .use_headers() // Add rate limit headers to responses
+            .key_extractor(SmartIpKeyExtractor)
             .finish()
             .unwrap(),
     );
@@ -901,7 +925,7 @@ mod tests {
 
     use super::*;
 
-    fn create_test_state() -> AppState {
+    fn create_test_state() -> (AppState, Arc<Schema>) {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
@@ -921,17 +945,19 @@ mod tests {
         let test_account: i64 = 2;
 
         let mut config = infera_config::Config::default();
-        // Disable auth and rate limiting for tests
+        // Disable auth for tests (rate limiting is always enabled)
         config.auth.enabled = false;
         let config = Arc::new(config);
 
-        AppState::builder(store, schema, config)
+        let state = AppState::builder(store, Arc::clone(&schema), config)
             .wasm_host(None)
             .jwks_cache(None)
             .default_vault(test_vault)
             .default_organization(test_account)
             .server_identity(None)
-            .build()
+            .build();
+
+        (state, schema)
     }
 
     /// Helper function to parse SSE response and extract evaluation results
@@ -993,12 +1019,11 @@ mod tests {
     }
 
     /// Helper function for tests to create a router from AppState
-    async fn create_router(state: AppState) -> Result<Router> {
+    async fn create_router(state: AppState, schema: Arc<Schema>) -> Result<Router> {
         // Create components from state
         let components = ServerComponents {
             store: Arc::clone(&state.store),
-            schema: Arc::new(infera_core::ipl::Schema::new(vec![])), /* Dummy schema, state has
-                                                                      * the real one */
+            schema,
             wasm_host: None,
             config: Arc::clone(&state.config),
             jwks_cache: state.jwks_cache.clone(),
@@ -1012,7 +1037,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_check() {
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         let response = app
             .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
@@ -1024,7 +1050,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_check_deny() {
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         // New batch format with array of checks
         let request_body = json!({
@@ -1062,8 +1089,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_write_and_check() {
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // First, write a relationship
         let write_request = json!({
@@ -1129,7 +1156,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_write_validation_empty_relationships() {
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         let write_request = json!({
             "relationships": []
@@ -1152,7 +1180,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_write_validation_invalid_object_format() {
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         let write_request = json!({
             "relationships": [{
@@ -1179,7 +1208,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_expand() {
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         let expand_request = json!({
             "resource": "doc:readme",
@@ -1213,8 +1243,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete() {
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // First, write a relationship
         let write_request = json!({
@@ -1332,7 +1362,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_validation_empty_relationships() {
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         // Empty request with no filter and no relationships should fail
         let delete_request = json!({});
@@ -1354,7 +1385,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_validation_invalid_format() {
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         let delete_request = json!({
             "relationships": [{
@@ -1381,8 +1413,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_batch() {
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // Write multiple relationships
         let write_request = json!({
@@ -1452,7 +1484,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_lookup_resources_validation() {
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         // Test empty subject
         let list_request = json!({
@@ -1523,8 +1556,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_by_filter_subject() {
         // Test user offboarding scenario: delete all relationships for a subject
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // Write relationships for alice across multiple resources
         let write_request = json!({
@@ -1646,8 +1679,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_by_filter_resource() {
         // Test resource cleanup scenario: delete all relationships for a resource
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // Write relationships with multiple subjects for the same resource
         let write_request = json!({
@@ -1769,8 +1802,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_by_filter_with_limit() {
         // Test deletion with explicit limit
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // Write multiple relationships for the same subject
         let write_request = json!({
@@ -1836,8 +1869,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_by_filter_combined_fields() {
         // Test deletion with multiple filter fields
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // Write relationships with various combinations
         let write_request = json!({
@@ -1903,7 +1936,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_filter_empty_validation() {
         // Test that empty filter is rejected
-        let app = create_router(create_test_state()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state, schema).await.unwrap();
 
         let delete_request = json!({
             "filter": {}
@@ -1928,8 +1962,8 @@ mod tests {
     #[tokio::test]
     async fn test_batch_check() {
         // Test new batch check functionality - multiple checks in single request
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // Write some relationships
         let write_request = json!({
@@ -2026,8 +2060,8 @@ mod tests {
     #[tokio::test]
     async fn test_check_with_trace() {
         // Test unified Check API with trace flag
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // Write a relationship
         let write_request = json!({
@@ -2093,8 +2127,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_combined_filter_and_exact() {
         // Test deletion with both filter and exact relationships
-        let state = create_test_state();
-        let app = create_router(state.clone()).await.unwrap();
+        let (state, schema) = create_test_state();
+        let app = create_router(state.clone(), schema).await.unwrap();
 
         // Write multiple relationships
         let write_request = json!({
