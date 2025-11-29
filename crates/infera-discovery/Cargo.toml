@@ -1,21 +1,21 @@
 [package]
-name = "infera-discovery"
-version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
+edition.workspace = true
 homepage.workspace = true
-repository.workspace = true
+license.workspace = true
+name = "infera-discovery"
 publish.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
 # Kubernetes client
-kube = { workspace = true }
 k8s-openapi = { workspace = true }
+kube = { workspace = true }
 
 # Async runtime
-tokio = { workspace = true }
 async-trait = { workspace = true }
+tokio = { workspace = true }
 
 # Serialization
 serde = { workspace = true }
@@ -33,6 +33,6 @@ metrics = { workspace = true }
 url = "2.5"
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util", "macros"] }
-serde_yaml = "0.9"
 serde_json = { workspace = true }
+serde_yaml = "0.9"
+tokio = { workspace = true, features = ["macros", "test-util"] }

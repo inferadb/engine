@@ -36,8 +36,7 @@ pub async fn write_relationships_handler(
     axum::Json(request): axum::Json<WriteRequest>,
 ) -> Result<ResponseData<WriteResponse>> {
     // Authorize request and extract vault
-    let vault =
-        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WRITE])?;
+    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_WRITE])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

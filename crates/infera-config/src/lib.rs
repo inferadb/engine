@@ -169,10 +169,6 @@ fn default_tracing_enabled() -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthConfig {
-    /// Enable authentication (false for development/testing)
-    #[serde(default = "default_auth_enabled")]
-    pub enabled: bool,
-
     /// JWKS cache TTL in seconds
     #[serde(default = "default_jwks_cache_ttl")]
     pub jwks_cache_ttl: u64,
@@ -388,10 +384,6 @@ pub struct RemoteCluster {
     pub port: u16,
 }
 
-fn default_auth_enabled() -> bool {
-    false // Disabled by default for development
-}
-
 fn default_jwks_cache_ttl() -> u64 {
     300 // 5 minutes
 }
@@ -578,48 +570,46 @@ impl Config {
         }
 
         // Validate authentication config (delegates to AuthConfig::validate)
-        if self.auth.enabled {
-            self.auth.validate().map_err(|e| anyhow::anyhow!(e))?;
+        self.auth.validate().map_err(|e| anyhow::anyhow!(e))?;
 
-            // Additional validation for management API URL format
-            if !self.auth.management_api_url.starts_with("http://")
-                && !self.auth.management_api_url.starts_with("https://")
-            {
-                anyhow::bail!(
-                    "auth.management_api_url must start with http:// or https://, got: {}",
-                    self.auth.management_api_url
-                );
-            }
-            if self.auth.management_api_url.ends_with('/') {
-                anyhow::bail!(
-                    "auth.management_api_url must not end with trailing slash: {}",
-                    self.auth.management_api_url
-                );
-            }
+        // Additional validation for management API URL format
+        if !self.auth.management_api_url.starts_with("http://")
+            && !self.auth.management_api_url.starts_with("https://")
+        {
+            anyhow::bail!(
+                "auth.management_api_url must start with http:// or https://, got: {}",
+                self.auth.management_api_url
+            );
+        }
+        if self.auth.management_api_url.ends_with('/') {
+            anyhow::bail!(
+                "auth.management_api_url must not end with trailing slash: {}",
+                self.auth.management_api_url
+            );
+        }
 
-            // Validate JWKS base URL format
-            if !self.auth.jwks_base_url.starts_with("http://")
-                && !self.auth.jwks_base_url.starts_with("https://")
-            {
-                anyhow::bail!(
-                    "auth.jwks_base_url must start with http:// or https://, got: {}",
-                    self.auth.jwks_base_url
-                );
-            }
-            if self.auth.jwks_base_url.ends_with('/') {
-                anyhow::bail!(
-                    "auth.jwks_base_url must not end with trailing slash: {}",
-                    self.auth.jwks_base_url
-                );
-            }
+        // Validate JWKS base URL format
+        if !self.auth.jwks_base_url.starts_with("http://")
+            && !self.auth.jwks_base_url.starts_with("https://")
+        {
+            anyhow::bail!(
+                "auth.jwks_base_url must start with http:// or https://, got: {}",
+                self.auth.jwks_base_url
+            );
+        }
+        if self.auth.jwks_base_url.ends_with('/') {
+            anyhow::bail!(
+                "auth.jwks_base_url must not end with trailing slash: {}",
+                self.auth.jwks_base_url
+            );
+        }
 
-            // Validate server identity configuration
-            if self.auth.server_identity_kid.is_empty() {
-                anyhow::bail!("auth.server_identity_kid cannot be empty when auth is enabled");
-            }
-            if self.auth.server_id.is_empty() {
-                anyhow::bail!("auth.server_id cannot be empty when auth is enabled");
-            }
+        // Validate server identity configuration
+        if self.auth.server_identity_kid.is_empty() {
+            anyhow::bail!("auth.server_identity_kid cannot be empty");
+        }
+        if self.auth.server_id.is_empty() {
+            anyhow::bail!("auth.server_id cannot be empty");
         }
 
         // Validate cache TTL values are reasonable
@@ -640,7 +630,6 @@ impl Config {
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
-            enabled: default_auth_enabled(),
             jwks_cache_ttl: default_jwks_cache_ttl(),
             accepted_algorithms: default_accepted_algorithms(),
             enforce_audience: default_enforce_audience(),
@@ -686,23 +675,6 @@ impl Default for AuthConfig {
 }
 
 impl AuthConfig {
-    /// Log startup warnings about authentication configuration
-    ///
-    /// Should be called at application startup to warn about development-mode settings.
-    pub fn log_startup_warnings(&self) {
-        if !self.enabled {
-            tracing::warn!(
-                "⚠️  AUTHENTICATION IS DISABLED ⚠️\n\
-                 \n\
-                 This configuration is ONLY safe for local development and testing.\n\
-                 DO NOT use this configuration in production environments.\n\
-                 \n\
-                 To enable authentication, set: auth.enabled = true\n\
-                 "
-            );
-        }
-    }
-
     /// Validate the authentication configuration and log warnings for potential issues
     ///
     /// This method performs comprehensive validation of security-related settings:
@@ -712,13 +684,10 @@ impl AuthConfig {
     /// - Validates issuer and audience configuration
     /// - Ensures required JTI when replay protection is enabled
     pub fn validate(&self) -> Result<(), String> {
-        // Log startup warnings
-        self.log_startup_warnings();
-
-        // Warn if authentication is enabled but JWKS base URL is missing
-        if self.enabled && self.jwks_base_url.is_empty() && self.jwks_url.is_empty() {
+        // Warn if JWKS base URL is missing
+        if self.jwks_base_url.is_empty() && self.jwks_url.is_empty() {
             tracing::warn!(
-                "Authentication is enabled but jwks_base_url and jwks_url are empty. \
+                "jwks_base_url and jwks_url are empty. \
                  Tenant JWT authentication will not work."
             );
         }
@@ -910,14 +879,13 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_config_validation_enabled_without_jwks_url() {
+    fn test_auth_config_validation_without_jwks_url() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::WARN)
             .with_test_writer()
             .try_init();
 
-        let config =
-            AuthConfig { enabled: true, jwks_base_url: String::new(), ..Default::default() };
+        let config = AuthConfig { jwks_base_url: String::new(), ..Default::default() };
 
         // Should warn but not panic
         let _ = config.validate();
@@ -971,7 +939,6 @@ mod tests {
             .try_init();
 
         let config = AuthConfig {
-            enabled: true,
             jwks_base_url: "https://auth.example.com".to_string(),
             internal_jwks_env: Some("JWKS_ENV".to_string()),
             replay_protection: false,

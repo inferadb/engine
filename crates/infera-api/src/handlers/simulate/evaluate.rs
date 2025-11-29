@@ -44,12 +44,7 @@ pub async fn simulate_handler(
     request: axum::Json<SimulateRequest>,
 ) -> Result<ResponseData<SimulateResponse>> {
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_CHECK, SCOPE_SIMULATE],
-    )?;
+    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_CHECK, SCOPE_SIMULATE])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

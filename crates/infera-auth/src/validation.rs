@@ -231,7 +231,6 @@ mod tests {
 
     fn default_config() -> AuthConfig {
         AuthConfig {
-            enabled: true,
             jwks_cache_ttl: 300,
             jwks_url: "https://example.com".into(),
             jwks_base_url: "https://example.com".into(),

@@ -31,28 +31,33 @@ mise run dev
 ### Language-Specific Dependencies
 
 **Python:**
+
 ```bash
 pip install requests PyJWT cryptography
 ```
 
 **Node.js:**
+
 ```bash
 npm install jose node-fetch uuid
 ```
 
 **Rust:**
+
 ```bash
 # Dependencies in Cargo.toml
 # No additional installation needed
 ```
 
 **Go:**
+
 ```bash
 go get github.com/golang-jwt/jwt/v5
 go get github.com/google/uuid
 ```
 
 **cURL:**
+
 ```bash
 # jq recommended for JSON parsing
 brew install jq  # macOS
@@ -109,42 +114,42 @@ chmod +x curl_example.sh
 Each example shows the complete authentication flow:
 
 1. **User Registration/Login**
-   - Register a new user with the management API
-   - Login to get a session token
+    - Register a new user with the management API
+    - Login to get a session token
 
 2. **Vault Creation**
-   - Create a vault for data isolation
-   - Get account ID for JWT claims
+    - Create a vault for data isolation
+    - Get account ID for JWT claims
 
 3. **Ed25519 Key Generation**
-   - Generate Ed25519 public/private key pair
-   - Export public key in base64 format
+    - Generate Ed25519 public/private key pair
+    - Export public key in base64 format
 
 4. **Client Registration**
-   - Create client credentials
-   - Register Ed25519 public key as a certificate
-   - Get certificate KID for JWT signing
+    - Create client credentials
+    - Register Ed25519 public key as a certificate
+    - Get certificate KID for JWT signing
 
 5. **JWT Generation**
-   - Create JWT with required claims
-   - Sign with Ed25519 private key
-   - Include KID in JWT header
+    - Create JWT with required claims
+    - Sign with Ed25519 private key
+    - Include KID in JWT header
 
 6. **Server API Calls**
-   - Evaluate permissions with authentication
-   - Write relationships with authentication
-   - Handle authentication errors
+    - Evaluate permissions with authentication
+    - Write relationships with authentication
+    - Handle authentication errors
 
 ## Environment Variables
 
 All examples support these environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MANAGEMENT_API_URL` | Management API URL | `http://localhost:8081` |
-| `SERVER_URL` | InferaDB server URL | `http://localhost:8080` |
-| `USER_EMAIL` | User email for login | Prompts or uses test email |
-| `USER_PASSWORD` | User password | Prompts or uses test password |
+| Variable             | Description          | Default                       |
+| -------------------- | -------------------- | ----------------------------- |
+| `MANAGEMENT_API_URL` | Management API URL   | `http://localhost:8081`       |
+| `SERVER_URL`         | InferaDB server URL  | `http://localhost:8080`       |
+| `USER_EMAIL`         | User email for login | Prompts or uses test email    |
+| `USER_PASSWORD`      | User password        | Prompts or uses test password |
 
 ## Common Issues
 
@@ -153,6 +158,7 @@ All examples support these environment variables:
 **Problem:** Invalid JWT signature
 
 **Solution:**
+
 - Ensure you're signing with the correct Ed25519 private key
 - Verify the public key was registered correctly
 - Check that the KID in JWT header matches the registered certificate
@@ -162,6 +168,7 @@ All examples support these environment variables:
 **Problem:** Vault access denied
 
 **Solution:**
+
 - Verify the vault UUID in JWT claims exists
 - Ensure the vault belongs to your organization
 - Check that the account UUID is correct
@@ -171,6 +178,7 @@ All examples support these environment variables:
 **Problem:** Cannot reach management API
 
 **Solution:**
+
 - Verify management API is running: `curl http://localhost:8081/health`
 - Check the `MANAGEMENT_API_URL` environment variable
 - Ensure network connectivity

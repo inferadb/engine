@@ -174,25 +174,23 @@ All operations in InferaDB require specific scopes. Scopes follow the pattern `i
 **Grants access to:**
 
 - **Account Management:**
-
-  - `POST /v1/accounts` - Create accounts
-  - `GET /v1/accounts` - List all accounts
-  - `GET /v1/accounts/:id` - View any account
-  - `PATCH /v1/accounts/:id` - Update accounts
-  - `DELETE /v1/accounts/:id` - Delete accounts
+    - `POST /v1/accounts` - Create accounts
+    - `GET /v1/accounts` - List all accounts
+    - `GET /v1/accounts/:id` - View any account
+    - `PATCH /v1/accounts/:id` - Update accounts
+    - `DELETE /v1/accounts/:id` - Delete accounts
 
 - **Vault Management:**
-
-  - `POST /v1/accounts/:account_id/vaults` - Create vaults for any account
-  - `GET /v1/accounts/:account_id/vaults` - List vaults for any account
-  - `GET /v1/vaults/:id` - View any vault
-  - `PATCH /v1/vaults/:id` - Update any vault
-  - `DELETE /v1/vaults/:id` - Delete any vault
+    - `POST /v1/accounts/:account_id/vaults` - Create vaults for any account
+    - `GET /v1/accounts/:account_id/vaults` - List vaults for any account
+    - `GET /v1/vaults/:id` - View any vault
+    - `PATCH /v1/vaults/:id` - Update any vault
+    - `DELETE /v1/vaults/:id` - Delete any vault
 
 - **Cross-Tenant Operations:**
-  - Access to any account's resources
-  - Bypass account ownership checks
-  - Full system visibility
+    - Access to any account's resources
+    - Bypass account ownership checks
+    - Full system visibility
 
 **Warning:** The admin scope grants unrestricted access. Use with caution.
 

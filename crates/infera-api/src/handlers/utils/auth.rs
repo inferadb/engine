@@ -82,7 +82,7 @@ pub fn authorize_organization_access(
 /// across handlers. It handles:
 /// 1. Vault extraction from auth context or default
 /// 2. Vault access validation (nil UUID check)
-/// 3. Authentication requirement when auth is enabled
+/// 3. Authentication requirement (always required)
 /// 4. Scope validation (single or multiple scopes)
 ///
 /// This replaces 15-25 lines of duplicated code in each handler.
@@ -90,7 +90,6 @@ pub fn authorize_organization_access(
 /// # Arguments
 /// * `auth` - Optional authentication context from request
 /// * `default_vault` - Default vault UUID to use if no auth context
-/// * `auth_enabled` - Whether authentication is enabled in config
 /// * `scopes` - Required scopes (empty slice = no scope check)
 ///
 /// # Returns
@@ -103,7 +102,6 @@ pub fn authorize_organization_access(
 /// let vault = authorize_request(
 ///     &auth.0,
 ///     state.default_vault,
-///     state.config.auth.enabled,
 ///     &[SCOPE_CHECK]
 /// )?;
 /// ```
@@ -113,7 +111,6 @@ pub fn authorize_organization_access(
 /// let vault = authorize_request(
 ///     &auth.0,
 ///     state.default_vault,
-///     state.config.auth.enabled,
 ///     &[SCOPE_EXPAND, SCOPE_CHECK]
 /// )?;
 /// ```
@@ -123,14 +120,12 @@ pub fn authorize_organization_access(
 /// let vault = authorize_request(
 ///     &auth.0,
 ///     state.default_vault,
-///     state.config.auth.enabled,
 ///     &[]
 /// )?;
 /// ```
 pub fn authorize_request(
     auth: &Option<infera_types::AuthContext>,
     default_vault: i64,
-    auth_enabled: bool,
     scopes: &[&str],
 ) -> Result<i64> {
     // Extract vault from auth context or use default
@@ -142,29 +137,24 @@ pub fn authorize_request(
             .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
     }
 
-    // If auth is enabled, require authentication and validate scopes
-    if auth_enabled {
-        match auth {
-            Some(auth_ctx) => {
-                // Validate scope(s) if any are specified
-                if !scopes.is_empty() {
-                    if scopes.len() == 1 {
-                        // Single scope requirement
-                        infera_auth::middleware::require_scope(auth_ctx, scopes[0])
-                            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-                    } else {
-                        // Multiple scopes - require any of them
-                        infera_auth::middleware::require_any_scope(auth_ctx, scopes)
-                            .map_err(|e| ApiError::Forbidden(e.to_string()))?;
-                    }
+    // Always require authentication and validate scopes
+    match auth {
+        Some(auth_ctx) => {
+            // Validate scope(s) if any are specified
+            if !scopes.is_empty() {
+                if scopes.len() == 1 {
+                    // Single scope requirement
+                    infera_auth::middleware::require_scope(auth_ctx, scopes[0])
+                        .map_err(|e| ApiError::Forbidden(e.to_string()))?;
+                } else {
+                    // Multiple scopes - require any of them
+                    infera_auth::middleware::require_any_scope(auth_ctx, scopes)
+                        .map_err(|e| ApiError::Forbidden(e.to_string()))?;
                 }
-                Ok(vault)
-            },
-            None => Err(ApiError::Unauthorized("Authentication required".to_string())),
-        }
-    } else {
-        // Auth not enabled - allow request
-        Ok(vault)
+            }
+            Ok(vault)
+        },
+        None => Err(ApiError::Unauthorized("Authentication required".to_string())),
     }
 }
 
@@ -193,8 +183,7 @@ mod tests {
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
         let default_vault = 99i64;
 
-        let result =
-            authorize_request(&Some(auth_ctx.clone()), default_vault, true, &[SCOPE_CHECK]);
+        let result = authorize_request(&Some(auth_ctx.clone()), default_vault, &[SCOPE_CHECK]);
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), auth_ctx.vault);
@@ -207,7 +196,7 @@ mod tests {
 
         let auth_ctx = create_test_auth_context(vec![SCOPE_CHECK.to_string()]);
 
-        let result = authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_CHECK]);
+        let result = authorize_request(&Some(auth_ctx), default_vault, &[SCOPE_CHECK]);
 
         assert!(result.is_ok());
         let vault = result.unwrap();
@@ -220,7 +209,7 @@ mod tests {
         let auth_ctx = create_test_auth_context(vec![SCOPE_READ.to_string()]);
         let default_vault = 0i64;
 
-        let result = authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_WRITE]);
+        let result = authorize_request(&Some(auth_ctx), default_vault, &[SCOPE_WRITE]);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Forbidden(_)));
@@ -232,7 +221,7 @@ mod tests {
         let default_vault = 0i64;
 
         let result =
-            authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_EXPAND, SCOPE_CHECK]);
+            authorize_request(&Some(auth_ctx), default_vault, &[SCOPE_EXPAND, SCOPE_CHECK]);
 
         assert!(result.is_ok());
     }
@@ -243,30 +232,20 @@ mod tests {
         let default_vault = 0i64;
 
         let result =
-            authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_EXPAND, SCOPE_CHECK]);
+            authorize_request(&Some(auth_ctx), default_vault, &[SCOPE_EXPAND, SCOPE_CHECK]);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Forbidden(_)));
     }
 
     #[test]
-    fn test_authorize_request_no_auth_when_required() {
+    fn test_authorize_request_no_auth() {
         let default_vault = 0i64;
 
-        let result = authorize_request(&None, default_vault, true, &[SCOPE_CHECK]);
+        let result = authorize_request(&None, default_vault, &[SCOPE_CHECK]);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Unauthorized(_)));
-    }
-
-    #[test]
-    fn test_authorize_request_no_auth_when_not_required() {
-        let default_vault = 99i64;
-
-        let result = authorize_request(&None, default_vault, false, &[]);
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), default_vault);
     }
 
     #[test]
@@ -275,7 +254,7 @@ mod tests {
         let default_vault = 0i64;
 
         // Empty scopes = no scope check required
-        let result = authorize_request(&Some(auth_ctx), default_vault, true, &[]);
+        let result = authorize_request(&Some(auth_ctx), default_vault, &[]);
 
         assert!(result.is_ok());
     }
@@ -286,7 +265,7 @@ mod tests {
         auth_ctx.vault = 0i64;
         let default_vault = 99i64;
 
-        let result = authorize_request(&Some(auth_ctx), default_vault, true, &[SCOPE_CHECK]);
+        let result = authorize_request(&Some(auth_ctx), default_vault, &[SCOPE_CHECK]);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ApiError::Forbidden(_)));

@@ -49,7 +49,6 @@ fn test_claims(exp: u64, iat: u64, nbf: Option<u64>, jti: Option<String>) -> Jwt
 
 fn default_config() -> AuthConfig {
     AuthConfig {
-        enabled: true,
         jwks_url: "https://auth.example.com/.well-known/jwks.json".into(),
         accepted_algorithms: vec!["EdDSA".into(), "RS256".into()],
         enforce_audience: true,

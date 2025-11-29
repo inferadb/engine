@@ -37,8 +37,7 @@ fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let vault_b = 33333333333333i64;
     let organization_b = 44444444444444i64;
 
-    let mut config = Config::default();
-    config.auth.enabled = false; // Disable auth for simpler testing
+    let config = Config::default();
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)

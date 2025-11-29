@@ -362,8 +362,8 @@ The Server API aggressively caches authentication data to minimize latency and M
 - **Cache Hit Rate**: >90% after warmup
 - **Management API Call Rate**: <10% of total requests
 - **Token Validation Latency**:
-  - Cache hit: <1ms
-  - Cache miss: ~50-100ms (includes network roundtrip)
+    - Cache hit: <1ms
+    - Cache miss: ~50-100ms (includes network roundtrip)
 
 **Configuration** (`config.yaml`):
 

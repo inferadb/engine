@@ -50,7 +50,7 @@ service:
   type: ClusterIP
   port: 8080
   grpcPort: 8081
-  internalPort: 9090  # Internal server port for server-to-server communication
+  internalPort: 9090 # Internal server port for server-to-server communication
   annotations: {}
   sessionAffinity: None
   # nodePort: 30080  # Only used when service.type is NodePort

@@ -117,7 +117,6 @@ Format: `type: subject`
 2. **Open a pull request** on GitHub
 
 3. **Describe your changes**:
-
     - What does this PR do?
     - Why is this change needed?
     - How has it been tested?

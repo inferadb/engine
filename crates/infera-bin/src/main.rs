@@ -83,42 +83,36 @@ async fn main() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![]));
     tracing::info!("Schema loaded");
 
-    // Initialize JWKS cache if authentication is enabled
-    let jwks_cache = if config.auth.enabled {
-        tracing::info!("Authentication ENABLED - initializing JWKS cache");
+    // Initialize JWKS cache - authentication is always required
+    tracing::info!("Initializing JWKS cache for authentication");
 
-        // Create the moka cache with TTL and stale-while-revalidate support
-        use std::time::Duration;
-        let cache = Arc::new(
-            moka::future::Cache::builder()
-                .max_capacity(1000) // Up to 1000 tenants
-                .time_to_live(Duration::from_secs(config.auth.jwks_cache_ttl))
-                .time_to_idle(Duration::from_secs(config.auth.jwks_cache_ttl * 2))
-                .build(),
-        );
+    // Create the moka cache with TTL and stale-while-revalidate support
+    use std::time::Duration;
+    let cache = Arc::new(
+        moka::future::Cache::builder()
+            .max_capacity(1000) // Up to 1000 tenants
+            .time_to_live(Duration::from_secs(config.auth.jwks_cache_ttl))
+            .time_to_idle(Duration::from_secs(config.auth.jwks_cache_ttl * 2))
+            .build(),
+    );
 
-        // Create the JWKS cache
-        let jwks_cache = JwksCache::new(
-            config.auth.jwks_base_url.clone(),
-            cache,
-            Duration::from_secs(config.auth.jwks_cache_ttl),
-        )?;
+    // Create the JWKS cache
+    let jwks_cache = JwksCache::new(
+        config.auth.jwks_base_url.clone(),
+        cache,
+        Duration::from_secs(config.auth.jwks_cache_ttl),
+    )?;
 
-        tracing::info!(
-            "JWKS cache initialized with TTL: {}s, base URL: {}",
-            config.auth.jwks_cache_ttl,
-            config.auth.jwks_base_url
-        );
+    tracing::info!(
+        "JWKS cache initialized with TTL: {}s, base URL: {}",
+        config.auth.jwks_cache_ttl,
+        config.auth.jwks_base_url
+    );
 
-        Some(Arc::new(jwks_cache))
-    } else {
-        tracing::warn!("Authentication DISABLED - API endpoints will not require authentication");
-        tracing::warn!("This mode should ONLY be used in development/testing environments");
-        None
-    };
+    let jwks_cache = Some(Arc::new(jwks_cache));
 
     // Initialize server identity for server-to-management authentication
-    let server_identity = if config.auth.enabled && !config.auth.management_api_url.is_empty() {
+    let server_identity = if !config.auth.management_api_url.is_empty() {
         use infera_auth::ServerIdentity;
 
         let identity = if let Some(ref pem) = config.auth.server_identity_private_key {

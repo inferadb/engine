@@ -120,8 +120,7 @@ pub async fn post_search_resource(
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
-    let vault =
-        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_LIST])?;
+    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_LIST])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
@@ -299,8 +298,7 @@ pub async fn post_search_subject(
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
-    let vault =
-        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_LIST])?;
+    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_LIST])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
@@ -392,7 +390,7 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
-    use crate::AppState;
+    use crate::{AppState, test_utils::with_test_auth};
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -446,7 +444,7 @@ mod tests {
             .wasm_host(None)
             .jwks_cache(None)
             .default_vault(test_vault)
-            .default_organization(0i64)
+            .default_organization(2i64)
             .server_identity(None)
             .build()
     }
@@ -457,7 +455,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/resource", post(post_search_resource))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENResourceSearchRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
@@ -503,7 +502,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/resource", post(post_search_resource))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENResourceSearchRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "charlie".to_string() },
@@ -541,7 +541,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/resource", post(post_search_resource))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENResourceSearchRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
@@ -578,7 +579,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/resource", post(post_search_resource))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENResourceSearchRequest {
             subject: AuthZENSubject { subject_type: "".to_string(), id: "alice".to_string() },
@@ -609,7 +611,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/resource", post(post_search_resource))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENResourceSearchRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "".to_string() },
@@ -640,7 +643,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/resource", post(post_search_resource))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENResourceSearchRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
@@ -671,7 +675,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/resource", post(post_search_resource))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENResourceSearchRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
@@ -702,7 +707,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/resource", post(post_search_resource))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENResourceSearchRequest {
             subject: AuthZENSubject {
@@ -738,7 +744,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/subject", post(post_search_subject))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENSubjectSearchRequest {
             resource: AuthZENResource {
@@ -780,7 +787,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/subject", post(post_search_subject))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENSubjectSearchRequest {
             resource: AuthZENResource {
@@ -821,7 +829,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/subject", post(post_search_subject))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENSubjectSearchRequest {
             resource: AuthZENResource {
@@ -861,7 +870,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/subject", post(post_search_subject))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENSubjectSearchRequest {
             resource: AuthZENResource { resource_type: "".to_string(), id: "readme".to_string() },
@@ -892,7 +902,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/subject", post(post_search_subject))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENSubjectSearchRequest {
             resource: AuthZENResource { resource_type: "document".to_string(), id: "".to_string() },
@@ -923,7 +934,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/subject", post(post_search_subject))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENSubjectSearchRequest {
             resource: AuthZENResource {
@@ -957,7 +969,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/subject", post(post_search_subject))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENSubjectSearchRequest {
             resource: AuthZENResource {
@@ -991,7 +1004,8 @@ mod tests {
 
         let app = Router::new()
             .route("/access/v1/search/subject", post(post_search_subject))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let request = AuthZENSubjectSearchRequest {
             resource: AuthZENResource {

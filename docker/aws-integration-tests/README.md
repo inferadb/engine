@@ -101,27 +101,27 @@ docker-compose down
 ### Components
 
 1. **LocalStack Container** (`localstack`)
-   - Image: `localstack/localstack:latest`
-   - Provides AWS Secrets Manager emulation
-   - Accessible at `http://localstack:4566`
-   - Health checks ensure service is ready before tests run
+    - Image: `localstack/localstack:latest`
+    - Provides AWS Secrets Manager emulation
+    - Accessible at `http://localstack:4566`
+    - Health checks ensure service is ready before tests run
 
 2. **Test Runner Container** (`test-runner`)
-   - Based on `rust:1-slim` with nightly toolchain
-   - AWS CLI installed for test setup
-   - All Rust dependencies cached
-   - Source code mounted for live development
+    - Based on `rust:1-slim` with nightly toolchain
+    - AWS CLI installed for test setup
+    - All Rust dependencies cached
+    - Source code mounted for live development
 
 3. **Shared Network** (`aws-test-network`)
-   - Isolated bridge network
-   - Allows containers to communicate
-   - Port 4566 exposed for LocalStack gateway
+    - Isolated bridge network
+    - Allows containers to communicate
+    - Port 4566 exposed for LocalStack gateway
 
 4. **Volumes**
-   - `localstack-data`: LocalStack state
-   - `cargo-registry`: Cached cargo dependencies
-   - `cargo-git`: Cached git dependencies
-   - `target-cache`: Compiled artifacts cache
+    - `localstack-data`: LocalStack state
+    - `cargo-registry`: Cached cargo dependencies
+    - `cargo-git`: Cached git dependencies
+    - `target-cache`: Compiled artifacts cache
 
 ### Network Topology
 
@@ -176,9 +176,9 @@ docker-compose down
 2. View LocalStack logs: `docker-compose logs localstack`
 3. Check LocalStack health: `curl http://localhost:4566/_localstack/health`
 4. Verify secrets exist:
-   ```bash
-   docker-compose exec test-runner aws --endpoint-url=http://localstack:4566 secretsmanager list-secrets
-   ```
+    ```bash
+    docker-compose exec test-runner aws --endpoint-url=http://localstack:4566 secretsmanager list-secrets
+    ```
 
 ### Build Fails with "No Space Left on Device"
 
@@ -239,45 +239,48 @@ LocalStack is an emulator and has some limitations compared to real AWS:
 2. Ensure tests use `AWS_ENDPOINT_URL` environment variable
 3. Run tests: `./docker/aws-integration-tests/test.sh`
 4. Iterate in interactive mode:
-   ```bash
-   ./docker/aws-integration-tests/shell.sh
-   # Inside container
-   cargo test -p infera-config --features aws-secrets <test_name>
-   ```
+    ```bash
+    ./docker/aws-integration-tests/shell.sh
+    # Inside container
+    cargo test -p infera-config --features aws-secrets <test_name>
+    ```
 
 ### Debugging Test Failures
 
 1. Start environment:
-   ```bash
-   cd docker/aws-integration-tests
-   docker-compose up -d
-   ```
+
+    ```bash
+    cd docker/aws-integration-tests
+    docker-compose up -d
+    ```
 
 2. Access container:
-   ```bash
-   ./shell.sh
-   ```
+
+    ```bash
+    ./shell.sh
+    ```
 
 3. Inspect LocalStack state:
-   ```bash
-   # List all secrets
-   aws --endpoint-url=http://localstack:4566 secretsmanager list-secrets
 
-   # Get secret value
-   aws --endpoint-url=http://localstack:4566 secretsmanager get-secret-value \
-     --secret-id test-secret-1
+    ```bash
+    # List all secrets
+    aws --endpoint-url=http://localstack:4566 secretsmanager list-secrets
 
-   # Describe secret
-   aws --endpoint-url=http://localstack:4566 secretsmanager describe-secret \
-     --secret-id test-secret-1
-   ```
+    # Get secret value
+    aws --endpoint-url=http://localstack:4566 secretsmanager get-secret-value \
+      --secret-id test-secret-1
+
+    # Describe secret
+    aws --endpoint-url=http://localstack:4566 secretsmanager describe-secret \
+      --secret-id test-secret-1
+    ```
 
 4. Re-run specific test:
-   ```bash
-   RUST_BACKTRACE=full cargo test -p infera-config \
-     --features aws-secrets \
-     test_name -- --nocapture
-   ```
+    ```bash
+    RUST_BACKTRACE=full cargo test -p infera-config \
+      --features aws-secrets \
+      test_name -- --nocapture
+    ```
 
 ## CI/CD Integration
 
@@ -289,28 +292,28 @@ name: AWS Integration Tests
 on: [push, pull_request]
 
 jobs:
-  aws-tests:
-    runs-on: ubuntu-latest
+    aws-tests:
+        runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v3
+        steps:
+            - uses: actions/checkout@v3
 
-      - name: Run AWS Integration Tests
-        run: |
-          cd server
-          ./docker/aws-integration-tests/test.sh
+            - name: Run AWS Integration Tests
+              run: |
+                  cd server
+                  ./docker/aws-integration-tests/test.sh
 ```
 
 ### GitLab CI Example
 
 ```yaml
 aws-integration-tests:
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - cd server
-    - ./docker/aws-integration-tests/test.sh
+    image: docker:latest
+    services:
+        - docker:dind
+    script:
+        - cd server
+        - ./docker/aws-integration-tests/test.sh
 ```
 
 ## Performance Considerations
@@ -346,16 +349,16 @@ aws-integration-tests:
 
 ## Comparison with Real AWS
 
-| Feature             | LocalStack          | Real AWS Secrets Manager |
-| ------------------- | ------------------- | ------------------------ |
-| Cost                | Free                | Pay per secret/API call  |
-| Speed               | Fast (local)        | Network latency          |
-| Encryption          | Simulated           | Real KMS encryption      |
-| IAM                 | Basic               | Full IAM integration     |
-| Audit Logs          | Limited             | CloudTrail integration   |
-| Secret Rotation     | Basic               | Full Lambda integration  |
-| High Availability   | Single container    | Multi-AZ                 |
-| Data Persistence    | Ephemeral           | Durable storage          |
+| Feature           | LocalStack       | Real AWS Secrets Manager |
+| ----------------- | ---------------- | ------------------------ |
+| Cost              | Free             | Pay per secret/API call  |
+| Speed             | Fast (local)     | Network latency          |
+| Encryption        | Simulated        | Real KMS encryption      |
+| IAM               | Basic            | Full IAM integration     |
+| Audit Logs        | Limited          | CloudTrail integration   |
+| Secret Rotation   | Basic            | Full Lambda integration  |
+| High Availability | Single container | Multi-AZ                 |
+| Data Persistence  | Ephemeral        | Durable storage          |
 
 ## Support
 

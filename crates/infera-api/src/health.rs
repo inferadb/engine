@@ -357,21 +357,6 @@ pub struct RedisHealth {
 pub async fn auth_health_check_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let config = &state.config;
 
-    // Check if authentication is enabled
-    if !config.auth.enabled {
-        return (
-            StatusCode::OK,
-            Json(AuthHealthResponse {
-                status: HealthStatus::Healthy,
-                management_api: None,
-                certificate_cache: None,
-                vault_cache: None,
-                redis: None,
-                message: Some("Authentication disabled".to_string()),
-            }),
-        );
-    }
-
     let mut overall_status = HealthStatus::Healthy;
     let mut management_api_health = None;
     let mut certificate_cache_health = None;

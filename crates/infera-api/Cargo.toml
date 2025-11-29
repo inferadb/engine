@@ -6,6 +6,10 @@ name = "infera-api"
 publish.workspace = true
 version.workspace = true
 
+[features]
+default = []
+test-utils = []
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }

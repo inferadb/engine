@@ -4,7 +4,7 @@ services:
     image: localstack/localstack:latest
     container_name: inferadb-aws-test
     ports:
-      - "4566:4566"  # LocalStack gateway
+      - "4566:4566" # LocalStack gateway
     environment:
       - SERVICES=secretsmanager
       - DEBUG=1

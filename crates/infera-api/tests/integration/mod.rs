@@ -3,14 +3,28 @@
 //! This module provides common test utilities for integration tests:
 //! - In-memory backend setup
 //! - Test configuration
-//! - Mock authentication
+//! - Mock authentication via test middleware
 //! - Test state builders
+//!
+//! ## Authentication in Tests
+//!
+//! Since authentication is always enabled in production, tests use a special
+//! test middleware layer that injects a test `AuthContext` into requests.
+//! This allows tests to exercise the production code paths while simulating
+//! authenticated requests.
 
 use std::sync::{
     Arc,
     atomic::{AtomicI64, Ordering},
 };
 
+use axum::{
+    Router,
+    body::Body,
+    extract::Request,
+    middleware::{self, Next},
+    response::Response,
+};
 use infera_api::AppState;
 use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
@@ -36,27 +50,94 @@ pub fn create_test_schema() -> Arc<Schema> {
     }]))
 }
 
-/// Create test configuration with auth disabled
+/// Create test configuration
+///
+/// Note: Authentication is always enabled. Tests use test middleware
+/// to inject authenticated contexts.
 pub fn create_test_config() -> Config {
     let mut config = Config::default();
-    config.auth.enabled = false;
     config.cache.enabled = true;
     config.cache.max_capacity = 1000;
     config.cache.ttl_seconds = 300;
     config
 }
 
-/// Create test configuration with auth enabled
-pub fn create_test_config_with_auth() -> Config {
-    let mut config = create_test_config();
-    config.auth.enabled = true;
-    config
-}
-
 /// Create test configuration with rate limiting enabled
 pub fn create_test_config_with_rate_limiting() -> Config {
-    let mut config = create_test_config();
-    config
+    create_test_config()
+}
+
+// ============================================================================
+// Test Authentication Middleware
+// ============================================================================
+
+/// Default test auth context with admin scopes
+///
+/// Creates an AuthContext suitable for most integration tests with full permissions.
+pub fn create_default_test_auth(vault: i64, organization: i64) -> AuthContext {
+    AuthContext {
+        client_id: "test_client".to_string(),
+        key_id: "test_key".to_string(),
+        auth_method: AuthMethod::PrivateKeyJwt,
+        scopes: vec![
+            "inferadb.admin".to_string(),
+            "inferadb.check".to_string(),
+            "inferadb.write".to_string(),
+            "inferadb.expand".to_string(),
+            "inferadb.list_subjects".to_string(),
+            "inferadb.list_resources".to_string(),
+            "inferadb.list_relationships".to_string(),
+        ],
+        issued_at: chrono::Utc::now(),
+        expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
+        jti: Some("test_jti".to_string()),
+        vault,
+        organization,
+    }
+}
+
+/// Test middleware that injects an AuthContext into request extensions
+///
+/// This middleware bypasses JWT validation and directly injects a test
+/// AuthContext, allowing integration tests to exercise the production
+/// code paths with simulated authentication.
+pub async fn test_auth_middleware(
+    auth_context: AuthContext,
+    mut request: Request<Body>,
+    next: Next,
+) -> Response {
+    request.extensions_mut().insert(Arc::new(auth_context));
+    next.run(request).await
+}
+
+/// Apply test authentication middleware to a router
+///
+/// Wraps the router with a middleware layer that injects test authentication
+/// for all requests. Use this to test protected endpoints without actual JWT validation.
+///
+/// # Example
+///
+/// ```ignore
+/// let router = infera_api::create_test_router(state).await?;
+/// let authenticated_router = with_test_auth(router, vault_id, organization_id);
+/// ```
+pub fn with_test_auth(router: Router, vault: i64, organization: i64) -> Router {
+    let auth = create_default_test_auth(vault, organization);
+    router.layer(middleware::from_fn(move |req, next| {
+        let auth_clone = auth.clone();
+        async move { test_auth_middleware(auth_clone, req, next).await }
+    }))
+}
+
+/// Apply test authentication middleware with custom auth context
+///
+/// Similar to `with_test_auth` but allows specifying a custom AuthContext
+/// for testing specific permission scenarios.
+pub fn with_custom_test_auth(router: Router, auth_context: AuthContext) -> Router {
+    router.layer(middleware::from_fn(move |req, next| {
+        let auth_clone = auth_context.clone();
+        async move { test_auth_middleware(auth_clone, req, next).await }
+    }))
 }
 
 /// Create test AppState with default configuration
@@ -81,6 +162,9 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
 }
 
 /// Create test AppState with multiple vaults for multi-tenancy testing
+///
+/// Returns the AppState and IDs for two vaults with their organizations.
+/// Use `with_test_auth` to authenticate requests to specific vaults.
 pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
@@ -90,8 +174,7 @@ pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let vault_b = generate_test_id();
     let organization_b = generate_test_id();
 
-    let mut config = Config::default();
-    config.auth.enabled = false; // Disable auth for simpler testing
+    let config = create_test_config();
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
@@ -168,26 +251,30 @@ mod tests {
     #[test]
     fn test_create_test_config() {
         let config = create_test_config();
-        assert!(!config.auth.enabled);
         assert!(config.cache.enabled);
     }
 
     #[test]
-    fn test_create_test_config_with_auth() {
-        let config = create_test_config_with_auth();
-        assert!(config.auth.enabled);
-    }
-
-    #[test]
     fn test_create_test_config_with_rate_limiting() {
-        let config = create_test_config_with_rate_limiting();
+        let _config = create_test_config_with_rate_limiting();
     }
 
     #[test]
     fn test_create_test_state() {
         let state = create_test_state();
-        assert!(!state.config.auth.enabled);
         assert!(state.default_vault != 0);
+    }
+
+    #[test]
+    fn test_create_default_test_auth() {
+        let vault = 11111111111111i64;
+        let organization = 22222222222222i64;
+        let auth = create_default_test_auth(vault, organization);
+
+        assert_eq!(auth.vault, vault);
+        assert_eq!(auth.organization, organization);
+        assert!(auth.scopes.contains(&"inferadb.admin".to_string()));
+        assert!(auth.scopes.contains(&"inferadb.check".to_string()));
     }
 
     #[test]

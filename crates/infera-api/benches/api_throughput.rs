@@ -79,7 +79,6 @@ async fn create_test_state_with_data(num_relationships: usize) -> AppState {
     let mut config = Config::default();
     config.cache.enabled = true;
     config.cache.max_capacity = 10000;
-    config.auth.enabled = false;
 
     AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)

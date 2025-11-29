@@ -51,12 +51,8 @@ pub async fn list_relationships_stream_handler(
     }
 
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_CHECK, SCOPE_LIST_RELATIONSHIPS],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, &[SCOPE_CHECK, SCOPE_LIST_RELATIONSHIPS])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

@@ -31,12 +31,11 @@ fn create_test_schema() -> Arc<Schema> {
     )]))
 }
 
-fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
+fn create_test_state(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
-    let mut config = Config::default();
-    config.auth.enabled = auth_enabled;
+    let config = Config::default();
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
@@ -69,20 +68,15 @@ async fn start_grpc_server_with_auth(
     let service = InferaServiceImpl::new(state.clone());
 
     let handle = tokio::spawn(async move {
-        if state.config.auth.enabled {
-            if let Some(cache) = state.jwks_cache {
-                let interceptor = AuthInterceptor::new(
-                    cache,
-                    internal_loader,
-                    Arc::new(state.config.auth.clone()),
-                );
+        if let Some(cache) = state.jwks_cache {
+            let interceptor =
+                AuthInterceptor::new(cache, internal_loader, Arc::new(state.config.auth.clone()));
 
-                Server::builder()
-                    .add_service(InferaServiceServer::with_interceptor(service, interceptor))
-                    .serve(addr)
-                    .await
-                    .expect("gRPC server failed");
-            }
+            Server::builder()
+                .add_service(InferaServiceServer::with_interceptor(service, interceptor))
+                .serve(addr)
+                .await
+                .expect("gRPC server failed");
         } else {
             Server::builder()
                 .add_service(InferaServiceServer::new(service))
@@ -137,7 +131,7 @@ async fn test_metrics_after_successful_auth() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) =
         start_grpc_server_with_auth(state, Some(Arc::new(internal_loader))).await;
 
@@ -204,7 +198,7 @@ async fn test_metrics_after_failed_auth() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
 
     let channel = Channel::from_shared(format!("http://127.0.0.1:{}", port))
@@ -276,7 +270,7 @@ async fn test_metrics_cardinality() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) =
         start_grpc_server_with_auth(state, Some(Arc::new(internal_loader))).await;
 

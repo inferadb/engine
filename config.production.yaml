@@ -21,14 +21,14 @@ server:
 store:
   # Use FoundationDB for production
   backend: "foundationdb"
-  
+
   # FoundationDB cluster file path
   # This file contains the connection string for your FDB cluster
   connection_string: "fdb:cluster_file=/etc/foundationdb/fdb.cluster"
 
 cache:
   enabled: true
-  max_capacity: 1000000  # 1M entries for high-throughput
+  max_capacity: 1000000 # 1M entries for high-throughput
   ttl_seconds: 300
 
 observability:
@@ -50,10 +50,10 @@ auth:
   # In production, use internal Kubernetes service name or private endpoint
   # Example: "http://management-internal.inferadb.svc.cluster.local:9091"
   management_api_url: "http://management-internal:9091"
-  
+
   management_api_timeout_ms: 5000
-  management_cache_ttl_seconds: 600  # Longer cache for performance
-  cert_cache_ttl_seconds: 1800  # 30 minutes
+  management_cache_ttl_seconds: 600 # Longer cache for performance
+  cert_cache_ttl_seconds: 1800 # 30 minutes
   management_verify_vault_ownership: true
   management_verify_org_status: true
 

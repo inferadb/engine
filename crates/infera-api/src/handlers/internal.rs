@@ -116,7 +116,7 @@ mod tests {
     async fn test_invalidate_vault_cache_handler() {
         // Create a test vault verifier
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), 5000, None).unwrap(),
+            ManagementClient::new("http://localhost:8081".to_string(), 5000, None, None).unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,
@@ -150,7 +150,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalidate_organization_cache_handler() {
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), 5000, None).unwrap(),
+            ManagementClient::new("http://localhost:8081".to_string(), 5000, None, None).unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,
@@ -182,7 +182,7 @@ mod tests {
     #[tokio::test]
     async fn test_clear_all_caches_handler() {
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), 5000, None).unwrap(),
+            ManagementClient::new("http://localhost:8081".to_string(), 5000, None, None).unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,

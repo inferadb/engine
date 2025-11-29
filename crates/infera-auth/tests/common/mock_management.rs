@@ -211,8 +211,10 @@ async fn get_org_jwks(
 /// Returns the base URL and a handle to the server task
 pub async fn start_mock_management_server(state: MockManagementState) -> (String, JoinHandle<()>) {
     let app = Router::new()
-        .route("/v1/organizations/{org_id}", get(get_organization))
-        .route("/v1/vaults/{vault_id}", get(get_vault))
+        // Internal endpoints used by ManagementClient
+        .route("/internal/organizations/{org_id}", get(get_organization))
+        .route("/internal/vaults/{vault_id}", get(get_vault))
+        // Public JWKS endpoint (used by certificate cache)
         .route("/v1/organizations/{org_id}/jwks.json", get(get_org_jwks))
         .with_state(state);
 
@@ -346,7 +348,7 @@ mod tests {
 
         let client = reqwest::Client::new();
         let response = client
-            .get(format!("{}/v1/organizations/{}", base_url, org_id))
+            .get(format!("{}/internal/organizations/{}", base_url, org_id))
             .send()
             .await
             .expect("Failed to send request");
@@ -369,7 +371,7 @@ mod tests {
 
         let client = reqwest::Client::new();
         let response = client
-            .get(format!("{}/v1/vaults/{}", base_url, vault_id))
+            .get(format!("{}/internal/vaults/{}", base_url, vault_id))
             .send()
             .await
             .expect("Failed to send request");
@@ -416,7 +418,7 @@ mod tests {
 
         let client = reqwest::Client::new();
         let response = client
-            .get(format!("{}/v1/organizations/{}", base_url, generate_snowflake_id()))
+            .get(format!("{}/internal/organizations/{}", base_url, generate_snowflake_id()))
             .send()
             .await
             .expect("Failed to send request");

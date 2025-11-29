@@ -104,7 +104,7 @@ impl CertificateCache {
         max_capacity: u64,
     ) -> Result<Self, CertificateCacheError> {
         let http_client = HttpClient::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(5))
             .build()
             .map_err(|e| CertificateCacheError::HttpClientError(e.to_string()))?;
 

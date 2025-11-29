@@ -9,16 +9,20 @@
 use std::sync::Arc;
 
 use axum::{
+    Router,
     body::Body,
     http::{Request, StatusCode, header},
+    routing::{get, post},
 };
-use infera_api::{AppState, create_router};
+use infera_api::AppState;
 use infera_auth::jwks_cache::JwksCache;
 use infera_config::Config;
 use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 use infera_store::MemoryBackend;
 use serde_json::json;
 use tower::ServiceExt;
+
+mod integration;
 
 // Re-use the mock JWKS infrastructure from infera-auth tests
 mod common {
@@ -155,10 +159,7 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     let test_vault = 11111111111111i64;
     let test_account = 22222222222222i64;
 
-    let mut config = Config::default();
-
-    // Enable auth for these tests but disable rate limiting
-    config.auth.enabled = jwks_cache.is_some();
+    let config = Config::default();
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
@@ -173,36 +174,6 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     health_tracker.set_startup_complete(true);
 
     state
-}
-
-#[tokio::test]
-async fn test_auth_disabled_allows_unauthenticated_requests() {
-    // When auth is disabled, requests should work without tokens
-    let state = create_test_state_with_auth(None);
-    let app = create_router(state).await.unwrap();
-
-    let check_request = json!({
-        "evaluations": [{
-            "subject": "user:alice",
-            "resource": "doc:readme",
-            "permission": "reader",
-            "context": null
-        }]
-    });
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/v1/evaluate")
-                .header("content-type", "application/json")
-                .body(Body::from(serde_json::to_string(&check_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
 }
 
 #[tokio::test]
@@ -225,7 +196,15 @@ async fn test_missing_authorization_header() {
     );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state).await.unwrap();
+
+    // Create a router directly without test auth middleware to test auth failure
+    let router = Router::new()
+        .route(
+            "/v1/evaluate",
+            post(infera_api::handlers::evaluate::stream::evaluate_stream_handler),
+        )
+        .route("/health", get(infera_api::health::health_check_handler))
+        .with_state(state);
 
     let check_request = json!({
         "evaluations": [{
@@ -236,7 +215,7 @@ async fn test_missing_authorization_header() {
         }]
     });
 
-    let response = app
+    let response = router
         .oneshot(
             Request::builder()
                 .method("POST")
@@ -274,7 +253,14 @@ async fn test_malformed_authorization_header() {
     );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state).await.unwrap();
+
+    // Create a router directly without test auth middleware to test auth failure
+    let router = Router::new()
+        .route(
+            "/v1/evaluate",
+            post(infera_api::handlers::evaluate::stream::evaluate_stream_handler),
+        )
+        .with_state(state);
 
     let check_request = json!({
         "evaluations": [{
@@ -289,7 +275,7 @@ async fn test_malformed_authorization_header() {
     let test_cases = vec!["NotBearer token", "Bearer", "Bearer ", "Basic dXNlcjpwYXNz"];
 
     for auth_value in test_cases {
-        let response = app
+        let response = router
             .clone()
             .oneshot(
                 Request::builder()
@@ -332,10 +318,16 @@ async fn test_health_endpoint_unauthenticated() {
     );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state).await.unwrap();
 
-    let response =
-        app.oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap()).await.unwrap();
+    // Create a router with just the health route (no auth middleware needed)
+    let router = Router::new()
+        .route("/health", get(infera_api::health::health_check_handler))
+        .with_state(state);
+
+    let response = router
+        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 
@@ -363,7 +355,14 @@ async fn test_invalid_jwt_format() {
     );
 
     let state = create_test_state_with_auth(Some(jwks_cache));
-    let app = create_router(state).await.unwrap();
+
+    // Create a router directly without test auth middleware to test auth failure
+    let router = Router::new()
+        .route(
+            "/v1/evaluate",
+            post(infera_api::handlers::evaluate::stream::evaluate_stream_handler),
+        )
+        .with_state(state);
 
     let check_request = json!({
         "evaluations": [{
@@ -375,7 +374,7 @@ async fn test_invalid_jwt_format() {
     });
 
     // Invalid JWT - not even base64
-    let response = app
+    let response = router
         .oneshot(
             Request::builder()
                 .method("POST")

@@ -32,8 +32,7 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],
     )]));
-    let mut config = Config::default();
-    config.auth.enabled = false; // Disable auth for tests
+    let config = Config::default();
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)

@@ -7,13 +7,13 @@ This file provides directives for code-generation agents (such as Codex, Claude 
 ## **Core Principles**
 
 - **No legacy or backward-compatibility code.**
-    Do not introduce workarounds for previous behavior or deprecated APIs. Implement clean, modern solutions.
+  Do not introduce workarounds for previous behavior or deprecated APIs. Implement clean, modern solutions.
 
 - **Prioritize correctness and quality over preservation.**
-    Breaking changes are acceptable when they improve design clarity, correctness, or performance.
+  Breaking changes are acceptable when they improve design clarity, correctness, or performance.
 
 - **Always use modern idiomatic Rust.**
-    Favor safety, clarity, and performance. Follow current Rust best practices and community conventions (e.g., Clippy suggestions, Rust 2024 idioms).
+  Favor safety, clarity, and performance. Follow current Rust best practices and community conventions (e.g., Clippy suggestions, Rust 2024 idioms).
 
 ---
 

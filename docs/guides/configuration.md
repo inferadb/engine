@@ -65,7 +65,7 @@ auth:
     "server": {
         "host": "0.0.0.0",
         "port": 8080,
-        "worker_threads": 4,
+        "worker_threads": 4
     },
     "store": {
         "backend": "memory",
@@ -138,11 +138,11 @@ Controls HTTP/gRPC server behavior.
 
 ### Options
 
-| Option                  | Type    | Default       | Description                         |
-| ----------------------- | ------- | ------------- | ----------------------------------- |
-| `host`                  | string  | `"127.0.0.1"` | Server bind address                 |
-| `port`                  | integer | `8080`        | HTTP server port (gRPC uses port+1) |
-| `worker_threads`        | integer | CPU count     | Number of Tokio worker threads      |
+| Option           | Type    | Default       | Description                         |
+| ---------------- | ------- | ------------- | ----------------------------------- |
+| `host`           | string  | `"127.0.0.1"` | Server bind address                 |
+| `port`           | integer | `8080`        | HTTP server port (gRPC uses port+1) |
+| `worker_threads` | integer | CPU count     | Number of Tokio worker threads      |
 
 ### Examples
 

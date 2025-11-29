@@ -49,8 +49,7 @@ pub async fn watch_handler(
     }
 
     // Authorize request and extract vault
-    let vault =
-        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WATCH])?;
+    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_WATCH])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

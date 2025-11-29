@@ -148,7 +148,6 @@ state.relationship_service
 ### Invalidation Strategies
 
 1. **Selective Invalidation** (preferred): `invalidate_cache_for_resources(&[String])`
-
     - Only invalidates entries for specific resources
     - Efficient for targeted updates
     - Uses secondary indexes for fast lookup
@@ -191,26 +190,21 @@ Services separate business logic from protocol adapters (gRPC/REST/AuthZEN).
 Located in `crates/infera-api/src/services/`:
 
 1. **EvaluationService** (`evaluation.rs`) - Authorization checks
-
     - `evaluate(vault, request)` - Check if subject has permission on resource
     - `evaluate_with_trace(vault, request)` - Evaluation with debug trace
 
 2. **ExpansionService** (`expansion.rs`) - Relationship graph expansion
-
     - `expand(vault, request)` - Discover all subjects with permission on resource
 
 3. **RelationshipService** (`relationships.rs`) - Relationship management
-
     - `write_relationships(vault, relationships)` - Create relationships
     - `delete_relationships(vault, filter, limit)` - Delete by filter
     - `list_relationships(vault, request)` - List with pagination
 
 4. **ResourceService** (`resources.rs`) - Resource discovery
-
     - `list_resources(vault, request)` - List resources subject can access
 
 5. **SubjectService** (`subjects.rs`) - Subject discovery
-
     - `list_subjects(vault, request)` - List subjects with access to resource
 
 6. **WatchService** (`watch.rs`) - Real-time change streaming

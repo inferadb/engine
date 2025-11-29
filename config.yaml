@@ -7,7 +7,6 @@ server:
   port: 8080
 
   # Internal server (server-to-server communication)
-  # Always enabled for network-level security isolation
   internal_host: "0.0.0.0"
   internal_port: 9090
 
@@ -16,9 +15,6 @@ server:
 store:
   # In-memory storage for development
   backend: "memory"
-  # For production, use FoundationDB:
-  # backend: "foundationdb"
-  # connection_string: "fdb:cluster_file=/etc/foundationdb/fdb.cluster"
 
 cache:
   enabled: true
@@ -32,9 +28,7 @@ observability:
   # otlp_endpoint: "http://localhost:4317"
 
 auth:
-  # Management API URL for token validation (server-to-server communication)
-  # IMPORTANT: This should point to the Management API's INTERNAL port (default: 9091)
-  # NOT the public port (default: 3000)
+  # Management API Internal URL for token validation (server-to-server communication)
   management_api_url: "http://localhost:9091"
   management_api_timeout_ms: 5000
   management_cache_ttl_seconds: 300

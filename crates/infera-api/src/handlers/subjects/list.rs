@@ -52,12 +52,8 @@ pub async fn list_subjects_stream_handler(
     }
 
     // Authorize request and extract vault
-    let vault = authorize_request(
-        &auth.0,
-        state.default_vault,
-        state.config.auth.enabled,
-        &[SCOPE_CHECK, SCOPE_LIST_SUBJECTS],
-    )?;
+    let vault =
+        authorize_request(&auth.0, state.default_vault, &[SCOPE_CHECK, SCOPE_LIST_SUBJECTS])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

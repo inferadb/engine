@@ -123,6 +123,7 @@ export ORG_ID="<organization_id from response>"
 ```
 
 **Expected Results**:
+
 - ✅ HTTP 200 OK response
 - ✅ User ID returned (UUID format)
 - ✅ Organization ID returned (UUID format)
@@ -130,6 +131,7 @@ export ORG_ID="<organization_id from response>"
 - ✅ Name matches input
 
 **Failure Scenarios to Test**:
+
 - Duplicate email returns 409 Conflict
 - Invalid email format returns 400 Bad Request
 - Password too short returns 400 Bad Request
@@ -166,11 +168,13 @@ export SESSION_ID="<session_id from response>"
 ```
 
 **Expected Results**:
+
 - ✅ HTTP 200 OK response
-- ✅ Session ID returned (starts with "sess_")
+- ✅ Session ID returned (starts with "sess\_")
 - ✅ User ID matches registration
 
 **Failure Scenarios to Test**:
+
 - Wrong password returns 401 Unauthorized
 - Non-existent user returns 401 Unauthorized
 
@@ -211,12 +215,14 @@ export ACCOUNT_ID="<account_id from response>"
 ```
 
 **Expected Results**:
+
 - ✅ HTTP 200 OK response
 - ✅ Vault ID returned (UUID format)
 - ✅ Account ID returned (UUID format)
 - ✅ Organization ID matches
 
 **Failure Scenarios to Test**:
+
 - Invalid session returns 401 Unauthorized
 - Missing organization_id returns 400 Bad Request
 
@@ -254,6 +260,7 @@ export CLIENT_ID="<id from response>"
 ```
 
 **Expected Results**:
+
 - ✅ HTTP 200 OK response
 - ✅ Client ID returned (UUID format)
 - ✅ Organization ID matches
@@ -329,6 +336,7 @@ export CERT_ID="<id from response>"
 ```
 
 **Expected Results**:
+
 - ✅ HTTP 200 OK response
 - ✅ Certificate ID returned
 - ✅ KID in format: `org-{org_id}-client-{client_id}-cert-{cert_id}`
@@ -397,6 +405,7 @@ echo "JWT Token (first 100 chars): ${JWT_TOKEN:0:100}..."
 ```
 
 **Expected Results**:
+
 - ✅ JWT token generated successfully
 - ✅ Token has three parts separated by dots (header.payload.signature)
 - ✅ Token can be decoded (but not yet validated)
@@ -425,11 +434,13 @@ curl -X POST $SERVER_URL/v1/evaluate \
 ```
 
 **Expected Results**:
+
 - ✅ HTTP 200 OK response
 - ✅ Result contains `{"results": [{"decision": "deny"}]}` (no relationships exist yet)
 - ✅ No authentication errors
 
 **Failure Scenarios to Test**:
+
 - Request without Authorization header returns 401
 - Request with malformed JWT returns 401
 - Request with expired JWT returns 401
@@ -473,6 +484,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
 ```
 
 **Expected Results**:
+
 - ✅ Write returns HTTP 200 OK
 - ✅ Evaluate now returns `{"decision": "allow"}`
 - ✅ Data is isolated to the vault specified in JWT
@@ -523,6 +535,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
 ```
 
 **Expected Results**:
+
 - ✅ Second vault returns `{"decision": "deny"}` (data not visible)
 - ✅ Vaults are completely isolated
 - ✅ No cross-vault data leakage
@@ -568,6 +581,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
 ```
 
 **Expected Results**:
+
 - ✅ HTTP 401 Unauthorized after cache expiration
 - ✅ Error message indicates invalid certificate or signature
 
@@ -602,6 +616,7 @@ grep "authentication_success" logs/server.log
 ```
 
 **Expected Results**:
+
 - ✅ Authentication success events logged
 - ✅ Authentication failure events logged (with reasons)
 - ✅ All relevant context included (vault_id, client_id, org_id)
@@ -632,6 +647,7 @@ infera_auth_validation_duration_seconds_bucket{method="jwt",le="0.01"} 5
 ```
 
 **Expected Results**:
+
 - ✅ Metrics endpoint returns HTTP 200 OK
 - ✅ Authentication validation counters present
 - ✅ Cache hit/miss counters present
@@ -672,6 +688,7 @@ export ORG2_ID="<organization_id from response>"
 ```
 
 **Expected Results**:
+
 - ✅ HTTP 403 Forbidden
 - ✅ Error indicates vault not found or access denied
 - ✅ No data leakage between organizations
@@ -715,6 +732,7 @@ curl $SERVER_URL/metrics | grep infera_auth_cache_misses_total
 ```
 
 **Expected Results**:
+
 - ✅ Average latency < 50ms per request
 - ✅ Cache hit rate > 90% after warmup
 - ✅ Management API call rate < 10%
@@ -770,6 +788,7 @@ cd management && make run
 ```
 
 **Expected Results**:
+
 - ✅ Cached requests succeed (HTTP 200 OK)
 - ✅ New certificate requests fail gracefully (HTTP 503)
 - ✅ Server logs warning about management API unavailability
@@ -782,6 +801,7 @@ cd management && make run
 Use this checklist to track test completion:
 
 ### Basic Functionality
+
 - [ ] User registration works
 - [ ] User login works
 - [ ] Vault creation works
@@ -791,6 +811,7 @@ Use this checklist to track test completion:
 - [ ] Authenticated requests succeed
 
 ### Security & Isolation
+
 - [ ] JWT signature validation works
 - [ ] Expired JWTs are rejected
 - [ ] Invalid JWTs are rejected
@@ -799,6 +820,7 @@ Use this checklist to track test completion:
 - [ ] Certificate revocation prevents access (after cache expiry)
 
 ### Performance & Reliability
+
 - [ ] Cache hit rate > 90%
 - [ ] Average latency < 50ms
 - [ ] Management API call rate < 10%
@@ -806,6 +828,7 @@ Use this checklist to track test completion:
 - [ ] No memory leaks during extended operation
 
 ### Observability
+
 - [ ] Authentication success logged
 - [ ] Authentication failure logged with reasons
 - [ ] Metrics endpoint accessible
@@ -813,6 +836,7 @@ Use this checklist to track test completion:
 - [ ] Metrics values are accurate
 
 ### Error Handling
+
 - [ ] 401 Unauthorized for invalid auth
 - [ ] 403 Forbidden for cross-org/vault access
 - [ ] 503 Service Unavailable when management API down
@@ -823,11 +847,13 @@ Use this checklist to track test completion:
 ### Issue: "401 Unauthorized" on valid request
 
 **Possible Causes**:
+
 1. JWT signature invalid
 2. Certificate not registered or deleted
 3. JWT expired
 
 **Resolution**:
+
 ```bash
 # Verify JWT is not expired
 echo $JWT_TOKEN | cut -d'.' -f2 | base64 -d | jq .exp
@@ -844,11 +870,13 @@ python3 generate_jwt.py
 ### Issue: "403 Forbidden - Vault not found"
 
 **Possible Causes**:
+
 1. Vault UUID incorrect in JWT
 2. Vault belongs to different organization
 3. Vault was deleted
 
 **Resolution**:
+
 ```bash
 # Verify vault exists
 curl $MANAGEMENT_API_URL/v1/vaults/$VAULT_ID \
@@ -861,10 +889,12 @@ curl $MANAGEMENT_API_URL/v1/vaults/$VAULT_ID \
 ### Issue: "503 Service Unavailable"
 
 **Possible Causes**:
+
 1. Management API is down
 2. Network connectivity issues
 
 **Resolution**:
+
 ```bash
 # Check management API health
 curl $MANAGEMENT_API_URL/health
@@ -876,11 +906,13 @@ grep "management_api" logs/server.log
 ### Issue: Tests pass initially, then fail
 
 **Possible Causes**:
+
 1. JWT expired (5-minute TTL)
 2. Session expired
 3. Cache expired and management API down
 
 **Resolution**:
+
 ```bash
 # Generate fresh JWT
 python3 generate_jwt.py
@@ -906,23 +938,23 @@ Use this template to document test results:
 
 ## Test Summary
 
-| Test | Status | Duration | Notes |
-|------|--------|----------|-------|
-| Test 1: User Registration | ✅ Pass | 150ms | - |
-| Test 2: User Login | ✅ Pass | 120ms | - |
-| Test 3: Vault Creation | ✅ Pass | 80ms | - |
-| Test 4: Client Creation | ✅ Pass | 75ms | - |
-| Test 5: Certificate Registration | ✅ Pass | 90ms | - |
-| Test 6: JWT Generation | ✅ Pass | 10ms | - |
-| Test 7: Authenticated Request | ✅ Pass | 45ms | - |
-| Test 8: Write Relationships | ✅ Pass | 55ms | - |
-| Test 9: Vault Isolation | ✅ Pass | 40ms | - |
-| Test 10: Certificate Revocation | ✅ Pass | 15s | Cache wait time |
-| Test 11: Logs Verification | ✅ Pass | N/A | - |
-| Test 12: Metrics Verification | ✅ Pass | N/A | - |
-| Test 13: Cross-Org Isolation | ✅ Pass | 60ms | - |
-| Test 14: Performance | ✅ Pass | 35ms avg | 95% cache hit rate |
-| Test 15: Graceful Degradation | ✅ Pass | N/A | - |
+| Test                             | Status  | Duration | Notes              |
+| -------------------------------- | ------- | -------- | ------------------ |
+| Test 1: User Registration        | ✅ Pass | 150ms    | -                  |
+| Test 2: User Login               | ✅ Pass | 120ms    | -                  |
+| Test 3: Vault Creation           | ✅ Pass | 80ms     | -                  |
+| Test 4: Client Creation          | ✅ Pass | 75ms     | -                  |
+| Test 5: Certificate Registration | ✅ Pass | 90ms     | -                  |
+| Test 6: JWT Generation           | ✅ Pass | 10ms     | -                  |
+| Test 7: Authenticated Request    | ✅ Pass | 45ms     | -                  |
+| Test 8: Write Relationships      | ✅ Pass | 55ms     | -                  |
+| Test 9: Vault Isolation          | ✅ Pass | 40ms     | -                  |
+| Test 10: Certificate Revocation  | ✅ Pass | 15s      | Cache wait time    |
+| Test 11: Logs Verification       | ✅ Pass | N/A      | -                  |
+| Test 12: Metrics Verification    | ✅ Pass | N/A      | -                  |
+| Test 13: Cross-Org Isolation     | ✅ Pass | 60ms     | -                  |
+| Test 14: Performance             | ✅ Pass | 35ms avg | 95% cache hit rate |
+| Test 15: Graceful Degradation    | ✅ Pass | N/A      | -                  |
 
 ## Issues Found
 
@@ -938,8 +970,8 @@ None / List any recommendations for improvements
 - [ ] All issues resolved or documented
 - [ ] Ready for deployment
 
-**Approved by**: _______________
-**Date**: _______________
+**Approved by**: ******\_\_\_******
+**Date**: ******\_\_\_******
 ```
 
 ## Automated Test Script

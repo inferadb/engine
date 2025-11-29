@@ -9,6 +9,7 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::IntoResponse,
 };
+use infera_const::scopes::*;
 use infera_types::ListRelationshipsRequest;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -94,8 +95,8 @@ pub async fn get_relationship(
 ) -> Result<impl IntoResponse, ApiError> {
     let start = std::time::Instant::now();
 
-    // Authorize request and extract vault (no auth enforcement for GET)
-    let vault = authorize_request(&auth.0, state.default_vault, false, &[])?;
+    // Authorize request and extract vault
+    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_CHECK])?;
 
     // URL-decode path parameters (they come URL-encoded from the router)
     let resource = urlencoding::decode(&params.resource)
@@ -221,7 +222,7 @@ mod tests {
     use axum::{
         Router,
         body::Body,
-        http::{Request, StatusCode},
+        http::{Request, StatusCode, header},
         routing::get,
     };
     use infera_config::Config;
@@ -230,7 +231,7 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
-    use crate::AppState;
+    use crate::{AppState, test_utils::with_test_auth};
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -246,8 +247,9 @@ mod tests {
             forbids: vec![],
         }]));
 
-        // Use a test vault ID
+        // Use test vault and organization IDs
         let test_vault = 1i64;
+        let test_organization = 2i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
@@ -277,7 +279,7 @@ mod tests {
             .wasm_host(None)
             .jwks_cache(None)
             .default_vault(test_vault)
-            .default_organization(0i64)
+            .default_organization(test_organization)
             .server_identity(None)
             .build()
     }
@@ -288,7 +290,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let response = app
             .oneshot(
@@ -325,7 +328,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let response = app
             .oneshot(
@@ -347,7 +351,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         // URL encode "document:readme" -> "document%3Areadme"
         let response = app
@@ -385,7 +390,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         // URL encode the special characters
         let encoded_resource = urlencoding::encode("document:file-name_with.dots");
@@ -427,7 +433,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let response = app
             .oneshot(

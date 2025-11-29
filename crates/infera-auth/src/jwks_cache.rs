@@ -258,7 +258,7 @@ impl JwksCache {
         ttl: Duration,
     ) -> Result<Self, AuthError> {
         let http_client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(5))
             .build()
             .map_err(|e| AuthError::JwksError(format!("Failed to create HTTP client: {}", e)))?;
 

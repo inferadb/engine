@@ -7,8 +7,8 @@ Comprehensive mapping of InferaDB API endpoints compared to alternatives (SpiceD
 ## Table of Contents
 
 - [InferaDB Endpoints](#inferadb-endpoints)
-  - [gRPC API](#grpc-api)
-  - [REST/HTTP API](#resthttp-api)
+    - [gRPC API](#grpc-api)
+    - [REST/HTTP API](#resthttp-api)
 - [Endpoint Comparison Matrix](#endpoint-comparison-matrix)
 - [Detailed Endpoint Comparisons](#detailed-endpoint-comparisons)
 - [Missing Endpoints](#missing-endpoints)

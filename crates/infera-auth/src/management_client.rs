@@ -23,6 +23,8 @@ pub struct ManagementClient {
     lb_client: Option<Arc<infera_discovery::LoadBalancingClient>>,
     /// Optional server identity for signing server-to-management requests
     server_identity: Option<Arc<ServerIdentity>>,
+    /// Management API URL for JWT audience
+    jwt_audience_url: String,
 }
 
 /// Organization information from management API
@@ -60,14 +62,15 @@ pub struct VaultInfo {
 }
 
 impl ManagementClient {
-    /// Create a new management API client with static URL
-    ///
-    /// Uses a single base URL - Kubernetes service handles load balancing.
+    /// Create a new management API client
     ///
     /// # Arguments
     ///
     /// * `base_url` - Base URL of the management API (e.g., "https://api.inferadb.com")
+    ///   - Without load balancing: Used directly for all requests
+    ///   - With load balancing: Used as fallback and for JWT audience
     /// * `timeout_ms` - Request timeout in milliseconds
+    /// * `lb_client` - Optional load balancing client for discovered endpoints
     /// * `server_identity` - Optional server identity for signing server-to-management requests
     ///
     /// # Errors
@@ -76,6 +79,7 @@ impl ManagementClient {
     pub fn new(
         base_url: String,
         timeout_ms: u64,
+        lb_client: Option<Arc<infera_discovery::LoadBalancingClient>>,
         server_identity: Option<Arc<ServerIdentity>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let http_client = HttpClient::builder()
@@ -83,36 +87,8 @@ impl ManagementClient {
             .pool_max_idle_per_host(10)
             .build()?;
 
-        Ok(Self { http_client, base_url, lb_client: None, server_identity })
-    }
-
-    /// Create a new management API client with load balancing
-    ///
-    /// Uses client-side load balancing across discovered endpoints.
-    /// The `base_url` is used as a fallback if load balancing fails.
-    ///
-    /// # Arguments
-    ///
-    /// * `base_url` - Fallback base URL (e.g., Kubernetes service URL)
-    /// * `timeout_ms` - Request timeout in milliseconds
-    /// * `lb_client` - Load balancing client with discovered endpoints
-    /// * `server_identity` - Optional server identity for signing server-to-management requests
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the HTTP client cannot be created
-    pub fn new_with_load_balancing(
-        base_url: String,
-        timeout_ms: u64,
-        lb_client: Arc<infera_discovery::LoadBalancingClient>,
-        server_identity: Option<Arc<ServerIdentity>>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let http_client = HttpClient::builder()
-            .timeout(Duration::from_millis(timeout_ms))
-            .pool_max_idle_per_host(10)
-            .build()?;
-
-        Ok(Self { http_client, base_url, lb_client: Some(lb_client), server_identity })
+        let jwt_audience_url = base_url.clone();
+        Ok(Self { http_client, base_url, lb_client, server_identity, jwt_audience_url })
     }
 
     /// Get the base URL for a request (either from load balancer or static config)
@@ -151,9 +127,11 @@ impl ManagementClient {
     ///
     /// Returns a JWT signed by the server's identity if configured,
     /// otherwise returns None (request will be unauthenticated)
+    ///
+    /// Uses the stable `jwt_audience_url` (not load-balanced endpoint) for JWT audience claim
     fn get_auth_header(&self) -> Option<String> {
         self.server_identity.as_ref().and_then(|identity| {
-            identity.sign_jwt(&self.base_url).ok().map(|jwt| format!("Bearer {}", jwt))
+            identity.sign_jwt(&self.jwt_audience_url).ok().map(|jwt| format!("Bearer {}", jwt))
         })
     }
 

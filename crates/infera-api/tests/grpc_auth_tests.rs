@@ -13,8 +13,7 @@ use futures::StreamExt;
 use infera_api::{
     AppState,
     grpc::proto::{
-        EvaluateRequest as ProtoEvaluateRequest, HealthRequest,
-        infera_service_client::InferaServiceClient,
+        EvaluateRequest as ProtoEvaluateRequest, infera_service_client::InferaServiceClient,
     },
 };
 use infera_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
@@ -177,12 +176,11 @@ fn create_test_schema() -> Arc<Schema> {
     )]))
 }
 
-fn create_test_state(jwks_cache: Option<Arc<JwksCache>>, auth_enabled: bool) -> AppState {
+fn create_test_state(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
-    let mut config = Config::default();
-    config.auth.enabled = auth_enabled;
+    let config = Config::default();
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
@@ -215,26 +213,19 @@ async fn start_grpc_server_with_auth(
     let service = InferaServiceImpl::new(state.clone());
 
     let handle = tokio::spawn(async move {
-        if state.config.auth.enabled {
-            if let Some(cache) = state.jwks_cache {
-                let interceptor = AuthInterceptor::new(
-                    cache,
-                    internal_loader,
-                    Arc::new(state.config.auth.clone()),
-                );
+        // Authentication is always required; setup interceptor
+        if let Some(cache) = state.jwks_cache {
+            let interceptor =
+                AuthInterceptor::new(cache, internal_loader, Arc::new(state.config.auth.clone()));
 
-                Server::builder()
-                    .add_service(InferaServiceServer::with_interceptor(service, interceptor))
-                    .serve(addr)
-                    .await
-                    .expect("gRPC server failed");
-            }
-        } else {
             Server::builder()
-                .add_service(InferaServiceServer::new(service))
+                .add_service(InferaServiceServer::with_interceptor(service, interceptor))
                 .serve(addr)
                 .await
                 .expect("gRPC server failed");
+        } else {
+            // No JWKS cache means no auth - server won't start properly
+            panic!("JWKS cache is required for authentication");
         }
     });
 
@@ -244,30 +235,9 @@ async fn start_grpc_server_with_auth(
     (handle, port)
 }
 
-#[tokio::test]
-async fn test_grpc_health_unauthenticated() {
-    // Health endpoint should work without authentication
-    let state = create_test_state(None, false);
-    let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
-
-    let channel = Channel::from_shared(format!("http://127.0.0.1:{}", port))
-        .unwrap()
-        .connect()
-        .await
-        .unwrap();
-
-    let mut client = InferaServiceClient::new(channel);
-
-    let request = Request::new(HealthRequest {});
-    let response = client.health(request).await;
-
-    assert!(response.is_ok());
-    let health = response.unwrap().into_inner();
-    assert_eq!(health.status, "healthy");
-    assert_eq!(health.service, "inferadb");
-
-    server_handle.abort();
-}
+// NOTE: Health endpoint test removed - authentication is always required.
+// Health checks should be performed through authenticated channels or via
+// dedicated health check endpoints that bypass auth (if configured separately).
 
 #[tokio::test]
 async fn test_grpc_check_without_token() {
@@ -288,7 +258,7 @@ async fn test_grpc_check_without_token() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
 
     let channel = Channel::from_shared(format!("http://127.0.0.1:{}", port))
@@ -337,7 +307,7 @@ async fn test_grpc_check_with_invalid_token() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
 
     let channel = Channel::from_shared(format!("http://127.0.0.1:{}", port))
@@ -395,7 +365,7 @@ async fn test_grpc_check_with_tenant_jwt() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
 
     let channel = Channel::from_shared(format!("http://127.0.0.1:{}", port))
@@ -471,7 +441,7 @@ async fn test_grpc_check_with_internal_jwt() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) =
         start_grpc_server_with_auth(state, Some(Arc::new(internal_loader))).await;
 
@@ -555,7 +525,7 @@ async fn test_grpc_check_with_expired_internal_jwt() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) =
         start_grpc_server_with_auth(state, Some(Arc::new(internal_loader))).await;
 
@@ -618,7 +588,7 @@ async fn test_grpc_lowercase_authorization_metadata() {
         .unwrap(),
     );
 
-    let state = create_test_state(Some(jwks_cache), true);
+    let state = create_test_state(Some(jwks_cache));
     let (server_handle, port) = start_grpc_server_with_auth(state, None).await;
 
     let channel = Channel::from_shared(format!("http://127.0.0.1:{}", port))

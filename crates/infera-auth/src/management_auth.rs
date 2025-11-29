@@ -123,7 +123,7 @@ impl ManagementJwksCache {
     /// * `cache_ttl` - How long to cache JWKS before refreshing (recommended: 15 minutes)
     pub fn new(management_api_url: String, cache_ttl: std::time::Duration) -> Self {
         let http_client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(5))
             .build()
             .expect("Failed to create HTTP client for Management JWKS");
 
@@ -137,7 +137,7 @@ impl ManagementJwksCache {
 
     /// Fetch JWKS from Management API
     async fn fetch_jwks(&self) -> Result<ManagementJwks, AuthError> {
-        let jwks_url = format!("{}/.well-known/management-jwks.json", self.management_api_url);
+        let jwks_url = format!("{}/internal/management-jwks.json", self.management_api_url);
 
         tracing::debug!(
             jwks_url = %jwks_url,

@@ -243,8 +243,7 @@ pub async fn delete_relationships_handler(
     Json(request): Json<DeleteRequest>,
 ) -> Result<ResponseData<DeleteResponse>> {
     // Authorize request and extract vault
-    let vault =
-        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WRITE])?;
+    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_WRITE])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
@@ -310,8 +309,7 @@ pub async fn delete_relationship(
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
-    let vault =
-        authorize_request(&auth.0, state.default_vault, state.config.auth.enabled, &[SCOPE_WRITE])?;
+    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_WRITE])?;
 
     // URL-decode path parameters (they come URL-encoded from the router)
     let resource = urlencoding::decode(&params.resource)
@@ -400,7 +398,7 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
-    use crate::AppState;
+    use crate::{AppState, test_utils::with_test_auth};
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
@@ -447,7 +445,7 @@ mod tests {
             .wasm_host(None)
             .jwks_cache(None)
             .default_vault(test_vault)
-            .default_organization(0i64)
+            .default_organization(2i64)
             .server_identity(None)
             .build()
     }
@@ -458,7 +456,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let response = app
             .oneshot(
@@ -483,7 +482,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let response = app
             .oneshot(
@@ -511,6 +511,7 @@ mod tests {
         let app1 = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
+        let app1 = with_test_auth(app1, state.default_vault, state.default_organization);
 
         let response1 = app1
             .oneshot(
@@ -528,7 +529,8 @@ mod tests {
         // Second deletion of the same relationship
         let app2 = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app2 = with_test_auth(app2, state.default_vault, state.default_organization);
 
         let response2 = app2
             .oneshot(
@@ -566,7 +568,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         // URL encode the parameters (space becomes %20, @ becomes %40, : becomes %3A)
         let response = app
@@ -604,7 +607,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         // URL encode the special characters
         let encoded_resource = urlencoding::encode("document:file-name_with.dots");
@@ -630,7 +634,8 @@ mod tests {
 
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
-            .with_state(state);
+            .with_state(state.clone());
+        let app = with_test_auth(app, state.default_vault, state.default_organization);
 
         let response = app
             .oneshot(

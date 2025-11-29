@@ -5,8 +5,10 @@ mod integration;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use axum::{
+    Router,
     body::Body,
     http::{Request, StatusCode, header},
+    routing::{get, post},
 };
 use infera_types::{Organization, Vault, VaultResponse};
 use serde_json::json;
@@ -18,8 +20,8 @@ fn generate_test_id() -> i64 {
     TEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
 }
 
-/// Helper to create test app state with organization
-async fn create_test_state() -> infera_api::AppState {
+/// Helper to create test app state with organization and authenticated router
+async fn create_test_app() -> (infera_api::AppState, Router) {
     let state = integration::create_test_state();
 
     // Create the default organization
@@ -31,13 +33,29 @@ async fn create_test_state() -> infera_api::AppState {
         .await
         .expect("Failed to create test organization");
 
-    state
+    // Create test router with authentication middleware
+    // We create the router manually here since create_test_router is only available in tests
+    let router = Router::new()
+        .route(
+            "/v1/evaluate",
+            post(infera_api::handlers::evaluate::stream::evaluate_stream_handler),
+        )
+        .route("/v1/vaults/{id}", get(infera_api::handlers::vaults::get::get_vault))
+        .route(
+            "/v1/organizations/{id}",
+            get(infera_api::handlers::organizations::get::get_organization),
+        )
+        .route("/health", get(infera_api::health::health_check_handler))
+        .with_state(state.clone());
+    let authenticated_router =
+        integration::with_test_auth(router, state.default_vault, state.default_organization);
+
+    (state, authenticated_router)
 }
 
 #[tokio::test]
 async fn test_json_format_explicit() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (state, app) = create_test_app().await;
 
     // Create a vault first
     let vault_id = generate_test_id();
@@ -66,8 +84,7 @@ async fn test_json_format_explicit() {
 
 #[tokio::test]
 async fn test_toon_format_explicit() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (state, app) = create_test_app().await;
 
     // Create a vault first
     let vault_id = generate_test_id();
@@ -100,8 +117,7 @@ async fn test_toon_format_explicit() {
 
 #[tokio::test]
 async fn test_default_format_is_json() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (state, app) = create_test_app().await;
 
     // Create a vault first
     let vault_id = generate_test_id();
@@ -124,8 +140,7 @@ async fn test_default_format_is_json() {
 
 #[tokio::test]
 async fn test_wildcard_accept_defaults_to_json() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (state, app) = create_test_app().await;
 
     // Create a vault first
     let vault_id = generate_test_id();
@@ -149,8 +164,7 @@ async fn test_wildcard_accept_defaults_to_json() {
 
 #[tokio::test]
 async fn test_quality_value_priority_json_higher() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (state, app) = create_test_app().await;
 
     // Create a vault first
     let vault_id = generate_test_id();
@@ -174,8 +188,7 @@ async fn test_quality_value_priority_json_higher() {
 
 #[tokio::test]
 async fn test_quality_value_priority_toon_higher() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (state, app) = create_test_app().await;
 
     // Create a vault first
     let vault_id = generate_test_id();
@@ -199,8 +212,7 @@ async fn test_quality_value_priority_toon_higher() {
 
 #[tokio::test]
 async fn test_streaming_endpoint_rejects_toon() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (_state, app) = create_test_app().await;
 
     // Request streaming endpoint with TOON format
     let request = Request::builder()
@@ -233,8 +245,7 @@ async fn test_streaming_endpoint_rejects_toon() {
 
 #[tokio::test]
 async fn test_streaming_endpoint_accepts_json() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (_state, app) = create_test_app().await;
 
     // Request streaming endpoint with JSON format
     let request = Request::builder()
@@ -263,8 +274,7 @@ async fn test_streaming_endpoint_accepts_json() {
 
 #[tokio::test]
 async fn test_error_responses_always_json() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (_state, app) = create_test_app().await;
 
     // Request non-existent vault with TOON Accept header
     let non_existent_vault = generate_test_id();
@@ -291,8 +301,7 @@ async fn test_error_responses_always_json() {
 
 #[tokio::test]
 async fn test_multiple_endpoints_support_toon() {
-    let state = create_test_state().await;
-    let app = infera_api::create_router(state.clone()).await.unwrap();
+    let (state, app) = create_test_app().await;
 
     // Create test data
     let vault_id = generate_test_id();
