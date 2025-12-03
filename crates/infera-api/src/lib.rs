@@ -640,8 +640,15 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         info!("Internal cache invalidation endpoints ENABLED");
 
         // Create Management JWKS cache for verifying Management API JWTs
+        // Use internal URL if available (Management JWKS is served on internal port)
+        let management_jwks_url = state
+            .config
+            .auth
+            .management_internal_api_url
+            .clone()
+            .unwrap_or_else(|| state.config.auth.management_api_url.clone());
         let management_jwks_cache = Arc::new(infera_auth::ManagementJwksCache::new(
-            state.config.auth.management_api_url.clone(),
+            management_jwks_url,
             std::time::Duration::from_secs(900), // 15 minutes TTL
         ));
 
