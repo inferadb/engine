@@ -17,8 +17,11 @@ use crate::server_identity::ServerIdentity;
 /// Management API client for validating tokens and fetching metadata
 pub struct ManagementClient {
     http_client: HttpClient,
-    /// Static base URL (used when lb_client is None)
+    /// Static base URL for public endpoints (used when lb_client is None)
     base_url: String,
+    /// Internal base URL for server-to-server /internal/* endpoints
+    /// Falls back to base_url if not set
+    internal_base_url: String,
     /// Optional load balancing client for discovered endpoints
     lb_client: Option<Arc<infera_discovery::LoadBalancingClient>>,
     /// Optional server identity for signing server-to-management requests
@@ -69,6 +72,8 @@ impl ManagementClient {
     /// * `base_url` - Base URL of the management API (e.g., "https://api.inferadb.com")
     ///   - Without load balancing: Used directly for all requests
     ///   - With load balancing: Used as fallback and for JWT audience
+    /// * `internal_base_url` - Base URL for internal /internal/* endpoints (e.g., "http://management-api:9091")
+    ///   - If None, falls back to base_url
     /// * `timeout_ms` - Request timeout in milliseconds
     /// * `lb_client` - Optional load balancing client for discovered endpoints
     /// * `server_identity` - Optional server identity for signing server-to-management requests
@@ -78,6 +83,7 @@ impl ManagementClient {
     /// Returns an error if the HTTP client cannot be created
     pub fn new(
         base_url: String,
+        internal_base_url: Option<String>,
         timeout_ms: u64,
         lb_client: Option<Arc<infera_discovery::LoadBalancingClient>>,
         server_identity: Option<Arc<ServerIdentity>>,
@@ -88,10 +94,11 @@ impl ManagementClient {
             .build()?;
 
         let jwt_audience_url = base_url.clone();
-        Ok(Self { http_client, base_url, lb_client, server_identity, jwt_audience_url })
+        let internal_base_url = internal_base_url.unwrap_or_else(|| base_url.clone());
+        Ok(Self { http_client, base_url, internal_base_url, lb_client, server_identity, jwt_audience_url })
     }
 
-    /// Get the base URL for a request (either from load balancer or static config)
+    /// Get the base URL for public endpoints (either from load balancer or static config)
     fn get_base_url(&self) -> String {
         if let Some(ref lb) = self.lb_client {
             // Try to get from load balancer, fall back to static URL on error
@@ -107,6 +114,12 @@ impl ManagementClient {
             // Static mode
             self.base_url.clone()
         }
+    }
+
+    /// Get the internal base URL for server-to-server /internal/* endpoints
+    /// This is always static (no load balancing) as internal endpoints are on a separate port
+    fn get_internal_base_url(&self) -> String {
+        self.internal_base_url.clone()
     }
 
     /// Mark a request as successful (for load balancer health tracking)
@@ -151,8 +164,9 @@ impl ManagementClient {
         &self,
         org_id: i64,
     ) -> Result<OrganizationInfo, ManagementApiError> {
-        let base_url = self.get_base_url();
-        let url = format!("{}/internal/organizations/{}", base_url, org_id);
+        // Use internal URL for /internal/* endpoints
+        let internal_url = self.get_internal_base_url();
+        let url = format!("{}/internal/organizations/{}", internal_url, org_id);
 
         let mut request = self.http_client.get(&url);
 
@@ -162,26 +176,21 @@ impl ManagementClient {
         }
 
         let response = request.send().await.map_err(|e| {
-            self.mark_request_failure(&base_url);
             ManagementApiError::RequestFailed(e.to_string())
         })?;
 
         match response.status() {
             StatusCode::OK => {
                 let org = response.json::<OrganizationInfo>().await.map_err(|e| {
-                    self.mark_request_failure(&base_url);
                     ManagementApiError::InvalidResponse(e.to_string())
                 })?;
-                self.mark_request_success(&base_url);
                 Ok(org)
             },
             StatusCode::NOT_FOUND => {
-                // NOT_FOUND is expected for invalid org IDs - don't mark as failure
-                self.mark_request_success(&base_url);
+                // NOT_FOUND is expected for invalid org IDs
                 Err(ManagementApiError::NotFound("organization"))
             },
             status => {
-                self.mark_request_failure(&base_url);
                 Err(ManagementApiError::UnexpectedStatus(status.as_u16()))
             },
         }
@@ -200,8 +209,9 @@ impl ManagementClient {
     /// - The vault is not found
     /// - The response cannot be parsed
     pub async fn get_vault(&self, vault_id: i64) -> Result<VaultInfo, ManagementApiError> {
-        let base_url = self.get_base_url();
-        let url = format!("{}/internal/vaults/{}", base_url, vault_id);
+        // Use internal URL for /internal/* endpoints
+        let internal_url = self.get_internal_base_url();
+        let url = format!("{}/internal/vaults/{}", internal_url, vault_id);
 
         let mut request = self.http_client.get(&url);
 
@@ -211,26 +221,21 @@ impl ManagementClient {
         }
 
         let response = request.send().await.map_err(|e| {
-            self.mark_request_failure(&base_url);
             ManagementApiError::RequestFailed(e.to_string())
         })?;
 
         match response.status() {
             StatusCode::OK => {
                 let vault = response.json::<VaultInfo>().await.map_err(|e| {
-                    self.mark_request_failure(&base_url);
                     ManagementApiError::InvalidResponse(e.to_string())
                 })?;
-                self.mark_request_success(&base_url);
                 Ok(vault)
             },
             StatusCode::NOT_FOUND => {
-                // NOT_FOUND is expected for invalid vault IDs - don't mark as failure
-                self.mark_request_success(&base_url);
+                // NOT_FOUND is expected for invalid vault IDs
                 Err(ManagementApiError::NotFound("vault"))
             },
             status => {
-                self.mark_request_failure(&base_url);
                 Err(ManagementApiError::UnexpectedStatus(status.as_u16()))
             },
         }

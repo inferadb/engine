@@ -277,9 +277,14 @@ pub struct AuthConfig {
     #[serde(default = "default_jwks_url")]
     pub jwks_url: String,
 
-    /// Management API base URL for token validation
+    /// Management API base URL for token validation (public endpoints like JWKS)
     #[serde(default = "default_management_api_url")]
     pub management_api_url: String,
+
+    /// Management API internal URL for server-to-server communication
+    /// Used for privileged /internal/* endpoints (vault/org verification)
+    /// If not set, falls back to management_api_url
+    pub management_internal_api_url: Option<String>,
 
     /// Timeout for management API calls in milliseconds
     #[serde(default = "default_management_api_timeout")]
@@ -661,6 +666,7 @@ impl Default for AuthConfig {
             required_scopes: default_required_scopes(),
             jwks_url: default_jwks_url(),
             management_api_url: default_management_api_url(),
+            management_internal_api_url: None,
             management_api_timeout_ms: default_management_api_timeout(),
             management_cache_ttl_seconds: default_management_cache_ttl(),
             cert_cache_ttl_seconds: default_cert_cache_ttl(),

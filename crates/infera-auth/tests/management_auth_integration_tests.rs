@@ -165,7 +165,7 @@ async fn test_vault_verification_success() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -190,7 +190,7 @@ async fn test_vault_verification_not_found() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -222,7 +222,7 @@ async fn test_vault_verification_account_mismatch() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -255,7 +255,7 @@ async fn test_vault_verification_caching() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -289,7 +289,7 @@ async fn test_vault_verification_cache_returns_error_for_mismatch() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -326,7 +326,7 @@ async fn test_organization_verification_active() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -357,7 +357,7 @@ async fn test_organization_verification_suspended() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -382,7 +382,7 @@ async fn test_organization_verification_not_found() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -412,7 +412,7 @@ async fn test_organization_verification_caching() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -445,7 +445,7 @@ async fn test_organization_verification_cache_returns_error_for_suspended() {
 
     // Create vault verifier
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
     let verifier = ManagementApiVaultVerifier::new(
@@ -495,7 +495,7 @@ async fn test_jwt_authentication_full_flow() {
 
     // Create management client and caches
     let management_client = Arc::new(
-        ManagementClient::new(base_url.clone(), 5000, None, None)
+        ManagementClient::new(base_url.clone(), None, 5000, None, None)
             .expect("Failed to create management client"),
     );
 
@@ -541,7 +541,7 @@ async fn test_jwt_authentication_flow_vault_not_found() {
     let (base_url, _handle) = start_mock_management_server(state).await;
 
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
 
@@ -576,7 +576,7 @@ async fn test_jwt_authentication_flow_org_suspended() {
     let (base_url, _handle) = start_mock_management_server(state).await;
 
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
 
@@ -610,7 +610,7 @@ async fn test_jwt_authentication_flow_account_mismatch() {
     let (base_url, _handle) = start_mock_management_server(state).await;
 
     let management_client = Arc::new(
-        ManagementClient::new(base_url, 5000, None, None)
+        ManagementClient::new(base_url, None, 5000, None, None)
             .expect("Failed to create management client"),
     );
 
@@ -642,7 +642,7 @@ async fn test_management_client_get_organization() {
 
     let (base_url, _handle) = start_mock_management_server(state).await;
 
-    let client = ManagementClient::new(base_url, 5000, None, None)
+    let client = ManagementClient::new(base_url, None, 5000, None, None)
         .expect("Failed to create management client");
 
     let org_info = client.get_organization(org_id).await.expect("Failed to get organization");
@@ -662,7 +662,7 @@ async fn test_management_client_get_vault() {
 
     let (base_url, _handle) = start_mock_management_server(state).await;
 
-    let client = ManagementClient::new(base_url, 5000, None, None)
+    let client = ManagementClient::new(base_url, None, 5000, None, None)
         .expect("Failed to create management client");
 
     let vault_info = client.get_vault(vault_id).await.expect("Failed to get vault");
@@ -677,7 +677,7 @@ async fn test_management_client_timeout() {
     let state = MockManagementState::new();
     let (base_url, _handle) = start_mock_management_server(state).await;
 
-    let client = ManagementClient::new(base_url.clone(), 1, None, None)
+    let client = ManagementClient::new(base_url.clone(), None, 1, None, None)
         .expect("Failed to create management client");
 
     // This might timeout or succeed depending on timing, but shouldn't panic

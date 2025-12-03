@@ -488,6 +488,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             Arc::new(
                 infera_auth::ManagementClient::new(
                     state.config.auth.management_api_url.clone(),
+                    state.config.auth.management_internal_api_url.clone(),
                     state.config.auth.management_api_timeout_ms,
                     Some(lb_client),
                     state.server_identity.clone(),
@@ -509,6 +510,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             Arc::new(
                 infera_auth::ManagementClient::new(
                     state.config.auth.management_api_url.clone(),
+                    state.config.auth.management_internal_api_url.clone(),
                     state.config.auth.management_api_timeout_ms,
                     None,
                     state.server_identity.clone(),
@@ -648,6 +650,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         let management_client = Arc::new(
             infera_auth::ManagementClient::new(
                 state.config.auth.management_api_url.clone(),
+                state.config.auth.management_internal_api_url.clone(),
                 state.config.auth.management_api_timeout_ms,
                 None,
                 state.server_identity.clone(),
