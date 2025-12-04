@@ -3,9 +3,9 @@ authors.workspace = true
 description = "Shared constants for InferaDB"
 edition.workspace = true
 license.workspace = true
-rust-version.workspace = true
 name = "infera-const"
 publish.workspace = true
+rust-version.workspace = true
 version.workspace = true
 
 [dependencies]

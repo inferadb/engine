@@ -970,8 +970,8 @@ None / List any recommendations for improvements
 - [ ] All issues resolved or documented
 - [ ] Ready for deployment
 
-**Approved by**: ******\_\_\_******
-**Date**: ******\_\_\_******
+**Approved by**: **\*\***\_\_\_**\*\***
+**Date**: **\*\***\_\_\_**\*\***
 ```
 
 ## Automated Test Script

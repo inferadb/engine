@@ -10,7 +10,7 @@
 # See Makefile for convenient shortcuts.
 
 [tools]
-rust = "nightly"
+rust = "stable"
 node = "24"
 
 # Development tools (installed automatically with `mise install`)
