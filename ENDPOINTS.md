@@ -7,8 +7,8 @@ Comprehensive mapping of InferaDB API endpoints compared to alternatives (SpiceD
 ## Table of Contents
 
 - [InferaDB Endpoints](#inferadb-endpoints)
-    - [gRPC API](#grpc-api)
-    - [REST/HTTP API](#resthttp-api)
+  - [gRPC API](#grpc-api)
+  - [REST/HTTP API](#resthttp-api)
 - [Endpoint Comparison Matrix](#endpoint-comparison-matrix)
 - [Detailed Endpoint Comparisons](#detailed-endpoint-comparisons)
 - [Missing Endpoints](#missing-endpoints)
@@ -676,38 +676,38 @@ Response:
 
 - **Pre-deployment testing**: Test authorization changes before going live
 
-    ```http
-    # Test if making Alice an editor would grant her view access
-    POST /simulate
-    {
-      "context_relationships": [
-        {"resource": "doc:readme", "relation": "editor", "subject": "user:alice"}
-      ],
-      "check": {
-        "subject": "user:alice",
-        "resource": "doc:readme",
-        "permission": "viewer"
-      }
+  ```http
+  # Test if making Alice an editor would grant her view access
+  POST /simulate
+  {
+    "context_relationships": [
+      {"resource": "doc:readme", "relation": "editor", "subject": "user:alice"}
+    ],
+    "check": {
+      "subject": "user:alice",
+      "resource": "doc:readme",
+      "permission": "viewer"
     }
-    ```
+  }
+  ```
 
 - **Schema design validation**: Verify permission inheritance works as expected
 
-    ```http
-    # Test if folder ownership grants document access
-    POST /simulate
-    {
-      "context_relationships": [
-        {"resource": "folder:reports", "relation": "owner", "subject": "user:bob"},
-        {"resource": "doc:annual_report", "relation": "parent", "subject": "folder:reports"}
-      ],
-      "check": {
-        "subject": "user:bob",
-        "resource": "doc:annual_report",
-        "permission": "viewer"
-      }
+  ```http
+  # Test if folder ownership grants document access
+  POST /simulate
+  {
+    "context_relationships": [
+      {"resource": "folder:reports", "relation": "owner", "subject": "user:bob"},
+      {"resource": "doc:annual_report", "relation": "parent", "subject": "folder:reports"}
+    ],
+    "check": {
+      "subject": "user:bob",
+      "resource": "doc:annual_report",
+      "permission": "viewer"
     }
-    ```
+  }
+  ```
 
 - **Access control debugging**: Test complex relationship graphs
 - **Integration testing**: Verify authorization behavior in test suites
@@ -946,56 +946,56 @@ POST /delete-relationships
 
 - **User offboarding**: Delete all relationships for a subject
 
-    ```json
-    { "filter": { "subject": "user:alice" } }
-    ```
+  ```json
+  { "filter": { "subject": "user:alice" } }
+  ```
 
 - **Resource cleanup**: Delete all relationships for a resource
 
-    ```json
-    { "filter": { "resource": "doc:deleted_document" } }
-    ```
+  ```json
+  { "filter": { "resource": "doc:deleted_document" } }
+  ```
 
 - **Relation cleanup**: Delete all relationships of a specific type
 
-    ```json
-    { "filter": { "relation": "viewer" } }
-    ```
+  ```json
+  { "filter": { "relation": "viewer" } }
+  ```
 
 - **Combined filters**: Delete specific resource+relation combinations
 
-    ```json
-    { "filter": { "resource": "doc:readme", "relation": "viewer" } }
-    ```
+  ```json
+  { "filter": { "resource": "doc:readme", "relation": "viewer" } }
+  ```
 
 - **Exact deletion**: Delete specific relationships
 
-    ```json
-    {
-        "relationships": [
-            {
-                "resource": "doc:1",
-                "relation": "reader",
-                "subject": "user:alice"
-            }
-        ]
-    }
-    ```
+  ```json
+  {
+    "relationships": [
+      {
+        "resource": "doc:1",
+        "relation": "reader",
+        "subject": "user:alice"
+      }
+    ]
+  }
+  ```
 
 - **Combined mode**: Both filter and exact relationships
 
-    ```json
-    {
-        "filter": { "subject": "user:alice" },
-        "relationships": [
-            {
-                "resource": "doc:special",
-                "relation": "owner",
-                "subject": "user:bob"
-            }
-        ]
-    }
-    ```
+  ```json
+  {
+    "filter": { "subject": "user:alice" },
+    "relationships": [
+      {
+        "resource": "doc:special",
+        "relation": "owner",
+        "subject": "user:bob"
+      }
+    ]
+  }
+  ```
 
 **Safety Features:**
 
@@ -1867,23 +1867,23 @@ while let Some(event) = stream.next().await {
 ```javascript
 // Watch for all changes via Server-Sent Events
 const eventSource = new EventSource("/watch", {
-    method: "POST",
-    body: JSON.stringify({ resource_types: [] }),
+  method: "POST",
+  body: JSON.stringify({ resource_types: [] }),
 });
 
 eventSource.addEventListener("change", (event) => {
-    const change = JSON.parse(event.data);
-    console.log(
-        `${change.operation} ${change.relationship.resource}:${change.relationship.relation}`
-    );
+  const change = JSON.parse(event.data);
+  console.log(
+    `${change.operation} ${change.relationship.resource}:${change.relationship.relation}`
+  );
 
-    // Invalidate local cache
-    cache.invalidate(change.relationship);
+  // Invalidate local cache
+  cache.invalidate(change.relationship);
 });
 
 eventSource.addEventListener("error", (event) => {
-    const error = JSON.parse(event.data);
-    console.error("Watch error:", error);
+  const error = JSON.parse(event.data);
+  console.error("Watch error:", error);
 });
 ```
 
@@ -2416,13 +2416,13 @@ definition document {
 
 ```json
 {
-    "type": "document",
-    "relations": {
-        "viewer": {
-            "this": {},
-            "condition": "time.now() > datetime('2024-01-01T00:00:00Z')"
-        }
+  "type": "document",
+  "relations": {
+    "viewer": {
+      "this": {},
+      "condition": "time.now() > datetime('2024-01-01T00:00:00Z')"
     }
+  }
 }
 ```
 
@@ -2719,8 +2719,8 @@ POST /evaluate
 
 **Phase 2 (P1 - Months 5-6):**
 
-6. ✅ ~~LookupSubjects - Complete query surface~~ (COMPLETED Phase 2.1 with reverse graph traversal)
-7. Watch API - Real-time capabilities (NEXT)
+1. ✅ ~~LookupSubjects - Complete query surface~~ (COMPLETED Phase 2.1 with reverse graph traversal)
+2. Watch API - Real-time capabilities (NEXT)
 
 **Phase 3 (P2 - Months 7-9):** 8. Schema management API 9. gRPC reflection 10. BulkImport/Export
 

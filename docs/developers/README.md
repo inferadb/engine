@@ -450,7 +450,7 @@ async fn new_endpoint(
 }
 ```
 
-2. Register the route:
+1. Register the route:
 
 ```rust
 let app = Router::new()
@@ -458,7 +458,7 @@ let app = Router::new()
     .with_state(evaluator);
 ```
 
-3. Add tests in `crates/infera-api/tests/`:
+1. Add tests in `crates/infera-api/tests/`:
 
 ```rust
 #[tokio::test]
@@ -477,7 +477,7 @@ pub fn record_new_metric(value: f64, labels: &[(&str, &str)]) {
 }
 ```
 
-2. Initialize in `init_metrics_descriptions()`:
+1. Initialize in `init_metrics_descriptions()`:
 
 ```rust
 describe_histogram!(
@@ -487,7 +487,7 @@ describe_histogram!(
 );
 ```
 
-3. Use in your code:
+1. Use in your code:
 
 ```rust
 use infera_observe::record_new_metric;

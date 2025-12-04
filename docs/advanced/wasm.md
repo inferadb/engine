@@ -187,15 +187,15 @@ cargo build --target wasm32-unknown-unknown --release
 
 ```typescript
 export function check(): i32 {
-    // Simple attribute check
-    const userLevel = 5;
-    const requiredLevel = 3;
+  // Simple attribute check
+  const userLevel = 5;
+  const requiredLevel = 3;
 
-    if (userLevel >= requiredLevel) {
-        return 1; // Allow
-    } else {
-        return 0; // Deny
-    }
+  if (userLevel >= requiredLevel) {
+    return 1; // Allow
+  } else {
+    return 0; // Deny
+  }
 }
 ```
 

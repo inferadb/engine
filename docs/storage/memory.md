@@ -26,19 +26,19 @@ pub struct MemoryBackend {
 ### Key Components
 
 1. **Tuple Storage**
-    - HashMap for O(1) lookup by (object, relation, user)
-    - Each key stores a vector of versions (MVCC)
-    - Versions are ordered by revision
+   - HashMap for O(1) lookup by (object, relation, user)
+   - Each key stores a vector of versions (MVCC)
+   - Versions are ordered by revision
 
 2. **User Index**
-    - Enables reverse lookups (find all objects for a user+relation)
-    - BTreeMap for ordered iteration
-    - Maintains revision history per entry
+   - Enables reverse lookups (find all objects for a user+relation)
+   - BTreeMap for ordered iteration
+   - Maintains revision history per entry
 
 3. **Revision Counter**
-    - Atomic U64 for thread-safe increment
-    - Monotonically increasing
-    - Never resets (unless GC removes history)
+   - Atomic U64 for thread-safe increment
+   - Monotonically increasing
+   - Never resets (unless GC removes history)
 
 ## Features
 
@@ -149,9 +149,9 @@ async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision>
 
 1. Atomically increments global revision
 2. For each tuple:
-    - Checks for duplicates
-    - Adds new version at current revision
-    - Updates user index
+   - Checks for duplicates
+   - Adds new version at current revision
+   - Updates user index
 3. Returns the new revision
 
 **Time Complexity:** O(n × log m)

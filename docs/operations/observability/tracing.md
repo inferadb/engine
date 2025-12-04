@@ -37,16 +37,16 @@ export OTEL_TRACES_SAMPLER_ARG=0.1    # Sample 10% of traces
 
 ```yaml
 observability:
-    tracing:
-        enabled: true
-        exporter:
-            otlp:
-                endpoint: "http://localhost:4317"
-                protocol: grpc
-        sampling:
-            type: "traceidratio" # or "always_on", "always_off"
-            ratio: 0.1 # 10% sampling
-        service_name: "inferadb"
+  tracing:
+    enabled: true
+    exporter:
+      otlp:
+        endpoint: "http://localhost:4317"
+        protocol: grpc
+    sampling:
+      type: "traceidratio" # or "always_on", "always_off"
+      ratio: 0.1 # 10% sampling
+    service_name: "inferadb"
 ```
 
 ## Trace Structure
@@ -120,7 +120,7 @@ export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 inferadb
 ```
 
-**3. View Traces**: http://localhost:16686
+**3. View Traces**: <http://localhost:16686>
 
 ### Jaeger UI Features
 
@@ -236,46 +236,46 @@ For production deployments, use the OpenTelemetry Collector for advanced routing
 
 ```yaml
 receivers:
-    otlp:
-        protocols:
-            grpc:
-                endpoint: 0.0.0.0:4317
-            http:
-                endpoint: 0.0.0.0:4318
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
 
 processors:
-    batch:
-        timeout: 10s
-        send_batch_size: 1024
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
 
-    filter/drop_health_checks:
-        traces:
-            span:
-                - 'attributes["http.target"] == "/health"'
+  filter/drop_health_checks:
+    traces:
+      span:
+        - 'attributes["http.target"] == "/health"'
 
-    attributes:
-        actions:
-            - key: deployment.environment
-              value: production
-              action: insert
+  attributes:
+    actions:
+      - key: deployment.environment
+        value: production
+        action: insert
 
 exporters:
-    jaeger:
-        endpoint: jaeger:14250
-        tls:
-            insecure: true
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
 
-    otlp/datadog:
-        endpoint: https://trace.agent.datadoghq.com
-        headers:
-            DD-API-KEY: ${DD_API_KEY}
+  otlp/datadog:
+    endpoint: https://trace.agent.datadoghq.com
+    headers:
+      DD-API-KEY: ${DD_API_KEY}
 
 service:
-    pipelines:
-        traces:
-            receivers: [otlp]
-            processors: [filter/drop_health_checks, batch, attributes]
-            exporters: [jaeger, otlp/datadog]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [filter/drop_health_checks, batch, attributes]
+      exporters: [jaeger, otlp/datadog]
 ```
 
 **Start Collector**:
@@ -453,11 +453,11 @@ Use trace IDs in logs for correlation:
 
 ```json
 {
-    "timestamp": "2025-01-15T10:30:45Z",
-    "level": "INFO",
-    "message": "Authorization check",
-    "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
-    "span_id": "e457b5a2e4d86bd1"
+  "timestamp": "2025-01-15T10:30:45Z",
+  "level": "INFO",
+  "message": "Authorization check",
+  "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
+  "span_id": "e457b5a2e4d86bd1"
 }
 ```
 

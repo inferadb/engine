@@ -76,9 +76,9 @@ The Server API authenticates requests using **vault-scoped JWTs** issued by the 
 
 ```json
 {
-    "alg": "EdDSA",
-    "typ": "JWT",
-    "kid": "org-{org_id}-client-{client_id}-cert-{cert_id}"
+  "alg": "EdDSA",
+  "typ": "JWT",
+  "kid": "org-{org_id}-client-{client_id}-cert-{cert_id}"
 }
 ```
 
@@ -86,15 +86,15 @@ The Server API authenticates requests using **vault-scoped JWTs** issued by the 
 
 ```json
 {
-    "iss": "https://api.inferadb.com",
-    "sub": "client:1234567890123456789",
-    "aud": "https://api.inferadb.com/evaluate",
-    "exp": 1234567890,
-    "iat": 1234567800,
-    "org_id": "9876543210987654321",
-    "vault_id": "1111222233334444555",
-    "vault_role": "write",
-    "scope": "inferadb.check inferadb.read inferadb.write ..."
+  "iss": "https://api.inferadb.com",
+  "sub": "client:1234567890123456789",
+  "aud": "https://api.inferadb.com/evaluate",
+  "exp": 1234567890,
+  "iat": 1234567800,
+  "org_id": "9876543210987654321",
+  "vault_id": "1111222233334444555",
+  "vault_role": "write",
+  "scope": "inferadb.check inferadb.read inferadb.write ..."
 }
 ```
 
@@ -260,16 +260,16 @@ The server configures its identity on startup:
 
 ```yaml
 auth:
-    enabled: true
-    # IMPORTANT: Points to Management API's INTERNAL port (9091), not public port (3000)
-    management_api_url: "http://localhost:9091"
-    # Server identity for server-to-management requests
-    server_identity_private_key: |
-        -----BEGIN PRIVATE KEY-----
-        MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
-        -----END PRIVATE KEY-----
-    server_identity_kid: "server-primary-2024"
-    server_id: "inferadb-server-prod-us-east-1"
+  enabled: true
+  # IMPORTANT: Points to Management API's INTERNAL port (9091), not public port (3000)
+  management_api_url: "http://localhost:9091"
+  # Server identity for server-to-management requests
+  server_identity_private_key: |
+    -----BEGIN PRIVATE KEY-----
+    MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
+    -----END PRIVATE KEY-----
+  server_identity_kid: "server-primary-2024"
+  server_id: "inferadb-server-prod-us-east-1"
 ```
 
 **Development Mode**: If `server_identity_private_key` is omitted, the server auto-generates a keypair and logs the PEM-encoded private key at startup.
@@ -309,16 +309,16 @@ Response:
 
 ```json
 {
-    "keys": [
-        {
-            "kty": "OKP",
-            "alg": "EdDSA",
-            "kid": "server-primary-2024",
-            "crv": "Ed25519",
-            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
-            "use": "sig"
-        }
-    ]
+  "keys": [
+    {
+      "kty": "OKP",
+      "alg": "EdDSA",
+      "kid": "server-primary-2024",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "use": "sig"
+    }
+  ]
 }
 ```
 
@@ -362,26 +362,26 @@ The Server API aggressively caches authentication data to minimize latency and M
 - **Cache Hit Rate**: >90% after warmup
 - **Management API Call Rate**: <10% of total requests
 - **Token Validation Latency**:
-    - Cache hit: <1ms
-    - Cache miss: ~50-100ms (includes network roundtrip)
+  - Cache hit: <1ms
+  - Cache miss: ~50-100ms (includes network roundtrip)
 
 **Configuration** (`config.yaml`):
 
 ```yaml
 auth:
-    enabled: true
-    # IMPORTANT: Points to Management API's INTERNAL port (9091)
-    management_api_url: "http://localhost:9091"
-    management_api_timeout_ms: 5000
+  enabled: true
+  # IMPORTANT: Points to Management API's INTERNAL port (9091)
+  management_api_url: "http://localhost:9091"
+  management_api_timeout_ms: 5000
 
-    # Cache TTLs
-    cert_cache_ttl_seconds: 900 # 15 minutes
-    management_cache_ttl_seconds: 300 # 5 minutes
+  # Cache TTLs
+  cert_cache_ttl_seconds: 900 # 15 minutes
+  management_cache_ttl_seconds: 300 # 5 minutes
 
-    # Cache capacities
-    cert_cache_max_capacity: 10000
-    vault_cache_max_capacity: 10000
-    org_cache_max_capacity: 1000
+  # Cache capacities
+  cert_cache_max_capacity: 10000
+  vault_cache_max_capacity: 10000
+  org_cache_max_capacity: 1000
 ```
 
 ### Cache Trade-offs
@@ -485,8 +485,8 @@ When a certificate is revoked:
 
 ```json
 {
-    "error": "Unauthorized",
-    "message": "Invalid token signature"
+  "error": "Unauthorized",
+  "message": "Invalid token signature"
 }
 ```
 
@@ -517,8 +517,8 @@ curl -X GET http://localhost:8081/v1/organizations/$ORG_ID/clients/$CLIENT_ID/ce
 
 ```json
 {
-    "error": "Forbidden",
-    "message": "Vault not found or access denied"
+  "error": "Forbidden",
+  "message": "Vault not found or access denied"
 }
 ```
 
@@ -616,43 +616,43 @@ When authentication fails, verify in order:
 
 ```yaml
 auth:
-    enabled: true
-    management_api_url: "http://localhost:8081"
+  enabled: true
+  management_api_url: "http://localhost:8081"
 ```
 
 ### Production Configuration
 
 ```yaml
 auth:
-    enabled: true
+  enabled: true
 
-    # Management API connection
-    management_api_url: "https://management.example.com"
-    management_api_timeout_ms: 5000
+  # Management API connection
+  management_api_url: "https://management.example.com"
+  management_api_timeout_ms: 5000
 
-    # JWKS configuration (for client token verification)
-    jwks_base_url: "https://management.example.com"
+  # JWKS configuration (for client token verification)
+  jwks_base_url: "https://management.example.com"
 
-    # Cache TTLs
-    cert_cache_ttl_seconds: 900 # 15 minutes
-    management_cache_ttl_seconds: 300 # 5 minutes
+  # Cache TTLs
+  cert_cache_ttl_seconds: 900 # 15 minutes
+  management_cache_ttl_seconds: 300 # 5 minutes
 
-    # Cache capacities
-    cert_cache_max_capacity: 10000
-    vault_cache_max_capacity: 10000
-    org_cache_max_capacity: 1000
+  # Cache capacities
+  cert_cache_max_capacity: 10000
+  vault_cache_max_capacity: 10000
+  org_cache_max_capacity: 1000
 
-    # Verification options
-    management_verify_vault_ownership: true
-    management_verify_org_status: true
+  # Verification options
+  management_verify_vault_ownership: true
+  management_verify_org_status: true
 
-    # Server identity (for server-to-management requests)
-    server_identity_private_key: |
-        -----BEGIN PRIVATE KEY-----
-        MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
-        -----END PRIVATE KEY-----
-    server_identity_kid: "server-primary-2024"
-    server_id: "inferadb-server-prod-us-east-1"
+  # Server identity (for server-to-management requests)
+  server_identity_private_key: |
+    -----BEGIN PRIVATE KEY-----
+    MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
+    -----END PRIVATE KEY-----
+  server_identity_kid: "server-primary-2024"
+  server_id: "inferadb-server-prod-us-east-1"
 ```
 
 ### Environment Variables
@@ -700,13 +700,13 @@ Authentication events are logged with structured fields:
 
 ```json
 {
-    "level": "info",
-    "event_type": "auth.success",
-    "vault_id": "1111222233334444555",
-    "org_id": "9876543210987654321",
-    "client_id": "1234567890123456789",
-    "cache_hit": true,
-    "duration_ms": 2
+  "level": "info",
+  "event_type": "auth.success",
+  "vault_id": "1111222233334444555",
+  "org_id": "9876543210987654321",
+  "client_id": "1234567890123456789",
+  "cache_hit": true,
+  "duration_ms": 2
 }
 ```
 

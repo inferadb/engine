@@ -820,21 +820,22 @@ inferadb_uptime_seconds
 
 1. Use `topk()` or `bottomk()` to limit results:
 
-    ```promql
-    topk(20, sum by (resource) (rate(inferadb_resource_checks_total[5m])))
-    ```
+   ```promql
+   topk(20, sum by (resource) (rate(inferadb_resource_checks_total[5m])))
+   ```
 
 2. Set up recording rules for frequently-used queries:
 
-    ```yaml
-    - record: job:inferadb_resource_checks:rate5m
-      expr: sum by (resource) (rate(inferadb_resource_checks_total[5m]))
-    ```
+   ```yaml
+   - record: job:inferadb_resource_checks:rate5m
+     expr: sum by (resource) (rate(inferadb_resource_checks_total[5m]))
+   ```
 
 3. Monitor cardinality with Prometheus:
-    ```promql
-    count({__name__=~"inferadb_.*"}) by (__name__)
-    ```
+
+   ```promql
+   count({__name__=~"inferadb_.*"}) by (__name__)
+   ```
 
 ### Recording Rules
 
@@ -842,24 +843,24 @@ Create recording rules for expensive queries that are used in multiple dashboard
 
 ```yaml
 groups:
-    - name: inferadb_recording_rules
-      interval: 30s
-      rules:
-          # Query operation rates
-          - record: job:inferadb_query_operations:rate5m
-            expr: sum by (operation) (rate(inferadb_query_operations_total[5m]))
+  - name: inferadb_recording_rules
+    interval: 30s
+    rules:
+      # Query operation rates
+      - record: job:inferadb_query_operations:rate5m
+        expr: sum by (operation) (rate(inferadb_query_operations_total[5m]))
 
-          # Authorization decision ratio
-          - record: job:inferadb_checks:allow_ratio
-            expr: sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m]))
+      # Authorization decision ratio
+      - record: job:inferadb_checks:allow_ratio
+        expr: sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m]))
 
-          # Cache hit rate
-          - record: job:inferadb_cache:hit_rate
-            expr: sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))
+      # Cache hit rate
+      - record: job:inferadb_cache:hit_rate
+        expr: sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))
 
-          # p99 latency by operation
-          - record: job:inferadb_query_operation:p99_latency_ms
-            expr: histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) * 1000
+      # p99 latency by operation
+      - record: job:inferadb_query_operation:p99_latency_ms
+        expr: histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) * 1000
 ```
 
 ### Alert Examples
@@ -868,37 +869,37 @@ Example alert rules based on these metrics:
 
 ```yaml
 groups:
-    - name: inferadb_alerts
-      rules:
-          # High error rate
-          - alert: HighAuthorizationErrorRate
-            expr: sum(rate(inferadb_api_errors_total{status=~"5.."}[5m])) / sum(rate(inferadb_checks_total[5m])) > 0.01
-            for: 5m
-            labels:
-                severity: warning
-            annotations:
-                summary: "High authorization error rate"
-                description: "Authorization error rate is {{ $value | humanizePercentage }}"
+  - name: inferadb_alerts
+    rules:
+      # High error rate
+      - alert: HighAuthorizationErrorRate
+        expr: sum(rate(inferadb_api_errors_total{status=~"5.."}[5m])) / sum(rate(inferadb_checks_total[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High authorization error rate"
+          description: "Authorization error rate is {{ $value | humanizePercentage }}"
 
-          # Slow queries
-          - alert: SlowQueryPerformance
-            expr: histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) > 0.1
-            for: 5m
-            labels:
-                severity: warning
-            annotations:
-                summary: "Slow query performance for {{ $labels.operation }}"
-                description: "p99 latency is {{ $value }}s for operation {{ $labels.operation }}"
+      # Slow queries
+      - alert: SlowQueryPerformance
+        expr: histogram_quantile(0.99, sum by (operation, le) (rate(inferadb_query_operation_duration_seconds_bucket[5m]))) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow query performance for {{ $labels.operation }}"
+          description: "p99 latency is {{ $value }}s for operation {{ $labels.operation }}"
 
-          # Condition evaluation failures
-          - alert: HighConditionFailureRate
-            expr: sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m])) / sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m])) > 0.05
-            for: 5m
-            labels:
-                severity: warning
-            annotations:
-                summary: "High condition evaluation failure rate"
-                description: "Condition type {{ $labels.condition_type }} has {{ $value | humanizePercentage }} failure rate"
+      # Condition evaluation failures
+      - alert: HighConditionFailureRate
+        expr: sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m])) / sum by (condition_type) (rate(inferadb_condition_evaluations_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High condition evaluation failure rate"
+          description: "Condition type {{ $labels.condition_type }} has {{ $value | humanizePercentage }} failure rate"
 ```
 
 ---
@@ -915,13 +916,13 @@ Configure retention in Prometheus:
 
 ```yaml
 global:
-    scrape_interval: 15s
-    evaluation_interval: 15s
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
 storage:
-    tsdb:
-        retention.time: 60d
-        retention.size: 50GB
+  tsdb:
+    retention.time: 60d
+    retention.size: 50GB
 ```
 
 ---
@@ -932,15 +933,15 @@ storage:
 
 1. Check if InferaDB is exporting the metric:
 
-    ```bash
-    curl http://localhost:9090/metrics | grep inferadb_query_operations_total
-    ```
+   ```bash
+   curl http://localhost:9090/metrics | grep inferadb_query_operations_total
+   ```
 
 2. Check Prometheus targets are up:
 
-    ```
-    http://prometheus:9090/targets
-    ```
+   ```
+   http://prometheus:9090/targets
+   ```
 
 3. Verify scrape configuration includes InferaDB
 
@@ -950,15 +951,15 @@ If Prometheus is slow due to high cardinality:
 
 1. Identify high-cardinality metrics:
 
-    ```promql
-    topk(10, count by (__name__) ({__name__=~"inferadb_.*"}))
-    ```
+   ```promql
+   topk(10, count by (__name__) ({__name__=~"inferadb_.*"}))
+   ```
 
 2. Check label cardinality:
 
-    ```promql
-    count by (resource) (inferadb_resource_checks_total)
-    ```
+   ```promql
+   count by (resource) (inferadb_resource_checks_total)
+   ```
 
 3. Consider using relabeling to drop or aggregate high-cardinality labels
 

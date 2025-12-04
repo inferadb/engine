@@ -76,41 +76,41 @@ For scaling based on custom metrics (request rate, queue depth):
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-    name: inferadb
+  name: inferadb
 spec:
-    scaleTargetRef:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: inferadb
-    minReplicas: 5
-    maxReplicas: 50
-    metrics:
-        - type: Resource
-          resource:
-              name: cpu
-              target:
-                  type: Utilization
-                  averageUtilization: 70
-        - type: Pods
-          pods:
-              metric:
-                  name: inferadb_requests_per_second
-              target:
-                  type: AverageValue
-                  averageValue: "1000"
-    behavior:
-        scaleDown:
-            stabilizationWindowSeconds: 300
-            policies:
-                - type: Percent
-                  value: 50
-                  periodSeconds: 60
-        scaleUp:
-            stabilizationWindowSeconds: 60
-            policies:
-                - type: Percent
-                  value: 100
-                  periodSeconds: 30
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: inferadb
+  minReplicas: 5
+  maxReplicas: 50
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Pods
+      pods:
+        metric:
+          name: inferadb_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "1000"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
 ```
 
 ### Scaling Best Practices
@@ -155,12 +155,12 @@ kubectl top pods -n inferadb -l app=inferadb
 ```yaml
 # values-prod.yaml
 resources:
-    requests:
-        cpu: 2000m
-        memory: 4Gi
-    limits:
-        cpu: 4000m
-        memory: 8Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+  limits:
+    cpu: 4000m
+    memory: 8Gi
 ```
 
 ```bash
@@ -212,12 +212,12 @@ Configure conservative scale-down:
 
 ```yaml
 behavior:
-    scaleDown:
-        stabilizationWindowSeconds: 300 # Wait 5 minutes
-        policies:
-            - type: Percent
-              value: 50 # Max 50% reduction per step
-              periodSeconds: 60
+  scaleDown:
+    stabilizationWindowSeconds: 300 # Wait 5 minutes
+    policies:
+      - type: Percent
+        value: 50 # Max 50% reduction per step
+        periodSeconds: 60
 ```
 
 ## Emergency Scaling

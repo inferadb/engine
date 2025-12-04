@@ -471,7 +471,7 @@ When evaluating `viewer from parent`:
 
 1. Query tuples for `<resource>#parent@*` (find parents)
 2. For each parent resource:
-    - Recursively check if user has `viewer` on parent
+   - Recursively check if user has `viewer` on parent
 3. Return **Allow** if ANY parent check returns Allow
 
 ### Cycle Detection

@@ -206,6 +206,7 @@ If a fuzzer discovers a crash:
     ```
 
 4. **Write a regression test**:
+
     ```rust
     #[test]
     fn test_crash_abc123() {

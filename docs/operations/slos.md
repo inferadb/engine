@@ -269,26 +269,26 @@ Use **multi-window, multi-burn-rate alerts** to catch SLO violations early while
 # Fast burn (1h window): 14.4x burn rate = 0.1% error budget in 1h
 - alert: AvailabilitySLOFastBurn
   expr: |
-      sum(rate(inferadb_api_errors_total{code=~"5.."}[1h]))
-      / sum(rate(inferadb_checks_total[1h])) > 0.0144
+    sum(rate(inferadb_api_errors_total{code=~"5.."}[1h]))
+    / sum(rate(inferadb_checks_total[1h])) > 0.0144
   for: 5m
   labels:
-      severity: P0
+    severity: P0
   annotations:
-      summary: "Fast availability SLO burn"
-      description: "Error rate {{ $value }} exceeds 1.44% (14.4x burn rate)"
+    summary: "Fast availability SLO burn"
+    description: "Error rate {{ $value }} exceeds 1.44% (14.4x burn rate)"
 
 # Slow burn (24h window): 3x burn rate = 0.1% error budget in 24h
 - alert: AvailabilitySLOSlowBurn
   expr: |
-      sum(rate(inferadb_api_errors_total{code=~"5.."}[24h]))
-      / sum(rate(inferadb_checks_total[24h])) > 0.003
+    sum(rate(inferadb_api_errors_total{code=~"5.."}[24h]))
+    / sum(rate(inferadb_checks_total[24h])) > 0.003
   for: 1h
   labels:
-      severity: P1
+    severity: P1
   annotations:
-      summary: "Slow availability SLO burn"
-      description: "Error rate {{ $value }} exceeds 0.3% (3x burn rate)"
+    summary: "Slow availability SLO burn"
+    description: "Error rate {{ $value }} exceeds 0.3% (3x burn rate)"
 ```
 
 ---

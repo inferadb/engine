@@ -39,7 +39,7 @@ Welcome to InferaDB migration documentation. These guides help you migrate from 
 
 ## Quick Decision Guide
 
-### Choose InferaDB Migration if you:
+### Choose InferaDB Migration if you
 
 ✅ Need to scale beyond embedded libraries
 ✅ Want streaming APIs for large result sets
@@ -81,20 +81,20 @@ Contact: [GitHub Discussions](https://github.com/inferadb/server/discussions)
 ## Next Steps
 
 1. **Choose Your Guide**:
-    - [SpiceDB Migration](from-spicedb.md)
-    - [OpenFGA Migration](from-openfga.md)
-    - [Oso Migration](from-oso.md)
+   - [SpiceDB Migration](from-spicedb.md)
+   - [OpenFGA Migration](from-openfga.md)
+   - [Oso Migration](from-oso.md)
 
 2. **Review Comparison**:
-    - [Comparison Matrix](../comparison-matrix.md)
+   - [Comparison Matrix](../comparison-matrix.md)
 
 3. **Set Up InferaDB**:
-    - [Quick Start Guide](../quickstart.md)
-    - [Deployment Guide](../guides/deployment.md)
+   - [Quick Start Guide](../quickstart.md)
+   - [Deployment Guide](../guides/deployment.md)
 
 4. **Get Help**:
-    - [GitHub Discussions](https://github.com/inferadb/server/discussions)
-    - [Documentation](../README.md)
+   - [GitHub Discussions](https://github.com/inferadb/server/discussions)
+   - [Documentation](../README.md)
 
 ---
 

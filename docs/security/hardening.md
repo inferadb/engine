@@ -10,29 +10,38 @@ This document provides a comprehensive checklist for deploying InferaDB securely
 - [ ] **JWKS endpoint configured**: Verify `jwks_base_url` or `jwks_url` points to production JWKS endpoint
 - [ ] **HTTPS only**: Ensure all JWKS URLs use `https://` scheme
 - [ ] **Accepted algorithms**: Verify only asymmetric algorithms (EdDSA, RS256) are configured
-    ```toml
-    accepted_algorithms = ["EdDSA", "RS256"]
-    ```
+
+  ```toml
+  accepted_algorithms = ["EdDSA", "RS256"]
+  ```
+
 - [ ] **Audience validation enabled**: Set `enforce_audience = true`
-    ```toml
-    enforce_audience = true
-    allowed_audiences = ["https://api.inferadb.com/evaluate"]
-    ```
+
+  ```toml
+  enforce_audience = true
+  allowed_audiences = ["https://api.inferadb.com/evaluate"]
+  ```
+
 - [ ] **Scope validation enabled**: Set `enforce_scopes = true`
-    ```toml
-    enforce_scopes = true
-    ```
+
+  ```toml
+  enforce_scopes = true
+  ```
 
 ### Clock and Time Configuration
 
 - [ ] **Clock skew minimal**: Keep `clock_skew_seconds` ≤ 60 seconds
-    ```toml
-    clock_skew_seconds = 60
-    ```
+
+  ```toml
+  clock_skew_seconds = 60
+  ```
+
 - [ ] **Maximum token age**: Set appropriate `max_token_age_seconds` (default 24 hours)
-    ```toml
-    max_token_age_seconds = 86400  # 24 hours
-    ```
+
+  ```toml
+  max_token_age_seconds = 86400  # 24 hours
+  ```
+
 - [ ] **NTP synchronized**: Ensure all servers use NTP for time synchronization
 - [ ] **Timezone configured**: Set servers to UTC to avoid confusion
 
@@ -40,17 +49,23 @@ This document provides a comprehensive checklist for deploying InferaDB securely
 
 - [ ] **Redis deployed**: Deploy Redis instance for replay protection
 - [ ] **Redis URL configured**: Set `redis_url` in configuration
-    ```toml
-    redis_url = "redis://redis.internal:6379"
-    ```
+
+  ```toml
+  redis_url = "redis://redis.internal:6379"
+  ```
+
 - [ ] **Replay protection enabled**: Set `replay_protection = true`
-    ```toml
-    replay_protection = true
-    ```
+
+  ```toml
+  replay_protection = true
+  ```
+
 - [ ] **JTI required**: Set `require_jti = true` when replay protection is enabled
-    ```toml
-    require_jti = true
-    ```
+
+  ```toml
+  require_jti = true
+  ```
+
 - [ ] **Redis persistence**: Configure Redis with AOF or RDB persistence
 - [ ] **Redis backups**: Set up regular Redis backups
 - [ ] **Redis monitoring**: Monitor Redis memory usage and connections
@@ -58,9 +73,11 @@ This document provides a comprehensive checklist for deploying InferaDB securely
 ### Secret Management
 
 - [ ] **Internal JWKS secured**: If using file-based internal JWKS, set file permissions to `0600`
-    ```bash
-    chmod 0600 /etc/inferadb/internal-jwks.json
-    ```
+
+  ```bash
+  chmod 0600 /etc/inferadb/internal-jwks.json
+  ```
+
 - [ ] **Environment variables**: Use environment variables for sensitive config
 - [ ] **No secrets in config files**: Don't commit secrets to version control
 - [ ] **Secret rotation**: Implement key rotation policy (recommend quarterly)
@@ -80,25 +97,30 @@ This document provides a comprehensive checklist for deploying InferaDB securely
 ### Observability
 
 - [ ] **Audit logs enabled**: Ensure authentication audit logging is active
-    ```toml
-    [observability]
-    audit_log_enabled = true
-    ```
+
+  ```toml
+  [observability]
+  audit_log_enabled = true
+  ```
+
 - [ ] **Logs exported to SIEM**: Configure log shipping to centralized SIEM
-    - Splunk
-    - Elasticsearch
-    - Datadog
-    - AWS CloudWatch
+  - Splunk
+  - Elasticsearch
+  - Datadog
+  - AWS CloudWatch
 - [ ] **Metrics enabled**: Enable Prometheus metrics for authentication
-    ```toml
-    [observability]
-    metrics_enabled = true
-    ```
+
+  ```toml
+  [observability]
+  metrics_enabled = true
+  ```
+
 - [ ] **Tracing enabled**: Enable distributed tracing (OpenTelemetry)
-    ```toml
-    [observability]
-    tracing_enabled = true
-    ```
+
+  ```toml
+  [observability]
+  tracing_enabled = true
+  ```
 
 ### Alerts and Monitoring
 
@@ -115,9 +137,9 @@ This document provides a comprehensive checklist for deploying InferaDB securely
 **Note**: Rate limiting should be implemented at the reverse proxy/load balancer level.
 
 - [ ] **Per-IP rate limiting**: Limit authentication attempts per IP address
-    - Recommendation: 100 requests/minute per IP
+  - Recommendation: 100 requests/minute per IP
 - [ ] **Per-tenant rate limiting**: Limit requests per tenant
-    - Recommendation: 1000 requests/minute per tenant
+  - Recommendation: 1000 requests/minute per tenant
 - [ ] **Burst allowance**: Allow short bursts (2x sustained rate for 10 seconds)
 - [ ] **429 responses**: Return `429 Too Many Requests` when limits exceeded
 - [ ] **Retry-After header**: Include `Retry-After` header in 429 responses
@@ -154,28 +176,33 @@ http {
 ```yaml
 # AWS API Gateway throttling settings
 throttle:
-    rateLimit: 1000 # requests per second
-    burstLimit: 2000 # max concurrent requests
+  rateLimit: 1000 # requests per second
+  burstLimit: 2000 # max concurrent requests
 ```
 
 ### Issuer and Audience Configuration
 
 - [ ] **Issuer allowlist**: If using multiple IdPs, configure issuer allowlist
-    ```toml
-    issuer_allowlist = ["https://auth.company.com", "tenant:*"]
-    ```
+
+  ```toml
+  issuer_allowlist = ["https://auth.company.com", "tenant:*"]
+  ```
+
 - [ ] **Issuer blocklist**: Block known malicious issuers
-    ```toml
-    issuer_blocklist = ["https://evil.example.com"]
-    ```
+
+  ```toml
+  issuer_blocklist = ["https://evil.example.com"]
+  ```
+
 - [ ] **Audience enforcement**: Never disable `enforce_audience` in production
 - [ ] **Multiple audiences**: Configure all valid audience values
-    ```toml
-    allowed_audiences = [
-        "https://api.inferadb.com/evaluate",
-        "https://api.inferadb.com/admin"
-    ]
-    ```
+
+  ```toml
+  allowed_audiences = [
+      "https://api.inferadb.com/evaluate",
+      "https://api.inferadb.com/admin"
+  ]
+  ```
 
 ## Post-Deployment Verification
 
@@ -192,18 +219,23 @@ throttle:
 ### Configuration Validation
 
 - [ ] **Run config validator**: Execute configuration validation on startup
-    ```bash
-    cargo run --release -- validate-config
-    ```
+
+  ```bash
+  cargo run --release -- validate-config
+  ```
+
 - [ ] **Check startup logs**: Review logs for security warnings
-    ```bash
-    grep -i "warn" /var/log/inferadb/startup.log
-    grep -i "security" /var/log/inferadb/startup.log
-    ```
+
+  ```bash
+  grep -i "warn" /var/log/inferadb/startup.log
+  grep -i "security" /var/log/inferadb/startup.log
+  ```
+
 - [ ] **Verify JWKS fetch**: Ensure JWKS can be fetched from configured endpoint
-    ```bash
-    curl https://your-jwks-endpoint/.well-known/jwks.json
-    ```
+
+  ```bash
+  curl https://your-jwks-endpoint/.well-known/jwks.json
+  ```
 
 ### Operational Readiness
 
@@ -212,10 +244,10 @@ throttle:
 - [ ] **Incident response**: Create incident response playbook
 - [ ] **On-call rotation**: Set up on-call rotation for security incidents
 - [ ] **Runbooks**: Create operational runbooks for common scenarios
-    - Key rotation
-    - Redis failover
-    - Authentication outage
-    - Certificate expiration
+  - Key rotation
+  - Redis failover
+  - Authentication outage
+  - Certificate expiration
 
 ## Ongoing Maintenance
 
@@ -224,10 +256,12 @@ throttle:
 - [ ] **Quarterly security review**: Review configuration and logs quarterly
 - [ ] **Annual penetration test**: Conduct annual external penetration test
 - [ ] **Monthly dependency updates**: Update dependencies and run `cargo audit`
-    ```bash
-    cargo update
-    cargo audit
-    ```
+
+  ```bash
+  cargo update
+  cargo audit
+  ```
+
 - [ ] **Weekly metric reviews**: Review authentication metrics and anomalies
 
 ### Key Rotation
@@ -241,13 +275,13 @@ throttle:
 ### Dependency Management
 
 - [ ] **Security advisories**: Subscribe to Rust security advisories
-    - https://rustsec.org/
-    - https://groups.google.com/g/rustlang-security-announcements
+  - <https://rustsec.org/>
+  - <https://groups.google.com/g/rustlang-security-announcements>
 - [ ] **Automated scanning**: Set up automated dependency scanning (Dependabot, Renovate)
 - [ ] **Patch management**: Establish SLA for patching critical vulnerabilities
-    - Critical: 7 days
-    - High: 30 days
-    - Medium: 90 days
+  - Critical: 7 days
+  - High: 30 days
+  - Medium: 90 days
 
 ## Compliance and Auditing
 
@@ -287,10 +321,10 @@ throttle:
 ```yaml
 # Store this in your incident response playbook
 contacts:
-    security_team: security@company.com
-    on_call: +1-555-ONCALL
-    cloud_provider_support: AWS/GCP/Azure support number
-    external_security_consultants: partner@security-firm.com
+  security_team: security@company.com
+  on_call: +1-555-ONCALL
+  cloud_provider_support: AWS/GCP/Azure support number
+  external_security_consultants: partner@security-firm.com
 ```
 
 ### Breach Response Plan

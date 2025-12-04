@@ -47,7 +47,7 @@ go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 ```
 
 **Download Binary:**
-Visit https://github.com/fullstorydev/grpcurl/releases
+Visit <https://github.com/fullstorydev/grpcurl/releases>
 
 ### Basic Usage
 
@@ -192,7 +192,7 @@ go install github.com/fullstorydev/grpcui/cmd/grpcui@latest
 ```
 
 **Download Binary:**
-Visit https://github.com/fullstorydev/grpcui/releases
+Visit <https://github.com/fullstorydev/grpcui/releases>
 
 ### Basic Usage
 
@@ -206,7 +206,7 @@ This will:
 
 1. Connect to the gRPC server
 2. Use reflection to discover services
-3. Start a web server (typically on http://127.0.0.1:60551)
+3. Start a web server (typically on <http://127.0.0.1:60551>)
 4. Open your browser automatically
 
 ### Using the GUI
@@ -223,38 +223,38 @@ The grpcui interface provides:
 
 1. **Start grpcui:**
 
-    ```bash
-    grpcui -plaintext localhost:8081
-    ```
+   ```bash
+   grpcui -plaintext localhost:8081
+   ```
 
 2. **Select a service:**
-    - Choose `infera.v1.InferaService` from the service dropdown
+   - Choose `infera.v1.InferaService` from the service dropdown
 
 3. **Select a method:**
-    - Choose `WriteRelationships` from the method list
+   - Choose `WriteRelationships` from the method list
 
 4. **Compose request:**
 
-    ```json
-    {
-        "relationships": [
-            {
-                "resource": "document:readme",
-                "relation": "viewer",
-                "subject": "user:alice"
-            }
-        ]
-    }
-    ```
+   ```json
+   {
+     "relationships": [
+       {
+         "resource": "document:readme",
+         "relation": "viewer",
+         "subject": "user:alice"
+       }
+     ]
+   }
+   ```
 
 5. **Invoke and view response:**
-    - Click "Invoke" to send the request
-    - View the response with revision and count
+   - Click "Invoke" to send the request
+   - View the response with revision and count
 
 6. **Test streaming methods:**
-    - Select `Evaluate` (bidirectional streaming)
-    - Enter multiple evaluate requests
-    - See responses stream back in real-time
+   - Select `Evaluate` (bidirectional streaming)
+   - Enter multiple evaluate requests
+   - See responses stream back in real-time
 
 ### Authentication with grpcui
 
@@ -347,19 +347,19 @@ grpcui -insecure localhost:8081
 ## Security Considerations
 
 1. **Production Deployment:**
-    - Reflection is safe to enable in production
-    - Reflection only exposes service definitions, not data
-    - Authentication still applies to all RPC calls
+   - Reflection is safe to enable in production
+   - Reflection only exposes service definitions, not data
+   - Authentication still applies to all RPC calls
 
 2. **Firewall:**
-    - Ensure gRPC port is properly firewalled
-    - Only expose to authorized networks
-    - Use TLS for encrypted communication
+   - Ensure gRPC port is properly firewalled
+   - Only expose to authorized networks
+   - Use TLS for encrypted communication
 
 3. **Monitoring:**
-    - Reflection requests are logged
-    - Monitor for unusual reflection usage patterns
-    - Use observability tools to track gRPC metrics
+   - Reflection requests are logged
+   - Monitor for unusual reflection usage patterns
+   - Use observability tools to track gRPC metrics
 
 ## Advanced Usage
 

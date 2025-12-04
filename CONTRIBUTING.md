@@ -110,17 +110,17 @@ Format: `type: subject`
 
 1. **Push your branch**:
 
-    ```bash
-    git push origin feature/your-feature-name
-    ```
+   ```bash
+   git push origin feature/your-feature-name
+   ```
 
 2. **Open a pull request** on GitHub
 
 3. **Describe your changes**:
-    - What does this PR do?
-    - Why is this change needed?
-    - How has it been tested?
-    - Any breaking changes?
+   - What does this PR do?
+   - Why is this change needed?
+   - How has it been tested?
+   - Any breaking changes?
 
 4. **Wait for review** - A maintainer will review your PR
 
@@ -396,12 +396,12 @@ When reporting bugs:
 
 1. **Search existing issues** - Has it been reported?
 2. **Provide details**:
-    - InferaDB version
-    - Rust version
-    - Operating system
-    - Steps to reproduce
-    - Expected vs actual behavior
-    - Logs or error messages
+   - InferaDB version
+   - Rust version
+   - Operating system
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - Logs or error messages
 3. **Minimal reproduction** - Provide a minimal example if possible
 
 ### Bug Report Template

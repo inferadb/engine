@@ -319,8 +319,8 @@ Both APIs return consistent error responses:
 
 ```json
 {
-    "error": "Invalid request",
-    "message": "Missing required field 'subject'"
+  "error": "Invalid request",
+  "message": "Missing required field 'subject'"
 }
 ```
 
@@ -363,22 +363,22 @@ const resource = "readme";
 ```javascript
 // Good - single request
 await write({
-    relationships: [
-        { resource: "doc:1", relation: "viewer", subject: "user:alice" },
-        { resource: "doc:1", relation: "editor", subject: "user:bob" },
-    ],
+  relationships: [
+    { resource: "doc:1", relation: "viewer", subject: "user:alice" },
+    { resource: "doc:1", relation: "editor", subject: "user:bob" },
+  ],
 });
 
 // Avoid - multiple requests
 await write({
-    relationships: [
-        { resource: "doc:1", relation: "viewer", subject: "user:alice" },
-    ],
+  relationships: [
+    { resource: "doc:1", relation: "viewer", subject: "user:alice" },
+  ],
 });
 await write({
-    relationships: [
-        { resource: "doc:1", relation: "editor", subject: "user:bob" },
-    ],
+  relationships: [
+    { resource: "doc:1", relation: "editor", subject: "user:bob" },
+  ],
 });
 ```
 

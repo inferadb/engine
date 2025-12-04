@@ -457,9 +457,9 @@ document:readme#reader@user:*
 
 ```json
 {
-    "resource": "document:readme",
-    "relation": "reader",
-    "subject": "user:*"
+  "resource": "document:readme",
+  "relation": "reader",
+  "subject": "user:*"
 }
 ```
 
@@ -522,8 +522,8 @@ document:readme#reader@user:*
 
 ```json
 {
-    "object_type": "document",
-    "object_id": "readme"
+  "object_type": "document",
+  "object_id": "readme"
 }
 ```
 

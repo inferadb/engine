@@ -53,8 +53,8 @@ GET /health
 
 ```json
 {
-    "status": "healthy",
-    "version": "0.1.0"
+  "status": "healthy",
+  "version": "0.1.0"
 }
 ```
 
@@ -96,7 +96,7 @@ Content-Type: application/json
 
 ```json
 {
-    "decision": "allow"
+  "decision": "allow"
 }
 ```
 
@@ -128,7 +128,7 @@ Response:
 
 ```json
 {
-    "decision": "allow"
+  "decision": "allow"
 }
 ```
 
@@ -148,7 +148,7 @@ Response:
 
 ```json
 {
-    "decision": "deny"
+  "decision": "deny"
 }
 ```
 
@@ -177,25 +177,25 @@ Content-Type: application/json
 
 ```json
 {
+  "decision": "allow",
+  "trace": {
     "decision": "allow",
-    "trace": {
+    "node_type": "union",
+    "children": [
+      {
         "decision": "allow",
-        "node_type": "union",
-        "children": [
-            {
-                "decision": "allow",
-                "node_type": "direct",
-                "relation": "viewer",
-                "children": []
-            },
-            {
-                "decision": "deny",
-                "node_type": "computed_userset",
-                "relation": "editor",
-                "children": []
-            }
-        ]
-    }
+        "node_type": "direct",
+        "relation": "viewer",
+        "children": []
+      },
+      {
+        "decision": "deny",
+        "node_type": "computed_userset",
+        "relation": "editor",
+        "children": []
+      }
+    ]
+  }
 }
 ```
 
@@ -203,12 +203,12 @@ Content-Type: application/json
 
 - `decision` (string): Decision at this node
 - `node_type` (string): Type of evaluation node
-    - `direct` - Direct tuple lookup
-    - `computed_userset` - Computed relation
-    - `union` - OR operation
-    - `intersection` - AND operation
-    - `exclusion` - EXCEPT operation
-    - `tuple_to_userset` - Indirect relation
+  - `direct` - Direct tuple lookup
+  - `computed_userset` - Computed relation
+  - `union` - OR operation
+  - `intersection` - AND operation
+  - `exclusion` - EXCEPT operation
+  - `tuple_to_userset` - Indirect relation
 - `relation` (string, optional): Relation being evaluated
 - `children` (array): Sub-evaluations
 
@@ -241,25 +241,25 @@ Content-Type: application/json
 
 ```json
 {
-    "tree": {
-        "node_type": "union",
+  "tree": {
+    "node_type": "union",
+    "children": [
+      {
+        "node_type": "this",
+        "children": []
+      },
+      {
+        "node_type": "computed_userset",
+        "relation": "editor",
         "children": [
-            {
-                "node_type": "this",
-                "children": []
-            },
-            {
-                "node_type": "computed_userset",
-                "relation": "editor",
-                "children": [
-                    {
-                        "node_type": "this",
-                        "children": []
-                    }
-                ]
-            }
+          {
+            "node_type": "this",
+            "children": []
+          }
         ]
-    }
+      }
+    ]
+  }
 }
 ```
 
@@ -310,15 +310,15 @@ Content-Type: application/json
 **Parameters**:
 
 - `relationships` (array, required): Array of relationships to write
-    - `resource` (string): The resource
-    - `relation` (string): The relation
-    - `subject` (string): The subject
+  - `resource` (string): The resource
+  - `relation` (string): The relation
+  - `subject` (string): The subject
 
 #### Response
 
 ```json
 {
-    "revision": 42
+  "revision": 42
 }
 ```
 
@@ -352,7 +352,7 @@ Response:
 
 ```json
 {
-    "revision": 1
+  "revision": 1
 }
 ```
 
@@ -372,8 +372,8 @@ All endpoints may return error responses in this format:
 
 ```json
 {
-    "error": "Invalid request",
-    "message": "Missing required field 'subject'"
+  "error": "Invalid request",
+  "message": "Missing required field 'subject'"
 }
 ```
 
@@ -458,28 +458,28 @@ Batch multiple relationship writes in a single request:
 ```javascript
 // Good - single request
 await write({
-    relationships: [
-        { resource: "doc:1", relation: "viewer", subject: "user:alice" },
-        { resource: "doc:1", relation: "editor", subject: "user:bob" },
-        { resource: "doc:2", relation: "viewer", subject: "user:alice" },
-    ],
+  relationships: [
+    { resource: "doc:1", relation: "viewer", subject: "user:alice" },
+    { resource: "doc:1", relation: "editor", subject: "user:bob" },
+    { resource: "doc:2", relation: "viewer", subject: "user:alice" },
+  ],
 });
 
 // Avoid - multiple requests
 await write({
-    relationships: [
-        { resource: "doc:1", relation: "viewer", subject: "user:alice" },
-    ],
+  relationships: [
+    { resource: "doc:1", relation: "viewer", subject: "user:alice" },
+  ],
 });
 await write({
-    relationships: [
-        { resource: "doc:1", relation: "editor", subject: "user:bob" },
-    ],
+  relationships: [
+    { resource: "doc:1", relation: "editor", subject: "user:bob" },
+  ],
 });
 await write({
-    relationships: [
-        { resource: "doc:2", relation: "viewer", subject: "user:alice" },
-    ],
+  relationships: [
+    { resource: "doc:2", relation: "viewer", subject: "user:alice" },
+  ],
 });
 ```
 
@@ -503,23 +503,23 @@ Always check status codes and handle errors:
 
 ```javascript
 try {
-    const response = await fetch("/api/v1/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, resource, permission }),
-    });
+  const response = await fetch("/api/v1/check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subject, resource, permission }),
+  });
 
-    if (!response.ok) {
-        const error = await response.json();
-        console.error("Check failed:", error.message);
-        return false; // Fail closed
-    }
+  if (!response.ok) {
+    const error = await response.json();
+    console.error("Check failed:", error.message);
+    return false; // Fail closed
+  }
 
-    const result = await response.json();
-    return result.decision === "allow";
+  const result = await response.json();
+  return result.decision === "allow";
 } catch (error) {
-    console.error("Network error:", error);
-    return false; // Fail closed on errors
+  console.error("Network error:", error);
+  return false; // Fail closed on errors
 }
 ```
 
@@ -529,39 +529,39 @@ try {
 
 ```typescript
 class InferaClient {
-    constructor(private baseUrl: string) {}
+  constructor(private baseUrl: string) {}
 
-    async check(
-        subject: string,
-        resource: string,
-        permission: string
-    ): Promise<boolean> {
-        const response = await fetch(`${this.baseUrl}/check`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ subject, resource, permission }),
-        });
+  async check(
+    subject: string,
+    resource: string,
+    permission: string
+  ): Promise<boolean> {
+    const response = await fetch(`${this.baseUrl}/check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, resource, permission }),
+    });
 
-        const result = await response.json();
-        return result.decision === "allow";
-    }
+    const result = await response.json();
+    return result.decision === "allow";
+  }
 
-    async write(
-        relationships: Array<{
-            resource: string;
-            relation: string;
-            subject: string;
-        }>
-    ): Promise<number> {
-        const response = await fetch(`${this.baseUrl}/write`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ relationships }),
-        });
+  async write(
+    relationships: Array<{
+      resource: string;
+      relation: string;
+      subject: string;
+    }>
+  ): Promise<number> {
+    const response = await fetch(`${this.baseUrl}/write`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ relationships }),
+    });
 
-        const result = await response.json();
-        return result.revision;
-    }
+    const result = await response.json();
+    return result.revision;
+  }
 }
 
 // Usage

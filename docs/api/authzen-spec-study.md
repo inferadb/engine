@@ -119,18 +119,18 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "resource": {
-        "type": "string",
-        "id": "string"
-    },
-    "action": {
-        "name": "string"
-    },
-    "subject_type": "string (optional)",
-    "page": {
-        "size": "integer (optional)",
-        "token": "string (optional)"
-    }
+  "resource": {
+    "type": "string",
+    "id": "string"
+  },
+  "action": {
+    "name": "string"
+  },
+  "subject_type": "string (optional)",
+  "page": {
+    "size": "integer (optional)",
+    "token": "string (optional)"
+  }
 }
 ```
 
@@ -138,16 +138,16 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "subjects": [
-        {
-            "type": "string",
-            "id": "string",
-            "properties": {}
-        }
-    ],
-    "page": {
-        "next_token": "string (optional)"
+  "subjects": [
+    {
+      "type": "string",
+      "id": "string",
+      "properties": {}
     }
+  ],
+  "page": {
+    "next_token": "string (optional)"
+  }
 }
 ```
 
@@ -163,18 +163,18 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "subject": {
-        "type": "string",
-        "id": "string"
-    },
-    "action": {
-        "name": "string"
-    },
-    "resource_type": "string (optional)",
-    "page": {
-        "size": "integer (optional)",
-        "token": "string (optional)"
-    }
+  "subject": {
+    "type": "string",
+    "id": "string"
+  },
+  "action": {
+    "name": "string"
+  },
+  "resource_type": "string (optional)",
+  "page": {
+    "size": "integer (optional)",
+    "token": "string (optional)"
+  }
 }
 ```
 
@@ -182,16 +182,16 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "resources": [
-        {
-            "type": "string",
-            "id": "string",
-            "properties": {}
-        }
-    ],
-    "page": {
-        "next_token": "string (optional)"
+  "resources": [
+    {
+      "type": "string",
+      "id": "string",
+      "properties": {}
     }
+  ],
+  "page": {
+    "next_token": "string (optional)"
+  }
 }
 ```
 
@@ -207,18 +207,18 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "subject": {
-        "type": "string",
-        "id": "string"
-    },
-    "resource": {
-        "type": "string",
-        "id": "string"
-    },
-    "page": {
-        "size": "integer (optional)",
-        "token": "string (optional)"
-    }
+  "subject": {
+    "type": "string",
+    "id": "string"
+  },
+  "resource": {
+    "type": "string",
+    "id": "string"
+  },
+  "page": {
+    "size": "integer (optional)",
+    "token": "string (optional)"
+  }
 }
 ```
 
@@ -226,15 +226,15 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "actions": [
-        {
-            "name": "string",
-            "properties": {}
-        }
-    ],
-    "page": {
-        "next_token": "string (optional)"
+  "actions": [
+    {
+      "name": "string",
+      "properties": {}
     }
+  ],
+  "page": {
+    "next_token": "string (optional)"
+  }
 }
 ```
 
@@ -250,14 +250,14 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "issuer": "string (REQUIRED)",
-    "access_evaluation_endpoint": "string (optional)",
-    "access_evaluations_endpoint": "string (optional)",
-    "search_subject_endpoint": "string (optional)",
-    "search_resource_endpoint": "string (optional)",
-    "search_action_endpoint": "string (optional)",
-    "capabilities": ["string (URN format)"],
-    "signed_metadata": "string (JWT, optional)"
+  "issuer": "string (REQUIRED)",
+  "access_evaluation_endpoint": "string (optional)",
+  "access_evaluations_endpoint": "string (optional)",
+  "search_subject_endpoint": "string (optional)",
+  "search_resource_endpoint": "string (optional)",
+  "search_action_endpoint": "string (optional)",
+  "capabilities": ["string (URN format)"],
+  "signed_metadata": "string (JWT, optional)"
 }
 ```
 
@@ -276,11 +276,11 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "page": {
-        "size": 100,
-        "token": "opaque_cursor_string",
-        "properties": {}
-    }
+  "page": {
+    "size": 100,
+    "token": "opaque_cursor_string",
+    "properties": {}
+  }
 }
 ```
 
@@ -288,11 +288,11 @@ AuthZEN defines three search endpoints:
 
 ```json
 {
-    "page": {
-        "next_token": "next_cursor_string",
-        "prev_token": "prev_cursor_string",
-        "properties": {}
-    }
+  "page": {
+    "next_token": "next_cursor_string",
+    "prev_token": "prev_cursor_string",
+    "properties": {}
+  }
 }
 ```
 
@@ -335,8 +335,8 @@ Error responses include a descriptive message:
 
 ```json
 {
-    "error": "string",
-    "error_description": "string (optional)"
+  "error": "string",
+  "error_description": "string (optional)"
 }
 ```
 
@@ -378,11 +378,11 @@ Error responses include a descriptive message:
 
 ```json
 {
-    "type": "string (REQUIRED)",
-    "id": "string (REQUIRED)",
-    "properties": {
-        "key": "value (OPTIONAL)"
-    }
+  "type": "string (REQUIRED)",
+  "id": "string (REQUIRED)",
+  "properties": {
+    "key": "value (OPTIONAL)"
+  }
 }
 ```
 
@@ -411,11 +411,11 @@ Error responses include a descriptive message:
 
 ```json
 {
-    "type": "string (REQUIRED)",
-    "id": "string (REQUIRED)",
-    "properties": {
-        "key": "value (OPTIONAL)"
-    }
+  "type": "string (REQUIRED)",
+  "id": "string (REQUIRED)",
+  "properties": {
+    "key": "value (OPTIONAL)"
+  }
 }
 ```
 
@@ -444,10 +444,10 @@ Error responses include a descriptive message:
 
 ```json
 {
-    "name": "string (REQUIRED)",
-    "properties": {
-        "key": "value (OPTIONAL)"
-    }
+  "name": "string (REQUIRED)",
+  "properties": {
+    "key": "value (OPTIONAL)"
+  }
 }
 ```
 
@@ -476,9 +476,9 @@ Error responses include a descriptive message:
 
 ```json
 {
-    "time": "2025-11-02T10:00:00Z",
-    "ip_address": "192.168.1.1",
-    "user_agent": "Mozilla/5.0..."
+  "time": "2025-11-02T10:00:00Z",
+  "ip_address": "192.168.1.1",
+  "user_agent": "Mozilla/5.0..."
 }
 ```
 
@@ -490,16 +490,16 @@ Error responses include a descriptive message:
 
 ```json
 {
-    "decision": "boolean (REQUIRED)",
-    "context": {
-        "id": "string (optional)",
-        "reason_admin": {
-            "en": "string (optional)"
-        },
-        "reason_user": {
-            "en": "string (optional)"
-        }
+  "decision": "boolean (REQUIRED)",
+  "context": {
+    "id": "string (optional)",
+    "reason_admin": {
+      "en": "string (optional)"
+    },
+    "reason_user": {
+      "en": "string (optional)"
     }
+  }
 }
 ```
 
@@ -533,14 +533,14 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 ```json
 {
-    "subject": {
-        "type": "user",
-        "id": "alice",
-        "properties": {
-            "department": "engineering",
-            "clearance_level": 3
-        }
+  "subject": {
+    "type": "user",
+    "id": "alice",
+    "properties": {
+      "department": "engineering",
+      "clearance_level": 3
     }
+  }
 }
 ```
 
@@ -581,14 +581,14 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 ```json
 {
-    "decision": true,
-    "context": {
-        "id": "eval_abc123",
-        "reason_admin": {
-            "en": "User alice has view permission via group membership"
-        },
-        "obligations": [{ "type": "audit", "level": "high" }]
-    }
+  "decision": true,
+  "context": {
+    "id": "eval_abc123",
+    "reason_admin": {
+      "en": "User alice has view permission via group membership"
+    },
+    "obligations": [{ "type": "audit", "level": "high" }]
+  }
 }
 ```
 
@@ -604,10 +604,10 @@ AuthZEN provides multiple extension points for implementation-specific features:
 
 ```json
 {
-    "capabilities": [
-        "urn:ietf:params:authzen:capability:relationship-management",
-        "urn:ietf:params:authzen:capability:relation-expansion"
-    ]
+  "capabilities": [
+    "urn:ietf:params:authzen:capability:relationship-management",
+    "urn:ietf:params:authzen:capability:relation-expansion"
+  ]
 }
 ```
 
@@ -679,8 +679,8 @@ The following InferaDB capabilities extend beyond the AuthZEN specification:
 
 ```json
 {
-    "resource": "document:readme",
-    "relation": "viewer"
+  "resource": "document:readme",
+  "relation": "viewer"
 }
 ```
 
@@ -800,29 +800,29 @@ In `/.well-known/authzen-configuration`:
 
 ```json
 {
-    "issuer": "https://inferadb.example.com",
-    "access_evaluation_endpoint": "https://inferadb.example.com/access/v1/evaluation",
-    "access_evaluations_endpoint": "https://inferadb.example.com/access/v1/evaluations",
-    "search_subject_endpoint": "https://inferadb.example.com/access/v1/search/subject",
-    "search_resource_endpoint": "https://inferadb.example.com/access/v1/search/resource",
-    "capabilities": [
-        "urn:ietf:params:authzen:capability:relationship-management",
-        "urn:ietf:params:authzen:capability:relation-expansion",
-        "urn:ietf:params:authzen:capability:simulation",
-        "urn:ietf:params:authzen:capability:realtime-streaming"
-    ],
-    "extensions": {
-        "inferadb_relationship_management": true,
-        "inferadb_relation_expansion": true,
-        "inferadb_simulation": true,
-        "inferadb_realtime_streaming": true,
-        "relationship_write_endpoint": "https://inferadb.example.com/v1/relationships:write",
-        "relationship_list_endpoint": "https://inferadb.example.com/v1/relationships:list",
-        "relationship_delete_endpoint": "https://inferadb.example.com/v1/relationships:delete",
-        "expand_endpoint": "https://inferadb.example.com/v1/expand",
-        "simulate_endpoint": "https://inferadb.example.com/v1/simulate",
-        "watch_endpoint": "https://inferadb.example.com/v1/watch"
-    }
+  "issuer": "https://inferadb.example.com",
+  "access_evaluation_endpoint": "https://inferadb.example.com/access/v1/evaluation",
+  "access_evaluations_endpoint": "https://inferadb.example.com/access/v1/evaluations",
+  "search_subject_endpoint": "https://inferadb.example.com/access/v1/search/subject",
+  "search_resource_endpoint": "https://inferadb.example.com/access/v1/search/resource",
+  "capabilities": [
+    "urn:ietf:params:authzen:capability:relationship-management",
+    "urn:ietf:params:authzen:capability:relation-expansion",
+    "urn:ietf:params:authzen:capability:simulation",
+    "urn:ietf:params:authzen:capability:realtime-streaming"
+  ],
+  "extensions": {
+    "inferadb_relationship_management": true,
+    "inferadb_relation_expansion": true,
+    "inferadb_simulation": true,
+    "inferadb_realtime_streaming": true,
+    "relationship_write_endpoint": "https://inferadb.example.com/v1/relationships:write",
+    "relationship_list_endpoint": "https://inferadb.example.com/v1/relationships:list",
+    "relationship_delete_endpoint": "https://inferadb.example.com/v1/relationships:delete",
+    "expand_endpoint": "https://inferadb.example.com/v1/expand",
+    "simulate_endpoint": "https://inferadb.example.com/v1/simulate",
+    "watch_endpoint": "https://inferadb.example.com/v1/watch"
+  }
 }
 ```
 

@@ -161,24 +161,24 @@ Configure InferaDB using any combination of:
 
 ```yaml
 server:
-    host: "0.0.0.0"
-    port: 8080
-    worker_threads: 8
+  host: "0.0.0.0"
+  port: 8080
+  worker_threads: 8
 
 store:
-    backend: "foundationdb"
-    connection_string: "/etc/foundationdb/fdb.cluster"
+  backend: "foundationdb"
+  connection_string: "/etc/foundationdb/fdb.cluster"
 
 cache:
-    enabled: true
-    max_capacity: 100000
-    ttl_seconds: 300
+  enabled: true
+  max_capacity: 100000
+  ttl_seconds: 300
 
 auth:
-    enabled: true
-    jwks_base_url: "https://your-domain.com/jwks"
-    replay_protection: true
-    redis_url: "redis://redis:6379"
+  enabled: true
+  jwks_base_url: "https://your-domain.com/jwks"
+  replay_protection: true
+  redis_url: "redis://redis:6379"
 ```
 
 **→ Complete reference: [Configuration Guide](docs/guides/configuration.md)**
@@ -191,108 +191,108 @@ InferaDB integrates with the **InferaDB Management API** for authentication. The
 
 1. **Start the Management API** (required for authentication):
 
-    ```bash
-    # In your management API directory
-    cd management
-    make run
-    # Management API runs on http://localhost:8081
-    ```
+   ```bash
+   # In your management API directory
+   cd management
+   make run
+   # Management API runs on http://localhost:8081
+   ```
 
 2. **Configure Server** to point to management API:
 
-    ```yaml
-    # config.yaml
-    auth:
-        enabled: true
-        management_api_url: "http://localhost:8081"
-        management_api_timeout_ms: 5000
-        management_cache_ttl_seconds: 300
-        cert_cache_ttl_seconds: 900
-        management_verify_vault_ownership: true
-        management_verify_org_status: true
-    ```
+   ```yaml
+   # config.yaml
+   auth:
+     enabled: true
+     management_api_url: "http://localhost:8081"
+     management_api_timeout_ms: 5000
+     management_cache_ttl_seconds: 300
+     cert_cache_ttl_seconds: 900
+     management_verify_vault_ownership: true
+     management_verify_org_status: true
+   ```
 
 3. **Register and Create Credentials** via management API:
 
-    ```bash
-    # Register user and create organization
-    curl -X POST http://localhost:8081/v1/auth/register \
-      -H "Content-Type: application/json" \
-      -d '{"name": "Alice", "email": "alice@example.com", "password": "SecurePassword123!", "accept_tos": true}'
+   ```bash
+   # Register user and create organization
+   curl -X POST http://localhost:8081/v1/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Alice", "email": "alice@example.com", "password": "SecurePassword123!", "accept_tos": true}'
 
-    # Login to get session
-    curl -X POST http://localhost:8081/v1/auth/login \
-      -H "Content-Type: application/json" \
-      -d '{"email": "alice@example.com", "password": "SecurePassword123!"}'
-    # Returns: {"session_id": "sess_...", "user_id": "..."}
+   # Login to get session
+   curl -X POST http://localhost:8081/v1/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email": "alice@example.com", "password": "SecurePassword123!"}'
+   # Returns: {"session_id": "sess_...", "user_id": "..."}
 
-    # Create a vault (using session from login)
-    curl -X POST http://localhost:8081/v1/vaults \
-      -H "Authorization: Bearer <session_id>" \
-      -H "Content-Type: application/json" \
-      -d '{"name": "My App Vault", "organization_id": "<org_id>"}'
-    # Returns: {"id": "<vault_id>", ...}
+   # Create a vault (using session from login)
+   curl -X POST http://localhost:8081/v1/vaults \
+     -H "Authorization: Bearer <session_id>" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "My App Vault", "organization_id": "<org_id>"}'
+   # Returns: {"id": "<vault_id>", ...}
 
-    # Create client credentials
-    curl -X POST http://localhost:8081/v1/organizations/<org_id>/clients \
-      -H "Authorization: Bearer <session_id>" \
-      -H "Content-Type: application/json" \
-      -d '{"name": "Production Service"}'
-    # Returns: {"id": "<client_id>", ...}
+   # Create client credentials
+   curl -X POST http://localhost:8081/v1/organizations/<org_id>/clients \
+     -H "Authorization: Bearer <session_id>" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Production Service"}'
+   # Returns: {"id": "<client_id>", ...}
 
-    # Create Ed25519 certificate
-    # First, generate a key pair (example in Python):
-    # from cryptography.hazmat.primitives.asymmetric import ed25519
-    # private_key = ed25519.Ed25519PrivateKey.generate()
-    # public_key_bytes = private_key.public_key().public_bytes_raw()
-    # public_key_b64 = base64.b64encode(public_key_bytes).decode()
+   # Create Ed25519 certificate
+   # First, generate a key pair (example in Python):
+   # from cryptography.hazmat.primitives.asymmetric import ed25519
+   # private_key = ed25519.Ed25519PrivateKey.generate()
+   # public_key_bytes = private_key.public_key().public_bytes_raw()
+   # public_key_b64 = base64.b64encode(public_key_bytes).decode()
 
-    curl -X POST http://localhost:8081/v1/organizations/<org_id>/clients/<client_id>/certificates \
-      -H "Authorization: Bearer <session_id>" \
-      -H "Content-Type: application/json" \
-      -d '{"name": "Prod Cert", "public_key": "<base64_public_key>"}'
-    # Returns: {"id": "<cert_id>", "kid": "org-xxx-client-yyy-cert-zzz", ...}
-    ```
+   curl -X POST http://localhost:8081/v1/organizations/<org_id>/clients/<client_id>/certificates \
+     -H "Authorization: Bearer <session_id>" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Prod Cert", "public_key": "<base64_public_key>"}'
+   # Returns: {"id": "<cert_id>", "kid": "org-xxx-client-yyy-cert-zzz", ...}
+   ```
 
 4. **Generate JWT** and call the server:
 
-    ```python
-    import jwt
-    import datetime
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import ed25519
+   ```python
+   import jwt
+   import datetime
+   from cryptography.hazmat.primitives import serialization
+   from cryptography.hazmat.primitives.asymmetric import ed25519
 
-    # Load your private key
-    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(...)
+   # Load your private key
+   private_key = ed25519.Ed25519PrivateKey.from_private_bytes(...)
 
-    # Create JWT claims
-    claims = {
-        "iss": "http://localhost:8081/v1",
-        "sub": f"client:{client_id}",
-        "aud": "http://localhost:8080",
-        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5),
-        "iat": datetime.datetime.now(datetime.timezone.utc),
-        "jti": str(uuid.uuid4()),
-        "vault": vault_id,
-        "account": account_id,
-        "scope": "read write"
-    }
+   # Create JWT claims
+   claims = {
+       "iss": "http://localhost:8081/v1",
+       "sub": f"client:{client_id}",
+       "aud": "http://localhost:8080",
+       "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5),
+       "iat": datetime.datetime.now(datetime.timezone.utc),
+       "jti": str(uuid.uuid4()),
+       "vault": vault_id,
+       "account": account_id,
+       "scope": "read write"
+   }
 
-    # Sign JWT with Ed25519 private key
-    token = jwt.encode(
-        claims,
-        private_key,
-        algorithm="EdDSA",
-        headers={"kid": kid}  # From certificate creation response
-    )
+   # Sign JWT with Ed25519 private key
+   token = jwt.encode(
+       claims,
+       private_key,
+       algorithm="EdDSA",
+       headers={"kid": kid}  # From certificate creation response
+   )
 
-    # Use token with server
-    response = requests.post(
-        "http://localhost:8080/v1/evaluate",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"object": "document:1", "relation": "viewer", "subject": "user:alice"}
-    )
-    ```
+   # Use token with server
+   response = requests.post(
+       "http://localhost:8080/v1/evaluate",
+       headers={"Authorization": f"Bearer {token}"},
+       json={"object": "document:1", "relation": "viewer", "subject": "user:alice"}
+   )
+   ```
 
 ### Environment Variables
 
@@ -316,9 +316,9 @@ Tokens must be Ed25519-signed JWTs with the following structure:
 
 ```json
 {
-    "alg": "EdDSA",
-    "typ": "JWT",
-    "kid": "org-{org_id}-client-{client_id}-cert-{cert_id}"
+  "alg": "EdDSA",
+  "typ": "JWT",
+  "kid": "org-{org_id}-client-{client_id}-cert-{cert_id}"
 }
 ```
 

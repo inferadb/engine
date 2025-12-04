@@ -57,11 +57,11 @@ curl -H "Accept: text/toon" \
 
 ```json
 {
-    "id": "660e8400-e29b-41d4-a716-446655440000",
-    "account": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "Production Vault",
-    "created_at": "2025-11-02T10:00:00Z",
-    "updated_at": "2025-11-02T10:00:00Z"
+  "id": "660e8400-e29b-41d4-a716-446655440000",
+  "account": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Production Vault",
+  "created_at": "2025-11-02T10:00:00Z",
+  "updated_at": "2025-11-02T10:00:00Z"
 }
 ```
 
@@ -281,29 +281,29 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Fetch expansion tree in TOON format
 const { data: expansionData } = await axios.post(
-    "http://localhost:8080/api/v1/expand",
-    { resource: "project:alpha", permission: "admin" },
-    {
-        headers: {
-            Accept: "text/toon",
-            Authorization: `Bearer ${token}`,
-        },
-    }
+  "http://localhost:8080/api/v1/expand",
+  { resource: "project:alpha", permission: "admin" },
+  {
+    headers: {
+      Accept: "text/toon",
+      Authorization: `Bearer ${token}`,
+    },
+  }
 );
 
 // Use in GPT-4 prompt (token-efficient)
 const completion = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [
-        {
-            role: "system",
-            content: "You are a security policy analyzer.",
-        },
-        {
-            role: "user",
-            content: `Audit this access control policy:\n\n${expansionData}`,
-        },
-    ],
+  model: "gpt-4",
+  messages: [
+    {
+      role: "system",
+      content: "You are a security policy analyzer.",
+    },
+    {
+      role: "user",
+      content: `Audit this access control policy:\n\n${expansionData}`,
+    },
+  ],
 });
 
 console.log(completion.choices[0].message.content);
@@ -348,47 +348,45 @@ print(response.text)
 
 ```typescript
 interface InferaClientConfig {
-    baseURL: string;
-    authToken: string;
-    format?: "json" | "toon";
+  baseURL: string;
+  authToken: string;
+  format?: "json" | "toon";
 }
 
 class InferaClient {
-    private config: InferaClientConfig;
+  private config: InferaClientConfig;
 
-    constructor(config: InferaClientConfig) {
-        this.config = { format: "json", ...config };
+  constructor(config: InferaClientConfig) {
+    this.config = { format: "json", ...config };
+  }
+
+  async getVault(vaultId: string): Promise<string> {
+    const response = await fetch(
+      `${this.config.baseURL}/v1/vaults/${vaultId}`,
+      {
+        headers: {
+          Accept:
+            this.config.format === "toon" ? "text/toon" : "application/json",
+          Authorization: `Bearer ${this.config.authToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
     }
 
-    async getVault(vaultId: string): Promise<string> {
-        const response = await fetch(
-            `${this.config.baseURL}/v1/vaults/${vaultId}`,
-            {
-                headers: {
-                    Accept:
-                        this.config.format === "toon"
-                            ? "text/toon"
-                            : "application/json",
-                    Authorization: `Bearer ${this.config.authToken}`,
-                },
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`API error: ${response.statusText}`);
-        }
-
-        return this.config.format === "toon"
-            ? await response.text() // TOON as string
-            : await response.json(); // JSON as object
-    }
+    return this.config.format === "toon"
+      ? await response.text() // TOON as string
+      : await response.json(); // JSON as object
+  }
 }
 
 // Usage
 const client = new InferaClient({
-    baseURL: "http://localhost:8080/api",
-    authToken: "your-jwt-token",
-    format: "toon", // Use TOON for LLM workflows
+  baseURL: "http://localhost:8080/api",
+  authToken: "your-jwt-token",
+  format: "toon", // Use TOON for LLM workflows
 });
 
 const vaultData = await client.getVault("660e8400-...");
@@ -453,23 +451,23 @@ vault_data = client.get_vault('660e8400-...')
 
 1. **Update request headers:**
 
-    ```bash
-    # Before (implicit JSON)
-    curl http://localhost:8080/api/v1/vaults/123
+   ```bash
+   # Before (implicit JSON)
+   curl http://localhost:8080/api/v1/vaults/123
 
-    # After (explicit TOON)
-    curl -H "Accept: text/toon" http://localhost:8080/api/v1/vaults/123
-    ```
+   # After (explicit TOON)
+   curl -H "Accept: text/toon" http://localhost:8080/api/v1/vaults/123
+   ```
 
 2. **Handle TOON responses:**
-    - TOON is plain text (not JSON)
-    - Parse as string for LLM usage
-    - Or convert to JSON if needed (libraries exist)
+   - TOON is plain text (not JSON)
+   - Parse as string for LLM usage
+   - Or convert to JSON if needed (libraries exist)
 
 3. **Update client libraries:**
-    - Add `Accept` header configuration
-    - Handle both JSON and TOON response types
-    - Default to JSON for backward compatibility
+   - Add `Accept` header configuration
+   - Handle both JSON and TOON response types
+   - Default to JSON for backward compatibility
 
 ### For LLM Applications
 
@@ -629,14 +627,14 @@ llm_response = analyze_with_claude(json.dumps(data))
 ```javascript
 // Good - JSON for web apps
 const response = await fetch("/api/v1/vaults", {
-    headers: { Accept: "application/json" },
+  headers: { Accept: "application/json" },
 });
 const vaults = await response.json();
 renderUI(vaults);
 
 // Avoid - TOON for UI (requires parsing)
 const response = await fetch("/api/v1/vaults", {
-    headers: { Accept: "text/toon" },
+  headers: { Accept: "text/toon" },
 });
 const toonText = await response.text();
 // Manual parsing required
@@ -658,18 +656,18 @@ curl http://...  # Defaults to JSON but not obvious
 ```typescript
 // Good - format-aware client
 class InferaClient {
-    async get(path: string, format: "json" | "toon" = "json") {
-        const accept = format === "toon" ? "text/toon" : "application/json";
-        // ...
-    }
+  async get(path: string, format: "json" | "toon" = "json") {
+    const accept = format === "toon" ? "text/toon" : "application/json";
+    // ...
+  }
 }
 
 // Avoid - hardcoded format
 class InferaClient {
-    async get(path: string) {
-        const accept = "application/json"; // Inflexible
-        // ...
-    }
+  async get(path: string) {
+    const accept = "application/json"; // Inflexible
+    // ...
+  }
 }
 ```
 

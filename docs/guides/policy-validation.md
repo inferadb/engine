@@ -310,13 +310,13 @@ name: Schema Validation
 on: [push, pull_request]
 
 jobs:
-    validate:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions-rs/toolchain@v1
-            - name: Validate schemas
-              run: cargo test --package infera-core --lib ipl::validation
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+      - name: Validate schemas
+        run: cargo test --package infera-core --lib ipl::validation
 ```
 
 ## Error Reference

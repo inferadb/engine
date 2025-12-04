@@ -220,8 +220,8 @@ Evaluation:
 
 1. Look up tuples `(document:readme, parent, ?)`
 2. For each result (e.g., `folder:shared`):
-    - Evaluate `viewer` relation on that resource
-    - Check if subject has `viewer` on `folder:shared`
+   - Evaluate `viewer` relation on that resource
+   - Check if subject has `viewer` on `folder:shared`
 3. Return Allow if any intermediate check succeeds
 
 ## Evaluation Algorithm
@@ -329,37 +329,37 @@ For debugging and auditing, the evaluator can produce a detailed trace of the ev
 
 ```json
 {
-    "decision": "allow",
-    "root": {
-        "node_type": "union",
+  "decision": "allow",
+  "root": {
+    "node_type": "union",
+    "result": true,
+    "children": [
+      {
+        "node_type": "direct_check",
+        "result": false,
+        "object": "doc:readme",
+        "relation": "owner",
+        "user": "user:alice"
+      },
+      {
+        "node_type": "computed_userset",
         "result": true,
+        "relation": "editor",
         "children": [
-            {
-                "node_type": "direct_check",
-                "result": false,
-                "object": "doc:readme",
-                "relation": "owner",
-                "user": "user:alice"
-            },
-            {
-                "node_type": "computed_userset",
-                "result": true,
-                "relation": "editor",
-                "children": [
-                    {
-                        "node_type": "direct_check",
-                        "result": true,
-                        "object": "doc:readme",
-                        "relation": "editor",
-                        "user": "user:alice"
-                    }
-                ]
-            }
+          {
+            "node_type": "direct_check",
+            "result": true,
+            "object": "doc:readme",
+            "relation": "editor",
+            "user": "user:alice"
+          }
         ]
-    },
-    "duration_micros": 1234,
-    "tuples_read": 5,
-    "relations_evaluated": 3
+      }
+    ]
+  },
+  "duration_micros": 1234,
+  "tuples_read": 5,
+  "relations_evaluated": 3
 }
 ```
 

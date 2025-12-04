@@ -85,21 +85,22 @@ After the cluster is created:
 
 1. **Configure kubectl**:
 
-    ```bash
-    aws eks update-kubeconfig --region <region> --name <cluster-name>
-    ```
+   ```bash
+   aws eks update-kubeconfig --region <region> --name <cluster-name>
+   ```
 
 2. **Verify cluster**:
 
-    ```bash
-    kubectl get nodes
-    kubectl get pods -A
-    ```
+   ```bash
+   kubectl get nodes
+   kubectl get pods -A
+   ```
 
 3. **Deploy InferaDB**:
-    ```bash
-    helm install inferadb ./helm --namespace inferadb --create-namespace
-    ```
+
+   ```bash
+   helm install inferadb ./helm --namespace inferadb --create-namespace
+   ```
 
 ## Architecture
 

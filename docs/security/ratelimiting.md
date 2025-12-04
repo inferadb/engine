@@ -184,20 +184,20 @@ Use cloud-native API gateways (AWS API Gateway, Google Cloud API Gateway, Kong).
 ```yaml
 # AWS API Gateway throttling configuration
 Resources:
-    InferaDBApi:
-        Type: AWS::ApiGatewayV2::Api
-        Properties:
-            Name: InferaDB API
-            ProtocolType: HTTP
+  InferaDBApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: InferaDB API
+      ProtocolType: HTTP
 
-    ApiStage:
-        Type: AWS::ApiGatewayV2::Stage
-        Properties:
-            ApiId: !Ref InferaDBApi
-            StageName: prod
-            ThrottleSettings:
-                RateLimit: 1000 # requests per second
-                BurstLimit: 2000 # max concurrent requests
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref InferaDBApi
+      StageName: prod
+      ThrottleSettings:
+        RateLimit: 1000 # requests per second
+        BurstLimit: 2000 # max concurrent requests
 ```
 
 #### Kong Example
@@ -205,22 +205,22 @@ Resources:
 ```yaml
 # kong.yml
 plugins:
-    - name: rate-limiting
-      config:
-          minute: 1000
-          hour: 60000
-          policy: local
-          limit_by: ip
-          fault_tolerant: true
+  - name: rate-limiting
+    config:
+      minute: 1000
+      hour: 60000
+      policy: local
+      limit_by: ip
+      fault_tolerant: true
 
-    - name: rate-limiting
-      config:
-          minute: 1000
-          limit_by: header
-          header_name: X-Tenant-Id
-          policy: redis
-          redis_host: redis.internal
-          redis_port: 6379
+  - name: rate-limiting
+    config:
+      minute: 1000
+      limit_by: header
+      header_name: X-Tenant-Id
+      policy: redis
+      redis_host: redis.internal
+      redis_port: 6379
 ```
 
 ### 3. Application-Level Middleware

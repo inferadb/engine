@@ -186,27 +186,27 @@ Benchmarks are **not yet integrated into CI** but are ready for integration.
 name: Benchmarks
 
 on:
-    schedule:
-        - cron: "0 2 * * *" # 2 AM daily
-    workflow_dispatch: # Manual trigger
+  schedule:
+    - cron: "0 2 * * *" # 2 AM daily
+  workflow_dispatch: # Manual trigger
 
 jobs:
-    benchmark:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - uses: dtolnay/rust-toolchain@stable
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
-            - name: Run benchmarks
-              run: cargo bench --workspace
+      - name: Run benchmarks
+        run: cargo bench --workspace
 
-            - name: Store results
-              uses: benchmark-action/github-action-benchmark@v1
-              with:
-                  tool: "cargo"
-                  output-file-path: target/criterion/*/new/estimates.json
-                  alert-threshold: "110%" # Alert on 10% regression
-                  fail-on-alert: true
+      - name: Store results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "cargo"
+          output-file-path: target/criterion/*/new/estimates.json
+          alert-threshold: "110%" # Alert on 10% regression
+          fail-on-alert: true
 ```
 
 ## Benchmark Implementation Details

@@ -291,28 +291,28 @@ histogram_quantile(0.99, rate(inferadb_replication_duration_seconds_bucket[5m]))
   expr: inferadb_replication_lag_milliseconds > 100
   for: 5m
   annotations:
-      summary: "High replication lag ({{ $value }}ms)"
+    summary: "High replication lag ({{ $value }}ms)"
 
 # Alert when target health drops below 100%
 - alert: ReplicationTargetUnhealthy
   expr: (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
   for: 2m
   annotations:
-      summary: "Replication target unhealthy"
+    summary: "Replication target unhealthy"
 
 # Alert on high failure rate
 - alert: HighReplicationFailureRate
   expr: rate(inferadb_replication_failures_total[5m]) > 0.01
   for: 5m
   annotations:
-      summary: "High replication failure rate"
+    summary: "High replication failure rate"
 
 # Alert on high conflict rate
 - alert: HighConflictRate
   expr: rate(inferadb_replication_conflicts_total[5m]) / rate(inferadb_replication_changes_total[5m]) > 0.01
   for: 10m
   annotations:
-      summary: "High conflict rate (>1% of changes)"
+    summary: "High conflict rate (>1% of changes)"
 ```
 
 For detailed replication documentation, see [Multi-Region Replication](../replication.md).

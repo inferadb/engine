@@ -132,36 +132,36 @@ docker run -d \
 version: "3.8"
 
 services:
-    inferadb:
-        image: inferadb:latest
-        ports:
-            - "8080:8080"
-            - "8081:8081"
-            - "9090:9090" # Metrics
-        environment:
-            INFERA__SERVER__WORKER_THREADS: "4"
-            INFERA__STORE__BACKEND: "memory"
-            INFERA__CACHE__ENABLED: "true"
-            INFERA__AUTH__ENABLED: "false"
-            INFERA__OBSERVABILITY__LOG_LEVEL: "info"
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-            interval: 10s
-            timeout: 5s
-            retries: 3
-            start_period: 10s
-        restart: unless-stopped
+  inferadb:
+    image: inferadb:latest
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "9090:9090" # Metrics
+    environment:
+      INFERA__SERVER__WORKER_THREADS: "4"
+      INFERA__STORE__BACKEND: "memory"
+      INFERA__CACHE__ENABLED: "true"
+      INFERA__AUTH__ENABLED: "false"
+      INFERA__OBSERVABILITY__LOG_LEVEL: "info"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
 
-    redis:
-        image: redis:7-alpine
-        ports:
-            - "6379:6379"
-        volumes:
-            - redis-data:/data
-        restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
 
 volumes:
-    redis-data:
+  redis-data:
 ```
 
 ### 2. Kubernetes Deployment
@@ -327,24 +327,24 @@ Alternatively, use a YAML configuration file:
 
 ```yaml
 server:
-    host: 0.0.0.0
-    port: 8080
-    worker_threads: 4
+  host: 0.0.0.0
+  port: 8080
+  worker_threads: 4
 
 store:
-    backend: foundationdb
-    connection_string: /etc/foundationdb/fdb.cluster
+  backend: foundationdb
+  connection_string: /etc/foundationdb/fdb.cluster
 
 cache:
-    enabled: true
-    max_capacity: 100000
-    ttl_seconds: 600
+  enabled: true
+  max_capacity: 100000
+  ttl_seconds: 600
 
 auth:
-    enabled: true
-    jwks_url: https://auth.example.com/.well-known/jwks.json
-    replay_protection: true
-    redis_url: redis://redis:6379
+  enabled: true
+  jwks_url: https://auth.example.com/.well-known/jwks.json
+  replay_protection: true
+  redis_url: redis://redis:6379
 ```
 
 Load with:
@@ -379,18 +379,18 @@ kubectl create secret generic inferadb-secrets \
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-    name: inferadb-secrets
+  name: inferadb-secrets
 spec:
-    secretStoreRef:
-        name: aws-secrets-manager
-        kind: SecretStore
-    target:
-        name: inferadb-secrets
-    data:
-        - secretKey: INFERA__AUTH__JWKS_URL
-          remoteRef:
-              key: inferadb/prod/auth
-              property: jwks_url
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: SecretStore
+  target:
+    name: inferadb-secrets
+  data:
+    - secretKey: INFERA__AUTH__JWKS_URL
+      remoteRef:
+        key: inferadb/prod/auth
+        property: jwks_url
 ```
 
 #### 4. Docker Secrets
@@ -509,9 +509,9 @@ Enable OpenTelemetry tracing:
 
 ```yaml
 observability:
-    tracing_enabled: true
-    tracing_endpoint: http://jaeger:4317
-    tracing_sample_rate: 0.1
+  tracing_enabled: true
+  tracing_endpoint: http://jaeger:4317
+  tracing_sample_rate: 0.1
 ```
 
 ### Logging
@@ -520,20 +520,20 @@ Configure logging format and level:
 
 ```yaml
 observability:
-    log_level: info # trace, debug, info, warn, error
-    log_format: json # or "text"
+  log_level: info # trace, debug, info, warn, error
+  log_format: json # or "text"
 ```
 
 **Structured JSON logs:**
 
 ```json
 {
-    "timestamp": "2025-10-30T12:00:00Z",
-    "level": "INFO",
-    "message": "Request processed",
-    "duration_ms": 15,
-    "path": "/v1/check",
-    "status": 200
+  "timestamp": "2025-10-30T12:00:00Z",
+  "level": "INFO",
+  "message": "Request processed",
+  "duration_ms": 15,
+  "path": "/v1/check",
+  "status": 200
 }
 ```
 
@@ -600,23 +600,23 @@ Example Kubernetes configuration:
 
 ```yaml
 spec:
-    replicas: 5
-    strategy:
-        type: RollingUpdate
-        rollingUpdate:
-            maxSurge: 1
-            maxUnavailable: 0 # Zero downtime
+  replicas: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0 # Zero downtime
 
-    template:
-        spec:
-            terminationGracePeriodSeconds: 30
-            containers:
-                - name: inferadb
-                  readinessProbe:
-                      httpGet:
-                          path: /health/ready
-                          port: 8080
-                      periodSeconds: 5
+  template:
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: inferadb
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            periodSeconds: 5
 ```
 
 ## Troubleshooting

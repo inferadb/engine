@@ -112,18 +112,18 @@ docker-compose down
 ### Components
 
 1. **Test Runner Container** (`test-runner`)
-    - Based on `rust:1-slim` with nightly toolchain
-    - All Rust dependencies cached
-    - Source code mounted for live development
-    - Runs unit tests that don't require real Azure
+   - Based on `rust:1-slim` with nightly toolchain
+   - All Rust dependencies cached
+   - Source code mounted for live development
+   - Runs unit tests that don't require real Azure
 
 2. **Shared Network** (`azure-test-network`)
-    - Isolated bridge network for test isolation
+   - Isolated bridge network for test isolation
 
 3. **Volumes**
-    - `cargo-registry`: Cached cargo dependencies
-    - `cargo-git`: Cached git dependencies
-    - `target-cache`: Compiled artifacts cache
+   - `cargo-registry`: Cached cargo dependencies
+   - `cargo-git`: Cached git dependencies
+   - `target-cache`: Compiled artifacts cache
 
 ### Architecture
 
@@ -224,33 +224,35 @@ When running unit tests locally without Azure:
 2. Ensure tests are marked with `#[ignore]` if they require real Azure
 3. Run tests: `./docker/azure-integration-tests/test.sh`
 4. Iterate in interactive mode:
-    ```bash
-    ./docker/azure-integration-tests/shell.sh
-    # Inside container
-    cargo test -p infera-config --features azure-secrets <test_name>
-    ```
+
+   ```bash
+   ./docker/azure-integration-tests/shell.sh
+   # Inside container
+   cargo test -p infera-config --features azure-secrets <test_name>
+   ```
 
 ### Debugging Test Failures
 
 1. Start environment:
 
-    ```bash
-    cd docker/azure-integration-tests
-    docker-compose up -d
-    ```
+   ```bash
+   cd docker/azure-integration-tests
+   docker-compose up -d
+   ```
 
 2. Access container:
 
-    ```bash
-    ./shell.sh
-    ```
+   ```bash
+   ./shell.sh
+   ```
 
 3. Re-run specific test:
-    ```bash
-    RUST_BACKTRACE=full cargo test -p infera-config \
-      --features azure-secrets \
-      test_name -- --nocapture
-    ```
+
+   ```bash
+   RUST_BACKTRACE=full cargo test -p infera-config \
+     --features azure-secrets \
+     test_name -- --nocapture
+   ```
 
 ## CI/CD Integration
 
@@ -262,28 +264,28 @@ name: Azure Integration Tests
 on: [push, pull_request]
 
 jobs:
-    azure-tests:
-        runs-on: ubuntu-latest
+  azure-tests:
+    runs-on: ubuntu-latest
 
-        steps:
-            - uses: actions/checkout@v3
+    steps:
+      - uses: actions/checkout@v3
 
-            - name: Run Azure Integration Tests
-              run: |
-                  cd server
-                  ./docker/azure-integration-tests/test.sh
+      - name: Run Azure Integration Tests
+        run: |
+          cd server
+          ./docker/azure-integration-tests/test.sh
 ```
 
 ### GitLab CI Example
 
 ```yaml
 azure-integration-tests:
-    image: docker:latest
-    services:
-        - docker:dind
-    script:
-        - cd server
-        - ./docker/azure-integration-tests/test.sh
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - cd server
+    - ./docker/azure-integration-tests/test.sh
 ```
 
 ## Performance Considerations
@@ -332,7 +334,7 @@ azure-integration-tests:
 For issues specific to:
 
 - **This Docker setup:** Check this README and troubleshooting section
-- **Azure Key Vault:** See Azure documentation at https://docs.microsoft.com/azure/key-vault/
+- **Azure Key Vault:** See Azure documentation at <https://docs.microsoft.com/azure/key-vault/>
 - **InferaDB:** See main project documentation
 
 ## License

@@ -148,14 +148,14 @@ state.relationship_service
 ### Invalidation Strategies
 
 1. **Selective Invalidation** (preferred): `invalidate_cache_for_resources(&[String])`
-    - Only invalidates entries for specific resources
-    - Efficient for targeted updates
-    - Uses secondary indexes for fast lookup
+   - Only invalidates entries for specific resources
+   - Efficient for targeted updates
+   - Uses secondary indexes for fast lookup
 
 2. **Vault-wide Invalidation**: `invalidate_cache_for_vault(Uuid)`
-    - Invalidates all entries for a specific vault
-    - Used when revision changes affect entire vault
-    - Maintains isolation between vaults
+   - Invalidates all entries for a specific vault
+   - Used when revision changes affect entire vault
+   - Maintains isolation between vaults
 
 ### Handler Responsibilities
 
@@ -190,25 +190,25 @@ Services separate business logic from protocol adapters (gRPC/REST/AuthZEN).
 Located in `crates/infera-api/src/services/`:
 
 1. **EvaluationService** (`evaluation.rs`) - Authorization checks
-    - `evaluate(vault, request)` - Check if subject has permission on resource
-    - `evaluate_with_trace(vault, request)` - Evaluation with debug trace
+   - `evaluate(vault, request)` - Check if subject has permission on resource
+   - `evaluate_with_trace(vault, request)` - Evaluation with debug trace
 
 2. **ExpansionService** (`expansion.rs`) - Relationship graph expansion
-    - `expand(vault, request)` - Discover all subjects with permission on resource
+   - `expand(vault, request)` - Discover all subjects with permission on resource
 
 3. **RelationshipService** (`relationships.rs`) - Relationship management
-    - `write_relationships(vault, relationships)` - Create relationships
-    - `delete_relationships(vault, filter, limit)` - Delete by filter
-    - `list_relationships(vault, request)` - List with pagination
+   - `write_relationships(vault, relationships)` - Create relationships
+   - `delete_relationships(vault, filter, limit)` - Delete by filter
+   - `list_relationships(vault, request)` - List with pagination
 
 4. **ResourceService** (`resources.rs`) - Resource discovery
-    - `list_resources(vault, request)` - List resources subject can access
+   - `list_resources(vault, request)` - List resources subject can access
 
 5. **SubjectService** (`subjects.rs`) - Subject discovery
-    - `list_subjects(vault, request)` - List subjects with access to resource
+   - `list_subjects(vault, request)` - List subjects with access to resource
 
 6. **WatchService** (`watch.rs`) - Real-time change streaming
-    - `watch_changes(vault, cursor, resource_type)` - Stream relationship changes
+   - `watch_changes(vault, cursor, resource_type)` - Stream relationship changes
 
 ### Service Creation Pattern
 

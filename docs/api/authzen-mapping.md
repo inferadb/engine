@@ -23,11 +23,11 @@ AuthZEN subjects are structured objects with a `type` and `id`. InferaDB convert
 
 ```json
 {
-    "type": "user",
-    "id": "alice",
-    "properties": {
-        "department": "engineering"
-    }
+  "type": "user",
+  "id": "alice",
+  "properties": {
+    "department": "engineering"
+  }
 }
 ```
 
@@ -42,9 +42,9 @@ AuthZEN subjects are structured objects with a `type` and `id`. InferaDB convert
 - **Parsing**: Extract `type` and `id` from structured object
 - **Generation**: Combine as `{type}:{id}`
 - **Validation**:
-    - Type must match `^[a-z_][a-z0-9_]*$`
-    - ID must match `^[a-z0-9_-]+$`
-    - Colon `:` is reserved as separator
+  - Type must match `^[a-z_][a-z0-9_]*$`
+  - ID must match `^[a-z0-9_-]+$`
+  - Colon `:` is reserved as separator
 
 **Subject Types:**
 
@@ -76,11 +76,11 @@ Resources follow the same structured to string conversion as subjects.
 
 ```json
 {
-    "type": "document",
-    "id": "design-proposal",
-    "properties": {
-        "classification": "internal"
-    }
+  "type": "document",
+  "id": "design-proposal",
+  "properties": {
+    "classification": "internal"
+  }
 }
 ```
 
@@ -187,22 +187,22 @@ InferaDB's native format uses a colon-separated string: `{type}:{id}`
 
 ```typescript
 function parseAuthZENEntity(entity: AuthZENEntity): string {
-    if (typeof entity === "string") {
-        // Already in InferaDB format
-        return entity;
-    }
+  if (typeof entity === "string") {
+    // Already in InferaDB format
+    return entity;
+  }
 
-    // Validate type format
-    if (!/^[a-z_][a-z0-9_]*$/.test(entity.type)) {
-        throw new Error(`Invalid type format: ${entity.type}`);
-    }
+  // Validate type format
+  if (!/^[a-z_][a-z0-9_]*$/.test(entity.type)) {
+    throw new Error(`Invalid type format: ${entity.type}`);
+  }
 
-    // Validate ID format
-    if (!/^[a-z0-9_-]+$/.test(entity.id)) {
-        throw new Error(`Invalid id format: ${entity.id}`);
-    }
+  // Validate ID format
+  if (!/^[a-z0-9_-]+$/.test(entity.id)) {
+    throw new Error(`Invalid id format: ${entity.id}`);
+  }
 
-    return `${entity.type}:${entity.id}`;
+  return `${entity.type}:${entity.id}`;
 }
 ```
 
@@ -210,16 +210,16 @@ function parseAuthZENEntity(entity: AuthZENEntity): string {
 
 ```typescript
 function generateAuthZENEntity(nativeFormat: string): AuthZENEntity {
-    const [type, id] = nativeFormat.split(":", 2);
+  const [type, id] = nativeFormat.split(":", 2);
 
-    if (!type || !id) {
-        throw new Error(`Invalid format: ${nativeFormat}`);
-    }
+  if (!type || !id) {
+    throw new Error(`Invalid format: ${nativeFormat}`);
+  }
 
-    return {
-        type,
-        id,
-    };
+  return {
+    type,
+    id,
+  };
 }
 ```
 
@@ -237,15 +237,15 @@ This represents "all members of team:engineering". In AuthZEN, this would be rep
 
 ```typescript
 function parseSubjectReference(ref: string): {
-    resource: string;
-    relation: string;
+  resource: string;
+  relation: string;
 } | null {
-    if (!ref.includes("#")) {
-        return null; // Not a subject reference
-    }
+  if (!ref.includes("#")) {
+    return null; // Not a subject reference
+  }
 
-    const [resource, relation] = ref.split("#", 2);
-    return { resource, relation };
+  const [resource, relation] = ref.split("#", 2);
+  return { resource, relation };
 }
 ```
 
@@ -261,19 +261,19 @@ InferaDB maintains backward compatibility by accepting both AuthZEN structured f
 ### Compatibility Rules
 
 1. **Input Acceptance:**
-    - All endpoints accept BOTH AuthZEN objects AND InferaDB strings
-    - Automatic detection and conversion
-    - No breaking changes for existing clients
+   - All endpoints accept BOTH AuthZEN objects AND InferaDB strings
+   - Automatic detection and conversion
+   - No breaking changes for existing clients
 
 2. **Output Format:**
-    - Core AuthZEN endpoints (`/access/v1/*`) return AuthZEN format
-    - Extension endpoints (`/v1/*`) return InferaDB native format
-    - Can be controlled via `Accept` header or query parameter (future)
+   - Core AuthZEN endpoints (`/access/v1/*`) return AuthZEN format
+   - Extension endpoints (`/v1/*`) return InferaDB native format
+   - Can be controlled via `Accept` header or query parameter (future)
 
 3. **Validation:**
-    - Both formats undergo the same validation rules
-    - Type and ID constraints are identical
-    - Invalid formats rejected with clear error messages
+   - Both formats undergo the same validation rules
+   - Type and ID constraints are identical
+   - Invalid formats rejected with clear error messages
 
 ### Migration Path
 
@@ -412,17 +412,17 @@ Content-Type: application/json
 
 ```json
 {
-    "subject": {
-        "type": "user",
-        "id": "alice"
-    },
-    "action": {
-        "name": "view"
-    },
-    "resource": {
-        "type": "document",
-        "id": "quarterly-report"
-    }
+  "subject": {
+    "type": "user",
+    "id": "alice"
+  },
+  "action": {
+    "name": "view"
+  },
+  "resource": {
+    "type": "document",
+    "id": "quarterly-report"
+  }
 }
 ```
 
@@ -440,9 +440,9 @@ Check {
 
 ```json
 {
-    "subject": "user:alice",
-    "relation": "viewer",
-    "resource": "document:quarterly-report"
+  "subject": "user:alice",
+  "relation": "viewer",
+  "resource": "document:quarterly-report"
 }
 ```
 
@@ -454,16 +454,16 @@ Check {
 
 ```json
 [
-    {
-        "subject": "user:alice",
-        "relation": "member",
-        "resource": "team:engineering"
-    },
-    {
-        "subject": "team:engineering#member",
-        "relation": "viewer",
-        "resource": "document:design-doc"
-    }
+  {
+    "subject": "user:alice",
+    "relation": "member",
+    "resource": "team:engineering"
+  },
+  {
+    "subject": "team:engineering#member",
+    "relation": "viewer",
+    "resource": "document:design-doc"
+  }
 ]
 ```
 
@@ -471,9 +471,9 @@ Check {
 
 ```json
 {
-    "subject": { "type": "user", "id": "alice" },
-    "action": { "name": "view" },
-    "resource": { "type": "document", "id": "design-doc" }
+  "subject": { "type": "user", "id": "alice" },
+  "action": { "name": "view" },
+  "resource": { "type": "document", "id": "design-doc" }
 }
 ```
 
@@ -491,23 +491,23 @@ Check {
 
 ```json
 {
-    "evaluations": [
-        {
-            "subject": { "type": "user", "id": "alice" },
-            "action": { "name": "view" },
-            "resource": { "type": "document", "id": "doc1" }
-        },
-        {
-            "subject": { "type": "user", "id": "alice" },
-            "action": { "name": "edit" },
-            "resource": { "type": "document", "id": "doc1" }
-        },
-        {
-            "subject": { "type": "user", "id": "alice" },
-            "action": { "name": "view" },
-            "resource": { "type": "document", "id": "doc2" }
-        }
-    ]
+  "evaluations": [
+    {
+      "subject": { "type": "user", "id": "alice" },
+      "action": { "name": "view" },
+      "resource": { "type": "document", "id": "doc1" }
+    },
+    {
+      "subject": { "type": "user", "id": "alice" },
+      "action": { "name": "edit" },
+      "resource": { "type": "document", "id": "doc1" }
+    },
+    {
+      "subject": { "type": "user", "id": "alice" },
+      "action": { "name": "view" },
+      "resource": { "type": "document", "id": "doc2" }
+    }
+  ]
 }
 ```
 
@@ -525,11 +525,11 @@ Check {
 
 ```json
 {
-    "evaluations": [
-        { "decision": true },
-        { "decision": false },
-        { "decision": true }
-    ]
+  "evaluations": [
+    { "decision": true },
+    { "decision": false },
+    { "decision": true }
+  ]
 }
 ```
 
@@ -539,9 +539,9 @@ Check {
 
 ```json
 {
-    "subject": { "type": "user", "id": "alice" },
-    "action": { "name": "view" },
-    "resource_type": "document"
+  "subject": { "type": "user", "id": "alice" },
+  "action": { "name": "view" },
+  "resource_type": "document"
 }
 ```
 
@@ -559,7 +559,7 @@ ListResources {
 
 ```json
 {
-    "resources": ["document:doc1", "document:doc2", "document:doc3"]
+  "resources": ["document:doc1", "document:doc2", "document:doc3"]
 }
 ```
 
@@ -567,11 +567,11 @@ ListResources {
 
 ```json
 {
-    "resources": [
-        { "type": "document", "id": "doc1" },
-        { "type": "document", "id": "doc2" },
-        { "type": "document", "id": "doc3" }
-    ]
+  "resources": [
+    { "type": "document", "id": "doc1" },
+    { "type": "document", "id": "doc2" },
+    { "type": "document", "id": "doc3" }
+  ]
 }
 ```
 
@@ -581,8 +581,8 @@ ListResources {
 
 ```json
 {
-    "resource": { "type": "document", "id": "design-doc" },
-    "action": { "name": "edit" }
+  "resource": { "type": "document", "id": "design-doc" },
+  "action": { "name": "edit" }
 }
 ```
 
@@ -599,7 +599,7 @@ ListSubjects {
 
 ```json
 {
-    "subjects": ["user:alice", "user:bob", "team:engineering#member"]
+  "subjects": ["user:alice", "user:bob", "team:engineering#member"]
 }
 ```
 
@@ -607,11 +607,11 @@ ListSubjects {
 
 ```json
 {
-    "subjects": [
-        { "type": "user", "id": "alice" },
-        { "type": "user", "id": "bob" },
-        { "type": "team", "id": "engineering", "relation": "member" }
-    ]
+  "subjects": [
+    { "type": "user", "id": "alice" },
+    { "type": "user", "id": "bob" },
+    { "type": "team", "id": "engineering", "relation": "member" }
+  ]
 }
 ```
 
@@ -688,15 +688,15 @@ InferaDB optimizes for the native string format internally:
 
 ```json
 {
-    "error": {
-        "code": "invalid_type_format",
-        "message": "Type must match pattern ^[a-z_][a-z0-9_]*$",
-        "details": {
-            "field": "subject.type",
-            "value": "User",
-            "expected": "user"
-        }
+  "error": {
+    "code": "invalid_type_format",
+    "message": "Type must match pattern ^[a-z_][a-z0-9_]*$",
+    "details": {
+      "field": "subject.type",
+      "value": "User",
+      "expected": "user"
     }
+  }
 }
 ```
 
@@ -704,15 +704,15 @@ InferaDB optimizes for the native string format internally:
 
 ```json
 {
-    "error": {
-        "code": "invalid_id_format",
-        "message": "ID must match pattern ^[a-z0-9_-]+$",
-        "details": {
-            "field": "resource.id",
-            "value": "Doc@123",
-            "expected": "doc-123"
-        }
+  "error": {
+    "code": "invalid_id_format",
+    "message": "ID must match pattern ^[a-z0-9_-]+$",
+    "details": {
+      "field": "resource.id",
+      "value": "Doc@123",
+      "expected": "doc-123"
     }
+  }
 }
 ```
 
@@ -720,14 +720,14 @@ InferaDB optimizes for the native string format internally:
 
 ```json
 {
-    "error": {
-        "code": "missing_required_field",
-        "message": "Subject must have both 'type' and 'id' fields",
-        "details": {
-            "field": "subject",
-            "missing": ["id"]
-        }
+  "error": {
+    "code": "missing_required_field",
+    "message": "Subject must have both 'type' and 'id' fields",
+    "details": {
+      "field": "subject",
+      "missing": ["id"]
     }
+  }
 }
 ```
 
@@ -751,15 +751,15 @@ Use TypeScript or other type-safe languages with proper type definitions for Aut
 
 ```typescript
 interface AuthZENEntity {
-    type: string;
-    id: string;
-    properties?: Record<string, any>;
+  type: string;
+  id: string;
+  properties?: Record<string, any>;
 }
 
 interface AuthZENEvaluationRequest {
-    subject: AuthZENEntity | string;
-    action: { name: string };
-    resource: AuthZENEntity | string;
+  subject: AuthZENEntity | string;
+  action: { name: string };
+  resource: AuthZENEntity | string;
 }
 ```
 
@@ -769,17 +769,17 @@ When working with computed usersets (subject references), explicitly handle the 
 
 ```typescript
 function isSubjectReference(subject: string): boolean {
-    return subject.includes("#");
+  return subject.includes("#");
 }
 
 function parseSubjectRef(ref: string): {
-    type: string;
-    id: string;
-    relation: string;
+  type: string;
+  id: string;
+  relation: string;
 } {
-    const [typeId, relation] = ref.split("#");
-    const [type, id] = typeId.split(":");
-    return { type, id, relation };
+  const [typeId, relation] = ref.split("#");
+  const [type, id] = typeId.split(":");
+  return { type, id, relation };
 }
 ```
 
@@ -791,12 +791,12 @@ function parseSubjectRef(ref: string): {
 
 ```javascript
 const response = await fetch("/v1/evaluate", {
-    method: "POST",
-    body: JSON.stringify({
-        subject: "user:alice",
-        relation: "viewer",
-        resource: "document:123",
-    }),
+  method: "POST",
+  body: JSON.stringify({
+    subject: "user:alice",
+    relation: "viewer",
+    resource: "document:123",
+  }),
 });
 ```
 
@@ -804,12 +804,12 @@ const response = await fetch("/v1/evaluate", {
 
 ```javascript
 const response = await fetch("/access/v1/evaluation", {
-    method: "POST",
-    body: JSON.stringify({
-        subject: { type: "user", id: "alice" },
-        action: { name: "view" },
-        resource: { type: "document", id: "123" },
-    }),
+  method: "POST",
+  body: JSON.stringify({
+    subject: { type: "user", id: "alice" },
+    action: { name: "view" },
+    resource: { type: "document", id: "123" },
+  }),
 });
 ```
 
@@ -819,12 +819,12 @@ const response = await fetch("/access/v1/evaluation", {
 
 ```javascript
 const response = await fetch("/access/v1/evaluation", {
-    method: "POST",
-    body: JSON.stringify({
-        subject: { type: "user", id: "alice" },
-        action: { name: "view" },
-        resource: { type: "document", id: "123" },
-    }),
+  method: "POST",
+  body: JSON.stringify({
+    subject: { type: "user", id: "alice" },
+    action: { name: "view" },
+    resource: { type: "document", id: "123" },
+  }),
 });
 ```
 
@@ -832,12 +832,12 @@ const response = await fetch("/access/v1/evaluation", {
 
 ```javascript
 const response = await fetch("/v1/evaluate", {
-    method: "POST",
-    body: JSON.stringify({
-        subject: "user:alice",
-        relation: "viewer",
-        resource: "document:123",
-    }),
+  method: "POST",
+  body: JSON.stringify({
+    subject: "user:alice",
+    relation: "viewer",
+    resource: "document:123",
+  }),
 });
 ```
 

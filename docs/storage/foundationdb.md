@@ -44,8 +44,8 @@ InferaDB uses FoundationDB's **subspace** feature to organize data into three lo
 **3. Indexes Subspace**
 
 - Two index types for efficient queries:
-    - **Object index**: Forward lookup (object+relation → users)
-    - **User index**: Reverse lookup (user+relation → objects)
+  - **Object index**: Forward lookup (object+relation → users)
+  - **User index**: Reverse lookup (user+relation → objects)
 - Maintains revision history per index entry
 
 ### Data Model
@@ -64,30 +64,31 @@ pub struct FoundationDBBackend {
 ### Prerequisites
 
 1. **FoundationDB Cluster**
-    - Version 6.3 or higher recommended
-    - Running fdbserver instances
-    - Configured cluster file
+   - Version 6.3 or higher recommended
+   - Running fdbserver instances
+   - Configured cluster file
 
 2. **FoundationDB Client Library**
 
-    ```bash
-    # macOS
-    brew install foundationdb
+   ```bash
+   # macOS
+   brew install foundationdb
 
-    # Ubuntu/Debian
-    wget https://github.com/apple/foundationdb/releases/download/7.1.27/foundationdb-clients_7.1.27-1_amd64.deb
-    sudo dpkg -i foundationdb-clients_7.1.27-1_amd64.deb
+   # Ubuntu/Debian
+   wget https://github.com/apple/foundationdb/releases/download/7.1.27/foundationdb-clients_7.1.27-1_amd64.deb
+   sudo dpkg -i foundationdb-clients_7.1.27-1_amd64.deb
 
-    # Or build from source
-    git clone https://github.com/apple/foundationdb.git
-    ```
+   # Or build from source
+   git clone https://github.com/apple/foundationdb.git
+   ```
 
 3. **Rust with FDB Feature**
-    ```toml
-    # Cargo.toml
-    [dependencies]
-    infera-store = { version = "0.1", features = ["fdb"] }
-    ```
+
+   ```toml
+   # Cargo.toml
+   [dependencies]
+   infera-store = { version = "0.1", features = ["fdb"] }
+   ```
 
 ### Compilation
 
@@ -183,9 +184,9 @@ let tuples = store.read(&key, revision).await?;
 1. Begin FDB transaction
 2. Read and increment global revision counter
 3. For each tuple:
-    - Write tuple data to tuples subspace
-    - Update object index
-    - Update user index
+   - Write tuple data to tuples subspace
+   - Update object index
+   - Update user index
 4. Commit transaction (automatic retries on conflict)
 
 **Example:**
@@ -577,20 +578,21 @@ for chunk in tuples.chunks(1000) {
 
 1. Verify FDB cluster is running:
 
-    ```bash
-    fdbcli> status
-    ```
+   ```bash
+   fdbcli> status
+   ```
 
 2. Check cluster file exists:
 
-    ```bash
-    ls -la /etc/foundationdb/fdb.cluster
-    ```
+   ```bash
+   ls -la /etc/foundationdb/fdb.cluster
+   ```
 
 3. Verify client can connect:
-    ```bash
-    fdbcli> status
-    ```
+
+   ```bash
+   fdbcli> status
+   ```
 
 ### Transaction Timeouts
 
@@ -601,9 +603,10 @@ for chunk in tuples.chunks(1000) {
 1. Reduce transaction size
 2. Check FDB cluster health
 3. Increase timeout (not recommended):
-    ```rust
-    // Requires custom transaction handling
-    ```
+
+   ```rust
+   // Requires custom transaction handling
+   ```
 
 ### Performance Issues
 

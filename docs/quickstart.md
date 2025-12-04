@@ -340,32 +340,32 @@ Response shows evaluation tree:
 
 ```json
 {
-    "results": [
-        {
+  "results": [
+    {
+      "decision": "allow",
+      "trace": {
+        "decision": "allow",
+        "node_type": "union",
+        "children": [
+          {
             "decision": "allow",
-            "trace": {
-                "decision": "allow",
-                "node_type": "union",
-                "children": [
-                    {
-                        "decision": "allow",
-                        "node_type": "direct",
-                        "relation": "viewer"
-                    },
-                    {
-                        "decision": "deny",
-                        "node_type": "computed_userset",
-                        "relation": "editor"
-                    },
-                    {
-                        "decision": "deny",
-                        "node_type": "computed_userset",
-                        "relation": "owner"
-                    }
-                ]
-            }
-        }
-    ]
+            "node_type": "direct",
+            "relation": "viewer"
+          },
+          {
+            "decision": "deny",
+            "node_type": "computed_userset",
+            "relation": "editor"
+          },
+          {
+            "decision": "deny",
+            "node_type": "computed_userset",
+            "relation": "owner"
+          }
+        ]
+      }
+    }
+  ]
 }
 ```
 
@@ -394,9 +394,9 @@ Check that relationships have all required fields:
 
 ```json
 {
-    "resource": "resource:id", // Required
-    "relation": "relation_name", // Required
-    "subject": "subject:id" // Required
+  "resource": "resource:id", // Required
+  "relation": "relation_name", // Required
+  "subject": "subject:id" // Required
 }
 ```
 
@@ -406,11 +406,11 @@ Check that relationships have all required fields:
 
 2. Use trace to see evaluation:
 
-    ```bash
-    curl -X POST http://localhost:8080/v1/evaluate \
-      -H "Content-Type: application/json" \
-      -d '{"evaluations": [...], "trace": true}'
-    ```
+   ```bash
+   curl -X POST http://localhost:8080/v1/evaluate \
+     -H "Content-Type: application/json" \
+     -d '{"evaluations": [...], "trace": true}'
+   ```
 
 3. Verify schema definition matches expected behavior
 
@@ -515,7 +515,7 @@ Response:
 
 ```json
 {
-    "decision": true
+  "decision": true
 }
 ```
 
@@ -546,7 +546,7 @@ Response:
 
 ```json
 {
-    "evaluations": [{ "decision": true }, { "decision": false }]
+  "evaluations": [{ "decision": true }, { "decision": false }]
 }
 ```
 
@@ -568,10 +568,10 @@ Response:
 
 ```json
 {
-    "resources": [
-        { "type": "document", "id": "readme" },
-        { "type": "document", "id": "guide" }
-    ]
+  "resources": [
+    { "type": "document", "id": "readme" },
+    { "type": "document", "id": "guide" }
+  ]
 }
 ```
 
@@ -587,17 +587,17 @@ Response shows available endpoints and extensions:
 
 ```json
 {
-    "issuer": "http://127.0.0.1:8080",
-    "access_evaluation_endpoint": "http://127.0.0.1:8080/access/v1/evaluation",
-    "access_evaluations_endpoint": "http://127.0.0.1:8080/access/v1/evaluations",
-    "search_resource_endpoint": "http://127.0.0.1:8080/access/v1/search/resource",
-    "search_subject_endpoint": "http://127.0.0.1:8080/access/v1/search/subject",
-    "extensions": {
-        "inferadb_relationship_management": true,
-        "inferadb_relation_expansion": true,
-        "inferadb_simulation": true,
-        "inferadb_realtime_streaming": true
-    }
+  "issuer": "http://127.0.0.1:8080",
+  "access_evaluation_endpoint": "http://127.0.0.1:8080/access/v1/evaluation",
+  "access_evaluations_endpoint": "http://127.0.0.1:8080/access/v1/evaluations",
+  "search_resource_endpoint": "http://127.0.0.1:8080/access/v1/search/resource",
+  "search_subject_endpoint": "http://127.0.0.1:8080/access/v1/search/subject",
+  "extensions": {
+    "inferadb_relationship_management": true,
+    "inferadb_relation_expansion": true,
+    "inferadb_simulation": true,
+    "inferadb_realtime_streaming": true
+  }
 }
 ```
 

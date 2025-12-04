@@ -50,13 +50,13 @@ export INFERADB__OBSERVABILITY__AUDIT_SAMPLE_RATE=1.0
 
 ```yaml
 global:
-    scrape_interval: 15s
+  scrape_interval: 15s
 
 scrape_configs:
-    - job_name: "inferadb"
-      static_configs:
-          - targets: ["localhost:8080"]
-      metrics_path: "/metrics"
+  - job_name: "inferadb"
+    static_configs:
+      - targets: ["localhost:8080"]
+    metrics_path: "/metrics"
 ```
 
 **Start Prometheus**:
@@ -68,7 +68,7 @@ docker run -d --name prometheus \
   prom/prometheus
 ```
 
-**Access**: http://localhost:9090
+**Access**: <http://localhost:9090>
 
 ### Grafana Dashboard
 
@@ -76,43 +76,43 @@ docker run -d --name prometheus \
 
 ```json
 {
-    "dashboard": {
-        "title": "InferaDB Overview",
-        "panels": [
-            {
-                "title": "Request Rate",
-                "targets": [
-                    {
-                        "expr": "rate(inferadb_checks_total[5m])"
-                    }
-                ]
-            },
-            {
-                "title": "p99 Latency",
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m]))"
-                    }
-                ]
-            },
-            {
-                "title": "Cache Hit Rate",
-                "targets": [
-                    {
-                        "expr": "inferadb_cache_hit_rate"
-                    }
-                ]
-            },
-            {
-                "title": "Error Rate",
-                "targets": [
-                    {
-                        "expr": "sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) * 100"
-                    }
-                ]
-            }
+  "dashboard": {
+    "title": "InferaDB Overview",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "targets": [
+          {
+            "expr": "rate(inferadb_checks_total[5m])"
+          }
         ]
-    }
+      },
+      {
+        "title": "p99 Latency",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m]))"
+          }
+        ]
+      },
+      {
+        "title": "Cache Hit Rate",
+        "targets": [
+          {
+            "expr": "inferadb_cache_hit_rate"
+          }
+        ]
+      },
+      {
+        "title": "Error Rate",
+        "targets": [
+          {
+            "expr": "sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) * 100"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -122,61 +122,61 @@ docker run -d --name prometheus \
 
 ```yaml
 groups:
-    - name: inferadb
-      rules:
-          # High error rate
-          - alert: HighErrorRate
-            expr: sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) > 0.05
-            for: 5m
-            labels:
-                severity: warning
-            annotations:
-                summary: "High error rate detected"
-                description: "Error rate is {{ $value }}% (threshold: 5%)"
+  - name: inferadb
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }}% (threshold: 5%)"
 
-          # High latency
-          - alert: HighLatency
-            expr: histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) > 0.1
-            for: 5m
-            labels:
-                severity: warning
-            annotations:
-                summary: "High p99 latency detected"
-                description: "p99 latency is {{ $value }}s (threshold: 100ms)"
+      # High latency
+      - alert: HighLatency
+        expr: histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p99 latency detected"
+          description: "p99 latency is {{ $value }}s (threshold: 100ms)"
 
-          # Low cache hit rate
-          - alert: LowCacheHitRate
-            expr: inferadb_cache_hit_rate < 50
-            for: 10m
-            labels:
-                severity: info
-            annotations:
-                summary: "Low cache hit rate"
-                description: "Cache hit rate is {{ $value }}% (threshold: 50%)"
+      # Low cache hit rate
+      - alert: LowCacheHitRate
+        expr: inferadb_cache_hit_rate < 50
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value }}% (threshold: 50%)"
 
-          # High storage latency
-          - alert: HighStorageLatency
-            expr: histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) > 0.05
-            for: 5m
-            labels:
-                severity: warning
-            annotations:
-                summary: "High storage read latency"
-                description: "p99 storage read latency is {{ $value }}s (threshold: 50ms)"
+      # High storage latency
+      - alert: HighStorageLatency
+        expr: histogram_quantile(0.99, rate(inferadb_storage_read_duration_seconds_bucket[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High storage read latency"
+          description: "p99 storage read latency is {{ $value }}s (threshold: 50ms)"
 
-          # High replication lag
-          - alert: HighReplicationLag
-            expr: inferadb_replication_lag_milliseconds > 100
-            for: 5m
-            annotations:
-                summary: "High replication lag ({{ $value }}ms)"
+      # High replication lag
+      - alert: HighReplicationLag
+        expr: inferadb_replication_lag_milliseconds > 100
+        for: 5m
+        annotations:
+          summary: "High replication lag ({{ $value }}ms)"
 
-          # Replication target unhealthy
-          - alert: ReplicationTargetUnhealthy
-            expr: (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
-            for: 2m
-            annotations:
-                summary: "Replication target unhealthy"
+      # Replication target unhealthy
+      - alert: ReplicationTargetUnhealthy
+        expr: (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
+        for: 2m
+        annotations:
+          summary: "Replication target unhealthy"
 ```
 
 ## Performance Monitoring

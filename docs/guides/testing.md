@@ -117,22 +117,22 @@ cargo test --test '*'
 **Example Tests**:
 
 1. **Document Management** ([`tests/document_management.rs`](../crates/infera-core/tests/document_management.rs))
-    - Direct document permissions
-    - Editor and viewer permissions
-    - Hierarchical folder permissions
-    - Permission revocation
+   - Direct document permissions
+   - Editor and viewer permissions
+   - Hierarchical folder permissions
+   - Permission revocation
 
 2. **Organization Hierarchy** ([`tests/organization_hierarchy.rs`](../crates/infera-core/tests/organization_hierarchy.rs))
-    - Organization admin permissions
-    - Team member permissions
-    - Hierarchical org-to-team-to-project permissions
-    - Multi-level hierarchy
+   - Organization admin permissions
+   - Team member permissions
+   - Hierarchical org-to-team-to-project permissions
+   - Multi-level hierarchy
 
 3. **Role-Based Access Control** ([`tests/role_based_access.rs`](../crates/infera-core/tests/role_based_access.rs))
-    - Basic role assignment
-    - Role hierarchy
-    - Multiple roles per user
-    - RBAC with multiple users
+   - Basic role assignment
+   - Role hierarchy
+   - Multiple roles per user
+   - RBAC with multiple users
 
 **Example**:
 
@@ -292,25 +292,25 @@ cargo test --package infera-wasm --test sandbox_security
 **Example Tests**:
 
 1. **Memory Limit Enforcement**
-    - Modules cannot exceed memory limits
-    - Out-of-bounds access detected
+   - Modules cannot exceed memory limits
+   - Out-of-bounds access detected
 
 2. **Fuel Limit Enforcement**
-    - Infinite loops are terminated
-    - CPU limits prevent DoS
+   - Infinite loops are terminated
+   - CPU limits prevent DoS
 
 3. **Filesystem/Network Isolation**
-    - WASI disabled (no filesystem access)
-    - No network access possible
+   - WASI disabled (no filesystem access)
+   - No network access possible
 
 4. **Module Isolation**
-    - Modules from different tenants isolated
-    - No shared state between modules
+   - Modules from different tenants isolated
+   - No shared state between modules
 
 5. **Malicious Code Prevention**
-    - Invalid bytecode rejected
-    - Stack overflow prevented
-    - Memory bounds enforced
+   - Invalid bytecode rejected
+   - Stack overflow prevented
+   - Memory bounds enforced
 
 **Example**:
 
@@ -730,24 +730,24 @@ name: Tests
 on: [push, pull_request]
 
 jobs:
-    test:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v3
-            - uses: dtolnay/rust-toolchain@stable
-            - uses: Swatinem/rust-cache@v2
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
-            - name: Run tests
-              run: cargo test --workspace --all-features
+      - name: Run tests
+        run: cargo test --workspace --all-features
 
-            - name: Run benchmarks (check only)
-              run: cargo bench --no-run
+      - name: Run benchmarks (check only)
+        run: cargo bench --no-run
 
-            - name: Run clippy
-              run: cargo clippy -- -D warnings
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
 
-            - name: Check formatting
-              run: cargo fmt --check
+      - name: Check formatting
+        run: cargo fmt --check
 ```
 
 ---
@@ -795,11 +795,11 @@ lldb target/debug/deps/my_test-<hash>
 Current test statistics:
 
 - **Total tests**: 239
-    - Unit tests: 204
-    - Integration tests: 25
-    - Property tests: 8
-    - Fuzz tests: 22
-    - Security tests: 13
+  - Unit tests: 204
+  - Integration tests: 25
+  - Property tests: 8
+  - Fuzz tests: 22
+  - Security tests: 13
 - **Test coverage**: >80%
 - **Test execution time**: <10 seconds
 

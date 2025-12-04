@@ -403,57 +403,57 @@ export INFERADB__REPLICATION__BUFFER_SIZE=10000
 
 ```yaml
 replication:
-    # Replication strategy: active_active, primary_replica, or multi_master
-    strategy: active_active
+  # Replication strategy: active_active, primary_replica, or multi_master
+  strategy: active_active
 
-    # Local region identifier
-    local_region: us-west-1
+  # Local region identifier
+  local_region: us-west-1
 
-    # Conflict resolution: lww, source_priority, insert_wins, or custom
-    conflict_resolution: lww
+  # Conflict resolution: lww, source_priority, insert_wins, or custom
+  conflict_resolution: lww
 
-    # Region priorities (for source_priority strategy)
-    region_priorities:
-        - us-west-1
-        - eu-central-1
-        - ap-southeast-1
+  # Region priorities (for source_priority strategy)
+  region_priorities:
+    - us-west-1
+    - eu-central-1
+    - ap-southeast-1
 
-    # Agent configuration
-    agent:
-        max_retries: 5
-        retry_delay_ms: 100
-        batch_size: 100
-        request_timeout_secs: 10
-        buffer_size: 10000
+  # Agent configuration
+  agent:
+    max_retries: 5
+    retry_delay_ms: 100
+    batch_size: 100
+    request_timeout_secs: 10
+    buffer_size: 10000
 
-    # Topology definition
-    regions:
-        - id: us-west-1
-          name: "US West 1"
-          is_primary: false
-          zones:
-              - id: us-west-1a
-                name: "Zone A"
-                nodes:
-                    - id: node1
-                      endpoint: "localhost:50051"
+  # Topology definition
+  regions:
+    - id: us-west-1
+      name: "US West 1"
+      is_primary: false
+      zones:
+        - id: us-west-1a
+          name: "Zone A"
+          nodes:
+            - id: node1
+              endpoint: "localhost:50051"
 
-        - id: eu-central-1
-          name: "EU Central 1"
-          is_primary: false
-          zones:
-              - id: eu-central-1a
-                name: "Zone A"
-                nodes:
-                    - id: node2
-                      endpoint: "localhost:50052"
+    - id: eu-central-1
+      name: "EU Central 1"
+      is_primary: false
+      zones:
+        - id: eu-central-1a
+          name: "Zone A"
+          nodes:
+            - id: node2
+              endpoint: "localhost:50052"
 
-    # Replication graph (which regions replicate to which)
-    replication_targets:
-        us-west-1:
-            - eu-central-1
-        eu-central-1:
-            - us-west-1
+  # Replication graph (which regions replicate to which)
+  replication_targets:
+    us-west-1:
+      - eu-central-1
+    eu-central-1:
+      - us-west-1
 ```
 
 ## Deployment Patterns
@@ -472,16 +472,16 @@ replication:
 
 ```yaml
 replication:
-    strategy: active_active
-    local_region: us-west-1
-    conflict_resolution: lww
-    regions:
-        - id: us-west-1
-          name: "US West"
-          zones: [...]
-        - id: eu-central-1
-          name: "EU Central"
-          zones: [...]
+  strategy: active_active
+  local_region: us-west-1
+  conflict_resolution: lww
+  regions:
+    - id: us-west-1
+      name: "US West"
+      zones: [...]
+    - id: eu-central-1
+      name: "EU Central"
+      zones: [...]
 ```
 
 ### Three-Region Primary-Replica
@@ -498,22 +498,22 @@ replication:
 
 ```yaml
 replication:
-    strategy: primary_replica
-    local_region: us-west-1 # on primary
-    conflict_resolution: lww
-    regions:
-        - id: us-west-1
-          name: "US West"
-          is_primary: true
-          zones: [...]
-        - id: eu-central-1
-          name: "EU Central"
-          is_primary: false
-          zones: [...]
-        - id: ap-southeast-1
-          name: "AP Southeast"
-          is_primary: false
-          zones: [...]
+  strategy: primary_replica
+  local_region: us-west-1 # on primary
+  conflict_resolution: lww
+  regions:
+    - id: us-west-1
+      name: "US West"
+      is_primary: true
+      zones: [...]
+    - id: eu-central-1
+      name: "EU Central"
+      is_primary: false
+      zones: [...]
+    - id: ap-southeast-1
+      name: "AP Southeast"
+      is_primary: false
+      zones: [...]
 ```
 
 ### Multi-Region Multi-Master
@@ -530,13 +530,13 @@ replication:
 
 ```yaml
 replication:
-    strategy: multi_master
-    local_region: us-west-1
-    conflict_resolution: source_priority
-    region_priorities:
-        - us-west-1
-        - eu-central-1
-        - ap-southeast-1
+  strategy: multi_master
+  local_region: us-west-1
+  conflict_resolution: source_priority
+  region_priorities:
+    - us-west-1
+    - eu-central-1
+    - ap-southeast-1
 ```
 
 ## Troubleshooting
@@ -621,7 +621,7 @@ Smaller batches = lower latency, more overhead
 
 ```yaml
 agent:
-    batch_size: 100 # Good default
+  batch_size: 100 # Good default
 ```
 
 ### Retry Configuration
@@ -633,8 +633,8 @@ Conservative retries = less load, slower recovery
 
 ```yaml
 agent:
-    max_retries: 5
-    retry_delay_ms: 100
+  max_retries: 5
+  retry_delay_ms: 100
 ```
 
 ### Buffer Size
@@ -646,7 +646,7 @@ Smaller buffer = less memory, may drop changes under load
 
 ```yaml
 agent:
-    buffer_size: 10000
+  buffer_size: 10000
 ```
 
 ## Best Practices
@@ -691,7 +691,7 @@ Regularly test:
 
 ## API Reference
 
-### Complete API documentation:
+### Complete API documentation
 
 - **Topology API**: See [`infera-repl/src/topology.rs`](../crates/infera-repl/src/topology.rs)
 - **Conflict Resolution API**: See [`infera-repl/src/conflict.rs`](../crates/infera-repl/src/conflict.rs)

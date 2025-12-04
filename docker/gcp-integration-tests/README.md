@@ -115,18 +115,18 @@ docker-compose down
 ### Components
 
 1. **Test Runner Container** (`test-runner`)
-    - Based on `rust:1-slim` with nightly toolchain
-    - All Rust dependencies cached
-    - Source code mounted for live development
-    - Runs unit tests that don't require real GCP
+   - Based on `rust:1-slim` with nightly toolchain
+   - All Rust dependencies cached
+   - Source code mounted for live development
+   - Runs unit tests that don't require real GCP
 
 2. **Shared Network** (`gcp-test-network`)
-    - Isolated bridge network for test isolation
+   - Isolated bridge network for test isolation
 
 3. **Volumes**
-    - `cargo-registry`: Cached cargo dependencies
-    - `cargo-git`: Cached git dependencies
-    - `target-cache`: Compiled artifacts cache
+   - `cargo-registry`: Cached cargo dependencies
+   - `cargo-git`: Cached git dependencies
+   - `target-cache`: Compiled artifacts cache
 
 ### Architecture
 
@@ -182,9 +182,10 @@ docker-compose down
 2. View emulator logs: `docker-compose logs fake-gcp`
 3. Check emulator health: `curl http://localhost:8085`
 4. Verify secrets exist:
-    ```bash
-    docker-compose exec test-runner gcloud secrets list --project=test-project
-    ```
+
+   ```bash
+   docker-compose exec test-runner gcloud secrets list --project=test-project
+   ```
 
 ### Build Fails with "No Space Left on Device"
 
@@ -246,48 +247,50 @@ The emulator has some limitations compared to real GCP:
 2. Ensure tests use `SECRETMANAGER_EMULATOR_HOST` environment variable
 3. Run tests: `./docker/gcp-integration-tests/test.sh`
 4. Iterate in interactive mode:
-    ```bash
-    ./docker/gcp-integration-tests/shell.sh
-    # Inside container
-    cargo test -p infera-config --features gcp-secrets <test_name>
-    ```
+
+   ```bash
+   ./docker/gcp-integration-tests/shell.sh
+   # Inside container
+   cargo test -p infera-config --features gcp-secrets <test_name>
+   ```
 
 ### Debugging Test Failures
 
 1. Start environment:
 
-    ```bash
-    cd docker/gcp-integration-tests
-    docker-compose up -d
-    ```
+   ```bash
+   cd docker/gcp-integration-tests
+   docker-compose up -d
+   ```
 
 2. Access container:
 
-    ```bash
-    ./shell.sh
-    ```
+   ```bash
+   ./shell.sh
+   ```
 
 3. Inspect emulator state:
 
-    ```bash
-    # List all secrets
-    gcloud secrets list --project=test-project
+   ```bash
+   # List all secrets
+   gcloud secrets list --project=test-project
 
-    # Get secret value
-    gcloud secrets versions access latest \
-      --secret=test-secret-1 \
-      --project=test-project
+   # Get secret value
+   gcloud secrets versions access latest \
+     --secret=test-secret-1 \
+     --project=test-project
 
-    # Describe secret
-    gcloud secrets describe test-secret-1 --project=test-project
-    ```
+   # Describe secret
+   gcloud secrets describe test-secret-1 --project=test-project
+   ```
 
 4. Re-run specific test:
-    ```bash
-    RUST_BACKTRACE=full cargo test -p infera-config \
-      --features gcp-secrets \
-      test_name -- --nocapture
-    ```
+
+   ```bash
+   RUST_BACKTRACE=full cargo test -p infera-config \
+     --features gcp-secrets \
+     test_name -- --nocapture
+   ```
 
 ## CI/CD Integration
 
@@ -299,28 +302,28 @@ name: GCP Integration Tests
 on: [push, pull_request]
 
 jobs:
-    gcp-tests:
-        runs-on: ubuntu-latest
+  gcp-tests:
+    runs-on: ubuntu-latest
 
-        steps:
-            - uses: actions/checkout@v3
+    steps:
+      - uses: actions/checkout@v3
 
-            - name: Run GCP Integration Tests
-              run: |
-                  cd server
-                  ./docker/gcp-integration-tests/test.sh
+      - name: Run GCP Integration Tests
+        run: |
+          cd server
+          ./docker/gcp-integration-tests/test.sh
 ```
 
 ### GitLab CI Example
 
 ```yaml
 gcp-integration-tests:
-    image: docker:latest
-    services:
-        - docker:dind
-    script:
-        - cd server
-        - ./docker/gcp-integration-tests/test.sh
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - cd server
+    - ./docker/gcp-integration-tests/test.sh
 ```
 
 ## Performance Considerations
@@ -372,7 +375,7 @@ gcp-integration-tests:
 For issues specific to:
 
 - **This Docker setup:** Check this README and troubleshooting section
-- **GCP Emulator:** https://cloud.google.com/sdk/gcloud/reference/beta/emulators/secretmanager
+- **GCP Emulator:** <https://cloud.google.com/sdk/gcloud/reference/beta/emulators/secretmanager>
 - **GCP Secret Manager:** See GCP documentation
 - **InferaDB:** See main project documentation
 

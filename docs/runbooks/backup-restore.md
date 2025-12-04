@@ -142,56 +142,56 @@ fdb> backup status
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-    name: fdb-backup
-    namespace: inferadb
+  name: fdb-backup
+  namespace: inferadb
 spec:
-    schedule: "0 2 * * *" # Daily at 2 AM
-    jobTemplate:
+  schedule: "0 2 * * *" # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
         spec:
-            template:
-                spec:
-                    containers:
-                        - name: backup
-                          image: foundationdb/foundationdb:7.1.38
-                          command:
-                              - /bin/bash
-                              - -c
-                              - |
-                                  DATE=$(date +%Y%m%d-%H%M%S)
-                                  DEST="blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/${DATE}"
+          containers:
+            - name: backup
+              image: foundationdb/foundationdb:7.1.38
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  DATE=$(date +%Y%m%d-%H%M%S)
+                  DEST="blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/${DATE}"
 
-                                  echo "Starting backup to ${DEST}"
-                                  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup start -d ${DEST} -s"
+                  echo "Starting backup to ${DEST}"
+                  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup start -d ${DEST} -s"
 
-                                  echo "Waiting for backup to complete"
-                                  while true; do
-                                    STATUS=$(fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup status")
-                                    if echo "$STATUS" | grep -q "Backup complete"; then
-                                      echo "Backup completed successfully"
-                                      break
-                                    fi
-                                    sleep 30
-                                  done
-                          volumeMounts:
-                              - name: fdb-cluster-file
-                                mountPath: /etc/foundationdb
-                                readOnly: true
-                          env:
-                              - name: AWS_ACCESS_KEY_ID
-                                valueFrom:
-                                    secretKeyRef:
-                                        name: aws-credentials
-                                        key: access_key_id
-                              - name: AWS_SECRET_ACCESS_KEY
-                                valueFrom:
-                                    secretKeyRef:
-                                        name: aws-credentials
-                                        key: secret_access_key
-                    volumes:
-                        - name: fdb-cluster-file
-                          secret:
-                              secretName: fdb-cluster-file
-                    restartPolicy: OnFailure
+                  echo "Waiting for backup to complete"
+                  while true; do
+                    STATUS=$(fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup status")
+                    if echo "$STATUS" | grep -q "Backup complete"; then
+                      echo "Backup completed successfully"
+                      break
+                    fi
+                    sleep 30
+                  done
+              volumeMounts:
+                - name: fdb-cluster-file
+                  mountPath: /etc/foundationdb
+                  readOnly: true
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: access_key_id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: secret_access_key
+          volumes:
+            - name: fdb-cluster-file
+              secret:
+                secretName: fdb-cluster-file
+          restartPolicy: OnFailure
 ```
 
 ### Backup Verification
@@ -434,24 +434,24 @@ lifecycle.json:
 
 ```json
 {
-    "Rules": [
-        {
-            "Id": "DeleteOldBackups",
-            "Status": "Enabled",
-            "Prefix": "fdb-backups/daily/",
-            "Expiration": {
-                "Days": 30
-            }
-        },
-        {
-            "Id": "DeleteOldSnapshots",
-            "Status": "Enabled",
-            "Prefix": "fdb-backups/monthly/",
-            "Expiration": {
-                "Days": 365
-            }
-        }
-    ]
+  "Rules": [
+    {
+      "Id": "DeleteOldBackups",
+      "Status": "Enabled",
+      "Prefix": "fdb-backups/daily/",
+      "Expiration": {
+        "Days": 30
+      }
+    },
+    {
+      "Id": "DeleteOldSnapshots",
+      "Status": "Enabled",
+      "Prefix": "fdb-backups/monthly/",
+      "Expiration": {
+        "Days": 365
+      }
+    }
+  ]
 }
 ```
 
@@ -496,25 +496,25 @@ kubectl delete namespace $NAMESPACE
 ```yaml
 # Alert on backup failures
 groups:
-    - name: fdb-backup
-      rules:
-          - alert: FDBBackupFailed
-            expr: fdb_backup_status != 1
-            for: 15m
-            labels:
-                severity: critical
-            annotations:
-                summary: "FDB backup failed"
-                description: "Backup has been failing for 15 minutes"
+  - name: fdb-backup
+    rules:
+      - alert: FDBBackupFailed
+        expr: fdb_backup_status != 1
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FDB backup failed"
+          description: "Backup has been failing for 15 minutes"
 
-          - alert: FDBBackupStale
-            expr: time() - fdb_backup_last_success_timestamp > 86400
-            for: 1h
-            labels:
-                severity: warning
-            annotations:
-                summary: "FDB backup is stale"
-                description: "No successful backup in 24 hours"
+      - alert: FDBBackupStale
+        expr: time() - fdb_backup_last_success_timestamp > 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "FDB backup is stale"
+          description: "No successful backup in 24 hours"
 ```
 
 ### Backup Status Dashboard

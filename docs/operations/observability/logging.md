@@ -50,12 +50,12 @@ export INFERADB__OBSERVABILITY__LOG_FORMAT=json
 
 ```yaml
 observability:
-    log_level: info
-    log_format: json
-    log_spans: true
-    include_location: true # Include file:line in logs
-    include_target: true # Include module path
-    include_thread_id: false # Include thread ID
+  log_level: info
+  log_format: json
+  log_spans: true
+  include_location: true # Include file:line in logs
+  include_target: true # Include module path
+  include_thread_id: false # Include thread ID
 ```
 
 ## Log Formats
@@ -86,27 +86,27 @@ Machine-parseable JSON for log aggregation systems:
 
 ```json
 {
-    "timestamp": "2025-01-15T10:30:45.123456Z",
-    "level": "INFO",
-    "target": "infera_api::handlers",
-    "message": "Authorization check",
-    "fields": {
-        "subject": "user:alice",
-        "resource": "doc:readme",
-        "permission": "viewer",
-        "decision": "allow",
-        "duration_ms": 3.2
-    },
-    "span": {
-        "name": "check",
-        "id": "abc123",
-        "parent_id": "xyz789"
-    },
-    "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
-    "location": {
-        "file": "crates/infera-api/src/handlers/check.rs",
-        "line": 142
-    }
+  "timestamp": "2025-01-15T10:30:45.123456Z",
+  "level": "INFO",
+  "target": "infera_api::handlers",
+  "message": "Authorization check",
+  "fields": {
+    "subject": "user:alice",
+    "resource": "doc:readme",
+    "permission": "viewer",
+    "decision": "allow",
+    "duration_ms": 3.2
+  },
+  "span": {
+    "name": "check",
+    "id": "abc123",
+    "parent_id": "xyz789"
+  },
+  "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
+  "location": {
+    "file": "crates/infera-api/src/handlers/check.rs",
+    "line": 142
+  }
 }
 ```
 
@@ -279,16 +279,16 @@ Ship JSON logs to Elasticsearch using Filebeat:
 
 ```yaml
 filebeat.inputs:
-    - type: log
-      enabled: true
-      paths:
-          - /var/log/inferadb/*.json
-      json.keys_under_root: true
-      json.add_error_key: true
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/inferadb/*.json
+    json.keys_under_root: true
+    json.add_error_key: true
 
 output.elasticsearch:
-    hosts: ["elasticsearch:9200"]
-    index: "inferadb-%{+yyyy.MM.dd}"
+  hosts: ["elasticsearch:9200"]
+  index: "inferadb-%{+yyyy.MM.dd}"
 
 setup.ilm.enabled: false
 setup.template.name: "inferadb"
@@ -316,28 +316,28 @@ Ship logs to Loki using Promtail:
 
 ```yaml
 server:
-    http_listen_port: 9080
+  http_listen_port: 9080
 
 clients:
-    - url: http://loki:3100/loki/api/v1/push
+  - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-    - job_name: inferadb
-      static_configs:
-          - targets:
-                - localhost
-            labels:
-                job: inferadb
-                __path__: /var/log/inferadb/*.json
-      pipeline_stages:
-          - json:
-                expressions:
-                    level: level
-                    target: target
-                    trace_id: trace_id
-          - labels:
-                level:
-                target:
+  - job_name: inferadb
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: inferadb
+          __path__: /var/log/inferadb/*.json
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            target: target
+            trace_id: trace_id
+      - labels:
+          level:
+          target:
 ```
 
 **LogQL Queries**:
@@ -363,18 +363,18 @@ Send logs to Datadog:
 logs_enabled: true
 
 logs_config:
-    logs_dd_url: intake.logs.datadoghq.com:10516
+  logs_dd_url: intake.logs.datadoghq.com:10516
 
-    container_collect_all: false
+  container_collect_all: false
 
-    logs:
-        - type: file
-          path: /var/log/inferadb/*.json
-          service: inferadb
-          source: rust
-          sourcecategory: inferadb
-          tags:
-              - env:production
+  logs:
+    - type: file
+      path: /var/log/inferadb/*.json
+      service: inferadb
+      source: rust
+      sourcecategory: inferadb
+      tags:
+        - env:production
 ```
 
 ### AWS CloudWatch
@@ -385,20 +385,20 @@ Use the CloudWatch agent:
 
 ```json
 {
-    "logs": {
-        "logs_collected": {
-            "files": {
-                "collect_list": [
-                    {
-                        "file_path": "/var/log/inferadb/*.json",
-                        "log_group_name": "/inferadb/application",
-                        "log_stream_name": "{instance_id}",
-                        "timezone": "UTC"
-                    }
-                ]
-            }
-        }
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/inferadb/*.json",
+            "log_group_name": "/inferadb/application",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          }
+        ]
+      }
     }
+  }
 }
 ```
 
@@ -443,25 +443,25 @@ grpcurl -plaintext -d '{
 
 ```json
 {
-    "decision": "ALLOWED",
-    "trace": {
-        "resource": "doc:readme",
-        "permission": "viewer",
-        "steps": [
-            {
-                "relation": "viewer",
-                "type": "UNION",
-                "children": [
-                    {
-                        "relation": "editor",
-                        "type": "COMPUTED_USERSET",
-                        "result": "ALLOWED"
-                    }
-                ],
-                "result": "ALLOWED"
-            }
-        ]
-    }
+  "decision": "ALLOWED",
+  "trace": {
+    "resource": "doc:readme",
+    "permission": "viewer",
+    "steps": [
+      {
+        "relation": "viewer",
+        "type": "UNION",
+        "children": [
+          {
+            "relation": "editor",
+            "type": "COMPUTED_USERSET",
+            "result": "ALLOWED"
+          }
+        ],
+        "result": "ALLOWED"
+      }
+    ]
+  }
 }
 ```
 
@@ -471,11 +471,11 @@ Every log entry includes trace and span IDs when tracing is enabled:
 
 ```json
 {
-    "timestamp": "2025-01-15T10:30:45.123Z",
-    "level": "DEBUG",
-    "message": "Evaluating relation",
-    "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
-    "span_id": "e457b5a2e4d86bd1"
+  "timestamp": "2025-01-15T10:30:45.123Z",
+  "level": "DEBUG",
+  "message": "Evaluating relation",
+  "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
+  "span_id": "e457b5a2e4d86bd1"
 }
 ```
 

@@ -15,6 +15,7 @@
 CARGO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- cargo" || echo "cargo")
 PRETTIER := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- prettier" || echo "prettier")
 TAPLO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- taplo" || echo "taplo")
+MARKDOWNLINT := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- markdownlint-cli2" || echo "markdownlint-cli2")
 
 # Default target - show help
 .DEFAULT_GOAL := help
@@ -79,12 +80,14 @@ check: ## Run code quality checks (format, lint, audit)
 	@$(MAKE) audit
 	@echo "✅ All checks passed!"
 
-format: ## Format code (Prettier, Taplo, rustfmt)
+format: ## Format code (Prettier, Taplo, markdownlint, rustfmt)
 	@$(PRETTIER) --write "**/*.{md,yml,yaml,json}" --log-level warn || true
+	@$(MARKDOWNLINT) --fix "**/*.md" || true
 	@$(TAPLO) fmt
-	@$(CARGO) +nightly fmt --all
+	@$(CARGO) fmt --all
 
-lint: ## Run clippy linter
+lint: ## Run linters (clippy, markdownlint)
+	@$(MARKDOWNLINT) "**/*.md"
 	@$(CARGO) clippy --workspace --all-targets -- -D warnings
 
 audit: ## Run security audit

@@ -114,31 +114,31 @@ chmod +x curl_example.sh
 Each example shows the complete authentication flow:
 
 1. **User Registration/Login**
-    - Register a new user with the management API
-    - Login to get a session token
+   - Register a new user with the management API
+   - Login to get a session token
 
 2. **Vault Creation**
-    - Create a vault for data isolation
-    - Get account ID for JWT claims
+   - Create a vault for data isolation
+   - Get account ID for JWT claims
 
 3. **Ed25519 Key Generation**
-    - Generate Ed25519 public/private key pair
-    - Export public key in base64 format
+   - Generate Ed25519 public/private key pair
+   - Export public key in base64 format
 
 4. **Client Registration**
-    - Create client credentials
-    - Register Ed25519 public key as a certificate
-    - Get certificate KID for JWT signing
+   - Create client credentials
+   - Register Ed25519 public key as a certificate
+   - Get certificate KID for JWT signing
 
 5. **JWT Generation**
-    - Create JWT with required claims
-    - Sign with Ed25519 private key
-    - Include KID in JWT header
+   - Create JWT with required claims
+   - Sign with Ed25519 private key
+   - Include KID in JWT header
 
 6. **Server API Calls**
-    - Evaluate permissions with authentication
-    - Write relationships with authentication
-    - Handle authentication errors
+   - Evaluate permissions with authentication
+   - Write relationships with authentication
+   - Handle authentication errors
 
 ## Environment Variables
 

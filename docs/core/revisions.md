@@ -26,13 +26,13 @@ pub struct RevisionToken {
 
 ```json
 {
-    "node_id": "node-us-west-1",
-    "revision": 42,
-    "vector_clock": {
-        "node-us-west-1": 42,
-        "node-us-east-1": 38,
-        "node-eu-west-1": 35
-    }
+  "node_id": "node-us-west-1",
+  "revision": 42,
+  "vector_clock": {
+    "node-us-west-1": 42,
+    "node-us-east-1": 38,
+    "node-eu-west-1": 35
+  }
 }
 ```
 

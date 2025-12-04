@@ -71,8 +71,8 @@ All operations in InferaDB require specific scopes. Scopes follow the pattern `i
 
 ```json
 {
-    "scope": "inferadb.check",
-    "aud": "https://api.inferadb.com"
+  "scope": "inferadb.check",
+  "aud": "https://api.inferadb.com"
 }
 ```
 
@@ -90,8 +90,8 @@ All operations in InferaDB require specific scopes. Scopes follow the pattern `i
 
 ```json
 {
-    "scope": "inferadb.write",
-    "vault": "550e8400-e29b-41d4-a716-446655440000"
+  "scope": "inferadb.write",
+  "vault": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -174,23 +174,23 @@ All operations in InferaDB require specific scopes. Scopes follow the pattern `i
 **Grants access to:**
 
 - **Account Management:**
-    - `POST /v1/accounts` - Create accounts
-    - `GET /v1/accounts` - List all accounts
-    - `GET /v1/accounts/:id` - View any account
-    - `PATCH /v1/accounts/:id` - Update accounts
-    - `DELETE /v1/accounts/:id` - Delete accounts
+  - `POST /v1/accounts` - Create accounts
+  - `GET /v1/accounts` - List all accounts
+  - `GET /v1/accounts/:id` - View any account
+  - `PATCH /v1/accounts/:id` - Update accounts
+  - `DELETE /v1/accounts/:id` - Delete accounts
 
 - **Vault Management:**
-    - `POST /v1/accounts/:account_id/vaults` - Create vaults for any account
-    - `GET /v1/accounts/:account_id/vaults` - List vaults for any account
-    - `GET /v1/vaults/:id` - View any vault
-    - `PATCH /v1/vaults/:id` - Update any vault
-    - `DELETE /v1/vaults/:id` - Delete any vault
+  - `POST /v1/accounts/:account_id/vaults` - Create vaults for any account
+  - `GET /v1/accounts/:account_id/vaults` - List vaults for any account
+  - `GET /v1/vaults/:id` - View any vault
+  - `PATCH /v1/vaults/:id` - Update any vault
+  - `DELETE /v1/vaults/:id` - Delete any vault
 
 - **Cross-Tenant Operations:**
-    - Access to any account's resources
-    - Bypass account ownership checks
-    - Full system visibility
+  - Access to any account's resources
+  - Bypass account ownership checks
+  - Full system visibility
 
 **Warning:** The admin scope grants unrestricted access. Use with caution.
 
@@ -371,15 +371,15 @@ inferadb.admin (grants all permissions)
 
 ```json
 {
-    "iss": "https://auth.example.com",
-    "sub": "app-12345",
-    "aud": "https://api.inferadb.com",
-    "exp": 1234567890,
-    "iat": 1234564290,
-    "scope": "inferadb.check inferadb.write",
-    "vault": "550e8400-e29b-41d4-a716-446655440000",
-    "account": "123e4567-e89b-12d3-a456-426614174000",
-    "jti": "unique-token-id"
+  "iss": "https://auth.example.com",
+  "sub": "app-12345",
+  "aud": "https://api.inferadb.com",
+  "exp": 1234567890,
+  "iat": 1234564290,
+  "scope": "inferadb.check inferadb.write",
+  "vault": "550e8400-e29b-41d4-a716-446655440000",
+  "account": "123e4567-e89b-12d3-a456-426614174000",
+  "jti": "unique-token-id"
 }
 ```
 
@@ -387,15 +387,15 @@ inferadb.admin (grants all permissions)
 
 ```json
 {
-    "iss": "https://internal.inferadb.com",
-    "sub": "control-plane",
-    "aud": "https://api.inferadb.com/internal",
-    "exp": 1234567890,
-    "iat": 1234564290,
-    "scope": "inferadb.admin",
-    "vault": "00000000-0000-0000-0000-000000000000",
-    "account": "00000000-0000-0000-0000-000000000000",
-    "jti": "admin-token-id"
+  "iss": "https://internal.inferadb.com",
+  "sub": "control-plane",
+  "aud": "https://api.inferadb.com/internal",
+  "exp": 1234567890,
+  "iat": 1234564290,
+  "scope": "inferadb.admin",
+  "vault": "00000000-0000-0000-0000-000000000000",
+  "account": "00000000-0000-0000-0000-000000000000",
+  "jti": "admin-token-id"
 }
 ```
 
@@ -403,14 +403,14 @@ inferadb.admin (grants all permissions)
 
 ```json
 {
-    "iss": "https://auth.example.com",
-    "sub": "readonly-service",
-    "aud": "https://api.inferadb.com",
-    "exp": 1234567890,
-    "iat": 1234564290,
-    "scope": "inferadb.check inferadb.read",
-    "vault": "550e8400-e29b-41d4-a716-446655440000",
-    "account": "123e4567-e89b-12d3-a456-426614174000"
+  "iss": "https://auth.example.com",
+  "sub": "readonly-service",
+  "aud": "https://api.inferadb.com",
+  "exp": 1234567890,
+  "iat": 1234564290,
+  "scope": "inferadb.check inferadb.read",
+  "vault": "550e8400-e29b-41d4-a716-446655440000",
+  "account": "123e4567-e89b-12d3-a456-426614174000"
 }
 ```
 
@@ -448,7 +448,7 @@ Use EdDSA-only tokens (recommended for new deployments):
 ```yaml
 # config.yaml
 auth:
-    allowed_algorithms: ["EdDSA"]
+  allowed_algorithms: ["EdDSA"]
 ```
 
 **Detailed Migration Guide:**
@@ -510,10 +510,10 @@ If you discover a security issue in our workflows or CI/CD pipeline:
 
 1. **Do NOT open a public issue** - This could expose attack vectors
 2. **Email <security@inferadb.com>** with:
-    - Workflow file name and line number
-    - Description of the vulnerability
-    - Proof of concept (if safe to share)
-    - Suggested remediation
+   - Workflow file name and line number
+   - Description of the vulnerability
+   - Proof of concept (if safe to share)
+   - Suggested remediation
 3. **Expected response time:** 48 hours for acknowledgment
 4. **Expected resolution time:** 7 days for critical issues
 

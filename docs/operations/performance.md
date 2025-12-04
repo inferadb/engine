@@ -82,8 +82,8 @@ All baseline measurements are performed on the following test environment:
 - **Normal load**: 100 RPS (2 workers, 100 requests each)
 - **Spike load**: 10,000 RPS (100 workers, 100 requests each)
 - **Latency degradation**: p99 increases by <10x during spike
-    - Normal: p99 < 5ms
-    - Spike: p99 < 50ms
+  - Normal: p99 < 5ms
+  - Spike: p99 < 50ms
 - **Error rate**: 0% (no failures during spike)
 
 **Interpretation**:
@@ -105,9 +105,9 @@ All baseline measurements are performed on the following test environment:
 - **Concurrency levels tested**: 10, 50, 100, 200, 500 workers
 - **Breaking point**: Varies by hardware, typically 200-500 workers
 - **Behavior at capacity**:
-    - Latency increases linearly with concurrency
-    - No request failures (system queues requests)
-    - CPU utilization approaches 100%
+  - Latency increases linearly with concurrency
+  - No request failures (system queues requests)
+  - CPU utilization approaches 100%
 
 **Interpretation**:
 
@@ -316,21 +316,21 @@ Alert when production performance deviates significantly from baselines:
 ```yaml
 - alert: LatencyRegressionDetected
   expr: |
-      histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) > 0.012
+    histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) > 0.012
   for: 10m
   labels:
-      severity: P1
+    severity: P1
   annotations:
-      summary: "p99 latency exceeds baseline (>12ms vs 10ms SLO)"
+    summary: "p99 latency exceeds baseline (>12ms vs 10ms SLO)"
 
 - alert: ThroughputDegradation
   expr: |
-      sum(rate(inferadb_checks_total[5m])) < (avg_over_time(sum(rate(inferadb_checks_total[5m]))[1h]) * 0.5)
+    sum(rate(inferadb_checks_total[5m])) < (avg_over_time(sum(rate(inferadb_checks_total[5m]))[1h]) * 0.5)
   for: 5m
   labels:
-      severity: P1
+    severity: P1
   annotations:
-      summary: "Throughput dropped by >50% compared to 1h average"
+    summary: "Throughput dropped by >50% compared to 1h average"
 ```
 
 ---

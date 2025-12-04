@@ -102,7 +102,7 @@ curl -X POST $MANAGEMENT_API_URL/v1/auth/register \
   }" | jq .
 ```
 
-2. Save the response:
+1. Save the response:
 
 ```bash
 # Expected response:
@@ -115,7 +115,7 @@ curl -X POST $MANAGEMENT_API_URL/v1/auth/register \
 }
 ```
 
-3. Record values:
+1. Record values:
 
 ```bash
 export USER_ID="<id from response>"
@@ -155,7 +155,7 @@ curl -X POST $MANAGEMENT_API_URL/v1/auth/login \
   }" | jq .
 ```
 
-2. Save session ID:
+1. Save session ID:
 
 ```bash
 # Expected response:
@@ -198,7 +198,7 @@ curl -X POST $MANAGEMENT_API_URL/v1/vaults \
   }" | jq .
 ```
 
-2. Save vault and account IDs:
+1. Save vault and account IDs:
 
 ```bash
 # Expected response:
@@ -245,7 +245,7 @@ curl -X POST $MANAGEMENT_API_URL/v1/organizations/$ORG_ID/clients \
   }" | jq .
 ```
 
-2. Save client ID:
+1. Save client ID:
 
 ```bash
 # Expected response:
@@ -305,7 +305,7 @@ python3 generate_keys.py
 # Save output
 ```
 
-2. Register certificate:
+1. Register certificate:
 
 ```bash
 export PUBLIC_KEY_B64="<base64_public_key from above>"
@@ -319,7 +319,7 @@ curl -X POST $MANAGEMENT_API_URL/v1/organizations/$ORG_ID/clients/$CLIENT_ID/cer
   }" | jq .
 ```
 
-3. Save certificate KID:
+1. Save certificate KID:
 
 ```bash
 # Expected response:
@@ -468,7 +468,7 @@ curl -X POST $SERVER_URL/v1/relationships/write \
   }' | jq .
 ```
 
-2. Verify the relationship:
+1. Verify the relationship:
 
 ```bash
 curl -X POST $SERVER_URL/v1/evaluate \
@@ -511,7 +511,7 @@ curl -X POST $MANAGEMENT_API_URL/v1/vaults \
 export VAULT2_ID="<id from response>"
 ```
 
-2. Generate JWT for second vault:
+1. Generate JWT for second vault:
 
 ```python
 # Modify generate_jwt.py to use VAULT2_ID
@@ -519,7 +519,7 @@ export VAULT2_ID="<id from response>"
 export JWT_TOKEN2=$(python3 generate_jwt.py)
 ```
 
-3. Try to read data from vault 1 using vault 2 token:
+1. Try to read data from vault 1 using vault 2 token:
 
 ```bash
 curl -X POST $SERVER_URL/v1/evaluate \
@@ -555,7 +555,7 @@ curl -X DELETE $MANAGEMENT_API_URL/v1/organizations/$ORG_ID/clients/$CLIENT_ID/c
   -H "Authorization: Bearer $SESSION_ID" | jq .
 ```
 
-2. Wait for cache to expire (or skip cache by restarting server):
+1. Wait for cache to expire (or skip cache by restarting server):
 
 ```bash
 # Option 1: Wait 15 minutes (cert_cache_ttl_seconds)
@@ -565,7 +565,7 @@ sleep 900
 # Ctrl+C in server terminal, then restart
 ```
 
-3. Try to use the revoked certificate:
+1. Try to use the revoked certificate:
 
 ```bash
 curl -X POST $SERVER_URL/v1/evaluate \
@@ -600,7 +600,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
 grep "authentication_success" logs/server.log
 ```
 
-2. Check for structured log fields:
+1. Check for structured log fields:
 
 ```bash
 # Expected log entry structure:
@@ -635,7 +635,7 @@ grep "authentication_success" logs/server.log
 curl $SERVER_URL/metrics | grep infera_auth
 ```
 
-2. Check for key metrics:
+1. Check for key metrics:
 
 ```bash
 # Expected metrics:
@@ -679,7 +679,7 @@ curl -X POST $MANAGEMENT_API_URL/v1/auth/register \
 export ORG2_ID="<organization_id from response>"
 ```
 
-2. Try to access organization 1's resources:
+1. Try to access organization 1's resources:
 
 ```bash
 # Login as user 2, create vault, client, certificate
@@ -718,14 +718,14 @@ for i in {1..100}; do
 done | awk '{sum+=$1; count++} END {print "Average: " sum/count " seconds"}'
 ```
 
-2. Check cache metrics:
+1. Check cache metrics:
 
 ```bash
 curl $SERVER_URL/metrics | grep infera_auth_cache_hits_total
 curl $SERVER_URL/metrics | grep infera_auth_cache_misses_total
 ```
 
-3. Calculate cache hit rate:
+1. Calculate cache hit rate:
 
 ```bash
 # Cache hit rate should be > 90% after first request
@@ -760,13 +760,13 @@ curl -X POST $SERVER_URL/v1/evaluate \
   }' | jq .
 ```
 
-2. Stop management API:
+1. Stop management API:
 
 ```bash
 # Ctrl+C in management API terminal
 ```
 
-3. Make another request (within cache TTL):
+1. Make another request (within cache TTL):
 
 ```bash
 curl -X POST $SERVER_URL/v1/evaluate \
@@ -781,7 +781,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
   }' | jq .
 ```
 
-4. Restart management API:
+1. Restart management API:
 
 ```bash
 cd management && make run

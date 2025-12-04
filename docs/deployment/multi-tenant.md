@@ -93,40 +93,40 @@ Create or update your `config.yaml`:
 
 ```yaml
 multi_tenancy:
-    enabled: true
-    # Optional: Specify default IDs (will be created if they don't exist)
-    # default_organization: "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
-    # default_vault: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+  enabled: true
+  # Optional: Specify default IDs (will be created if they don't exist)
+  # default_organization: "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
+  # default_vault: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 
 auth:
-    enabled: true
-    jwks_url: "https://your-auth-provider.com/.well-known/jwks.json"
-    required_audience: "inferadb"
-    required_issuer: "https://your-auth-provider.com"
-    required_scopes:
-        - "inferadb.read"
-        - "inferadb.write"
+  enabled: true
+  jwks_url: "https://your-auth-provider.com/.well-known/jwks.json"
+  required_audience: "inferadb"
+  required_issuer: "https://your-auth-provider.com"
+  required_scopes:
+    - "inferadb.read"
+    - "inferadb.write"
 
 server:
-    port: 8080
-    worker_threads: 8
+  port: 8080
+  worker_threads: 8
 
 storage:
-    backend: "foundationdb"
-    cluster_file: "/etc/foundationdb/fdb.cluster"
+  backend: "foundationdb"
+  cluster_file: "/etc/foundationdb/fdb.cluster"
 
 cache:
-    enabled: true
-    max_entries: 10000 # Per vault
-    ttl_seconds: 300
+  enabled: true
+  max_entries: 10000 # Per vault
+  ttl_seconds: 300
 
 observability:
-    metrics:
-        enabled: true
-        port: 9090
-    tracing:
-        enabled: true
-        endpoint: "http://jaeger:4317"
+  metrics:
+    enabled: true
+    port: 9090
+  tracing:
+    enabled: true
+    endpoint: "http://jaeger:4317"
 ```
 
 ### Step 2: Start InferaDB
@@ -168,12 +168,12 @@ Expected output:
 
 ```json
 [
-    {
-        "id": "...",
-        "name": "Default Account",
-        "created_at": "2025-11-02T10:00:00Z",
-        "updated_at": "2025-11-02T10:00:00Z"
-    }
+  {
+    "id": "...",
+    "name": "Default Account",
+    "created_at": "2025-11-02T10:00:00Z",
+    "updated_at": "2025-11-02T10:00:00Z"
+  }
 ]
 ```
 
@@ -193,25 +193,25 @@ InferaDB requires JWTs to include `vault` and `account` claims for multi-tenant 
 
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
-    const namespace = "https://inferadb.app";
+  const namespace = "https://inferadb.app";
 
-    // Set vault based on organization or metadata
-    const vaultId =
-        event.user.app_metadata?.vault_id ||
-        event.organization?.id ||
-        "default-vault-id";
+  // Set vault based on organization or metadata
+  const vaultId =
+    event.user.app_metadata?.vault_id ||
+    event.organization?.id ||
+    "default-vault-id";
 
-    const accountId =
-        event.user.app_metadata?.account_id ||
-        event.organization?.metadata?.account_id ||
-        "default-account-id";
+  const accountId =
+    event.user.app_metadata?.account_id ||
+    event.organization?.metadata?.account_id ||
+    "default-account-id";
 
-    api.accessToken.setCustomClaim(`${namespace}/vault`, vaultId);
-    api.accessToken.setCustomClaim(`${namespace}/account`, accountId);
+  api.accessToken.setCustomClaim(`${namespace}/vault`, vaultId);
+  api.accessToken.setCustomClaim(`${namespace}/account`, accountId);
 };
 ```
 
-2. **Test the Token**:
+1. **Test the Token**:
 
 ```bash
 # Get token
@@ -237,7 +237,7 @@ echo $TOKEN | cut -d. -f2 | base64 -d | jq .
 - Token Claim Name: "vault"
 - Claim JSON Type: "String"
 
-2. **Set User Attributes** (Users → YOUR_USER → Attributes):
+1. **Set User Attributes** (Users → YOUR_USER → Attributes):
 
 ```
 vault_id = a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
@@ -250,14 +250,14 @@ Ensure your token payload includes:
 
 ```json
 {
-    "sub": "user:alice",
-    "iss": "https://your-auth-provider.com",
-    "aud": ["inferadb"],
-    "exp": 1730563200,
-    "iat": 1730559600,
-    "vault": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "account": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-    "scopes": ["inferadb.read", "inferadb.write"]
+  "sub": "user:alice",
+  "iss": "https://your-auth-provider.com",
+  "aud": ["inferadb"],
+  "exp": 1730563200,
+  "iat": 1730559600,
+  "vault": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "account": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "scopes": ["inferadb.read", "inferadb.write"]
 }
 ```
 
@@ -267,9 +267,9 @@ InferaDB automatically fetches and caches your JWKS:
 
 ```yaml
 auth:
-    jwks_url: "https://your-auth-provider.com/.well-known/jwks.json"
-    jwks_cache_ttl: 3600 # 1 hour
-    jwks_refresh_interval: 300 # 5 minutes
+  jwks_url: "https://your-auth-provider.com/.well-known/jwks.json"
+  jwks_cache_ttl: 3600 # 1 hour
+  jwks_refresh_interval: 300 # 5 minutes
 ```
 
 **Supported Algorithms**: Only asymmetric algorithms (EdDSA, RS256, RS384, RS512)
@@ -296,10 +296,10 @@ Content-Type: application/json
 
 ```json
 {
-    "id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-    "name": "Acme Corporation",
-    "created_at": "2025-11-02T10:00:00Z",
-    "updated_at": "2025-11-02T10:00:00Z"
+  "id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "name": "Acme Corporation",
+  "created_at": "2025-11-02T10:00:00Z",
+  "updated_at": "2025-11-02T10:00:00Z"
 }
 ```
 
@@ -323,11 +323,11 @@ Content-Type: application/json
 
 ```json
 {
-    "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "account_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-    "name": "Production Environment",
-    "created_at": "2025-11-02T10:00:00Z",
-    "updated_at": "2025-11-02T10:00:00Z"
+  "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "account_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "name": "Production Environment",
+  "created_at": "2025-11-02T10:00:00Z",
+  "updated_at": "2025-11-02T10:00:00Z"
 }
 ```
 
@@ -344,20 +344,20 @@ Authorization: Bearer <admin_token>
 
 ```json
 [
-    {
-        "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-        "account_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-        "name": "Production Environment",
-        "created_at": "2025-11-02T10:00:00Z",
-        "updated_at": "2025-11-02T10:00:00Z"
-    },
-    {
-        "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
-        "account_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-        "name": "Staging Environment",
-        "created_at": "2025-11-02T10:05:00Z",
-        "updated_at": "2025-11-02T10:05:00Z"
-    }
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "account_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+    "name": "Production Environment",
+    "created_at": "2025-11-02T10:00:00Z",
+    "updated_at": "2025-11-02T10:00:00Z"
+  },
+  {
+    "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "account_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+    "name": "Staging Environment",
+    "created_at": "2025-11-02T10:05:00Z",
+    "updated_at": "2025-11-02T10:05:00Z"
+  }
 ]
 ```
 
@@ -446,9 +446,9 @@ Enable per-vault metrics collection:
 
 ```yaml
 observability:
-    metrics:
-        enabled: true
-        per_vault_metrics: true
+  metrics:
+    enabled: true
+    per_vault_metrics: true
 ```
 
 Key metrics to monitor:
@@ -548,16 +548,16 @@ Structured logging includes vault context:
 
 ```json
 {
-    "timestamp": "2025-11-02T10:00:00Z",
-    "level": "INFO",
-    "message": "Permission check",
-    "vault": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "account": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-    "subject": "user:alice",
-    "resource": "document:readme",
-    "permission": "view",
-    "decision": "allow",
-    "latency_ms": 12
+  "timestamp": "2025-11-02T10:00:00Z",
+  "level": "INFO",
+  "message": "Permission check",
+  "vault": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "account": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "subject": "user:alice",
+  "resource": "document:readme",
+  "permission": "view",
+  "decision": "allow",
+  "latency_ms": 12
 }
 ```
 
@@ -597,10 +597,10 @@ curl http://localhost:9090/metrics | grep inferadb_active_vaults
 
 1. Reduce cache size per vault:
 
-    ```yaml
-    cache:
-        max_entries: 5000 # Down from 10000
-    ```
+   ```yaml
+   cache:
+     max_entries: 5000 # Down from 10000
+   ```
 
 2. Consolidate vaults if possible
 
@@ -655,10 +655,10 @@ curl http://localhost:9090/metrics | \
 
 1. Increase cache TTL:
 
-    ```yaml
-    cache:
-        ttl_seconds: 600 # Up from 300
-    ```
+   ```yaml
+   cache:
+     ttl_seconds: 600 # Up from 300
+   ```
 
 2. Pre-warm cache for critical paths
 

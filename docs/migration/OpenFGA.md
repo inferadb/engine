@@ -37,30 +37,30 @@ This guide helps you migrate from OpenFGA to InferaDB, covering authorization mo
 
 ```json
 {
-    "schema_version": "1.1",
-    "type_definitions": [
-        {
-            "type": "document",
-            "relations": {
-                "reader": {
-                    "this": {}
-                },
-                "writer": {
-                    "this": {}
-                },
-                "owner": {
-                    "this": {}
-                }
-            },
-            "metadata": {
-                "relations": {
-                    "viewer": {
-                        "directly_related_user_types": [{ "type": "user" }]
-                    }
-                }
-            }
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "document",
+      "relations": {
+        "reader": {
+          "this": {}
+        },
+        "writer": {
+          "this": {}
+        },
+        "owner": {
+          "this": {}
         }
-    ]
+      },
+      "metadata": {
+        "relations": {
+          "viewer": {
+            "directly_related_user_types": [{ "type": "user" }]
+          }
+        }
+      }
+    }
+  ]
 }
 ```
 
@@ -539,12 +539,12 @@ curl -X POST http://localhost:8080/v1/evaluate \
 ```yaml
 # config.yaml
 auth:
-    enabled: true
-    jwks_base_url: "https://your-idp.com/.well-known/jwks.json"
-    supported_algorithms: ["EdDSA", "RS256", "ES256"]
-    required_scopes:
-        - "inferadb.read"
-        - "inferadb.write"
+  enabled: true
+  jwks_base_url: "https://your-idp.com/.well-known/jwks.json"
+  supported_algorithms: ["EdDSA", "RS256", "ES256"]
+  required_scopes:
+    - "inferadb.read"
+    - "inferadb.write"
 ```
 
 **Automatic validation**:
@@ -612,9 +612,9 @@ Both OpenFGA and InferaDB support wildcards.
 
 ```json
 {
-    "user": "user:*",
-    "relation": "viewer",
-    "object": "document:readme"
+  "user": "user:*",
+  "relation": "viewer",
+  "object": "document:readme"
 }
 ```
 
@@ -622,9 +622,9 @@ Both OpenFGA and InferaDB support wildcards.
 
 ```json
 {
-    "subject": "user:*",
-    "relation": "viewer",
-    "resource": "document:readme"
+  "subject": "user:*",
+  "relation": "viewer",
+  "resource": "document:readme"
 }
 ```
 

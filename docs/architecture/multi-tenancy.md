@@ -296,11 +296,11 @@ Content-Type: application/json
 
 ```json
 {
-    "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "account_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-    "name": "Production Vault",
-    "created_at": "2025-11-02T10:00:00Z",
-    "updated_at": "2025-11-02T10:00:00Z"
+  "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "account_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "name": "Production Vault",
+  "created_at": "2025-11-02T10:00:00Z",
+  "updated_at": "2025-11-02T10:00:00Z"
 }
 ```
 
@@ -378,14 +378,14 @@ Every access token **must** include vault and account claims:
 
 ```json
 {
-    "sub": "user:alice",
-    "iss": "https://auth.example.com",
-    "aud": ["inferadb"],
-    "exp": 1730563200,
-    "iat": 1730559600,
-    "vault": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "account": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-    "scopes": ["inferadb.read", "inferadb.write"]
+  "sub": "user:alice",
+  "iss": "https://auth.example.com",
+  "aud": ["inferadb"],
+  "exp": 1730563200,
+  "iat": 1730559600,
+  "vault": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "account": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "scopes": ["inferadb.read", "inferadb.write"]
 }
 ```
 
@@ -395,23 +395,24 @@ Every access token **must** include vault and account claims:
 
 1. **Basic Validation** (always performed):
 
-    ```rust
-    infera_auth::validate_vault_access(&auth_context)?;
-    // Checks: vault != Uuid::nil() && account != Uuid::nil()
-    ```
+   ```rust
+   infera_auth::validate_vault_access(&auth_context)?;
+   // Checks: vault != Uuid::nil() && account != Uuid::nil()
+   ```
 
 2. **Existence Check** (recommended):
 
-    ```rust
-    infera_auth::validate_vault_access_with_store(&auth_context, &store).await?;
-    // Checks: vault exists in database
-    ```
+   ```rust
+   infera_auth::validate_vault_access_with_store(&auth_context, &store).await?;
+   // Checks: vault exists in database
+   ```
 
 3. **Ownership Verification** (recommended):
-    ```rust
-    // Automatically performed in validate_vault_access_with_store
-    // Checks: vault.account_id == auth_context.account
-    ```
+
+   ```rust
+   // Automatically performed in validate_vault_access_with_store
+   // Checks: vault.account_id == auth_context.account
+   ```
 
 ### Cross-Vault Operation Prevention
 
@@ -563,22 +564,22 @@ The vault is extracted from the JWT token in the authorization header.
 
 ```yaml
 auth:
-    enabled: true
-    jwks_url: "https://auth.example.com/.well-known/jwks.json"
-    required_audience: "inferadb"
-    required_issuer: "https://auth.example.com"
+  enabled: true
+  jwks_url: "https://auth.example.com/.well-known/jwks.json"
+  required_audience: "inferadb"
+  required_issuer: "https://auth.example.com"
 ```
 
 **Token Generation** (example with Auth0):
 
 ```javascript
 const token = await auth0.getAccessToken({
-    audience: "inferadb",
-    scope: "inferadb.read inferadb.write",
-    claims: {
-        vault: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-        account: "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-    },
+  audience: "inferadb",
+  scope: "inferadb.read inferadb.write",
+  claims: {
+    vault: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    account: "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  },
 });
 ```
 
@@ -718,8 +719,8 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 ```yaml
 # Increase cache size per vault
 cache:
-    max_entries: 20000 # Up from 10000
-    ttl_seconds: 600 # Up from 300
+  max_entries: 20000 # Up from 10000
+  ttl_seconds: 600 # Up from 300
 
 # Or reduce number of vaults
 # Consolidate similar use cases into shared vaults
@@ -764,6 +765,6 @@ curl https://api.example.com/metrics | grep cache_memory
 
 For questions or issues:
 
-- GitHub Issues: https://github.com/anthropics/inferadb/issues
-- Documentation: https://docs.infera.dev
-- Email: support@infera.dev
+- GitHub Issues: <https://github.com/anthropics/inferadb/issues>
+- Documentation: <https://docs.infera.dev>
+- Email: <support@infera.dev>

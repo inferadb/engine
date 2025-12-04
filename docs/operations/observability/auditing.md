@@ -94,18 +94,18 @@ audit_logger.log(event);
 Every audit event has two parts:
 
 1. **Metadata**: Common fields across all events
-    - `event_id`: Globally unique identifier
-    - `timestamp`: RFC3339 timestamp
-    - `event_type`: Type of operation
-    - `actor`: User performing the action
-    - `client_ip`: Source IP (optional)
-    - `user_agent`: Client identifier (optional)
-    - `request_id`: For correlation (optional)
-    - `tenant_id`: For multi-tenancy (optional)
+   - `event_id`: Globally unique identifier
+   - `timestamp`: RFC3339 timestamp
+   - `event_type`: Type of operation
+   - `actor`: User performing the action
+   - `client_ip`: Source IP (optional)
+   - `user_agent`: Client identifier (optional)
+   - `request_id`: For correlation (optional)
+   - `tenant_id`: For multi-tenancy (optional)
 
 2. **Details**: Event-specific information
-    - Tagged union based on event type
-    - Contains operation parameters and results
+   - Tagged union based on event type
+   - Contains operation parameters and results
 
 ### Logging Target
 
@@ -932,20 +932,21 @@ async fn test_all_operations_audited() {
 
 1. Check logger is enabled:
 
-    ```rust
-    assert!(audit_logger.is_enabled());
-    ```
+   ```rust
+   assert!(audit_logger.is_enabled());
+   ```
 
 2. Check tracing filter includes `inferadb_audit`:
 
-    ```rust
-    EnvFilter::new("info,inferadb_audit=info")
-    ```
+   ```rust
+   EnvFilter::new("info,inferadb_audit=info")
+   ```
 
 3. Check sampling rate:
-    ```rust
-    config.sample_rate = 1.0; // Temporarily set to 100%
-    ```
+
+   ```rust
+   config.sample_rate = 1.0; // Temporarily set to 100%
+   ```
 
 ### High Memory Usage
 
@@ -955,16 +956,16 @@ async fn test_all_operations_audited() {
 
 1. Increase sample rate (reduce logging):
 
-    ```rust
-    config.sample_rate = 0.1; // 10% sampling
-    ```
+   ```rust
+   config.sample_rate = 0.1; // 10% sampling
+   ```
 
 2. Disable verbose events:
 
-    ```rust
-    config.log_resource_lists = false;
-    config.log_subject_lists = false;
-    ```
+   ```rust
+   config.log_resource_lists = false;
+   config.log_subject_lists = false;
+   ```
 
 3. Use async log shipping with batching
 
@@ -976,16 +977,17 @@ async fn test_all_operations_audited() {
 
 1. Check context data is valid JSON:
 
-    ```rust
-    let context = serde_json::from_str(&context_str)?;
-    ```
+   ```rust
+   let context = serde_json::from_str(&context_str)?;
+   ```
 
 2. Verify all strings are valid UTF-8
 
 3. Check metrics for serialization errors:
-    ```promql
-    inferadb_audit_events_errors_total{error_type="serialization_error"}
-    ```
+
+   ```promql
+   inferadb_audit_events_errors_total{error_type="serialization_error"}
+   ```
 
 ---
 

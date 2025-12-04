@@ -173,13 +173,13 @@ async fn test_with_dhat() {
 }
 ```
 
-2. Run test:
+1. Run test:
 
 ```bash
 cargo test test_with_dhat
 ```
 
-3. View results:
+1. View results:
 
 ```bash
 # Install dh_view.html from DHAT repository
@@ -288,43 +288,43 @@ massif-visualizer massif.out.12345
 
 1. **Unbounded Growth**
 
-    ```
-    Iteration 1000: RSS = 50 MB
-    Iteration 2000: RSS = 100 MB
-    Iteration 3000: RSS = 150 MB  <-- Linear growth!
-    ```
+   ```
+   Iteration 1000: RSS = 50 MB
+   Iteration 2000: RSS = 100 MB
+   Iteration 3000: RSS = 150 MB  <-- Linear growth!
+   ```
 
-    **Action:** Investigate recent operations for unreleased resources
+   **Action:** Investigate recent operations for unreleased resources
 
 2. **Valgrind "definitely lost"**
 
-    ```
-    ==12345== 1,024 bytes in 1 blocks are definitely lost
-    ==12345==    at 0x...: malloc
-    ==12345==    by 0x...: alloc::vec::Vec::push
-    ```
+   ```
+   ==12345== 1,024 bytes in 1 blocks are definitely lost
+   ==12345==    at 0x...: malloc
+   ==12345==    by 0x...: alloc::vec::Vec::push
+   ```
 
-    **Action:** Fix the allocation site shown in stack trace
+   **Action:** Fix the allocation site shown in stack trace
 
 3. **Heaptrack plateau that doesn't drop**
 
-    Memory usage plateaus high and never drops, even during idle periods.
+   Memory usage plateaus high and never drops, even during idle periods.
 
-    **Action:** Check for global caches or static data structures
+   **Action:** Check for global caches or static data structures
 
 ### Normal Behavior
 
 1. **Sawtooth Pattern**
 
-    Memory grows then drops (GC/cleanup cycles) - this is normal
+   Memory grows then drops (GC/cleanup cycles) - this is normal
 
 2. **Initial Spike**
 
-    Memory usage high at start, then stabilizes - normal warmup
+   Memory usage high at start, then stabilizes - normal warmup
 
 3. **"Still reachable" in Valgrind**
 
-    Memory reachable at program exit - usually OK for short-lived programs
+   Memory reachable at program exit - usually OK for short-lived programs
 
 ---
 
@@ -429,43 +429,43 @@ let conn = pool.get().await?;
 name: Memory Leak Detection
 
 on:
-    schedule:
-        - cron: "0 2 * * 0" # Weekly on Sunday at 2 AM
-    workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * 0" # Weekly on Sunday at 2 AM
+  workflow_dispatch:
 
 jobs:
-    memory-tests:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - uses: dtolnay/rust-toolchain@stable
+  memory-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
-            - name: Install Valgrind
-              run: sudo apt-get update && sudo apt-get install -y valgrind
+      - name: Install Valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
 
-            - name: Run memory leak tests
-              run: |
-                  cargo test --test memory_leak_tests
+      - name: Run memory leak tests
+        run: |
+          cargo test --test memory_leak_tests
 
-            - name: Run with Valgrind
-              run: |
-                  valgrind --leak-check=full --error-exitcode=1 \
-                    --log-file=valgrind.log \
-                    cargo test --test memory_leak_tests
+      - name: Run with Valgrind
+        run: |
+          valgrind --leak-check=full --error-exitcode=1 \
+            --log-file=valgrind.log \
+            cargo test --test memory_leak_tests
 
-            - name: Upload Valgrind results
-              if: always()
-              uses: actions/upload-artifact@v3
-              with:
-                  name: valgrind-logs
-                  path: valgrind.log
+      - name: Upload Valgrind results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: valgrind-logs
+          path: valgrind.log
 
-            - name: Check for leaks
-              run: |
-                  if grep -q "definitely lost" valgrind.log; then
-                    echo "Memory leaks detected!"
-                    exit 1
-                  fi
+      - name: Check for leaks
+        run: |
+          if grep -q "definitely lost" valgrind.log; then
+            echo "Memory leaks detected!"
+            exit 1
+          fi
 ```
 
 ### Long-Running Test Schedule
@@ -476,33 +476,33 @@ For 24-hour tests, use a dedicated runner:
 name: Long-Running Memory Tests
 
 on:
-    schedule:
-        - cron: "0 0 1 * *" # Monthly on the 1st
-    workflow_dispatch:
+  schedule:
+    - cron: "0 0 1 * *" # Monthly on the 1st
+  workflow_dispatch:
 
 jobs:
-    long-running-tests:
-        runs-on: ubuntu-latest
-        timeout-minutes: 1500 # 25 hours
-        steps:
-            - uses: actions/checkout@v4
-            - uses: dtolnay/rust-toolchain@stable
+  long-running-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1500 # 25 hours
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
-            - name: Run 24-hour stress test
-              run: |
-                  cargo test --test memory_leak_tests test_24h_authorization_stress \
-                    -- --ignored --nocapture | tee stress-test.log
+      - name: Run 24-hour stress test
+        run: |
+          cargo test --test memory_leak_tests test_24h_authorization_stress \
+            -- --ignored --nocapture | tee stress-test.log
 
-            - name: Analyze results
-              run: |
-                  # Extract final iteration count
-                  grep "Completed" stress-test.log
+      - name: Analyze results
+        run: |
+          # Extract final iteration count
+          grep "Completed" stress-test.log
 
-            - name: Upload logs
-              uses: actions/upload-artifact@v3
-              with:
-                  name: stress-test-logs
-                  path: stress-test.log
+      - name: Upload logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: stress-test-logs
+          path: stress-test.log
 ```
 
 ---

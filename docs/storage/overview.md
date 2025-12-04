@@ -218,7 +218,7 @@ impl TupleStore for MyBackend {
 }
 ```
 
-2. **Add to `BackendType` enum** (in `factory.rs`):
+1. **Add to `BackendType` enum** (in `factory.rs`):
 
 ```rust
 pub enum BackendType {
@@ -228,7 +228,7 @@ pub enum BackendType {
 }
 ```
 
-3. **Update `StorageFactory`**:
+1. **Update `StorageFactory`**:
 
 ```rust
 impl StorageFactory {
@@ -280,14 +280,14 @@ let mut all_tuples = Vec::new();
 // (enumerate objects/relations and read)
 ```
 
-2. **Import data** to target backend:
+1. **Import data** to target backend:
 
 ```rust
 let target = StorageFactory::from_str("foundationdb", cluster_file).await?;
 target.write(all_tuples).await?;
 ```
 
-3. **Update configuration** to use new backend
+1. **Update configuration** to use new backend
 
 ## Troubleshooting
 

@@ -8,9 +8,9 @@ This guide covers how to build, test, and develop InferaDB from source.
 
 - **Rust** 1.75 or later
 
-    ```bash
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-    ```
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  ```
 
 - **Cargo** (comes with Rust)
 
@@ -18,9 +18,9 @@ This guide covers how to build, test, and develop InferaDB from source.
 
 - **Mise** - Task runner and development tool manager
 
-    ```bash
-    curl https://mise.run | sh
-    ```
+  ```bash
+  curl https://mise.run | sh
+  ```
 
 - **Docker** - For containerized builds and testing
 
@@ -467,30 +467,30 @@ brew install openssl
 
 1. **Use sccache** (compiler cache):
 
-    ```bash
-    cargo install sccache
-    export RUSTC_WRAPPER=sccache
-    ```
+   ```bash
+   cargo install sccache
+   export RUSTC_WRAPPER=sccache
+   ```
 
 2. **Increase parallel jobs**:
 
-    ```bash
-    # Add to ~/.cargo/config.toml
-    [build]
-    jobs = 8
-    ```
+   ```bash
+   # Add to ~/.cargo/config.toml
+   [build]
+   jobs = 8
+   ```
 
 3. **Use mold linker** (Linux only):
 
-    ```bash
-    # Install mold
-    sudo apt-get install mold  # or build from source
+   ```bash
+   # Install mold
+   sudo apt-get install mold  # or build from source
 
-    # Add to ~/.cargo/config.toml
-    [target.x86_64-unknown-linux-gnu]
-    linker = "clang"
-    rustflags = ["-C", "link-arg=-fuse-ld=mold"]
-    ```
+   # Add to ~/.cargo/config.toml
+   [target.x86_64-unknown-linux-gnu]
+   linker = "clang"
+   rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+   ```
 
 ### Test Failures
 
@@ -556,8 +556,8 @@ Settings:
 
 ```json
 {
-    "rust-analyzer.checkOnSave.command": "clippy",
-    "rust-analyzer.cargo.features": "all"
+  "rust-analyzer.checkOnSave.command": "clippy",
+  "rust-analyzer.cargo.features": "all"
 }
 ```
 
@@ -593,16 +593,16 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-    test:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
-            - run: cargo test --all-features
-            - run: cargo clippy -- -D warnings
-            - run: cargo fmt -- --check
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo test --all-features
+      - run: cargo clippy -- -D warnings
+      - run: cargo fmt -- --check
 ```
 
 ## Contribution Workflow
@@ -619,6 +619,6 @@ jobs:
 ## Getting Help
 
 - **Documentation**: See `docs/` directory
-- **Issues**: https://github.com/inferadb/server/issues
-- **Discussions**: https://github.com/inferadb/server/discussions
+- **Issues**: <https://github.com/inferadb/server/issues>
+- **Discussions**: <https://github.com/inferadb/server/discussions>
 - **Discord**: [Community Discord](https://discord.gg/inferadb)

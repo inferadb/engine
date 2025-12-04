@@ -6,14 +6,14 @@ InferaDB extends the AuthZEN specification with four custom extensions that prov
 
 ```json
 {
-    "issuer": "https://inferadb.example.com",
-    "access_evaluation_endpoint": "https://inferadb.example.com/access/v1/evaluation",
-    "extensions": {
-        "inferadb_relationship_management": true,
-        "inferadb_relation_expansion": true,
-        "inferadb_simulation": true,
-        "inferadb_realtime_streaming": true
-    }
+  "issuer": "https://inferadb.example.com",
+  "access_evaluation_endpoint": "https://inferadb.example.com/access/v1/evaluation",
+  "extensions": {
+    "inferadb_relationship_management": true,
+    "inferadb_relation_expansion": true,
+    "inferadb_simulation": true,
+    "inferadb_realtime_streaming": true
+  }
 }
 ```
 
@@ -28,7 +28,7 @@ InferaDB extends the AuthZEN specification with four custom extensions that prov
 
 ## When to Use Extensions vs Core AuthZEN
 
-### Use Core AuthZEN Endpoints When:
+### Use Core AuthZEN Endpoints When
 
 - **Portability is critical**: You need to integrate with any AuthZEN-compliant system
 - **Simple authorization checks**: You only need to answer "can subject perform action on resource?"
@@ -36,7 +36,7 @@ InferaDB extends the AuthZEN specification with four custom extensions that prov
 - **Search operations**: You need to find authorized resources or subjects
 - **Standardized integration**: You're building a generic authorization layer
 
-### Use InferaDB Extensions When:
+### Use InferaDB Extensions When
 
 - **Relationship management**: You need to create, modify, or delete the underlying authorization graph
 - **Debugging authorization**: You need to understand why a decision was made
@@ -61,18 +61,18 @@ Create new relationships in the authorization graph.
 
 ```json
 {
-    "relationships": [
-        {
-            "subject": "user:alice",
-            "relation": "member",
-            "resource": "team:engineering"
-        },
-        {
-            "subject": "team:engineering#member",
-            "relation": "viewer",
-            "resource": "doc:design-doc"
-        }
-    ]
+  "relationships": [
+    {
+      "subject": "user:alice",
+      "relation": "member",
+      "resource": "team:engineering"
+    },
+    {
+      "subject": "team:engineering#member",
+      "relation": "viewer",
+      "resource": "doc:design-doc"
+    }
+  ]
 }
 ```
 
@@ -80,8 +80,8 @@ Create new relationships in the authorization graph.
 
 ```json
 {
-    "success": true,
-    "relationships_created": 2
+  "success": true,
+  "relationships_created": 2
 }
 ```
 
@@ -100,11 +100,11 @@ Query existing relationships with flexible filtering.
 
 ```json
 {
-    "filter": {
-        "subject": "user:alice",
-        "relation": "member"
-    },
-    "limit": 100
+  "filter": {
+    "subject": "user:alice",
+    "relation": "member"
+  },
+  "limit": 100
 }
 ```
 
@@ -112,19 +112,19 @@ Query existing relationships with flexible filtering.
 
 ```json
 {
-    "relationships": [
-        {
-            "subject": "user:alice",
-            "relation": "member",
-            "resource": "team:engineering"
-        },
-        {
-            "subject": "user:alice",
-            "relation": "member",
-            "resource": "team:platform"
-        }
-    ],
-    "continuation_token": null
+  "relationships": [
+    {
+      "subject": "user:alice",
+      "relation": "member",
+      "resource": "team:engineering"
+    },
+    {
+      "subject": "user:alice",
+      "relation": "member",
+      "resource": "team:platform"
+    }
+  ],
+  "continuation_token": null
 }
 ```
 
@@ -143,13 +143,13 @@ Remove relationships from the authorization graph.
 
 ```json
 {
-    "relationships": [
-        {
-            "subject": "user:alice",
-            "relation": "member",
-            "resource": "team:engineering"
-        }
-    ]
+  "relationships": [
+    {
+      "subject": "user:alice",
+      "relation": "member",
+      "resource": "team:engineering"
+    }
+  ]
 }
 ```
 
@@ -157,8 +157,8 @@ Remove relationships from the authorization graph.
 
 ```json
 {
-    "success": true,
-    "relationships_deleted": 1
+  "success": true,
+  "relationships_deleted": 1
 }
 ```
 
@@ -192,9 +192,9 @@ Expand a relation tree from a starting point.
 
 ```json
 {
-    "resource": "doc:design-doc",
-    "relation": "viewer",
-    "max_depth": 5
+  "resource": "doc:design-doc",
+  "relation": "viewer",
+  "max_depth": 5
 }
 ```
 
@@ -202,30 +202,30 @@ Expand a relation tree from a starting point.
 
 ```json
 {
-    "tree": {
-        "resource": "doc:design-doc",
-        "relation": "viewer",
-        "subjects": [
-            {
-                "type": "direct",
-                "subject": "user:alice"
-            },
-            {
-                "type": "computed",
-                "subject": "team:engineering#member",
-                "children": [
-                    {
-                        "type": "direct",
-                        "subject": "user:bob"
-                    },
-                    {
-                        "type": "direct",
-                        "subject": "user:charlie"
-                    }
-                ]
-            }
+  "tree": {
+    "resource": "doc:design-doc",
+    "relation": "viewer",
+    "subjects": [
+      {
+        "type": "direct",
+        "subject": "user:alice"
+      },
+      {
+        "type": "computed",
+        "subject": "team:engineering#member",
+        "children": [
+          {
+            "type": "direct",
+            "subject": "user:bob"
+          },
+          {
+            "type": "direct",
+            "subject": "user:charlie"
+          }
         ]
-    }
+      }
+    ]
+  }
 }
 ```
 
@@ -267,21 +267,21 @@ Evaluate a check with simulated relationship changes.
 
 ```json
 {
-    "evaluation": {
+  "evaluation": {
+    "subject": "user:alice",
+    "relation": "viewer",
+    "resource": "doc:design-doc"
+  },
+  "simulated_relationships": {
+    "add": [
+      {
         "subject": "user:alice",
-        "relation": "viewer",
-        "resource": "doc:design-doc"
-    },
-    "simulated_relationships": {
-        "add": [
-            {
-                "subject": "user:alice",
-                "relation": "member",
-                "resource": "team:engineering"
-            }
-        ],
-        "remove": []
-    }
+        "relation": "member",
+        "resource": "team:engineering"
+      }
+    ],
+    "remove": []
+  }
 }
 ```
 
@@ -289,16 +289,16 @@ Evaluate a check with simulated relationship changes.
 
 ```json
 {
-    "decision": true,
-    "trace": {
-        "steps": [
-            {
-                "rule": "team:engineering#member -> viewer @ doc:design-doc",
-                "result": "matched",
-                "simulated": true
-            }
-        ]
-    }
+  "decision": true,
+  "trace": {
+    "steps": [
+      {
+        "rule": "team:engineering#member -> viewer @ doc:design-doc",
+        "result": "matched",
+        "simulated": true
+      }
+    ]
+  }
 }
 ```
 
@@ -330,9 +330,9 @@ Watch for changes to relationships matching a filter.
 
 ```json
 {
-    "filter": {
-        "resource": "doc:design-doc"
-    }
+  "filter": {
+    "resource": "doc:design-doc"
+  }
 }
 ```
 
@@ -381,17 +381,17 @@ Host: inferadb.example.com
 
 ```json
 {
-    "issuer": "https://inferadb.example.com",
-    "access_evaluation_endpoint": "https://inferadb.example.com/access/v1/evaluation",
-    "access_evaluations_endpoint": "https://inferadb.example.com/access/v1/evaluations",
-    "search_resource_endpoint": "https://inferadb.example.com/access/v1/search/resource",
-    "search_subject_endpoint": "https://inferadb.example.com/access/v1/search/subject",
-    "extensions": {
-        "inferadb_relationship_management": true,
-        "inferadb_relation_expansion": true,
-        "inferadb_simulation": true,
-        "inferadb_realtime_streaming": true
-    }
+  "issuer": "https://inferadb.example.com",
+  "access_evaluation_endpoint": "https://inferadb.example.com/access/v1/evaluation",
+  "access_evaluations_endpoint": "https://inferadb.example.com/access/v1/evaluations",
+  "search_resource_endpoint": "https://inferadb.example.com/access/v1/search/resource",
+  "search_subject_endpoint": "https://inferadb.example.com/access/v1/search/subject",
+  "extensions": {
+    "inferadb_relationship_management": true,
+    "inferadb_relation_expansion": true,
+    "inferadb_simulation": true,
+    "inferadb_realtime_streaming": true
+  }
 }
 ```
 
@@ -428,14 +428,14 @@ Error response format:
 
 ```json
 {
-    "error": {
-        "code": "invalid_request",
-        "message": "Subject field is required",
-        "details": {
-            "field": "subject",
-            "reason": "missing_required_field"
-        }
+  "error": {
+    "code": "invalid_request",
+    "message": "Subject field is required",
+    "details": {
+      "field": "subject",
+      "reason": "missing_required_field"
     }
+  }
 }
 ```
 
@@ -534,48 +534,48 @@ POST /v1/watch
 
 ```typescript
 class AuthorizationService {
-    async checkAccess(
-        subject: string,
-        action: string,
-        resource: string
-    ): Promise<boolean> {
-        // Use core AuthZEN for evaluation
-        const response = await fetch(
-            "https://inferadb.example.com/access/v1/evaluation",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    subject: { type: "user", id: subject },
-                    action: { name: action },
-                    resource: { type: "document", id: resource },
-                }),
-            }
-        );
-        const result = await response.json();
-        return result.decision;
-    }
+  async checkAccess(
+    subject: string,
+    action: string,
+    resource: string
+  ): Promise<boolean> {
+    // Use core AuthZEN for evaluation
+    const response = await fetch(
+      "https://inferadb.example.com/access/v1/evaluation",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          subject: { type: "user", id: subject },
+          action: { name: action },
+          resource: { type: "document", id: resource },
+        }),
+      }
+    );
+    const result = await response.json();
+    return result.decision;
+  }
 
-    async grantAccess(
-        subject: string,
-        relation: string,
-        resource: string
-    ): Promise<void> {
-        // Use extension for relationship management
-        await fetch("https://inferadb.example.com/v1/relationships:write", {
-            method: "POST",
-            body: JSON.stringify({
-                relationships: [{ subject, relation, resource }],
-            }),
-        });
-    }
+  async grantAccess(
+    subject: string,
+    relation: string,
+    resource: string
+  ): Promise<void> {
+    // Use extension for relationship management
+    await fetch("https://inferadb.example.com/v1/relationships:write", {
+      method: "POST",
+      body: JSON.stringify({
+        relationships: [{ subject, relation, resource }],
+      }),
+    });
+  }
 
-    async explainAccess(subject: string, resource: string): Promise<object> {
-        // Use extension for debugging
-        const response = await fetch("https://inferadb.example.com/v1/expand", {
-            method: "POST",
-            body: JSON.stringify({ resource, relation: "viewer" }),
-        });
-        return await response.json();
-    }
+  async explainAccess(subject: string, resource: string): Promise<object> {
+    // Use extension for debugging
+    const response = await fetch("https://inferadb.example.com/v1/expand", {
+      method: "POST",
+      body: JSON.stringify({ resource, relation: "viewer" }),
+    });
+    return await response.json();
+  }
 }
 ```

@@ -48,38 +48,38 @@ See [values.yaml](values.yaml) for all configuration options.
 replicaCount: 5
 
 resources:
-    requests:
-        cpu: 1000m
-        memory: 2Gi
-    limits:
-        cpu: 4000m
-        memory: 8Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+  limits:
+    cpu: 4000m
+    memory: 8Gi
 
 config:
-    store:
-        backend: "foundationdb"
-        connectionString: "/etc/foundationdb/fdb.cluster"
+  store:
+    backend: "foundationdb"
+    connectionString: "/etc/foundationdb/fdb.cluster"
 
-    auth:
-        enabled: true
-        replayProtection: true
+  auth:
+    enabled: true
+    replayProtection: true
 
 autoscaling:
-    enabled: true
-    minReplicas: 5
-    maxReplicas: 50
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 50
 
 foundationdb:
-    enabled: true
-    clusterName: "foundationdb-cluster" # Name of your FDB cluster
+  enabled: true
+  clusterName: "foundationdb-cluster" # Name of your FDB cluster
 
 redis:
+  enabled: true
+  auth:
     enabled: true
-    auth:
-        enabled: true
-        # IMPORTANT: Use External Secrets or sealed-secrets for production
-        # DO NOT commit real passwords to version control
-        existingSecret: "redis-password-secret" # Reference to external secret
+    # IMPORTANT: Use External Secrets or sealed-secrets for production
+    # DO NOT commit real passwords to version control
+    existingSecret: "redis-password-secret" # Reference to external secret
 ```
 
 #### Development with In-Memory Storage
@@ -88,19 +88,19 @@ redis:
 replicaCount: 1
 
 resources:
-    requests:
-        cpu: 100m
-        memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
 config:
-    store:
-        backend: "memory"
+  store:
+    backend: "memory"
 
-    auth:
-        enabled: false
+  auth:
+    enabled: false
 
 autoscaling:
-    enabled: false
+  enabled: false
 ```
 
 ## Upgrading
@@ -176,8 +176,8 @@ The chart includes ServiceMonitor support for Prometheus Operator:
 
 ```yaml
 serviceMonitor:
-    enabled: true
-    interval: 30s
+  enabled: true
+  interval: 30s
 ```
 
 ### Grafana Dashboards
@@ -208,18 +208,18 @@ For production, use external secret managers:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-    name: inferadb-secrets
+  name: inferadb-secrets
 spec:
-    secretStoreRef:
-        name: aws-secrets-manager
-        kind: SecretStore
-    target:
-        name: inferadb-secrets
-    data:
-        - secretKey: jwksUrl
-          remoteRef:
-              key: inferadb/prod/auth
-              property: jwks_url
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: SecretStore
+  target:
+    name: inferadb-secrets
+  data:
+    - secretKey: jwksUrl
+      remoteRef:
+        key: inferadb/prod/auth
+        property: jwks_url
 ```
 
 ## Examples
@@ -278,6 +278,6 @@ helm template inferadb ./helm --debug
 
 ## Support
 
-- Documentation: https://docs.inferadb.com
-- Issues: https://github.com/inferadb/inferadb/issues
-- Community: https://community.inferadb.com
+- Documentation: <https://docs.inferadb.com>
+- Issues: <https://github.com/inferadb/inferadb/issues>
+- Community: <https://community.inferadb.com>

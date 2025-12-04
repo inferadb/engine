@@ -110,27 +110,27 @@ docker-compose down
 ### Components
 
 1. **FoundationDB Container** (`foundationdb`)
-    - Image: `foundationdb/foundationdb:7.3.69`
-    - Single-node cluster for testing
-    - Health checks ensure FDB is ready before tests run
-    - Resource limits prevent runaway processes
+   - Image: `foundationdb/foundationdb:7.3.69`
+   - Single-node cluster for testing
+   - Health checks ensure FDB is ready before tests run
+   - Resource limits prevent runaway processes
 
 2. **Test Runner Container** (`test-runner`)
-    - Based on `rust:1.83-slim`
-    - FDB client libraries installed
-    - All Rust dependencies cached
-    - Source code mounted for live development
+   - Based on `rust:1.83-slim`
+   - FDB client libraries installed
+   - All Rust dependencies cached
+   - Source code mounted for live development
 
 3. **Shared Network** (`fdb-test-network`)
-    - Isolated bridge network
-    - Allows containers to communicate
-    - No external access except port 4500 (optional)
+   - Isolated bridge network
+   - Allows containers to communicate
+   - No external access except port 4500 (optional)
 
 4. **Volumes**
-    - `fdb-config`: FDB cluster configuration (shared between containers)
-    - `cargo-registry`: Cached cargo dependencies
-    - `cargo-git`: Cached git dependencies
-    - `target-cache`: Compiled artifacts cache
+   - `fdb-config`: FDB cluster configuration (shared between containers)
+   - `cargo-registry`: Cached cargo dependencies
+   - `cargo-git`: Cached git dependencies
+   - `target-cache`: Compiled artifacts cache
 
 ### Network Topology
 
@@ -240,28 +240,28 @@ name: FDB Integration Tests
 on: [push, pull_request]
 
 jobs:
-    fdb-tests:
-        runs-on: ubuntu-latest
+  fdb-tests:
+    runs-on: ubuntu-latest
 
-        steps:
-            - uses: actions/checkout@v3
+    steps:
+      - uses: actions/checkout@v3
 
-            - name: Run FDB Integration Tests
-              run: |
-                  cd server
-                  ./docker/fdb-integration-tests/test.sh
+      - name: Run FDB Integration Tests
+        run: |
+          cd server
+          ./docker/fdb-integration-tests/test.sh
 ```
 
 ### GitLab CI Example
 
 ```yaml
 fdb-integration-tests:
-    image: docker:latest
-    services:
-        - docker:dind
-    script:
-        - cd server
-        - ./docker/fdb-integration-tests/test.sh
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - cd server
+    - ./docker/fdb-integration-tests/test.sh
 ```
 
 ## Performance Considerations
@@ -276,10 +276,12 @@ fdb-integration-tests:
 
 1. **Reuse volumes** between test runs (automatic with docker-compose)
 2. **Pre-build images** in CI:
-    ```bash
-    docker-compose build
-    docker-compose push  # if using registry
-    ```
+
+   ```bash
+   docker-compose build
+   docker-compose push  # if using registry
+   ```
+
 3. **Use cache mounts** (already configured)
 4. **Limit parallelism** for memory-constrained environments
 
@@ -320,41 +322,43 @@ fdb-integration-tests:
 2. Mark with `#[cfg(all(test, feature = "fdb-integration-tests"))]`
 3. Run tests: `./docker/fdb-integration-tests/test.sh`
 4. Iterate in interactive mode:
-    ```bash
-    ./docker/fdb-integration-tests/shell.sh
-    # Inside container
-    cargo test -p infera-store --features fdb,fdb-integration-tests <test_name>
-    ```
+
+   ```bash
+   ./docker/fdb-integration-tests/shell.sh
+   # Inside container
+   cargo test -p infera-store --features fdb,fdb-integration-tests <test_name>
+   ```
 
 ### Debugging Test Failures
 
 1. Keep environment running:
 
-    ```bash
-    KEEP_RUNNING=true ./docker/fdb-integration-tests/test.sh
-    ```
+   ```bash
+   KEEP_RUNNING=true ./docker/fdb-integration-tests/test.sh
+   ```
 
 2. Access container:
 
-    ```bash
-    ./docker/fdb-integration-tests/shell.sh
-    ```
+   ```bash
+   ./docker/fdb-integration-tests/shell.sh
+   ```
 
 3. Inspect FDB state:
 
-    ```bash
-    fdbcli
-    > status
-    > get \x01test_key
-    > exit
-    ```
+   ```bash
+   fdbcli
+   > status
+   > get \x01test_key
+   > exit
+   ```
 
 4. Re-run specific test:
-    ```bash
-    RUST_BACKTRACE=full cargo test -p infera-store \
-      --features fdb,fdb-integration-tests \
-      test_name -- --nocapture
-    ```
+
+   ```bash
+   RUST_BACKTRACE=full cargo test -p infera-store \
+     --features fdb,fdb-integration-tests \
+     test_name -- --nocapture
+   ```
 
 ## Maintenance
 
@@ -362,34 +366,36 @@ fdb-integration-tests:
 
 1. Update version in `Dockerfile`:
 
-    ```dockerfile
-    RUN wget https://github.com/apple/foundationdb/releases/download/7.3.69/...
-    ```
+   ```dockerfile
+   RUN wget https://github.com/apple/foundationdb/releases/download/7.3.69/...
+   ```
 
 2. Update version in `docker-compose.yml`:
 
-    ```yaml
-    image: foundationdb/foundationdb:7.3.69
-    ```
+   ```yaml
+   image: foundationdb/foundationdb:7.3.69
+   ```
 
 3. Rebuild:
-    ```bash
-    ./docker/fdb-integration-tests/cleanup.sh
-    docker-compose build --no-cache
-    ```
+
+   ```bash
+   ./docker/fdb-integration-tests/cleanup.sh
+   docker-compose build --no-cache
+   ```
 
 ### Updating Rust Version
 
 1. Update in `Dockerfile`:
 
-    ```dockerfile
-    FROM rust:1.83-slim
-    ```
+   ```dockerfile
+   FROM rust:1.83-slim
+   ```
 
 2. Rebuild:
-    ```bash
-    docker-compose build test-runner
-    ```
+
+   ```bash
+   docker-compose build test-runner
+   ```
 
 ## Support
 
