@@ -24,25 +24,23 @@ This guide walks you through deploying InferaDB in a multi-tenant configuration 
 
 ### Deployment Topology
 
-```text
-┌──────────────────────────────────────────────────────┐
-│              Load Balancer / API Gateway             │
-└─────────────────────┬────────────────────────────────┘
-                      │
-        ┌─────────────┼─────────────┐
-        │             │             │
-┌───────▼──────┐ ┌────▼──────┐ ┌───▼───────┐
-│  InferaDB    │ │  InferaDB │ │  InferaDB │
-│  API Server  │ │  API Server│ │  API Server│
-│  (Stateless) │ │  (Stateless)│ │  (Stateless)│
-└───────┬──────┘ └────┬──────┘ └───┬───────┘
-        │             │             │
-        └─────────────┼─────────────┘
-                      │
-            ┌─────────▼─────────┐
-            │   FoundationDB    │
-            │    (Distributed)  │
-            └───────────────────┘
+```mermaid
+graph TD
+    LB["Load Balancer / API Gateway"]
+
+    LB --> API1["InferaDB API Server<br/>(Stateless)"]
+    LB --> API2["InferaDB API Server<br/>(Stateless)"]
+    LB --> API3["InferaDB API Server<br/>(Stateless)"]
+
+    API1 --> FDB["FoundationDB<br/>(Distributed)"]
+    API2 --> FDB
+    API3 --> FDB
+
+    style LB fill:#1E88E5,stroke:#1565C0,color:#fff
+    style API1 fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style API2 fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style API3 fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style FDB fill:#FF9800,stroke:#F57C00,color:#fff
 ```
 
 ---

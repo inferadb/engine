@@ -9,40 +9,37 @@ This example deploys a production-ready InferaDB installation on AWS using:
 
 ## Architecture
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                         AWS Account                          │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │              VPC (10.0.0.0/16)                         │ │
-│  │                                                        │ │
-│  │  ┌──────────────────────────────────────────────────┐ │ │
-│  │  │              EKS Cluster                         │ │ │
-│  │  │                                                  │ │ │
-│  │  │  ┌────────────────────────────────────────────┐ │ │ │
-│  │  │  │     InferaDB Pods (3-20 replicas)         │ │ │ │
-│  │  │  │     - Auto-scaling based on CPU/memory    │ │ │ │
-│  │  │  │     - Health checks                        │ │ │ │
-│  │  │  │     - Prometheus metrics                   │ │ │ │
-│  │  │  └────────────────────────────────────────────┘ │ │ │
-│  │  │                                                  │ │ │
-│  │  └──────────────────────────────────────────────────┘ │ │
-│  │                                                        │ │
-│  │  ┌──────────────────────────────────────────────────┐ │ │
-│  │  │     ElastiCache Redis Cluster                    │ │ │
-│  │  │     - Multi-AZ with automatic failover           │ │ │
-│  │  │     - Encrypted at rest and in transit           │ │ │
-│  │  │     - Used for replay protection                 │ │ │
-│  │  └──────────────────────────────────────────────────┘ │ │
-│  │                                                        │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │     Network Load Balancer                              │ │
-│  │     - HTTP/gRPC traffic routing                        │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph AWS["AWS Account"]
+        subgraph VPC["VPC (10.0.0.0/16)"]
+            subgraph EKS["EKS Cluster"]
+                subgraph Pods["InferaDB Pods (3-20 replicas)"]
+                    AUTOSCALE["Auto-scaling based on CPU/memory"]
+                    HEALTH["Health checks"]
+                    METRICS["Prometheus metrics"]
+                end
+            end
+            subgraph Redis["ElastiCache Redis Cluster"]
+                MULTIAZ["Multi-AZ with automatic failover"]
+                ENCRYPT["Encrypted at rest and in transit"]
+                REPLAY["Used for replay protection"]
+            end
+        end
+        subgraph NLB["Network Load Balancer"]
+            ROUTING["HTTP/gRPC traffic routing"]
+        end
+    end
+
+    NLB --> EKS
+    EKS --> Redis
+
+    style AWS fill:#E3F2FD,stroke:#42A5F5
+    style VPC fill:#E8F5E9,stroke:#66BB6A
+    style EKS fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style Pods fill:#81C784,stroke:#4CAF50
+    style Redis fill:#FF9800,stroke:#F57C00,color:#fff
+    style NLB fill:#1E88E5,stroke:#1565C0,color:#fff
 ```
 
 ## Prerequisites

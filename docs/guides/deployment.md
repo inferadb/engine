@@ -27,18 +27,21 @@ InferaDB is a high-performance authorization database designed for cloud-native 
 
 ### Architecture
 
-```text
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Client    │────▶│ Load Balancer│────▶│  InferaDB   │
-└─────────────┘     └─────────────┘     │   Cluster   │
-                                        └──────┬──────┘
-                                               │
-                        ┌──────────────────────┼──────────────────────┐
-                        │                      │                      │
-                   ┌────▼────┐          ┌─────▼─────┐         ┌─────▼─────┐
-                   │  Redis  │          │    FDB    │         │ Auth Svc  │
-                   │ (Replay)│          │ (Storage) │         │  (JWKS)   │
-                   └─────────┘          └───────────┘         └───────────┘
+```mermaid
+flowchart LR
+    CLIENT["Client"] --> LB["Load Balancer"]
+    LB --> CLUSTER["InferaDB<br/>Cluster"]
+
+    CLUSTER --> REDIS["Redis<br/>(Replay)"]
+    CLUSTER --> FDB["FDB<br/>(Storage)"]
+    CLUSTER --> AUTH["Auth Svc<br/>(JWKS)"]
+
+    style CLIENT fill:#E3F2FD,stroke:#42A5F5
+    style LB fill:#1E88E5,stroke:#1565C0,color:#fff
+    style CLUSTER fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style REDIS fill:#FF9800,stroke:#F57C00,color:#fff
+    style FDB fill:#FF9800,stroke:#F57C00,color:#fff
+    style AUTH fill:#9C27B0,stroke:#7B1FA2,color:#fff
 ```
 
 ## Prerequisites

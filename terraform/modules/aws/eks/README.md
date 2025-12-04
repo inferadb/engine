@@ -104,34 +104,46 @@ After the cluster is created:
 
 ## Architecture
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│                      AWS Region                          │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐ │
-│  │                    VPC (10.0.0.0/16)               │ │
-│  │                                                    │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────┐│ │
-│  │  │   AZ-1       │  │   AZ-2       │  │  AZ-3    ││ │
-│  │  │              │  │              │  │          ││ │
-│  │  │ Public       │  │ Public       │  │ Public   ││ │
-│  │  │ Subnet       │  │ Subnet       │  │ Subnet   ││ │
-│  │  │ NAT GW       │  │ NAT GW       │  │ NAT GW   ││ │
-│  │  │              │  │              │  │          ││ │
-│  │  │ Private      │  │ Private      │  │ Private  ││ │
-│  │  │ Subnet       │  │ Subnet       │  │ Subnet   ││ │
-│  │  │ EKS Nodes    │  │ EKS Nodes    │  │ EKS Nodes││ │
-│  │  │              │  │              │  │          ││ │
-│  │  └──────────────┘  └──────────────┘  └──────────┘│ │
-│  │                                                    │ │
-│  └────────────────────────────────────────────────────┘ │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐ │
-│  │              EKS Control Plane                     │ │
-│  │              (Managed by AWS)                      │ │
-│  └────────────────────────────────────────────────────┘ │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Region["AWS Region"]
+        subgraph VPC["VPC (10.0.0.0/16)"]
+            subgraph AZ1["AZ-1"]
+                PUB1["Public Subnet<br/>NAT GW"]
+                PRIV1["Private Subnet<br/>EKS Nodes"]
+                PUB1 --> PRIV1
+            end
+            subgraph AZ2["AZ-2"]
+                PUB2["Public Subnet<br/>NAT GW"]
+                PRIV2["Private Subnet<br/>EKS Nodes"]
+                PUB2 --> PRIV2
+            end
+            subgraph AZ3["AZ-3"]
+                PUB3["Public Subnet<br/>NAT GW"]
+                PRIV3["Private Subnet<br/>EKS Nodes"]
+                PUB3 --> PRIV3
+            end
+        end
+        subgraph Control["EKS Control Plane<br/>(Managed by AWS)"]
+        end
+    end
+
+    Control --> PRIV1
+    Control --> PRIV2
+    Control --> PRIV3
+
+    style Region fill:#E3F2FD,stroke:#42A5F5
+    style VPC fill:#E8F5E9,stroke:#66BB6A
+    style AZ1 fill:#C8E6C9,stroke:#4CAF50
+    style AZ2 fill:#C8E6C9,stroke:#4CAF50
+    style AZ3 fill:#C8E6C9,stroke:#4CAF50
+    style PUB1 fill:#1E88E5,stroke:#1565C0,color:#fff
+    style PUB2 fill:#1E88E5,stroke:#1565C0,color:#fff
+    style PUB3 fill:#1E88E5,stroke:#1565C0,color:#fff
+    style PRIV1 fill:#FF9800,stroke:#F57C00,color:#fff
+    style PRIV2 fill:#FF9800,stroke:#F57C00,color:#fff
+    style PRIV3 fill:#FF9800,stroke:#F57C00,color:#fff
+    style Control fill:#9C27B0,stroke:#7B1FA2,color:#fff
 ```
 
 ## Security Considerations

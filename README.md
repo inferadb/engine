@@ -96,20 +96,40 @@ curl -X POST http://localhost:8080/v1/evaluate \
 
 InferaDB is built as a modular Rust workspace:
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│                     infera-api                           │
-│              REST + gRPC API Layer                       │
-├─────────────────────────────────────────────────────────┤
-│  infera-auth  │  infera-core  │  infera-cache           │
-│  JWT/OAuth    │  Evaluation   │  LRU Cache              │
-├─────────────────────────────────────────────────────────┤
-│  infera-store │  infera-repl  │  infera-wasm            │
-│  Storage      │  Replication  │  WASM Runtime           │
-├─────────────────────────────────────────────────────────┤
-│            infera-observe + infera-config                │
-│         Metrics/Tracing + Configuration                  │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph API["infera-api<br/>REST + gRPC API Layer"]
+    end
+
+    subgraph Core["Core Services"]
+        AUTH["infera-auth<br/>JWT/OAuth"]
+        CORE["infera-core<br/>Evaluation"]
+        CACHE["infera-cache<br/>LRU Cache"]
+    end
+
+    subgraph Services["Supporting Services"]
+        STORE["infera-store<br/>Storage"]
+        REPL["infera-repl<br/>Replication"]
+        WASM["infera-wasm<br/>WASM Runtime"]
+    end
+
+    subgraph Foundation["infera-observe + infera-config<br/>Metrics/Tracing + Configuration"]
+    end
+
+    API --> Core
+    Core --> Services
+    Services --> Foundation
+
+    style API fill:#1E88E5,stroke:#1565C0,color:#fff
+    style Core fill:#E3F2FD,stroke:#42A5F5
+    style Services fill:#E3F2FD,stroke:#42A5F5
+    style Foundation fill:#90CAF9,stroke:#42A5F5
+    style AUTH fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style CORE fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style CACHE fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style STORE fill:#FF9800,stroke:#F57C00,color:#fff
+    style REPL fill:#FF9800,stroke:#F57C00,color:#fff
+    style WASM fill:#FF9800,stroke:#F57C00,color:#fff
 ```
 
 **Core Crates:**

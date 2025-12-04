@@ -134,23 +134,21 @@ docker-compose down
 
 ### Network Topology
 
-```text
-┌─────────────────────────────────────────────┐
-│  Docker Network: fdb-test-network           │
-│                                              │
-│  ┌──────────────────┐  ┌─────────────────┐  │
-│  │  foundationdb    │  │  test-runner    │  │
-│  │  (FDB Server)    │◄─┤  (Rust + Tests) │  │
-│  │                  │  │                 │  │
-│  │  Port: 4500      │  │  Mounts: source │  │
-│  │  Health: checked │  │  Cache: volumes │  │
-│  └──────────────────┘  └─────────────────┘  │
-│           │                                  │
-│           │ (shared volume)                  │
-│           ▼                                  │
-│    fdb-config volume                         │
-│    /var/fdb/fdb.cluster                      │
-└─────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Network["Docker Network: fdb-test-network"]
+        FDB["foundationdb<br/>(FDB Server)<br/>Port: 4500<br/>Health: checked"]
+        TR["test-runner<br/>(Rust + Tests)<br/>Mounts: source<br/>Cache: volumes"]
+
+        TR -->|FDB client| FDB
+    end
+
+    FDB -->|shared volume| VOL["fdb-config volume<br/>/var/fdb/fdb.cluster"]
+
+    style Network fill:#E3F2FD,stroke:#42A5F5
+    style FDB fill:#FF9800,stroke:#F57C00,color:#fff
+    style TR fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style VOL fill:#9E9E9E,stroke:#616161,color:#fff
 ```
 
 ## Files

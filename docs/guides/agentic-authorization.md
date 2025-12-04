@@ -80,13 +80,22 @@ Organizations must answer:
 
 **Flow:**
 
-```text
-User Request → LLM Agent → Plan Actions → For Each Action:
-                                              ↓
-                                         InferaDB Check
-                                              ↓
-                                    Allow? → Execute Tool
-                                    Deny?  → Explain to User
+```mermaid
+flowchart LR
+    A["User Request"] --> B["LLM Agent"]
+    B --> C["Plan Actions"]
+    C --> D{"For Each Action"}
+    D --> E["InferaDB Check"]
+    E -->|Allow| F["Execute Tool"]
+    E -->|Deny| G["Explain to User"]
+
+    style A fill:#E3F2FD,stroke:#42A5F5
+    style B fill:#1E88E5,stroke:#1565C0,color:#fff
+    style C fill:#1E88E5,stroke:#1565C0,color:#fff
+    style D fill:#FF9800,stroke:#F57C00,color:#fff
+    style E fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style F fill:#81C784,stroke:#4CAF50
+    style G fill:#FFCDD2,stroke:#E57373
 ```
 
 **Example Implementation:**
@@ -282,13 +291,24 @@ pub extern "C" fn evaluate(context_json: &str) -> bool {
 
 **Permission Chain:**
 
-```text
-user:alice
-  → delegates:research (scope: market-analysis)
-    → agent:research-bot
-      → delegates:data-extraction (scope: public-datasets)
-        → agent:data-scraper
-          → accesses: dataset:public-market-data
+```mermaid
+flowchart LR
+    subgraph Chain["Delegation Chain"]
+        A["user:alice"]
+        B["agent:research-bot"]
+        C["agent:data-scraper"]
+        D["dataset:public-market-data"]
+
+        A -->|"delegates:research<br/>(scope: market-analysis)"| B
+        B -->|"delegates:data-extraction<br/>(scope: public-datasets)"| C
+        C -->|"accesses"| D
+    end
+
+    style Chain fill:#E3F2FD,stroke:#42A5F5
+    style A fill:#1E88E5,stroke:#1565C0,color:#fff
+    style B fill:#9C27B0,stroke:#7B1FA2,color:#fff
+    style C fill:#9C27B0,stroke:#7B1FA2,color:#fff
+    style D fill:#4CAF50,stroke:#2E7D32,color:#fff
 ```
 
 **InferaDB Models Chain:**
@@ -866,79 +886,72 @@ Compared to JSON:
 
 ### Complete System Architecture
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│                   User / Application Layer                    │
-│  - Web UI for permission management                           │
-│  - Admin dashboards                                           │
-│  - End-user chat interfaces                                   │
-└────────────────────┬─────────────────────────────────────────┘
-                     │
-                     ↓
-┌──────────────────────────────────────────────────────────────┐
-│              LLM Agent Framework Layer                        │
-│  (LangChain, AutoGPT, Semantic Kernel, etc.)                 │
-│                                                               │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │ Agent Reasoning Loop:                                   │  │
-│  │  1. Parse user intent                                  │  │
-│  │  2. Plan action sequence                               │  │
-│  │  3. FOR EACH ACTION:                                   │  │
-│  │     ├─ Check authorization ──────────────────┐         │  │
-│  │     ├─ If allowed: Execute                   │         │  │
-│  │     └─ If denied: Explain to user            │         │  │
-│  │  4. Synthesize results                                 │  │
-│  │  5. Return to user                                     │  │
-│  └────────────────────────────────────────────────────────┘  │
-└────────────────────────┬─────────────────────────────────────┘
-                         │                              ↑
-                         ↓                              │
-              ┌─────────────────────┐                  │
-              │                     │                  │
-              │     InferaDB        │                  │
-              │  Authorization      │                  │
-              │     Engine          │                  │
-              │                     │                  │
-              │  ┌───────────────┐  │                  │
-              │  │ Evaluation    │  │                  │
-              │  │ - Check       │  │                  │
-              │  │ - Expand      │  │                  │
-              │  │ - Simulate    │  │                  │
-              │  └───────────────┘  │                  │
-              │                     │                  │
-              │  ┌───────────────┐  │                  │
-              │  │ Policy Engine │  │                  │
-              │  │ - IPL         │  │                  │
-              │  │ - WASM        │  │                  │
-              │  └───────────────┘  │                  │
-              │                     │                  │
-              │  ┌───────────────┐  │                  │
-              │  │ Storage       │  │                  │
-              │  │ - Relationships│ │                  │
-              │  │ - Metadata    │  │                  │
-              │  └───────────────┘  │                  │
-              └──────────┬──────────┘                  │
-                         │                             │
-                         ↓                             │
-              Decision + Trace + Metadata ─────────────┘
-              (Optional: TOON format for token efficiency)
-                         │
-                         ↓
-┌──────────────────────────────────────────────────────────────┐
-│              Observability & Governance Layer                 │
-│                                                               │
-│  ┌─────────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │  Audit Logging  │  │  Monitoring  │  │   Analytics    │  │
-│  │  - All checks   │  │  - Real-time │  │  - Trends      │  │
-│  │  - Decisions    │  │  - Alerts    │  │  - Patterns    │  │
-│  │  - Traces       │  │  - Dashboards│  │  - Anomalies   │  │
-│  └─────────────────┘  └──────────────┘  └────────────────┘  │
-│                                                               │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │                  Compliance Reporting                    │ │
-│  │  - GDPR evidence  - HIPAA audit trails  - SOC 2 reports │ │
-│  └─────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph UserLayer["User / Application Layer"]
+        UI["Web UI for permission management"]
+        Admin["Admin dashboards"]
+        Chat["End-user chat interfaces"]
+    end
+
+    subgraph AgentLayer["LLM Agent Framework Layer<br/>(LangChain, AutoGPT, Semantic Kernel, etc.)"]
+        subgraph Loop["Agent Reasoning Loop"]
+            S1["1. Parse user intent"]
+            S2["2. Plan action sequence"]
+            S3["3. FOR EACH ACTION"]
+            S4["4. Synthesize results"]
+            S5["5. Return to user"]
+
+            S1 --> S2 --> S3
+            S3 -->|"Check authorization"| AUTH_CHECK
+            AUTH_CHECK -->|"Allowed"| EXEC["Execute"]
+            AUTH_CHECK -->|"Denied"| EXPLAIN["Explain to user"]
+            EXEC --> S4
+            EXPLAIN --> S4
+            S4 --> S5
+        end
+    end
+
+    subgraph InferaDB["InferaDB Authorization Engine"]
+        subgraph Eval["Evaluation"]
+            CHECK["Check"]
+            EXPAND["Expand"]
+            SIM["Simulate"]
+        end
+        subgraph Policy["Policy Engine"]
+            IPL["IPL"]
+            WASM["WASM"]
+        end
+        subgraph Storage["Storage"]
+            REL["Relationships"]
+            META["Metadata"]
+        end
+    end
+
+    subgraph Observability["Observability & Governance Layer"]
+        subgraph Monitoring["Monitoring"]
+            AUDIT["Audit Logging<br/>• All checks<br/>• Decisions<br/>• Traces"]
+            REALTIME["Monitoring<br/>• Real-time<br/>• Alerts<br/>• Dashboards"]
+            ANALYTICS["Analytics<br/>• Trends<br/>• Patterns<br/>• Anomalies"]
+        end
+        COMPLIANCE["Compliance Reporting<br/>GDPR evidence • HIPAA audit trails • SOC 2 reports"]
+    end
+
+    UserLayer --> AgentLayer
+    AUTH_CHECK --> InferaDB
+    InferaDB -->|"Decision + Trace + Metadata<br/>(Optional: TOON format)"| AUTH_CHECK
+    InferaDB --> Observability
+
+    style UserLayer fill:#E3F2FD,stroke:#42A5F5
+    style AgentLayer fill:#E8F5E9,stroke:#66BB6A
+    style Loop fill:#C8E6C9,stroke:#4CAF50
+    style InferaDB fill:#FFF3E0,stroke:#FF9800
+    style Eval fill:#FFE0B2,stroke:#FF9800
+    style Policy fill:#FFE0B2,stroke:#FF9800
+    style Storage fill:#FFE0B2,stroke:#FF9800
+    style Observability fill:#F3E5F5,stroke:#9C27B0
+    style Monitoring fill:#E1BEE7,stroke:#9C27B0
+    style COMPLIANCE fill:#CE93D8,stroke:#9C27B0,color:#fff
 ```
 
 ### Integration Points

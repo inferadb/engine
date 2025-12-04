@@ -33,23 +33,27 @@ InferaDB implements a comprehensive multi-tenancy system using **Accounts** and 
 
 ### Architecture Diagram
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                                                             │
-│                           Account                           │
-│                     (Tenant Organization)                   │
-│                                                             │
-│    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│    │   Vault A    │  │   Vault B    │  │   Vault C    │     │
-│    │  (Production)│  │  (Staging)   │  │   (Dev)      │     │
-│    └──────────────┘  └──────────────┘  └──────────────┘     │
-│           │                 │                 │             │
-│           ▼                 ▼                 ▼             │
-│     Relationships     Relationships     Relationships       │
-│     Policies          Policies          Policies            │
-│     Cache             Cache             Cache               │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Account["Account (Tenant Organization)"]
+        subgraph VA["Vault A (Production)"]
+            RA["Relationships<br/>Policies<br/>Cache"]
+        end
+        subgraph VB["Vault B (Staging)"]
+            RB["Relationships<br/>Policies<br/>Cache"]
+        end
+        subgraph VC["Vault C (Dev)"]
+            RC["Relationships<br/>Policies<br/>Cache"]
+        end
+    end
+
+    style Account fill:#E3F2FD,stroke:#42A5F5
+    style VA fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style VB fill:#FF9800,stroke:#F57C00,color:#fff
+    style VC fill:#9C27B0,stroke:#7B1FA2,color:#fff
+    style RA fill:#81C784,stroke:#4CAF50
+    style RB fill:#FFB74D,stroke:#FF9800
+    style RC fill:#BA68C8,stroke:#9C27B0
 ```
 
 ---
@@ -113,29 +117,29 @@ pub struct Relationship {
 
 InferaDB enforces vault isolation at every architectural layer:
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│                        API Layer                        │
-│   ┌─────────────────────────────────────────────────┐   │
-│   │  Extract vault from JWT → Validate ownership    │   │
-│   └─────────────────────────────────────────────────┘   │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────┐
-│                        Core Layer                       │
-│   ┌─────────────────────────────────────────────────┐   │
-│   │  Evaluator: Pass vault to all operations        │   │
-│   │  Cache keys: Include vault UUID                 │   │
-│   └─────────────────────────────────────────────────┘   │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────┐
-│                       Storage Layer                     │
-│   ┌─────────────────────────────────────────────────┐   │
-│   │  All queries: WHERE vault = $vault_id           │   │
-│   │  Indexes: Vault-prefixed for performance        │   │
-│   └─────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph API["API Layer"]
+        API_DESC["Extract vault from JWT → Validate ownership"]
+    end
+
+    subgraph Core["Core Layer"]
+        CORE_DESC["Evaluator: Pass vault to all operations<br/>Cache keys: Include vault UUID"]
+    end
+
+    subgraph Storage["Storage Layer"]
+        STORAGE_DESC["All queries: WHERE vault = $vault_id<br/>Indexes: Vault-prefixed for performance"]
+    end
+
+    API --> Core
+    Core --> Storage
+
+    style API fill:#1E88E5,stroke:#1565C0,color:#fff
+    style Core fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style Storage fill:#FF9800,stroke:#F57C00,color:#fff
+    style API_DESC fill:#E3F2FD,stroke:#42A5F5
+    style CORE_DESC fill:#E8F5E9,stroke:#4CAF50
+    style STORAGE_DESC fill:#FFF3E0,stroke:#FF9800
 ```
 
 ### 1. API Layer

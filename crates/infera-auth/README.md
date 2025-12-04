@@ -306,46 +306,27 @@ cargo test -p infera-api --test auth_integration_tests
 
 ## Architecture
 
-```text
-┌─────────────┐
-│   Request   │
-└──────┬──────┘
-       │
-       ▼
-┌──────────────────┐
-│ Auth Middleware  │
-│ • Extract token  │
-│ • Decode header  │
-└──────┬───────────┘
-       │
-       ▼
-┌──────────────────┐
-│  JWKS Cache      │
-│ • Check cache    │
-│ • Fetch if miss  │
-└──────┬───────────┘
-       │
-       ▼
-┌──────────────────┐
-│  JWT Verify      │
-│ • Check sig      │
-│ • Validate claims│
-└──────┬───────────┘
-       │
-       ▼
-┌──────────────────┐
-│  AuthContext     │
-│ • tenant_id      │
-│ • scopes         │
-│ • expires_at     │
-└──────┬───────────┘
-       │
-       ▼
-┌──────────────────┐
-│    Handler       │
-│ • Check scopes   │
-│ • Process req    │
-└──────────────────┘
+```mermaid
+flowchart TD
+    REQ["Request"]
+    MW["Auth Middleware<br/>• Extract token<br/>• Decode header"]
+    JWKS["JWKS Cache<br/>• Check cache<br/>• Fetch if miss"]
+    JWT["JWT Verify<br/>• Check sig<br/>• Validate claims"]
+    CTX["AuthContext<br/>• tenant_id<br/>• scopes<br/>• expires_at"]
+    HANDLER["Handler<br/>• Check scopes<br/>• Process req"]
+
+    REQ --> MW
+    MW --> JWKS
+    JWKS --> JWT
+    JWT --> CTX
+    CTX --> HANDLER
+
+    style REQ fill:#E3F2FD,stroke:#42A5F5
+    style MW fill:#1E88E5,stroke:#1565C0,color:#fff
+    style JWKS fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style JWT fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style CTX fill:#FF9800,stroke:#F57C00,color:#fff
+    style HANDLER fill:#9C27B0,stroke:#7B1FA2,color:#fff
 ```
 
 ## Examples

@@ -127,19 +127,14 @@ docker-compose down
 
 ### Architecture
 
-```text
-┌─────────────────────────────────────┐
-│  Docker Network: azure-test-network │
-│                                      │
-│  ┌─────────────────────────────┐    │
-│  │  test-runner                │    │
-│  │  (Rust Unit Tests)          │    │
-│  │                              │    │
-│  │  - Mounts: source code       │    │
-│  │  - Cache: volumes            │    │
-│  │  - Tests Azure provider code │    │
-│  └─────────────────────────────┘    │
-└─────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Network["Docker Network: azure-test-network"]
+        TR["test-runner<br/>(Rust Unit Tests)<br/>• Mounts: source code<br/>• Cache: volumes<br/>• Tests Azure provider code"]
+    end
+
+    style Network fill:#E3F2FD,stroke:#42A5F5
+    style TR fill:#4CAF50,stroke:#2E7D32,color:#fff
 ```
 
 **Note:** Since Azure doesn't provide a Key Vault emulator, this environment focuses on unit testing the Azure Key Vault provider code. Integration tests requiring real Azure credentials must be run separately.

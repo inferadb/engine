@@ -13,21 +13,27 @@ The caching system uses:
 
 ## Architecture
 
-```text
-┌─────────────────────────────────────────────────┐
-│              Policy Evaluator                    │
-│                                                  │
-│  ┌──────────────────────────────────────────┐   │
-│  │  1. Check cache                          │   │
-│  │     └─> Cache hit? Return cached result  │   │
-│  │                                          │   │
-│  │  2. Cache miss? Evaluate policy          │   │
-│  │     └─> Traverse graph, evaluate rules   │   │
-│  │                                          │   │
-│  │  3. Store result in cache                │   │
-│  │     └─> With current revision            │   │
-│  └──────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Evaluator["Policy Evaluator"]
+        CHECK{"1. Check cache"}
+        HIT["Cache hit?<br/>Return cached result"]
+        MISS["2. Cache miss?<br/>Evaluate policy"]
+        TRAVERSE["Traverse graph,<br/>evaluate rules"]
+        STORE["3. Store result in cache<br/>with current revision"]
+    end
+
+    CHECK -->|Hit| HIT
+    CHECK -->|Miss| MISS
+    MISS --> TRAVERSE
+    TRAVERSE --> STORE
+
+    style Evaluator fill:#E3F2FD,stroke:#42A5F5
+    style CHECK fill:#1E88E5,stroke:#1565C0,color:#fff
+    style HIT fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style MISS fill:#FF9800,stroke:#F57C00,color:#fff
+    style TRAVERSE fill:#FFB74D,stroke:#FF9800
+    style STORE fill:#4CAF50,stroke:#2E7D32,color:#fff
 ```
 
 ## Cache Key Design

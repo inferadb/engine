@@ -634,45 +634,55 @@ response = requests.post(
 
 ### Oso (Embedded Library)
 
-```text
-┌─────────────────────────────────────┐
-│   Your Application                   │
-│                                      │
-│   ┌──────────────────────────────┐  │
-│   │ Oso Library (in-process)     │  │
-│   │ • Policy evaluation          │  │
-│   │ • No network calls           │  │
-│   │ • Loads .polar files         │  │
-│   └──────────────────────────────┘  │
-│              ↓                       │
-│   ┌──────────────────────────────┐  │
-│   │ Your Database                │  │
-│   │ • You manage schema          │  │
-│   │ • You write queries          │  │
-│   │ • You handle replication     │  │
-│   └──────────────────────────────┘  │
-└─────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph App["Your Application"]
+        subgraph Oso["Oso Library (in-process)"]
+            EVAL["Policy evaluation"]
+            NETWORK["No network calls"]
+            FILES["Loads .polar files"]
+        end
+        subgraph DB["Your Database"]
+            SCHEMA["You manage schema"]
+            QUERIES["You write queries"]
+            REPL["You handle replication"]
+        end
+        Oso --> DB
+    end
+
+    style App fill:#E3F2FD,stroke:#42A5F5
+    style Oso fill:#1E88E5,stroke:#1565C0,color:#fff
+    style DB fill:#FF9800,stroke:#F57C00,color:#fff
 ```
 
 ### InferaDB (Microservice)
 
-```text
-┌─────────────────────┐      ┌──────────────────────┐
-│ Your Application    │      │   InferaDB Service   │
-│                     │      │                      │
-│ HTTP/gRPC Client ───┼──────┤ • Policy evaluation  │
-│                     │      │ • Manages storage    │
-│                     │      │ • Built-in auth      │
-│                     │      │ • Replication        │
-│                     │      │ • Caching            │
-└─────────────────────┘      └──────────────────────┘
-                                       ↓
-                              ┌──────────────────────┐
-                              │ Storage (FDB/Memory) │
-                              │ • Automatic indexes  │
-                              │ • Distributed        │
-                              │ • High availability  │
-                              └──────────────────────┘
+```mermaid
+flowchart LR
+    subgraph App["Your Application"]
+        CLIENT["HTTP/gRPC Client"]
+    end
+
+    subgraph Service["InferaDB Service"]
+        EVAL["Policy evaluation"]
+        STORAGE["Manages storage"]
+        AUTH["Built-in auth"]
+        REPL["Replication"]
+        CACHE["Caching"]
+    end
+
+    subgraph Backend["Storage (FDB/Memory)"]
+        IDX["Automatic indexes"]
+        DIST["Distributed"]
+        HA["High availability"]
+    end
+
+    CLIENT --> Service
+    Service --> Backend
+
+    style App fill:#E3F2FD,stroke:#42A5F5
+    style Service fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style Backend fill:#FF9800,stroke:#F57C00,color:#fff
 ```
 
 **Trade-offs**:

@@ -26,37 +26,24 @@ The InferaDB Server API is a **policy evaluation engine** that focuses exclusive
 
 ### Authentication Flow
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    Client Application                        │
-│                                                              │
-│  1. Obtain vault JWT from Management API                    │
-│  2. Include JWT in Authorization header                     │
-└──────────────────────┬───────────────────────────────────────┘
-                       │
-                       │ Authorization: Bearer <vault_jwt>
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    InferaDB Server API                       │
-│                                                              │
-│  1. Extract kid from JWT header                             │
-│  2. Fetch client certificate from Management API (cached)   │
-│  3. Verify JWT signature using Ed25519 public key           │
-│  4. Validate claims (exp, iss, aud, vault_id, org_id)       │
-│  5. Verify vault ownership (cached)                         │
-│  6. Verify organization status (cached)                     │
-│  7. Execute policy evaluation in vault context              │
-└──────────────────────┬───────────────────────────────────────┘
-                       │
-                       │ Server-to-Management JWTs (bidirectional auth)
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Management API                             │
-│                                                              │
-│  - Return client certificates (Ed25519 public keys)         │
-│  - Return vault metadata (org ownership, status)            │
-│  - Return organization status (active/suspended)            │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Client as Client Application
+    participant Server as InferaDB Server API
+    participant Mgmt as Management API
+
+    Note over Client: 1. Obtain vault JWT from Management API<br/>2. Include JWT in Authorization header
+
+    Client->>Server: Authorization: Bearer <vault_jwt>
+
+    Note over Server: 1. Extract kid from JWT header<br/>2. Fetch client certificate (cached)<br/>3. Verify JWT signature (Ed25519)<br/>4. Validate claims (exp, iss, aud, vault_id, org_id)<br/>5. Verify vault ownership (cached)<br/>6. Verify organization status (cached)<br/>7. Execute policy evaluation in vault context
+
+    Server->>Mgmt: Server-to-Management JWTs (bidirectional auth)
+
+    Note over Mgmt: • Return client certificates (Ed25519 public keys)<br/>• Return vault metadata (org ownership, status)<br/>• Return organization status (active/suspended)
+
+    Mgmt-->>Server: Certificate/Vault/Org data
+    Server-->>Client: Policy evaluation result
 ```
 
 ## Authentication Architecture

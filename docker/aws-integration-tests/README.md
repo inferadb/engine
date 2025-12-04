@@ -125,22 +125,21 @@ docker-compose down
 
 ### Network Topology
 
-```text
-┌─────────────────────────────────────────────┐
-│  Docker Network: aws-test-network           │
-│                                              │
-│  ┌──────────────────┐  ┌─────────────────┐  │
-│  │  localstack      │  │  test-runner    │  │
-│  │  (AWS Services)  │◄─┤  (Rust + Tests) │  │
-│  │                  │  │                 │  │
-│  │  Port: 4566      │  │  Mounts: source │  │
-│  │  Health: checked │  │  Cache: volumes │  │
-│  └──────────────────┘  └─────────────────┘  │
-│           │                                  │
-│           │ (shared volumes)                 │
-│           ▼                                  │
-│    localstack-data volume                    │
-└─────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Network["Docker Network: aws-test-network"]
+        LS["localstack<br/>(AWS Services)<br/>Port: 4566<br/>Health: checked"]
+        TR["test-runner<br/>(Rust + Tests)<br/>Mounts: source<br/>Cache: volumes"]
+
+        TR -->|API calls| LS
+    end
+
+    LS -->|shared volumes| VOL["localstack-data volume"]
+
+    style Network fill:#E3F2FD,stroke:#42A5F5
+    style LS fill:#FF9800,stroke:#F57C00,color:#fff
+    style TR fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style VOL fill:#9E9E9E,stroke:#616161,color:#fff
 ```
 
 ## Files
