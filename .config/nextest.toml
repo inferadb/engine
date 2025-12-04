@@ -38,14 +38,14 @@ store-failure-output = true
 # Test-specific overrides
 [[profile.ci.overrides]]
 # WASM tests are resource-intensive, run serially
-filter = 'package(infera-wasm)'
+filter = 'package(inferadb-wasm)'
 test-threads = 1
 slow-timeout = { period = "120s", terminate-after = 2 }
 
 [[profile.ci.overrides]]
 # Memory leak tests are long-running (excluded from default runs via --ignored)
 filter = 'test(~24h)'
-slow-timeout = { period = "7200s" }  # 2 hours for stress tests
+slow-timeout = { period = "7200s" } # 2 hours for stress tests
 
 [[profile.ci.overrides]]
 # Integration tests may need more time for setup/teardown
@@ -55,9 +55,9 @@ slow-timeout = { period = "90s", terminate-after = 2 }
 # Profile for local development with watch mode
 [profile.dev]
 test-threads = "num-cpus"
-status-level = "fail"  # Only show failures
+status-level = "fail"        # Only show failures
 retries = 0
-failure-output = "immediate"  # Show failures immediately
+failure-output = "immediate" # Show failures immediately
 
 # Profile for coverage runs (no retries, collect all output)
 [profile.coverage]
