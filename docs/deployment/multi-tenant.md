@@ -24,7 +24,7 @@ This guide walks you through deploying InferaDB in a multi-tenant configuration 
 
 ### Deployment Topology
 
-```
+```text
 ┌──────────────────────────────────────────────────────┐
 │              Load Balancer / API Gateway             │
 └─────────────────────┬────────────────────────────────┘
@@ -239,7 +239,7 @@ echo $TOKEN | cut -d. -f2 | base64 -d | jq .
 
 1. **Set User Attributes** (Users → YOUR_USER → Attributes):
 
-```
+```text
 vault_id = a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
 account_id = 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d
 ```
@@ -414,7 +414,7 @@ Generate separate JWTs for each environment with the appropriate vault claim.
 
 Use descriptive, hierarchical naming:
 
-```
+```text
 ✅ Good:
 - "Acme Corp - Production"
 - "Acme Corp - Staging - US East"
@@ -493,7 +493,7 @@ fdbbackup start -d file:///backups/inferadb \
 
 Create separate InferaDB deployments per region, each with region-specific vaults:
 
-```
+```text
 US West: vaults for US customers
 EU Central: vaults for EU customers (GDPR)
 APAC: vaults for APAC customers

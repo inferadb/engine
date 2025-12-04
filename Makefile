@@ -84,7 +84,7 @@ format: ## Format code (Prettier, Taplo, markdownlint, rustfmt)
 	@$(PRETTIER) --write "**/*.{md,yml,yaml,json}" --log-level warn || true
 	@$(MARKDOWNLINT) --fix "**/*.md" || true
 	@$(TAPLO) fmt
-	@$(CARGO) fmt --all
+	@$(CARGO) +nightly fmt --all
 
 lint: ## Run linters (clippy, markdownlint)
 	@$(MARKDOWNLINT) "**/*.md"

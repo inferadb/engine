@@ -34,7 +34,7 @@ This guide helps you migrate from SpiceDB to InferaDB, highlighting API equivale
 
 ### SpiceDB Schema (Authzed Schema Language)
 
-```
+```text
 definition document {
     relation reader: user
     relation writer: user
@@ -449,7 +449,7 @@ Both SpiceDB and InferaDB support wildcards for modeling public resources.
 
 **SpiceDB**:
 
-```
+```text
 document:readme#reader@user:*
 ```
 

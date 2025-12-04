@@ -125,7 +125,7 @@ docker-compose down
 
 ### Network Topology
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │  Docker Network: aws-test-network           │
 │                                              │

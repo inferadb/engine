@@ -96,7 +96,7 @@ curl -X POST http://localhost:8080/v1/evaluate \
 
 InferaDB is built as a modular Rust workspace:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                     infera-api                           │
 │              REST + gRPC API Layer                       │

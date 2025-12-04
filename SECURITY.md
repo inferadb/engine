@@ -237,7 +237,7 @@ Accounts own vaults:
 
 ### Authentication Flow
 
-```
+```text
 1. Extract JWT from request
 2. Validate token signature and claims
 3. Extract vault and account UUIDs
@@ -253,7 +253,7 @@ Accounts own vaults:
 
 Scopes follow a hierarchical model:
 
-```
+```text
 inferadb.admin (grants all permissions)
   ├── inferadb.check
   ├── inferadb.write

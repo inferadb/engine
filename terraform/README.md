@@ -56,7 +56,7 @@ terraform apply
 
 ## Directory Structure
 
-```
+```text
 terraform/
 ├── README.md                    # This file
 ├── modules/                     # Reusable Terraform modules

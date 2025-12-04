@@ -54,7 +54,7 @@ See [Building from Source](../guides/building.md) for detailed setup instruction
 
 InferaDB is organized as a Rust workspace with multiple crates:
 
-```
+```text
 server/
 ├── crates/
 │   ├── infera-api/       # REST + gRPC API layer
@@ -80,7 +80,7 @@ server/
 
 ### Crate Dependency Graph
 
-```
+```text
 infera-bin
     ├── infera-api
     │   ├── infera-auth

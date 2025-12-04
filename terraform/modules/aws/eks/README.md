@@ -104,7 +104,7 @@ After the cluster is created:
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                      AWS Region                          │
 │                                                          │

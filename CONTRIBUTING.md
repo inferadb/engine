@@ -86,7 +86,7 @@ make ci     # Simulates CI environment
 
 Use clear, descriptive commit messages:
 
-```
+```text
 feat: add support for WASM policy modules
 
 - Implement WASM host with sandbox
@@ -354,7 +354,7 @@ Maintainers handle releases:
 
 ## Project Structure
 
-```
+```text
 server/
 ├── crates/              # Workspace crates
 │   ├── infera-api/      # REST and gRPC APIs
@@ -406,7 +406,7 @@ When reporting bugs:
 
 ### Bug Report Template
 
-```markdown
+````markdown
 **InferaDB Version**: 0.1.0
 **Rust Version**: 1.75.0
 **OS**: Ubuntu 22.04
@@ -427,15 +427,14 @@ What should happen.
 What actually happens.
 
 **Logs/Errors**:
-```
 
+```text
 Error messages or logs here
-
 ```
 
 **Additional Context**:
 Any other relevant information.
-```
+````
 
 ## Performance Improvements
 
@@ -481,4 +480,4 @@ Don't hesitate to ask questions:
 - Ask in pull request comments
 - Join our Discord community
 
-Thank you for contributing to InferaDB! 🎉
+Thank you for contributing to InferaDB!

@@ -939,7 +939,7 @@ storage:
 
 2. Check Prometheus targets are up:
 
-   ```
+   ```text
    http://prometheus:9090/targets
    ```
 

@@ -634,7 +634,7 @@ response = requests.post(
 
 ### Oso (Embedded Library)
 
-```
+```text
 ┌─────────────────────────────────────┐
 │   Your Application                   │
 │                                      │
@@ -656,7 +656,7 @@ response = requests.post(
 
 ### InferaDB (Microservice)
 
-```
+```text
 ┌─────────────────────┐      ┌──────────────────────┐
 │ Your Application    │      │   InferaDB Service   │
 │                     │      │                      │

@@ -518,7 +518,7 @@ InferaDB fetches JWKS (JSON Web Key Sets) to validate JWT signatures:
 
 #### For Tenant JWTs
 
-```
+```text
 issuer: "tenant:acme"
 JWKS URL: {jwks_base_url}/acme.json
 Example: https://your-domain.com/jwks/acme.json
@@ -526,7 +526,7 @@ Example: https://your-domain.com/jwks/acme.json
 
 #### For OAuth JWTs (with OIDC Discovery)
 
-```
+```text
 issuer: "https://auth.example.com"
 Discovery: https://auth.example.com/.well-known/openid-configuration
 JWKS URL: (from discovery document)
@@ -534,7 +534,7 @@ JWKS URL: (from discovery document)
 
 #### For Internal JWTs
 
-```
+```text
 issuer: "inferadb-control-plane"
 JWKS: Loaded from file or environment variable
 Path: /etc/inferadb/internal-jwks.json

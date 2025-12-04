@@ -20,7 +20,7 @@ The replication system consists of four main components:
 
 Defines the multi-region infrastructure with a hierarchical structure:
 
-```
+```text
 Region (e.g., "us-west-1")
   └─ Zone (e.g., "us-west-1a")
       └─ Node (e.g., "node1" at "localhost:50051")

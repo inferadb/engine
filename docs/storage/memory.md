@@ -251,7 +251,7 @@ _Benchmarks on Apple M1, single thread_
 
 ### Memory Usage
 
-```
+```text
 Base overhead: ~1KB per unique (object, relation, user)
 Per version: ~200 bytes
 Index overhead: ~100 bytes per tuple

@@ -561,8 +561,6 @@ Critical - Page immediately
 
 - On-call SRE → InferaDB team lead → Director of Engineering
 
-````
-
 ---
 
 ## Testing Alerts
@@ -570,25 +568,26 @@ Critical - Page immediately
 ### Alert Testing Checklist
 
 1. **Verify Alert Fires**:
+
    ```bash
    # Manually trigger condition
    curl -X POST http://inferadb/test/trigger-errors
 
    # Verify alert fires in Prometheus
    # http://prometheus:9090/alerts
-````
+   ```
 
-1. **Verify Notification Delivery**:
+2. **Verify Notification Delivery**:
    - Check Slack channel receives message
    - Verify PagerDuty incident created
    - Confirm ticket created in Jira
 
-2. **Verify Alert Resolves**:
+3. **Verify Alert Resolves**:
    - Wait for condition to clear
    - Verify alert auto-resolves
    - Check resolution notification sent
 
-3. **Test Runbook**:
+4. **Test Runbook**:
    - Follow runbook steps exactly as written
    - Verify all commands work
    - Update runbook with learnings

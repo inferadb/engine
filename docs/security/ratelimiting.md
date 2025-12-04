@@ -323,7 +323,7 @@ X-RateLimit-Reset: 1699564800
 
 Always include rate limit information in response headers:
 
-```
+```text
 X-RateLimit-Limit: 1000
 X-RateLimit-Remaining: 847
 X-RateLimit-Reset: 1699564800

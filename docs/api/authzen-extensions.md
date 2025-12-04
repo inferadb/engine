@@ -338,7 +338,7 @@ Watch for changes to relationships matching a filter.
 
 **Response (Server-Sent Events stream):**
 
-```
+```text
 event: relationship_created
 data: {"subject":"user:alice","relation":"viewer","resource":"doc:design-doc","timestamp":"2025-01-15T10:30:00Z"}
 

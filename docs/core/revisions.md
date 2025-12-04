@@ -40,7 +40,7 @@ pub struct RevisionToken {
 
 Tokens are serialized as base64-encoded JSON for transmission:
 
-```
+```text
 eyJub2RlX2lkIjoibm9kZS11cy13ZXN0LTEiLCJyZXZpc2lvbiI6NDIsInZlY3Rvcl9jbG9jayI6eyJub2RlLXVzLXdlc3QtMSI6NDIsIm5vZGUtdXMtZWFzdC0xIjozOCwibm9kZS1ldS13ZXN0LTEiOjM1fX0=
 ```
 
@@ -367,7 +367,7 @@ if age > 1000 {
 
 ### Token Validation Errors
 
-```
+```text
 Error: Invalid revision token
 ```
 
@@ -383,7 +383,7 @@ Error: Invalid revision token
 
 ### Timeout Waiting for Revision
 
-```
+```text
 Error: Timeout waiting for revision to become available
 ```
 

@@ -387,7 +387,7 @@ kubectl get endpoints inferadb -n inferadb
 
 ### Calculate Required Replicas
 
-```
+```text
 Required Replicas = (Target RPS / RPS per Pod) × Safety Margin
 
 Example:

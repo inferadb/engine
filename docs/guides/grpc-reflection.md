@@ -21,7 +21,7 @@ This is particularly useful for:
 
 Reflection is **enabled by default** in InferaDB's gRPC server. When you start the server, you'll see:
 
-```
+```text
 INFO gRPC reflection enabled
 INFO Starting gRPC server on 0.0.0.0:8081
 ```
@@ -59,7 +59,7 @@ grpcurl -plaintext localhost:8081 list
 
 Output:
 
-```
+```text
 grpc.reflection.v1.ServerReflection
 infera.v1.InferaService
 ```
@@ -72,7 +72,7 @@ grpcurl -plaintext localhost:8081 list infera.v1.InferaService
 
 Output:
 
-```
+```text
 infera.v1.InferaService.DeleteRelationships
 infera.v1.InferaService.Evaluate
 infera.v1.InferaService.Expand
@@ -92,7 +92,7 @@ grpcurl -plaintext localhost:8081 describe infera.v1.InferaService.Evaluate
 
 Output:
 
-```
+```text
 infera.v1.InferaService.Evaluate is a method:
 rpc Evaluate ( stream .infera.v1.EvaluateRequest ) returns ( stream .infera.v1.EvaluateResponse );
 ```
@@ -105,7 +105,7 @@ grpcurl -plaintext localhost:8081 describe infera.v1.EvaluateRequest
 
 Output:
 
-```
+```text
 infera.v1.EvaluateRequest is a message:
 message EvaluateRequest {
   string subject = 1;

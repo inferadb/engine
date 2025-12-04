@@ -103,7 +103,7 @@ Criterion automatically tracks performance over time and detects regressions.
 
 Criterion reports changes in the following format:
 
-```
+```text
 authorization_check/1_docs
                         time:   [200.76 ns 201.56 ns 202.56 ns]
                         change: [-2.1% +0.5% +3.2%] (p = 0.15 > 0.05)

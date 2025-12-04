@@ -134,7 +134,7 @@ docker-compose down
 
 ### Network Topology
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │  Docker Network: fdb-test-network           │
 │                                              │

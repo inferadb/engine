@@ -9,7 +9,7 @@ This example deploys a production-ready InferaDB installation on AWS using:
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                         AWS Account                          │
 │                                                              │

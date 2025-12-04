@@ -194,7 +194,7 @@ After running the examples, you can:
 
 ## Example Output
 
-```
+```text
 ============================================================
 InferaDB Authentication Example (Python)
 ============================================================

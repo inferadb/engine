@@ -8,7 +8,7 @@ InferaDB provides a RESTful HTTP/JSON API for authorization checks and relations
 
 ## Base URL
 
-```
+```text
 http://localhost:8080/api/v1
 ```
 

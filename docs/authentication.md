@@ -26,7 +26,7 @@ The InferaDB Server API is a **policy evaluation engine** that focuses exclusive
 
 ### Authentication Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Client Application                        │
 │                                                              │
@@ -554,7 +554,7 @@ grep "management_api" /var/log/inferadb/server.log
 
 **Solution**: This is expected behavior. Performance improves after warmup:
 
-```
+```text
 Request 1: 150ms (fetch cert + vault + org)
 Request 2: 5ms (all cached)
 Request 3: 5ms (all cached)
@@ -679,7 +679,7 @@ export INFERADB__AUTH__SERVER_ID=inferadb-server-dev
 
 Monitor these Prometheus metrics for authentication health:
 
-```
+```promql
 # Authentication metrics
 infera_auth_validations_total          # Total auth validations
 infera_auth_failures_total             # Failed authentications

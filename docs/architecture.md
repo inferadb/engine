@@ -306,7 +306,7 @@ REST API handlers are organized in `crates/infera-api/src/handlers/`:
 
 **Directory Structure:**
 
-```
+```text
 crates/infera-api/src/handlers/
 ├── mod.rs                 # Module declarations
 ├── utils/                 # Shared utilities
@@ -356,7 +356,7 @@ gRPC handlers are organized in `crates/infera-api/src/grpc/`:
 
 **Directory Structure:**
 
-```
+```text
 crates/infera-api/src/grpc/
 ├── mod.rs                # Service trait implementation + delegation
 ├── evaluate.rs           # Bidirectional streaming: evaluate

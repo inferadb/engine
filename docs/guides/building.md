@@ -111,7 +111,7 @@ make ci          # Simulate CI checks locally
 
 ## Project Structure
 
-```
+```text
 server/
 ├── crates/
 │   ├── infera-api/      # REST and gRPC APIs

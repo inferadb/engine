@@ -8,7 +8,7 @@ This guide covers tools and techniques for detecting memory leaks, profiling hea
 - [Memory Leak Tests](#memory-leak-tests)
 - [Profiling Tools](#profiling-tools)
 - [Interpreting Results](#interpreting-results)
-- [Common Issues](#common-issues)
+- [Common Issues](#common-issues-and-solutions)
 - [CI Integration](#ci-integration)
 
 ---
@@ -126,7 +126,7 @@ valgrind --leak-check=full --log-file=valgrind.log \
 
 **Interpreting output:**
 
-```
+```text
 ==12345== LEAK SUMMARY:
 ==12345==    definitely lost: 0 bytes in 0 blocks
 ==12345==    indirectly lost: 0 bytes in 0 blocks
@@ -288,7 +288,7 @@ massif-visualizer massif.out.12345
 
 1. **Unbounded Growth**
 
-   ```
+   ```text
    Iteration 1000: RSS = 50 MB
    Iteration 2000: RSS = 100 MB
    Iteration 3000: RSS = 150 MB  <-- Linear growth!
@@ -298,7 +298,7 @@ massif-visualizer massif.out.12345
 
 2. **Valgrind "definitely lost"**
 
-   ```
+   ```text
    ==12345== 1,024 bytes in 1 blocks are definitely lost
    ==12345==    at 0x...: malloc
    ==12345==    by 0x...: alloc::vec::Vec::push
@@ -542,7 +542,7 @@ valgrind --suppressions=rust.supp cargo test
 
 Create `rust.supp`:
 
-```
+```text
 {
    rust_std_lib
    Memcheck:Leak

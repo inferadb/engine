@@ -55,7 +55,7 @@ observability:
 
 Every authorization check creates a trace with the following hierarchical structure:
 
-```
+```text
 [Span] POST /check
   ├─ [Span] evaluate_check
   │   ├─ [Span] schema_lookup
@@ -147,7 +147,7 @@ curl -X POST http://localhost:8080/check \
 
 **Trace** (in Jaeger):
 
-```
+```text
 inferadb-check [3.2ms]
   subject: user:alice
   resource: doc:readme
@@ -177,7 +177,7 @@ inferadb-check [3.2ms]
 
 **Trace with Cache Hit**:
 
-```
+```text
 inferadb-check [0.5ms]
   subject: user:bob
   resource: doc:readme
@@ -196,7 +196,7 @@ inferadb-check [0.5ms]
 
 **Trace with Deep Relation Tree**:
 
-```
+```text
 inferadb-check [12.3ms]
   subject: user:alice
   resource: folder:project

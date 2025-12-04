@@ -684,19 +684,19 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 
 ### Example Validation Errors
 
-```
+```text
 Error: Invalid server port: 99999 (must be between 1 and 65535)
 ```
 
-```
+```text
 Error: Invalid log level: 'invalid' (must be one of: error, warn, info, debug, trace)
 ```
 
-```
+```text
 Error: Unknown storage backend: 'postgres' (supported: memory, foundationdb)
 ```
 
-```
+```text
 Error: Replay protection enabled but redis_url not configured
 ```
 

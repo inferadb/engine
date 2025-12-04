@@ -33,7 +33,7 @@ InferaDB implements a comprehensive multi-tenancy system using **Accounts** and 
 
 ### Architecture Diagram
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
 │                           Account                           │
@@ -113,7 +113,7 @@ pub struct Relationship {
 
 InferaDB enforces vault isolation at every architectural layer:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                        API Layer                        │
 │   ┌─────────────────────────────────────────────────┐   │
@@ -223,7 +223,7 @@ pub trait RelationshipStore {
 
 **Database Schema** (FoundationDB):
 
-```
+```text
 Key Pattern:
   /vault/{vault_id}/rel/{resource}/{relation}/{subject}
 

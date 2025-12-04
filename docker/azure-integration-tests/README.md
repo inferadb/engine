@@ -127,7 +127,7 @@ docker-compose down
 
 ### Architecture
 
-```
+```text
 ┌─────────────────────────────────────┐
 │  Docker Network: azure-test-network │
 │                                      │

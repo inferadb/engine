@@ -16,7 +16,7 @@ InferaDB provides a high-performance gRPC API for authorization checks, relation
 
 ## Server Address
 
-```
+```text
 localhost:8081
 ```
 

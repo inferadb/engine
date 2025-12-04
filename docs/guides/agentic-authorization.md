@@ -80,7 +80,7 @@ Organizations must answer:
 
 **Flow:**
 
-```
+```text
 User Request → LLM Agent → Plan Actions → For Each Action:
                                               ↓
                                          InferaDB Check
@@ -282,7 +282,7 @@ pub extern "C" fn evaluate(context_json: &str) -> bool {
 
 **Permission Chain:**
 
-```
+```text
 user:alice
   → delegates:research (scope: market-analysis)
     → agent:research-bot
@@ -866,7 +866,7 @@ Compared to JSON:
 
 ### Complete System Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │                   User / Application Layer                    │
 │  - Web UI for permission management                           │

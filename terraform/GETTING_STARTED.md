@@ -4,7 +4,7 @@ This guide helps you choose the right deployment method and get InferaDB running
 
 ## Quick Decision Tree
 
-```
+```text
 Need production deployment?
 ├─ Yes
 │  ├─ On AWS? → Use terraform/examples/aws-complete

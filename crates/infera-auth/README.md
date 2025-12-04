@@ -306,7 +306,7 @@ cargo test -p infera-api --test auth_integration_tests
 
 ## Architecture
 
-```
+```text
 ┌─────────────┐
 │   Request   │
 └──────┬──────┘

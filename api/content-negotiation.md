@@ -165,7 +165,7 @@ The `Accept` header supports quality values to specify format preferences:
 
 ### Syntax
 
-```
+```text
 Accept: <format1>;q=<quality>, <format2>;q=<quality>
 ```
 

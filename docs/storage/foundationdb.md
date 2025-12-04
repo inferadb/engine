@@ -18,7 +18,7 @@ FoundationDB is a distributed database designed to handle large volumes of struc
 
 InferaDB uses FoundationDB's **subspace** feature to organize data into three logical namespaces:
 
-```
+```text
 /tuples/<object>/<relation>/<user>/<revision> = "active" | "deleted"
 /revisions/current = <current_revision_number>
 /indexes/obj/<object>/<relation>/<user>/<revision> = ""
@@ -315,7 +315,7 @@ let data_at_rev2 = store.read(&key, rev2).await?;
 
 **Performance Scaling:**
 
-```
+```text
 1 node:   10K ops/sec
 3 nodes:  30K ops/sec
 10 nodes: 100K ops/sec
@@ -344,7 +344,7 @@ let data_at_rev2 = store.read(&key, rev2).await?;
 
 **Recovery:**
 
-```
+```text
 Node failure:     < 5 seconds to recover
 Data center loss: < 60 seconds (with multi-DC setup)
 Full cluster loss: Requires backup restore
@@ -367,7 +367,7 @@ for tuple in tuples {
 
 **Benchmarks:**
 
-```
+```text
 Single writes: 10ms per write, 100 writes/sec
 Batch (100):   50ms per batch, 2000 writes/sec (20x faster)
 ```

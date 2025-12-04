@@ -64,7 +64,7 @@ observability:
 
 Human-readable format for local development:
 
-```
+```text
 2025-01-15T10:30:45.123Z  INFO infera_api::handlers: Authorization check
   subject: user:alice
   resource: doc:readme
@@ -137,19 +137,19 @@ info!(
 
 **Output**:
 
-```
+```text
 INFO Authorization check completed subject=user:alice resource=doc:readme permission=viewer decision=Allow duration_ms=3.2 cache_hit=false
 ```
 
 ### Storage Operation Logs
 
-```
+```text
 DEBUG Storage read operation tuples_read=15 duration_ms=1.8 revision=42
 ```
 
 ### Authentication Logs
 
-```
+```text
 INFO Authentication successful method=tenant_jwt tenant_id=acme user=alice duration_ms=12.5
 ```
 
@@ -297,7 +297,7 @@ setup.template.pattern: "inferadb-*"
 
 **Kibana Queries**:
 
-```
+```text
 # Find all failed authorization checks
 level: ERROR AND fields.decision: deny
 
@@ -620,7 +620,7 @@ export RUST_LOG=info,h2=warn,hyper=warn,tower=warn
 
 Use logrotate or similar:
 
-```
+```text
 /var/log/inferadb/*.json {
     daily
     rotate 7

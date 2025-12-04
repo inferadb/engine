@@ -2350,7 +2350,7 @@ message DeleteFilter {
 
 **Performance:**
 
-```
+```text
 # Evaluate if Alice can view 50 documents
 
 ## InferaDB (streaming batch):
@@ -2402,7 +2402,7 @@ message EvaluateResponse {
 
 **SpiceDB (CEL):**
 
-```
+```text
 caveat business_hours(current_time timestamp) {
   current_time.getHours() >= 9 && current_time.getHours() < 17
 }
@@ -2568,7 +2568,7 @@ When evaluating permissions, InferaDB automatically checks both:
 
 **Example:**
 
-```
+```bash
 # Write a wildcard relationship - all users can view
 POST /write-relationships
 {

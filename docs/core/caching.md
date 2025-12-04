@@ -13,7 +13,7 @@ The caching system uses:
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │              Policy Evaluator                    │
 │                                                  │
@@ -258,7 +258,7 @@ Typical hit rates depend on workload:
 
 Memory per cached entry:
 
-```
+```text
 Entry size ≈ sizeof(CheckCacheKey) + sizeof(Decision) + overhead
           ≈ (50-100 bytes) + 1 byte + ~50 bytes
           ≈ 100-150 bytes per entry

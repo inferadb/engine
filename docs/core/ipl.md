@@ -66,7 +66,7 @@ type document {
 
 **Example tuples**:
 
-```
+```text
 document:readme#editor@user:alice
 ```
 
@@ -89,7 +89,7 @@ type document {
 
 **Example tuples**:
 
-```
+```text
 document:secret#viewer@user:alice
 document:secret#sensitive_clearance@user:alice
 ```
@@ -113,7 +113,7 @@ type document {
 
 **Example tuples**:
 
-```
+```text
 document:readme#viewer@user:alice
 document:readme#viewer@user:bob
 document:readme#blocked@user:bob
@@ -141,7 +141,7 @@ type document {
 
 **Example tuples**:
 
-```
+```text
 document:readme#viewer@user:alice
 document:readme#blocked@user:alice
 ```
@@ -175,7 +175,7 @@ type document {
 
 With tuples:
 
-```
+```text
 document:readme#editor@user:alice
 document:readme#blocked_user@user:alice
 ```
@@ -317,7 +317,7 @@ type folder {
 
 **Example tuples**:
 
-```
+```text
 folder:root#viewer@user:alice
 folder:sub#parent@folder:root
 ```
@@ -603,7 +603,7 @@ IPL parsing errors include:
 
 Example error:
 
-```
+```text
 Parse error: Undefined relation 'nonexistent' in type 'document'
   at line 5, column 23
 ```

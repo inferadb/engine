@@ -7,7 +7,7 @@ Centralized observability for InferaDB with OpenTelemetry tracing, Prometheus me
 - [Authentication Metrics](#authentication-metrics)
 - [JWKS Cache Metrics](#jwks-cache-metrics)
 - [OAuth Metrics](#oauth-metrics)
-- [Example Prometheus Queries](#example-prometheus-queries)
+- [Example Queries](#example-queries)
 - [Example Grafana Dashboards](#example-grafana-dashboards)
 - [Audit Logging](#audit-logging)
 - [OpenTelemetry Tracing](#opentelemetry-tracing)

@@ -7,10 +7,10 @@ This guide covers deploying InferaDB to production environments.
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
 - [Deployment Options](#deployment-options)
-- [Docker Deployment](#docker-deployment)
-- [Kubernetes Deployment](#kubernetes-deployment)
-- [Helm Deployment](#helm-deployment)
-- [Cloud Deployment with Terraform](#cloud-deployment-with-terraform)
+- [Docker Deployment](#1-docker-deployment)
+- [Kubernetes Deployment](#2-kubernetes-deployment)
+- [Helm Deployment](#3-helm-deployment)
+- [Cloud Deployment with Terraform](#4-cloud-deployment-with-terraform)
 - [Configuration](#configuration)
 - [Security](#security)
 - [Monitoring](#monitoring)
@@ -27,7 +27,7 @@ InferaDB is a high-performance authorization database designed for cloud-native 
 
 ### Architecture
 
-```
+```text
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   Client    │────▶│ Load Balancer│────▶│  InferaDB   │
 └─────────────┘     └─────────────┘     │   Cluster   │

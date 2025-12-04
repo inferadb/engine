@@ -33,7 +33,7 @@ AuthZEN subjects are structured objects with a `type` and `id`. InferaDB convert
 
 **InferaDB Native Format:**
 
-```
+```text
 "user:alice"
 ```
 
@@ -86,7 +86,7 @@ Resources follow the same structured to string conversion as subjects.
 
 **InferaDB Native Format:**
 
-```
+```text
 "document:design-proposal"
 ```
 
@@ -227,7 +227,7 @@ function generateAuthZENEntity(nativeFormat: string): AuthZENEntity {
 
 InferaDB's computed userset format includes a `#` separator:
 
-```
+```text
 "team:engineering#member"
 ```
 

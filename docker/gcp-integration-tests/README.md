@@ -130,7 +130,7 @@ docker-compose down
 
 ### Architecture
 
-```
+```text
 ┌─────────────────────────────────────┐
 │  Docker Network: gcp-test-network   │
 │                                      │
