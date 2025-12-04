@@ -101,6 +101,7 @@ pub fn create_default_test_auth(vault: i64, organization: i64) -> AuthContext {
 /// This middleware bypasses JWT validation and directly injects a test
 /// AuthContext, allowing integration tests to exercise the production
 /// code paths with simulated authentication.
+#[allow(dead_code)]
 pub async fn test_auth_middleware(
     auth_context: AuthContext,
     mut request: Request<Body>,
@@ -121,6 +122,7 @@ pub async fn test_auth_middleware(
 /// let router = infera_api::create_test_router(state).await?;
 /// let authenticated_router = with_test_auth(router, vault_id, organization_id);
 /// ```
+#[allow(dead_code)]
 pub fn with_test_auth(router: Router, vault: i64, organization: i64) -> Router {
     let auth = create_default_test_auth(vault, organization);
     router.layer(middleware::from_fn(move |req, next| {
@@ -133,6 +135,7 @@ pub fn with_test_auth(router: Router, vault: i64, organization: i64) -> Router {
 ///
 /// Similar to `with_test_auth` but allows specifying a custom AuthContext
 /// for testing specific permission scenarios.
+#[allow(dead_code)]
 pub fn with_custom_test_auth(router: Router, auth_context: AuthContext) -> Router {
     router.layer(middleware::from_fn(move |req, next| {
         let auth_clone = auth_context.clone();

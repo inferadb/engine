@@ -151,10 +151,7 @@ pub async fn metrics_handler() -> impl IntoResponse {
     match infera_observe::render_metrics() {
         Some(metrics) => (
             StatusCode::OK,
-            [(
-                axum::http::header::CONTENT_TYPE,
-                "text/plain; version=0.0.4; charset=utf-8",
-            )],
+            [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
             metrics,
         )
             .into_response(),
@@ -176,7 +173,8 @@ mod tests {
     async fn test_invalidate_vault_cache_handler() {
         // Create a test vault verifier
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None).unwrap(),
+            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
+                .unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,
@@ -210,7 +208,8 @@ mod tests {
     #[tokio::test]
     async fn test_invalidate_organization_cache_handler() {
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None).unwrap(),
+            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
+                .unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,
@@ -242,7 +241,8 @@ mod tests {
     #[tokio::test]
     async fn test_clear_all_caches_handler() {
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None).unwrap(),
+            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
+                .unwrap(),
         );
         let verifier = Arc::new(ManagementApiVaultVerifier::new(
             client,

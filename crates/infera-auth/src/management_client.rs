@@ -138,24 +138,22 @@ impl ManagementClient {
             request = request.header("Authorization", auth_header);
         }
 
-        let response = request.send().await.map_err(|e| {
-            ManagementApiError::RequestFailed(e.to_string())
-        })?;
+        let response =
+            request.send().await.map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
 
         match response.status() {
             StatusCode::OK => {
-                let org = response.json::<OrganizationInfo>().await.map_err(|e| {
-                    ManagementApiError::InvalidResponse(e.to_string())
-                })?;
+                let org = response
+                    .json::<OrganizationInfo>()
+                    .await
+                    .map_err(|e| ManagementApiError::InvalidResponse(e.to_string()))?;
                 Ok(org)
             },
             StatusCode::NOT_FOUND => {
                 // NOT_FOUND is expected for invalid org IDs
                 Err(ManagementApiError::NotFound("organization"))
             },
-            status => {
-                Err(ManagementApiError::UnexpectedStatus(status.as_u16()))
-            },
+            status => Err(ManagementApiError::UnexpectedStatus(status.as_u16())),
         }
     }
 
@@ -183,24 +181,22 @@ impl ManagementClient {
             request = request.header("Authorization", auth_header);
         }
 
-        let response = request.send().await.map_err(|e| {
-            ManagementApiError::RequestFailed(e.to_string())
-        })?;
+        let response =
+            request.send().await.map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
 
         match response.status() {
             StatusCode::OK => {
-                let vault = response.json::<VaultInfo>().await.map_err(|e| {
-                    ManagementApiError::InvalidResponse(e.to_string())
-                })?;
+                let vault = response
+                    .json::<VaultInfo>()
+                    .await
+                    .map_err(|e| ManagementApiError::InvalidResponse(e.to_string()))?;
                 Ok(vault)
             },
             StatusCode::NOT_FOUND => {
                 // NOT_FOUND is expected for invalid vault IDs
                 Err(ManagementApiError::NotFound("vault"))
             },
-            status => {
-                Err(ManagementApiError::UnexpectedStatus(status.as_u16()))
-            },
+            status => Err(ManagementApiError::UnexpectedStatus(status.as_u16())),
         }
     }
 }

@@ -2,12 +2,13 @@
 //!
 //! Centralized observability with tracing, metrics, and structured logging.
 
+use std::sync::OnceLock;
+
 use anyhow::Result;
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::{SpanExporter, WithExportConfig};
 use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler, SdkTracerProvider};
-use std::sync::OnceLock;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Global Prometheus handle for rendering metrics

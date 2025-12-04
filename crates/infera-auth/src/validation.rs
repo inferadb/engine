@@ -262,6 +262,7 @@ mod tests {
             internal_issuer: "https://internal.inferadb.com".into(),
             internal_audience: "https://api.inferadb.com/internal".into(),
             management_api_url: "https://api.example.com".into(),
+            management_internal_api_url: None,
             management_api_timeout_ms: 5000,
             management_cache_ttl_seconds: 300,
             cert_cache_ttl_seconds: 300,
