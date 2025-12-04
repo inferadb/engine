@@ -4,6 +4,7 @@ edition.workspace = true
 homepage.workspace = true
 license.workspace = true
 name = "infera-discovery"
+rust-version.workspace = true
 publish.workspace = true
 repository.workspace = true
 version.workspace = true
