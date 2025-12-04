@@ -17,13 +17,9 @@ use crate::server_identity::ServerIdentity;
 /// Management API client for validating tokens and fetching metadata
 pub struct ManagementClient {
     http_client: HttpClient,
-    /// Static base URL for public endpoints (used when lb_client is None)
-    base_url: String,
     /// Internal base URL for server-to-server /internal/* endpoints
     /// Falls back to base_url if not set
     internal_base_url: String,
-    /// Optional load balancing client for discovered endpoints
-    lb_client: Option<Arc<infera_discovery::LoadBalancingClient>>,
     /// Optional server identity for signing server-to-management requests
     server_identity: Option<Arc<ServerIdentity>>,
     /// Management API URL for JWT audience
@@ -85,7 +81,7 @@ impl ManagementClient {
         base_url: String,
         internal_base_url: Option<String>,
         timeout_ms: u64,
-        lb_client: Option<Arc<infera_discovery::LoadBalancingClient>>,
+        _lb_client: Option<Arc<infera_discovery::LoadBalancingClient>>,
         server_identity: Option<Arc<ServerIdentity>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let http_client = HttpClient::builder()
@@ -95,45 +91,12 @@ impl ManagementClient {
 
         let jwt_audience_url = base_url.clone();
         let internal_base_url = internal_base_url.unwrap_or_else(|| base_url.clone());
-        Ok(Self { http_client, base_url, internal_base_url, lb_client, server_identity, jwt_audience_url })
-    }
-
-    /// Get the base URL for public endpoints (either from load balancer or static config)
-    fn get_base_url(&self) -> String {
-        if let Some(ref lb) = self.lb_client {
-            // Try to get from load balancer, fall back to static URL on error
-            lb.get_next_healthy_endpoint().unwrap_or_else(|e| {
-                tracing::warn!(
-                    error = %e,
-                    fallback_url = %self.base_url,
-                    "Failed to get endpoint from load balancer, using fallback"
-                );
-                self.base_url.clone()
-            })
-        } else {
-            // Static mode
-            self.base_url.clone()
-        }
+        Ok(Self { http_client, internal_base_url, server_identity, jwt_audience_url })
     }
 
     /// Get the internal base URL for server-to-server /internal/* endpoints
-    /// This is always static (no load balancing) as internal endpoints are on a separate port
     fn get_internal_base_url(&self) -> String {
         self.internal_base_url.clone()
-    }
-
-    /// Mark a request as successful (for load balancer health tracking)
-    fn mark_request_success(&self, url: &str) {
-        if let Some(ref lb) = self.lb_client {
-            lb.mark_success(url);
-        }
-    }
-
-    /// Mark a request as failed (for load balancer health tracking)
-    fn mark_request_failure(&self, url: &str) {
-        if let Some(ref lb) = self.lb_client {
-            lb.mark_failure(url);
-        }
     }
 
     /// Get authorization header for server-to-management requests

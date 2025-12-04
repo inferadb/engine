@@ -628,10 +628,12 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
     // Create AppState
     let state = components.create_app_state();
 
-    // JWKS endpoint (public - no authentication required)
-    // Management API fetches server public keys from here
-    let jwks_routes = Router::new()
+    // Public routes (no authentication required):
+    // - JWKS endpoint: Management API fetches server public keys from here
+    // - Metrics endpoint: Prometheus scrapes metrics from here
+    let public_internal_routes = Router::new()
         .route("/.well-known/jwks.json", get(handlers::jwks::get_server_jwks))
+        .route("/metrics", get(handlers::internal::metrics_handler))
         .with_state(state.clone());
 
     // Privileged cache invalidation routes (require Management API JWT authentication)
@@ -673,9 +675,22 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
             std::time::Duration::from_secs(600), // 10 min org cache TTL
         ));
 
+        // Create certificate cache for internal routes
+        let cert_cache = Arc::new(
+            infera_auth::CertificateCache::new(
+                state.config.auth.management_api_url.clone(),
+                std::time::Duration::from_secs(300), // 5 min cert cache TTL
+                1000,                                // Max 1000 cached certificates
+            )
+            .map_err(|e| {
+                ApiError::Internal(format!("Failed to create certificate cache: {}", e))
+            })?,
+        );
+
         // Create internal router with Management JWT auth middleware and vault verifier extension
         let mgmt_cache_clone = Arc::clone(&management_jwks_cache);
         let verifier_clone = Arc::clone(&mgmt_verifier);
+        let cert_cache_clone = Arc::clone(&cert_cache);
         Some(
             Router::new()
                 .route(
@@ -687,8 +702,13 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
                     post(handlers::internal::invalidate_organization_cache),
                 )
                 .route("/internal/cache/invalidate/all", post(handlers::internal::clear_all_caches))
-                // Add vault verifier as Extension for handlers
+                .route(
+                    "/internal/cache/invalidate/certificate/{org_id}/{client_id}/{cert_id}",
+                    post(handlers::internal::invalidate_certificate_cache),
+                )
+                // Add vault verifier and cert cache as Extensions for handlers
                 .layer(Extension(verifier_clone))
+                .layer(Extension(cert_cache_clone))
                 // Apply Management JWT auth middleware
                 .layer(axum::middleware::from_fn(move |req, next| {
                     let cache = Arc::clone(&mgmt_cache_clone);
@@ -703,11 +723,11 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         None
     };
 
-    // Combine JWKS (no auth) and privileged routes (Management JWT auth)
+    // Combine public (no auth) and privileged routes (Management JWT auth)
     let router = if let Some(privileged) = privileged_routes {
-        jwks_routes.merge(privileged)
+        public_internal_routes.merge(privileged)
     } else {
-        jwks_routes
+        public_internal_routes
     };
 
     Ok(router)

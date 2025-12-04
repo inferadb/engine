@@ -128,6 +128,20 @@ impl CertificateCache {
         Ok(cache)
     }
 
+    /// Invalidate a certificate from the cache
+    ///
+    /// This is called when a certificate is revoked or deleted
+    pub async fn invalidate(&self, org_id: i64, client_id: i64, cert_id: i64) {
+        let parsed_kid = ParsedKeyId { org_id, client_id, cert_id };
+        self.cache.invalidate(&parsed_kid).await;
+        tracing::debug!(
+            org_id = %org_id,
+            client_id = %client_id,
+            cert_id = %cert_id,
+            "Invalidated certificate from cache"
+        );
+    }
+
     /// Get decoding key for the given kid, fetching from JWKS if not cached
     pub async fn get_decoding_key(
         &self,

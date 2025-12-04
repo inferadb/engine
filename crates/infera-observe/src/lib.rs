@@ -3,11 +3,15 @@
 //! Centralized observability with tracing, metrics, and structured logging.
 
 use anyhow::Result;
-use metrics_exporter_prometheus::PrometheusBuilder;
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::{SpanExporter, WithExportConfig};
 use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler, SdkTracerProvider};
+use std::sync::OnceLock;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+
+/// Global Prometheus handle for rendering metrics
+static PROMETHEUS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
 pub mod aggregation;
 pub mod audit;
@@ -94,11 +98,14 @@ pub fn init_tracing() -> Result<()> {
     init_tracing_with_config(TracingConfig::default())
 }
 
-/// Initialize Prometheus metrics exporter
+/// Initialize Prometheus metrics exporter and store the handle for rendering
 pub fn init_metrics() -> Result<()> {
-    PrometheusBuilder::new()
-        .install()
+    let handle = PrometheusBuilder::new()
+        .install_recorder()
         .map_err(|e| anyhow::anyhow!("Failed to install Prometheus exporter: {}", e))?;
+
+    // Store handle globally for rendering metrics later
+    let _ = PROMETHEUS_HANDLE.set(handle);
 
     // Initialize metric descriptions
     metrics::init_metrics_descriptions();
@@ -106,6 +113,13 @@ pub fn init_metrics() -> Result<()> {
     tracing::info!("Metrics exporter initialized");
 
     Ok(())
+}
+
+/// Render current metrics in Prometheus text format
+///
+/// Returns None if metrics haven't been initialized yet
+pub fn render_metrics() -> Option<String> {
+    PROMETHEUS_HANDLE.get().map(|handle| handle.render())
 }
 
 /// Initialize full observability stack

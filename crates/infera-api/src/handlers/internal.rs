@@ -1,12 +1,13 @@
-//! Internal API handlers for cache management
+//! Internal API handlers for cache management and metrics
 //!
 //! These handlers are called by the Management API to invalidate server-side caches
 //! when vaults or organizations are updated. They are protected by Management JWT authentication.
+//! The metrics endpoint is publicly accessible for Prometheus scraping.
 
 use std::sync::Arc;
 
 use axum::{Extension, extract::Path, http::StatusCode, response::IntoResponse};
-use infera_auth::ManagementApiVaultVerifier;
+use infera_auth::{CertificateCache, ManagementApiVaultVerifier};
 
 /// Invalidate vault cache for a specific vault
 ///
@@ -100,6 +101,65 @@ pub async fn clear_all_caches(
     verifier.clear_all_caches().await;
 
     StatusCode::NO_CONTENT
+}
+
+/// Invalidate certificate cache for a specific certificate
+///
+/// Called by Management API when a certificate is revoked or deleted.
+///
+/// # Arguments
+///
+/// * `Path((org_id, client_id, cert_id))` - The IDs identifying the certificate to invalidate
+/// * `Extension(cert_cache)` - The certificate cache
+///
+/// # Returns
+///
+/// 204 NO CONTENT on success
+///
+/// # Security
+///
+/// This endpoint MUST be protected by Management JWT authentication middleware.
+/// Only the Management API should be able to call this endpoint.
+pub async fn invalidate_certificate_cache(
+    Path((org_id, client_id, cert_id)): Path<(i64, i64, i64)>,
+    Extension(cert_cache): Extension<Arc<CertificateCache>>,
+) -> impl IntoResponse {
+    tracing::info!(
+        org_id = %org_id,
+        client_id = %client_id,
+        cert_id = %cert_id,
+        event_type = "internal.cache_invalidation",
+        "Received certificate cache invalidation request from Management API"
+    );
+
+    cert_cache.invalidate(org_id, client_id, cert_id).await;
+
+    StatusCode::NO_CONTENT
+}
+
+/// Prometheus metrics endpoint
+///
+/// Returns all server metrics in Prometheus text format.
+/// This endpoint does NOT require authentication and is intended
+/// for Prometheus scraping.
+///
+/// # Returns
+///
+/// 200 OK with metrics in Prometheus text format, or
+/// 503 SERVICE UNAVAILABLE if metrics haven't been initialized
+pub async fn metrics_handler() -> impl IntoResponse {
+    match infera_observe::render_metrics() {
+        Some(metrics) => (
+            StatusCode::OK,
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; version=0.0.4; charset=utf-8",
+            )],
+            metrics,
+        )
+            .into_response(),
+        None => (StatusCode::SERVICE_UNAVAILABLE, "Metrics not initialized").into_response(),
+    }
 }
 
 #[cfg(test)]
