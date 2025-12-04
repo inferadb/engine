@@ -6,7 +6,7 @@ This guide covers how to build, test, and develop InferaDB from source.
 
 ### Required
 
-- **Rust** 1.75 or later
+- **Rust** 1.85 or later
 
   ```bash
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -422,7 +422,7 @@ docker build -t inferadb:latest .
 
 ```dockerfile
 # Dockerfile
-FROM rust:1.75 as builder
+FROM rust:1.85 as builder
 WORKDIR /app
 COPY . .
 RUN cargo build --release

@@ -24,7 +24,7 @@ homepage = "https://inferadb.com"
 license = "BSL-1.1"
 publish = false
 repository = "https://github.com/inferadb/server"
-rust-version = "1.78"
+rust-version = "1.85"
 version = "0.1.0"
 
 [workspace.dependencies]

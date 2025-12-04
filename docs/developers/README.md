@@ -27,7 +27,7 @@ Welcome to the InferaDB developer documentation! This guide will help you unders
 
 ### Prerequisites
 
-- Rust 1.78+ (via rustup)
+- Rust 1.85+ (via rustup)
 - [Mise](https://mise.jdx.dev/) for task automation
 - Git for version control
 

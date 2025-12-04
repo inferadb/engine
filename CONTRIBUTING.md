@@ -408,7 +408,7 @@ When reporting bugs:
 
 ````markdown
 **InferaDB Version**: 0.1.0
-**Rust Version**: 1.75.0
+**Rust Version**: 1.85.0
 **OS**: Ubuntu 22.04
 
 **Description**:

@@ -6,7 +6,7 @@ This directory contains complete authentication examples in multiple programming
 
 - [Python Example](python_example.py) - Python 3.8+
 - [Node.js Example](nodejs_example.js) - Node.js 16+
-- [Rust Example](rust_example.rs) - Rust 1.78+
+- [Rust Example](rust_example.rs) - Rust 1.85+
 - [Go Example](go_example.go) - Go 1.20+
 - [cURL Example](curl_example.sh) - Bash script using cURL
 
