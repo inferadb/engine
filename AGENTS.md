@@ -1,104 +1,208 @@
-# **AGENTS.md**
+# InferaDB Server
 
-This file provides directives for code-generation agents (such as Codex, Claude Code, GPT-based tools, etc.) contributing to this repository. Follow these rules strictly to ensure generated code adheres to our standards for performance, maintainability, and reliability.
+Core policy engine for Relationship-Based Access Control (ReBAC). Handles IPL parsing, graph traversal, and authorization decisions.
 
----
+## Quick Commands
 
-## **Core Principles**
+```bash
+# Testing
+cargo nextest run --workspace          # All tests (preferred)
+cargo test -p infera-auth              # Specific crate
+cargo test test_name                   # Single test
 
-- **No legacy or backward-compatibility code.**
-  Do not introduce workarounds for previous behavior or deprecated APIs. Implement clean, modern solutions.
+# Building & Quality
+cargo build --release --workspace      # Release build
+cargo +nightly fmt --all               # Format
+cargo clippy --workspace --all-targets -- -D warnings  # Lint
+make check                             # All quality checks
 
-- **Prioritize correctness and quality over preservation.**
-  Breaking changes are acceptable when they improve design clarity, correctness, or performance.
+# Running
+cargo watch -x 'run --bin inferadb-server'  # Dev with auto-reload
+make dev                                     # Or use make
+```
 
-- **Always use modern idiomatic Rust.**
-  Favor safety, clarity, and performance. Follow current Rust best practices and community conventions (e.g., Clippy suggestions, Rust 2024 idioms).
+## Architecture
 
----
+### Layered Dependencies (flow downward only)
 
-## **Code Quality and Style**
+| Layer | Crates                                      | Purpose                               |
+| ----- | ------------------------------------------- | ------------------------------------- |
+| 0     | `infera-types`, `infera-const`              | Foundation types (zero internal deps) |
+| 1     | `infera-config`, `infera-observe`           | Configuration, telemetry              |
+| 2     | `infera-store`, `infera-cache`              | Storage abstraction, caching          |
+| 3     | `infera-wasm`, `infera-core`, `infera-auth` | Runtime, policy evaluation, auth      |
+| 4     | `infera-repl`, `infera-api`                 | REPL, API servers                     |
+| 5     | `infera-bin`                                | Binary entry point                    |
 
-- Code must compile without warnings.
-- Run and satisfy all `cargo fmt`, `cargo clippy`, and `cargo check` validations.
-- Prefer expressive, self-documenting code over terse or cryptic implementations.
-- Avoid unsafe code unless strictly necessary; if used, document the justification and safety invariants clearly.
-- Prefer immutable data and pure functions where possible.
-- Follow consistent error handling: use `Result` and `thiserror` or `anyhow` consistently.
-- Use pattern matching, enums, and traits to express domain concepts cleanly.
-- Avoid unnecessary heap allocations, clones, or reference counting unless required by ownership semantics.
+### Key Crates
 
----
+| Crate          | Purpose                                                  |
+| -------------- | -------------------------------------------------------- |
+| `infera-types` | Shared types: Relationship, Vault, Account, Decision     |
+| `infera-store` | Storage: MemoryBackend (dev), FoundationDBBackend (prod) |
+| `infera-cache` | Two-layer caching, vault-scoped                          |
+| `infera-core`  | IPL parser, graph traversal, decision engine             |
+| `infera-auth`  | JWT (EdDSA/RS256 only), OAuth 2.0                        |
+| `infera-api`   | REST (Axum) + gRPC (Tonic), service layer                |
 
-## **Testing and Validation**
+## Critical Patterns
 
-- All tests **must** pass.
-- If a test fails because of a legitimate bug, fix the underlying code rather than altering the test.
-- Add or update tests to ensure adequate coverage of new functionality.
-- Run `cargo test --all` and confirm no regressions.
-- Prefer integration tests for public interfaces and unit tests for core logic.
-- Use property-based testing (e.g., `proptest`) when it improves coverage or robustness.
-- Never remove existing tests unless explicitly instructed.
+### 1. Multi-Tenancy (Vault-Scoped)
 
----
+**All operations require vault parameter:**
 
-## **Documentation and Comments**
+```rust
+// Storage - vault is always first parameter
+async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision>
 
-- Every public function, struct, and module must include Rustdoc comments (`///`) with a clear description, parameter notes, and examples if appropriate.
-- Keep comments concise and factual—avoid explaining language mechanics.
-- Update module-level and crate-level documentation when modifying behavior or APIs.
-- When implementing complex algorithms, include brief rationale or references to external resources.
+// Handlers - extract from AuthContext
+let vault = get_vault(&auth.0, state.default_vault);
 
----
+// Services - pass vault through
+state.evaluation_service.evaluate(vault, request).await?
+```
 
-## **Dependencies and Build**
+### 2. Service Layer
 
-- Prefer stable, well-maintained crates. Avoid unmaintained, unlicensed, or pre-1.0 crates unless justified.
-- Keep the dependency tree minimal; remove unused or redundant crates when encountered.
-- Do not pin crate versions unless required for compatibility or reproducibility.
-- Always ensure the build succeeds with `cargo build --release`.
-- Do not invoke external tools or commands beyond the standard Rust toolchain.
+Protocol-agnostic services separate business logic from REST/gRPC:
 
----
+```rust
+let decision = state.evaluation_service
+    .evaluate(vault, core_request)
+    .await?;
+```
 
-## **Git and Repository Safety**
+Services: `EvaluationService`, `ExpansionService`, `RelationshipService`, `ResourceService`, `SubjectService`, `WatchService`
 
-- **Never invoke any `git` command or perform any filesystem operations beyond code generation.**
-- Do not modify repository metadata, configuration files, or commit history.
-- Focus only on producing source code and related documentation.
+### 3. Cache Invalidation
 
----
+**Always invalidate after mutations:**
 
-## **Performance and Optimization**
+```rust
+state.relationship_service
+    .invalidate_cache_for_resources(&affected_resources)
+    .await;
+```
 
-- Optimize for clarity first, then performance.
-- Use profiling tools or benchmarking crates (like `criterion`) to guide optimization.
-- Avoid premature optimization or unsafe micro-optimizations.
-- Leverage zero-cost abstractions and efficient data structures.
-- Use `#[inline]` only when justified and measured.
+## Authentication
 
----
+**Asymmetric algorithms only** (symmetric explicitly rejected):
 
-## **AI Agent Conduct**
+- EdDSA (Ed25519)
+- RS256, RS384, RS512
 
-- Be deterministic: generate consistent, reproducible output.
-- Do not hallucinate APIs or types; verify all symbols exist within the codebase or standard library.
-- If context is ambiguous, prefer explicit, conservative implementations rather than assumptions.
-- Do not fabricate documentation, dependencies, or tests.
-- If you encounter incomplete or unclear requirements, annotate the generated code with a `TODO:` comment rather than guessing.
-- Always perform a self-review: reason through logic, confirm function signatures, and ensure no unused imports, dead code, or warnings remain.
+**JWT Claims:**
 
----
+```rust
+pub struct Claims {
+    pub sub: String,
+    pub vault: String,    // Required
+    pub account: String,  // Required
+    pub scopes: Vec<String>,
+}
+```
 
-### **Summary Checklist**
+## Content Negotiation
 
-Before submitting generated code:
+Two response formats via `Accept` header:
 
-1. `cargo fmt` passes (no formatting issues).
-2. `cargo clippy -- -D warnings` passes.
-3. `cargo test --all` passes.
-4. No unsafe or unreviewed blocks.
-5. Code is idiomatic, minimal, and well-documented.
-6. No `git` commands invoked.
-7. Adequate test coverage confirmed.
-8. No unnecessary dependencies introduced.
+- `application/json` (default)
+- `text/toon` (30-60% token savings for LLMs)
+
+```rust
+pub async fn my_handler(
+    AcceptHeader(format): AcceptHeader,
+    State(state): State<AppState>,
+) -> Result<ResponseData<MyResponse>, ApiError> {
+    Ok(ResponseData::new(response, format))
+}
+```
+
+## Error Handling
+
+```rust
+#[derive(Debug, Error)]
+pub enum MyError {
+    #[error("Storage error")]
+    Store(#[from] infera_types::StoreError),
+}
+pub type Result<T> = std::result::Result<T, MyError>;
+```
+
+**Rules:**
+
+- Use `thiserror::Error` derive
+- Define `Result<T>` type alias
+- Preserve chains with `#[from]` or `#[source]`
+- Never stringify errors
+
+## Configuration
+
+**Precedence** (highest to lowest):
+
+1. CLI args (`--port 8080`)
+2. Env vars (`INFERADB__SERVER__PORT=8080`)
+3. Config file (`config.yaml`)
+4. Defaults
+
+**Env format:** `INFERADB__` prefix, `__` separator
+
+## Testing
+
+```rust
+#[tokio::test]
+async fn test_vault_isolation() {
+    let vault_a = Uuid::new_v4();
+    let vault_b = Uuid::new_v4();
+
+    store.write(vault_a, vec![rel]).await?;
+    let results = store.read(vault_b, &key, Revision(0)).await?;
+    assert!(results.is_empty(), "Vaults must be isolated");
+}
+```
+
+**Organization:**
+
+- Unit tests: `#[cfg(test)] mod tests` in source files
+- Integration tests: `tests/` directory per crate
+- Fixtures: `crates/infera-test-fixtures`
+
+## Development Patterns
+
+### Adding API Endpoint
+
+1. Define types in `infera-types`
+2. Add handler in `infera-api/src/handlers/{resource}/`
+3. Extract `AuthContext`, validate vault
+4. Call service with vault parameter
+5. Add integration tests
+
+### Adding Storage Operation
+
+1. Add method to `RelationshipStore` trait
+2. Implement for `MemoryBackend`
+3. Implement for `FoundationDBBackend` (if `fdb` feature)
+4. Ensure vault-scoped
+5. Add tests
+
+### Adding Shared Type
+
+1. Add to `infera-types/src/mytype.rs`
+2. Export from `infera-types/src/lib.rs`
+3. Re-export from original crate for compatibility
+
+## Code Quality
+
+- **Format:** `cargo +nightly fmt --all`
+- **Lint:** `cargo clippy --workspace --all-targets -- -D warnings`
+- **Audit:** `cargo audit && cargo deny check`
+- **Tests:** `cargo nextest run --workspace`
+
+All tests must pass. Fix bugs in code, not tests. Use `Result` and `thiserror` consistently.
+
+## Security
+
+- No symmetric JWT (HS256) - explicitly rejected
+- Always validate vault ownership
+- Enable replay protection in production
+- Run `cargo audit` regularly

@@ -1,147 +1,153 @@
-# CLAUDE.md
+# InferaDB Server
 
-This file provides quick-reference guidance for Claude Code when working in this repository.
-
-Follow the directives outlined in AGENTS.md.
-
----
+Core policy engine for Relationship-Based Access Control (ReBAC). Handles IPL parsing, graph traversal, and authorization decisions.
 
 ## Quick Commands
 
 ```bash
 # Testing
-cargo nextest run --workspace              # Run all tests (preferred)
-cargo test -p infera-auth                  # Test specific crate
-cargo test test_name                       # Run single test
+cargo nextest run --workspace          # All tests (preferred)
+cargo test -p infera-auth              # Specific crate
+cargo test test_name                   # Single test
 
 # Building & Quality
-cargo build --release --workspace          # Release build
-cargo +nightly fmt --all                   # Format code
+cargo build --release --workspace      # Release build
+cargo +nightly fmt --all               # Format
 cargo clippy --workspace --all-targets -- -D warnings  # Lint
-make check                                 # All quality checks
+make check                             # All quality checks
 
-# Running Server
-cargo watch -x 'run --bin inferadb-server' # Dev server with auto-reload
-make dev                                   # Or use make
+# Running
+cargo watch -x 'run --bin inferadb-server'  # Dev with auto-reload
+make dev                                     # Or use make
 ```
 
----
+## Architecture
 
-## Architecture Quick Reference
+### Layered Dependencies (flow downward only)
 
-InferaDB is a **Relationship-Based Access Control (ReBAC)** authorization engine.
+| Layer | Crates                                      | Purpose                               |
+| ----- | ------------------------------------------- | ------------------------------------- |
+| 0     | `infera-types`, `infera-const`              | Foundation types (zero internal deps) |
+| 1     | `infera-config`, `infera-observe`           | Configuration, telemetry              |
+| 2     | `infera-store`, `infera-cache`              | Storage abstraction, caching          |
+| 3     | `infera-wasm`, `infera-core`, `infera-auth` | Runtime, policy evaluation, auth      |
+| 4     | `infera-repl`, `infera-api`                 | REPL, API servers                     |
+| 5     | `infera-bin`                                | Binary entry point                    |
 
-### Layered Architecture
+### Key Crates
 
-```
-Layer 0 (Foundation):  infera-types, infera-const
-Layer 1 (Utilities):   infera-config, infera-observe
-Layer 2 (Storage):     infera-store, infera-cache
-Layer 3 (Runtime):     infera-wasm, infera-core, infera-auth
-Layer 4 (Application): infera-repl, infera-api
-Layer 5 (Binary):      infera-bin
-```
-
-**Critical Rules:**
-
-- Dependencies flow **downward only**
-- `infera-types` has **zero dependencies** on other internal crates
-- Types used by multiple layers belong in the **lowest common layer**
-
-### Core Crates
-
-| Crate             | Purpose             | Key Features                                        |
-| ----------------- | ------------------- | --------------------------------------------------- |
-| **infera-types**  | Shared types        | Relationship, Vault, Account, Decision - zero deps  |
-| **infera-config** | Configuration       | YAML files, env vars, CLI args                      |
-| **infera-store**  | Storage abstraction | MemoryBackend (dev), FoundationDBBackend (prod)     |
-| **infera-cache**  | Two-layer caching   | Authorization + expand caches, vault-scoped         |
-| **infera-core**   | Policy evaluation   | IPL parser, graph traversal, decision engine        |
-| **infera-wasm**   | WASM runtime        | WebAssembly policy modules via wasmtime             |
-| **infera-auth**   | Authentication      | JWT (EdDSA/RS256 only), OAuth 2.0, vault validation |
-| **infera-api**    | API servers         | REST (Axum) + gRPC (Tonic), service layer           |
-
-**📖 Detailed architecture:** [docs/architecture.md](docs/architecture.md)
-
----
+| Crate          | Purpose                                                  |
+| -------------- | -------------------------------------------------------- |
+| `infera-types` | Shared types: Relationship, Vault, Account, Decision     |
+| `infera-store` | Storage: MemoryBackend (dev), FoundationDBBackend (prod) |
+| `infera-cache` | Two-layer caching, vault-scoped                          |
+| `infera-core`  | IPL parser, graph traversal, decision engine             |
+| `infera-auth`  | JWT (EdDSA/RS256 only), OAuth 2.0                        |
+| `infera-api`   | REST (Axum) + gRPC (Tonic), service layer                |
 
 ## Critical Patterns
 
-### 1. Multi-Tenancy with Vaults
+### 1. Multi-Tenancy (Vault-Scoped)
 
-**All data operations are vault-scoped:**
+**All operations require vault parameter:**
 
 ```rust
-// Storage operations ALWAYS take vault as first parameter
+// Storage - vault is always first parameter
 async fn write(&self, vault: Uuid, relationships: Vec<Relationship>) -> Result<Revision>
 
-// Handlers extract vault from AuthContext
+// Handlers - extract from AuthContext
 let vault = get_vault(&auth.0, state.default_vault);
 
-// Services receive vault parameter
+// Services - pass vault through
 state.evaluation_service.evaluate(vault, request).await?
 ```
 
-**Never skip vault validation.** See [MULTI_TENANCY.md](MULTI_TENANCY.md) for implementation status.
+### 2. Service Layer
 
-### 2. Service Layer Pattern
-
-Services separate business logic from protocol adapters:
+Protocol-agnostic services separate business logic from REST/gRPC:
 
 ```rust
-// Protocol-agnostic service call (works for gRPC, REST, AuthZEN)
 let decision = state.evaluation_service
     .evaluate(vault, core_request)
     .await?;
 ```
 
-**Available services:** EvaluationService, ExpansionService, RelationshipService, ResourceService, SubjectService, WatchService
+Services: `EvaluationService`, `ExpansionService`, `RelationshipService`, `ResourceService`, `SubjectService`, `WatchService`
 
 ### 3. Cache Invalidation
 
-Handlers **must** invalidate cache after mutations:
+**Always invalidate after mutations:**
 
 ```rust
-// After writing relationships
 state.relationship_service
     .invalidate_cache_for_resources(&affected_resources)
     .await;
 ```
 
-**📖 Detailed patterns:** [docs/architecture.md](docs/architecture.md)
+## Authentication
 
----
-
-## Authentication Security
-
-**Only asymmetric algorithms allowed:**
+**Asymmetric algorithms only** (symmetric explicitly rejected):
 
 - EdDSA (Ed25519)
 - RS256, RS384, RS512
-
-Symmetric algorithms (HS256, etc.) are **explicitly rejected**.
 
 **JWT Claims:**
 
 ```rust
 pub struct Claims {
-    pub sub: String,       // subject
-    pub vault: String,     // Vault UUID (required)
-    pub account: String,   // Account UUID (required)
+    pub sub: String,
+    pub vault: String,    // Required
+    pub account: String,  // Required
     pub scopes: Vec<String>,
-    // ... standard claims
 }
 ```
 
-**AuthContext includes vault and account for multi-tenant isolation.**
+## Content Negotiation
 
----
+Two response formats via `Accept` header:
 
-## Testing Guidelines
+- `application/json` (default)
+- `text/toon` (30-60% token savings for LLMs)
 
-### Multi-Tenant Tests
+```rust
+pub async fn my_handler(
+    AcceptHeader(format): AcceptHeader,
+    State(state): State<AppState>,
+) -> Result<ResponseData<MyResponse>, ApiError> {
+    Ok(ResponseData::new(response, format))
+}
+```
 
-Always create test vaults and verify isolation:
+## Error Handling
+
+```rust
+#[derive(Debug, Error)]
+pub enum MyError {
+    #[error("Storage error")]
+    Store(#[from] infera_types::StoreError),
+}
+pub type Result<T> = std::result::Result<T, MyError>;
+```
+
+**Rules:**
+
+- Use `thiserror::Error` derive
+- Define `Result<T>` type alias
+- Preserve chains with `#[from]` or `#[source]`
+- Never stringify errors
+
+## Configuration
+
+**Precedence** (highest to lowest):
+
+1. CLI args (`--port 8080`)
+2. Env vars (`INFERADB__SERVER__PORT=8080`)
+3. Config file (`config.yaml`)
+4. Defaults
+
+**Env format:** `INFERADB__` prefix, `__` separator
+
+## Testing
 
 ```rust
 #[tokio::test]
@@ -149,193 +155,54 @@ async fn test_vault_isolation() {
     let vault_a = Uuid::new_v4();
     let vault_b = Uuid::new_v4();
 
-    // Write to vault A
-    store.write(vault_a, vec![rel_a]).await?;
-
-    // Verify vault B cannot see vault A's data
+    store.write(vault_a, vec![rel]).await?;
     let results = store.read(vault_b, &key, Revision(0)).await?;
     assert!(results.is_empty(), "Vaults must be isolated");
 }
 ```
 
-### Test Organization
+**Organization:**
 
-- **Unit tests:** `#[cfg(test)] mod tests` within source files
-- **Integration tests:** `tests/` directory of each crate
-- **Fixtures:** `crates/infera-test-fixtures` for shared utilities
+- Unit tests: `#[cfg(test)] mod tests` in source files
+- Integration tests: `tests/` directory per crate
+- Fixtures: `crates/infera-test-fixtures`
 
----
+## Development Patterns
 
-## Common Development Patterns
+### Adding API Endpoint
 
-### Adding a New API Endpoint
-
-1. Define request/response types in `infera-types`
+1. Define types in `infera-types`
 2. Add handler in `infera-api/src/handlers/{resource}/`
-3. Extract `AuthContext` and validate vault access
-4. Call service from `AppState` with vault parameter
-5. Add integration tests in `infera-api/tests/`
+3. Extract `AuthContext`, validate vault
+4. Call service with vault parameter
+5. Add integration tests
 
-**📖 Handler organization:** [docs/architecture.md](docs/architecture.md#handler-organization)
+### Adding Storage Operation
 
-### Content Negotiation & Response Formats
-
-InferaDB REST APIs support two response formats via the `Accept` header:
-
-1. **JSON (default):** `application/json`
-2. **TOON:** `text/toon` (Token Oriented Object Notation for LLM optimization - saves 30-60% tokens)
-
-**Handler Pattern:**
-
-```rust
-use crate::content_negotiation::{AcceptHeader, ResponseData};
-
-pub async fn my_handler(
-    auth: OptionalAuth,
-    AcceptHeader(format): AcceptHeader,  // Extract format preference
-    State(state): State<AppState>,
-) -> Result<ResponseData<MyResponse>, ApiError> {
-    // ... business logic ...
-    Ok(ResponseData::new(response, format))  // Serializes based on format
-}
-```
-
-**Usage:**
-
-```bash
-# JSON response (default)
-curl https://api/v1/vaults
-
-# TOON response (30-60% token savings)
-curl -H "Accept: text/toon" https://api/v1/vaults
-```
-
-**Streaming Endpoints (JSON-only):**
-
-Streaming endpoints (SSE) only support JSON. Reject TOON requests:
-
-```rust
-pub async fn stream_handler(
-    auth: OptionalAuth,
-    AcceptHeader(format): AcceptHeader,
-    State(state): State<AppState>,
-) -> Result<Sse<impl Stream<...>>, ApiError> {
-    // Streaming endpoints only support JSON
-    if format == ResponseFormat::Toon {
-        return Err(ApiError::InvalidRequest(
-            "Streaming endpoints do not support TOON format".to_string()
-        ));
-    }
-    // ... streaming logic ...
-}
-```
-
-**📖 Complete TOON guide:** [api/content-negotiation.md](api/content-negotiation.md)
-
-### Adding New Storage Operations
-
-1. Add method to `RelationshipStore` trait in `infera-store/src/lib.rs`
-2. Implement for `MemoryBackend` in `infera-store/src/memory.rs`
-3. Implement for `FoundationDBBackend` if using `fdb` feature
-4. Ensure all operations are vault-scoped
+1. Add method to `RelationshipStore` trait
+2. Implement for `MemoryBackend`
+3. Implement for `FoundationDBBackend` (if `fdb` feature)
+4. Ensure vault-scoped
 5. Add tests
 
-### Adding a New Type
-
-**If used by multiple crates:**
+### Adding Shared Type
 
 1. Add to `infera-types/src/mytype.rs`
 2. Export from `infera-types/src/lib.rs`
 3. Re-export from original crate for compatibility
 
-**📖 Type organization:** [docs/TYPE_ORGANIZATION.md](docs/TYPE_ORGANIZATION.md)
+## Code Quality
 
----
+- **Format:** `cargo +nightly fmt --all`
+- **Lint:** `cargo clippy --workspace --all-targets -- -D warnings`
+- **Audit:** `cargo audit && cargo deny check`
+- **Tests:** `cargo nextest run --workspace`
 
-## Error Handling
+All tests must pass. Fix bugs in code, not tests. Use `Result` and `thiserror` consistently.
 
-**Every error enum MUST:**
+## Security
 
-1. Use `thiserror::Error` derive
-2. Have a Result type alias: `pub type Result<T> = std::result::Result<T, MyError>;`
-3. Preserve error chains with `#[from]` or `#[source]`
-
-```rust
-#[derive(Debug, Error)]
-pub enum MyError {
-    #[error("Storage error")]
-    Store(#[from] infera_types::StoreError),  // Auto-implements From<>
-}
-
-pub type Result<T> = std::result::Result<T, MyError>;
-```
-
-**Never stringify errors** - it breaks the error chain.
-
-**📖 Complete guide:** [docs/ERROR_HANDLING.md](docs/ERROR_HANDLING.md)
-
----
-
-## Configuration
-
-**Precedence (highest to lowest):**
-
-1. Command-line arguments (`--port 8080`)
-2. Environment variables (`INFERADB__SERVER__PORT=8080`)
-3. Configuration file (`config.yaml`)
-4. Default values
-
-**Environment variable format:** Use `INFERADB__` prefix and `__` separator.
-
----
-
-## Security Notes
-
-- Never use symmetric JWT algorithms (HS256) - explicitly rejected
-- Always validate vault ownership before operations
+- No symmetric JWT (HS256) - explicitly rejected
+- Always validate vault ownership
 - Enable replay protection in production
-- Follow least-privilege principle for scopes
-- Regularly run: `cargo audit`
-
----
-
-## Troubleshooting
-
-**Vault errors:**
-
-- Check `Relationship.vault` is set
-- Ensure `AuthContext` includes vault/account
-- Verify storage operations receive vault parameter
-
-**Auth errors:**
-
-- Verify asymmetric algorithm (EdDSA/RS256)
-- Check token includes vault/account claims
-- Ensure JWKS URL is accessible
-
-**Build errors:**
-
-- Run `cargo clean`
-- Check Rust version: `rustc --version` (need 1.83+)
-- Run `cargo update`
-
----
-
-## CI/CD Pipeline
-
-**5 Workflows:**
-
-- `ci.yml` - Main CI (format, lint, build, test, coverage)
-- `security.yml` - Security audits (cargo-audit, cargo-deny)
-- `benchmark.yml` - Performance regression detection
-- `release.yml` - Automated releases (binaries, Docker, SBOM, provenance)
-- `dependency-review.yml` - Dependency vulnerability scanning
-
-**Run tests locally like CI:**
-
-```bash
-cargo nextest run --workspace --profile ci
-cargo test --workspace --doc
-cargo audit
-cargo deny check
-```
+- Run `cargo audit` regularly
