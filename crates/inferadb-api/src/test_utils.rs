@@ -13,7 +13,7 @@ use axum::{
     middleware::{self, Next},
     response::Response,
 };
-use infera_types::{AuthContext, AuthMethod};
+use inferadb_types::{AuthContext, AuthMethod};
 
 /// Create a default test auth context with admin permissions
 pub fn create_test_auth_context(vault: i64, organization: i64) -> AuthContext {

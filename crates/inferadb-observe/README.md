@@ -370,7 +370,7 @@ Authentication spans are exported to OpenTelemetry with semantic conventions.
 ### Configuration
 
 ```rust
-use infera_observe::TracingConfig;
+use inferadb_observe::TracingConfig;
 
 let config = TracingConfig {
     service_name: "inferadb".to_string(),
@@ -378,7 +378,7 @@ let config = TracingConfig {
     sample_rate: 1.0,
 };
 
-infera_observe::init_tracing_with_config(config)?;
+inferadb_observe::init_tracing_with_config(config)?;
 ```
 
 ### Sampling Strategy
@@ -393,16 +393,16 @@ This ensures all security-relevant events are captured while managing trace volu
 ### Initializing Observability
 
 ```rust
-use infera_observe;
+use inferadb_observe;
 
 // Initialize tracing and metrics
-infera_observe::init()?;
+inferadb_observe::init()?;
 ```
 
 ### Recording Authentication Metrics
 
 ```rust
-use infera_observe::metrics;
+use inferadb_observe::metrics;
 
 // Record successful authentication
 metrics::record_auth_attempt("tenant_jwt", "acme");
@@ -417,7 +417,7 @@ metrics::record_jwt_validation_error("expired");
 ### Creating Authentication Spans
 
 ```rust
-use infera_observe::span_utils;
+use inferadb_observe::span_utils;
 
 let span = span_utils::auth_span("tenant_jwt", Some("acme"));
 let _guard = span.enter();
@@ -430,7 +430,7 @@ span_utils::record_auth_result(&span, true, 45.0, None);
 ### Logging Audit Events
 
 ```rust
-use infera_auth::{AuditEvent, log_audit_event};
+use inferadb_auth::{AuditEvent, log_audit_event};
 use chrono::Utc;
 
 log_audit_event(AuditEvent::AuthenticationSuccess {

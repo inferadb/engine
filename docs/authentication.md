@@ -452,8 +452,8 @@ When a certificate is revoked:
 **DO**:
 
 - Use HTTPS/TLS for all communication in production
-- Monitor authentication failure rates (`infera_auth_failures_total`)
-- Monitor cache hit rates (`infera_auth_cache_hit_rate`)
+- Monitor authentication failure rates (`inferadb_auth_failures_total`)
+- Monitor cache hit rates (`inferadb_auth_cache_hit_rate`)
 - Set appropriate cache TTLs based on security requirements
 - Implement alerting for auth failures >5% over 5 minutes
 
@@ -668,17 +668,17 @@ Monitor these Prometheus metrics for authentication health:
 
 ```promql
 # Authentication metrics
-infera_auth_validations_total          # Total auth validations
-infera_auth_failures_total             # Failed authentications
-infera_auth_cache_hits_total          # Cache hits (should be >90%)
-infera_auth_cache_misses_total        # Cache misses
-infera_auth_management_api_calls_total # Management API calls
-infera_auth_validation_duration_seconds # Validation latency
+inferadb_auth_validations_total          # Total auth validations
+inferadb_auth_failures_total             # Failed authentications
+inferadb_auth_cache_hits_total          # Cache hits (should be >90%)
+inferadb_auth_cache_misses_total        # Cache misses
+inferadb_auth_management_api_calls_total # Management API calls
+inferadb_auth_validation_duration_seconds # Validation latency
 
 # Cache metrics
-infera_auth_cert_cache_size           # Current cert cache size
-infera_auth_vault_cache_size          # Current vault cache size
-infera_auth_org_cache_size            # Current org cache size
+inferadb_auth_cert_cache_size           # Current cert cache size
+inferadb_auth_vault_cache_size          # Current vault cache size
+inferadb_auth_org_cache_size            # Current org cache size
 ```
 
 ### Logging

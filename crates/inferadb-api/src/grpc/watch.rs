@@ -6,16 +6,16 @@
 
 use std::sync::Arc;
 
-use infera_types::{AuthContext, Revision};
+use inferadb_types::{AuthContext, Revision};
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferaServiceImpl,
+    InferadbServiceImpl,
     proto::{ChangeOperation, WatchRequest, WatchResponse},
 };
 
 pub async fn watch(
-    service: &InferaServiceImpl,
+    service: &InferadbServiceImpl,
     request: Request<WatchRequest>,
 ) -> Result<
     Response<
@@ -33,7 +33,7 @@ pub async fn watch(
         .unwrap_or(service.state.default_vault);
 
     let req = request.into_inner();
-    let store = Arc::clone(&service.state.store) as Arc<dyn infera_store::RelationshipStore>;
+    let store = Arc::clone(&service.state.store) as Arc<dyn inferadb_store::RelationshipStore>;
 
     // Parse cursor to get start revision
     let start_revision = if let Some(cursor) = &req.cursor {
@@ -73,8 +73,8 @@ pub async fn watch(
                     for event in &events {
                         // Convert ChangeEvent to WatchResponse
                         let operation = match event.operation {
-                            infera_types::ChangeOperation::Create => ChangeOperation::Create,
-                            infera_types::ChangeOperation::Delete => ChangeOperation::Delete,
+                            inferadb_types::ChangeOperation::Create => ChangeOperation::Create,
+                            inferadb_types::ChangeOperation::Delete => ChangeOperation::Delete,
                         };
 
                         // Format timestamp as ISO 8601

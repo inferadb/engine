@@ -7,7 +7,7 @@
 //! - Selective invalidation only affects relevant resources
 //! - Vault isolation is maintained in cache operations
 
-use infera_types::{Decision, EvaluateRequest};
+use inferadb_types::{Decision, EvaluateRequest};
 
 use crate::{
     create_multi_vault_test_state, create_test_relationship, create_test_state,
@@ -132,7 +132,7 @@ async fn test_cache_invalidation_on_delete() {
     assert_eq!(stats_before_delete.hits, 1, "Should have cached result");
 
     // Delete the relationship (simulate handler behavior: delete then invalidate)
-    let delete_filter = infera_types::DeleteFilter {
+    let delete_filter = inferadb_types::DeleteFilter {
         resource: Some("document:readme".to_string()),
         relation: Some("viewer".to_string()),
         subject: Some("user:alice".to_string()),

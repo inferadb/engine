@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use infera_store::RelationshipStore;
-use infera_types::{EvaluateRequest as CoreEvaluateRequest, Relationship};
+use inferadb_store::RelationshipStore;
+use inferadb_types::{EvaluateRequest as CoreEvaluateRequest, Relationship};
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferaServiceImpl, get_vault,
+    InferadbServiceImpl, get_vault,
     proto::{SimulateRequest, SimulateResponse},
 };
 
 pub async fn simulate(
-    _service: &InferaServiceImpl,
+    _service: &InferadbServiceImpl,
     request: Request<SimulateRequest>,
 ) -> Result<Response<SimulateResponse>, Status> {
     let request = request.into_inner();
@@ -46,7 +46,7 @@ pub async fn simulate(
     }
 
     // Create an ephemeral in-memory store with ONLY the context relationships
-    use infera_store::MemoryBackend;
+    use inferadb_store::MemoryBackend;
     let ephemeral_store = Arc::new(MemoryBackend::new());
 
     // Write context relationships to ephemeral store
@@ -56,7 +56,7 @@ pub async fn simulate(
         .map_err(|e| Status::internal(format!("Failed to write context relationships: {}", e)))?;
 
     // Create a temporary evaluator with the ephemeral store
-    use infera_core::{Evaluator, ipl::Schema};
+    use inferadb_core::{Evaluator, ipl::Schema};
     let temp_schema = Arc::new(Schema { types: Vec::new() });
     let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault());
 

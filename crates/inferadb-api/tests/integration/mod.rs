@@ -25,11 +25,11 @@ use axum::{
     middleware::{self, Next},
     response::Response,
 };
-use infera_api::AppState;
-use infera_config::Config;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_store::MemoryBackend;
-use infera_types::{AuthContext, AuthMethod, Relationship};
+use inferadb_api::AppState;
+use inferadb_config::Config;
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_store::MemoryBackend;
+use inferadb_types::{AuthContext, AuthMethod, Relationship};
 
 static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
 
@@ -119,7 +119,7 @@ pub async fn test_auth_middleware(
 /// # Example
 ///
 /// ```ignore
-/// let router = infera_api::create_test_router(state).await?;
+/// let router = inferadb_api::create_test_router(state).await?;
 /// let authenticated_router = with_test_auth(router, vault_id, organization_id);
 /// ```
 #[allow(dead_code)]
@@ -150,7 +150,7 @@ pub fn create_test_state() -> AppState {
 
 /// Create test AppState with custom configuration
 pub fn create_test_state_with_config(config: Config) -> AppState {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
     let default_vault = generate_test_id();
     let default_organization = generate_test_id();
@@ -169,7 +169,7 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
 /// Returns the AppState and IDs for two vaults with their organizations.
 /// Use `with_test_auth` to authenticate requests to specific vaults.
 pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
     let vault_a = generate_test_id();
@@ -230,7 +230,7 @@ pub async fn write_test_relationships(
     state: &AppState,
     vault: i64,
     relationships: Vec<Relationship>,
-) -> Result<infera_types::Revision, Box<dyn std::error::Error>> {
+) -> Result<inferadb_types::Revision, Box<dyn std::error::Error>> {
     let revision = state.store.write(vault, relationships).await?;
     Ok(revision)
 }

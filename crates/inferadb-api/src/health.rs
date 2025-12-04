@@ -141,7 +141,10 @@ impl HealthTracker {
     }
 
     /// Perform a comprehensive health check
-    pub async fn check_health(&self, store: &Arc<dyn infera_store::InferaStore>) -> HealthResponse {
+    pub async fn check_health(
+        &self,
+        store: &Arc<dyn inferadb_store::InferaStore>,
+    ) -> HealthResponse {
         let uptime = self.uptime_seconds();
         let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 

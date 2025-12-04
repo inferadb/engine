@@ -3,8 +3,8 @@
 use std::{collections::HashSet, sync::Arc};
 
 use async_recursion::async_recursion;
-use infera_store::RelationshipStore;
-use infera_types::{RelationshipKey, Revision};
+use inferadb_store::RelationshipStore;
+use inferadb_types::{RelationshipKey, Revision};
 
 use crate::{
     EvalError, Result,
@@ -103,8 +103,8 @@ impl GraphContext {
 /// # Example
 ///
 /// ```ignore
-/// use infera_core::graph::has_direct_relationship;
-/// use infera_types::Revision;
+/// use inferadb_core::graph::has_direct_relationship;
+/// use inferadb_types::Revision;
 ///
 /// # async {
 /// let vault_id = 1i64;
@@ -123,7 +123,7 @@ impl GraphContext {
 /// if exists {
 ///     println!("Relationship exists");
 /// }
-/// # Ok::<(), infera_core::EvalError>(())
+/// # Ok::<(), inferadb_core::EvalError>(())
 /// # };
 /// ```
 pub async fn has_direct_relationship(
@@ -190,8 +190,8 @@ pub async fn has_direct_relationship(
 /// # Example
 ///
 /// ```ignore
-/// use infera_core::graph::get_users_with_relation;
-/// use infera_types::Revision;
+/// use inferadb_core::graph::get_users_with_relation;
+/// use inferadb_types::Revision;
 ///
 /// # async {
 /// let vault_id = 1i64;
@@ -209,7 +209,7 @@ pub async fn has_direct_relationship(
 /// for viewer in viewers {
 ///     println!("Viewer: {}", viewer);
 /// }
-/// # Ok::<(), infera_core::EvalError>(())
+/// # Ok::<(), inferadb_core::EvalError>(())
 /// # };
 /// ```
 pub async fn get_users_with_relation(
@@ -263,8 +263,8 @@ pub async fn get_users_with_relation(
 /// # Example
 ///
 /// ```ignore
-/// use infera_core::graph::prefetch_users_batch;
-/// use infera_types::Revision;
+/// use inferadb_core::graph::prefetch_users_batch;
+/// use inferadb_types::Revision;
 ///
 /// # async {
 /// let vault_id = 1i64;
@@ -288,7 +288,7 @@ pub async fn get_users_with_relation(
 /// for (doc, editors) in editors_map {
 ///     println!("{} has {} editors", doc, editors.len());
 /// }
-/// # Ok::<(), infera_core::EvalError>(())
+/// # Ok::<(), inferadb_core::EvalError>(())
 /// # };
 /// ```
 pub async fn prefetch_users_batch(
@@ -482,8 +482,8 @@ async fn evaluate_relation_expr(
 
 #[cfg(test)]
 mod tests {
-    use infera_store::MemoryBackend;
-    use infera_types::Relationship;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Relationship;
 
     use super::*;
     use crate::ipl::{RelationDef, Schema, TypeDef};

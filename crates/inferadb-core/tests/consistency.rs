@@ -5,12 +5,12 @@
 
 use std::sync::Arc;
 
-use infera_core::{
+use inferadb_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{Decision, EvaluateRequest, Relationship, RelationshipKey};
+use inferadb_store::{MemoryBackend, RelationshipStore};
+use inferadb_types::{Decision, EvaluateRequest, Relationship, RelationshipKey};
 use tokio::task::JoinSet;
 
 mod common;

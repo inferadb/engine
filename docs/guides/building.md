@@ -76,7 +76,7 @@ Use standard cargo commands for daily development:
 ```bash
 # Run tests
 cargo test                              # All tests
-cargo test --package infera-core        # Specific package
+cargo test --package inferadb-core        # Specific package
 cargo nextest run                       # Using nextest (faster)
 
 # Build
@@ -94,7 +94,7 @@ cargo watch -x 'run --bin inferadb-server'
 
 # Benchmarks
 cargo bench                             # All benchmarks
-cargo bench --package infera-core       # Specific package
+cargo bench --package inferadb-core       # Specific package
 ```
 
 ### Make Shortcuts (Optional)
@@ -114,15 +114,15 @@ make ci          # Simulate CI checks locally
 ```text
 server/
 ├── crates/
-│   ├── infera-api/      # REST and gRPC APIs
-│   ├── infera-bin/      # Main binary
-│   ├── infera-cache/    # Caching layer
-│   ├── infera-config/   # Configuration
-│   ├── infera-core/     # Evaluation engine
-│   ├── infera-observe/  # Observability
-│   ├── infera-repl/     # Replication
-│   ├── infera-store/    # Storage backends
-│   └── infera-wasm/     # WASM integration
+│   ├── inferadb-api/      # REST and gRPC APIs
+│   ├── inferadb-bin/      # Main binary
+│   ├── inferadb-cache/    # Caching layer
+│   ├── inferadb-config/   # Configuration
+│   ├── inferadb-core/     # Evaluation engine
+│   ├── inferadb-observe/  # Observability
+│   ├── inferadb-repl/     # Replication
+│   ├── inferadb-store/    # Storage backends
+│   └── inferadb-wasm/     # WASM integration
 ├── docs/                # Documentation
 ├── Cargo.toml          # Workspace definition
 ├── Cargo.lock          # Dependency lock file
@@ -185,8 +185,8 @@ cargo test
 ### Run Specific Package Tests
 
 ```bash
-cargo test --package infera-core
-cargo test --package infera-store
+cargo test --package inferadb-core
+cargo test --package inferadb-store
 ```
 
 ### Run Specific Test
@@ -237,9 +237,9 @@ cargo bench
 ### Run Specific Benchmark Suite
 
 ```bash
-cargo bench --package infera-core --bench evaluator
-cargo bench --package infera-core --bench ipl_parser
-cargo bench --package infera-core --bench optimizer
+cargo bench --package inferadb-core --bench evaluator
+cargo bench --package inferadb-core --bench ipl_parser
+cargo bench --package inferadb-core --bench optimizer
 ```
 
 ### Benchmark Comparison

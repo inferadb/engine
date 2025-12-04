@@ -5,7 +5,7 @@
 
 use std::{sync::Arc, time::SystemTime};
 
-use infera_types::Decision;
+use inferadb_types::Decision;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 

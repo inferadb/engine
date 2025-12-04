@@ -26,18 +26,18 @@
 
 use std::{sync::Arc, time::Instant};
 
-use infera_core::Evaluator;
-use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{Decision, EvaluateRequest, ListResourcesRequest, Relationship};
+use inferadb_core::Evaluator;
+use inferadb_store::{MemoryBackend, RelationshipStore};
+use inferadb_types::{Decision, EvaluateRequest, ListResourcesRequest, Relationship};
 
-fn create_simple_schema() -> infera_core::ipl::Schema {
+fn create_simple_schema() -> inferadb_core::ipl::Schema {
     let schema_str = r#"
     type doc {
         relation reader
     }
     type user {}
     "#;
-    infera_core::ipl::parse_schema(schema_str).unwrap()
+    inferadb_core::ipl::parse_schema(schema_str).unwrap()
 }
 
 // Create test data with N resources
@@ -177,7 +177,7 @@ async fn bench_list_resources_deep_hierarchy() {
     }
     type user {}
     "#;
-    let schema = Arc::new(infera_core::ipl::parse_schema(schema_str).unwrap());
+    let schema = Arc::new(inferadb_core::ipl::parse_schema(schema_str).unwrap());
     let store = Arc::new(MemoryBackend::new());
 
     // Create a hierarchy 15 levels deep

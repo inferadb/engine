@@ -11,7 +11,7 @@ use common::mock_management::{
     MockManagementState, create_test_certificate, create_test_organization, create_test_vault,
     generate_jwt_with_key, generate_snowflake_id, start_mock_management_server,
 };
-use infera_auth::{
+use inferadb_auth::{
     certificate_cache::{CertificateCache, ParsedKeyId},
     management_client::{ManagementClient, OrgStatus},
     vault_verification::{ManagementApiVaultVerifier, VaultVerifier},

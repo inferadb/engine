@@ -5,9 +5,9 @@
 
 use std::sync::Arc;
 
-use infera_store::{InferaStore, MemoryBackend};
-use infera_test_fixtures::test_relationship_with_vault;
-use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
+use inferadb_store::{InferaStore, MemoryBackend};
+use inferadb_test_fixtures::test_relationship_with_vault;
+use inferadb_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
 
 // Test constants for concurrent operations
 /// Number of concurrent write operations per vault in basic concurrency tests.

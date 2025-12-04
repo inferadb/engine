@@ -6,7 +6,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use infera_types::auth::AuthContext;
+use inferadb_types::auth::AuthContext;
 use tracing::{error, warn};
 
 use crate::vault_verification::{VaultVerificationError, VaultVerifier};

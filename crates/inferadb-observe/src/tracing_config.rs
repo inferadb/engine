@@ -21,7 +21,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use infera_observe::tracing_config::configure_auth_span_export;
+//! use inferadb_observe::tracing_config::configure_auth_span_export;
 //!
 //! // Configure OpenTelemetry export
 //! configure_auth_span_export("http://localhost:4317")?;

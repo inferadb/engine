@@ -12,7 +12,7 @@
 //!     Extension,
 //!     Json,
 //! };
-//! use infera_api::{AppState, ApiError, content_negotiation::{AcceptHeader, ResponseData}};
+//! use inferadb_api::{AppState, ApiError, content_negotiation::{AcceptHeader, ResponseData}};
 //! use serde::{Deserialize, Serialize};
 //!
 //! #[derive(Deserialize)]

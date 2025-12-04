@@ -3,8 +3,8 @@
 use std::{pin::Pin, sync::Arc, time::Duration};
 
 use futures::Stream;
-use infera_store::RelationshipStore;
-use infera_types::{ChangeEvent, Revision};
+use inferadb_store::RelationshipStore;
+use inferadb_types::{ChangeEvent, Revision};
 
 use crate::ApiError;
 
@@ -73,7 +73,7 @@ impl WatchService {
             #[allow(clippy::while_let_loop)]
             loop {
                 // Check for new changes since last revision
-                let changes_result = if let Some(infra_store) = store.as_any().downcast_ref::<infera_store::MemoryBackend>() {
+                let changes_result = if let Some(infra_store) = store.as_any().downcast_ref::<inferadb_store::MemoryBackend>() {
                     infra_store.read_changes(vault, current_revision, &resource_types, Some(100)).await
                 } else {
                     // For other store types, we can't implement watch yet
@@ -106,8 +106,8 @@ impl WatchService {
 #[cfg(test)]
 mod tests {
     use futures::StreamExt;
-    use infera_store::MemoryBackend;
-    use infera_types::Relationship;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Relationship;
 
     use super::*;
 
@@ -142,7 +142,7 @@ mod tests {
         {
             // If we get an event, verify it
             let event = event_result.unwrap();
-            assert_eq!(event.operation, infera_types::ChangeOperation::Create);
+            assert_eq!(event.operation, inferadb_types::ChangeOperation::Create);
         }
     }
 

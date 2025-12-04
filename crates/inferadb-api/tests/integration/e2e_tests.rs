@@ -8,7 +8,7 @@
 //! - Bulk operations
 //! - Empty vault operations
 
-use infera_types::{Relationship, RelationshipKey, Revision};
+use inferadb_types::{Relationship, RelationshipKey, Revision};
 
 use crate::{
     create_multi_vault_test_state, create_test_relationship, create_test_state,
@@ -111,7 +111,7 @@ async fn test_e2e_write_then_delete() {
     assert_eq!(before_delete.len(), 1, "Should have alice's relationship before delete");
 
     // Delete using delete_by_filter
-    let delete_filter = infera_types::DeleteFilter {
+    let delete_filter = inferadb_types::DeleteFilter {
         resource: Some("doc:readme".to_string()),
         relation: Some("viewer".to_string()),
         subject: Some("user:alice".to_string()),
@@ -270,7 +270,7 @@ async fn test_e2e_empty_vault_operations() {
     assert_eq!(result.unwrap().len(), 0, "Empty vault should return no relationships");
 
     // Delete from empty vault (should not error)
-    let delete_filter = infera_types::DeleteFilter {
+    let delete_filter = inferadb_types::DeleteFilter {
         resource: Some("nonexistent".to_string()),
         relation: None,
         subject: None,

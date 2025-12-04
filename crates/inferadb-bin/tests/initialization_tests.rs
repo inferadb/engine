@@ -8,9 +8,9 @@ use std::sync::{
     atomic::{AtomicI64, Ordering},
 };
 
-use infera_bin::initialization;
-use infera_config::Config;
-use infera_store::{InferaStore, MemoryBackend};
+use inferadb_bin::initialization;
+use inferadb_config::Config;
+use inferadb_store::{InferaStore, MemoryBackend};
 
 static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
 
@@ -112,12 +112,12 @@ async fn test_startup_with_existing_account_and_vault() {
 
     // Pre-create account with custom name
     let account =
-        infera_types::Organization::with_id(organization_id, "My Custom Account".to_string());
+        inferadb_types::Organization::with_id(organization_id, "My Custom Account".to_string());
     store.create_organization(account).await.expect("Should create account");
 
     // Pre-create vault with custom name
     let vault =
-        infera_types::Vault::with_id(vault_id, organization_id, "My Custom Vault".to_string());
+        inferadb_types::Vault::with_id(vault_id, organization_id, "My Custom Vault".to_string());
     store.create_vault(vault).await.expect("Should create vault");
 
     // Configure to use existing IDs
@@ -158,11 +158,12 @@ async fn test_vault_account_mismatch_error() {
     let vault_id = generate_test_id();
 
     // Create account A
-    let account_a = infera_types::Organization::with_id(organization_id_a, "Account A".to_string());
+    let account_a =
+        inferadb_types::Organization::with_id(organization_id_a, "Account A".to_string());
     store.create_organization(account_a).await.expect("Should create account A");
 
     // Create vault owned by account A
-    let vault = infera_types::Vault::with_id(vault_id, organization_id_a, "Vault A".to_string());
+    let vault = inferadb_types::Vault::with_id(vault_id, organization_id_a, "Vault A".to_string());
     store.create_vault(vault).await.expect("Should create vault");
 
     // Try to initialize with account B owning the vault

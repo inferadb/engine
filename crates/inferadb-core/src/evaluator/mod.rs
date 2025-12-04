@@ -2,15 +2,15 @@
 
 use std::{sync::Arc, time::Instant};
 
-use infera_cache::{AuthCache, CheckCacheKey};
-use infera_const::{DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT};
-use infera_store::RelationshipStore;
-use infera_types::{
+use inferadb_cache::{AuthCache, CheckCacheKey};
+use inferadb_const::{DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT};
+use inferadb_store::RelationshipStore;
+use inferadb_types::{
     Decision, EvaluateRequest, ExpandRequest, ExpandResponse, ListRelationshipsRequest,
     ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, ListSubjectsRequest,
     ListSubjectsResponse, Relationship, Revision, UsersetNodeType, UsersetTree,
 };
-use infera_wasm::WasmHost;
+use inferadb_wasm::WasmHost;
 use tracing::{debug, instrument};
 
 use crate::{

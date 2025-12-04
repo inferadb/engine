@@ -26,13 +26,13 @@ impl LogReconfigHandle {
     /// # Examples
     ///
     /// ```no_run
-    /// # use infera_observe::reconfigure::LogReconfigHandle;
+    /// # use inferadb_observe::reconfigure::LogReconfigHandle;
     /// # fn example(handle: LogReconfigHandle) {
     /// // Set to debug level for all modules
     /// handle.set_filter("debug").unwrap();
     ///
     /// // Set specific module to trace level
-    /// handle.set_filter("info,infera_core=trace").unwrap();
+    /// handle.set_filter("info,inferadb_core=trace").unwrap();
     /// # }
     /// ```
     pub fn set_filter(&self, filter: &str) -> Result<()> {

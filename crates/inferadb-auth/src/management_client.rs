@@ -81,7 +81,7 @@ impl ManagementClient {
         base_url: String,
         internal_base_url: Option<String>,
         timeout_ms: u64,
-        _lb_client: Option<Arc<infera_discovery::LoadBalancingClient>>,
+        _lb_client: Option<Arc<inferadb_discovery::LoadBalancingClient>>,
         server_identity: Option<Arc<ServerIdentity>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let http_client = HttpClient::builder()

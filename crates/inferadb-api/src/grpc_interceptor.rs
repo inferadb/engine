@@ -15,25 +15,25 @@
 //! let interceptor = AuthInterceptor::new(jwks_cache, internal_loader, config);
 //!
 //! Server::builder()
-//!     .add_service(InferaServiceServer::with_interceptor(service, interceptor))
+//!     .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
 //!     .serve(addr)
 //!     .await?;
 //! ```
 
 use std::{sync::Arc, time::Instant};
 
-// Re-export chrono from infera_auth's context module
+// Re-export chrono from inferadb_auth's context module
 use chrono::{DateTime, Duration, Utc};
-use infera_auth::{
+use inferadb_auth::{
     audit::{AuditEvent, log_audit_event},
     error::AuthError,
     internal::InternalJwksLoader,
     jwks_cache::JwksCache,
     jwt, oauth,
 };
-use infera_config::AuthConfig;
-use infera_observe::metrics;
-use infera_types::{AuthContext, AuthMethod};
+use inferadb_config::AuthConfig;
+use inferadb_observe::metrics;
+use inferadb_types::{AuthContext, AuthMethod};
 use tonic::{Request, Status, metadata::MetadataMap};
 
 /// Extract Bearer token from gRPC metadata
@@ -185,7 +185,8 @@ impl AuthInterceptor {
             if unverified.iss == internal_loader.issuer() {
                 tracing::debug!(issuer = %unverified.iss, "Detected internal service JWT");
                 metrics::record_jwt_signature_verification("EdDSA", true);
-                return infera_auth::internal::validate_internal_jwt(token, internal_loader).await;
+                return inferadb_auth::internal::validate_internal_jwt(token, internal_loader)
+                    .await;
             }
         }
 

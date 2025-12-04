@@ -50,7 +50,7 @@ cargo instruments -t Allocations --test memory_leak_tests
 
 ## Memory Leak Tests
 
-InferaDB includes comprehensive memory leak detection tests in `crates/infera-api/tests/memory_leak_tests.rs`.
+InferaDB includes comprehensive memory leak detection tests in `crates/inferadb-api/tests/memory_leak_tests.rs`.
 
 ### Test Categories
 

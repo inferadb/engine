@@ -48,28 +48,28 @@ See [docs/quickstart.md](docs/quickstart.md) for complete walkthrough.
 
 ```mermaid
 graph TD
-    API["infera-api (REST + gRPC)"] --> Core
+    API["inferadb-api (REST + gRPC)"] --> Core
     subgraph Core["Core Services"]
-        AUTH[infera-auth] & CORE[infera-core] & CACHE[infera-cache]
+        AUTH[inferadb-auth] & CORE[inferadb-core] & CACHE[inferadb-cache]
     end
     Core --> Services
     subgraph Services["Supporting"]
-        STORE[infera-store] & REPL[infera-repl] & WASM[infera-wasm]
+        STORE[inferadb-store] & REPL[inferadb-repl] & WASM[inferadb-wasm]
     end
-    Services --> Foundation["infera-observe + infera-config"]
+    Services --> Foundation["inferadb-observe + inferadb-config"]
 ```
 
-| Crate | Purpose |
-| ----- | ------- |
-| infera-core | Policy evaluation, IPL interpreter |
-| infera-store | Storage abstraction (Memory, FDB) |
-| infera-api | REST and gRPC APIs |
-| infera-auth | JWT/OAuth validation, JWKS caching |
-| infera-cache | Authorization result caching |
-| infera-repl | Multi-region replication |
-| infera-wasm | WebAssembly policy modules |
-| infera-observe | Metrics, tracing, logging |
-| infera-config | Configuration management |
+| Crate            | Purpose                            |
+| ---------------- | ---------------------------------- |
+| inferadb-core    | Policy evaluation, IPL interpreter |
+| inferadb-store   | Storage abstraction (Memory, FDB)  |
+| inferadb-api     | REST and gRPC APIs                 |
+| inferadb-auth    | JWT/OAuth validation, JWKS caching |
+| inferadb-cache   | Authorization result caching       |
+| inferadb-repl    | Multi-region replication           |
+| inferadb-wasm    | WebAssembly policy modules         |
+| inferadb-observe | Metrics, tracing, logging          |
+| inferadb-config  | Configuration management           |
 
 See [docs/architecture.md](docs/architecture.md) for details.
 
@@ -147,12 +147,12 @@ See [docs/guides/deployment.md](docs/guides/deployment.md) for production guide.
 
 ## Performance
 
-| Operation | p50 | p99 | Throughput |
-| --------- | --- | --- | ---------- |
-| Check (cached) | <1ms | <2ms | 100K+ RPS |
-| Check (uncached) | 3-5ms | 8-10ms | 50K+ RPS |
-| Expand | 5-15ms | 20-30ms | 20K+ RPS |
-| Write | 2-5ms | 10-15ms | 30K+ RPS |
+| Operation        | p50    | p99     | Throughput |
+| ---------------- | ------ | ------- | ---------- |
+| Check (cached)   | <1ms   | <2ms    | 100K+ RPS  |
+| Check (uncached) | 3-5ms  | 8-10ms  | 50K+ RPS   |
+| Expand           | 5-15ms | 20-30ms | 20K+ RPS   |
+| Write            | 2-5ms  | 10-15ms | 30K+ RPS   |
 
 _8-core CPU, memory backend, single region_
 
@@ -160,14 +160,14 @@ See [docs/operations/performance.md](docs/operations/performance.md) for benchma
 
 ## Documentation
 
-| Category | Links |
-| -------- | ----- |
-| Getting Started | [Quickstart](docs/quickstart.md) · [Architecture](docs/architecture.md) · [Multi-Tenancy](docs/architecture/multi-tenancy.md) |
-| Guides | [Building](docs/guides/building.md) · [Configuration](docs/guides/configuration.md) · [Deployment](docs/guides/deployment.md) · [Testing](docs/guides/testing.md) |
-| API | [Overview](api/README.md) · [REST](api/rest.md) · [gRPC](api/grpc.md) · [OpenAPI](api/openapi.yaml) · [Swagger UI](api/swagger-ui.html) |
-| Core | [Evaluation](docs/core/evaluation.md) · [IPL Language](docs/core/ipl.md) · [Caching](docs/core/caching.md) · [Revisions](docs/core/revisions.md) |
-| Operations | [Observability](docs/operations/observability/README.md) · [Performance](docs/operations/performance.md) · [SLOs](docs/operations/slos.md) |
-| Security | [Authentication](docs/security/authentication.md) · [Hardening](docs/security/hardening.md) · [Rate Limiting](docs/security/ratelimiting.md) |
+| Category        | Links                                                                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Getting Started | [Quickstart](docs/quickstart.md) · [Architecture](docs/architecture.md) · [Multi-Tenancy](docs/architecture/multi-tenancy.md)                                     |
+| Guides          | [Building](docs/guides/building.md) · [Configuration](docs/guides/configuration.md) · [Deployment](docs/guides/deployment.md) · [Testing](docs/guides/testing.md) |
+| API             | [Overview](api/README.md) · [REST](api/rest.md) · [gRPC](api/grpc.md) · [OpenAPI](api/openapi.yaml) · [Swagger UI](api/swagger-ui.html)                           |
+| Core            | [Evaluation](docs/core/evaluation.md) · [IPL Language](docs/core/ipl.md) · [Caching](docs/core/caching.md) · [Revisions](docs/core/revisions.md)                  |
+| Operations      | [Observability](docs/operations/observability/README.md) · [Performance](docs/operations/performance.md) · [SLOs](docs/operations/slos.md)                        |
+| Security        | [Authentication](docs/security/authentication.md) · [Hardening](docs/security/hardening.md) · [Rate Limiting](docs/security/ratelimiting.md)                      |
 
 Browse all: [docs/README.md](docs/README.md)
 

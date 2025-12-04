@@ -10,15 +10,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use infera_api::grpc::proto::{
+use inferadb_api::grpc::proto::{
     DeleteRequest, Relationship as ProtoRelationship, WriteRequest,
-    infera_service_client::InferaServiceClient,
+    inferadb_service_client::InferadbServiceClient,
 };
-use infera_observe::metrics::{
+use inferadb_observe::metrics::{
     record_replication_batch, record_replication_changes, record_replication_failure,
     update_replication_targets,
 };
-use infera_store::RelationshipStore;
+use inferadb_store::RelationshipStore;
 use tokio::{
     sync::{RwLock, mpsc},
     time::sleep,
@@ -65,7 +65,7 @@ struct ReplicationTarget {
     region_id: RegionId,
     node_id: NodeId,
     endpoint: String,
-    client: Option<InferaServiceClient<Channel>>,
+    client: Option<InferadbServiceClient<Channel>>,
     last_successful_replication: Option<Instant>,
     consecutive_failures: u32,
 }
@@ -87,7 +87,7 @@ impl ReplicationTarget {
             return Ok(());
         }
 
-        match InferaServiceClient::connect(self.endpoint.clone()).await {
+        match InferadbServiceClient::connect(self.endpoint.clone()).await {
             Ok(client) => {
                 self.client = Some(client);
                 info!("Connected to replication target: {} ({})", self.node_id, self.endpoint);
@@ -451,7 +451,7 @@ impl ReplicationAgent {
 
 #[cfg(test)]
 mod tests {
-    use infera_store::MemoryBackend;
+    use inferadb_store::MemoryBackend;
 
     use super::*;
     use crate::{

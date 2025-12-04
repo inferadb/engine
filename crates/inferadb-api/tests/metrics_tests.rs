@@ -5,17 +5,17 @@
 
 use std::{sync::Arc, time::Duration};
 
-use infera_api::{
+use inferadb_api::{
     AppState,
     grpc::proto::{
-        EvaluateRequest as ProtoEvaluateRequest, infera_service_client::InferaServiceClient,
+        EvaluateRequest as ProtoEvaluateRequest, inferadb_service_client::InferadbServiceClient,
     },
 };
-use infera_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
-use infera_config::Config;
-use infera_core::ipl::{RelationDef, Schema, TypeDef};
-use infera_store::MemoryBackend;
-use infera_test_fixtures::{
+use inferadb_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
+use inferadb_config::Config;
+use inferadb_core::ipl::{RelationDef, Schema, TypeDef};
+use inferadb_store::MemoryBackend;
+use inferadb_test_fixtures::{
     InternalClaims, create_internal_jwks, generate_internal_jwt, generate_internal_keypair,
 };
 use tonic::{
@@ -32,7 +32,7 @@ fn create_test_schema() -> Arc<Schema> {
 }
 
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
     let config = Config::default();
@@ -57,15 +57,15 @@ async fn start_grpc_server_with_auth(
     state: AppState,
     internal_loader: Option<Arc<InternalJwksLoader>>,
 ) -> (tokio::task::JoinHandle<()>, u16) {
-    use infera_api::{
-        grpc::{InferaServiceImpl, proto::infera_service_server::InferaServiceServer},
+    use inferadb_api::{
+        grpc::{InferadbServiceImpl, proto::inferadb_service_server::InferadbServiceServer},
         grpc_interceptor::AuthInterceptor,
     };
 
     let port = portpicker::pick_unused_port().expect("No free ports");
     let addr = format!("127.0.0.1:{}", port).parse().unwrap();
 
-    let service = InferaServiceImpl::new(state.clone());
+    let service = InferadbServiceImpl::new(state.clone());
 
     let handle = tokio::spawn(async move {
         if let Some(cache) = state.jwks_cache {
@@ -73,13 +73,13 @@ async fn start_grpc_server_with_auth(
                 AuthInterceptor::new(cache, internal_loader, Arc::new(state.config.auth.clone()));
 
             Server::builder()
-                .add_service(InferaServiceServer::with_interceptor(service, interceptor))
+                .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
                 .serve(addr)
                 .await
                 .expect("gRPC server failed");
         } else {
             Server::builder()
-                .add_service(InferaServiceServer::new(service))
+                .add_service(InferadbServiceServer::new(service))
                 .serve(addr)
                 .await
                 .expect("gRPC server failed");
@@ -141,7 +141,7 @@ async fn test_metrics_after_successful_auth() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     // Generate valid internal JWT
     let claims = InternalClaims::default();
@@ -207,7 +207,7 @@ async fn test_metrics_after_failed_auth() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
@@ -280,7 +280,7 @@ async fn test_metrics_cardinality() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     // Make multiple requests with the same tenant
     for _ in 0..5 {

@@ -6,7 +6,7 @@
 
 use std::cmp::Ordering;
 
-use infera_types::Relationship;
+use inferadb_types::Relationship;
 use serde::{Deserialize, Serialize};
 
 use crate::{Change, Operation, ReplError};
@@ -225,7 +225,7 @@ impl ConflictStats {
 
 #[cfg(test)]
 mod tests {
-    use infera_types::Revision;
+    use inferadb_types::Revision;
 
     use super::*;
     use crate::ChangeMetadata;

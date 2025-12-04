@@ -4,8 +4,8 @@
 
 use std::{sync::Arc, time::Duration};
 
-use infera_store::RelationshipStore;
-use infera_types::{Relationship, RelationshipKey, Revision};
+use inferadb_store::RelationshipStore;
+use inferadb_types::{Relationship, RelationshipKey, Revision};
 use tokio::time::timeout;
 
 use crate::{ReplError, Result, RevisionToken};
@@ -99,8 +99,8 @@ impl SnapshotReader {
 
 #[cfg(test)]
 mod tests {
-    use infera_store::MemoryBackend;
-    use infera_types::Relationship;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Relationship;
 
     use super::*;
 

@@ -17,8 +17,8 @@ use foundationdb::{
     tuple::{Subspace, unpack},
 };
 #[cfg(test)]
-use infera_types::ChangeOperation;
-use infera_types::{ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision};
+use inferadb_types::ChangeOperation;
+use inferadb_types::{ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision};
 use serde_json;
 use tracing::debug;
 

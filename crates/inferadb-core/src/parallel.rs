@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use infera_types::{Decision, EvaluateRequest};
+use inferadb_types::{Decision, EvaluateRequest};
 use tokio::task::JoinSet;
 
 use crate::{EvalError, Result, evaluator::Evaluator, ipl::RelationExpr};
@@ -201,7 +201,7 @@ impl ParallelEvaluator {
 
 #[cfg(test)]
 mod tests {
-    use infera_store::MemoryBackend;
+    use inferadb_store::MemoryBackend;
 
     use super::*;
     use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};

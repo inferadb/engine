@@ -47,7 +47,7 @@ export GCP_PROJECT_ID=your-project-id
 gcloud secrets create test-secret --data-file=- <<< "test-value"
 
 # 4. Run integration tests
-cargo test --package infera-config --features gcp-secrets test_gcp_secrets_provider -- --ignored --nocapture
+cargo test --package inferadb-config --features gcp-secrets test_gcp_secrets_provider -- --ignored --nocapture
 ```
 
 ## Usage
@@ -97,7 +97,7 @@ docker-compose up -d
 docker-compose exec test-runner bash
 
 # Inside container - run specific tests
-cargo test -p infera-config --features gcp-secrets --lib gcp
+cargo test -p inferadb-config --features gcp-secrets --lib gcp
 
 # Check emulator secrets
 gcloud secrets list --project=test-project
@@ -238,7 +238,7 @@ The emulator has some limitations compared to real GCP:
 
 ### Adding New Tests
 
-1. Write tests in `crates/infera-config/src/secrets.rs`
+1. Write tests in `crates/inferadb-config/src/secrets.rs`
 2. Ensure tests use `SECRETMANAGER_EMULATOR_HOST` environment variable
 3. Run tests: `./docker/gcp-integration-tests/test.sh`
 4. Iterate in interactive mode:
@@ -246,7 +246,7 @@ The emulator has some limitations compared to real GCP:
    ```bash
    ./docker/gcp-integration-tests/shell.sh
    # Inside container
-   cargo test -p infera-config --features gcp-secrets <test_name>
+   cargo test -p inferadb-config --features gcp-secrets <test_name>
    ```
 
 ### Debugging Test Failures
@@ -282,7 +282,7 @@ The emulator has some limitations compared to real GCP:
 4. Re-run specific test:
 
    ```bash
-   RUST_BACKTRACE=full cargo test -p infera-config \
+   RUST_BACKTRACE=full cargo test -p inferadb-config \
      --features gcp-secrets \
      test_name -- --nocapture
    ```

@@ -6,7 +6,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use chrono::Utc;
-use infera_types::{AuthContext, AuthMethod};
+use inferadb_types::{AuthContext, AuthMethod};
 use jsonwebtoken::{
     Algorithm, DecodingKey, Validation, dangerous::insecure_decode, decode, decode_header,
 };
@@ -62,9 +62,9 @@ impl OAuthJwksClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use infera_auth::oauth::OAuthJwksClient;
-    /// # use infera_auth::oidc::OidcDiscoveryClient;
-    /// # use infera_auth::jwks_cache::JwksCache;
+    /// # use inferadb_auth::oauth::OAuthJwksClient;
+    /// # use inferadb_auth::oidc::OidcDiscoveryClient;
+    /// # use inferadb_auth::jwks_cache::JwksCache;
     /// # use std::sync::Arc;
     /// # use std::time::Duration;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -296,13 +296,13 @@ impl IntrospectionClient {
             // Check cache
             if let Some(cached) = cache.get(&cache_key).await {
                 tracing::debug!("Introspection cache hit");
-                infera_observe::metrics::record_oauth_introspection_cache_hit();
+                inferadb_observe::metrics::record_oauth_introspection_cache_hit();
                 return Ok(cached);
             }
 
             // Cache miss - perform introspection
             tracing::debug!("Introspection cache miss");
-            infera_observe::metrics::record_oauth_introspection_cache_miss();
+            inferadb_observe::metrics::record_oauth_introspection_cache_miss();
             let response = self.introspect_uncached(token, endpoint).await?;
 
             // Cache the result
@@ -350,7 +350,7 @@ impl IntrospectionClient {
         // Record metrics
         let duration = start.elapsed().as_secs_f64();
         let success = result.is_ok();
-        infera_observe::metrics::record_oauth_introspection(success, duration);
+        inferadb_observe::metrics::record_oauth_introspection(success, duration);
 
         result
     }
@@ -487,7 +487,7 @@ pub async fn validate_oauth_jwt(
 
     // Record metrics
     let success = result.is_ok();
-    infera_observe::metrics::record_oauth_jwt_validation(&issuer, success);
+    inferadb_observe::metrics::record_oauth_jwt_validation(&issuer, success);
 
     result
 }

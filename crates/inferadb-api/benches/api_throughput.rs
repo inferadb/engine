@@ -12,11 +12,11 @@
 use std::{hint::black_box, sync::Arc};
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use infera_api::AppState;
-use infera_config::Config;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_store::MemoryBackend;
-use infera_types::{EvaluateRequest, ExpandRequest, ListRelationshipsRequest, Relationship};
+use inferadb_api::AppState;
+use inferadb_config::Config;
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_store::MemoryBackend;
+use inferadb_types::{EvaluateRequest, ExpandRequest, ListRelationshipsRequest, Relationship};
 
 /// Create a test schema with realistic complexity
 fn create_test_schema() -> Arc<Schema> {
@@ -59,7 +59,7 @@ fn create_test_schema() -> Arc<Schema> {
 
 /// Create test AppState with pre-populated data
 async fn create_test_state_with_data(num_relationships: usize) -> AppState {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
     let vault: i64 = 1;
     let organization: i64 = 1;

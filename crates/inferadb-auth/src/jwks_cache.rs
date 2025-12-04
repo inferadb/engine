@@ -17,7 +17,7 @@
 //! ## Example Usage
 //!
 //! ```no_run
-//! use infera_auth::jwks_cache::JwksCache;
+//! use inferadb_auth::jwks_cache::JwksCache;
 //! use moka::future::Cache;
 //! use std::sync::Arc;
 //! use std::time::Duration;
@@ -212,7 +212,7 @@ pub struct JwksSet {
 /// # Example
 ///
 /// ```no_run
-/// use infera_auth::jwks_cache::JwksCache;
+/// use inferadb_auth::jwks_cache::JwksCache;
 /// use moka::future::Cache;
 /// use std::sync::Arc;
 /// use std::time::Duration;
@@ -279,7 +279,7 @@ impl JwksCache {
         if let Some(cached) = self.cache.get(&key).await {
             if cached.fetched_at.elapsed() < self.ttl {
                 tracing::debug!(org_id = %org_id, "JWKS cache hit");
-                infera_observe::metrics::record_jwks_cache_hit(org_id);
+                inferadb_observe::metrics::record_jwks_cache_hit(org_id);
                 return Ok(cached.keys);
             }
             // Stale but usable - spawn background refresh
@@ -338,7 +338,7 @@ impl JwksCache {
 
         // Fetch from Control Plane
         tracing::info!(org_id = %org_id, "JWKS cache miss, fetching from Control Plane");
-        infera_observe::metrics::record_jwks_cache_miss(org_id);
+        inferadb_observe::metrics::record_jwks_cache_miss(org_id);
         let result = Self::fetch_jwks(&self.http_client, &self.base_url, org_id).await;
 
         // Clean up in-flight tracker and notify waiters
@@ -380,7 +380,7 @@ impl JwksCache {
         let duration = start.elapsed().as_secs_f64();
 
         let success = result.is_ok();
-        infera_observe::metrics::record_jwks_refresh(org_id, duration, success);
+        inferadb_observe::metrics::record_jwks_refresh(org_id, duration, success);
 
         if let Err(ref e) = result {
             tracing::error!(org_id = %org_id, error = %e, "JWKS fetch failed");

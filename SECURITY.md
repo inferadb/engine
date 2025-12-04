@@ -475,7 +475,7 @@ For security issues or vulnerabilities, please contact:
 ## Version History
 
 - **1.0.0** (2025-11-03): Initial security model documentation
-- Scope constants defined in `crates/infera-const/src/scopes.rs`
+- Scope constants defined in `crates/inferadb-const/src/scopes.rs`
 - All scopes enforced via type-safe constants
 
 ---

@@ -6,8 +6,8 @@ This document describes the performance benchmarking infrastructure for InferaDB
 
 InferaDB uses [Criterion.rs](https://github.com/bheisler/criterion.rs) for performance benchmarking. Benchmarks are organized into two main suites:
 
-1. **Core Evaluator Benchmarks** (`crates/infera-core/benches/evaluator.rs`) - Tests core authorization engine performance
-2. **API Throughput Benchmarks** (`crates/infera-api/benches/api_throughput.rs`) - Tests end-to-end API performance
+1. **Core Evaluator Benchmarks** (`crates/inferadb-core/benches/evaluator.rs`) - Tests core authorization engine performance
+2. **API Throughput Benchmarks** (`crates/inferadb-api/benches/api_throughput.rs`) - Tests end-to-end API performance
 
 ## Baseline Performance Metrics
 
@@ -73,10 +73,10 @@ cargo bench --workspace -- --sample-size 1000
 
 ```bash
 # Core evaluator benchmarks only
-cargo bench --package infera-core --bench evaluator
+cargo bench --package inferadb-core --bench evaluator
 
 # API throughput benchmarks only
-cargo bench --package infera-api --bench api_throughput
+cargo bench --package inferadb-api --bench api_throughput
 ```
 
 ### Run Individual Benchmarks
@@ -213,7 +213,7 @@ jobs:
 
 ### Core Evaluator Benchmarks
 
-Located in `crates/infera-core/benches/evaluator.rs`:
+Located in `crates/inferadb-core/benches/evaluator.rs`:
 
 - **Direct checks**: Test simple relationship lookups
 - **Union checks**: Test OR logic across multiple branches
@@ -225,7 +225,7 @@ Located in `crates/infera-core/benches/evaluator.rs`:
 
 ### API Throughput Benchmarks
 
-Located in `crates/infera-api/benches/api_throughput.rs`:
+Located in `crates/inferadb-api/benches/api_throughput.rs`:
 
 - **Authorization checks**: Vary dataset size (1, 10, 100, 1000 docs)
 - **Relationship writes**: Vary batch size (1, 10, 50, 100)

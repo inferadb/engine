@@ -2,13 +2,13 @@
 
 use std::sync::Arc;
 
-use infera_core::{
+use inferadb_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{Decision, EvaluateRequest, Relationship};
-use infera_wasm::WasmHost;
+use inferadb_store::{MemoryBackend, RelationshipStore};
+use inferadb_types::{Decision, EvaluateRequest, Relationship};
+use inferadb_wasm::WasmHost;
 
 /// Helper to create a simple schema with WASM module
 fn create_wasm_schema(module_name: &str) -> Schema {
@@ -347,7 +347,7 @@ async fn test_wasm_with_trace() {
     assert_eq!(trace.decision, Decision::Allow);
 
     // Verify trace contains WASM node
-    use infera_core::trace::NodeType;
+    use inferadb_core::trace::NodeType;
     match &trace.root.node_type {
         NodeType::WasmModule { module_name } => {
             assert_eq!(module_name, "test_module");

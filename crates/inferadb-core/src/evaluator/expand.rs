@@ -97,7 +97,7 @@ impl Evaluator {
                 // Direct relation - get actual users
                 // Try cache first
                 let cache_key = if let Some(_cache) = &self.cache {
-                    Some(infera_cache::ExpandCacheKey::new(
+                    Some(inferadb_cache::ExpandCacheKey::new(
                         self.vault,
                         resource.to_string(),
                         relation.to_string(),
@@ -295,7 +295,7 @@ impl Evaluator {
                 // Relation reference - recursively expand the referenced relation
                 // Try cache first
                 let cache_key = if let Some(_cache) = &self.cache {
-                    Some(infera_cache::ExpandCacheKey::new(
+                    Some(inferadb_cache::ExpandCacheKey::new(
                         self.vault,
                         resource.to_string(),
                         ref_relation.clone(),

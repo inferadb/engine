@@ -1,7 +1,7 @@
 //! List organizations handler
 
 use axum::extract::{Query, State};
-use infera_types::{ListOrganizationsResponse, OrganizationResponse};
+use inferadb_types::{ListOrganizationsResponse, OrganizationResponse};
 use serde::Deserialize;
 
 use crate::{
@@ -49,7 +49,7 @@ pub struct ListQueryParams {
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
 pub async fn list_organizations(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Query(params): Query<ListQueryParams>,
@@ -78,17 +78,17 @@ pub async fn list_organizations(
 mod tests {
     use std::sync::Arc;
 
-    use infera_config::Config;
-    use infera_const::scopes::SCOPE_ADMIN;
-    use infera_core::ipl::Schema;
-    use infera_store::MemoryBackend;
-    use infera_types::Organization;
+    use inferadb_config::Config;
+    use inferadb_const::scopes::SCOPE_ADMIN;
+    use inferadb_core::ipl::Schema;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Organization;
 
     use super::*;
     use crate::content_negotiation::ResponseFormat;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
         let test_vault = 1i64;
         let config = Arc::new(Config::default());
@@ -103,11 +103,11 @@ mod tests {
             .build()
     }
 
-    fn create_admin_context() -> infera_types::AuthContext {
-        infera_types::AuthContext {
+    fn create_admin_context() -> inferadb_types::AuthContext {
+        inferadb_types::AuthContext {
             client_id: "test".to_string(),
             key_id: "test".to_string(),
-            auth_method: infera_types::AuthMethod::PrivateKeyJwt,
+            auth_method: inferadb_types::AuthMethod::PrivateKeyJwt,
             scopes: vec![SCOPE_ADMIN.to_string()],
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
@@ -123,7 +123,7 @@ mod tests {
         let params = Query(ListQueryParams { limit: None });
 
         let result = list_organizations(
-            infera_auth::extractor::OptionalAuth(None),
+            inferadb_auth::extractor::OptionalAuth(None),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             params,
@@ -150,7 +150,7 @@ mod tests {
         let params = Query(ListQueryParams { limit: None });
 
         let result = list_organizations(
-            infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            inferadb_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             params,
@@ -174,7 +174,7 @@ mod tests {
         let params = Query(ListQueryParams { limit: Some(3) });
 
         let result = list_organizations(
-            infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            inferadb_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             params,

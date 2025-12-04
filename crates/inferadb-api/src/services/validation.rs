@@ -1,6 +1,6 @@
 //! Request validation utilities shared across services
 
-use infera_types::{
+use inferadb_types::{
     DeleteFilter, EvaluateRequest, ListRelationshipsRequest, ListResourcesRequest,
     ListSubjectsRequest, Relationship,
 };

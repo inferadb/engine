@@ -47,7 +47,7 @@ flowchart TD
 
 The `Evaluator` is the main entry point for authorization checks.
 
-**Location**: [`crates/infera-core/src/evaluator.rs`](../crates/infera-core/src/evaluator.rs)
+**Location**: [`crates/inferadb-core/src/evaluator.rs`](../crates/inferadb-core/src/evaluator.rs)
 
 **Key Methods**:
 
@@ -68,7 +68,7 @@ impl Evaluator {
 
 The graph traversal engine evaluates relation expressions by walking the relationship graph.
 
-**Location**: [`crates/infera-core/src/graph.rs`](../crates/infera-core/src/graph.rs)
+**Location**: [`crates/inferadb-core/src/graph.rs`](../crates/inferadb-core/src/graph.rs)
 
 **Key Concepts**:
 
@@ -563,7 +563,7 @@ Err(EvalError::Store(StoreError::...))
 
 The evaluation engine has comprehensive test coverage:
 
-**Unit Tests** ([`crates/infera-core/src/evaluator.rs`](../crates/infera-core/src/evaluator.rs)):
+**Unit Tests** ([`crates/inferadb-core/src/evaluator.rs`](../crates/inferadb-core/src/evaluator.rs)):
 
 - Direct tuple checks
 - Union/intersection/exclusion operations
@@ -572,13 +572,13 @@ The evaluation engine has comprehensive test coverage:
 - Cycle detection
 - Max depth limits
 
-**Integration Tests** ([`crates/infera-core/tests/`](../crates/infera-core/tests/)):
+**Integration Tests** ([`crates/inferadb-core/tests/`](../crates/inferadb-core/tests/)):
 
 - Document management scenario
 - Organization hierarchy scenario
 - Role-based access control scenario
 
-**Benchmarks** ([`crates/infera-core/benches/evaluator.rs`](../crates/infera-core/benches/evaluator.rs)):
+**Benchmarks** ([`crates/inferadb-core/benches/evaluator.rs`](../crates/inferadb-core/benches/evaluator.rs)):
 
 - Simple checks: <10μs
 - Complex nested checks: <100μs

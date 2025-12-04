@@ -6,12 +6,12 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-use infera_auth::jwks_cache::JwksCache;
-use infera_bin::initialization;
-use infera_config::load_or_default;
-use infera_core::ipl::Schema;
-use infera_store::MemoryBackend;
-use infera_wasm::WasmHost;
+use inferadb_auth::jwks_cache::JwksCache;
+use inferadb_bin::initialization;
+use inferadb_config::load_or_default;
+use inferadb_core::ipl::Schema;
+use inferadb_store::MemoryBackend;
+use inferadb_wasm::WasmHost;
 
 #[derive(Parser, Debug)]
 #[command(name = "inferadb")]
@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     // Initialize observability
-    infera_observe::init()?;
+    inferadb_observe::init()?;
 
     tracing::info!("Starting InferaDB Policy Decision Engine");
 
@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
 
     // Initialize storage backend
     // TODO: Support multiple backends based on config
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     tracing::info!("Using in-memory storage backend");
 
     // Initialize system (create default organization/vault if needed)
@@ -113,7 +113,7 @@ async fn main() -> Result<()> {
 
     // Initialize server identity for server-to-management authentication
     let server_identity = if !config.auth.management_api_url.is_empty() {
-        use infera_auth::ServerIdentity;
+        use inferadb_auth::ServerIdentity;
 
         let identity = if let Some(ref pem) = config.auth.server_identity_private_key {
             // Load from configured PEM
@@ -161,7 +161,7 @@ async fn main() -> Result<()> {
     );
 
     // Clone components for each server
-    let public_components = infera_api::ServerComponents {
+    let public_components = inferadb_api::ServerComponents {
         store: Arc::clone(&store),
         schema: Arc::clone(&schema),
         wasm_host: wasm_host.clone(),
@@ -172,7 +172,7 @@ async fn main() -> Result<()> {
         server_identity: server_identity.clone(),
     };
 
-    let internal_components = infera_api::ServerComponents {
+    let internal_components = inferadb_api::ServerComponents {
         store: Arc::clone(&store),
         schema: Arc::clone(&schema),
         wasm_host: wasm_host.clone(),
@@ -206,10 +206,10 @@ async fn main() -> Result<()> {
     // Start both servers concurrently
     tracing::info!("Starting public and internal servers concurrently");
     tokio::try_join!(
-        infera_api::serve_public(public_components, public_listener, async move {
+        inferadb_api::serve_public(public_components, public_listener, async move {
             shutdown_rx.recv().await.ok();
         }),
-        infera_api::serve_internal(internal_components, internal_listener, async move {
+        inferadb_api::serve_internal(internal_components, internal_listener, async move {
             shutdown_rx_internal.recv().await.ok();
         })
     )?;

@@ -5,7 +5,7 @@
 //! - Roles granted permissions
 //! - Resources with required permissions
 
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;
 use common::{TestFixture, relationship};

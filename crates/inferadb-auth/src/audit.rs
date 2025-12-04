@@ -13,7 +13,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use infera_auth::audit::{AuditEvent, log_audit_event};
+//! use inferadb_auth::audit::{AuditEvent, log_audit_event};
 //!
 //! // Log successful authentication
 //! log_audit_event(AuditEvent::AuthenticationSuccess {

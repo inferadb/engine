@@ -15,7 +15,7 @@
 //! ## Example
 //!
 //! ```ignore
-//! use infera_auth::replay::{ReplayProtection, InMemoryReplayProtection};
+//! use inferadb_auth::replay::{ReplayProtection, InMemoryReplayProtection};
 //!
 //! let replay = InMemoryReplayProtection::new();
 //! let is_new = replay.check_and_mark("unique-jti", 1700000000).await?;
@@ -64,7 +64,7 @@ pub trait ReplayProtection: Send + Sync {
 /// # Example
 ///
 /// ```ignore
-/// use infera_auth::replay::RedisReplayProtection;
+/// use inferadb_auth::replay::RedisReplayProtection;
 ///
 /// let replay = RedisReplayProtection::new("redis://localhost:6379").await?;
 /// let is_new = replay.check_and_mark("jti-123", 1700000000).await?;
@@ -163,7 +163,7 @@ impl ReplayProtection for RedisReplayProtection {
 /// # Example
 ///
 /// ```ignore
-/// use infera_auth::replay::InMemoryReplayProtection;
+/// use inferadb_auth::replay::InMemoryReplayProtection;
 ///
 /// let replay = InMemoryReplayProtection::new();
 /// let is_new = replay.check_and_mark("jti-123", 1700000000).await?;

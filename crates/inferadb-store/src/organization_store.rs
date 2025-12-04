@@ -3,7 +3,7 @@
 //! Provides storage operations for Organizations in the multi-tenant system.
 
 use async_trait::async_trait;
-use infera_types::{Organization, StoreResult};
+use inferadb_types::{Organization, StoreResult};
 
 /// Trait for organization storage operations
 #[async_trait]

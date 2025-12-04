@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use infera_auth::middleware::extract_bearer_token;
+use inferadb_auth::middleware::extract_bearer_token;
 use axum::http::HeaderMap;
 
 fuzz_target!(|data: &[u8]| {

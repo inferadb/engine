@@ -6,7 +6,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use infera_types::{ChangeEvent, DeleteFilter, Organization, StoreError, SystemConfig, Vault};
+use inferadb_types::{ChangeEvent, DeleteFilter, Organization, StoreError, SystemConfig, Vault};
 use tokio::sync::RwLock;
 
 use crate::{

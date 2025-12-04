@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use infera_core::ipl::parse_schema;
+use inferadb_core::ipl::parse_schema;
 
 fn simple_schema() -> &'static str {
     r#"

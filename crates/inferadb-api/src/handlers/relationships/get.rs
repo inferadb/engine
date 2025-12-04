@@ -9,8 +9,8 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::IntoResponse,
 };
-use infera_const::scopes::*;
-use infera_types::ListRelationshipsRequest;
+use inferadb_const::scopes::*;
+use inferadb_types::ListRelationshipsRequest;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -89,7 +89,7 @@ pub struct RelationshipDetails {
 /// ```
 #[tracing::instrument(skip(state, auth), fields(exact_match = true))]
 pub async fn get_relationship(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Path(params): Path<RelationshipPath>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -143,7 +143,7 @@ pub async fn get_relationship(
 
     // Record metrics
     let duration = start.elapsed();
-    infera_observe::metrics::record_api_request(
+    inferadb_observe::metrics::record_api_request(
         "/v1/relationships/{resource}/{relation}/{subject}",
         "GET",
         if response.relationships.is_empty() { 404 } else { 200 },
@@ -225,19 +225,19 @@ mod tests {
         http::{Request, StatusCode, header},
         routing::get,
     };
-    use infera_config::Config;
-    use infera_store::MemoryBackend;
-    use infera_types::Relationship;
+    use inferadb_config::Config;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Relationship;
     use tower::ServiceExt;
 
     use super::*;
     use crate::{AppState, test_utils::with_test_auth};
 
     async fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
 
         // Create a minimal schema
-        use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+        use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
         let schema = Arc::new(Schema::new(vec![TypeDef {
             name: "document".to_string(),
             relations: vec![RelationDef {

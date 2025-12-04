@@ -4,8 +4,8 @@
 //! adapter layer over InferaDB's native evaluation functionality.
 
 use axum::extract::State;
-use infera_const::scopes::*;
-use infera_types::EvaluateRequest;
+use inferadb_const::scopes::*;
+use inferadb_types::EvaluateRequest;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -63,7 +63,7 @@ pub struct EnhancedAuthZENEvaluationResponse {
 /// ```
 #[tracing::instrument(skip(state), fields(authzen_alias = true))]
 pub async fn post_evaluation(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     request: axum::Json<AuthZENEvaluationRequest>,
@@ -121,7 +121,7 @@ pub async fn post_evaluation(
 
     // Record API request metric
     let duration = start.elapsed();
-    infera_observe::metrics::record_api_request(
+    inferadb_observe::metrics::record_api_request(
         "/access/v1/evaluation",
         "POST",
         200,
@@ -213,7 +213,7 @@ const MAX_BATCH_SIZE: usize = 100;
 /// Requests with more than 100 evaluations will be rejected with HTTP 400.
 #[tracing::instrument(skip(state), fields(authzen_alias = true, batch = true))]
 pub async fn post_evaluations(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     request: axum::Json<AuthZENEvaluationsRequest>,
@@ -327,7 +327,7 @@ pub async fn post_evaluations(
 
     // Record metrics
     let duration = start.elapsed();
-    infera_observe::metrics::record_api_request(
+    inferadb_observe::metrics::record_api_request(
         "/access/v1/evaluations",
         "POST",
         200,
@@ -355,9 +355,9 @@ mod tests {
         http::{Request, StatusCode},
         routing::post,
     };
-    use infera_config::Config;
-    use infera_store::MemoryBackend;
-    use infera_types::Relationship;
+    use inferadb_config::Config;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Relationship;
     use tower::ServiceExt;
 
     use super::*;
@@ -368,10 +368,10 @@ mod tests {
     };
 
     async fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
 
         // Create a schema with document type and view/delete relations
-        use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+        use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
         let schema = Arc::new(Schema::new(vec![TypeDef {
             name: "document".to_string(),

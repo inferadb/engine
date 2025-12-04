@@ -55,14 +55,14 @@ See `MULTI_TENANCY.md` for detailed phase tracking and implementation status.
 
 ### Validation Functions
 
-**Basic validation** (`infera-auth` crate):
+**Basic validation** (`inferadb-auth` crate):
 
 - Function: `validate_vault_access()`
 - Checks for nil vault UUID
 - Validates AuthContext structure
 - No storage dependencies (Layer 3)
 
-**Database verification** (`infera-api` crate):
+**Database verification** (`inferadb-api` crate):
 
 - Function: `vault_validation::validate_vault_access_with_store()`
 - Verifies vault exists in storage
@@ -71,15 +71,15 @@ See `MULTI_TENANCY.md` for detailed phase tracking and implementation status.
 
 ### Implementation Files
 
-- `crates/infera-auth/src/middleware.rs` - Basic vault validation (no storage dependencies)
-- `crates/infera-api/src/vault_validation.rs` - Database-backed vault verification (requires VaultStore)
+- `crates/inferadb-auth/src/middleware.rs` - Basic vault validation (no storage dependencies)
+- `crates/inferadb-api/src/vault_validation.rs` - Database-backed vault verification (requires VaultStore)
 
 ### Example: Vault-Scoped Handler
 
 ```rust
 #[tracing::instrument(skip(state))]
 pub async fn some_handler(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Json(request): Json<SomeRequest>,
 ) -> Result<impl IntoResponse> {
@@ -187,7 +187,7 @@ Services separate business logic from protocol adapters (gRPC/REST/AuthZEN).
 
 ### Available Services
 
-Located in `crates/infera-api/src/services/`:
+Located in `crates/inferadb-api/src/services/`:
 
 1. **EvaluationService** (`evaluation.rs`) - Authorization checks
    - `evaluate(vault, request)` - Check if subject has permission on resource
@@ -216,7 +216,7 @@ Services are created once during application startup in `AppState::new()`:
 
 ```rust
 pub struct AppState {
-    pub store: Arc<dyn infera_store::InferaStore>,
+    pub store: Arc<dyn inferadb_store::InferaStore>,
     pub config: Arc<Config>,
     pub default_vault: Uuid,
     pub default_organization: Uuid,
@@ -232,14 +232,14 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(
-        store: Arc<dyn infera_store::InferaStore>,
-        schema: Arc<infera_core::ipl::Schema>,
-        wasm_host: Option<Arc<infera_wasm::WasmHost>>,
+        store: Arc<dyn inferadb_store::InferaStore>,
+        schema: Arc<inferadb_core::ipl::Schema>,
+        wasm_host: Option<Arc<inferadb_wasm::WasmHost>>,
         config: Arc<Config>,
         default_vault: Uuid,
         default_organization: Uuid,
     ) -> Self {
-        let store_rs = Arc::clone(&store) as Arc<dyn infera_store::RelationshipStore>;
+        let store_rs = Arc::clone(&store) as Arc<dyn inferadb_store::RelationshipStore>;
 
         Self {
             evaluation_service: Arc::new(EvaluationService::new(
@@ -294,7 +294,7 @@ Ok(ProtocolResponse {
 
 ### REST Handlers
 
-REST API handlers are organized in `crates/infera-api/src/handlers/`:
+REST API handlers are organized in `crates/inferadb-api/src/handlers/`:
 
 **Organization Principles:**
 
@@ -307,7 +307,7 @@ REST API handlers are organized in `crates/infera-api/src/handlers/`:
 **Directory Structure:**
 
 ```text
-crates/infera-api/src/handlers/
+crates/inferadb-api/src/handlers/
 ├── mod.rs                 # Module declarations
 ├── utils/                 # Shared utilities
 │   └── auth.rs           # Authentication helpers
@@ -345,7 +345,7 @@ crates/infera-api/src/handlers/
 
 ### gRPC Handlers
 
-gRPC handlers are organized in `crates/infera-api/src/grpc/`:
+gRPC handlers are organized in `crates/inferadb-api/src/grpc/`:
 
 **Organization Principles:**
 
@@ -357,7 +357,7 @@ gRPC handlers are organized in `crates/infera-api/src/grpc/`:
 **Directory Structure:**
 
 ```text
-crates/infera-api/src/grpc/
+crates/inferadb-api/src/grpc/
 ├── mod.rs                # Service trait implementation + delegation
 ├── evaluate.rs           # Bidirectional streaming: evaluate
 ├── expand.rs             # Server streaming: expand
@@ -395,8 +395,8 @@ impl InferaService for InferaServiceImpl {
 ## Related Documentation
 
 - [Multi-Tenancy Implementation](../MULTI_TENANCY.md)
-- [Service Layer Tests](../crates/infera-api/tests/)
-- [Handler Examples](../crates/infera-api/src/handlers/)
+- [Service Layer Tests](../crates/inferadb-api/tests/)
+- [Handler Examples](../crates/inferadb-api/src/handlers/)
 - [gRPC Service Definition](../proto/infera/v1/service.proto)
 
 ---

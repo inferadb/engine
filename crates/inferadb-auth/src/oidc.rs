@@ -88,7 +88,7 @@ impl OidcDiscoveryClient {
     /// # Example
     ///
     /// ```no_run
-    /// use infera_auth::oidc::OidcDiscoveryClient;
+    /// use inferadb_auth::oidc::OidcDiscoveryClient;
     /// use std::time::Duration;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -158,7 +158,7 @@ impl OidcDiscoveryClient {
 
         // Record metrics
         let success = result.is_ok();
-        infera_observe::metrics::record_oidc_discovery(issuer_url, success);
+        inferadb_observe::metrics::record_oidc_discovery(issuer_url, success);
 
         match result {
             Ok(config) => {

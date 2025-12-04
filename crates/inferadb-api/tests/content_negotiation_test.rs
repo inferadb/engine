@@ -10,7 +10,7 @@ use axum::{
     http::{Request, StatusCode, header},
     routing::{get, post},
 };
-use infera_types::{Organization, Vault, VaultResponse};
+use inferadb_types::{Organization, Vault, VaultResponse};
 use serde_json::json;
 use tower::ServiceExt;
 
@@ -21,7 +21,7 @@ fn generate_test_id() -> i64 {
 }
 
 /// Helper to create test app state with organization and authenticated router
-async fn create_test_app() -> (infera_api::AppState, Router) {
+async fn create_test_app() -> (inferadb_api::AppState, Router) {
     let state = integration::create_test_state();
 
     // Create the default organization
@@ -38,14 +38,14 @@ async fn create_test_app() -> (infera_api::AppState, Router) {
     let router = Router::new()
         .route(
             "/v1/evaluate",
-            post(infera_api::handlers::evaluate::stream::evaluate_stream_handler),
+            post(inferadb_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
-        .route("/v1/vaults/{id}", get(infera_api::handlers::vaults::get::get_vault))
+        .route("/v1/vaults/{id}", get(inferadb_api::handlers::vaults::get::get_vault))
         .route(
             "/v1/organizations/{id}",
-            get(infera_api::handlers::organizations::get::get_organization),
+            get(inferadb_api::handlers::organizations::get::get_organization),
         )
-        .route("/health", get(infera_api::health::health_check_handler))
+        .route("/health", get(inferadb_api::health::health_check_handler))
         .with_state(state.clone());
     let authenticated_router =
         integration::with_test_auth(router, state.default_vault, state.default_organization);

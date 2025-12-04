@@ -219,8 +219,8 @@ pub fn verify_signature(
 /// # Example
 ///
 /// ```no_run
-/// use infera_auth::jwt::verify_with_jwks;
-/// use infera_auth::jwks_cache::JwksCache;
+/// use inferadb_auth::jwt::verify_with_jwks;
+/// use inferadb_auth::jwks_cache::JwksCache;
 /// use moka::future::Cache;
 /// use std::sync::Arc;
 /// use std::time::Duration;
@@ -329,9 +329,9 @@ pub async fn verify_with_jwks(
 /// # Example
 ///
 /// ```no_run
-/// use infera_auth::jwt::verify_with_cert_cache_or_jwks;
-/// use infera_auth::certificate_cache::CertificateCache;
-/// use infera_auth::jwks_cache::JwksCache;
+/// use inferadb_auth::jwt::verify_with_cert_cache_or_jwks;
+/// use inferadb_auth::certificate_cache::CertificateCache;
+/// use inferadb_auth::jwks_cache::JwksCache;
 /// use moka::future::Cache;
 /// use std::sync::Arc;
 /// use std::time::Duration;

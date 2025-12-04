@@ -6,8 +6,8 @@ This document establishes performance baselines for InferaDB based on load testi
 
 Performance baselines are established through:
 
-1. **Load tests** (`crates/infera-core/tests/performance_load.rs`) - Integration-level load simulation
-2. **Criterion benchmarks** (`crates/infera-core/benches/`) - Microbenchmarks for specific components
+1. **Load tests** (`crates/inferadb-core/tests/performance_load.rs`) - Integration-level load simulation
+2. **Criterion benchmarks** (`crates/inferadb-core/benches/`) - Microbenchmarks for specific components
 3. **Production metrics** - Real-world performance data (when available)
 
 ## Test Environment
@@ -203,7 +203,7 @@ All baseline measurements are performed on the following test environment:
 
 **SLO Target**: p99 < 50ms for WASM-enhanced checks (see [slos.md](slos.md#2-request-latency-slo))
 
-**Test**: ABAC tests in `crates/infera-core/tests/attribute_based_access.rs`
+**Test**: ABAC tests in `crates/inferadb-core/tests/attribute_based_access.rs`
 
 **Baseline Results**:
 
@@ -339,7 +339,7 @@ Alert when production performance deviates significantly from baselines:
 
 ### Evaluation Benchmarks
 
-**Location**: `crates/infera-core/benches/evaluation.rs`
+**Location**: `crates/inferadb-core/benches/evaluation.rs`
 
 **Results** (typical):
 
@@ -355,9 +355,9 @@ Alert when production performance deviates significantly from baselines:
 ## References
 
 - [Service Level Objectives (SLOs)](slos.md)
-- [Load Testing Suite](../crates/infera-core/tests/performance_load.rs)
-- [ABAC Testing](../crates/infera-core/tests/attribute_based_access.rs)
-- [Criterion Benchmarks](../crates/infera-core/benches/)
+- [Load Testing Suite](../crates/inferadb-core/tests/performance_load.rs)
+- [ABAC Testing](../crates/inferadb-core/tests/attribute_based_access.rs)
+- [Criterion Benchmarks](../crates/inferadb-core/benches/)
 
 ---
 

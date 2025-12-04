@@ -3,8 +3,8 @@
 //! This is a thin protocol adapter that converts REST requests to service calls.
 
 use axum::extract::State;
-use infera_const::scopes::*;
-use infera_types::Relationship;
+use inferadb_const::scopes::*;
+use inferadb_types::Relationship;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -30,7 +30,7 @@ pub struct WriteResponse {
 /// Write relationships endpoint
 #[tracing::instrument(skip(state))]
 pub async fn write_relationships_handler(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     axum::Json(request): axum::Json<WriteRequest>,

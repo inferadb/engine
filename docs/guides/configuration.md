@@ -337,7 +337,7 @@ export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 
 ```bash
 # Set log level per module
-export RUST_LOG="infera=debug,infera_api=info,infera_store=warn"
+export RUST_LOG="infera=debug,inferadb_api=info,inferadb_store=warn"
 ```
 
 **OpenTelemetry tracing**:

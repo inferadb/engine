@@ -10,7 +10,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use infera_auth::{
+use inferadb_auth::{
     error::AuthError,
     jwt::JwtClaims,
     replay::{InMemoryReplayProtection, ReplayProtection},
@@ -18,7 +18,7 @@ use infera_auth::{
         validate_algorithm, validate_audience, validate_issuer, validate_timestamp_claims,
     },
 };
-use infera_config::AuthConfig;
+use inferadb_config::AuthConfig;
 
 fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()

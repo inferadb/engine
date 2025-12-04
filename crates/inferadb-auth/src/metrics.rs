@@ -34,35 +34,35 @@ impl AuthMetrics {
     /// Returns an error if any metric fails to register with the registry
     pub fn new(registry: &Registry) -> Result<Self, prometheus::Error> {
         let auth_validations_total = register_int_counter_vec_with_registry!(
-            "infera_auth_validations_total",
+            "inferadb_auth_validations_total",
             "Total number of authentication validations",
             &["method", "result"],
             registry
         )?;
 
         let cache_hits_total = register_int_counter_vec_with_registry!(
-            "infera_auth_cache_hits_total",
+            "inferadb_auth_cache_hits_total",
             "Total number of authentication cache hits",
             &["cache_type"],
             registry
         )?;
 
         let cache_misses_total = register_int_counter_vec_with_registry!(
-            "infera_auth_cache_misses_total",
+            "inferadb_auth_cache_misses_total",
             "Total number of authentication cache misses",
             &["cache_type"],
             registry
         )?;
 
         let management_api_calls_total = register_int_counter_vec_with_registry!(
-            "infera_auth_management_api_calls_total",
+            "inferadb_auth_management_api_calls_total",
             "Total number of calls to management API",
             &["endpoint", "status"],
             registry
         )?;
 
         let auth_validation_duration_seconds = register_histogram_vec_with_registry!(
-            "infera_auth_validation_duration_seconds",
+            "inferadb_auth_validation_duration_seconds",
             "Duration of authentication validation in seconds",
             &["method"],
             registry

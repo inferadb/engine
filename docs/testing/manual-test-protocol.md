@@ -632,18 +632,18 @@ grep "authentication_success" logs/server.log
 1. Fetch metrics endpoint:
 
 ```bash
-curl $SERVER_URL/metrics | grep infera_auth
+curl $SERVER_URL/metrics | grep inferadb_auth
 ```
 
 1. Check for key metrics:
 
 ```bash
 # Expected metrics:
-infera_auth_validations_total{method="jwt",result="success"} 5
-infera_auth_cache_hits_total{cache_type="certificate"} 4
-infera_auth_cache_misses_total{cache_type="certificate"} 1
-infera_auth_management_api_calls_total{endpoint="/v1/vaults",status="200"} 1
-infera_auth_validation_duration_seconds_bucket{method="jwt",le="0.01"} 5
+inferadb_auth_validations_total{method="jwt",result="success"} 5
+inferadb_auth_cache_hits_total{cache_type="certificate"} 4
+inferadb_auth_cache_misses_total{cache_type="certificate"} 1
+inferadb_auth_management_api_calls_total{endpoint="/v1/vaults",status="200"} 1
+inferadb_auth_validation_duration_seconds_bucket{method="jwt",le="0.01"} 5
 ```
 
 **Expected Results**:
@@ -721,8 +721,8 @@ done | awk '{sum+=$1; count++} END {print "Average: " sum/count " seconds"}'
 1. Check cache metrics:
 
 ```bash
-curl $SERVER_URL/metrics | grep infera_auth_cache_hits_total
-curl $SERVER_URL/metrics | grep infera_auth_cache_misses_total
+curl $SERVER_URL/metrics | grep inferadb_auth_cache_hits_total
+curl $SERVER_URL/metrics | grep inferadb_auth_cache_misses_total
 ```
 
 1. Calculate cache hit rate:

@@ -6,9 +6,9 @@
 
 use std::sync::Arc;
 
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_types::Decision;
-use infera_wasm::WasmHost;
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_types::Decision;
+use inferadb_wasm::WasmHost;
 
 mod common;
 use common::TestFixture;

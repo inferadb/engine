@@ -6,7 +6,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use infera_types::{CreateVaultRequest, Vault, VaultResponse};
+use inferadb_types::{CreateVaultRequest, Vault, VaultResponse};
 
 use crate::{
     ApiError, AppState,
@@ -55,7 +55,7 @@ use crate::{
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
 pub async fn create_vault(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(organization_id): Path<i64>,
@@ -103,17 +103,17 @@ pub async fn create_vault(
 mod tests {
     use std::sync::Arc;
 
-    use infera_config::Config;
-    use infera_const::scopes::{SCOPE_ADMIN, SCOPE_CHECK, SCOPE_WRITE};
-    use infera_core::ipl::Schema;
-    use infera_store::MemoryBackend;
-    use infera_types::Organization;
+    use inferadb_config::Config;
+    use inferadb_const::scopes::{SCOPE_ADMIN, SCOPE_CHECK, SCOPE_WRITE};
+    use inferadb_core::ipl::Schema;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Organization;
 
     use super::*;
     use crate::content_negotiation::ResponseFormat;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
         let test_vault = 1i64;
         let config = Arc::new(Config::default());
@@ -128,11 +128,11 @@ mod tests {
             .build()
     }
 
-    fn create_admin_context() -> infera_types::AuthContext {
-        infera_types::AuthContext {
+    fn create_admin_context() -> inferadb_types::AuthContext {
+        inferadb_types::AuthContext {
             client_id: "test".to_string(),
             key_id: "test".to_string(),
-            auth_method: infera_types::AuthMethod::PrivateKeyJwt,
+            auth_method: inferadb_types::AuthMethod::PrivateKeyJwt,
             scopes: vec![SCOPE_ADMIN.to_string()],
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
@@ -142,11 +142,11 @@ mod tests {
         }
     }
 
-    fn create_user_context(organization_id: i64) -> infera_types::AuthContext {
-        infera_types::AuthContext {
+    fn create_user_context(organization_id: i64) -> inferadb_types::AuthContext {
+        inferadb_types::AuthContext {
             client_id: "test".to_string(),
             key_id: "test".to_string(),
-            auth_method: infera_types::AuthMethod::PrivateKeyJwt,
+            auth_method: inferadb_types::AuthMethod::PrivateKeyJwt,
             scopes: vec![SCOPE_CHECK.to_string(), SCOPE_WRITE.to_string()],
             issued_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
@@ -163,7 +163,7 @@ mod tests {
         let request = CreateVaultRequest { name: "Test Vault".to_string() };
 
         let result = create_vault(
-            infera_auth::extractor::OptionalAuth(None),
+            inferadb_auth::extractor::OptionalAuth(None),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(organization_id),
@@ -189,7 +189,7 @@ mod tests {
         let request = CreateVaultRequest { name: "My Vault".to_string() };
 
         let result = create_vault(
-            infera_auth::extractor::OptionalAuth(Some(create_user_context(
+            inferadb_auth::extractor::OptionalAuth(Some(create_user_context(
                 created_organization.id,
             ))),
             AcceptHeader(ResponseFormat::Json),
@@ -218,7 +218,9 @@ mod tests {
         let request = CreateVaultRequest { name: "Vault".to_string() };
 
         let result = create_vault(
-            infera_auth::extractor::OptionalAuth(Some(create_user_context(other_organization_id))),
+            inferadb_auth::extractor::OptionalAuth(Some(create_user_context(
+                other_organization_id,
+            ))),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created_organization.id),
@@ -244,7 +246,7 @@ mod tests {
         let request = CreateVaultRequest { name: "Admin Vault".to_string() };
 
         let result = create_vault(
-            infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            inferadb_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created_organization.id),
@@ -265,7 +267,7 @@ mod tests {
         let request = CreateVaultRequest { name: "Vault".to_string() };
 
         let result = create_vault(
-            infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            inferadb_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(organization_id),
@@ -291,7 +293,7 @@ mod tests {
         let request = CreateVaultRequest { name: "".to_string() };
 
         let result = create_vault(
-            infera_auth::extractor::OptionalAuth(Some(create_admin_context())),
+            inferadb_auth::extractor::OptionalAuth(Some(create_admin_context())),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             Path(created_organization.id),

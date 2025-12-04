@@ -6,7 +6,7 @@
 //! - Projects owned by teams
 //! - Hierarchical permissions flowing down
 
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;
 use common::{TestFixture, relationship};

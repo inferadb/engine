@@ -8,8 +8,8 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::Stream;
-use infera_const::scopes::*;
-use infera_store::RelationshipStore;
+use inferadb_const::scopes::*;
+use inferadb_store::RelationshipStore;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -36,7 +36,7 @@ pub struct WatchRestRequest {
 /// The stream remains open indefinitely until the client disconnects.
 #[tracing::instrument(skip(state))]
 pub async fn watch_handler(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<WatchRestRequest>,
@@ -67,7 +67,7 @@ pub async fn watch_handler(
         let revision_u64 = revision_str
             .parse::<u64>()
             .map_err(|e| ApiError::InvalidRequest(format!("Invalid cursor format: {}", e)))?;
-        infera_types::Revision(revision_u64)
+        inferadb_types::Revision(revision_u64)
     } else {
         // Start from next revision
         let current =
@@ -99,8 +99,8 @@ pub async fn watch_handler(
                         };
 
                         let operation = match event.operation {
-                            infera_types::ChangeOperation::Create => "create",
-                            infera_types::ChangeOperation::Delete => "delete",
+                            inferadb_types::ChangeOperation::Create => "create",
+                            inferadb_types::ChangeOperation::Delete => "delete",
                         };
 
                         let data = serde_json::json!({

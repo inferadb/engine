@@ -3,7 +3,7 @@
 //! These tests use property-based testing to fuzz API endpoints with random inputs,
 //! ensuring robustness against malformed requests, edge cases, and potential security issues.
 
-use infera_api::grpc::proto::{
+use inferadb_api::grpc::proto::{
     DeleteRequest, EvaluateRequest as ProtoEvaluateRequest, Relationship as ProtoRelationship,
     WriteRequest,
 };

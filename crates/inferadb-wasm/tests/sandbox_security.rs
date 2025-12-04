@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use infera_wasm::{ExecutionContext, SandboxConfig, StoreLimits, WasmHost};
+use inferadb_wasm::{ExecutionContext, SandboxConfig, StoreLimits, WasmHost};
 
 /// Test that WASM modules cannot exceed memory limits
 #[test]

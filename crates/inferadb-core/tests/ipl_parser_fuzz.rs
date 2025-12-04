@@ -3,7 +3,7 @@
 //! These tests use proptest to generate random inputs and ensure the parser
 //! handles them gracefully without panicking.
 
-use infera_core::ipl::parser::parse_schema;
+use inferadb_core::ipl::parser::parse_schema;
 use proptest::prelude::*;
 
 // Test that parser doesn't panic on arbitrary strings

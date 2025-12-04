@@ -6,12 +6,12 @@
 //!
 //! ```no_run
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! use infera_api::grpc::InferaServiceClient;
-//! use infera_api::grpc::proto::{EvaluateRequest};
+//! use inferadb_api::grpc::InferadbServiceClient;
+//! use inferadb_api::grpc::proto::{EvaluateRequest};
 //! use futures::StreamExt;
 //!
 //! // Connect to server
-//! let mut client = InferaServiceClient::connect("http://localhost:8080").await?;
+//! let mut client = InferadbServiceClient::connect("http://localhost:8080").await?;
 //!
 //! // Make an evaluate request (evaluate is a bidirectional streaming RPC)
 //! let request = EvaluateRequest {
@@ -44,17 +44,17 @@ use crate::AppState;
 
 // Include generated proto code
 pub mod proto {
-    tonic::include_proto!("infera.v1");
+    tonic::include_proto!("inferadb.v1");
 }
 
 // Re-export client for external use
-pub use proto::infera_service_client::InferaServiceClient;
+pub use proto::inferadb_service_client::InferadbServiceClient;
 use proto::{
     DeleteRequest, DeleteResponse, EvaluateRequest, EvaluateResponse, ExpandRequest, HealthRequest,
     HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
     ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse, SimulateRequest,
     SimulateResponse, WatchRequest, WatchResponse, WriteRequest, WriteResponse,
-    infera_service_server::InferaService,
+    inferadb_service_server::InferadbService,
 };
 
 /// Get the vault ID for the current request
@@ -64,11 +64,11 @@ pub(crate) fn get_vault() -> i64 {
     0
 }
 
-pub struct InferaServiceImpl {
+pub struct InferadbServiceImpl {
     state: AppState,
 }
 
-impl InferaServiceImpl {
+impl InferadbServiceImpl {
     pub fn new(state: AppState) -> Self {
         Self { state }
     }
@@ -84,7 +84,7 @@ mod simulate;
 mod watch;
 
 #[tonic::async_trait]
-impl InferaService for InferaServiceImpl {
+impl InferadbService for InferadbServiceImpl {
     type EvaluateStream = std::pin::Pin<
         Box<dyn futures::Stream<Item = Result<EvaluateResponse, Status>> + Send + 'static>,
     >;
@@ -184,14 +184,14 @@ impl InferaService for InferaServiceImpl {
 mod tests {
     use std::sync::Arc;
 
-    use infera_config::Config;
-    use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-    use infera_store::MemoryBackend;
+    use inferadb_config::Config;
+    use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+    use inferadb_store::MemoryBackend;
 
     use super::*;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![
@@ -226,7 +226,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_grpc_health() {
-        let service = InferaServiceImpl::new(create_test_state());
+        let service = InferadbServiceImpl::new(create_test_state());
         let request = Request::new(HealthRequest {});
 
         let response = service.health(request).await.unwrap();

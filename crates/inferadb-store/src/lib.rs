@@ -3,7 +3,7 @@
 //! Provides abstract database operations and revision consistency management.
 
 use async_trait::async_trait;
-use infera_types::{
+use inferadb_types::{
     ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult,
 };
 

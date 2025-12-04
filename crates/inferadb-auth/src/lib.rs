@@ -17,7 +17,7 @@
 //! ## Example
 //!
 //! ```ignore
-//! use infera_auth::{AuthContext, jwt};
+//! use inferadb_auth::{AuthContext, jwt};
 //!
 //! // Decode and validate a JWT
 //! let claims = jwt::decode_jwt_claims(token)?;

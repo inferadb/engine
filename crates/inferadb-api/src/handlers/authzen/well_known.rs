@@ -128,16 +128,16 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
-    use infera_config::Config;
-    use infera_store::MemoryBackend;
+    use inferadb_config::Config;
+    use inferadb_store::MemoryBackend;
     use tower::ServiceExt;
 
     use super::*;
     use crate::AppState;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
-        let schema = Arc::new(infera_core::ipl::Schema::new(vec![]));
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let schema = Arc::new(inferadb_core::ipl::Schema::new(vec![]));
         // Use a test vault ID
         let test_vault = 1i64;
         let config = Arc::new(Config::default());

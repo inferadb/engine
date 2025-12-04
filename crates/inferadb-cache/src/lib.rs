@@ -11,7 +11,7 @@ use std::{
     time::Duration,
 };
 
-use infera_types::{Decision, Relationship, Revision};
+use inferadb_types::{Decision, Relationship, Revision};
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -362,7 +362,7 @@ pub struct CacheStats {
 
 #[cfg(test)]
 mod tests {
-    use infera_types::Revision;
+    use inferadb_types::Revision;
 
     use super::*;
 

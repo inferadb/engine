@@ -1,12 +1,12 @@
 use std::{hint::black_box, sync::Arc};
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use infera_core::{
+use inferadb_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{EvaluateRequest, ExpandRequest, Relationship};
+use inferadb_store::{MemoryBackend, RelationshipStore};
+use inferadb_types::{EvaluateRequest, ExpandRequest, Relationship};
 
 fn create_complex_schema() -> Schema {
     Schema::new(vec![
@@ -356,7 +356,7 @@ fn bench_large_scale(c: &mut Criterion) {
 fn bench_expand_cache(c: &mut Criterion) {
     use std::time::Duration;
 
-    use infera_cache::AuthCache;
+    use inferadb_cache::AuthCache;
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     // Benchmark expand with cache enabled (repeated queries)

@@ -3,10 +3,10 @@
 use std::sync::Arc;
 
 use axum::extract::State;
-use infera_const::scopes::*;
-use infera_core::Evaluator;
-use infera_store::RelationshipStore;
-use infera_types::{Decision, EvaluateRequest, Relationship};
+use inferadb_const::scopes::*;
+use inferadb_core::Evaluator;
+use inferadb_store::RelationshipStore;
+use inferadb_types::{Decision, EvaluateRequest, Relationship};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -38,7 +38,7 @@ pub struct SimulateResponse {
 /// Simulate endpoint - run checks with ephemeral context relationships
 #[tracing::instrument(skip(state))]
 pub async fn simulate_handler(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     request: axum::Json<SimulateRequest>,
@@ -73,7 +73,7 @@ pub async fn simulate_handler(
 
     // Create an ephemeral in-memory store with ONLY the context relationships
     // This simulates authorization decisions with temporary/what-if data
-    use infera_store::MemoryBackend;
+    use inferadb_store::MemoryBackend;
     let ephemeral_store = Arc::new(MemoryBackend::new());
 
     // Write context relationships to ephemeral store
@@ -84,7 +84,7 @@ pub async fn simulate_handler(
 
     // Create a temporary evaluator with the ephemeral store
     // Create a minimal schema for simulation (empty schema allows all relations)
-    use infera_core::ipl::Schema;
+    use inferadb_core::ipl::Schema;
     let temp_schema = Arc::new(Schema { types: Vec::new() });
     let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, vault);
 

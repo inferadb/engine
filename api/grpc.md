@@ -4,7 +4,7 @@ InferaDB provides a high-performance gRPC API for authorization checks, relation
 
 **🚀 Interactive API Explorer**: Try the gRPC API with [grpcui](./grpc-explorer.html)
 
-**📋 Protocol Buffer Definition**: View the complete [proto file](../crates/infera-api/proto/infera.proto)
+**📋 Protocol Buffer Definition**: View the complete [proto file](../crates/inferadb-api/proto/infera.proto)
 
 ## Why gRPC?
 
@@ -24,7 +24,7 @@ By default, the gRPC server runs on port 8081 (REST API port + 1). This can be c
 
 ## Protocol Buffers
 
-The complete Protocol Buffer definition is available at [`crates/infera-api/proto/infera.proto`](../crates/infera-api/proto/infera.proto).
+The complete Protocol Buffer definition is available at [`crates/inferadb-api/proto/infera.proto`](../crates/inferadb-api/proto/infera.proto).
 
 ## Service Definition
 
@@ -191,14 +191,14 @@ func main() {
 
 ```python
 import grpc
-from api.proto import infera_pb2, infera_pb2_grpc
+from api.proto import inferadb_pb2, inferadb_pb2_grpc
 
 # Create channel and stub
 channel = grpc.insecure_channel('localhost:8081')
-stub = infera_pb2_grpc.InferaServiceStub(channel)
+stub = inferadb_pb2_grpc.InferaServiceStub(channel)
 
 # Make request
-request = infera_pb2.CheckRequest(
+request = inferadb_pb2.CheckRequest(
     subject='user:alice',
     resource='doc:readme',
     permission='reader'
@@ -206,7 +206,7 @@ request = infera_pb2.CheckRequest(
 
 response = stub.Check(request)
 
-if response.decision == infera_pb2.DECISION_ALLOW:
+if response.decision == inferadb_pb2.DECISION_ALLOW:
     print("Access allowed")
 else:
     print("Access denied")
@@ -579,7 +579,7 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 # Generate code
 protoc --go_out=. --go_opt=paths=source_relative \
     --go-grpc_out=. --go-grpc_opt=paths=source_relative \
-    crates/infera-api/proto/infera.proto
+    crates/inferadb-api/proto/infera.proto
 ```
 
 ### Python
@@ -592,7 +592,7 @@ pip install grpcio-tools
 python -m grpc_tools.protoc -I. \
     --python_out=. \
     --grpc_python_out=. \
-    crates/infera-api/proto/infera.proto
+    crates/inferadb-api/proto/infera.proto
 ```
 
 ### TypeScript/Node.js
@@ -604,7 +604,7 @@ npm install -g grpc-tools ts-proto
 # Generate code
 protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts \
     --ts_out=. \
-    crates/infera-api/proto/infera.proto
+    crates/inferadb-api/proto/infera.proto
 ```
 
 ### Rust
@@ -726,25 +726,25 @@ func main() {
 
 ```python
 import grpc
-from api.proto import infera_pb2, infera_pb2_grpc
+from api.proto import inferadb_pb2, inferadb_pb2_grpc
 
 class InferaClient:
     def __init__(self, addr: str):
         self.channel = grpc.insecure_channel(addr)
-        self.stub = infera_pb2_grpc.InferaServiceStub(self.channel)
+        self.stub = inferadb_pb2_grpc.InferaServiceStub(self.channel)
 
     def check(self, subject: str, resource: str, permission: str) -> bool:
-        request = infera_pb2.CheckRequest(
+        request = inferadb_pb2.CheckRequest(
             subject=subject,
             resource=resource,
             permission=permission
         )
         response = self.stub.Check(request)
-        return response.decision == infera_pb2.DECISION_ALLOW
+        return response.decision == inferadb_pb2.DECISION_ALLOW
 
     def write_relationships(self, relationships: list) -> str:
         def request_generator():
-            yield infera_pb2.WriteRequest(relationships=relationships)
+            yield inferadb_pb2.WriteRequest(relationships=relationships)
 
         response = self.stub.WriteRelationships(request_generator())
         return response.revision
@@ -757,8 +757,8 @@ client = InferaClient('localhost:8081')
 
 # Write relationships
 relationships = [
-    infera_pb2.Relationship(resource='doc:readme', relation='reader', subject='user:alice'),
-    infera_pb2.Relationship(resource='doc:readme', relation='editor', subject='user:bob'),
+    inferadb_pb2.Relationship(resource='doc:readme', relation='reader', subject='user:alice'),
+    inferadb_pb2.Relationship(resource='doc:readme', relation='editor', subject='user:bob'),
 ]
 revision = client.write_relationships(relationships)
 print(f"Written relationships at revision {revision}")

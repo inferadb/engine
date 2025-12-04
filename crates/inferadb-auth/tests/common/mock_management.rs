@@ -15,7 +15,7 @@ use std::{
 };
 
 use axum::{Json, Router, extract::Path, http::StatusCode, response::IntoResponse, routing::get};
-use infera_auth::management_client::OrgStatus;
+use inferadb_auth::management_client::OrgStatus;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 

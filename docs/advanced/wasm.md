@@ -267,7 +267,7 @@ wat2wasm policy.wat -o policy.wasm
 ### Load Module
 
 ```rust
-use infera_wasm::{WasmHost, ExecutionContext};
+use inferadb_wasm::{WasmHost, ExecutionContext};
 
 let host = WasmHost::new()?;
 
@@ -300,7 +300,7 @@ if allowed {
 WASM modules run in a secure sandbox with configurable limits:
 
 ```rust
-use infera_wasm::{WasmHost, SandboxConfig, StoreLimits};
+use inferadb_wasm::{WasmHost, SandboxConfig, StoreLimits};
 use std::time::Duration;
 
 let config = SandboxConfig {

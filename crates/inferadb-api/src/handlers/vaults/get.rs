@@ -1,7 +1,7 @@
 //! Get vault handler
 
 use axum::extract::{Path, State};
-use infera_types::VaultResponse;
+use inferadb_types::VaultResponse;
 
 use crate::{
     ApiError, AppState,
@@ -41,7 +41,7 @@ use crate::{
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
 pub async fn get_vault(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(vault_id): Path<i64>,

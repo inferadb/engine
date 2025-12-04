@@ -15,14 +15,14 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use infera_store::InferaStore;
-//! use infera_config::Config;
+//! use inferadb_store::InferaStore;
+//! use inferadb_config::Config;
 //! use std::sync::Arc;
-//! use infera_bin::initialization;
+//! use inferadb_bin::initialization;
 //!
 //! # #[tokio::main]
 //! # async fn main() {
-//! # let store: Arc<dyn InferaStore> = Arc::new(infera_store::MemoryBackend::new());
+//! # let store: Arc<dyn InferaStore> = Arc::new(inferadb_store::MemoryBackend::new());
 //! # let config = Config::default();
 //! let system_config = initialization::initialize_system(&store, &config)
 //!     .await
@@ -36,9 +36,9 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use infera_config::Config;
-use infera_store::InferaStore;
-use infera_types::{Organization, SystemConfig, Vault};
+use inferadb_config::Config;
+use inferadb_store::InferaStore;
+use inferadb_types::{Organization, SystemConfig, Vault};
 
 /// Initialize system on first startup
 ///

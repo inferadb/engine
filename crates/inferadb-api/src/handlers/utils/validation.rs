@@ -28,7 +28,7 @@ use crate::ApiError;
 /// # Example
 ///
 /// ```
-/// use infera_api::handlers::utils::validation::validate_type_id;
+/// use inferadb_api::handlers::utils::validation::validate_type_id;
 ///
 /// // Valid input
 /// assert!(validate_type_id("user", "alice").is_ok());
@@ -85,7 +85,7 @@ pub fn validate_type_id(type_: &str, id: &str) -> Result<(), ApiError> {
 /// # Example
 ///
 /// ```
-/// use infera_api::handlers::utils::validation::safe_format_entity;
+/// use inferadb_api::handlers::utils::validation::safe_format_entity;
 ///
 /// let entity = safe_format_entity("user", "alice").unwrap();
 /// assert_eq!(entity, "user:alice");

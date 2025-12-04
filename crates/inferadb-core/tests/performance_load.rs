@@ -49,12 +49,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use infera_core::{
+use inferadb_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{Decision, EvaluateRequest, ExpandRequest, Relationship};
+use inferadb_store::{MemoryBackend, RelationshipStore};
+use inferadb_types::{Decision, EvaluateRequest, ExpandRequest, Relationship};
 use tokio::task::JoinSet;
 
 mod common;

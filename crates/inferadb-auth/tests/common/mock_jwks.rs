@@ -6,7 +6,7 @@ use std::{
 
 use axum::{Json, Router, extract::Path, routing::get};
 use ed25519_dalek::{SigningKey, VerifyingKey};
-use infera_auth::{jwks_cache::Jwk, jwt::JwtClaims};
+use inferadb_auth::{jwks_cache::Jwk, jwt::JwtClaims};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use rand_core::OsRng;
 use serde_json::json;

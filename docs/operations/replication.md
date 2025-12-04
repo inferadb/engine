@@ -16,7 +16,7 @@ The replication system provides:
 
 The replication system consists of four main components:
 
-### 1. Topology (`infera-repl/topology.rs`)
+### 1. Topology (`inferadb-repl/topology.rs`)
 
 Defines the multi-region infrastructure with a hierarchical structure:
 
@@ -36,7 +36,7 @@ Region (e.g., "us-west-1")
 **Example:**
 
 ```rust
-use infera_repl::{TopologyBuilder, RegionId, ZoneId, NodeId, ReplicationStrategy};
+use inferadb_repl::{TopologyBuilder, RegionId, ZoneId, NodeId, ReplicationStrategy};
 
 let topology = TopologyBuilder::new(
     ReplicationStrategy::ActiveActive,
@@ -77,7 +77,7 @@ let topology = TopologyBuilder::new(
 .build()?;
 ```
 
-### 2. Conflict Resolution (`infera-repl/conflict.rs`)
+### 2. Conflict Resolution (`inferadb-repl/conflict.rs`)
 
 Handles conflicts when the same tuple is modified concurrently in different regions.
 
@@ -88,7 +88,7 @@ Handles conflicts when the same tuple is modified concurrently in different regi
 Uses timestamp to determine winner. If timestamps are equal, uses source node as tiebreaker.
 
 ```rust
-use infera_repl::{ConflictResolver, ConflictResolutionStrategy};
+use inferadb_repl::{ConflictResolver, ConflictResolutionStrategy};
 
 let resolver = ConflictResolver::new(ConflictResolutionStrategy::LastWriteWins);
 ```
@@ -131,7 +131,7 @@ let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom);
 
 **Best for:** Complex business rules
 
-### 3. Replication Agent (`infera-repl/agent.rs`)
+### 3. Replication Agent (`inferadb-repl/agent.rs`)
 
 Subscribes to local changes and replicates them to remote regions.
 
@@ -145,7 +145,7 @@ Subscribes to local changes and replicates them to remote regions.
 **Configuration:**
 
 ```rust
-use infera_repl::ReplicationConfig;
+use inferadb_repl::ReplicationConfig;
 use std::time::Duration;
 
 let config = ReplicationConfig {
@@ -160,7 +160,7 @@ let config = ReplicationConfig {
 **Usage:**
 
 ```rust
-use infera_repl::ReplicationAgent;
+use inferadb_repl::ReplicationAgent;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -181,7 +181,7 @@ println!("Changes replicated: {}", stats.changes_replicated);
 println!("Failures: {}", stats.replication_failures);
 ```
 
-### 4. Region-Aware Router (`infera-repl/router.rs`)
+### 4. Region-Aware Router (`inferadb-repl/router.rs`)
 
 Routes requests to appropriate regions based on operation type and replication strategy.
 
@@ -198,7 +198,7 @@ Routes requests to appropriate regions based on operation type and replication s
 **Usage:**
 
 ```rust
-use infera_repl::{Router, RequestType};
+use inferadb_repl::{Router, RequestType};
 
 let router = Router::new(Arc::new(RwLock::new(topology)));
 
@@ -312,7 +312,7 @@ The replication system uses the change feed to track all tuple modifications.
 **Publishing Changes:**
 
 ```rust
-use infera_repl::{ChangeFeed, Change, Operation};
+use inferadb_repl::{ChangeFeed, Change, Operation};
 
 let change_feed = ChangeFeed::new();
 
@@ -693,10 +693,10 @@ Regularly test:
 
 ### Complete API documentation
 
-- **Topology API**: See [`infera-repl/src/topology.rs`](../crates/infera-repl/src/topology.rs)
-- **Conflict Resolution API**: See [`infera-repl/src/conflict.rs`](../crates/infera-repl/src/conflict.rs)
-- **Replication Agent API**: See [`infera-repl/src/agent.rs`](../crates/infera-repl/src/agent.rs)
-- **Router API**: See [`infera-repl/src/router.rs`](../crates/infera-repl/src/router.rs)
+- **Topology API**: See [`inferadb-repl/src/topology.rs`](../crates/inferadb-repl/src/topology.rs)
+- **Conflict Resolution API**: See [`inferadb-repl/src/conflict.rs`](../crates/inferadb-repl/src/conflict.rs)
+- **Replication Agent API**: See [`inferadb-repl/src/agent.rs`](../crates/inferadb-repl/src/agent.rs)
+- **Router API**: See [`inferadb-repl/src/router.rs`](../crates/inferadb-repl/src/router.rs)
 
 ## Related Documentation
 
@@ -709,4 +709,4 @@ Regularly test:
 
 Complete examples are available in the integration tests:
 
-- [`crates/infera-repl/tests/replication_integration.rs`](../crates/infera-repl/tests/replication_integration.rs)
+- [`crates/inferadb-repl/tests/replication_integration.rs`](../crates/inferadb-repl/tests/replication_integration.rs)

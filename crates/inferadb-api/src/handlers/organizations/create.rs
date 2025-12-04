@@ -1,7 +1,7 @@
 //! Create organization handler
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
-use infera_types::{CreateOrganizationRequest, Organization, OrganizationResponse};
+use inferadb_types::{CreateOrganizationRequest, Organization, OrganizationResponse};
 
 use crate::{
     ApiError, AppState,
@@ -43,7 +43,7 @@ use crate::{
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
 pub async fn create_organization(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     axum::Json(request): axum::Json<CreateOrganizationRequest>,
@@ -88,17 +88,17 @@ mod tests {
     use std::sync::Arc;
 
     use axum::extract::State;
-    use infera_config::Config;
-    use infera_const::scopes::SCOPE_ADMIN;
-    use infera_core::ipl::Schema;
-    use infera_store::MemoryBackend;
-    use infera_types::AuthMethod;
+    use inferadb_config::Config;
+    use inferadb_const::scopes::SCOPE_ADMIN;
+    use inferadb_core::ipl::Schema;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::AuthMethod;
 
     use super::*;
     use crate::{AppState, content_negotiation::ResponseFormat};
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
         let test_vault = 1i64;
         let config = Arc::new(Config::default());
@@ -120,7 +120,7 @@ mod tests {
         let request = CreateOrganizationRequest { name: "Test Organization".to_string() };
 
         let result = create_organization(
-            infera_auth::extractor::OptionalAuth(None),
+            inferadb_auth::extractor::OptionalAuth(None),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             axum::Json(request),
@@ -141,7 +141,7 @@ mod tests {
 
         let request = CreateOrganizationRequest { name: "".to_string() };
 
-        let admin_ctx = infera_types::AuthContext {
+        let admin_ctx = inferadb_types::AuthContext {
             client_id: "test".to_string(),
             key_id: "test".to_string(),
             auth_method: AuthMethod::PrivateKeyJwt,
@@ -154,7 +154,7 @@ mod tests {
         };
 
         let result = create_organization(
-            infera_auth::extractor::OptionalAuth(Some(admin_ctx)),
+            inferadb_auth::extractor::OptionalAuth(Some(admin_ctx)),
             AcceptHeader(ResponseFormat::Json),
             State(state),
             axum::Json(request),

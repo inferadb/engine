@@ -9,12 +9,12 @@ use std::{sync::Arc, time::Duration};
 use common::mock_oauth::{
     generate_oauth_jwt, generate_opaque_token, register_opaque_token, start_mock_oauth_server,
 };
-use infera_auth::{
+use inferadb_auth::{
     jwks_cache::JwksCache,
     oauth::{IntrospectionClient, IntrospectionResponse, OAuthJwksClient},
     oidc::OidcDiscoveryClient,
 };
-use infera_types::AuthMethod;
+use inferadb_types::AuthMethod;
 use moka::future::Cache;
 
 /// Test OAuth JWT validation end-to-end
@@ -45,7 +45,7 @@ async fn test_oauth_jwt_validation() {
     assert_eq!(jwks[0].alg, Some("EdDSA".to_string()));
 
     // Validate OAuth JWT (this is what will be called from gRPC interceptor)
-    let auth_ctx = infera_auth::oauth::validate_oauth_jwt(
+    let auth_ctx = inferadb_auth::oauth::validate_oauth_jwt(
         &token,
         &client,
         Some("https://api.inferadb.com/evaluate"),
@@ -77,7 +77,7 @@ async fn test_oauth_jwt_validation_expired() {
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Validate OAuth JWT - should fail with TokenExpired
-    let result = infera_auth::oauth::validate_oauth_jwt(
+    let result = inferadb_auth::oauth::validate_oauth_jwt(
         &token,
         &client,
         Some("https://api.inferadb.com/evaluate"),
@@ -85,7 +85,7 @@ async fn test_oauth_jwt_validation_expired() {
     .await;
 
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), infera_auth::error::AuthError::TokenExpired));
+    assert!(matches!(result.unwrap_err(), inferadb_auth::error::AuthError::TokenExpired));
 }
 
 /// Test OIDC discovery
@@ -245,7 +245,7 @@ async fn test_oauth_jwt_with_org_id() {
     let client = OAuthJwksClient::new(oidc_client, jwks_cache);
 
     // Validate OAuth JWT
-    let auth_ctx = infera_auth::oauth::validate_oauth_jwt(
+    let auth_ctx = inferadb_auth::oauth::validate_oauth_jwt(
         &token,
         &client,
         Some("https://api.inferadb.com/evaluate"),

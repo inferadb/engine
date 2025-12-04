@@ -83,7 +83,7 @@ docker-compose up -d
 docker-compose exec test-runner bash
 
 # Inside container - run specific tests
-cargo test -p infera-config --features aws-secrets --lib aws
+cargo test -p inferadb-config --features aws-secrets --lib aws
 
 # Check LocalStack secrets
 aws --endpoint-url=http://localstack:4566 secretsmanager list-secrets
@@ -235,7 +235,7 @@ LocalStack is an emulator and has some limitations compared to real AWS:
 
 ### Adding New Tests
 
-1. Write tests in `crates/infera-config/src/secrets/aws.rs`
+1. Write tests in `crates/inferadb-config/src/secrets/aws.rs`
 2. Ensure tests use `AWS_ENDPOINT_URL` environment variable
 3. Run tests: `./docker/aws-integration-tests/test.sh`
 4. Iterate in interactive mode:
@@ -243,7 +243,7 @@ LocalStack is an emulator and has some limitations compared to real AWS:
    ```bash
    ./docker/aws-integration-tests/shell.sh
    # Inside container
-   cargo test -p infera-config --features aws-secrets <test_name>
+   cargo test -p inferadb-config --features aws-secrets <test_name>
    ```
 
 ### Debugging Test Failures
@@ -279,7 +279,7 @@ LocalStack is an emulator and has some limitations compared to real AWS:
 4. Re-run specific test:
 
    ```bash
-   RUST_BACKTRACE=full cargo test -p infera-config \
+   RUST_BACKTRACE=full cargo test -p inferadb-config \
      --features aws-secrets \
      test_name -- --nocapture
    ```

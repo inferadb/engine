@@ -20,8 +20,8 @@ use crate::{
 ///
 /// # Example
 /// ```
-/// use infera_api::adapters::authzen::AuthZENEntity;
-/// use infera_api::validation::validate_authzen_entity;
+/// use inferadb_api::adapters::authzen::AuthZENEntity;
+/// use inferadb_api::validation::validate_authzen_entity;
 ///
 /// let entity = AuthZENEntity {
 ///     entity_type: "user".to_string(),
@@ -95,10 +95,10 @@ pub fn validate_authzen_action(action: &AuthZENAction) -> Result<(), ApiError> {
 ///
 /// # Example
 /// ```
-/// use infera_api::adapters::authzen::{
+/// use inferadb_api::adapters::authzen::{
 ///     AuthZENSubject, AuthZENResource, AuthZENAction, AuthZENEvaluationRequest,
 /// };
-/// use infera_api::validation::validate_authzen_evaluation_request;
+/// use inferadb_api::validation::validate_authzen_evaluation_request;
 ///
 /// let request = AuthZENEvaluationRequest {
 ///     subject: AuthZENSubject {
@@ -134,9 +134,9 @@ pub fn validate_authzen_evaluation_request(
 ///
 /// # Example
 /// ```
-/// use infera_api::adapters::authzen::{AuthZENSubject, AuthZENAction};
-/// use infera_api::handlers::authzen::search::AuthZENResourceSearchRequest;
-/// use infera_api::validation::validate_authzen_resource_search_request;
+/// use inferadb_api::adapters::authzen::{AuthZENSubject, AuthZENAction};
+/// use inferadb_api::handlers::authzen::search::AuthZENResourceSearchRequest;
+/// use inferadb_api::validation::validate_authzen_resource_search_request;
 ///
 /// let request = AuthZENResourceSearchRequest {
 ///     subject: AuthZENSubject {
@@ -173,9 +173,9 @@ pub fn validate_authzen_resource_search_request(
 ///
 /// # Example
 /// ```
-/// use infera_api::adapters::authzen::{AuthZENResource, AuthZENAction};
-/// use infera_api::handlers::authzen::search::AuthZENSubjectSearchRequest;
-/// use infera_api::validation::validate_authzen_subject_search_request;
+/// use inferadb_api::adapters::authzen::{AuthZENResource, AuthZENAction};
+/// use inferadb_api::handlers::authzen::search::AuthZENSubjectSearchRequest;
+/// use inferadb_api::validation::validate_authzen_subject_search_request;
 ///
 /// let request = AuthZENSubjectSearchRequest {
 ///     resource: AuthZENResource {

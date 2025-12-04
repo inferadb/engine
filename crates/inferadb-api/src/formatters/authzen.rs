@@ -6,7 +6,7 @@
 
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use infera_types::Decision;
+use inferadb_types::Decision;
 use serde_json::{Value, json};
 
 static ID_COUNTER: AtomicI64 = AtomicI64::new(1);
@@ -35,8 +35,8 @@ fn generate_id() -> i64 {
 /// # Example
 ///
 /// ```
-/// use infera_api::formatters::authzen::format_evaluation_response;
-/// use infera_types::Decision;
+/// use inferadb_api::formatters::authzen::format_evaluation_response;
+/// use inferadb_types::Decision;
 ///
 /// let response = format_evaluation_response(
 ///     Decision::Allow,
@@ -92,7 +92,7 @@ pub fn format_evaluation_response(
 /// # Example
 ///
 /// ```
-/// use infera_api::formatters::authzen::format_evaluation_response_with_context;
+/// use inferadb_api::formatters::authzen::format_evaluation_response_with_context;
 /// use serde_json::json;
 ///
 /// let custom_context = json!({
@@ -133,7 +133,7 @@ pub fn format_evaluation_response_with_context(decision: bool, context: Value) -
 /// # Example
 ///
 /// ```
-/// use infera_api::formatters::authzen::format_error_context;
+/// use inferadb_api::formatters::authzen::format_error_context;
 ///
 /// let context = format_error_context("Invalid request: subject type cannot be empty");
 ///
@@ -170,7 +170,7 @@ pub fn format_error_context(error_message: &str) -> Value {
 /// # Example
 ///
 /// ```
-/// use infera_api::formatters::authzen::format_denial_with_error;
+/// use inferadb_api::formatters::authzen::format_denial_with_error;
 ///
 /// let response = format_denial_with_error("Validation error: empty subject type");
 ///
@@ -201,7 +201,7 @@ pub fn format_denial_with_error(error_message: &str) -> Value {
 /// # Example
 ///
 /// ```
-/// use infera_api::formatters::authzen::format_reason_admin;
+/// use inferadb_api::formatters::authzen::format_reason_admin;
 ///
 /// let reason = format_reason_admin("Permission granted");
 ///
@@ -230,7 +230,7 @@ pub fn format_reason_admin(message: &str) -> Value {
 /// # Example
 ///
 /// ```
-/// use infera_api::formatters::authzen::create_context_with_reason;
+/// use inferadb_api::formatters::authzen::create_context_with_reason;
 ///
 /// let context = create_context_with_reason("Access granted");
 ///

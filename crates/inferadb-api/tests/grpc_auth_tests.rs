@@ -10,18 +10,18 @@
 use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
-use infera_api::{
+use inferadb_api::{
     AppState,
     grpc::proto::{
-        EvaluateRequest as ProtoEvaluateRequest, infera_service_client::InferaServiceClient,
+        EvaluateRequest as ProtoEvaluateRequest, inferadb_service_client::InferadbServiceClient,
     },
 };
-use infera_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
-use infera_config::Config;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_store::MemoryBackend;
+use inferadb_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
+use inferadb_config::Config;
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_store::MemoryBackend;
 // Re-use test helpers from test fixtures
-use infera_test_fixtures::{
+use inferadb_test_fixtures::{
     InternalClaims, create_internal_jwks, generate_internal_jwt, generate_internal_keypair,
 };
 use tonic::{
@@ -209,7 +209,7 @@ fn create_test_schema() -> Arc<Schema> {
 }
 
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
     let config = Config::default();
@@ -234,15 +234,15 @@ async fn start_grpc_server_with_auth(
     state: AppState,
     internal_loader: Option<Arc<InternalJwksLoader>>,
 ) -> (tokio::task::JoinHandle<()>, u16) {
-    use infera_api::{
-        grpc::{InferaServiceImpl, proto::infera_service_server::InferaServiceServer},
+    use inferadb_api::{
+        grpc::{InferadbServiceImpl, proto::inferadb_service_server::InferadbServiceServer},
         grpc_interceptor::AuthInterceptor,
     };
 
     let port = portpicker::pick_unused_port().expect("No free ports");
     let addr = format!("127.0.0.1:{}", port).parse().unwrap();
 
-    let service = InferaServiceImpl::new(state.clone());
+    let service = InferadbServiceImpl::new(state.clone());
 
     let handle = tokio::spawn(async move {
         // Authentication is always required; setup interceptor
@@ -251,7 +251,7 @@ async fn start_grpc_server_with_auth(
                 AuthInterceptor::new(cache, internal_loader, Arc::new(state.config.auth.clone()));
 
             Server::builder()
-                .add_service(InferaServiceServer::with_interceptor(service, interceptor))
+                .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
                 .serve(addr)
                 .await
                 .expect("gRPC server failed");
@@ -299,7 +299,7 @@ async fn test_grpc_check_without_token() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
@@ -348,7 +348,7 @@ async fn test_grpc_check_with_invalid_token() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
@@ -400,7 +400,7 @@ async fn test_grpc_check_with_tenant_jwt() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     // Generate valid tenant JWT
     let tenant_id = "test-tenant-123";
@@ -477,7 +477,7 @@ async fn test_grpc_check_with_internal_jwt() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     // Generate valid internal JWT
     let claims = InternalClaims::default();
@@ -561,7 +561,7 @@ async fn test_grpc_check_with_expired_internal_jwt() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     // Generate EXPIRED internal JWT
     let claims = InternalClaims::expired();
@@ -623,7 +623,7 @@ async fn test_grpc_lowercase_authorization_metadata() {
         .await
         .unwrap();
 
-    let mut client = InferaServiceClient::new(channel);
+    let mut client = InferadbServiceClient::new(channel);
 
     let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),

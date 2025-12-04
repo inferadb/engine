@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use infera_types::{
+use inferadb_types::{
     AuthContext, ListRelationshipsRequest as CoreListRelationshipsRequest,
     ListResourcesRequest as CoreListResourcesRequest,
     ListSubjectsRequest as CoreListSubjectsRequest,
@@ -10,7 +10,7 @@ use infera_types::{
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferaServiceImpl,
+    InferadbServiceImpl,
     proto::{
         ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
         ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse,
@@ -22,7 +22,7 @@ use super::{
 /// This is a thin protocol adapter that converts between gRPC proto format
 /// and calls the ResourceService for business logic.
 pub async fn list_resources(
-    service: &InferaServiceImpl,
+    service: &InferadbServiceImpl,
     request: Request<ListResourcesRequest>,
 ) -> Result<
     Response<
@@ -84,7 +84,7 @@ pub async fn list_resources(
 /// This is a thin protocol adapter that converts between gRPC proto format
 /// and calls the RelationshipService for business logic.
 pub async fn list_relationships(
-    service: &InferaServiceImpl,
+    service: &InferadbServiceImpl,
     request: Request<ListRelationshipsRequest>,
 ) -> Result<
     Response<
@@ -159,7 +159,7 @@ pub async fn list_relationships(
 /// This is a thin protocol adapter that converts between gRPC proto format
 /// and calls the SubjectService for business logic.
 pub async fn list_subjects(
-    service: &InferaServiceImpl,
+    service: &InferadbServiceImpl,
     request: Request<ListSubjectsRequest>,
 ) -> Result<
     Response<

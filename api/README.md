@@ -24,7 +24,7 @@ Detailed API documentation:
 Machine-readable API definitions:
 
 - **[OpenAPI Specification (openapi.yaml)](./openapi.yaml)** - OpenAPI 3.1 spec for REST API
-- **[Protocol Buffer Definition](../crates/infera-api/proto/infera.proto)** - Proto file for gRPC API
+- **[Protocol Buffer Definition](../crates/inferadb-api/proto/infera.proto)** - Proto file for gRPC API
 
 ## Getting Started
 

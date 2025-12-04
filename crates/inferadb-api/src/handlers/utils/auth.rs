@@ -1,6 +1,6 @@
 //! Authentication and authorization utility functions
 
-use infera_const::scopes::*;
+use inferadb_const::scopes::*;
 
 use crate::{ApiError, Result};
 
@@ -12,7 +12,7 @@ use crate::{ApiError, Result};
 ///
 /// # Returns
 /// The vault ID from the auth context, or the default vault
-pub fn get_vault(auth: &Option<infera_types::AuthContext>, default_vault: i64) -> i64 {
+pub fn get_vault(auth: &Option<inferadb_types::AuthContext>, default_vault: i64) -> i64 {
     auth.as_ref().map(|ctx| ctx.vault).unwrap_or(default_vault)
 }
 
@@ -27,7 +27,7 @@ pub fn get_vault(auth: &Option<infera_types::AuthContext>, default_vault: i64) -
 ///
 /// # Returns
 /// Ok(()) if user has admin scope, Err otherwise
-pub fn require_admin_scope(auth: &Option<infera_types::AuthContext>) -> Result<()> {
+pub fn require_admin_scope(auth: &Option<inferadb_types::AuthContext>) -> Result<()> {
     match auth {
         None => Err(ApiError::Unauthorized("Authentication required".to_string())),
         Some(ctx) => {
@@ -56,7 +56,7 @@ pub fn require_admin_scope(auth: &Option<infera_types::AuthContext>) -> Result<(
 /// # Returns
 /// Ok(()) if authorized, Err otherwise
 pub fn authorize_organization_access(
-    auth: &Option<infera_types::AuthContext>,
+    auth: &Option<inferadb_types::AuthContext>,
     organization_id: i64,
 ) -> Result<()> {
     match auth {
@@ -124,7 +124,7 @@ pub fn authorize_organization_access(
 /// )?;
 /// ```
 pub fn authorize_request(
-    auth: &Option<infera_types::AuthContext>,
+    auth: &Option<inferadb_types::AuthContext>,
     default_vault: i64,
     scopes: &[&str],
 ) -> Result<i64> {
@@ -133,7 +133,7 @@ pub fn authorize_request(
 
     // Validate vault access (basic nil check)
     if let Some(ref auth_ctx) = auth {
-        infera_auth::validate_vault_access(auth_ctx)
+        inferadb_auth::validate_vault_access(auth_ctx)
             .map_err(|e| ApiError::Forbidden(format!("Vault access denied: {}", e)))?;
     }
 
@@ -144,11 +144,11 @@ pub fn authorize_request(
             if !scopes.is_empty() {
                 if scopes.len() == 1 {
                     // Single scope requirement
-                    infera_auth::middleware::require_scope(auth_ctx, scopes[0])
+                    inferadb_auth::middleware::require_scope(auth_ctx, scopes[0])
                         .map_err(|e| ApiError::Forbidden(e.to_string()))?;
                 } else {
                     // Multiple scopes - require any of them
-                    infera_auth::middleware::require_any_scope(auth_ctx, scopes)
+                    inferadb_auth::middleware::require_any_scope(auth_ctx, scopes)
                         .map_err(|e| ApiError::Forbidden(e.to_string()))?;
                 }
             }
@@ -160,12 +160,12 @@ pub fn authorize_request(
 
 #[cfg(test)]
 mod tests {
-    use infera_types::AuthMethod;
+    use inferadb_types::AuthMethod;
 
     use super::*;
 
-    fn create_test_auth_context(scopes: Vec<String>) -> infera_types::AuthContext {
-        infera_types::AuthContext {
+    fn create_test_auth_context(scopes: Vec<String>) -> inferadb_types::AuthContext {
+        inferadb_types::AuthContext {
             client_id: "test_client".to_string(),
             key_id: "test_key".to_string(),
             auth_method: AuthMethod::PrivateKeyJwt,

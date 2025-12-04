@@ -2,14 +2,14 @@
 
 use std::sync::Arc;
 
-use infera_cache::AuthCache;
-use infera_core::{Evaluator, ipl::Schema};
-use infera_store::RelationshipStore;
-use infera_types::{
+use inferadb_cache::AuthCache;
+use inferadb_core::{Evaluator, ipl::Schema};
+use inferadb_store::RelationshipStore;
+use inferadb_types::{
     DeleteFilter, DeleteResponse, ListRelationshipsRequest, ListRelationshipsResponse,
     Relationship, Revision,
 };
-use infera_wasm::WasmHost;
+use inferadb_wasm::WasmHost;
 
 use super::validation::{
     validate_delete_filter, validate_list_relationships_request, validate_relationship,
@@ -218,8 +218,8 @@ impl RelationshipService {
 
 #[cfg(test)]
 mod tests {
-    use infera_core::ipl::{RelationDef, RelationExpr, TypeDef};
-    use infera_store::MemoryBackend;
+    use inferadb_core::ipl::{RelationDef, RelationExpr, TypeDef};
+    use inferadb_store::MemoryBackend;
 
     use super::*;
 

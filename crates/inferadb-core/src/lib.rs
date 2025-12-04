@@ -18,10 +18,10 @@ pub use trace::{DecisionTrace, EvaluationNode, NodeType};
 #[derive(Debug, Error)]
 pub enum EvalError {
     #[error("Store error: {0}")]
-    Store(#[from] infera_types::StoreError),
+    Store(#[from] inferadb_types::StoreError),
 
     #[error("WASM error: {0}")]
-    Wasm(#[from] infera_wasm::WasmError),
+    Wasm(#[from] inferadb_wasm::WasmError),
 
     #[error("Parse error: {0}")]
     Parse(String),

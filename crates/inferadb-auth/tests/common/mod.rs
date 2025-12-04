@@ -6,7 +6,7 @@ pub mod mock_management;
 pub mod mock_oauth;
 
 use chrono::{Duration, Utc};
-use infera_types::{AuthContext, AuthMethod};
+use inferadb_types::{AuthContext, AuthMethod};
 
 /// Create a test AuthContext without JWT validation
 ///

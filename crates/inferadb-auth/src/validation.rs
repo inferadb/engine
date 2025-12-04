@@ -17,7 +17,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use infera_config::AuthConfig;
+use inferadb_config::AuthConfig;
 use subtle::ConstantTimeEq;
 use tracing::warn;
 
@@ -180,7 +180,7 @@ pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError
 /// # Examples
 ///
 /// ```rust
-/// use infera_auth::validation::validate_algorithm;
+/// use inferadb_auth::validation::validate_algorithm;
 ///
 /// // With explicit list
 /// let result = validate_algorithm("EdDSA", &["EdDSA".to_string(), "RS256".to_string()]);
@@ -191,7 +191,7 @@ pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError
 /// assert!(result.is_err());
 ///
 /// // With config
-/// use infera_config::AuthConfig;
+/// use inferadb_config::AuthConfig;
 /// # let config = AuthConfig::default();
 /// let result = validate_algorithm("EdDSA", &config.accepted_algorithms);
 /// ```

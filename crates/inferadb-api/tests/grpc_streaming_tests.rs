@@ -9,25 +9,25 @@ use std::sync::Arc;
 
 use base64::Engine;
 use futures::StreamExt;
-use infera_api::{
+use inferadb_api::{
     AppState,
     grpc::{
-        InferaServiceImpl,
+        InferadbServiceImpl,
         proto::{
             ExpandRequest, Relationship as ProtoRelationship, WriteRequest, expand_response,
-            infera_service_client::InferaServiceClient,
+            inferadb_service_client::InferadbServiceClient,
         },
     },
 };
-use infera_config::Config;
-use infera_core::ipl::{RelationDef, Schema, TypeDef};
-use infera_store::MemoryBackend;
+use inferadb_config::Config;
+use inferadb_core::ipl::{RelationDef, Schema, TypeDef};
+use inferadb_store::MemoryBackend;
 use tonic::{
     Request,
     transport::{Channel, Server},
 };
-async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+async fn setup_test_server() -> (InferadbServiceClient<Channel>, String) {
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],
@@ -46,7 +46,7 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    let service = InferaServiceImpl::new(state);
+    let service = InferadbServiceImpl::new(state);
 
     // Find available port
     let port = portpicker::pick_unused_port().expect("No free ports");
@@ -56,9 +56,11 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     // Start gRPC server in background
     tokio::spawn(async move {
         Server::builder()
-            .add_service(infera_api::grpc::proto::infera_service_server::InferaServiceServer::new(
-                service,
-            ))
+            .add_service(
+                inferadb_api::grpc::proto::inferadb_service_server::InferadbServiceServer::new(
+                    service,
+                ),
+            )
             .serve(addr_clone.parse().unwrap())
             .await
             .unwrap();
@@ -67,7 +69,7 @@ async fn setup_test_server() -> (InferaServiceClient<Channel>, String) {
     // Wait for server to start
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    let client = InferaServiceClient::connect(format!("http://{}", addr)).await.unwrap();
+    let client = InferadbServiceClient::connect(format!("http://{}", addr)).await.unwrap();
 
     (client, addr)
 }
@@ -215,7 +217,7 @@ async fn test_watch_captures_write_events() {
     let (mut client, _addr) = setup_test_server().await;
 
     // Start watching from beginning
-    let watch_req = Request::new(infera_api::grpc::proto::WatchRequest {
+    let watch_req = Request::new(inferadb_api::grpc::proto::WatchRequest {
         resource_types: vec![],
         cursor: None,
     });
@@ -263,8 +265,8 @@ async fn test_watch_captures_write_events() {
 
     // Should have captured 2 create events
     assert_eq!(events.len(), 2);
-    assert_eq!(events[0].operation, infera_api::grpc::proto::ChangeOperation::Create as i32);
-    assert_eq!(events[1].operation, infera_api::grpc::proto::ChangeOperation::Create as i32);
+    assert_eq!(events[0].operation, inferadb_api::grpc::proto::ChangeOperation::Create as i32);
+    assert_eq!(events[1].operation, inferadb_api::grpc::proto::ChangeOperation::Create as i32);
 }
 
 #[tokio::test]
@@ -272,7 +274,7 @@ async fn test_watch_with_resource_type_filter() {
     let (mut client, _addr) = setup_test_server().await;
 
     // Start watching only "doc" resource types
-    let watch_req = Request::new(infera_api::grpc::proto::WatchRequest {
+    let watch_req = Request::new(inferadb_api::grpc::proto::WatchRequest {
         resource_types: vec!["doc".to_string()],
         cursor: None,
     });
@@ -345,7 +347,7 @@ async fn test_watch_captures_delete_events() {
 
     // Start watching from after the write
     let cursor = format!("{}", write_response.revision.parse::<u64>().unwrap() + 1);
-    let watch_req = Request::new(infera_api::grpc::proto::WatchRequest {
+    let watch_req = Request::new(inferadb_api::grpc::proto::WatchRequest {
         resource_types: vec![],
         cursor: Some(base64::engine::general_purpose::STANDARD.encode(cursor.as_bytes())),
     });
@@ -353,8 +355,8 @@ async fn test_watch_captures_delete_events() {
     let mut watch_stream = client.watch(watch_req).await.unwrap().into_inner();
 
     // Delete the relationship
-    let delete_req = infera_api::grpc::proto::DeleteRequest {
-        filter: Some(infera_api::grpc::proto::DeleteFilter {
+    let delete_req = inferadb_api::grpc::proto::DeleteRequest {
+        filter: Some(inferadb_api::grpc::proto::DeleteFilter {
             resource: Some("doc:test".to_string()),
             relation: None,
             subject: None,
@@ -388,5 +390,5 @@ async fn test_watch_captures_delete_events() {
 
     // Should have captured 1 delete event
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0].operation, infera_api::grpc::proto::ChangeOperation::Delete as i32);
+    assert_eq!(events[0].operation, inferadb_api::grpc::proto::ChangeOperation::Delete as i32);
 }

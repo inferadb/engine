@@ -8,8 +8,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use infera_const::DEFAULT_CHANNEL_CAPACITY;
-use infera_types::{Relationship, Revision};
+use inferadb_const::DEFAULT_CHANNEL_CAPACITY;
+use inferadb_types::{Relationship, Revision};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{RwLock, broadcast};
 

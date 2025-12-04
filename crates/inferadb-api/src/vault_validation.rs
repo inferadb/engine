@@ -3,8 +3,8 @@
 //! This module provides comprehensive vault access validation that includes
 //! database checks to verify vault existence and ownership.
 
-use infera_store::VaultStore;
-use infera_types::AuthContext;
+use inferadb_store::VaultStore;
+use inferadb_types::AuthContext;
 
 use crate::{ApiError, Result};
 
@@ -32,7 +32,7 @@ use crate::{ApiError, Result};
 /// # Example
 ///
 /// ```rust,ignore
-/// use infera_api::vault_validation::validate_vault_access_with_store;
+/// use inferadb_api::vault_validation::validate_vault_access_with_store;
 ///
 /// let result = validate_vault_access_with_store(&auth, &vault_store).await?;
 /// ```

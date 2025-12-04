@@ -13,8 +13,8 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
-use infera_const::scopes::SCOPE_WRITE;
-use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
+use inferadb_const::scopes::SCOPE_WRITE;
+use inferadb_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
 use serde::{Deserialize, Serialize};
 
 use super::get::RelationshipPath;
@@ -237,7 +237,7 @@ async fn delete_relationships_internal(
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
 pub async fn delete_relationships_handler(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<DeleteRequest>,
@@ -302,7 +302,7 @@ pub async fn delete_relationships_handler(
 /// ```
 #[tracing::instrument(skip(state, auth), fields(exact_delete = true))]
 pub async fn delete_relationship(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     State(state): State<AppState>,
     Path(params): Path<RelationshipPath>,
 ) -> std::result::Result<impl IntoResponse, ApiError> {
@@ -351,7 +351,7 @@ pub async fn delete_relationship(
 
     // Record metrics
     let duration = start.elapsed();
-    infera_observe::metrics::record_api_request(
+    inferadb_observe::metrics::record_api_request(
         "/v1/relationships/{resource}/{relation}/{subject}",
         "DELETE",
         204,
@@ -392,19 +392,19 @@ mod tests {
         http::{Request, StatusCode},
         routing::delete,
     };
-    use infera_config::Config;
-    use infera_store::MemoryBackend;
-    use infera_types::Relationship;
+    use inferadb_config::Config;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Relationship;
     use tower::ServiceExt;
 
     use super::*;
     use crate::{AppState, test_utils::with_test_auth};
 
     async fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
 
         // Create a minimal schema
-        use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+        use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
         let schema = Arc::new(Schema::new(vec![TypeDef {
             name: "document".to_string(),
             relations: vec![RelationDef {

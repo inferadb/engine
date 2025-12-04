@@ -6,7 +6,7 @@
 //! - Hierarchical permissions (folder viewers can view all documents inside)
 //! - Owner permissions (owners can do everything)
 
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;
 use common::{TestFixture, relationship};

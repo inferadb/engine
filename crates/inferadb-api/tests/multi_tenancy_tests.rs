@@ -8,11 +8,11 @@
 
 use std::sync::Arc;
 
-use infera_api::AppState;
-use infera_config::Config;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::Relationship;
+use inferadb_api::AppState;
+use inferadb_config::Config;
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_store::{MemoryBackend, RelationshipStore};
+use inferadb_types::Relationship;
 
 /// Create a test schema for multi-tenant testing
 fn create_test_schema() -> Arc<Schema> {
@@ -28,7 +28,7 @@ fn create_test_schema() -> Arc<Schema> {
 
 /// Create test state with multiple vaults
 fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
 
     // Create two separate vault/organization pairs for testing
@@ -89,37 +89,37 @@ async fn test_write_relationships_in_different_vaults() {
         .unwrap();
 
     // Verify vault A has Alice but not Bob
-    let key_alice = infera_types::RelationshipKey {
+    let key_alice = inferadb_types::RelationshipKey {
         resource: "document:readme".to_string(),
         relation: "viewer".to_string(),
         subject: Some("user:alice".to_string()),
     };
 
     let results_a =
-        state.store.read(vault_a, &key_alice, infera_types::Revision(u64::MAX)).await.unwrap();
+        state.store.read(vault_a, &key_alice, inferadb_types::Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_a.len(), 1);
     assert_eq!(results_a[0].subject, "user:alice");
 
     // Verify vault B has Bob but not Alice
-    let key_bob = infera_types::RelationshipKey {
+    let key_bob = inferadb_types::RelationshipKey {
         resource: "document:readme".to_string(),
         relation: "viewer".to_string(),
         subject: Some("user:bob".to_string()),
     };
 
     let results_b =
-        state.store.read(vault_b, &key_bob, infera_types::Revision(u64::MAX)).await.unwrap();
+        state.store.read(vault_b, &key_bob, inferadb_types::Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_b.len(), 1);
     assert_eq!(results_b[0].subject, "user:bob");
 
     // Verify vault A doesn't have Bob
     let results_a_bob =
-        state.store.read(vault_a, &key_bob, infera_types::Revision(u64::MAX)).await.unwrap();
+        state.store.read(vault_a, &key_bob, inferadb_types::Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_a_bob.len(), 0);
 
     // Verify vault B doesn't have Alice
     let results_b_alice =
-        state.store.read(vault_b, &key_alice, infera_types::Revision(u64::MAX)).await.unwrap();
+        state.store.read(vault_b, &key_alice, inferadb_types::Revision(u64::MAX)).await.unwrap();
     assert_eq!(results_b_alice.len(), 0);
 }
 
@@ -167,7 +167,7 @@ async fn test_operations_scope_to_correct_vault() {
     // List all relationships in vault A
     let all_a = state
         .store
-        .list_relationships(vault_a, None, Some("viewer"), None, infera_types::Revision(u64::MAX))
+        .list_relationships(vault_a, None, Some("viewer"), None, inferadb_types::Revision(u64::MAX))
         .await
         .unwrap();
     assert_eq!(all_a.len(), 2); // Only vault A's relationships
@@ -176,7 +176,7 @@ async fn test_operations_scope_to_correct_vault() {
     // List all relationships in vault B
     let all_b = state
         .store
-        .list_relationships(vault_b, None, Some("viewer"), None, infera_types::Revision(u64::MAX))
+        .list_relationships(vault_b, None, Some("viewer"), None, inferadb_types::Revision(u64::MAX))
         .await
         .unwrap();
     assert_eq!(all_b.len(), 1); // Only vault B's relationship
@@ -229,7 +229,7 @@ async fn test_vault_scoped_listing() {
         .resource_service
         .list_resources(
             state.default_vault,
-            infera_types::ListResourcesRequest {
+            inferadb_types::ListResourcesRequest {
                 subject: "user:alice".to_string(),
                 permission: "viewer".to_string(),
                 resource_type: "document".to_string(),
@@ -247,7 +247,7 @@ async fn test_vault_scoped_listing() {
     assert!(!resources_a.resources.contains(&"document:doc3".to_string()));
 
     // Create a new resource service for vault B
-    let resource_service_b = Arc::new(infera_api::services::ResourceService::new(
+    let resource_service_b = Arc::new(inferadb_api::services::ResourceService::new(
         Arc::clone(&state.store) as Arc<dyn RelationshipStore>,
         create_test_schema(),
         None, // No WASM host for tests
@@ -258,7 +258,7 @@ async fn test_vault_scoped_listing() {
     let resources_b = resource_service_b
         .list_resources(
             vault_b,
-            infera_types::ListResourcesRequest {
+            inferadb_types::ListResourcesRequest {
                 subject: "user:bob".to_string(),
                 permission: "viewer".to_string(),
                 resource_type: "document".to_string(),
@@ -285,7 +285,7 @@ async fn test_default_vault_fallback_when_auth_disabled() {
 
     // Create the organization and vault in the store first
     store
-        .create_organization(infera_types::Organization {
+        .create_organization(inferadb_types::Organization {
             id: organization_a,
             name: "Test Organization".to_string(),
             created_at: chrono::Utc::now(),
@@ -295,7 +295,7 @@ async fn test_default_vault_fallback_when_auth_disabled() {
         .unwrap();
 
     store
-        .create_vault(infera_types::Vault {
+        .create_vault(inferadb_types::Vault {
             id: vault_a,
             organization: organization_a,
             name: "Test Vault".to_string(),
@@ -316,13 +316,13 @@ async fn test_default_vault_fallback_when_auth_disabled() {
     store.write(vault_a, vec![relationship]).await.unwrap();
 
     // Verify the relationship was written to vault_a (default vault)
-    let key = infera_types::RelationshipKey {
+    let key = inferadb_types::RelationshipKey {
         resource: "document:test".to_string(),
         relation: "viewer".to_string(),
         subject: Some("user:alice".to_string()),
     };
 
-    let results = store.read(vault_a, &key, infera_types::Revision(u64::MAX)).await.unwrap();
+    let results = store.read(vault_a, &key, inferadb_types::Revision(u64::MAX)).await.unwrap();
 
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].vault, vault_a);
@@ -335,14 +335,14 @@ async fn test_default_vault_fallback_when_auth_disabled() {
 
 #[tokio::test]
 async fn test_organization_can_own_multiple_vaults() {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let organization = 55555555555555i64;
     let vault1 = 66666666666666i64;
     let vault2 = 77777777777777i64;
     let vault3 = 88888888888888i64;
 
     // Create the organization first
-    let organization_obj = infera_types::Organization {
+    let organization_obj = inferadb_types::Organization {
         id: organization,
         name: "Test Organization".to_string(),
         created_at: chrono::Utc::now(),
@@ -351,7 +351,7 @@ async fn test_organization_can_own_multiple_vaults() {
     store.create_organization(organization_obj).await.unwrap();
 
     // Create three vaults for the same organization
-    let vault_obj_1 = infera_types::Vault {
+    let vault_obj_1 = inferadb_types::Vault {
         id: vault1,
         organization,
         name: "Vault 1".to_string(),
@@ -359,7 +359,7 @@ async fn test_organization_can_own_multiple_vaults() {
         updated_at: chrono::Utc::now(),
     };
 
-    let vault_obj_2 = infera_types::Vault {
+    let vault_obj_2 = inferadb_types::Vault {
         id: vault2,
         organization,
         name: "Vault 2".to_string(),
@@ -367,7 +367,7 @@ async fn test_organization_can_own_multiple_vaults() {
         updated_at: chrono::Utc::now(),
     };
 
-    let vault_obj_3 = infera_types::Vault {
+    let vault_obj_3 = inferadb_types::Vault {
         id: vault3,
         organization,
         name: "Vault 3".to_string(),
@@ -391,14 +391,14 @@ async fn test_organization_can_own_multiple_vaults() {
 
 #[tokio::test]
 async fn test_vault_belongs_to_one_organization() {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let organization_a = 99999999999991i64;
     let organization_b = 99999999999992i64;
     let vault_id = 99999999999993i64;
 
     // Create organizations first
     store
-        .create_organization(infera_types::Organization {
+        .create_organization(inferadb_types::Organization {
             id: organization_a,
             name: "Organization A".to_string(),
             created_at: chrono::Utc::now(),
@@ -408,7 +408,7 @@ async fn test_vault_belongs_to_one_organization() {
         .unwrap();
 
     store
-        .create_organization(infera_types::Organization {
+        .create_organization(inferadb_types::Organization {
             id: organization_b,
             name: "Organization B".to_string(),
             created_at: chrono::Utc::now(),
@@ -418,7 +418,7 @@ async fn test_vault_belongs_to_one_organization() {
         .unwrap();
 
     // Create vault for organization A
-    let vault = infera_types::Vault {
+    let vault = inferadb_types::Vault {
         id: vault_id,
         organization: organization_a,
         name: "Test Vault".to_string(),
@@ -439,7 +439,7 @@ async fn test_vault_belongs_to_one_organization() {
 
 #[tokio::test]
 async fn test_organization_cannot_access_other_organizations_vaults() {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let organization_a = 99999999999994i64;
     let organization_b = 99999999999995i64;
     let vault_a = 99999999999996i64;
@@ -447,7 +447,7 @@ async fn test_organization_cannot_access_other_organizations_vaults() {
 
     // Create organizations first
     store
-        .create_organization(infera_types::Organization {
+        .create_organization(inferadb_types::Organization {
             id: organization_a,
             name: "Organization A".to_string(),
             created_at: chrono::Utc::now(),
@@ -457,7 +457,7 @@ async fn test_organization_cannot_access_other_organizations_vaults() {
         .unwrap();
 
     store
-        .create_organization(infera_types::Organization {
+        .create_organization(inferadb_types::Organization {
             id: organization_b,
             name: "Organization B".to_string(),
             created_at: chrono::Utc::now(),
@@ -468,7 +468,7 @@ async fn test_organization_cannot_access_other_organizations_vaults() {
 
     // Create vaults for different organizations
     store
-        .create_vault(infera_types::Vault {
+        .create_vault(inferadb_types::Vault {
             id: vault_a,
             organization: organization_a,
             name: "Vault A".to_string(),
@@ -479,7 +479,7 @@ async fn test_organization_cannot_access_other_organizations_vaults() {
         .unwrap();
 
     store
-        .create_vault(infera_types::Vault {
+        .create_vault(inferadb_types::Vault {
             id: vault_b,
             organization: organization_b,
             name: "Vault B".to_string(),
@@ -524,13 +524,14 @@ async fn test_read_from_wrong_vault_returns_empty() {
         .unwrap();
 
     // Try to read from vault B
-    let key = infera_types::RelationshipKey {
+    let key = inferadb_types::RelationshipKey {
         resource: "document:secret".to_string(),
         relation: "viewer".to_string(),
         subject: Some("user:alice".to_string()),
     };
 
-    let results = state.store.read(vault_b, &key, infera_types::Revision(u64::MAX)).await.unwrap();
+    let results =
+        state.store.read(vault_b, &key, inferadb_types::Revision(u64::MAX)).await.unwrap();
 
     assert_eq!(results.len(), 0, "Should not see data from different vault");
 }
@@ -559,7 +560,7 @@ async fn test_cached_data_doesnt_leak_between_vaults() {
         .evaluation_service
         .evaluate(
             state.default_vault,
-            infera_types::EvaluateRequest {
+            inferadb_types::EvaluateRequest {
                 subject: "user:alice".to_string(),
                 resource: "document:cached".to_string(),
                 permission: "viewer".to_string(),
@@ -571,7 +572,7 @@ async fn test_cached_data_doesnt_leak_between_vaults() {
         .unwrap();
 
     assert!(
-        matches!(result_a, infera_types::Decision::Allow),
+        matches!(result_a, inferadb_types::Decision::Allow),
         "Alice should have access in vault A"
     );
 
@@ -584,7 +585,7 @@ async fn test_cached_data_doesnt_leak_between_vaults() {
         .evaluation_service
         .evaluate(
             vault_b,
-            infera_types::EvaluateRequest {
+            inferadb_types::EvaluateRequest {
                 subject: "user:alice".to_string(),
                 resource: "document:cached".to_string(),
                 permission: "viewer".to_string(),
@@ -596,7 +597,7 @@ async fn test_cached_data_doesnt_leak_between_vaults() {
         .unwrap();
 
     assert!(
-        matches!(result_b, infera_types::Decision::Deny),
+        matches!(result_b, inferadb_types::Decision::Deny),
         "Alice should NOT have access in vault B (cache isolation)"
     );
 }
@@ -657,7 +658,7 @@ async fn test_concurrent_operations_on_different_vaults() {
             None,
             Some("viewer"),
             Some("user:alice"),
-            infera_types::Revision(u64::MAX),
+            inferadb_types::Revision(u64::MAX),
         )
         .await
         .unwrap();
@@ -672,7 +673,7 @@ async fn test_concurrent_operations_on_different_vaults() {
             None,
             Some("viewer"),
             Some("user:bob"),
-            infera_types::Revision(u64::MAX),
+            inferadb_types::Revision(u64::MAX),
         )
         .await
         .unwrap();

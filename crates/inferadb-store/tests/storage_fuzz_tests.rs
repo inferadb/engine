@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
-use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{Relationship, RelationshipKey, Revision};
+use inferadb_store::{MemoryBackend, RelationshipStore};
+use inferadb_types::{Relationship, RelationshipKey, Revision};
 use proptest::prelude::*;
 // Test vault ID for all fuzz tests
 fn test_vault_id() -> i64 {

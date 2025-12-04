@@ -80,7 +80,7 @@ See [FoundationDB Backend Documentation](./storage-foundationdb.md) for details.
 The `StorageFactory` provides a unified interface for creating storage backends:
 
 ```rust
-use infera_store::{StorageFactory, StorageConfig, BackendType};
+use inferadb_store::{StorageFactory, StorageConfig, BackendType};
 
 // Method 1: Use default memory backend
 let store = StorageFactory::memory();
@@ -114,8 +114,8 @@ backend = "memory"  # or "foundationdb"
 Load configuration and create store:
 
 ```rust
-use infera_config::Config;
-use infera_store::StorageFactory;
+use inferadb_config::Config;
+use inferadb_store::StorageFactory;
 
 let config = Config::load("config.toml")?;
 let store = StorageFactory::from_str(
@@ -192,7 +192,7 @@ InferaDB's storage layer is designed to be extensible. To add a new backend:
 
 ```rust
 use async_trait::async_trait;
-use infera_store::{TupleStore, Tuple, TupleKey, Revision, Result};
+use inferadb_store::{TupleStore, Tuple, TupleKey, Revision, Result};
 
 pub struct MyBackend {
     // Your backend implementation

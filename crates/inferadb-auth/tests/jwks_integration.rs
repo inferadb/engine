@@ -3,7 +3,7 @@ mod common;
 use std::{sync::Arc, time::Duration};
 
 use common::mock_jwks::{generate_jwt_for_mock_jwks, start_mock_jwks_server};
-use infera_auth::jwks_cache::{JwksCache, JwksCacheKey};
+use inferadb_auth::jwks_cache::{JwksCache, JwksCacheKey};
 use moka::future::Cache;
 
 #[tokio::test]
@@ -204,7 +204,7 @@ async fn test_multi_tenant_isolation() {
 
 #[tokio::test]
 async fn test_jwt_verification_with_jwks() {
-    use infera_auth::jwt::decode_jwt_claims;
+    use inferadb_auth::jwt::decode_jwt_claims;
 
     // Start mock JWKS server
     let (base_url, _handle) = start_mock_jwks_server().await;
@@ -238,7 +238,7 @@ async fn test_jwt_verification_with_jwks() {
 
 #[tokio::test]
 async fn test_verify_with_jwks_success() {
-    use infera_auth::jwt::verify_with_jwks;
+    use inferadb_auth::jwt::verify_with_jwks;
 
     // Start mock JWKS server
     let (base_url, _handle) = start_mock_jwks_server().await;
@@ -260,7 +260,7 @@ async fn test_verify_with_jwks_success() {
 
 #[tokio::test]
 async fn test_verify_with_jwks_cached_key() {
-    use infera_auth::jwt::verify_with_jwks;
+    use inferadb_auth::jwt::verify_with_jwks;
 
     // Start mock JWKS server
     let (base_url, _handle) = start_mock_jwks_server().await;
@@ -287,7 +287,7 @@ async fn test_verify_with_jwks_cached_key() {
 
 #[tokio::test]
 async fn test_verify_with_jwks_missing_kid() {
-    use infera_auth::jwt::verify_with_jwks;
+    use inferadb_auth::jwt::verify_with_jwks;
 
     // Start mock JWKS server
     let (base_url, _handle) = start_mock_jwks_server().await;
@@ -311,7 +311,7 @@ async fn test_verify_with_jwks_missing_kid() {
 
 #[tokio::test]
 async fn test_verify_with_jwks_key_rotation() {
-    use infera_auth::jwt::verify_with_jwks;
+    use inferadb_auth::jwt::verify_with_jwks;
 
     // Start mock JWKS server
     let (base_url, _handle) = start_mock_jwks_server().await;

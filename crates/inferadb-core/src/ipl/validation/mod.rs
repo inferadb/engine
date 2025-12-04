@@ -8,8 +8,8 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! use infera_core::ipl::validation::Validator;
-//! use infera_core::ipl::parse_schema;
+//! use inferadb_core::ipl::validation::Validator;
+//! use inferadb_core::ipl::parse_schema;
 //!
 //! let source = r#"
 //!     type document {

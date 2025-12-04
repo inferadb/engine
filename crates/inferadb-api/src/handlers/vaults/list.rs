@@ -1,7 +1,7 @@
 //! List vaults handler
 
 use axum::extract::{Path, State};
-use infera_types::{ListVaultsResponse, VaultResponse};
+use inferadb_types::{ListVaultsResponse, VaultResponse};
 
 use crate::{
     ApiError, AppState,
@@ -44,7 +44,7 @@ use crate::{
 /// - 500 Internal Server Error: Storage operation failed
 #[tracing::instrument(skip(state))]
 pub async fn list_vaults(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Path(organization_id): Path<i64>,

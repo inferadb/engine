@@ -127,7 +127,7 @@ fn validate_id(id_str: &str) -> Result<()> {
 /// # Examples
 ///
 /// ```
-/// # use infera_api::adapters::authzen::{parse_entity, AuthZENEntity};
+/// # use inferadb_api::adapters::authzen::{parse_entity, AuthZENEntity};
 /// let entity = parse_entity("user:alice").unwrap();
 /// assert_eq!(entity.entity_type, "user");
 /// assert_eq!(entity.id, "alice");
@@ -179,7 +179,7 @@ pub fn parse_entity(s: &str) -> Result<AuthZENEntity> {
 /// # Examples
 ///
 /// ```
-/// # use infera_api::adapters::authzen::{format_entity, AuthZENEntity};
+/// # use inferadb_api::adapters::authzen::{format_entity, AuthZENEntity};
 /// let entity = AuthZENEntity {
 ///     entity_type: "user".to_string(),
 ///     id: "alice".to_string(),

@@ -2,12 +2,12 @@
 
 use std::sync::Arc;
 
-use infera_core::DecisionTrace;
-use infera_types::{AuthContext, Decision, EvaluateRequest as CoreEvaluateRequest};
+use inferadb_core::DecisionTrace;
+use inferadb_types::{AuthContext, Decision, EvaluateRequest as CoreEvaluateRequest};
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferaServiceImpl,
+    InferadbServiceImpl,
     proto::{Decision as ProtoDecision, EvaluateRequest, EvaluateResponse},
 };
 
@@ -16,7 +16,7 @@ use super::{
 /// This is a thin protocol adapter that converts between gRPC proto format
 /// and calls the EvaluationService for business logic.
 pub async fn evaluate(
-    service: &InferaServiceImpl,
+    service: &InferadbServiceImpl,
     request: Request<tonic::Streaming<EvaluateRequest>>,
 ) -> Result<
     Response<
@@ -127,7 +127,7 @@ pub async fn evaluate(
 
 /// Helper function to convert DecisionTrace to proto format
 fn convert_trace_to_proto(trace: DecisionTrace) -> super::proto::DecisionTrace {
-    use infera_core::{EvaluationNode, NodeType as CoreNodeType};
+    use inferadb_core::{EvaluationNode, NodeType as CoreNodeType};
 
     fn convert_node(node: EvaluationNode) -> super::proto::EvaluationNode {
         let node_type = match node.node_type {

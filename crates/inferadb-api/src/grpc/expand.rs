@@ -2,16 +2,16 @@
 
 use std::sync::Arc;
 
-use infera_types::{
+use inferadb_types::{
     AuthContext, ExpandRequest as CoreExpandRequest, UsersetNodeType as CoreUsersetNodeType,
     UsersetTree,
 };
 use tonic::{Request, Response, Status};
 
-use super::{InferaServiceImpl, proto::ExpandRequest};
+use super::{InferadbServiceImpl, proto::ExpandRequest};
 
 pub async fn expand(
-    service: &InferaServiceImpl,
+    service: &InferadbServiceImpl,
     request: Request<ExpandRequest>,
 ) -> Result<
     Response<

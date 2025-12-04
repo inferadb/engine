@@ -4,8 +4,8 @@
 //! adapter layer over InferaDB's native list resources and list subjects functionality.
 
 use axum::extract::State;
-use infera_const::scopes::*;
-use infera_types::{ListResourcesRequest, ListSubjectsRequest};
+use inferadb_const::scopes::*;
+use inferadb_types::{ListResourcesRequest, ListSubjectsRequest};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -112,7 +112,7 @@ pub struct AuthZENResourceSearchResponse {
 /// ```
 #[tracing::instrument(skip(state), fields(authzen_alias = true, search_type = "resource"))]
 pub async fn post_search_resource(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     request: axum::Json<AuthZENResourceSearchRequest>,
@@ -178,7 +178,7 @@ pub async fn post_search_resource(
 
     // Record API request metric
     let duration = start.elapsed();
-    infera_observe::metrics::record_api_request(
+    inferadb_observe::metrics::record_api_request(
         "/access/v1/search/resource",
         "POST",
         200,
@@ -290,7 +290,7 @@ pub struct AuthZENSubjectSearchResponse {
 /// ```
 #[tracing::instrument(skip(state), fields(authzen_alias = true, search_type = "subject"))]
 pub async fn post_search_subject(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     request: axum::Json<AuthZENSubjectSearchRequest>,
@@ -354,7 +354,7 @@ pub async fn post_search_subject(
 
     // Record API request metric
     let duration = start.elapsed();
-    infera_observe::metrics::record_api_request(
+    inferadb_observe::metrics::record_api_request(
         "/access/v1/search/subject",
         "POST",
         200,
@@ -384,19 +384,19 @@ mod tests {
         http::{Request, StatusCode},
         routing::post,
     };
-    use infera_config::Config;
-    use infera_store::MemoryBackend;
-    use infera_types::Relationship;
+    use inferadb_config::Config;
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Relationship;
     use tower::ServiceExt;
 
     use super::*;
     use crate::{AppState, test_utils::with_test_auth};
 
     async fn create_test_state() -> AppState {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
 
         // Create a schema with document type and view relation
-        use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+        use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
         let schema = Arc::new(Schema::new(vec![TypeDef {
             name: "document".to_string(),

@@ -8,13 +8,13 @@
 
 use std::{sync::Arc, time::Duration};
 
-use infera_repl::{
+use inferadb_repl::{
     Change, ChangeFeed, Conflict, ConflictResolutionStrategy, ConflictResolver, NodeId, Operation,
     RegionId, ReplicationAgent, ReplicationConfig, ReplicationStrategy, Topology, TopologyBuilder,
     ZoneId,
 };
-use infera_store::{MemoryBackend, RelationshipStore};
-use infera_types::{Relationship, Revision};
+use inferadb_store::{MemoryBackend, RelationshipStore};
+use inferadb_types::{Relationship, Revision};
 use tokio::{sync::RwLock, time::sleep};
 
 /// Helper to create a test relationship
@@ -46,7 +46,7 @@ async fn test_conflict_resolution_last_write_wins() {
     let resolution = resolver.resolve(&conflict).unwrap();
 
     // Remote has later timestamp, should win
-    assert!(matches!(resolution, infera_repl::Resolution::KeepRemote));
+    assert!(matches!(resolution, inferadb_repl::Resolution::KeepRemote));
 }
 
 #[tokio::test]
@@ -60,14 +60,14 @@ async fn test_conflict_resolution_source_priority() {
 
     // Both changes at same time, different sources
     let mut local = test_change(relationship.clone(), Operation::Insert, 1000);
-    local.metadata = Some(infera_repl::ChangeMetadata {
+    local.metadata = Some(inferadb_repl::ChangeMetadata {
         source_node: Some("us-west".to_string()),
         causality_token: None,
         tags: std::collections::HashMap::new(),
     });
 
     let mut remote = test_change(relationship, Operation::Delete, 1000);
-    remote.metadata = Some(infera_repl::ChangeMetadata {
+    remote.metadata = Some(inferadb_repl::ChangeMetadata {
         source_node: Some("ap-southeast".to_string()),
         causality_token: None,
         tags: std::collections::HashMap::new(),
@@ -77,7 +77,7 @@ async fn test_conflict_resolution_source_priority() {
     let resolution = resolver.resolve(&conflict).unwrap();
 
     // ap-southeast has higher priority (index 2 vs 0), should win
-    assert!(matches!(resolution, infera_repl::Resolution::KeepRemote));
+    assert!(matches!(resolution, inferadb_repl::Resolution::KeepRemote));
 }
 
 #[tokio::test]
@@ -94,7 +94,7 @@ async fn test_conflict_resolution_insert_wins() {
     let resolution = resolver.resolve(&conflict).unwrap();
 
     // Insert wins even though delete has later timestamp
-    assert!(matches!(resolution, infera_repl::Resolution::KeepLocal));
+    assert!(matches!(resolution, inferadb_repl::Resolution::KeepLocal));
 }
 
 #[tokio::test]
@@ -118,8 +118,8 @@ async fn test_multiple_conflicts_in_sequence() {
             let conflict = Conflict::new(current.clone(), next.clone());
             let resolution = resolver.resolve(&conflict).unwrap();
             current = match resolution {
-                infera_repl::Resolution::KeepLocal => current,
-                infera_repl::Resolution::KeepRemote => next.clone(),
+                inferadb_repl::Resolution::KeepLocal => current,
+                inferadb_repl::Resolution::KeepRemote => next.clone(),
                 _ => panic!("Unexpected resolution"),
             };
         }
@@ -218,7 +218,7 @@ async fn test_topology_primary_replica() {
 async fn test_topology_validation_no_primary() {
     let mut topology =
         Topology::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"));
-    topology.add_region(infera_repl::Region::new(
+    topology.add_region(inferadb_repl::Region::new(
         RegionId::new("us-west-1"),
         "US West 1".to_string(),
         false, // not primary!
@@ -226,19 +226,19 @@ async fn test_topology_validation_no_primary() {
 
     let result = topology.validate();
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), infera_repl::TopologyError::NoPrimaryRegion));
+    assert!(matches!(result.unwrap_err(), inferadb_repl::TopologyError::NoPrimaryRegion));
 }
 
 #[tokio::test]
 async fn test_topology_validation_multiple_primary() {
     let mut topology =
         Topology::new(ReplicationStrategy::PrimaryReplica, RegionId::new("us-west-1"));
-    topology.add_region(infera_repl::Region::new(
+    topology.add_region(inferadb_repl::Region::new(
         RegionId::new("us-west-1"),
         "US West 1".to_string(),
         true, // primary
     ));
-    topology.add_region(infera_repl::Region::new(
+    topology.add_region(inferadb_repl::Region::new(
         RegionId::new("eu-central-1"),
         "EU Central 1".to_string(),
         true, // also primary!
@@ -246,7 +246,7 @@ async fn test_topology_validation_multiple_primary() {
 
     let result = topology.validate();
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), infera_repl::TopologyError::MultiplePrimaryRegions));
+    assert!(matches!(result.unwrap_err(), inferadb_repl::TopologyError::MultiplePrimaryRegions));
 }
 
 #[tokio::test]
@@ -369,7 +369,7 @@ async fn test_network_partition_simulation() {
     if let Some(region) = topology.get_region_mut(&RegionId::new("eu-central-1")) {
         if let Some(zone) = region.zones.get_mut(0) {
             if let Some(node) = zone.nodes.get_mut(0) {
-                node.status = infera_repl::NodeStatus::Unreachable;
+                node.status = inferadb_repl::NodeStatus::Unreachable;
             }
         }
     }
@@ -404,7 +404,7 @@ async fn test_concurrent_conflict_resolution() {
         let result = handle.await.unwrap();
         assert!(matches!(
             result,
-            infera_repl::Resolution::KeepLocal | infera_repl::Resolution::KeepRemote
+            inferadb_repl::Resolution::KeepLocal | inferadb_repl::Resolution::KeepRemote
         ));
     }
 }
@@ -475,7 +475,7 @@ async fn test_multi_region_write_propagation() {
     // Write from us-west region
     let relationship = test_relationship("doc:readme", "viewer", "user:alice");
     let mut change = test_change(relationship, Operation::Insert, 1000);
-    change.metadata = Some(infera_repl::ChangeMetadata {
+    change.metadata = Some(inferadb_repl::ChangeMetadata {
         source_node: Some("us-west-node1".to_string()),
         causality_token: None,
         tags: std::collections::HashMap::new(),
@@ -506,14 +506,14 @@ async fn test_cross_region_conflict_with_metadata() {
     let relationship = test_relationship("doc:readme", "viewer", "user:alice");
 
     let mut us_change = test_change(relationship.clone(), Operation::Insert, 1000);
-    us_change.metadata = Some(infera_repl::ChangeMetadata {
+    us_change.metadata = Some(inferadb_repl::ChangeMetadata {
         source_node: Some("us-west".to_string()),
         causality_token: None,
         tags: std::collections::HashMap::new(),
     });
 
     let mut eu_change = test_change(relationship, Operation::Delete, 1000);
-    eu_change.metadata = Some(infera_repl::ChangeMetadata {
+    eu_change.metadata = Some(inferadb_repl::ChangeMetadata {
         source_node: Some("eu-central".to_string()),
         causality_token: None,
         tags: std::collections::HashMap::new(),
@@ -523,7 +523,7 @@ async fn test_cross_region_conflict_with_metadata() {
     let resolution = resolver.resolve(&conflict).unwrap();
 
     // eu-central has higher priority (index 1 vs 0), should win
-    assert!(matches!(resolution, infera_repl::Resolution::KeepRemote));
+    assert!(matches!(resolution, inferadb_repl::Resolution::KeepRemote));
 }
 
 #[tokio::test]

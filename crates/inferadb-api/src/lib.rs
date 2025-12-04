@@ -10,8 +10,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use infera_auth::jwks_cache::JwksCache;
-use infera_config::Config;
+use inferadb_auth::jwks_cache::JwksCache;
+use inferadb_config::Config;
 use serde::Serialize;
 use thiserror::Error;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder, key_extractor::KeyExtractor};
@@ -51,7 +51,7 @@ use handlers::{
 #[derive(Debug, Error)]
 pub enum ApiError {
     #[error("Evaluation error: {0}")]
-    Evaluation(#[from] infera_core::EvalError),
+    Evaluation(#[from] inferadb_core::EvalError),
 
     #[error("Invalid request: {0}")]
     InvalidRequest(String),
@@ -79,8 +79,8 @@ pub enum ApiError {
     RevisionMismatch { expected: String, actual: String },
 }
 
-impl From<infera_auth::AuthError> for ApiError {
-    fn from(err: infera_auth::AuthError) -> Self {
+impl From<inferadb_auth::AuthError> for ApiError {
+    fn from(err: inferadb_auth::AuthError) -> Self {
         ApiError::Internal(format!("Authentication system error: {}", err))
     }
 }
@@ -143,7 +143,7 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 /// Application state
 #[derive(Clone)]
 pub struct AppState {
-    pub store: Arc<dyn infera_store::InferaStore>,
+    pub store: Arc<dyn inferadb_store::InferaStore>,
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
@@ -152,10 +152,10 @@ pub struct AppState {
     /// Default organization ID used when authentication is disabled
     pub default_organization: i64,
     /// Server identity for signing server-to-management requests
-    pub server_identity: Option<Arc<infera_auth::ServerIdentity>>,
+    pub server_identity: Option<Arc<inferadb_auth::ServerIdentity>>,
 
     // Shared cache for authorization decisions and expansions
-    pub auth_cache: Arc<infera_cache::AuthCache>,
+    pub auth_cache: Arc<inferadb_cache::AuthCache>,
 
     // Service layer (protocol-agnostic business logic)
     pub evaluation_service: Arc<services::EvaluationService>,
@@ -168,21 +168,21 @@ pub struct AppState {
 
 /// Builder for AppState to avoid too many function arguments
 pub struct AppStateBuilder {
-    store: Arc<dyn infera_store::InferaStore>,
-    schema: Arc<infera_core::ipl::Schema>,
+    store: Arc<dyn inferadb_store::InferaStore>,
+    schema: Arc<inferadb_core::ipl::Schema>,
     config: Arc<Config>,
-    wasm_host: Option<Arc<infera_wasm::WasmHost>>,
+    wasm_host: Option<Arc<inferadb_wasm::WasmHost>>,
     jwks_cache: Option<Arc<JwksCache>>,
     default_vault: i64,
     default_organization: i64,
-    server_identity: Option<Arc<infera_auth::ServerIdentity>>,
+    server_identity: Option<Arc<inferadb_auth::ServerIdentity>>,
 }
 
 impl AppStateBuilder {
     /// Create a new AppStateBuilder with required parameters
     pub fn new(
-        store: Arc<dyn infera_store::InferaStore>,
-        schema: Arc<infera_core::ipl::Schema>,
+        store: Arc<dyn inferadb_store::InferaStore>,
+        schema: Arc<inferadb_core::ipl::Schema>,
         config: Arc<Config>,
     ) -> Self {
         Self {
@@ -198,7 +198,7 @@ impl AppStateBuilder {
     }
 
     /// Set the WASM host
-    pub fn wasm_host(mut self, wasm_host: Option<Arc<infera_wasm::WasmHost>>) -> Self {
+    pub fn wasm_host(mut self, wasm_host: Option<Arc<inferadb_wasm::WasmHost>>) -> Self {
         self.wasm_host = wasm_host;
         self
     }
@@ -224,7 +224,7 @@ impl AppStateBuilder {
     /// Set the server identity
     pub fn server_identity(
         mut self,
-        server_identity: Option<Arc<infera_auth::ServerIdentity>>,
+        server_identity: Option<Arc<inferadb_auth::ServerIdentity>>,
     ) -> Self {
         self.server_identity = server_identity;
         self
@@ -239,8 +239,8 @@ impl AppStateBuilder {
 impl AppState {
     /// Creates a new AppState builder
     pub fn builder(
-        store: Arc<dyn infera_store::InferaStore>,
-        schema: Arc<infera_core::ipl::Schema>,
+        store: Arc<dyn inferadb_store::InferaStore>,
+        schema: Arc<inferadb_core::ipl::Schema>,
         config: Arc<Config>,
     ) -> AppStateBuilder {
         AppStateBuilder::new(store, schema, config)
@@ -252,13 +252,13 @@ impl AppState {
 
         // Create shared cache
         let auth_cache = if builder.config.cache.enabled {
-            Arc::new(infera_cache::AuthCache::new(
+            Arc::new(inferadb_cache::AuthCache::new(
                 builder.config.cache.max_capacity,
                 std::time::Duration::from_secs(builder.config.cache.ttl_seconds),
             ))
         } else {
             // Create a minimal cache that won't be used
-            Arc::new(infera_cache::AuthCache::new(1, std::time::Duration::from_secs(1)))
+            Arc::new(inferadb_cache::AuthCache::new(1, std::time::Duration::from_secs(1)))
         };
 
         // Determine which cache to pass to services
@@ -267,42 +267,42 @@ impl AppState {
 
         // Create services with shared cache
         let evaluation_service = Arc::new(services::EvaluationService::new(
-            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.store) as Arc<dyn inferadb_store::RelationshipStore>,
             Arc::clone(&builder.schema),
             builder.wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let resource_service = Arc::new(services::ResourceService::new(
-            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.store) as Arc<dyn inferadb_store::RelationshipStore>,
             Arc::clone(&builder.schema),
             builder.wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let subject_service = Arc::new(services::SubjectService::new(
-            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.store) as Arc<dyn inferadb_store::RelationshipStore>,
             Arc::clone(&builder.schema),
             builder.wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let relationship_service = Arc::new(services::RelationshipService::new(
-            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.store) as Arc<dyn inferadb_store::RelationshipStore>,
             Arc::clone(&builder.schema),
             builder.wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let expansion_service = Arc::new(services::ExpansionService::new(
-            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>,
+            Arc::clone(&builder.store) as Arc<dyn inferadb_store::RelationshipStore>,
             Arc::clone(&builder.schema),
             builder.wasm_host.clone(),
             service_cache,
         ));
 
         let watch_service = Arc::new(services::WatchService::new(
-            Arc::clone(&builder.store) as Arc<dyn infera_store::RelationshipStore>
+            Arc::clone(&builder.store) as Arc<dyn inferadb_store::RelationshipStore>
         ));
 
         Self {
@@ -415,145 +415,146 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
     // Type alias for complex auth components tuple (reduces clippy::type_complexity)
     type AuthComponents = (
-        Arc<dyn infera_auth::VaultVerifier>,
-        Option<Arc<infera_auth::CertificateCache>>,
-        Option<Arc<infera_auth::ManagementApiVaultVerifier>>,
+        Arc<dyn inferadb_auth::VaultVerifier>,
+        Option<Arc<inferadb_auth::CertificateCache>>,
+        Option<Arc<inferadb_auth::ManagementApiVaultVerifier>>,
     );
 
     // Create VaultVerifier and CertificateCache instances based on configuration
-    let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents = if !state
-        .config
-        .auth
-        .management_api_url
-        .is_empty()
-    {
-        // Check if discovery is enabled for Management API
-        let management_client = if matches!(
-            state.config.auth.discovery.mode,
-            infera_config::DiscoveryMode::Kubernetes
-                | infera_config::DiscoveryMode::Tailscale { .. }
-        ) {
-            // Discovery enabled - create discovery service and load balancing client
-            info!(
-                "Management API discovery ENABLED - mode: {:?}",
-                state.config.auth.discovery.mode
-            );
+    let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents =
+        if !state.config.auth.management_api_url.is_empty() {
+            // Check if discovery is enabled for Management API
+            let management_client = if matches!(
+                state.config.auth.discovery.mode,
+                inferadb_config::DiscoveryMode::Kubernetes
+                    | inferadb_config::DiscoveryMode::Tailscale { .. }
+            ) {
+                // Discovery enabled - create discovery service and load balancing client
+                info!(
+                    "Management API discovery ENABLED - mode: {:?}",
+                    state.config.auth.discovery.mode
+                );
 
-            // Create discovery service based on mode
-            let discovery: Arc<dyn infera_discovery::EndpointDiscovery> =
-                match &state.config.auth.discovery.mode {
-                    infera_config::DiscoveryMode::Kubernetes => Arc::new(
-                        infera_discovery::KubernetesServiceDiscovery::new().await.map_err(|e| {
-                            ApiError::Internal(format!(
-                                "Failed to create Kubernetes discovery: {}",
-                                e
-                            ))
-                        })?,
-                    ),
-                    infera_config::DiscoveryMode::Tailscale { .. } => {
-                        return Err(ApiError::Internal(
-                            "Tailscale discovery not yet implemented".into(),
-                        ));
-                    },
-                    infera_config::DiscoveryMode::None => unreachable!(),
-                };
+                // Create discovery service based on mode
+                let discovery: Arc<dyn inferadb_discovery::EndpointDiscovery> =
+                    match &state.config.auth.discovery.mode {
+                        inferadb_config::DiscoveryMode::Kubernetes => Arc::new(
+                            inferadb_discovery::KubernetesServiceDiscovery::new().await.map_err(
+                                |e| {
+                                    ApiError::Internal(format!(
+                                        "Failed to create Kubernetes discovery: {}",
+                                        e
+                                    ))
+                                },
+                            )?,
+                        ),
+                        inferadb_config::DiscoveryMode::Tailscale { .. } => {
+                            return Err(ApiError::Internal(
+                                "Tailscale discovery not yet implemented".into(),
+                            ));
+                        },
+                        inferadb_config::DiscoveryMode::None => unreachable!(),
+                    };
 
-            // Perform initial discovery to get endpoints
-            let initial_endpoints =
-                discovery.discover(&state.config.auth.management_api_url).await.map_err(|e| {
-                    ApiError::Internal(format!("Initial endpoint discovery failed: {}", e))
-                })?;
+                // Perform initial discovery to get endpoints
+                let initial_endpoints =
+                    discovery.discover(&state.config.auth.management_api_url).await.map_err(
+                        |e| ApiError::Internal(format!("Initial endpoint discovery failed: {}", e)),
+                    )?;
 
-            info!("Discovered {} Management API endpoints", initial_endpoints.len());
+                info!("Discovered {} Management API endpoints", initial_endpoints.len());
 
-            // Create load balancing client with discovered endpoints
-            let lb_client = Arc::new(infera_discovery::LoadBalancingClient::new(initial_endpoints));
+                // Create load balancing client with discovered endpoints
+                let lb_client =
+                    Arc::new(inferadb_discovery::LoadBalancingClient::new(initial_endpoints));
 
-            // Create discovery refresher for background updates
-            let refresher = Arc::new(infera_discovery::DiscoveryRefresher::new(
-                Arc::clone(&discovery),
-                Arc::clone(&lb_client),
-                state.config.auth.discovery.cache_ttl_seconds,
-                state.config.auth.management_api_url.clone(),
+                // Create discovery refresher for background updates
+                let refresher = Arc::new(inferadb_discovery::DiscoveryRefresher::new(
+                    Arc::clone(&discovery),
+                    Arc::clone(&lb_client),
+                    state.config.auth.discovery.cache_ttl_seconds,
+                    state.config.auth.management_api_url.clone(),
+                ));
+
+                // Spawn background refresh task
+                Arc::clone(&refresher).spawn();
+                info!(
+                    "Discovery refresh task spawned (interval: {}s)",
+                    state.config.auth.discovery.cache_ttl_seconds
+                );
+
+                // Create ManagementClient with load balancing
+                Arc::new(
+                    inferadb_auth::ManagementClient::new(
+                        state.config.auth.management_api_url.clone(),
+                        state.config.auth.management_internal_api_url.clone(),
+                        state.config.auth.management_api_timeout_ms,
+                        Some(lb_client),
+                        state.server_identity.clone(),
+                    )
+                    .map_err(|e| {
+                        ApiError::Internal(format!(
+                            "Failed to create load-balanced management client: {}",
+                            e
+                        ))
+                    })?,
+                )
+            } else {
+                // Discovery disabled - use static URL (Kubernetes service handles load balancing)
+                info!(
+                    "Management API discovery DISABLED - using static URL: {}",
+                    state.config.auth.management_api_url
+                );
+
+                Arc::new(
+                    inferadb_auth::ManagementClient::new(
+                        state.config.auth.management_api_url.clone(),
+                        state.config.auth.management_internal_api_url.clone(),
+                        state.config.auth.management_api_timeout_ms,
+                        None,
+                        state.server_identity.clone(),
+                    )
+                    .map_err(|e| {
+                        ApiError::Internal(format!("Failed to create management client: {}", e))
+                    })?,
+                )
+            };
+
+            info!("Vault verification and certificate cache ENABLED");
+
+            let mgmt_verifier = Arc::new(inferadb_auth::ManagementApiVaultVerifier::new(
+                Arc::clone(&management_client),
+                std::time::Duration::from_secs(300), // 5 min vault cache TTL
+                std::time::Duration::from_secs(600), // 10 min org cache TTL
             ));
 
-            // Spawn background refresh task
-            Arc::clone(&refresher).spawn();
-            info!(
-                "Discovery refresh task spawned (interval: {}s)",
-                state.config.auth.discovery.cache_ttl_seconds
-            );
-
-            // Create ManagementClient with load balancing
-            Arc::new(
-                infera_auth::ManagementClient::new(
+            let cert_cache = Arc::new(
+                inferadb_auth::CertificateCache::new(
                     state.config.auth.management_api_url.clone(),
-                    state.config.auth.management_internal_api_url.clone(),
-                    state.config.auth.management_api_timeout_ms,
-                    Some(lb_client),
-                    state.server_identity.clone(),
+                    std::time::Duration::from_secs(300), // 5 min cert cache TTL
+                    1000,                                // Max 1000 cached certificates
                 )
                 .map_err(|e| {
-                    ApiError::Internal(format!(
-                        "Failed to create load-balanced management client: {}",
-                        e
-                    ))
+                    ApiError::Internal(format!("Failed to create certificate cache: {}", e))
                 })?,
-            )
+            );
+
+            // Keep both trait object and concrete type references
+            let vault_verifier_trait: Arc<dyn inferadb_auth::VaultVerifier> =
+                Arc::clone(&mgmt_verifier) as Arc<dyn inferadb_auth::VaultVerifier>;
+
+            (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
         } else {
-            // Discovery disabled - use static URL (Kubernetes service handles load balancing)
+            // Use no-op verifier when management API not configured
             info!(
-                "Management API discovery DISABLED - using static URL: {}",
-                state.config.auth.management_api_url
+                "Vault verification DISABLED - using no-op verifier (management API not configured)"
             );
-
-            Arc::new(
-                infera_auth::ManagementClient::new(
-                    state.config.auth.management_api_url.clone(),
-                    state.config.auth.management_internal_api_url.clone(),
-                    state.config.auth.management_api_timeout_ms,
-                    None,
-                    state.server_identity.clone(),
-                )
-                .map_err(|e| {
-                    ApiError::Internal(format!("Failed to create management client: {}", e))
-                })?,
+            (
+                Arc::new(inferadb_auth::NoOpVaultVerifier) as Arc<dyn inferadb_auth::VaultVerifier>,
+                None,
+                None,
             )
         };
-
-        info!("Vault verification and certificate cache ENABLED");
-
-        let mgmt_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
-            Arc::clone(&management_client),
-            std::time::Duration::from_secs(300), // 5 min vault cache TTL
-            std::time::Duration::from_secs(600), // 10 min org cache TTL
-        ));
-
-        let cert_cache = Arc::new(
-            infera_auth::CertificateCache::new(
-                state.config.auth.management_api_url.clone(),
-                std::time::Duration::from_secs(300), // 5 min cert cache TTL
-                1000,                                // Max 1000 cached certificates
-            )
-            .map_err(|e| {
-                ApiError::Internal(format!("Failed to create certificate cache: {}", e))
-            })?,
-        );
-
-        // Keep both trait object and concrete type references
-        let vault_verifier_trait: Arc<dyn infera_auth::VaultVerifier> =
-            Arc::clone(&mgmt_verifier) as Arc<dyn infera_auth::VaultVerifier>;
-
-        (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
-    } else {
-        // Use no-op verifier when management API not configured
-        info!("Vault verification DISABLED - using no-op verifier (management API not configured)");
-        (
-            Arc::new(infera_auth::NoOpVaultVerifier) as Arc<dyn infera_auth::VaultVerifier>,
-            None,
-            None,
-        )
-    };
 
     // Apply authentication middleware
     let protected_routes = if let Some(jwks_cache) = &state.jwks_cache {
@@ -569,7 +570,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             .layer(axum::middleware::from_fn(move |req, next| {
                 let verifier = Arc::clone(&vault_verifier_clone);
                 async move {
-                    infera_auth::enhanced_vault_validation_middleware(verifier).await(req, next)
+                    inferadb_auth::enhanced_vault_validation_middleware(verifier).await(req, next)
                         .await
                 }
             }))
@@ -577,7 +578,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                 let jwks_cache = Arc::clone(&jwks_cache_clone);
                 let cert_cache = cert_cache_clone.clone();
                 async move {
-                    infera_auth::middleware::auth_middleware(jwks_cache, cert_cache, req, next)
+                    inferadb_auth::middleware::auth_middleware(jwks_cache, cert_cache, req, next)
                         .await
                 }
             }))
@@ -649,7 +650,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
             .management_internal_api_url
             .clone()
             .unwrap_or_else(|| state.config.auth.management_api_url.clone());
-        let management_jwks_cache = Arc::new(infera_auth::ManagementJwksCache::new(
+        let management_jwks_cache = Arc::new(inferadb_auth::ManagementJwksCache::new(
             management_jwks_url,
             std::time::Duration::from_secs(900), // 15 minutes TTL
         ));
@@ -657,7 +658,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         // Create ManagementApiVaultVerifier for cache invalidation handlers
         // This requires creating a ManagementClient first
         let management_client = Arc::new(
-            infera_auth::ManagementClient::new(
+            inferadb_auth::ManagementClient::new(
                 state.config.auth.management_api_url.clone(),
                 state.config.auth.management_internal_api_url.clone(),
                 state.config.auth.management_api_timeout_ms,
@@ -669,7 +670,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
             })?,
         );
 
-        let mgmt_verifier = Arc::new(infera_auth::ManagementApiVaultVerifier::new(
+        let mgmt_verifier = Arc::new(inferadb_auth::ManagementApiVaultVerifier::new(
             Arc::clone(&management_client),
             std::time::Duration::from_secs(300), // 5 min vault cache TTL
             std::time::Duration::from_secs(600), // 10 min org cache TTL
@@ -677,7 +678,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
 
         // Create certificate cache for internal routes
         let cert_cache = Arc::new(
-            infera_auth::CertificateCache::new(
+            inferadb_auth::CertificateCache::new(
                 state.config.auth.management_api_url.clone(),
                 std::time::Duration::from_secs(300), // 5 min cert cache TTL
                 1000,                                // Max 1000 cached certificates
@@ -712,7 +713,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
                 // Apply Management JWT auth middleware
                 .layer(axum::middleware::from_fn(move |req, next| {
                     let cache = Arc::clone(&mgmt_cache_clone);
-                    async move { infera_auth::management_auth_middleware(cache, req, next).await }
+                    async move { inferadb_auth::management_auth_middleware(cache, req, next).await }
                 }))
                 .with_state(state.clone()),
         )
@@ -765,14 +766,14 @@ pub async fn serve_internal(
 
 /// Configuration for starting server components
 pub struct ServerComponents {
-    pub store: Arc<dyn infera_store::InferaStore>,
-    pub schema: Arc<infera_core::ipl::Schema>,
-    pub wasm_host: Option<Arc<infera_wasm::WasmHost>>,
+    pub store: Arc<dyn inferadb_store::InferaStore>,
+    pub schema: Arc<inferadb_core::ipl::Schema>,
+    pub wasm_host: Option<Arc<inferadb_wasm::WasmHost>>,
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub default_vault: i64,
     pub default_organization: i64,
-    pub server_identity: Option<Arc<infera_auth::ServerIdentity>>,
+    pub server_identity: Option<Arc<inferadb_auth::ServerIdentity>>,
 }
 
 impl ServerComponents {
@@ -794,7 +795,7 @@ impl ServerComponents {
 
 /// Start the gRPC server
 pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
-    use grpc::proto::infera_service_server::InferaServiceServer;
+    use grpc::proto::inferadb_service_server::InferadbServiceServer;
     use tonic::transport::Server;
 
     // Create AppState with services
@@ -804,14 +805,14 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     state.health_tracker.set_ready(true);
     state.health_tracker.set_startup_complete(true);
 
-    let service = grpc::InferaServiceImpl::new(state.clone());
+    let service = grpc::InferadbServiceImpl::new(state.clone());
 
     // Use port + 1 for gRPC by default
     let grpc_port = components.config.server.port + 1;
     let addr = format!("{}:{}", components.config.server.host, grpc_port).parse()?;
 
     // Set up reflection service
-    let file_descriptor_set = tonic::include_file_descriptor_set!("infera_descriptor");
+    let file_descriptor_set = tonic::include_file_descriptor_set!("inferadb_descriptor");
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(file_descriptor_set)
         .build_v1()?;
@@ -828,7 +829,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     info!("Starting gRPC server on {} with authentication enabled", addr);
 
     // Try to load internal JWKS if configured
-    let internal_loader = infera_auth::InternalJwksLoader::from_config(
+    let internal_loader = inferadb_auth::InternalJwksLoader::from_config(
         components.config.auth.internal_jwks_path.as_deref(),
         components.config.auth.internal_jwks_env.as_deref(),
     )
@@ -848,7 +849,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
 
     // Add service with interceptor and reflection
     Server::builder()
-        .add_service(InferaServiceServer::with_interceptor(service, interceptor))
+        .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
         .add_service(reflection_service)
         .serve(addr)
         .await?;
@@ -865,7 +866,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
 /// # Example
 ///
 /// ```ignore
-/// use infera_api::{create_test_router, AppState};
+/// use inferadb_api::{create_test_router, AppState};
 /// use integration::with_test_auth;
 ///
 /// let state = create_test_state();
@@ -928,16 +929,16 @@ mod tests {
         response::Response,
     };
     use handlers::relationships::{delete::DeleteResponse, write::WriteResponse};
-    use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-    use infera_store::MemoryBackend;
-    use infera_types::{AuthContext, AuthMethod, UsersetNodeType, UsersetTree};
+    use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::{AuthContext, AuthMethod, UsersetNodeType, UsersetTree};
     use serde_json::json;
     use tower::ServiceExt;
 
     use super::*;
 
     fn create_test_state() -> (AppState, Arc<Schema>) {
-        let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![
@@ -955,7 +956,7 @@ mod tests {
         let test_vault: i64 = 1;
         let test_account: i64 = 2;
 
-        let config = Arc::new(infera_config::Config::default());
+        let config = Arc::new(inferadb_config::Config::default());
 
         let state = AppState::builder(store, Arc::clone(&schema), config)
             .wasm_host(None)

@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use axum::{Extension, extract::Path, http::StatusCode, response::IntoResponse};
-use infera_auth::{CertificateCache, ManagementApiVaultVerifier};
+use inferadb_auth::{CertificateCache, ManagementApiVaultVerifier};
 
 /// Invalidate vault cache for a specific vault
 ///
@@ -148,7 +148,7 @@ pub async fn invalidate_certificate_cache(
 /// 200 OK with metrics in Prometheus text format, or
 /// 503 SERVICE UNAVAILABLE if metrics haven't been initialized
 pub async fn metrics_handler() -> impl IntoResponse {
-    match infera_observe::render_metrics() {
+    match inferadb_observe::render_metrics() {
         Some(metrics) => (
             StatusCode::OK,
             [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
@@ -164,7 +164,7 @@ mod tests {
     use std::time::Duration;
 
     use axum::{body::Body, http::Request};
-    use infera_auth::ManagementClient;
+    use inferadb_auth::ManagementClient;
     use tower::ServiceExt;
 
     use super::*;

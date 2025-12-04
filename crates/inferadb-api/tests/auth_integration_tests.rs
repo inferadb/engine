@@ -14,11 +14,11 @@ use axum::{
     http::{Request, StatusCode, header},
     routing::{get, post},
 };
-use infera_api::AppState;
-use infera_auth::jwks_cache::JwksCache;
-use infera_config::Config;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_store::MemoryBackend;
+use inferadb_api::AppState;
+use inferadb_auth::jwks_cache::JwksCache;
+use inferadb_config::Config;
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_store::MemoryBackend;
 use serde_json::json;
 use tower::ServiceExt;
 
@@ -141,7 +141,7 @@ mod common {
 }
 
 fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
         vec![
@@ -201,9 +201,9 @@ async fn test_missing_authorization_header() {
     let router = Router::new()
         .route(
             "/v1/evaluate",
-            post(infera_api::handlers::evaluate::stream::evaluate_stream_handler),
+            post(inferadb_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
-        .route("/health", get(infera_api::health::health_check_handler))
+        .route("/health", get(inferadb_api::health::health_check_handler))
         .with_state(state);
 
     let check_request = json!({
@@ -258,7 +258,7 @@ async fn test_malformed_authorization_header() {
     let router = Router::new()
         .route(
             "/v1/evaluate",
-            post(infera_api::handlers::evaluate::stream::evaluate_stream_handler),
+            post(inferadb_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
         .with_state(state);
 
@@ -321,7 +321,7 @@ async fn test_health_endpoint_unauthenticated() {
 
     // Create a router with just the health route (no auth middleware needed)
     let router = Router::new()
-        .route("/health", get(infera_api::health::health_check_handler))
+        .route("/health", get(inferadb_api::health::health_check_handler))
         .with_state(state);
 
     let response = router
@@ -360,7 +360,7 @@ async fn test_invalid_jwt_format() {
     let router = Router::new()
         .route(
             "/v1/evaluate",
-            post(infera_api::handlers::evaluate::stream::evaluate_stream_handler),
+            post(inferadb_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
         .with_state(state);
 

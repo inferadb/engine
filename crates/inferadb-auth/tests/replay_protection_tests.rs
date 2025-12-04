@@ -36,7 +36,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use infera_auth::{
+use inferadb_auth::{
     error::AuthError,
     replay::{InMemoryReplayProtection, ReplayProtection},
 };
@@ -379,7 +379,7 @@ async fn test_in_memory_mixed_concurrent_operations() {
 
 #[cfg(feature = "replay-protection")]
 mod redis_tests {
-    use infera_auth::replay::RedisReplayProtection;
+    use inferadb_auth::replay::RedisReplayProtection;
 
     use super::*;
 

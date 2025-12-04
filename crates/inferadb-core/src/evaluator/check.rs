@@ -132,7 +132,7 @@ impl Evaluator {
     }
 
     /// Get cache statistics
-    pub fn cache_stats(&self) -> Option<infera_cache::CacheStats> {
+    pub fn cache_stats(&self) -> Option<inferadb_cache::CacheStats> {
         self.cache.as_ref().map(|c| c.stats())
     }
 
@@ -448,7 +448,7 @@ impl Evaluator {
 
             RelationExpr::WasmModule { module_name } => {
                 // Execute WASM module to determine access
-                let _span = infera_observe::span_utils::wasm_span(module_name);
+                let _span = inferadb_observe::span_utils::wasm_span(module_name);
                 let _guard = _span.enter();
 
                 let wasm_host = self
@@ -456,7 +456,7 @@ impl Evaluator {
                     .as_ref()
                     .ok_or_else(|| EvalError::Evaluation("WASM host not configured".to_string()))?;
 
-                let exec_context = infera_wasm::ExecutionContext {
+                let exec_context = inferadb_wasm::ExecutionContext {
                     subject: subject.to_string(),
                     resource: resource.to_string(),
                     permission: "check".to_string(), // Default permission name
@@ -477,7 +477,7 @@ impl Evaluator {
                     })?;
 
                 debug!(module = %module_name, result = %result, "WASM module completed");
-                infera_observe::span_utils::record_wasm_result(
+                inferadb_observe::span_utils::record_wasm_result(
                     &_span,
                     0,
                     if result { 1 } else { 0 },

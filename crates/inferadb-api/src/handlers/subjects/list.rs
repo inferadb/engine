@@ -8,8 +8,8 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::{Stream, StreamExt, stream};
-use infera_const::scopes::*;
-use infera_types::ListSubjectsRequest;
+use inferadb_const::scopes::*;
+use inferadb_types::ListSubjectsRequest;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -39,7 +39,7 @@ pub struct ListSubjectsRestRequest {
 /// for large result sets.
 #[tracing::instrument(skip(state))]
 pub async fn list_subjects_stream_handler(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<ListSubjectsRestRequest>,

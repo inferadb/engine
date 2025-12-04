@@ -13,7 +13,7 @@ use axum::{
     http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
 };
-use infera_types::AuthContext;
+use inferadb_types::AuthContext;
 
 /// Extractor that requires authentication
 ///
@@ -25,7 +25,7 @@ use infera_types::AuthContext;
 ///
 /// ```rust,no_run
 /// use axum::{Json, response::Result};
-/// use infera_auth::extractor::RequireAuth;
+/// use inferadb_auth::extractor::RequireAuth;
 /// use serde_json::Value;
 ///
 /// async fn protected_handler(
@@ -68,7 +68,7 @@ where
 ///
 /// ```rust,no_run
 /// use axum::{Json, response::Result};
-/// use infera_auth::extractor::OptionalAuth;
+/// use inferadb_auth::extractor::OptionalAuth;
 /// use serde_json::Value;
 ///
 /// async fn flexible_handler(
@@ -102,7 +102,7 @@ where
 mod tests {
     use axum::http::{Request, StatusCode};
     use chrono::{Duration, Utc};
-    use infera_types::AuthMethod;
+    use inferadb_types::AuthMethod;
 
     use super::*;
 

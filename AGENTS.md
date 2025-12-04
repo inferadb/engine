@@ -7,7 +7,7 @@ Core policy engine for Relationship-Based Access Control (ReBAC). Handles IPL pa
 ```bash
 # Testing
 cargo nextest run --workspace          # All tests (preferred)
-cargo test -p infera-auth              # Specific crate
+cargo test -p inferadb-auth              # Specific crate
 cargo test test_name                   # Single test
 
 # Building & Quality
@@ -25,25 +25,25 @@ make dev                                     # Or use make
 
 ### Layered Dependencies (flow downward only)
 
-| Layer | Crates                                      | Purpose                               |
-| ----- | ------------------------------------------- | ------------------------------------- |
-| 0     | `infera-types`, `infera-const`              | Foundation types (zero internal deps) |
-| 1     | `infera-config`, `infera-observe`           | Configuration, telemetry              |
-| 2     | `infera-store`, `infera-cache`              | Storage abstraction, caching          |
-| 3     | `infera-wasm`, `infera-core`, `infera-auth` | Runtime, policy evaluation, auth      |
-| 4     | `infera-repl`, `infera-api`                 | REPL, API servers                     |
-| 5     | `infera-bin`                                | Binary entry point                    |
+| Layer | Crates                                            | Purpose                               |
+| ----- | ------------------------------------------------- | ------------------------------------- |
+| 0     | `inferadb-types`, `inferadb-const`                | Foundation types (zero internal deps) |
+| 1     | `inferadb-config`, `inferadb-observe`             | Configuration, telemetry              |
+| 2     | `inferadb-store`, `inferadb-cache`                | Storage abstraction, caching          |
+| 3     | `inferadb-wasm`, `inferadb-core`, `inferadb-auth` | Runtime, policy evaluation, auth      |
+| 4     | `inferadb-repl`, `inferadb-api`                   | REPL, API servers                     |
+| 5     | `inferadb-bin`                                    | Binary entry point                    |
 
 ### Key Crates
 
-| Crate          | Purpose                                                  |
-| -------------- | -------------------------------------------------------- |
-| `infera-types` | Shared types: Relationship, Vault, Account, Decision     |
-| `infera-store` | Storage: MemoryBackend (dev), FoundationDBBackend (prod) |
-| `infera-cache` | Two-layer caching, vault-scoped                          |
-| `infera-core`  | IPL parser, graph traversal, decision engine             |
-| `infera-auth`  | JWT (EdDSA/RS256 only), OAuth 2.0                        |
-| `infera-api`   | REST (Axum) + gRPC (Tonic), service layer                |
+| Crate            | Purpose                                                  |
+| ---------------- | -------------------------------------------------------- |
+| `inferadb-types` | Shared types: Relationship, Vault, Account, Decision     |
+| `inferadb-store` | Storage: MemoryBackend (dev), FoundationDBBackend (prod) |
+| `inferadb-cache` | Two-layer caching, vault-scoped                          |
+| `inferadb-core`  | IPL parser, graph traversal, decision engine             |
+| `inferadb-auth`  | JWT (EdDSA/RS256 only), OAuth 2.0                        |
+| `inferadb-api`   | REST (Axum) + gRPC (Tonic), service layer                |
 
 ## Critical Patterns
 
@@ -124,7 +124,7 @@ pub async fn my_handler(
 #[derive(Debug, Error)]
 pub enum MyError {
     #[error("Storage error")]
-    Store(#[from] infera_types::StoreError),
+    Store(#[from] inferadb_types::StoreError),
 }
 pub type Result<T> = std::result::Result<T, MyError>;
 ```
@@ -165,14 +165,14 @@ async fn test_vault_isolation() {
 
 - Unit tests: `#[cfg(test)] mod tests` in source files
 - Integration tests: `tests/` directory per crate
-- Fixtures: `crates/infera-test-fixtures`
+- Fixtures: `crates/inferadb-test-fixtures`
 
 ## Development Patterns
 
 ### Adding API Endpoint
 
-1. Define types in `infera-types`
-2. Add handler in `infera-api/src/handlers/{resource}/`
+1. Define types in `inferadb-types`
+2. Add handler in `inferadb-api/src/handlers/{resource}/`
 3. Extract `AuthContext`, validate vault
 4. Call service with vault parameter
 5. Add integration tests
@@ -187,8 +187,8 @@ async fn test_vault_isolation() {
 
 ### Adding Shared Type
 
-1. Add to `infera-types/src/mytype.rs`
-2. Export from `infera-types/src/lib.rs`
+1. Add to `inferadb-types/src/mytype.rs`
+2. Export from `inferadb-types/src/lib.rs`
 3. Re-export from original crate for compatibility
 
 ## Code Quality

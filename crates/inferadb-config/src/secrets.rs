@@ -49,7 +49,7 @@
 //! ### Using a single provider
 //!
 //! ```no_run
-//! use infera_config::secrets::{EnvSecretProvider, SecretProvider};
+//! use inferadb_config::secrets::{EnvSecretProvider, SecretProvider};
 //!
 //! let provider = EnvSecretProvider;
 //! let api_key = provider.get("API_KEY")?;
@@ -60,7 +60,7 @@
 //!
 //! ```no_run
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use infera_config::secrets::{CompositeSecretProvider, EnvSecretProvider, FileSecretProvider, SecretProvider};
+//! use inferadb_config::secrets::{CompositeSecretProvider, EnvSecretProvider, FileSecretProvider, SecretProvider};
 //!
 //! let provider = CompositeSecretProvider::new()
 //!     .add_provider(Box::new(EnvSecretProvider))
@@ -77,7 +77,7 @@
 //! ```no_run
 //! # #[cfg(feature = "gcp-secrets")]
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! use infera_config::secrets::{GcpSecretsProvider, SecretProvider};
+//! use inferadb_config::secrets::{GcpSecretsProvider, SecretProvider};
 //!
 //! let provider = GcpSecretsProvider::new("my-project-id").await?;
 //! let api_key = provider.get("api-key")?;
@@ -316,7 +316,7 @@ impl SecretProvider for AwsSecretsProvider {
 /// # Example
 ///
 /// ```no_run
-/// use infera_config::secrets::{GcpSecretsProvider, SecretProvider};
+/// use inferadb_config::secrets::{GcpSecretsProvider, SecretProvider};
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -350,7 +350,7 @@ impl GcpSecretsProvider {
     /// # Example
     ///
     /// ```no_run
-    /// # use infera_config::secrets::GcpSecretsProvider;
+    /// # use inferadb_config::secrets::GcpSecretsProvider;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let provider = GcpSecretsProvider::new("my-project-id").await?;
     /// # Ok(())
@@ -386,7 +386,7 @@ impl GcpSecretsProvider {
     /// # Example
     ///
     /// ```no_run
-    /// # use infera_config::secrets::GcpSecretsProvider;
+    /// # use inferadb_config::secrets::GcpSecretsProvider;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let provider = GcpSecretsProvider::new("my-project-id").await?;
     /// let secret = provider.get_async("api-key").await?;
@@ -466,7 +466,7 @@ impl SecretProvider for GcpSecretsProvider {
 /// # Example
 ///
 /// ```no_run
-/// use infera_config::secrets::{AzureSecretsProvider, SecretProvider};
+/// use inferadb_config::secrets::{AzureSecretsProvider, SecretProvider};
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -501,7 +501,7 @@ impl AzureSecretsProvider {
     /// # Example
     ///
     /// ```no_run
-    /// # use infera_config::secrets::AzureSecretsProvider;
+    /// # use inferadb_config::secrets::AzureSecretsProvider;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let provider = AzureSecretsProvider::new("https://my-vault.vault.azure.net/").await?;
     /// # Ok(())
@@ -541,7 +541,7 @@ impl AzureSecretsProvider {
     /// # Example
     ///
     /// ```no_run
-    /// # use infera_config::secrets::AzureSecretsProvider;
+    /// # use inferadb_config::secrets::AzureSecretsProvider;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let provider = AzureSecretsProvider::new("https://my-vault.vault.azure.net/").await?;
     /// let secret = provider.get_async("database-password").await?;

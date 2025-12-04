@@ -1,9 +1,9 @@
 syntax = "proto3";
 
-package infera.v1;
+package inferadb.v1;
 
 // The main Infera authorization service
-service InferaService {
+service InferadbService {
   // Evaluate if a subject has permission on a resource
   // Supports optional detailed tracing for debugging
   rpc Evaluate(stream EvaluateRequest) returns (stream EvaluateResponse);

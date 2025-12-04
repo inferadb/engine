@@ -3,7 +3,7 @@
 //! Provides storage operations for Vaults in the multi-tenant system.
 
 use async_trait::async_trait;
-use infera_types::{StoreResult, SystemConfig, Vault};
+use inferadb_types::{StoreResult, SystemConfig, Vault};
 
 /// Trait for vault storage operations
 #[async_trait]

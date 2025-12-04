@@ -17,7 +17,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use infera_const::scopes::*;
+//! use inferadb_const::scopes::*;
 //!
 //! // Check if user has admin scope
 //! let user_scopes = vec!["inferadb.admin", "inferadb.check"];
@@ -173,7 +173,7 @@ pub const ALL_SCOPES: &[&str] = &[
 /// # Examples
 ///
 /// ```
-/// use infera_const::scopes::{is_valid_scope, SCOPE_CHECK};
+/// use inferadb_const::scopes::{is_valid_scope, SCOPE_CHECK};
 ///
 /// assert!(is_valid_scope(SCOPE_CHECK));
 /// assert!(is_valid_scope("inferadb.check"));

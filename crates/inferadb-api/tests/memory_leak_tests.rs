@@ -27,11 +27,11 @@
 
 use std::{sync::Arc, time::Duration};
 
-use infera_api::AppState;
-use infera_config::Config;
-use infera_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use infera_store::MemoryBackend;
-use infera_types::{EvaluateRequest, ExpandRequest, Relationship};
+use inferadb_api::AppState;
+use inferadb_config::Config;
+use inferadb_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
+use inferadb_store::MemoryBackend;
+use inferadb_types::{EvaluateRequest, ExpandRequest, Relationship};
 
 /// Create test schema
 fn create_test_schema() -> Arc<Schema> {
@@ -52,7 +52,7 @@ fn create_test_schema() -> Arc<Schema> {
 
 /// Create test app state
 async fn create_test_state() -> AppState {
-    let store: Arc<dyn infera_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
     let vault = 12121212121212i64;
     let account = 13131313131313i64;
@@ -181,7 +181,7 @@ async fn test_no_memory_leak_in_storage_operations() {
         state.store.write(vault, relationships).await.unwrap();
 
         // Read them back
-        let list_request = infera_types::ListRelationshipsRequest {
+        let list_request = inferadb_types::ListRelationshipsRequest {
             resource: Some(format!("document:{}:*", iteration)),
             relation: None,
             subject: None,
@@ -311,7 +311,7 @@ async fn test_no_memory_leak_in_streaming() {
 
     // Repeatedly create and consume streams
     for _iteration in 0..500 {
-        let request = infera_types::ListRelationshipsRequest {
+        let request = inferadb_types::ListRelationshipsRequest {
             resource: None,
             relation: Some("viewer".to_string()),
             subject: None,

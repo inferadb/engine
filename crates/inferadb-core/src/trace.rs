@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use infera_types::Decision;
+use inferadb_types::Decision;
 use serde::{Deserialize, Serialize};
 
 /// A complete decision trace showing how a decision was reached

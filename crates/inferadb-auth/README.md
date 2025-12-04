@@ -16,7 +16,7 @@ This crate provides JWT-based authentication and authorization for the InferaDB 
 ### 1. Server Initialization
 
 ```rust
-use infera_auth::jwks_cache::JwksCache;
+use inferadb_auth::jwks_cache::JwksCache;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -39,7 +39,7 @@ let jwks_cache = Arc::new(JwksCache::new(
 
 ```rust
 use axum::{Router, routing::post};
-use infera_auth::middleware::optional_auth_middleware;
+use inferadb_auth::middleware::optional_auth_middleware;
 
 let protected_routes = Router::new()
     .route("/check", post(check_handler))
@@ -63,8 +63,8 @@ let app = Router::new()
 
 ```rust
 use axum::{Json, extract::State};
-use infera_auth::extractor::OptionalAuth;
-use infera_auth::middleware::require_scope;
+use inferadb_auth::extractor::OptionalAuth;
+use inferadb_auth::middleware::require_scope;
 
 async fn check_handler(
     auth: OptionalAuth,
@@ -96,7 +96,7 @@ async fn check_handler(
 Returns `Some(AuthContext)` if authenticated, `None` otherwise. Never fails, useful for endpoints that work with or without auth.
 
 ```rust
-use infera_auth::extractor::OptionalAuth;
+use inferadb_auth::extractor::OptionalAuth;
 
 async fn handler(auth: OptionalAuth) -> Result<Json<Response>> {
     if let Some(auth_ctx) = auth.0 {
@@ -113,7 +113,7 @@ async fn handler(auth: OptionalAuth) -> Result<Json<Response>> {
 Returns `AuthContext` or 401 if not authenticated.
 
 ```rust
-use infera_auth::extractor::RequireAuth;
+use inferadb_auth::extractor::RequireAuth;
 
 async fn protected_handler(
     RequireAuth(auth): RequireAuth,
@@ -129,7 +129,7 @@ async fn protected_handler(
 ### Single Scope
 
 ```rust
-use infera_auth::middleware::require_scope;
+use inferadb_auth::middleware::require_scope;
 
 // Require exactly one scope
 require_scope(&auth_ctx, "inferadb.write")?;
@@ -138,7 +138,7 @@ require_scope(&auth_ctx, "inferadb.write")?;
 ### Multiple Scopes (Any)
 
 ```rust
-use infera_auth::middleware::require_any_scope;
+use inferadb_auth::middleware::require_any_scope;
 
 // Require at least one of these scopes
 require_any_scope(&auth_ctx, &["inferadb.expand", "inferadb.check"])?;
@@ -264,7 +264,7 @@ Content-Type: application/json
 ### Unit Tests
 
 ```bash
-cargo test -p infera-auth
+cargo test -p inferadb-auth
 ```
 
 **Coverage:**
@@ -275,7 +275,7 @@ cargo test -p infera-auth
 ### Integration Tests
 
 ```bash
-cargo test -p infera-api --test auth_integration_tests
+cargo test -p inferadb-api --test auth_integration_tests
 ```
 
 **Coverage:**
@@ -331,7 +331,7 @@ flowchart TD
 
 ## Examples
 
-See the [integration tests](tests/auth_integration_tests.rs) in `infera-api` for complete examples of:
+See the [integration tests](tests/auth_integration_tests.rs) in `inferadb-api` for complete examples of:
 
 - Setting up authentication
 - Making authenticated requests

@@ -10,9 +10,9 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::{Stream, StreamExt};
-use infera_const::scopes::*;
-use infera_core::DecisionTrace;
-use infera_types::{Decision, EvaluateRequest};
+use inferadb_const::scopes::*;
+use inferadb_core::DecisionTrace;
+use inferadb_types::{Decision, EvaluateRequest};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -91,7 +91,7 @@ pub struct EvaluateSummary {
 /// - 400 Bad Request: Empty evaluations array or invalid request format
 #[tracing::instrument(skip(state))]
 pub async fn evaluate_stream_handler(
-    auth: infera_auth::extractor::OptionalAuth,
+    auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
     State(state): State<AppState>,
     Json(request): Json<EvaluateRestRequest>,

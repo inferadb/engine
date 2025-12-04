@@ -2,7 +2,7 @@
 //!
 //! Tests that forbid rules correctly override permit rules with explicit deny semantics.
 
-use infera_core::ipl::parse_schema;
+use inferadb_core::ipl::parse_schema;
 
 mod common;
 use common::{TestFixture, relationship};
@@ -213,7 +213,7 @@ async fn test_forbid_with_trace() {
         .unwrap();
 
     // Check with trace
-    let request = infera_types::EvaluateRequest {
+    let request = inferadb_types::EvaluateRequest {
         subject: "user:alice".to_string(),
         resource: "document:readme".to_string(),
         permission: "viewer".to_string(),
@@ -222,6 +222,6 @@ async fn test_forbid_with_trace() {
     };
 
     let trace = fixture.evaluator.check_with_trace(request).await.unwrap();
-    assert_eq!(trace.decision, infera_types::Decision::Deny, "Trace should show deny");
+    assert_eq!(trace.decision, inferadb_types::Decision::Deny, "Trace should show deny");
     assert!(trace.root.result, "Forbid node should be true (matched)");
 }

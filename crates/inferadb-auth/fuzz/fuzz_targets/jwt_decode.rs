@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use infera_auth::jwt::{decode_jwt_header, decode_jwt_claims};
+use inferadb_auth::jwt::{decode_jwt_header, decode_jwt_claims};
 
 fuzz_target!(|data: &[u8]| {
     // Convert bytes to string (allow invalid UTF-8)

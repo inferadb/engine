@@ -4,12 +4,12 @@
 
 use std::sync::Arc;
 
-use infera_core::{Evaluator, ipl::Schema};
-use infera_store::{MemoryBackend, RelationshipStore};
+use inferadb_core::{Evaluator, ipl::Schema};
+use inferadb_store::{MemoryBackend, RelationshipStore};
 // Re-export for use in tests
-pub use infera_types::Relationship;
-use infera_types::{Decision, EvaluateRequest};
-use infera_wasm::WasmHost;
+pub use inferadb_types::Relationship;
+use inferadb_types::{Decision, EvaluateRequest};
+use inferadb_wasm::WasmHost;
 
 /// Test fixture for setting up a complete evaluation environment
 pub struct TestFixture {

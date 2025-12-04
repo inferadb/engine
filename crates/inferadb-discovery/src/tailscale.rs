@@ -44,7 +44,7 @@ impl TailscaleServiceDiscovery {
     /// # Example
     ///
     /// ```rust
-    /// use infera_discovery::tailscale::{TailscaleServiceDiscovery, RemoteClusterConfig};
+    /// use inferadb_discovery::tailscale::{TailscaleServiceDiscovery, RemoteClusterConfig};
     ///
     /// let remote = RemoteClusterConfig {
     ///     name: "eu-west-1".to_string(),

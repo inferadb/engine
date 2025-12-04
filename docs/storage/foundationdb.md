@@ -87,7 +87,7 @@ pub struct FoundationDBBackend {
    ```toml
    # Cargo.toml
    [dependencies]
-   infera-store = { version = "0.1", features = ["fdb"] }
+   inferadb-store = { version = "0.1", features = ["fdb"] }
    ```
 
 ### Compilation
@@ -120,7 +120,7 @@ let backend = FoundationDBBackend::with_cluster_file(
 **Method 3: Storage Factory**
 
 ```rust
-use infera_store::{StorageFactory, StorageConfig};
+use inferadb_store::{StorageFactory, StorageConfig};
 
 let config = StorageConfig::foundationdb(
     Some("/etc/foundationdb/fdb.cluster".to_string())

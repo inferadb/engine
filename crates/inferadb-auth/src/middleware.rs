@@ -15,7 +15,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use infera_types::{AuthContext, AuthMethod};
+use inferadb_types::{AuthContext, AuthMethod};
 
 use crate::{
     certificate_cache::CertificateCache, error::AuthError, jwks_cache::JwksCache,
@@ -55,7 +55,7 @@ fn unauthorized_response(message: &str) -> Response {
 ///
 /// ```
 /// use axum::http::HeaderMap;
-/// use infera_auth::middleware::extract_bearer_token;
+/// use inferadb_auth::middleware::extract_bearer_token;
 ///
 /// let mut headers = HeaderMap::new();
 /// headers.insert("authorization", "Bearer eyJ0eXAi...".parse().unwrap());
@@ -313,7 +313,7 @@ async fn auth_middleware_impl(
 /// 2. Logs vault access for audit purposes
 ///
 /// For full validation including database checks, use
-/// `infera_api::vault_validation::validate_vault_access_with_store`.
+/// `inferadb_api::vault_validation::validate_vault_access_with_store`.
 ///
 /// # Arguments
 ///
@@ -369,7 +369,7 @@ pub fn validate_vault_access(auth: &AuthContext) -> Result<(), AuthError> {
 ///
 /// ```ignore
 /// use axum::{Router, middleware};
-/// use infera_auth::middleware::{auth_middleware, vault_validation_middleware};
+/// use inferadb_auth::middleware::{auth_middleware, vault_validation_middleware};
 ///
 /// let app = Router::new()
 ///     .route("/api/check", post(check_handler))

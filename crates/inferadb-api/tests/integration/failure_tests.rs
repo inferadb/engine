@@ -7,7 +7,7 @@
 //! - Concurrent write conflicts
 //! - Empty result sets
 
-use infera_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
+use inferadb_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
 
 use crate::{
     create_test_config, create_test_relationship, create_test_state, write_test_relationships,

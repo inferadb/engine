@@ -6,7 +6,7 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use infera_auth::internal::{InternalJwks, InternalJwksLoader};
+//! use inferadb_auth::internal::{InternalJwks, InternalJwksLoader};
 //!
 //! // Load JWKS from file
 //! let jwks = InternalJwks::from_file("/path/to/jwks.json")?;
@@ -23,7 +23,7 @@
 
 use std::{path::Path, sync::Arc};
 
-use infera_types::{AuthContext, AuthMethod};
+use inferadb_types::{AuthContext, AuthMethod};
 use jsonwebtoken::{Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;

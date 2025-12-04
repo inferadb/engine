@@ -2,11 +2,11 @@
 
 use std::sync::Arc;
 
-use infera_cache::AuthCache;
-use infera_core::{DecisionTrace, Evaluator, ipl::Schema};
-use infera_store::RelationshipStore;
-use infera_types::{Decision, EvaluateRequest};
-use infera_wasm::WasmHost;
+use inferadb_cache::AuthCache;
+use inferadb_core::{DecisionTrace, Evaluator, ipl::Schema};
+use inferadb_store::RelationshipStore;
+use inferadb_types::{Decision, EvaluateRequest};
+use inferadb_wasm::WasmHost;
 
 use super::validation::validate_evaluate_request;
 use crate::ApiError;
@@ -198,9 +198,9 @@ impl EvaluationService {
 
 #[cfg(test)]
 mod tests {
-    use infera_core::ipl::{RelationDef, RelationExpr, TypeDef};
-    use infera_store::MemoryBackend;
-    use infera_types::Relationship;
+    use inferadb_core::ipl::{RelationDef, RelationExpr, TypeDef};
+    use inferadb_store::MemoryBackend;
+    use inferadb_types::Relationship;
 
     use super::*;
 

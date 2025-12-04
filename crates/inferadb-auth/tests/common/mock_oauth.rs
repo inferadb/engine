@@ -21,7 +21,7 @@ use axum::{
     routing::{get, post},
 };
 use ed25519_dalek::{SigningKey, VerifyingKey};
-use infera_auth::{jwks_cache::Jwk, jwt::JwtClaims, oauth::IntrospectionResponse};
+use inferadb_auth::{jwks_cache::Jwk, jwt::JwtClaims, oauth::IntrospectionResponse};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};

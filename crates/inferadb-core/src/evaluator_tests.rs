@@ -1,5 +1,5 @@
-use infera_store::MemoryBackend;
-use infera_types::Relationship;
+use inferadb_store::MemoryBackend;
+use inferadb_types::Relationship;
 
 use super::*;
 use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};

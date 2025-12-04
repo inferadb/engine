@@ -143,7 +143,7 @@ jobs:
 
             - name: Run fuzz tests
               run: |
-                  cd crates/infera-auth
+                  cd crates/inferadb-auth
                   cargo +nightly fuzz run jwt_decode -- -max_total_time=600 -rss_limit_mb=2048
                   cargo +nightly fuzz run jwt_validation -- -max_total_time=600 -rss_limit_mb=2048
                   cargo +nightly fuzz run bearer_extraction -- -max_total_time=600 -rss_limit_mb=2048
@@ -153,7 +153,7 @@ jobs:
               uses: actions/upload-artifact@v3
               with:
                   name: fuzz-artifacts
-                  path: crates/infera-auth/fuzz/artifacts/
+                  path: crates/inferadb-auth/fuzz/artifacts/
 ```
 
 ## Expected Behavior
