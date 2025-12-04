@@ -239,14 +239,18 @@ impl AuthInterceptor {
 
 /// Synchronous interceptor implementation
 ///
-/// This uses futures::executor::block_on which doesn't conflict with tokio runtime
+/// Uses tokio::task::block_in_place to safely block within a tokio runtime context.
+/// This is necessary because the authentication process may need to make HTTP requests
+/// (e.g., fetching JWKS) which require an active tokio runtime.
 impl tonic::service::Interceptor for AuthInterceptor {
     fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
         let auth_future = self.authenticate(request.metadata());
 
-        // Use futures::executor::block_on instead of tokio::runtime::Handle::block_on
-        // This works even when inside a tokio runtime
-        let auth_result = futures::executor::block_on(auth_future);
+        // Use tokio::task::block_in_place to block safely within the tokio runtime.
+        // This moves the current task to a blocking thread, allowing other tasks to progress.
+        // Then use Handle::current().block_on() to execute the async authentication.
+        let auth_result =
+            tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(auth_future));
 
         match auth_result {
             Ok(auth_ctx) => {

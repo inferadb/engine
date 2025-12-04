@@ -92,7 +92,7 @@ async fn start_grpc_server_with_auth(
     (handle, port)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_metrics_after_successful_auth() {
     // This test verifies that authentication metrics are recorded correctly
     // After successful authentication, we should be able to observe:

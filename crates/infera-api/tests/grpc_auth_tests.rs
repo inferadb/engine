@@ -31,74 +31,98 @@ use tonic::{
 };
 
 mod common {
-    use std::sync::Arc;
+    use std::{
+        collections::HashMap,
+        net::SocketAddr,
+        sync::{Arc, Mutex, OnceLock},
+    };
 
-    use ed25519_dalek::SigningKey;
+    use axum::{Json, Router, extract::Path, routing::get};
+    use ed25519_dalek::{SigningKey, VerifyingKey};
+    use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
     use rand_core::OsRng;
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
-    use tokio::sync::RwLock;
-    use warp::Filter;
+    use tokio::task::JoinHandle;
+
+    /// Type alias for keypair storage to satisfy clippy::type_complexity
+    type KeypairStorage = Arc<Mutex<HashMap<String, (SigningKey, String)>>>;
+
+    /// Thread-safe storage for test keypairs
+    static TEST_KEYPAIRS: OnceLock<KeypairStorage> = OnceLock::new();
+
+    /// Get or create a keypair for a tenant
+    fn get_test_keypair_for_tenant(tenant: &str) -> (SigningKey, String) {
+        let keypairs = TEST_KEYPAIRS.get_or_init(|| Arc::new(Mutex::new(HashMap::new())));
+
+        let mut map = keypairs.lock().unwrap();
+        if let Some(key) = map.get(tenant) {
+            key.clone()
+        } else {
+            let signing_key = SigningKey::generate(&mut OsRng);
+            let kid = format!("{}-key-001", tenant);
+            map.insert(tenant.to_string(), (signing_key.clone(), kid.clone()));
+            (signing_key, kid)
+        }
+    }
+
+    /// Convert Ed25519 public key to JWK JSON
+    fn public_key_to_jwk_json(kid: &str, public_key: &VerifyingKey) -> serde_json::Value {
+        let x = base64::Engine::encode(
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+            public_key.as_bytes(),
+        );
+
+        json!({
+            "kty": "OKP",
+            "use": "sig",
+            "kid": kid,
+            "alg": "EdDSA",
+            "crv": "Ed25519",
+            "x": x
+        })
+    }
+
+    /// Mock JWKS endpoint handler
+    async fn jwks_handler(Path(tenant_json): Path<String>) -> Json<serde_json::Value> {
+        // Extract tenant from "{tenant}.json"
+        let tenant = tenant_json.strip_suffix(".json").unwrap_or(&tenant_json);
+
+        // Get or generate keypair for this tenant
+        let (signing_key, kid) = get_test_keypair_for_tenant(tenant);
+        let verifying_key = signing_key.verifying_key();
+
+        // Convert to JWK
+        let jwk = public_key_to_jwk_json(&kid, &verifying_key);
+
+        Json(json!({
+            "keys": [jwk]
+        }))
+    }
 
     /// Mock JWKS server for tenant JWT testing
     pub struct MockJwksServer {
-        pub keypair: SigningKey,
-        pub kid: String,
-        pub server: tokio::task::JoinHandle<()>,
-        pub port: u16,
+        pub base_url: String,
+        pub server: JoinHandle<()>,
     }
 
     impl MockJwksServer {
         pub async fn start() -> Self {
-            let keypair = SigningKey::generate(&mut OsRng);
-            let kid = "test-key-grpc-001".to_string();
-
-            // Create JWKS response
-            let public_key = keypair.verifying_key();
-            let public_key_bytes = public_key.to_bytes();
-            let x_base64 = base64::Engine::encode(
-                &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                public_key_bytes,
-            );
-
-            let jwks = json!({
-                "keys": [{
-                    "kty": "OKP",
-                    "crv": "Ed25519",
-                    "x": x_base64,
-                    "kid": kid,
-                    "use": "sig",
-                    "alg": "EdDSA"
-                }]
-            });
-
-            let jwks = Arc::new(RwLock::new(jwks));
-
-            // Start mock JWKS server on random port
-            let jwks_filter = {
-                let jwks = Arc::clone(&jwks);
-                warp::path!("tenants" / String / ".well-known" / "jwks.json")
-                    .and(warp::get())
-                    .and_then(move |_org_id: String| {
-                        let jwks = Arc::clone(&jwks);
-                        async move {
-                            let jwks = jwks.read().await;
-                            Ok::<_, std::convert::Infallible>(warp::reply::json(&*jwks))
-                        }
-                    })
-            };
+            let app =
+                Router::new().route("/v1/organizations/{tenant}/jwks.json", get(jwks_handler));
 
             // Bind to random port
-            let port = portpicker::pick_unused_port().expect("No free ports");
-            let addr = ([127, 0, 0, 1], port);
+            let addr = SocketAddr::from(([127, 0, 0, 1], 0));
+            let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+            let local_addr = listener.local_addr().unwrap();
+            let base_url = format!("http://{}", local_addr);
 
+            // Spawn server
             let server = tokio::spawn(async move {
-                warp::serve(jwks_filter).run(addr).await;
+                axum::serve(listener, app).await.unwrap();
             });
 
-            // Give server time to start
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-            Self { keypair, kid, server, port }
+            Self { base_url, server }
         }
 
         pub fn generate_tenant_jwt(
@@ -107,36 +131,37 @@ mod common {
             scopes: &[&str],
             expires_in_secs: i64,
         ) -> String {
-            use jsonwebtoken::{EncodingKey, Header, encode};
-            use serde::{Deserialize, Serialize};
-
             #[derive(Debug, Serialize, Deserialize)]
             struct Claims {
                 iss: String,
                 sub: String,
                 aud: String,
-                exp: i64,
-                iat: i64,
+                exp: u64,
+                iat: u64,
                 jti: String,
                 scope: String,
+                org_id: String,
             }
+
+            let (signing_key, kid) = get_test_keypair_for_tenant(org_id);
 
             let now = chrono::Utc::now().timestamp();
             let claims = Claims {
                 iss: format!("tenant:{}", org_id),
                 sub: format!("tenant:{}", org_id),
                 aud: "https://api.inferadb.com/evaluate".to_string(),
-                exp: now + expires_in_secs,
-                iat: now,
+                exp: (now + expires_in_secs) as u64,
+                iat: now as u64,
                 jti: uuid::Uuid::new_v4().to_string(),
                 scope: scopes.join(" "),
+                org_id: org_id.to_string(),
             };
 
-            let mut header = Header::new(jsonwebtoken::Algorithm::EdDSA);
-            header.kid = Some(self.kid.clone());
+            let mut header = Header::new(Algorithm::EdDSA);
+            header.kid = Some(kid);
 
             // Create PKCS#8 DER encoding for Ed25519
-            let private_bytes = self.keypair.to_bytes();
+            let private_bytes = signing_key.to_bytes();
             let mut pkcs8_der = vec![
                 0x30, 0x2e, // SEQUENCE, 46 bytes
                 0x02, 0x01, 0x00, // INTEGER version 0
@@ -147,7 +172,14 @@ mod common {
             ];
             pkcs8_der.extend_from_slice(&private_bytes);
 
-            let encoding_key = EncodingKey::from_ed_der(&pkcs8_der);
+            // Convert to PEM
+            let pem = format!(
+                "-----BEGIN PRIVATE KEY-----\n{}\n-----END PRIVATE KEY-----",
+                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &pkcs8_der)
+            );
+
+            let encoding_key =
+                EncodingKey::from_ed_pem(pem.as_bytes()).expect("Failed to create encoding key");
 
             encode(&header, &claims, &encoding_key).expect("Failed to encode JWT")
         }
@@ -239,7 +271,7 @@ async fn start_grpc_server_with_auth(
 // Health checks should be performed through authenticated channels or via
 // dedicated health check endpoints that bypass auth (if configured separately).
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_grpc_check_without_token() {
     // When auth is enabled, check without token should fail with UNAUTHENTICATED
     let cache = Arc::new(
@@ -288,7 +320,7 @@ async fn test_grpc_check_without_token() {
     server_handle.abort();
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_grpc_check_with_invalid_token() {
     // Invalid JWT should fail with UNAUTHENTICATED
     let cache = Arc::new(
@@ -343,8 +375,7 @@ async fn test_grpc_check_with_invalid_token() {
     server_handle.abort();
 }
 
-#[tokio::test]
-#[ignore] // TODO: Mock JWKS server needs optimization - test hangs during JWKS fetch
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_grpc_check_with_tenant_jwt() {
     // Start mock JWKS server
     let mock_jwks = common::MockJwksServer::start().await;
@@ -357,12 +388,7 @@ async fn test_grpc_check_with_tenant_jwt() {
     );
 
     let jwks_cache = Arc::new(
-        JwksCache::new(
-            format!("http://127.0.0.1:{}/tenants", mock_jwks.port),
-            cache,
-            Duration::from_secs(300),
-        )
-        .unwrap(),
+        JwksCache::new(mock_jwks.base_url.clone(), cache, Duration::from_secs(300)).unwrap(),
     );
 
     let state = create_test_state(Some(jwks_cache));
@@ -408,7 +434,7 @@ async fn test_grpc_check_with_tenant_jwt() {
     server_handle.abort();
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_grpc_check_with_internal_jwt() {
     // Generate internal keypair
     let keypair = generate_internal_keypair();
@@ -492,7 +518,7 @@ async fn test_grpc_check_with_internal_jwt() {
     server_handle.abort();
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_grpc_check_with_expired_internal_jwt() {
     // Generate internal keypair
     let keypair = generate_internal_keypair();
@@ -567,7 +593,7 @@ async fn test_grpc_check_with_expired_internal_jwt() {
     server_handle.abort();
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_grpc_lowercase_authorization_metadata() {
     // Verify that gRPC metadata normalization works correctly
     // (gRPC normalizes all metadata keys to lowercase)
