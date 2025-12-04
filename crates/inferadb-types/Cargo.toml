@@ -1,11 +1,15 @@
 [package]
 authors.workspace = true
-description = "Shared constants for InferaDB"
 edition.workspace = true
 license.workspace = true
-name = "infera-const"
+name = "inferadb-types"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }

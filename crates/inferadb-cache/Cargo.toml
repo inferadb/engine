@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-cache"
+name = "inferadb-cache"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
@@ -16,9 +16,9 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 # Internal dependencies
-infera-observe = { path = "../infera-observe" }
-infera-store = { path = "../infera-store" }
-infera-types = { path = "../infera-types" }
+inferadb-observe = { path = "../inferadb-observe" }
+inferadb-store = { path = "../inferadb-store" }
+inferadb-types = { path = "../inferadb-types" }
 
 [dev-dependencies]
 criterion = { workspace = true }

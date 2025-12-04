@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-wasm"
+name = "inferadb-wasm"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
@@ -16,7 +16,7 @@ tracing = { workspace = true }
 wasmtime = { workspace = true }
 
 # Internal dependencies
-infera-observe = { path = "../infera-observe" }
+inferadb-observe = { path = "../inferadb-observe" }
 
 [dev-dependencies]
 tokio-test = "0.4"

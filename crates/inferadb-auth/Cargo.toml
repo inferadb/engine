@@ -3,7 +3,7 @@ authors.workspace = true
 description = "Authentication and authorization for InferaDB"
 edition.workspace = true
 license.workspace = true
-name = "infera-auth"
+name = "inferadb-auth"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
@@ -39,10 +39,10 @@ redis = { version = "0.32.7", features = [
 ], optional = true }
 
 # Internal dependencies
-infera-config = { path = "../infera-config" }
-infera-discovery = { path = "../infera-discovery" }
-infera-observe = { path = "../infera-observe" }
-infera-types = { path = "../infera-types" }
+inferadb-config = { path = "../inferadb-config" }
+inferadb-discovery = { path = "../inferadb-discovery" }
+inferadb-observe = { path = "../inferadb-observe" }
+inferadb-types = { path = "../inferadb-types" }
 
 [dev-dependencies]
 axum = { workspace = true }

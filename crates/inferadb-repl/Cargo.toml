@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-repl"
+name = "inferadb-repl"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
@@ -19,11 +19,11 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 # Internal dependencies
-infera-api = { path = "../infera-api" }
-infera-const = { path = "../infera-const" }
-infera-observe = { path = "../infera-observe" }
-infera-store = { path = "../infera-store" }
-infera-types = { path = "../infera-types" }
+inferadb-api = { path = "../inferadb-api" }
+inferadb-const = { path = "../inferadb-const" }
+inferadb-observe = { path = "../inferadb-observe" }
+inferadb-store = { path = "../inferadb-store" }
+inferadb-types = { path = "../inferadb-types" }
 
 # gRPC for replication
 tonic = { workspace = true }

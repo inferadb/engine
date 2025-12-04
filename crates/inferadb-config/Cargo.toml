@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-config"
+name = "inferadb-config"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true

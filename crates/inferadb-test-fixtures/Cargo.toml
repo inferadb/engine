@@ -2,17 +2,17 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-test-fixtures"
+name = "inferadb-test-fixtures"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
 # Core types
-infera-types = { path = "../infera-types" }
+inferadb-types = { path = "../inferadb-types" }
 
 # Auth types
-infera-auth = { path = "../infera-auth" }
+inferadb-auth = { path = "../inferadb-auth" }
 
 # JWT and crypto
 base64 = { workspace = true }

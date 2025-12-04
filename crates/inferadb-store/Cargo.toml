@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-store"
+name = "inferadb-store"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
@@ -22,12 +22,12 @@ uuid = { workspace = true }
 foundationdb = { workspace = true, optional = true }
 
 # Internal dependencies
-infera-observe = { path = "../infera-observe" }
-infera-types = { path = "../infera-types" }
+inferadb-observe = { path = "../inferadb-observe" }
+inferadb-types = { path = "../inferadb-types" }
 
 [dev-dependencies]
 criterion = { workspace = true }
-infera-test-fixtures = { path = "../infera-test-fixtures" }
+inferadb-test-fixtures = { path = "../inferadb-test-fixtures" }
 proptest = { workspace = true }
 tokio-test = "0.4"
 

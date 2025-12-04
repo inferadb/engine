@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-core"
+name = "inferadb-core"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
@@ -26,16 +26,16 @@ pest_derive = "2.7"
 # nom = "7.1"
 
 # Internal dependencies
-infera-cache = { path = "../infera-cache" }
-infera-const = { path = "../infera-const" }
-infera-observe = { path = "../infera-observe" }
-infera-store = { path = "../infera-store" }
-infera-types = { path = "../infera-types" }
-infera-wasm = { path = "../infera-wasm" }
+inferadb-cache = { path = "../inferadb-cache" }
+inferadb-const = { path = "../inferadb-const" }
+inferadb-observe = { path = "../inferadb-observe" }
+inferadb-store = { path = "../inferadb-store" }
+inferadb-types = { path = "../inferadb-types" }
+inferadb-wasm = { path = "../inferadb-wasm" }
 
 [dev-dependencies]
 criterion = { workspace = true }
-infera-test-fixtures = { path = "../infera-test-fixtures" }
+inferadb-test-fixtures = { path = "../inferadb-test-fixtures" }
 proptest = { workspace = true }
 tokio-test = "0.4"
 wat = "1.0"

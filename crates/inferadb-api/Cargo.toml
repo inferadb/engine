@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-api"
+name = "inferadb-api"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
@@ -43,16 +43,16 @@ tonic-prost = "0.14"
 tonic-reflection = "0.14.2"
 
 # Internal dependencies
-infera-auth = { path = "../infera-auth" }
-infera-cache = { path = "../infera-cache" }
-infera-config = { path = "../infera-config" }
-infera-const = { path = "../infera-const" }
-infera-core = { path = "../infera-core" }
-infera-discovery = { path = "../infera-discovery" }
-infera-observe = { path = "../infera-observe" }
-infera-store = { path = "../infera-store" }
-infera-types = { path = "../infera-types" }
-infera-wasm = { path = "../infera-wasm" }
+inferadb-auth = { path = "../inferadb-auth" }
+inferadb-cache = { path = "../inferadb-cache" }
+inferadb-config = { path = "../inferadb-config" }
+inferadb-const = { path = "../inferadb-const" }
+inferadb-core = { path = "../inferadb-core" }
+inferadb-discovery = { path = "../inferadb-discovery" }
+inferadb-observe = { path = "../inferadb-observe" }
+inferadb-store = { path = "../inferadb-store" }
+inferadb-types = { path = "../inferadb-types" }
+inferadb-wasm = { path = "../inferadb-wasm" }
 
 [build-dependencies]
 tonic-build = "0.14.2"
@@ -63,7 +63,7 @@ base64 = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true }
 ed25519-dalek = { workspace = true }
-infera-test-fixtures = { path = "../infera-test-fixtures" }
+inferadb-test-fixtures = { path = "../inferadb-test-fixtures" }
 jsonwebtoken = { workspace = true }
 moka = { workspace = true }
 portpicker = "0.1"

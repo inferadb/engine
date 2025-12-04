@@ -2,13 +2,13 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-bin"
+name = "inferadb-bin"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
 [lib]
-name = "infera_bin"
+name = "inferadb_bin"
 path = "src/lib.rs"
 
 [[bin]]
@@ -25,15 +25,15 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 # Internal dependencies
-infera-api = { path = "../infera-api" }
-infera-auth = { path = "../infera-auth" }
-infera-cache = { path = "../infera-cache" }
-infera-config = { path = "../infera-config" }
-infera-core = { path = "../infera-core" }
-infera-observe = { path = "../infera-observe" }
-infera-store = { path = "../infera-store" }
-infera-types = { path = "../infera-types" }
-infera-wasm = { path = "../infera-wasm" }
+inferadb-api = { path = "../inferadb-api" }
+inferadb-auth = { path = "../inferadb-auth" }
+inferadb-cache = { path = "../inferadb-cache" }
+inferadb-config = { path = "../inferadb-config" }
+inferadb-core = { path = "../inferadb-core" }
+inferadb-observe = { path = "../inferadb-observe" }
+inferadb-store = { path = "../inferadb-store" }
+inferadb-types = { path = "../inferadb-types" }
+inferadb-wasm = { path = "../inferadb-wasm" }
 
 [dev-dependencies]
 futures = { workspace = true }

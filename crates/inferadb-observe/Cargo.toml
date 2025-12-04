@@ -2,14 +2,14 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "infera-observe"
+name = "inferadb-observe"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
 # Internal dependencies
-infera-types = { path = "../infera-types" }
+inferadb-types = { path = "../inferadb-types" }
 
 anyhow = { workspace = true }
 axum = { workspace = true, optional = true }
