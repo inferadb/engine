@@ -42,7 +42,7 @@ jobs:
 
       - name: Check for code changes
         id: filter
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
         with:
           filters: |
             code:
@@ -70,7 +70,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install Rust nightly toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # master
         with:
           toolchain: nightly
           components: rustfmt
@@ -116,7 +116,7 @@ jobs:
           sudo dpkg -i foundationdb-clients_7.3.69-1_amd64.deb
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -176,7 +176,7 @@ jobs:
         uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -228,7 +228,7 @@ jobs:
           tool: cargo-nextest
 
       - name: Restore build cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -240,7 +240,7 @@ jobs:
         run: cargo test --workspace --doc
 
       - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@82082dac68ad6a19d980f8ce817e108b9f496c2a # v2.18.0
+        uses: step-security/publish-unit-test-result-action@914f0f642c242f38335a491805adfc9bd64b1cbb # v2.21.1
         if: always()
         with:
           files: target/nextest/ci/junit.xml
@@ -275,7 +275,7 @@ jobs:
 
       - name: Check if infera-core was modified
         id: check-core
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
         with:
           filters: |
             core:
@@ -314,7 +314,7 @@ jobs:
 
       - name: Restore build cache
         if: steps.check-core.outputs.core == 'true'
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -344,7 +344,7 @@ jobs:
 
       - name: Check if infera-wasm was modified
         id: check-wasm
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
         with:
           filters: |
             wasm:
@@ -383,7 +383,7 @@ jobs:
 
       - name: Restore build cache
         if: steps.check-wasm.outputs.wasm == 'true'
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -431,7 +431,7 @@ jobs:
           tool: cargo-tarpaulin
 
       - name: Restore build cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -468,7 +468,7 @@ jobs:
           toolchain: stable
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
 
       - name: Check outdated dependencies
         run: |
