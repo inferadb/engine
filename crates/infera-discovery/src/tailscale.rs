@@ -388,7 +388,7 @@ mod tests {
         let config = RemoteClusterConfig {
             name: "ap-southeast-1".to_string(),
             tailscale_domain: "ap-southeast-1.ts.net".to_string(),
-            service_name: "inferadb-management-api".to_string(),
+            service_name: "inferadb-management".to_string(),
             port: 3000,
         };
 

@@ -96,7 +96,7 @@ spec:
             - name: INFERADB__AUTH__MANAGEMENT_API__DISCOVERY_MODE
               value: "kubernetes_service"
             - name: INFERADB__AUTH__MANAGEMENT_API__SERVICE_NAME
-              value: "inferadb-management-api"
+              value: "inferadb-management"
             - name: INFERADB__AUTH__MANAGEMENT_API__NAMESPACE
               valueFrom:
                 fieldRef:
