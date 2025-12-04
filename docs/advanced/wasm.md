@@ -50,38 +50,37 @@ fn check_session_limit(user: &str, current_sessions: u32) -> bool {
 
 ## Architecture
 
-```plaintext
-┌─────────────────────────────────────────┐
-│         Authorization Check              │
-└──────────────────┬──────────────────────┘
-                   │
-                   v
-┌─────────────────────────────────────────┐
-│      IPL Policy Definition               │
-│  relation viewer = check_access(...)     │
-└──────────────────┬──────────────────────┘
-                   │
-                   v
-┌─────────────────────────────────────────┐
-│         WasmHost                         │
-│  - Load modules                          │
-│  - Manage sandboxes                      │
-│  - Execute functions                     │
-└──────────────────┬──────────────────────┘
-                   │
-                   v
-┌─────────────────────────────────────────┐
-│         Wasmtime Engine                  │
-│  - JIT compilation                       │
-│  - Resource limiting                     │
-│  - Memory isolation                      │
-└──────────────────┬──────────────────────┘
-                   │
-                   v
-┌─────────────────────────────────────────┐
-│         WASM Module                      │
-│  (your custom logic)                     │
-└─────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Authorization Check"]
+    B["IPL Policy Definition<br/>relation viewer = check_access(...)"]
+    C["WasmHost"]
+    D["Wasmtime Engine"]
+    E["WASM Module<br/>(your custom logic)"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+
+    C1[Load modules]
+    C2[Manage sandboxes]
+    C3[Execute functions]
+
+    D1[JIT compilation]
+    D2[Resource limiting]
+    D3[Memory isolation]
+
+    C --- C1
+    C --- C2
+    C --- C3
+
+    D --- D1
+    D --- D2
+    D --- D3
+
+    style A fill:#4A90E2,stroke:#2E5C8A,color:#fff
+    style E fill:#50C878,stroke:#2E7D4E,color:#fff
 ```
 
 ## WASM Module Contract

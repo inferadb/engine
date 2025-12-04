@@ -14,38 +14,31 @@ The evaluation engine implements a graph-based algorithm that:
 
 ## Architecture
 
-```plaintext
-┌─────────────────────────────────────────┐
-│         CheckRequest                     │
-│  (subject, resource, permission)         │
-└──────────────────┬──────────────────────┘
-                   │
-                   v
-┌─────────────────────────────────────────┐
-│         Schema Lookup                    │
-│  Find type definition and relation       │
-└──────────────────┬──────────────────────┘
-                   │
-                   v
-┌─────────────────────────────────────────┐
-│      Relation Expression Parser          │
-│  Parse union|intersection|exclusion      │
-└──────────────────┬──────────────────────┘
-                   │
-                   v
-┌─────────────────────────────────────────┐
-│       Graph Traversal                    │
-│  - Direct tuple lookups                  │
-│  - Computed userset evaluation           │
-│  - Tuple-to-userset resolution           │
-│  - Recursive evaluation with cycle det.  │
-└──────────────────┬──────────────────────┘
-                   │
-                   v
-┌─────────────────────────────────────────┐
-│         Decision                         │
-│      (Allow or Deny)                     │
-└─────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["CheckRequest<br/>(subject, resource, permission)"]
+    B["Schema Lookup<br/>Find type definition and relation"]
+    C["Relation Expression Parser<br/>Parse union|intersection|exclusion"]
+    D["Graph Traversal"]
+    E["Decision<br/>(Allow or Deny)"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+
+    D1[Direct tuple lookups]
+    D2[Computed userset evaluation]
+    D3[Tuple-to-userset resolution]
+    D4[Recursive evaluation with cycle detection]
+
+    D --- D1
+    D --- D2
+    D --- D3
+    D --- D4
+
+    style A fill:#4A90E2,stroke:#2E5C8A,color:#fff
+    style E fill:#50C878,stroke:#2E7D4E,color:#fff
 ```
 
 ## Core Components
@@ -472,13 +465,27 @@ type document {
 
 **Expansion of `owner` on `doc:readme`**:
 
-```
-owner
-├── viewer (this)
-│   └── user:alice
-│   └── user:bob
-└── editor (this)
-    └── user:charlie
+```mermaid
+graph TD
+    owner[owner]
+    viewer["viewer (this)"]
+    editor["editor (this)"]
+    alice[user:alice]
+    bob[user:bob]
+    charlie[user:charlie]
+
+    owner --> viewer
+    owner --> editor
+    viewer --> alice
+    viewer --> bob
+    editor --> charlie
+
+    style owner fill:#4A90E2,stroke:#2E5C8A,color:#fff
+    style viewer fill:#FFB84D,stroke:#CC8A3D,color:#fff
+    style editor fill:#FFB84D,stroke:#CC8A3D,color:#fff
+    style alice fill:#50C878,stroke:#2E7D4E,color:#fff
+    style bob fill:#50C878,stroke:#2E7D4E,color:#fff
+    style charlie fill:#50C878,stroke:#2E7D4E,color:#fff
 ```
 
 **Algorithm**:
