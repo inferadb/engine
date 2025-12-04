@@ -176,7 +176,7 @@ jobs:
           mold --version
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
+        uses: taiki-e/install-action@493d7f216ecab2af0602481ce809ab2c72836fa1 # v2.62.62
         with:
           tool: cargo-nextest
 
@@ -261,7 +261,7 @@ jobs:
 
       - name: Install cargo-nextest
         if: steps.check-core.outputs.core == 'true'
-        uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
+        uses: taiki-e/install-action@493d7f216ecab2af0602481ce809ab2c72836fa1 # v2.62.62
         with:
           tool: cargo-nextest
 
@@ -330,7 +330,7 @@ jobs:
 
       - name: Install cargo-nextest
         if: steps.check-wasm.outputs.wasm == 'true'
-        uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
+        uses: taiki-e/install-action@493d7f216ecab2af0602481ce809ab2c72836fa1 # v2.62.62
         with:
           tool: cargo-nextest
 
@@ -379,7 +379,7 @@ jobs:
           mold --version
 
       - name: Install cargo-tarpaulin
-        uses: taiki-e/install-action@f535147c22906d77695e11cb199e764aa610a4fc # v2.62.46
+        uses: taiki-e/install-action@493d7f216ecab2af0602481ce809ab2c72836fa1 # v2.62.62
         with:
           tool: cargo-tarpaulin
 
