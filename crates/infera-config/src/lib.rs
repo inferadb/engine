@@ -520,8 +520,8 @@ fn default_discovery_health_check_interval() -> u64 {
 ///
 /// Environment:
 /// ```bash
-/// INFERA__MULTI_TENANCY__DEFAULT_VAULT=550e8400-e29b-41d4-a716-446655440000
-/// INFERA__MULTI_TENANCY__DEFAULT_ORGANIZATION=550e8400-e29b-41d4-a716-446655440001
+/// INFERADB__MULTI_TENANCY__DEFAULT_VAULT=550e8400-e29b-41d4-a716-446655440000
+/// INFERADB__MULTI_TENANCY__DEFAULT_ORGANIZATION=550e8400-e29b-41d4-a716-446655440001
 /// ```
 ///
 /// # Auto-Initialization
@@ -843,7 +843,7 @@ pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
 
     // Layer 3: Add environment variables (highest precedence)
     let builder =
-        builder.add_source(Environment::with_prefix("INFERA").separator("__").try_parsing(true));
+        builder.add_source(Environment::with_prefix("INFERADB").separator("__").try_parsing(true));
 
     let config = builder.build()?;
     config.try_deserialize()

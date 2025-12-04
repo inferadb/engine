@@ -661,18 +661,18 @@ Configuration can also be set via environment variables:
 
 ```bash
 # Core settings
-export INFERA__AUTH__ENABLED=true
-export INFERA__AUTH__MANAGEMENT_API_URL=http://localhost:8081
-export INFERA__AUTH__JWKS_BASE_URL=http://localhost:8081
+export INFERADB__AUTH__ENABLED=true
+export INFERADB__AUTH__MANAGEMENT_API_URL=http://localhost:8081
+export INFERADB__AUTH__JWKS_BASE_URL=http://localhost:8081
 
 # Cache configuration
-export INFERA__AUTH__CERT_CACHE_TTL_SECONDS=900
-export INFERA__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
+export INFERADB__AUTH__CERT_CACHE_TTL_SECONDS=900
+export INFERADB__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
 
 # Server identity
-export INFERA__AUTH__SERVER_IDENTITY_KID=server-primary-2024
-export INFERA__AUTH__SERVER_ID=inferadb-server-dev
-# Note: Set INFERA__AUTH__SERVER_IDENTITY_PRIVATE_KEY for production
+export INFERADB__AUTH__SERVER_IDENTITY_KID=server-primary-2024
+export INFERADB__AUTH__SERVER_ID=inferadb-server-dev
+# Note: Set INFERADB__AUTH__SERVER_IDENTITY_PRIVATE_KEY for production
 ```
 
 ### Metrics

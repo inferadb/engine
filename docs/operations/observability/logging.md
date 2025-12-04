@@ -20,7 +20,7 @@ Set log level via environment variables:
 
 ```bash
 # Via InferaDB configuration
-export INFERA__OBSERVABILITY__LOG_LEVEL=info
+export INFERADB__OBSERVABILITY__LOG_LEVEL=info
 
 # Or via RUST_LOG (more granular)
 export RUST_LOG=infera=debug,infera_api=info
@@ -40,10 +40,10 @@ Configure output format:
 
 ```bash
 # Compact format (human-readable, for development)
-export INFERA__OBSERVABILITY__LOG_FORMAT=compact
+export INFERADB__OBSERVABILITY__LOG_FORMAT=compact
 
 # JSON format (machine-parseable, for production)
-export INFERA__OBSERVABILITY__LOG_FORMAT=json
+export INFERADB__OBSERVABILITY__LOG_FORMAT=json
 ```
 
 ### Full Configuration Example
@@ -228,8 +228,8 @@ Maximum verbosity for debugging:
 
 ```bash
 export RUST_LOG=debug
-export INFERA__OBSERVABILITY__LOG_FORMAT=compact
-export INFERA__OBSERVABILITY__LOG_SPANS=true
+export INFERADB__OBSERVABILITY__LOG_FORMAT=compact
+export INFERADB__OBSERVABILITY__LOG_SPANS=true
 ```
 
 ### Production
@@ -238,8 +238,8 @@ Structured JSON with info level:
 
 ```bash
 export RUST_LOG=info,h2=warn,hyper=warn
-export INFERA__OBSERVABILITY__LOG_FORMAT=json
-export INFERA__OBSERVABILITY__LOG_SPANS=false
+export INFERADB__OBSERVABILITY__LOG_FORMAT=json
+export INFERADB__OBSERVABILITY__LOG_SPANS=false
 ```
 
 ### Debugging Specific Issue
@@ -266,7 +266,7 @@ Minimal logging for accurate benchmarks:
 
 ```bash
 export RUST_LOG=warn
-export INFERA__OBSERVABILITY__LOG_SPANS=false
+export INFERADB__OBSERVABILITY__LOG_SPANS=false
 ```
 
 ## Log Aggregation
@@ -605,7 +605,7 @@ info!("Check completed");
 Enable structured logging for log aggregation:
 
 ```bash
-export INFERA__OBSERVABILITY__LOG_FORMAT=json
+export INFERADB__OBSERVABILITY__LOG_FORMAT=json
 ```
 
 ### 4. Filter Noisy Logs

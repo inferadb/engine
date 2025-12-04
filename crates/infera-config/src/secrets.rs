@@ -698,15 +698,15 @@ mod tests {
     #[test]
     fn test_env_provider() {
         // Set test environment variable
-        std::env::set_var("INFERA_TEST_SECRET", "test_value");
+        std::env::set_var("INFERADB_TEST_SECRET", "test_value");
 
         let provider = EnvSecretProvider;
-        assert!(provider.has("INFERA_TEST_SECRET"));
-        assert_eq!(provider.get("INFERA_TEST_SECRET").unwrap(), "test_value");
+        assert!(provider.has("INFERADB_TEST_SECRET"));
+        assert_eq!(provider.get("INFERADB_TEST_SECRET").unwrap(), "test_value");
         assert!(!provider.has("NONEXISTENT_VAR"));
 
         // Clean up
-        std::env::remove_var("INFERA_TEST_SECRET");
+        std::env::remove_var("INFERADB_TEST_SECRET");
     }
 
     #[test]

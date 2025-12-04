@@ -24,22 +24,22 @@ curl http://localhost:8080/metrics
 ### Enable Tracing
 
 ```bash
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ```
 
 ### Configure Logging
 
 ```bash
-export INFERA__OBSERVABILITY__LOG_LEVEL=info
-export INFERA__OBSERVABILITY__LOG_FORMAT=json
+export INFERADB__OBSERVABILITY__LOG_LEVEL=info
+export INFERADB__OBSERVABILITY__LOG_FORMAT=json
 ```
 
 ### Enable Audit Logging
 
 ```bash
-export INFERA__OBSERVABILITY__AUDIT_ENABLED=true
-export INFERA__OBSERVABILITY__AUDIT_SAMPLE_RATE=1.0
+export INFERADB__OBSERVABILITY__AUDIT_ENABLED=true
+export INFERADB__OBSERVABILITY__AUDIT_SAMPLE_RATE=1.0
 ```
 
 ## Monitoring Stack

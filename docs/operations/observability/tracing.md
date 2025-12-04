@@ -19,7 +19,7 @@ Distributed tracing allows you to:
 
 ```bash
 # Enable tracing
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 
 # Configure OTLP endpoint
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
@@ -116,7 +116,7 @@ docker run -d --name jaeger \
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 inferadb
 ```
 
@@ -296,7 +296,7 @@ docker run -d --name otel-collector \
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://trace.agent.datadoghq.com
 export OTEL_EXPORTER_OTLP_HEADERS="DD-API-KEY=<your-api-key>"
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 ```
 
 ### New Relic
@@ -304,7 +304,7 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.nr-data.net:4317
 export OTEL_EXPORTER_OTLP_HEADERS="api-key=<your-license-key>"
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 ```
 
 ### AWS X-Ray
@@ -312,14 +312,14 @@ export INFERA__OBSERVABILITY__TRACING_ENABLED=true
 ```bash
 # Use OpenTelemetry Collector with AWS X-Ray exporter
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 ```
 
 ### Google Cloud Trace
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://cloudtrace.googleapis.com/v2/projects/PROJECT_ID/traces:batchWrite
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 ```
 
 ## Sampling Strategies

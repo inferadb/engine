@@ -130,11 +130,11 @@ Override configuration with environment variables:
 
 ```bash
 # Use memory backend (default)
-INFERA__STORE__BACKEND=memory
+INFERADB__STORE__BACKEND=memory
 
 # Use FoundationDB backend
-INFERA__STORE__BACKEND=foundationdb
-INFERA__STORE__CONNECTION_STRING=/etc/foundationdb/fdb.cluster
+INFERADB__STORE__BACKEND=foundationdb
+INFERADB__STORE__CONNECTION_STRING=/etc/foundationdb/fdb.cluster
 ```
 
 ## Storage Abstraction

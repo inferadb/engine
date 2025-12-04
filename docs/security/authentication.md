@@ -454,31 +454,31 @@ auth:
 
 ### Environment Variables
 
-All configuration can be set via environment variables with the `INFERA__` prefix:
+All configuration can be set via environment variables with the `INFERADB__` prefix:
 
 ```bash
 # Enable authentication
-export INFERA__AUTH__ENABLED=true
+export INFERADB__AUTH__ENABLED=true
 
 # JWKS configuration
-export INFERA__AUTH__JWKS_BASE_URL=https://your-domain.com/jwks
-export INFERA__AUTH__JWKS_CACHE_TTL=300
+export INFERADB__AUTH__JWKS_BASE_URL=https://your-domain.com/jwks
+export INFERADB__AUTH__JWKS_CACHE_TTL=300
 
 # Audience validation
-export INFERA__AUTH__ENFORCE_AUDIENCE=true
-export INFERA__AUTH__AUDIENCE=https://api.inferadb.com/evaluate
+export INFERADB__AUTH__ENFORCE_AUDIENCE=true
+export INFERADB__AUTH__AUDIENCE=https://api.inferadb.com/evaluate
 
 # Replay protection
-export INFERA__AUTH__REPLAY_PROTECTION=true
-export INFERA__AUTH__REDIS_URL=redis://localhost:6379
+export INFERADB__AUTH__REPLAY_PROTECTION=true
+export INFERADB__AUTH__REDIS_URL=redis://localhost:6379
 
 # Clock skew tolerance
-export INFERA__AUTH__CLOCK_SKEW_SECONDS=30
+export INFERADB__AUTH__CLOCK_SKEW_SECONDS=30
 
 # OAuth introspection (optional)
-export INFERA__AUTH__OAUTH_INTROSPECTION_ENDPOINT=https://auth.example.com/oauth/introspect
-export INFERA__AUTH__OAUTH_INTROSPECTION_CLIENT_ID=inferadb-server
-export INFERA__AUTH__OAUTH_INTROSPECTION_CLIENT_SECRET=<secret>
+export INFERADB__AUTH__OAUTH_INTROSPECTION_ENDPOINT=https://auth.example.com/oauth/introspect
+export INFERADB__AUTH__OAUTH_INTROSPECTION_CLIENT_ID=inferadb-server
+export INFERADB__AUTH__OAUTH_INTROSPECTION_CLIENT_SECRET=<secret>
 ```
 
 ### Disabling Authentication (Development Only)
@@ -486,7 +486,7 @@ export INFERA__AUTH__OAUTH_INTROSPECTION_CLIENT_SECRET=<secret>
 For local development and testing, you can disable authentication:
 
 ```bash
-export INFERA__AUTH__ENABLED=false
+export INFERADB__AUTH__ENABLED=false
 ```
 
 **⚠️ WARNING**: Never disable authentication in production!
@@ -884,7 +884,7 @@ observability:
 Or via environment variable:
 
 ```bash
-export INFERA__OBSERVABILITY__LOG_LEVEL=debug
+export INFERADB__OBSERVABILITY__LOG_LEVEL=debug
 ```
 
 This will log detailed authentication information:

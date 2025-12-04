@@ -392,11 +392,11 @@ inferadb_replication_targets_connected / inferadb_replication_targets_total
 
 ```bash
 # Replication agent settings
-export INFERA__REPLICATION__MAX_RETRIES=5
-export INFERA__REPLICATION__RETRY_DELAY_MS=100
-export INFERA__REPLICATION__BATCH_SIZE=100
-export INFERA__REPLICATION__REQUEST_TIMEOUT_SECS=10
-export INFERA__REPLICATION__BUFFER_SIZE=10000
+export INFERADB__REPLICATION__MAX_RETRIES=5
+export INFERADB__REPLICATION__RETRY_DELAY_MS=100
+export INFERADB__REPLICATION__BATCH_SIZE=100
+export INFERADB__REPLICATION__REQUEST_TIMEOUT_SECS=10
+export INFERADB__REPLICATION__BUFFER_SIZE=10000
 ```
 
 ### YAML Configuration
@@ -554,7 +554,7 @@ replication:
 **Solutions:**
 
 1. Check network connectivity: `ping <target-endpoint>`
-2. Reduce batch size: `INFERA__REPLICATION__BATCH_SIZE=50`
+2. Reduce batch size: `INFERADB__REPLICATION__BATCH_SIZE=50`
 3. Increase parallelism (add more nodes)
 4. Check target region CPU/memory
 

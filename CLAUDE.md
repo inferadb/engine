@@ -281,11 +281,11 @@ pub type Result<T> = std::result::Result<T, MyError>;
 **Precedence (highest to lowest):**
 
 1. Command-line arguments (`--port 8080`)
-2. Environment variables (`INFERA__SERVER__PORT=8080`)
+2. Environment variables (`INFERADB__SERVER__PORT=8080`)
 3. Configuration file (`config.yaml`)
 4. Default values
 
-**Environment variable format:** Use `INFERA__` prefix and `__` separator.
+**Environment variable format:** Use `INFERADB__` prefix and `__` separator.
 
 ---
 

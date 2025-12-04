@@ -41,9 +41,9 @@ Create secrets using kubectl (not checked into git):
 
 ```bash
 kubectl create secret generic inferadb-secrets \
-  --from-literal=INFERA__AUTH__JWKS_URL="https://your-auth.example.com/.well-known/jwks.json" \
-  --from-literal=INFERA__AUTH__REDIS_URL="redis://redis-master:6379" \
-  --from-literal=INFERA__AUTH__OIDC_CLIENT_SECRET="your-secret-here" \
+  --from-literal=INFERADB__AUTH__JWKS_URL="https://your-auth.example.com/.well-known/jwks.json" \
+  --from-literal=INFERADB__AUTH__REDIS_URL="redis://redis-master:6379" \
+  --from-literal=INFERADB__AUTH__OIDC_CLIENT_SECRET="your-secret-here" \
   -n inferadb
 ```
 
@@ -84,9 +84,9 @@ kubectl logs -n inferadb -l app=inferadb --tail=100
 
 Configuration is managed through ConfigMap (`configmap.yaml`). Key settings:
 
-- `INFERA__SERVER__WORKER_THREADS`: Number of Tokio worker threads (default: 4)
-- `INFERA__CACHE__MAX_CAPACITY`: Maximum cache entries (default: 100000)
-- `INFERA__AUTH__ENABLED`: Enable authentication (default: true)
+- `INFERADB__SERVER__WORKER_THREADS`: Number of Tokio worker threads (default: 4)
+- `INFERADB__CACHE__MAX_CAPACITY`: Maximum cache entries (default: 100000)
+- `INFERADB__AUTH__ENABLED`: Enable authentication (default: true)
 
 See [docs/configuration-reference.md](../docs/configuration-reference.md) for all options.
 
@@ -153,7 +153,7 @@ The deployment includes three health probes:
 
 ```yaml
 env:
-    - name: INFERA__STORE__BACKEND
+    - name: INFERADB__STORE__BACKEND
       value: "memory"
 ```
 
@@ -184,7 +184,7 @@ spec:
 3. Update ConfigMap with cluster file location:
 
 ```yaml
-INFERA__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
+INFERADB__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
 ```
 
 ## Monitoring

@@ -176,7 +176,7 @@ Match worker threads to CPU allocation:
 ```bash
 # For 4 CPU cores, set 4 worker threads
 kubectl set env deployment/inferadb \
-  INFERA__SERVER__WORKER_THREADS=4 \
+  INFERADB__SERVER__WORKER_THREADS=4 \
   -n inferadb
 ```
 
@@ -187,7 +187,7 @@ Scale cache with available memory:
 ```bash
 # For 4Gi memory, use ~2M cache capacity
 kubectl set env deployment/inferadb \
-  INFERA__CACHE__MAX_CAPACITY=2000000 \
+  INFERADB__CACHE__MAX_CAPACITY=2000000 \
   -n inferadb
 ```
 

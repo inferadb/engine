@@ -154,7 +154,7 @@ make ci          # Simulate CI checks locally
 Configure InferaDB using any combination of:
 
 1. **Configuration file** (`config.yaml`)
-2. **Environment variables** (`INFERA__SERVER__PORT=8080`)
+2. **Environment variables** (`INFERADB__SERVER__PORT=8080`)
 3. **Command-line arguments** (`--port 8080`)
 
 **Example Production Configuration:**
@@ -299,13 +299,13 @@ InferaDB integrates with the **InferaDB Management API** for authentication. The
 Configure authentication via environment variables:
 
 ```bash
-export INFERA__AUTH__ENABLED=true
-export INFERA__AUTH__MANAGEMENT_API_URL=http://localhost:8081
-export INFERA__AUTH__MANAGEMENT_API_TIMEOUT_MS=5000
-export INFERA__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
-export INFERA__AUTH__CERT_CACHE_TTL_SECONDS=900
-export INFERA__AUTH__MANAGEMENT_VERIFY_VAULT_OWNERSHIP=true
-export INFERA__AUTH__MANAGEMENT_VERIFY_ORG_STATUS=true
+export INFERADB__AUTH__ENABLED=true
+export INFERADB__AUTH__MANAGEMENT_API_URL=http://localhost:8081
+export INFERADB__AUTH__MANAGEMENT_API_TIMEOUT_MS=5000
+export INFERADB__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
+export INFERADB__AUTH__CERT_CACHE_TTL_SECONDS=900
+export INFERADB__AUTH__MANAGEMENT_VERIFY_VAULT_OWNERSHIP=true
+export INFERADB__AUTH__MANAGEMENT_VERIFY_ORG_STATUS=true
 ```
 
 ### JWT Token Format

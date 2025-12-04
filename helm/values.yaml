@@ -300,7 +300,7 @@ externalSecrets:
     kind: SecretStore # or ClusterSecretStore
   refreshInterval: 1h
   data: []
-    # - secretKey: INFERA__AUTH__JWKS_URL
+    # - secretKey: INFERADB__AUTH__JWKS_URL
     #   remoteRef:
     #     key: inferadb/prod/auth
     #     property: jwks_url

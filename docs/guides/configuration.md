@@ -24,7 +24,7 @@ InferaDB supports configuration through multiple sources with the following prec
 2. **Configuration file**
 3. **Default values** (lowest priority)
 
-Configuration files use **YAML or JSON** format, and environment variables use the `INFERA__` prefix with double underscores (`__`) as separators.
+Configuration files use **YAML or JSON** format, and environment variables use the `INFERADB__` prefix with double underscores (`__`) as separators.
 
 ## Configuration Methods
 
@@ -95,29 +95,29 @@ inferadb --config config.yaml
 
 ### Method 2: Environment Variables
 
-All configuration options can be set via environment variables using the `INFERA__` prefix:
+All configuration options can be set via environment variables using the `INFERADB__` prefix:
 
 ```bash
 # Server configuration
-export INFERA__SERVER__HOST="0.0.0.0"
-export INFERA__SERVER__PORT=8080
-export INFERA__SERVER__WORKER_THREADS=4
+export INFERADB__SERVER__HOST="0.0.0.0"
+export INFERADB__SERVER__PORT=8080
+export INFERADB__SERVER__WORKER_THREADS=4
 
 # Store configuration
-export INFERA__STORE__BACKEND="memory"
+export INFERADB__STORE__BACKEND="memory"
 
 # Cache configuration
-export INFERA__CACHE__ENABLED=true
-export INFERA__CACHE__MAX_CAPACITY=10000
-export INFERA__CACHE__TTL_SECONDS=300
+export INFERADB__CACHE__ENABLED=true
+export INFERADB__CACHE__MAX_CAPACITY=10000
+export INFERADB__CACHE__TTL_SECONDS=300
 
 # Observability configuration
-export INFERA__OBSERVABILITY__LOG_LEVEL="info"
-export INFERA__OBSERVABILITY__METRICS_ENABLED=true
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__LOG_LEVEL="info"
+export INFERADB__OBSERVABILITY__METRICS_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 
 # Authentication configuration
-export INFERA__AUTH__ENABLED=false
+export INFERADB__AUTH__ENABLED=false
 ```
 
 ### Method 3: Combined (File + Environment)
@@ -127,7 +127,7 @@ Environment variables override file configuration:
 ```bash
 # config.yaml sets port to 8080
 # Environment variable overrides to 3000
-export INFERA__SERVER__PORT=3000
+export INFERADB__SERVER__PORT=3000
 inferadb --config config.yaml
 # Server starts on port 3000
 ```
@@ -167,9 +167,9 @@ server:
 ### Environment Variables
 
 ```bash
-export INFERA__SERVER__HOST="0.0.0.0"
-export INFERA__SERVER__PORT=8080
-export INFERA__SERVER__WORKER_THREADS=8
+export INFERADB__SERVER__HOST="0.0.0.0"
+export INFERADB__SERVER__PORT=8080
+export INFERADB__SERVER__WORKER_THREADS=8
 ```
 
 ### Recommendations
@@ -219,8 +219,8 @@ store:
 ### Environment Variables
 
 ```bash
-export INFERA__STORE__BACKEND="foundationdb"
-export INFERA__STORE__CONNECTION_STRING="/etc/foundationdb/fdb.cluster"
+export INFERADB__STORE__BACKEND="foundationdb"
+export INFERADB__STORE__CONNECTION_STRING="/etc/foundationdb/fdb.cluster"
 ```
 
 ### Recommendations
@@ -270,9 +270,9 @@ cache:
 ### Environment Variables
 
 ```bash
-export INFERA__CACHE__ENABLED=true
-export INFERA__CACHE__MAX_CAPACITY=100000
-export INFERA__CACHE__TTL_SECONDS=600
+export INFERADB__CACHE__ENABLED=true
+export INFERADB__CACHE__MAX_CAPACITY=100000
+export INFERADB__CACHE__TTL_SECONDS=600
 ```
 
 ### Memory Usage
@@ -326,9 +326,9 @@ observability:
 ### Environment Variables
 
 ```bash
-export INFERA__OBSERVABILITY__LOG_LEVEL="info"
-export INFERA__OBSERVABILITY__METRICS_ENABLED=true
-export INFERA__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__OBSERVABILITY__LOG_LEVEL="info"
+export INFERADB__OBSERVABILITY__METRICS_ENABLED=true
+export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 ```
 
 ### Additional Configuration
@@ -470,18 +470,18 @@ auth:
 
 ```bash
 # Core authentication
-export INFERA__AUTH__ENABLED=true
-export INFERA__AUTH__JWKS_BASE_URL="https://your-domain.com/jwks"
+export INFERADB__AUTH__ENABLED=true
+export INFERADB__AUTH__JWKS_BASE_URL="https://your-domain.com/jwks"
 
 # OAuth/OIDC
-export INFERA__AUTH__OAUTH_ENABLED=true
-export INFERA__AUTH__OIDC_DISCOVERY_URL="https://auth.example.com/.well-known/openid-configuration"
-export INFERA__AUTH__OIDC_CLIENT_ID="inferadb-server"
-export INFERA__AUTH__OIDC_CLIENT_SECRET="secret"
+export INFERADB__AUTH__OAUTH_ENABLED=true
+export INFERADB__AUTH__OIDC_DISCOVERY_URL="https://auth.example.com/.well-known/openid-configuration"
+export INFERADB__AUTH__OIDC_CLIENT_ID="inferadb-server"
+export INFERADB__AUTH__OIDC_CLIENT_SECRET="secret"
 
 # Replay protection
-export INFERA__AUTH__REPLAY_PROTECTION=true
-export INFERA__AUTH__REDIS_URL="redis://localhost:6379"
+export INFERADB__AUTH__REPLAY_PROTECTION=true
+export INFERADB__AUTH__REDIS_URL="redis://localhost:6379"
 ```
 
 ## Configuration Profiles
@@ -578,9 +578,9 @@ auth:
 Use environment variables for sensitive values:
 
 ```bash
-export INFERA__AUTH__OIDC_CLIENT_SECRET="secret-value"
-export INFERA__AUTH__REDIS_URL="redis://:password@localhost:6379"
-export INFERA__STORE__CONNECTION_STRING="/etc/foundationdb/fdb.cluster"
+export INFERADB__AUTH__OIDC_CLIENT_SECRET="secret-value"
+export INFERADB__AUTH__REDIS_URL="redis://:password@localhost:6379"
+export INFERADB__STORE__CONNECTION_STRING="/etc/foundationdb/fdb.cluster"
 ```
 
 ### Docker Secrets
@@ -592,7 +592,7 @@ echo "my-secret-value" | docker secret create oauth_client_secret -
 
 docker service create \
   --secret oauth_client_secret \
-  --env INFERA__AUTH__OIDC_CLIENT_SECRET_FILE=/run/secrets/oauth_client_secret \
+  --env INFERADB__AUTH__OIDC_CLIENT_SECRET_FILE=/run/secrets/oauth_client_secret \
   inferadb:latest
 ```
 
@@ -612,12 +612,12 @@ stringData:
 ```yaml
 # In deployment
 env:
-    - name: INFERA__AUTH__OIDC_CLIENT_SECRET
+    - name: INFERADB__AUTH__OIDC_CLIENT_SECRET
       valueFrom:
           secretKeyRef:
               name: inferadb-secrets
               key: oauth-client-secret
-    - name: INFERA__AUTH__REDIS_URL
+    - name: INFERADB__AUTH__REDIS_URL
       valueFrom:
           secretKeyRef:
               name: inferadb-secrets
@@ -629,7 +629,7 @@ env:
 **AWS Secrets Manager**:
 
 ```bash
-export INFERA__AUTH__OIDC_CLIENT_SECRET=$(aws secretsmanager get-secret-value \
+export INFERADB__AUTH__OIDC_CLIENT_SECRET=$(aws secretsmanager get-secret-value \
   --secret-id inferadb/oauth/client-secret \
   --query SecretString --output text)
 ```
@@ -637,14 +637,14 @@ export INFERA__AUTH__OIDC_CLIENT_SECRET=$(aws secretsmanager get-secret-value \
 **HashiCorp Vault**:
 
 ```bash
-export INFERA__AUTH__OIDC_CLIENT_SECRET=$(vault kv get \
+export INFERADB__AUTH__OIDC_CLIENT_SECRET=$(vault kv get \
   -field=client_secret secret/inferadb/oauth)
 ```
 
 **Google Secret Manager**:
 
 ```bash
-export INFERA__AUTH__OIDC_CLIENT_SECRET=$(gcloud secrets versions access latest \
+export INFERADB__AUTH__OIDC_CLIENT_SECRET=$(gcloud secrets versions access latest \
   --secret=inferadb-oauth-client-secret)
 ```
 
@@ -812,12 +812,12 @@ services:
             - "8080:8080"
             - "8081:8081"
         environment:
-            INFERA__SERVER__HOST: "0.0.0.0"
-            INFERA__SERVER__PORT: "8080"
-            INFERA__STORE__BACKEND: "foundationdb"
-            INFERA__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
-            INFERA__AUTH__ENABLED: "true"
-            INFERA__AUTH__JWKS_BASE_URL: "https://your-domain.com/jwks"
+            INFERADB__SERVER__HOST: "0.0.0.0"
+            INFERADB__SERVER__PORT: "8080"
+            INFERADB__STORE__BACKEND: "foundationdb"
+            INFERADB__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
+            INFERADB__AUTH__ENABLED: "true"
+            INFERADB__AUTH__JWKS_BASE_URL: "https://your-domain.com/jwks"
         volumes:
             - /etc/foundationdb:/etc/foundationdb:ro
 ```
@@ -844,7 +844,7 @@ inferadb --config config.yaml 2>&1 | grep ERROR
 lsof -i :8080
 
 # Change port
-export INFERA__SERVER__PORT=8081
+export INFERADB__SERVER__PORT=8081
 ```
 
 ### Out of Memory
