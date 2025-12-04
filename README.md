@@ -20,7 +20,7 @@ Sub-10ms authorization decisions with intelligent caching, multi-tenant isolatio
 
 ## Quick Start
 
-**Prerequisites**: [Mise](https://mise.jdx.dev/), Rust 1.83+
+**Prerequisites**: [Mise](https://mise.jdx.dev/), Rust 1.78+
 
 ```bash
 git clone https://github.com/inferadb/server inferadb && cd inferadb

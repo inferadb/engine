@@ -4,7 +4,7 @@ Get InferaDB up and running in 5 minutes.
 
 ## Prerequisites
 
-- Rust 1.75 or later ([install](https://rustup.rs/))
+- Rust 1.78 or later ([install](https://rustup.rs/))
 - Git
 
 ## Installation
