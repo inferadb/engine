@@ -85,7 +85,7 @@ jobs:
           sudo dpkg -i foundationdb-clients_7.3.69-1_amd64.deb
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -134,7 +134,7 @@ jobs:
         uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -186,7 +186,7 @@ jobs:
           tool: cargo-nextest
 
       - name: Restore build cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -198,7 +198,7 @@ jobs:
         run: cargo test --workspace --doc
 
       - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@82082dac68ad6a19d980f8ce817e108b9f496c2a # v2.18.0
+        uses: EnricoMi/publish-unit-test-result-action@34d7c956a59aed1bfebf31df77b8de55db9bbaaf # v2.18.0
         if: always()
         with:
           files: target/nextest/ci/junit.xml
@@ -272,7 +272,7 @@ jobs:
 
       - name: Restore build cache
         if: steps.check-core.outputs.core == 'true'
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -341,7 +341,7 @@ jobs:
 
       - name: Restore build cache
         if: steps.check-wasm.outputs.wasm == 'true'
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -389,7 +389,7 @@ jobs:
           tool: cargo-tarpaulin
 
       - name: Restore build cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -426,7 +426,7 @@ jobs:
           toolchain: stable
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
       - name: Check outdated dependencies
         run: |
