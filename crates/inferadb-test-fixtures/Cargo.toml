@@ -20,7 +20,7 @@ chrono = { workspace = true }
 ed25519-dalek = { workspace = true }
 jsonwebtoken = { workspace = true }
 rand = { workspace = true }
-rand_core = { version = "0.6", features = ["getrandom"] }
+rand_core = { version = "0.9", features = ["getrandom"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = "1.10"

@@ -69,7 +69,7 @@ moka = { workspace = true }
 portpicker = "0.1"
 proptest = "1.5"
 rand = { workspace = true }
-rand_core = { version = "0.6", features = ["getrandom"] }
+rand_core = { version = "0.9", features = ["getrandom"] }
 tempfile = "3.8"
 tokio-test = "0.4"
 uuid = "1.10"

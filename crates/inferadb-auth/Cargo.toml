@@ -49,7 +49,7 @@ axum = { workspace = true }
 futures = { workspace = true }
 proptest = "1.4"
 rand = { workspace = true }
-rand_core = { version = "0.6", features = ["getrandom"] }
+rand_core = { version = "0.9", features = ["getrandom"] }
 tokio = { workspace = true, features = ["full", "test-util"] }
 tokio-test = "0.4"
 
