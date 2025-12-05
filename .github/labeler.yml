@@ -1,0 +1,112 @@
+# Documentation
+area/docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**/*"
+
+# CI/CD
+area/ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**/*"
+
+# Docker
+area/docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Dockerfile*"
+          - "**/.dockerignore"
+          - "**/docker-compose*.yml"
+          - "**/docker-compose*.yaml"
+
+# Configuration
+area/config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.toml"
+          - "**/*.yaml"
+          - "**/*.yml"
+          - "**/*.json"
+          - "!package*.json"
+          - "!.github/**/*"
+
+# Dependencies
+area/deps:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Cargo.toml"
+          - "**/Cargo.lock"
+
+# Testing
+area/testing:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/tests/**/*"
+          - "**/*_test.rs"
+          - "**/*_tests.rs"
+
+# Policy Engine
+area/policy:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/policy/**/*"
+          - "**/ipl/**/*"
+          - "**/parser/**/*"
+          - "**/evaluator/**/*"
+
+# Storage Layer
+area/storage:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/storage/**/*"
+          - "**/fdb/**/*"
+          - "**/foundationdb/**/*"
+
+# Cache System
+area/cache:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/cache/**/*"
+
+# Reachability/Graph
+area/reachability:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/reachability/**/*"
+          - "**/graph/**/*"
+
+# Type System
+area/types:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/types/**/*"
+          - "**/schema/**/*"
+
+# WASM Runtime
+area/wasm:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/wasm/**/*"
+          - "**/*.wasm"
+
+# REPL
+area/repl:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/repl/**/*"
+
+# Observability
+area/observability:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/telemetry/**/*"
+          - "**/metrics/**/*"
+          - "**/tracing/**/*"
+          - "**/logging/**/*"
+
+# Repository label
+repo/server:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*"
