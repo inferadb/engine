@@ -57,7 +57,8 @@ async fn main() -> Result<()> {
     // Display startup banner and configuration summary
     use inferadb_observe::startup::{ConfigEntry, ServiceInfo, StartupDisplay};
     StartupDisplay::new(ServiceInfo {
-        name: "InferaDB Policy Decision Engine",
+        name: "InferaDB",
+        subtext: "Policy Decision Engine Server",
         version: env!("CARGO_PKG_VERSION"),
         environment: "development".to_string(), // TODO: Get from config
     })
