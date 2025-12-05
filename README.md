@@ -31,11 +31,18 @@ curl -X POST http://localhost:8080/v1/relationships/write \
   -d '{"relationships": [{"resource": "doc:public", "relation": "viewer", "subject": "user:*"}]}'
 ```
 
+## Performance
+
+| Operation        | p50    | p99     | Throughput |
+| ---------------- | ------ | ------- | ---------- |
+| Check (cached)   | <1ms   | <2ms    | 100K+ RPS  |
+| Check (uncached) | 3-5ms  | 8-10ms  | 50K+ RPS   |
+| Expand           | 5-15ms | 20-30ms | 20K+ RPS   |
+
 ## Features
 
 | Feature          | Description                                       |
 | ---------------- | ------------------------------------------------- |
-| **Fast**         | <1ms cached, 3-5ms uncached (100K+ RPS)           |
 | **Complete API** | Check, Expand, ListResources, ListSubjects, Watch |
 | **Multi-Tenant** | Data isolation via Accounts and Vaults            |
 | **Wildcards**    | Model public resources with `user:*`              |
@@ -103,14 +110,6 @@ helm install inferadb ./helm              # Helm
 ```
 
 See [docs/guides/deployment.md](docs/guides/deployment.md).
-
-## Performance
-
-| Operation        | p50    | p99     | Throughput |
-| ---------------- | ------ | ------- | ---------- |
-| Check (cached)   | <1ms   | <2ms    | 100K+ RPS  |
-| Check (uncached) | 3-5ms  | 8-10ms  | 50K+ RPS   |
-| Expand           | 5-15ms | 20-30ms | 20K+ RPS   |
 
 ## Documentation
 
