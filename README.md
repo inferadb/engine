@@ -1,8 +1,6 @@
 # InferaDB Server
 
-High-performance authorization engine implementing Relationship-Based Access Control (ReBAC) in Rust.
-
-Sub-10ms authorization decisions with intelligent caching, multi-tenant isolation, and a declarative policy language.
+**InferaDB authorization engine** — high-performance ReBAC with declarative policy language, graph-based evaluation, and sub-millisecond latency. [AuthZEN](https://openid.net/wg/authzen/)-compliant APIs. Inspired by [Google Zanzibar](https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/).
 
 > [!IMPORTANT]
 > Under active development. Not production-ready.
