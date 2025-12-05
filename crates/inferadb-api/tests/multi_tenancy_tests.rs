@@ -42,8 +42,6 @@ fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(None)
-        .default_vault(vault_a)
-        .default_organization(organization_a)
         .server_identity(None)
         .build();
 
@@ -228,7 +226,7 @@ async fn test_vault_scoped_listing() {
     let resources_a = state
         .resource_service
         .list_resources(
-            state.default_vault,
+            vault_a,
             inferadb_types::ListResourcesRequest {
                 subject: "user:alice".to_string(),
                 permission: "viewer".to_string(),
@@ -559,7 +557,7 @@ async fn test_cached_data_doesnt_leak_between_vaults() {
     let result_a = state
         .evaluation_service
         .evaluate(
-            state.default_vault,
+            vault_a,
             inferadb_types::EvaluateRequest {
                 subject: "user:alice".to_string(),
                 resource: "document:cached".to_string(),

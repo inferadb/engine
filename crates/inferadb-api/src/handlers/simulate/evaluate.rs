@@ -36,15 +36,15 @@ pub struct SimulateResponse {
 }
 
 /// Simulate endpoint - run checks with ephemeral context relationships
-#[tracing::instrument(skip(state))]
+#[tracing::instrument(skip(_state))]
 pub async fn simulate_handler(
     auth: inferadb_auth::extractor::OptionalAuth,
     AcceptHeader(format): AcceptHeader,
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     request: axum::Json<SimulateRequest>,
 ) -> Result<ResponseData<SimulateResponse>> {
     // Authorize request and extract vault
-    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_CHECK, SCOPE_SIMULATE])?;
+    let vault = authorize_request(&auth.0, &[SCOPE_CHECK, SCOPE_SIMULATE])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {

@@ -243,7 +243,7 @@ pub async fn delete_relationships_handler(
     Json(request): Json<DeleteRequest>,
 ) -> Result<ResponseData<DeleteResponse>> {
     // Authorize request and extract vault
-    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_WRITE])?;
+    let vault = authorize_request(&auth.0, &[SCOPE_WRITE])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
@@ -309,7 +309,7 @@ pub async fn delete_relationship(
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
-    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_WRITE])?;
+    let vault = authorize_request(&auth.0, &[SCOPE_WRITE])?;
 
     // URL-decode path parameters (they come URL-encoded from the router)
     let resource = urlencoding::decode(&params.resource)
@@ -444,11 +444,12 @@ mod tests {
         AppState::builder(store, schema, config)
             .wasm_host(None)
             .jwks_cache(None)
-            .default_vault(test_vault)
-            .default_organization(2i64)
             .server_identity(None)
             .build()
     }
+
+    /// Test vault ID that matches what with_test_auth uses
+    const TEST_VAULT: i64 = 1;
 
     #[tokio::test]
     async fn test_delete_existing_relationship() {
@@ -457,7 +458,7 @@ mod tests {
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let response = app
             .oneshot(
@@ -483,7 +484,7 @@ mod tests {
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let response = app
             .oneshot(
@@ -511,7 +512,7 @@ mod tests {
         let app1 = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
-        let app1 = with_test_auth(app1, state.default_vault, state.default_organization);
+        let app1 = with_test_auth(app1);
 
         let response1 = app1
             .oneshot(
@@ -530,7 +531,7 @@ mod tests {
         let app2 = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
-        let app2 = with_test_auth(app2, state.default_vault, state.default_organization);
+        let app2 = with_test_auth(app2);
 
         let response2 = app2
             .oneshot(
@@ -555,9 +556,9 @@ mod tests {
         state
             .store
             .write(
-                state.default_vault,
+                TEST_VAULT,
                 vec![Relationship {
-                    vault: state.default_vault,
+                    vault: TEST_VAULT,
                     resource: "document:file name".to_string(),
                     relation: "view".to_string(),
                     subject: "user:alice@example.com".to_string(),
@@ -569,7 +570,7 @@ mod tests {
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         // URL encode the parameters (space becomes %20, @ becomes %40, : becomes %3A)
         let response = app
@@ -594,9 +595,9 @@ mod tests {
         state
             .store
             .write(
-                state.default_vault,
+                TEST_VAULT,
                 vec![Relationship {
-                    vault: state.default_vault,
+                    vault: TEST_VAULT,
                     resource: "document:file-name_with.dots".to_string(),
                     relation: "view".to_string(),
                     subject: "user:alice@example.com".to_string(),
@@ -608,7 +609,7 @@ mod tests {
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         // URL encode the special characters
         let encoded_resource = urlencoding::encode("document:file-name_with.dots");
@@ -635,7 +636,7 @@ mod tests {
         let app = Router::new()
             .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let response = app
             .oneshot(

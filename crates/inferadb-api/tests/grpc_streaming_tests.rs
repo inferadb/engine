@@ -16,17 +16,54 @@ use inferadb_api::{
         proto::{
             ExpandRequest, Relationship as ProtoRelationship, WriteRequest, expand_response,
             inferadb_service_client::InferadbServiceClient,
+            inferadb_service_server::InferadbServiceServer,
         },
     },
 };
 use inferadb_config::Config;
 use inferadb_core::ipl::{RelationDef, Schema, TypeDef};
 use inferadb_store::MemoryBackend;
-use tonic::{
-    Request,
-    transport::{Channel, Server},
-};
-async fn setup_test_server() -> (InferadbServiceClient<Channel>, String) {
+use inferadb_types::{AuthContext, AuthMethod};
+use tonic::{Request, Status, transport::Server};
+
+/// Test interceptor that injects a mock AuthContext for all requests
+#[derive(Clone)]
+struct TestAuthInterceptor {
+    auth_ctx: Arc<AuthContext>,
+}
+
+impl TestAuthInterceptor {
+    fn new() -> Self {
+        let auth_ctx = AuthContext {
+            client_id: "test_client".to_string(),
+            key_id: "test_key".to_string(),
+            auth_method: AuthMethod::PrivateKeyJwt,
+            scopes: vec![
+                "inferadb.admin".to_string(),
+                "inferadb.check".to_string(),
+                "inferadb.write".to_string(),
+                "inferadb.expand".to_string(),
+                "inferadb.list".to_string(),
+                "inferadb.watch".to_string(),
+            ],
+            issued_at: chrono::Utc::now(),
+            expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
+            jti: Some("test_jti".to_string()),
+            vault: 12345678901234,        // Test vault ID
+            organization: 98765432109876, // Test organization ID
+        };
+        Self { auth_ctx: Arc::new(auth_ctx) }
+    }
+}
+
+impl tonic::service::Interceptor for TestAuthInterceptor {
+    fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
+        request.extensions_mut().insert(self.auth_ctx.clone());
+        Ok(request)
+    }
+}
+
+async fn setup_test_server() -> (InferadbServiceClient<tonic::transport::Channel>, String) {
     let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
@@ -37,8 +74,6 @@ async fn setup_test_server() -> (InferadbServiceClient<Channel>, String) {
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(None)
-        .default_vault(0i64)
-        .default_organization(0i64)
         .server_identity(None)
         .build();
 
@@ -47,20 +82,17 @@ async fn setup_test_server() -> (InferadbServiceClient<Channel>, String) {
     health_tracker.set_startup_complete(true);
 
     let service = InferadbServiceImpl::new(state);
+    let interceptor = TestAuthInterceptor::new();
 
     // Find available port
     let port = portpicker::pick_unused_port().expect("No free ports");
     let addr = format!("127.0.0.1:{}", port);
     let addr_clone = addr.clone();
 
-    // Start gRPC server in background
+    // Start gRPC server in background with auth interceptor
     tokio::spawn(async move {
         Server::builder()
-            .add_service(
-                inferadb_api::grpc::proto::inferadb_service_server::InferadbServiceServer::new(
-                    service,
-                ),
-            )
+            .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
             .serve(addr_clone.parse().unwrap())
             .await
             .unwrap();

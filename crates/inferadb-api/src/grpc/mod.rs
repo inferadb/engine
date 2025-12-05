@@ -205,15 +205,11 @@ mod tests {
                 ),
             ],
         )]));
-        // Use a test vault ID
-        let test_vault = 1i64;
         let config = Arc::new(Config::default());
 
         let state = AppState::builder(store, schema, config)
             .wasm_host(None)
             .jwks_cache(None)
-            .default_vault(test_vault)
-            .default_organization(0i64)
             .server_identity(None)
             .build();
 

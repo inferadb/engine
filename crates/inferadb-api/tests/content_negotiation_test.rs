@@ -20,13 +20,16 @@ fn generate_test_id() -> i64 {
     TEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
 }
 
+/// Test vault and organization IDs used for authentication
+const TEST_VAULT: i64 = 1;
+const TEST_ORGANIZATION: i64 = 2;
+
 /// Helper to create test app state with organization and authenticated router
 async fn create_test_app() -> (inferadb_api::AppState, Router) {
     let state = integration::create_test_state();
 
-    // Create the default organization
-    let organization =
-        Organization::with_id(state.default_organization, "Test Organization".to_string());
+    // Create the test organization
+    let organization = Organization::with_id(TEST_ORGANIZATION, "Test Organization".to_string());
     state
         .store
         .create_organization(organization)
@@ -47,8 +50,7 @@ async fn create_test_app() -> (inferadb_api::AppState, Router) {
         )
         .route("/health", get(inferadb_api::health::health_check_handler))
         .with_state(state.clone());
-    let authenticated_router =
-        integration::with_test_auth(router, state.default_vault, state.default_organization);
+    let authenticated_router = integration::with_test_auth(router, TEST_VAULT, TEST_ORGANIZATION);
 
     (state, authenticated_router)
 }
@@ -59,7 +61,7 @@ async fn test_json_format_explicit() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, TEST_ORGANIZATION, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with explicit JSON Accept header
@@ -88,7 +90,7 @@ async fn test_toon_format_explicit() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, TEST_ORGANIZATION, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with TOON Accept header
@@ -121,7 +123,7 @@ async fn test_default_format_is_json() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, TEST_ORGANIZATION, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with NO Accept header (should default to JSON)
@@ -144,7 +146,7 @@ async fn test_wildcard_accept_defaults_to_json() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, TEST_ORGANIZATION, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with wildcard Accept header
@@ -168,7 +170,7 @@ async fn test_quality_value_priority_json_higher() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, TEST_ORGANIZATION, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with JSON having higher priority
@@ -192,7 +194,7 @@ async fn test_quality_value_priority_toon_higher() {
 
     // Create a vault first
     let vault_id = generate_test_id();
-    let vault = Vault::with_id(vault_id, state.default_organization, "Test Vault".to_string());
+    let vault = Vault::with_id(vault_id, TEST_ORGANIZATION, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 
     // Request with TOON having higher priority
@@ -305,7 +307,7 @@ async fn test_multiple_endpoints_support_toon() {
 
     // Create test data
     let vault_id = generate_test_id();
-    let organization_id = state.default_organization;
+    let organization_id = TEST_ORGANIZATION;
     let vault = Vault::with_id(vault_id, organization_id, "Test Vault".to_string());
     state.store.create_vault(vault).await.unwrap();
 

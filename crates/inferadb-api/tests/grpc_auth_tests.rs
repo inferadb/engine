@@ -141,6 +141,7 @@ mod common {
                 jti: String,
                 scope: String,
                 org_id: String,
+                vault_id: String,
             }
 
             let (signing_key, kid) = get_test_keypair_for_tenant(org_id);
@@ -155,6 +156,7 @@ mod common {
                 jti: uuid::Uuid::new_v4().to_string(),
                 scope: scopes.join(" "),
                 org_id: org_id.to_string(),
+                vault_id: "12345678901234".to_string(), // Test vault ID
             };
 
             let mut header = Header::new(Algorithm::EdDSA);
@@ -217,8 +219,6 @@ fn create_test_state(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(jwks_cache)
-        .default_vault(0i64)
-        .default_organization(0i64)
         .server_identity(None)
         .build();
 

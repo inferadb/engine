@@ -40,8 +40,6 @@ fn create_test_state(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(jwks_cache)
-        .default_vault(0i64)
-        .default_organization(0i64)
         .server_identity(None)
         .build();
 

@@ -88,15 +88,12 @@ mod tests {
     fn create_test_state() -> AppState {
         let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
         let schema = Arc::new(Schema::new(vec![]));
-        let test_vault = 1i64;
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
         AppState::builder(store, schema, config)
             .wasm_host(None)
             .jwks_cache(None)
-            .default_vault(test_vault)
-            .default_organization(0i64)
             .server_identity(None)
             .build()
     }

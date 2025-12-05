@@ -71,7 +71,7 @@ pub async fn post_evaluation(
     let start = std::time::Instant::now();
 
     // Authorize request and extract vault
-    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_CHECK])?;
+    let vault = authorize_request(&auth.0, &[SCOPE_CHECK])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
@@ -222,7 +222,7 @@ pub async fn post_evaluations(
     let batch_size = request.0.evaluations.len();
 
     // Authorize request and extract vault
-    let vault = authorize_request(&auth.0, state.default_vault, &[SCOPE_CHECK])?;
+    let vault = authorize_request(&auth.0, &[SCOPE_CHECK])?;
 
     // Log authenticated requests
     if let Some(ref auth_ctx) = auth.0 {
@@ -404,8 +404,6 @@ mod tests {
         AppState::builder(store, schema, config)
             .wasm_host(None)
             .jwks_cache(None)
-            .default_vault(test_vault)
-            .default_organization(2i64)
             .server_identity(None)
             .build()
     }
@@ -417,7 +415,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluation", post(post_evaluation))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
@@ -464,7 +462,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluation", post(post_evaluation))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "bob".to_string() },
@@ -518,7 +516,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluation", post(post_evaluation))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
             subject: AuthZENSubject { subject_type: "".to_string(), id: "alice".to_string() },
@@ -552,7 +550,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluation", post(post_evaluation))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
@@ -586,7 +584,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluation", post(post_evaluation))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
             subject: AuthZENSubject {
@@ -623,7 +621,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluation", post(post_evaluation))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
             subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
@@ -667,7 +665,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluations", post(post_evaluations))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationsRequest {
             evaluations: vec![AuthZENEvaluationRequest {
@@ -712,7 +710,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluations", post(post_evaluations))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationsRequest {
             evaluations: vec![
@@ -785,7 +783,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluations", post(post_evaluations))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationsRequest { evaluations: vec![] };
 
@@ -811,7 +809,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluations", post(post_evaluations))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         // Create 101 evaluations (over the limit of 100)
         let mut evaluations = Vec::new();
@@ -854,7 +852,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluations", post(post_evaluations))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationsRequest {
             evaluations: vec![
@@ -934,7 +932,7 @@ mod tests {
         let app = Router::new()
             .route("/access/v1/evaluations", post(post_evaluations))
             .with_state(state.clone());
-        let app = with_test_auth(app, state.default_vault, state.default_organization);
+        let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationsRequest {
             evaluations: vec![

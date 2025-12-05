@@ -152,14 +152,10 @@ pub fn create_test_state() -> AppState {
 pub fn create_test_state_with_config(config: Config) -> AppState {
     let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let default_vault = generate_test_id();
-    let default_organization = generate_test_id();
 
     AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(None)
-        .default_vault(default_vault)
-        .default_organization(default_organization)
         .server_identity(None)
         .build()
 }
@@ -182,8 +178,6 @@ pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(None)
-        .default_vault(vault_a)
-        .default_organization(organization_a)
         .server_identity(None)
         .build();
 
@@ -264,8 +258,8 @@ mod tests {
 
     #[test]
     fn test_create_test_state() {
-        let state = create_test_state();
-        assert!(state.default_vault != 0);
+        let _state = create_test_state();
+        // Test state is created successfully
     }
 
     #[test]
@@ -282,12 +276,10 @@ mod tests {
 
     #[test]
     fn test_create_multi_vault_test_state() {
-        let (state, vault_a, organization_a, vault_b, organization_b) =
+        let (_state, vault_a, organization_a, vault_b, organization_b) =
             create_multi_vault_test_state();
         assert_ne!(vault_a, vault_b);
         assert_ne!(organization_a, organization_b);
-        assert_eq!(state.default_vault, vault_a);
-        assert_eq!(state.default_organization, organization_a);
     }
 
     #[test]

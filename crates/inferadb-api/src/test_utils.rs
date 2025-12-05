@@ -49,9 +49,10 @@ pub async fn test_auth_middleware(
     next.run(request).await
 }
 
-/// Wrap a router with test authentication
+/// Wrap a router with test authentication using hardcoded test values
 ///
 /// Use this to wrap handlers that require authentication in tests.
+/// Uses hardcoded test values: vault=1, organization=2
 ///
 /// # Example
 ///
@@ -59,9 +60,12 @@ pub async fn test_auth_middleware(
 /// let app = Router::new()
 ///     .route("/v1/check", post(check_handler))
 ///     .with_state(state.clone());
-/// let app = with_test_auth(app, state.default_vault, state.default_organization);
+/// let app = with_test_auth(app);
 /// ```
-pub fn with_test_auth(router: Router, vault: i64, organization: i64) -> Router {
+pub fn with_test_auth(router: Router) -> Router {
+    // Use hardcoded test values
+    let vault = 1i64;
+    let organization = 2i64;
     let auth = create_test_auth_context(vault, organization);
     router.layer(middleware::from_fn(move |req, next| {
         let auth_clone = auth.clone();

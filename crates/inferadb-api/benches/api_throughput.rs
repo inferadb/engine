@@ -58,11 +58,11 @@ fn create_test_schema() -> Arc<Schema> {
 }
 
 /// Create test AppState with pre-populated data
-async fn create_test_state_with_data(num_relationships: usize) -> AppState {
+/// Returns (AppState, vault_id) tuple
+async fn create_test_state_with_data(num_relationships: usize) -> (AppState, i64) {
     let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
     let vault: i64 = 1;
-    let organization: i64 = 1;
 
     // Pre-populate with relationships
     let relationships: Vec<Relationship> = (0..num_relationships)
@@ -80,13 +80,13 @@ async fn create_test_state_with_data(num_relationships: usize) -> AppState {
     config.cache.enabled = true;
     config.cache.max_capacity = 10000;
 
-    AppState::builder(store, schema, Arc::new(config))
+    let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(None)
-        .default_vault(vault)
-        .default_organization(organization)
         .server_identity(None)
-        .build()
+        .build();
+
+    (state, vault)
 }
 
 /// Benchmark: Authorization check (check if user has permission)
@@ -95,8 +95,7 @@ fn bench_authorization_check(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
     // Pre-create state with 1000 relationships
-    let state = runtime.block_on(create_test_state_with_data(1000));
-    let vault = state.default_vault;
+    let (state, vault) = runtime.block_on(create_test_state_with_data(1000));
 
     let mut group = c.benchmark_group("authorization_check");
 
@@ -127,8 +126,7 @@ fn bench_authorization_check(c: &mut Criterion) {
 /// Benchmark: Relationship writes
 fn bench_relationship_write(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    let state = runtime.block_on(create_test_state_with_data(100));
-    let vault = state.default_vault;
+    let (state, vault) = runtime.block_on(create_test_state_with_data(100));
 
     let mut group = c.benchmark_group("relationship_write");
 
@@ -160,8 +158,7 @@ fn bench_relationship_write(c: &mut Criterion) {
 /// Benchmark: Expand operations (find all users with permission)
 fn bench_expand_operation(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    let state = runtime.block_on(create_test_state_with_data(500));
-    let vault = state.default_vault;
+    let (state, vault) = runtime.block_on(create_test_state_with_data(500));
 
     let mut group = c.benchmark_group("expand_operation");
     group.throughput(Throughput::Elements(1));
@@ -185,8 +182,7 @@ fn bench_expand_operation(c: &mut Criterion) {
 /// Benchmark: List relationships
 fn bench_list_relationships(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    let state = runtime.block_on(create_test_state_with_data(1000));
-    let vault = state.default_vault;
+    let (state, vault) = runtime.block_on(create_test_state_with_data(1000));
 
     let mut group = c.benchmark_group("list_relationships");
 
@@ -223,8 +219,7 @@ fn bench_list_relationships(c: &mut Criterion) {
 /// 70% reads (check), 20% writes, 10% expand
 fn bench_mixed_workload(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    let state = runtime.block_on(create_test_state_with_data(500));
-    let vault = state.default_vault;
+    let (state, vault) = runtime.block_on(create_test_state_with_data(500));
 
     let mut group = c.benchmark_group("mixed_workload");
     group.throughput(Throughput::Elements(10)); // 10 operations per iteration
@@ -271,8 +266,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
 /// Benchmark: Cache hit vs cache miss performance
 fn bench_cache_effectiveness(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    let state = runtime.block_on(create_test_state_with_data(100));
-    let vault = state.default_vault;
+    let (state, vault) = runtime.block_on(create_test_state_with_data(100));
 
     let mut group = c.benchmark_group("cache_effectiveness");
 

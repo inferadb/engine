@@ -54,8 +54,6 @@ fn create_test_schema() -> Arc<Schema> {
 async fn create_test_state() -> AppState {
     let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = create_test_schema();
-    let vault = 12121212121212i64;
-    let account = 13131313131313i64;
 
     let mut config = Config::default();
     config.cache.enabled = true;
@@ -64,11 +62,13 @@ async fn create_test_state() -> AppState {
     AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(None)
-        .default_vault(vault)
-        .default_organization(account)
         .server_identity(None)
         .build()
 }
+
+/// Test vault and organization IDs
+const TEST_VAULT: i64 = 12121212121212;
+const _TEST_ORGANIZATION: i64 = 13131313131313;
 
 /// Test: Repeated authorization checks should not leak memory
 ///
@@ -79,7 +79,7 @@ async fn create_test_state() -> AppState {
 #[tokio::test]
 async fn test_no_memory_leak_in_authorization_checks() {
     let state = create_test_state().await;
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     // Pre-populate with some relationships
     let relationships: Vec<Relationship> = (0..100)
@@ -103,7 +103,7 @@ async fn test_no_memory_leak_in_authorization_checks() {
             trace: None,
         };
 
-        let _ = state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
+        let _ = state.evaluation_service.evaluate(TEST_VAULT, request).await.unwrap();
 
         // Every 1000 iterations, verify cache is within bounds
         if iteration % 1000 == 0 {
@@ -123,7 +123,7 @@ async fn test_no_memory_leak_in_authorization_checks() {
 #[tokio::test]
 async fn test_no_memory_leak_in_expand_operations() {
     let state = create_test_state().await;
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     // Create relationships with multiple subjects
     let mut relationships = Vec::new();
@@ -148,7 +148,7 @@ async fn test_no_memory_leak_in_expand_operations() {
             continuation_token: None,
         };
 
-        let result = state.expansion_service.expand(state.default_vault, request).await.unwrap();
+        let result = state.expansion_service.expand(TEST_VAULT, request).await.unwrap();
 
         // Note: Results may be empty depending on the evaluation logic
         // This test is about memory leaks, not correctness
@@ -165,7 +165,7 @@ async fn test_no_memory_leak_in_expand_operations() {
 #[tokio::test]
 async fn test_no_memory_leak_in_storage_operations() {
     let state = create_test_state().await;
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     for iteration in 0..5_000 {
         // Write a batch of relationships
@@ -189,11 +189,8 @@ async fn test_no_memory_leak_in_storage_operations() {
             cursor: None,
         };
 
-        let _ = state
-            .relationship_service
-            .list_relationships(state.default_vault, list_request)
-            .await
-            .unwrap();
+        let _ =
+            state.relationship_service.list_relationships(TEST_VAULT, list_request).await.unwrap();
     }
 
     // Test passes if we reach here without OOM
@@ -206,7 +203,7 @@ async fn test_no_memory_leak_in_storage_operations() {
 #[tokio::test]
 async fn test_no_memory_leak_in_cache_eviction() {
     let state = create_test_state().await;
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     // Pre-populate relationships
     let relationships: Vec<Relationship> = (0..1000)
@@ -230,7 +227,7 @@ async fn test_no_memory_leak_in_cache_eviction() {
             trace: None,
         };
 
-        let _ = state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
+        let _ = state.evaluation_service.evaluate(TEST_VAULT, request).await.unwrap();
     }
 
     // Test passes if we reach here without OOM
@@ -244,7 +241,7 @@ async fn test_no_memory_leak_in_cache_eviction() {
 #[tokio::test]
 async fn test_no_memory_leak_under_concurrent_load() {
     let state = Arc::new(create_test_state().await);
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     // Pre-populate relationships
     let relationships: Vec<Relationship> = (0..100)
@@ -271,11 +268,7 @@ async fn test_no_memory_leak_under_concurrent_load() {
                     trace: None,
                 };
 
-                let _ = state_clone
-                    .evaluation_service
-                    .evaluate(state_clone.default_vault, request)
-                    .await
-                    .unwrap();
+                let _ = state_clone.evaluation_service.evaluate(TEST_VAULT, request).await.unwrap();
             }
         });
         handles.push(handle);
@@ -295,7 +288,7 @@ async fn test_no_memory_leak_under_concurrent_load() {
 #[tokio::test]
 async fn test_no_memory_leak_in_streaming() {
     let state = create_test_state().await;
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     // Create many relationships
     let mut relationships = Vec::new();
@@ -319,11 +312,8 @@ async fn test_no_memory_leak_in_streaming() {
             cursor: None,
         };
 
-        let result = state
-            .relationship_service
-            .list_relationships(state.default_vault, request)
-            .await
-            .unwrap();
+        let result =
+            state.relationship_service.list_relationships(TEST_VAULT, request).await.unwrap();
 
         // Consume the results
         let _count = result.relationships.len();
@@ -349,7 +339,7 @@ async fn test_no_memory_leak_in_streaming() {
 #[ignore = "long-running test - requires 24+ hours"]
 async fn test_24h_authorization_stress() {
     let state = create_test_state().await;
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     // Pre-populate relationships
     let relationships: Vec<Relationship> = (0..10_000)
@@ -375,7 +365,7 @@ async fn test_24h_authorization_stress() {
             trace: None,
         };
 
-        let _ = state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
+        let _ = state.evaluation_service.evaluate(TEST_VAULT, request).await.unwrap();
 
         iteration += 1;
 
@@ -402,7 +392,7 @@ async fn test_24h_authorization_stress() {
 #[ignore = "long-running test - requires 24+ hours"]
 async fn test_24h_mixed_workload() {
     let state = create_test_state().await;
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     let start = std::time::Instant::now();
     let target_duration = Duration::from_secs(24 * 60 * 60); // 24 hours
@@ -422,8 +412,7 @@ async fn test_24h_mixed_workload() {
                     context: None,
                     trace: None,
                 };
-                let _ =
-                    state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
+                let _ = state.evaluation_service.evaluate(TEST_VAULT, request).await.unwrap();
             },
             7..=8 => {
                 // 20%: Write operation
@@ -443,7 +432,7 @@ async fn test_24h_mixed_workload() {
                     limit: Some(100),
                     continuation_token: None,
                 };
-                let _ = state.expansion_service.expand(state.default_vault, request).await.unwrap();
+                let _ = state.expansion_service.expand(TEST_VAULT, request).await.unwrap();
             },
             _ => unreachable!(),
         }
@@ -473,7 +462,7 @@ async fn test_24h_mixed_workload() {
 #[tokio::test]
 async fn test_no_connection_leaks() {
     let state = create_test_state().await;
-    let vault = state.default_vault;
+    let vault = TEST_VAULT;
 
     // Pre-populate relationships
     let relationships: Vec<Relationship> = (0..100)
@@ -496,7 +485,7 @@ async fn test_no_connection_leaks() {
             context: None,
             trace: None,
         };
-        let _ = state.evaluation_service.evaluate(state.default_vault, request).await.unwrap();
+        let _ = state.evaluation_service.evaluate(TEST_VAULT, request).await.unwrap();
 
         // Every 100 iterations, verify we can still operate
         // (would fail if we leaked all connections)

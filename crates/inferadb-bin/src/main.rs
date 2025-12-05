@@ -7,7 +7,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use inferadb_auth::jwks_cache::JwksCache;
-use inferadb_bin::initialization;
 use inferadb_config::load_or_default;
 use inferadb_core::ipl::Schema;
 use inferadb_store::MemoryBackend;
@@ -83,13 +82,6 @@ async fn main() -> Result<()> {
     // TODO: Support multiple backends based on config
     let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
     log_initialized("Storage (memory)");
-
-    // Initialize system (create default organization/vault if needed)
-    let system_config = initialization::initialize_system(&store, &config).await?;
-    log_initialized(&format!(
-        "System (org: {}, vault: {})",
-        system_config.default_organization, system_config.default_vault
-    ));
 
     // Initialize WASM host
     let wasm_host = WasmHost::new().ok().map(Arc::new);
@@ -167,8 +159,6 @@ async fn main() -> Result<()> {
         wasm_host: wasm_host.clone(),
         config: Arc::clone(&config),
         jwks_cache: jwks_cache.clone(),
-        default_vault: system_config.default_vault,
-        default_organization: system_config.default_organization,
         server_identity: server_identity.clone(),
     };
 
@@ -178,8 +168,6 @@ async fn main() -> Result<()> {
         wasm_host: wasm_host.clone(),
         config: Arc::clone(&config),
         jwks_cache: jwks_cache.clone(),
-        default_vault: system_config.default_vault,
-        default_organization: system_config.default_organization,
         server_identity: server_identity.clone(),
     };
 

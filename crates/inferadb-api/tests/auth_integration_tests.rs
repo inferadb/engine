@@ -155,17 +155,12 @@ fn create_test_state_with_auth(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
             ),
         ],
     )]));
-    // Use a test vault ID
-    let test_vault = 11111111111111i64;
-    let test_account = 22222222222222i64;
 
     let config = Config::default();
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
         .jwks_cache(jwks_cache)
-        .default_vault(test_vault)
-        .default_organization(test_account)
         .server_identity(None)
         .build();
 

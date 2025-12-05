@@ -147,10 +147,6 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
-    /// Default vault ID used when authentication is disabled
-    pub default_vault: i64,
-    /// Default organization ID used when authentication is disabled
-    pub default_organization: i64,
     /// Server identity for signing server-to-management requests
     pub server_identity: Option<Arc<inferadb_auth::ServerIdentity>>,
 
@@ -173,8 +169,6 @@ pub struct AppStateBuilder {
     config: Arc<Config>,
     wasm_host: Option<Arc<inferadb_wasm::WasmHost>>,
     jwks_cache: Option<Arc<JwksCache>>,
-    default_vault: i64,
-    default_organization: i64,
     server_identity: Option<Arc<inferadb_auth::ServerIdentity>>,
 }
 
@@ -185,16 +179,7 @@ impl AppStateBuilder {
         schema: Arc<inferadb_core::ipl::Schema>,
         config: Arc<Config>,
     ) -> Self {
-        Self {
-            store,
-            schema,
-            config,
-            wasm_host: None,
-            jwks_cache: None,
-            default_vault: 0,
-            default_organization: 0,
-            server_identity: None,
-        }
+        Self { store, schema, config, wasm_host: None, jwks_cache: None, server_identity: None }
     }
 
     /// Set the WASM host
@@ -206,18 +191,6 @@ impl AppStateBuilder {
     /// Set the JWKS cache
     pub fn jwks_cache(mut self, jwks_cache: Option<Arc<JwksCache>>) -> Self {
         self.jwks_cache = jwks_cache;
-        self
-    }
-
-    /// Set the default vault ID
-    pub fn default_vault(mut self, default_vault: i64) -> Self {
-        self.default_vault = default_vault;
-        self
-    }
-
-    /// Set the default organization ID
-    pub fn default_organization(mut self, default_organization: i64) -> Self {
-        self.default_organization = default_organization;
         self
     }
 
@@ -310,8 +283,6 @@ impl AppState {
             config: builder.config,
             jwks_cache: builder.jwks_cache,
             health_tracker,
-            default_vault: builder.default_vault,
-            default_organization: builder.default_organization,
             server_identity: builder.server_identity,
             auth_cache,
             evaluation_service,
@@ -771,8 +742,6 @@ pub struct ServerComponents {
     pub wasm_host: Option<Arc<inferadb_wasm::WasmHost>>,
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
-    pub default_vault: i64,
-    pub default_organization: i64,
     pub server_identity: Option<Arc<inferadb_auth::ServerIdentity>>,
 }
 
@@ -786,8 +755,6 @@ impl ServerComponents {
         )
         .wasm_host(self.wasm_host.clone())
         .jwks_cache(self.jwks_cache.clone())
-        .default_vault(self.default_vault)
-        .default_organization(self.default_organization)
         .server_identity(self.server_identity.clone())
         .build()
     }
@@ -867,11 +834,11 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
 ///
 /// ```ignore
 /// use inferadb_api::{create_test_router, AppState};
-/// use integration::with_test_auth;
+/// use inferadb_api::test_utils::with_test_auth;
 ///
 /// let state = create_test_state();
 /// let router = create_test_router(state.clone()).await.unwrap();
-/// let authenticated_router = with_test_auth(router, state.default_vault, state.default_organization);
+/// let authenticated_router = with_test_auth(router);
 /// ```
 ///
 /// # Security Warning
@@ -952,17 +919,12 @@ mod tests {
                 ),
             ],
         )]));
-        // Use test Snowflake IDs
-        let test_vault: i64 = 1;
-        let test_account: i64 = 2;
 
         let config = Arc::new(inferadb_config::Config::default());
 
         let state = AppState::builder(store, Arc::clone(&schema), config)
             .wasm_host(None)
             .jwks_cache(None)
-            .default_vault(test_vault)
-            .default_organization(test_account)
             .server_identity(None)
             .build();
 
@@ -1002,7 +964,7 @@ mod tests {
         next.run(request).await
     }
 
-    /// Wrap a router with test authentication
+    /// Wrap a router with test authentication using hardcoded test values
     fn with_test_auth(router: Router, vault: i64, organization: i64) -> Router {
         let auth = create_test_auth_context(vault, organization);
         router.layer(middleware::from_fn(move |req, next| {
@@ -1071,8 +1033,9 @@ mod tests {
 
     /// Helper function for tests to create an authenticated router from AppState
     async fn create_router(state: AppState, _schema: Arc<Schema>) -> Result<Router> {
-        let vault = state.default_vault;
-        let organization = state.default_organization;
+        // Use fixed test values for vault and organization
+        let vault = 1i64;
+        let organization = 2i64;
 
         // Create test router and wrap with test auth middleware
         let router = create_test_router(state).await?;

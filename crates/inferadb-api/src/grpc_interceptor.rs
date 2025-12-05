@@ -255,7 +255,7 @@ impl tonic::service::Interceptor for AuthInterceptor {
 
         match auth_result {
             Ok(auth_ctx) => {
-                request.extensions_mut().insert(auth_ctx);
+                request.extensions_mut().insert(Arc::new(auth_ctx));
                 Ok(request)
             },
             Err(e) => Err(auth_error_to_status(e)),

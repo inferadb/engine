@@ -29,11 +29,12 @@ pub async fn evaluate(
     use futures::StreamExt;
 
     // Extract vault from request extensions (set by auth middleware)
+    // Authentication is always required
     let vault = request
         .extensions()
         .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
-        .unwrap_or(service.state.default_vault);
+        .ok_or_else(|| Status::unauthenticated("Authentication required"))?;
 
     let mut stream = request.into_inner();
     let evaluation_service = service.state.evaluation_service.clone();

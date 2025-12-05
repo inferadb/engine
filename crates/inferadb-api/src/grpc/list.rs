@@ -33,11 +33,12 @@ pub async fn list_resources(
     Status,
 > {
     // Extract vault from request extensions (set by auth middleware)
+    // Authentication is always required
     let vault = request
         .extensions()
         .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
-        .unwrap_or(service.state.default_vault);
+        .ok_or_else(|| Status::unauthenticated("Authentication required"))?;
 
     let req = request.into_inner();
 
@@ -99,11 +100,12 @@ pub async fn list_relationships(
     Status,
 > {
     // Extract vault from request extensions (set by auth middleware)
+    // Authentication is always required
     let vault = request
         .extensions()
         .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
-        .unwrap_or(service.state.default_vault);
+        .ok_or_else(|| Status::unauthenticated("Authentication required"))?;
 
     let req = request.into_inner();
 
@@ -170,11 +172,12 @@ pub async fn list_subjects(
     Status,
 > {
     // Extract vault from request extensions (set by auth middleware)
+    // Authentication is always required
     let vault = request
         .extensions()
         .get::<Arc<AuthContext>>()
         .map(|ctx| ctx.vault)
-        .unwrap_or(service.state.default_vault);
+        .ok_or_else(|| Status::unauthenticated("Authentication required"))?;
 
     let req = request.into_inner();
 
