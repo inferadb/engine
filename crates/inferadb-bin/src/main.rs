@@ -40,8 +40,6 @@ async fn main() -> Result<()> {
     // Initialize observability
     inferadb_observe::init()?;
 
-    tracing::info!("Starting InferaDB Policy Decision Engine");
-
     // Load configuration
     let mut config = load_or_default(&args.config);
 
@@ -56,35 +54,53 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }
 
+    // Display startup banner and configuration summary
+    use inferadb_observe::startup::{ConfigEntry, ServiceInfo, StartupDisplay};
+    StartupDisplay::new(ServiceInfo {
+        name: "InferaDB Policy Decision Engine",
+        version: env!("CARGO_PKG_VERSION"),
+        environment: "development".to_string(), // TODO: Get from config
+    })
+    .entries(vec![
+        ConfigEntry::new("General", "config_file", &args.config),
+        ConfigEntry::new("Server", "public_host", &config.server.host),
+        ConfigEntry::new("Server", "public_port", config.server.port),
+        ConfigEntry::new("Server", "internal_host", &config.server.internal_host),
+        ConfigEntry::new("Server", "internal_port", config.server.internal_port),
+        ConfigEntry::new("Auth", "jwks_base_url", &config.auth.jwks_base_url),
+        ConfigEntry::new("Auth", "jwks_cache_ttl", format!("{}s", config.auth.jwks_cache_ttl)),
+    ])
+    .display();
+
     let config = Arc::new(config);
+
+    // ━━━ Initialize Components ━━━
+    use inferadb_observe::startup::{log_initialized, log_phase, log_ready, log_skipped};
+    log_phase("Initializing Components");
 
     // Initialize storage backend
     // TODO: Support multiple backends based on config
     let store: Arc<dyn inferadb_store::InferaStore> = Arc::new(MemoryBackend::new());
-    tracing::info!("Using in-memory storage backend");
+    log_initialized("Storage (memory)");
 
     // Initialize system (create default organization/vault if needed)
     let system_config = initialization::initialize_system(&store, &config).await?;
-    tracing::info!(
-        "Using default vault {} for organization {}",
-        system_config.default_vault,
-        system_config.default_organization
-    );
+    log_initialized(&format!(
+        "System (org: {}, vault: {})",
+        system_config.default_organization, system_config.default_vault
+    ));
 
     // Initialize WASM host
     let wasm_host = WasmHost::new().ok().map(Arc::new);
     if wasm_host.is_some() {
-        tracing::info!("WASM host initialized");
+        log_initialized("WASM host");
     } else {
-        tracing::warn!("Failed to initialize WASM host");
+        log_skipped("WASM host", "initialization failed");
     }
 
     // Create empty schema (TODO: Load from config)
     let schema = Arc::new(Schema::new(vec![]));
-    tracing::info!("Schema loaded");
-
-    // Initialize JWKS cache - authentication is always required
-    tracing::info!("Initializing JWKS cache for authentication");
+    log_initialized("Schema");
 
     // Create the moka cache with TTL and stale-while-revalidate support
     use std::time::Duration;
@@ -102,12 +118,7 @@ async fn main() -> Result<()> {
         cache,
         Duration::from_secs(config.auth.jwks_cache_ttl),
     )?;
-
-    tracing::info!(
-        "JWKS cache initialized with TTL: {}s, base URL: {}",
-        config.auth.jwks_cache_ttl,
-        config.auth.jwks_base_url
-    );
+    log_initialized("JWKS cache");
 
     let jwks_cache = Some(Arc::new(jwks_cache));
 
@@ -116,8 +127,6 @@ async fn main() -> Result<()> {
         use inferadb_auth::ServerIdentity;
 
         let identity = if let Some(ref pem) = config.auth.server_identity_private_key {
-            // Load from configured PEM
-            tracing::info!("Loading server identity from configuration");
             ServerIdentity::from_pem(
                 config.auth.server_id.clone(),
                 config.auth.server_identity_kid.clone(),
@@ -140,25 +149,15 @@ async fn main() -> Result<()> {
             identity
         };
 
-        tracing::info!(
-            "Server identity initialized: server_id={}, kid={}",
-            identity.server_id,
-            identity.kid
-        );
-
+        log_initialized("Server identity");
         Some(Arc::new(identity))
     } else {
+        log_skipped("Server identity", "management_api_url not configured");
         None
     };
 
-    // Start dual-server architecture: public and internal servers on separate ports
-    tracing::info!(
-        "Starting dual-server mode - Public: {}:{}, Internal: {}:{}",
-        config.server.host,
-        config.server.port,
-        config.server.internal_host,
-        config.server.internal_port
-    );
+    // ━━━ Start Server ━━━
+    log_phase("Starting Server");
 
     // Clone components for each server
     let public_components = inferadb_api::ServerComponents {
@@ -187,11 +186,11 @@ async fn main() -> Result<()> {
     let public_addr = format!("{}:{}", config.server.host, config.server.port);
     let internal_addr = format!("{}:{}", config.server.internal_host, config.server.internal_port);
 
-    tracing::info!("Binding public server to {}", public_addr);
     let public_listener = tokio::net::TcpListener::bind(&public_addr).await?;
-
-    tracing::info!("Binding internal server to {}", internal_addr);
     let internal_listener = tokio::net::TcpListener::bind(&internal_addr).await?;
+
+    // Log ready status
+    log_ready("InferaDB", &[("Public API", &public_addr), ("Internal API", &internal_addr)]);
 
     // Setup graceful shutdown
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel::<()>(2);
@@ -202,9 +201,6 @@ async fn main() -> Result<()> {
         shutdown_signal().await;
         let _ = shutdown_tx.send(());
     });
-
-    // Start both servers concurrently
-    tracing::info!("Starting public and internal servers concurrently");
     tokio::try_join!(
         inferadb_api::serve_public(public_components, public_listener, async move {
             shutdown_rx.recv().await.ok();

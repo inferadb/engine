@@ -20,6 +20,7 @@ pub mod logging;
 pub mod metrics;
 pub mod reconfigure;
 pub mod span_utils;
+pub mod startup;
 pub mod tracing_config;
 
 /// Configuration for OpenTelemetry tracing
