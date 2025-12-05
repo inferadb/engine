@@ -71,7 +71,7 @@ server:
   port: 8080
 
 store:
-  backend: "foundationdb"   # or "memory"
+  backend: "foundationdb" # or "memory"
 
 cache:
   enabled: true
