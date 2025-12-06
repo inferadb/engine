@@ -16,7 +16,7 @@ use serde::Serialize;
 use thiserror::Error;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder, key_extractor::KeyExtractor};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer};
-use tracing::info;
+use tracing::{info, warn};
 
 pub mod adapters;
 pub mod content_negotiation;
@@ -392,144 +392,140 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
     );
 
     // Create VaultVerifier and CertificateCache instances based on configuration
-    let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents =
-        if !state.config.auth.management_api_url.is_empty() {
-            // Check if discovery is enabled for Management API
-            let management_client = if matches!(
-                state.config.auth.discovery.mode,
-                inferadb_config::DiscoveryMode::Kubernetes
-                    | inferadb_config::DiscoveryMode::Tailscale { .. }
-            ) {
-                // Discovery enabled - create discovery service and load balancing client
-                info!(
-                    "Management API discovery ENABLED - mode: {:?}",
-                    state.config.auth.discovery.mode
-                );
+    let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents = if !state
+        .config
+        .auth
+        .management_api_url
+        .is_empty()
+    {
+        // Check if discovery is enabled for Management API
+        let management_client = if matches!(
+            state.config.auth.discovery.mode,
+            inferadb_config::DiscoveryMode::Kubernetes
+                | inferadb_config::DiscoveryMode::Tailscale { .. }
+        ) {
+            // Discovery enabled - create discovery service and load balancing client
+            info!(
+                "Management API discovery ENABLED - mode: {:?}",
+                state.config.auth.discovery.mode
+            );
 
-                // Create discovery service based on mode
-                let discovery: Arc<dyn inferadb_discovery::EndpointDiscovery> =
-                    match &state.config.auth.discovery.mode {
-                        inferadb_config::DiscoveryMode::Kubernetes => Arc::new(
-                            inferadb_discovery::KubernetesServiceDiscovery::new().await.map_err(
-                                |e| {
-                                    ApiError::Internal(format!(
-                                        "Failed to create Kubernetes discovery: {}",
-                                        e
-                                    ))
-                                },
-                            )?,
-                        ),
-                        inferadb_config::DiscoveryMode::Tailscale { .. } => {
-                            return Err(ApiError::Internal(
-                                "Tailscale discovery not yet implemented".into(),
-                            ));
-                        },
-                        inferadb_config::DiscoveryMode::None => unreachable!(),
-                    };
-
-                // Perform initial discovery to get endpoints
-                let initial_endpoints =
-                    discovery.discover(&state.config.auth.management_api_url).await.map_err(
-                        |e| ApiError::Internal(format!("Initial endpoint discovery failed: {}", e)),
-                    )?;
-
-                info!("Discovered {} Management API endpoints", initial_endpoints.len());
-
-                // Create load balancing client with discovered endpoints
-                let lb_client =
-                    Arc::new(inferadb_discovery::LoadBalancingClient::new(initial_endpoints));
-
-                // Create discovery refresher for background updates
-                let refresher = Arc::new(inferadb_discovery::DiscoveryRefresher::new(
-                    Arc::clone(&discovery),
-                    Arc::clone(&lb_client),
-                    state.config.auth.discovery.cache_ttl_seconds,
-                    state.config.auth.management_api_url.clone(),
-                ));
-
-                // Spawn background refresh task
-                Arc::clone(&refresher).spawn();
-                info!(
-                    "Discovery refresh task spawned (interval: {}s)",
-                    state.config.auth.discovery.cache_ttl_seconds
-                );
-
-                // Create ManagementClient with load balancing
-                Arc::new(
-                    inferadb_auth::ManagementClient::new(
-                        state.config.auth.management_api_url.clone(),
-                        state.config.auth.management_internal_api_url.clone(),
-                        state.config.auth.management_api_timeout_ms,
-                        Some(lb_client),
-                        state.server_identity.clone(),
-                    )
-                    .map_err(|e| {
-                        ApiError::Internal(format!(
-                            "Failed to create load-balanced management client: {}",
-                            e
-                        ))
+            // Create discovery service based on mode
+            let discovery: Arc<dyn inferadb_discovery::EndpointDiscovery> = match &state
+                .config
+                .auth
+                .discovery
+                .mode
+            {
+                inferadb_config::DiscoveryMode::Kubernetes => Arc::new(
+                    inferadb_discovery::KubernetesServiceDiscovery::new().await.map_err(|e| {
+                        ApiError::Internal(format!("Failed to create Kubernetes discovery: {}", e))
                     })?,
-                )
-            } else {
-                // Discovery disabled - use static URL (Kubernetes service handles load balancing)
-                info!(
-                    "Management API discovery DISABLED - using static URL: {}",
-                    state.config.auth.management_api_url
-                );
-
-                Arc::new(
-                    inferadb_auth::ManagementClient::new(
-                        state.config.auth.management_api_url.clone(),
-                        state.config.auth.management_internal_api_url.clone(),
-                        state.config.auth.management_api_timeout_ms,
-                        None,
-                        state.server_identity.clone(),
-                    )
-                    .map_err(|e| {
-                        ApiError::Internal(format!("Failed to create management client: {}", e))
-                    })?,
-                )
+                ),
+                inferadb_config::DiscoveryMode::Tailscale { .. } => {
+                    return Err(ApiError::Internal(
+                        "Tailscale discovery not yet implemented".into(),
+                    ));
+                },
+                inferadb_config::DiscoveryMode::None => unreachable!(),
             };
 
-            info!("Vault verification and certificate cache ENABLED");
+            // Perform initial discovery to get endpoints
+            let initial_endpoints =
+                discovery.discover(&state.config.auth.management_api_url).await.map_err(|e| {
+                    ApiError::Internal(format!("Initial endpoint discovery failed: {}", e))
+                })?;
 
-            let mgmt_verifier = Arc::new(inferadb_auth::ManagementApiVaultVerifier::new(
-                Arc::clone(&management_client),
-                std::time::Duration::from_secs(300), // 5 min vault cache TTL
-                std::time::Duration::from_secs(600), // 10 min org cache TTL
+            info!("Discovered {} Management API endpoints", initial_endpoints.len());
+
+            // Create load balancing client with discovered endpoints
+            let lb_client =
+                Arc::new(inferadb_discovery::LoadBalancingClient::new(initial_endpoints));
+
+            // Create discovery refresher for background updates
+            let refresher = Arc::new(inferadb_discovery::DiscoveryRefresher::new(
+                Arc::clone(&discovery),
+                Arc::clone(&lb_client),
+                state.config.auth.discovery.cache_ttl_seconds,
+                state.config.auth.management_api_url.clone(),
             ));
 
-            let cert_cache = Arc::new(
-                inferadb_auth::CertificateCache::new(
+            // Spawn background refresh task
+            Arc::clone(&refresher).spawn();
+            info!(
+                "Discovery refresh task spawned (interval: {}s)",
+                state.config.auth.discovery.cache_ttl_seconds
+            );
+
+            // Create ManagementClient with load balancing
+            Arc::new(
+                inferadb_auth::ManagementClient::new(
                     state.config.auth.management_api_url.clone(),
-                    std::time::Duration::from_secs(300), // 5 min cert cache TTL
-                    1000,                                // Max 1000 cached certificates
+                    state.config.auth.management_internal_api_url.clone(),
+                    state.config.auth.management_api_timeout_ms,
+                    Some(lb_client),
+                    state.server_identity.clone(),
                 )
                 .map_err(|e| {
-                    ApiError::Internal(format!("Failed to create certificate cache: {}", e))
+                    ApiError::Internal(format!(
+                        "Failed to create load-balanced management client: {}",
+                        e
+                    ))
                 })?,
-            );
-
-            // Keep both trait object and concrete type references
-            let vault_verifier_trait: Arc<dyn inferadb_auth::VaultVerifier> =
-                Arc::clone(&mgmt_verifier) as Arc<dyn inferadb_auth::VaultVerifier>;
-
-            (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
+            )
         } else {
-            // Use no-op verifier when management API not configured
-            info!(
-                "Vault verification DISABLED - using no-op verifier (management API not configured)"
-            );
-            (
-                Arc::new(inferadb_auth::NoOpVaultVerifier) as Arc<dyn inferadb_auth::VaultVerifier>,
-                None,
-                None,
+            // Discovery disabled - use static URL (Kubernetes service handles load balancing)
+            Arc::new(
+                inferadb_auth::ManagementClient::new(
+                    state.config.auth.management_api_url.clone(),
+                    state.config.auth.management_internal_api_url.clone(),
+                    state.config.auth.management_api_timeout_ms,
+                    None,
+                    state.server_identity.clone(),
+                )
+                .map_err(|e| {
+                    ApiError::Internal(format!("Failed to create management client: {}", e))
+                })?,
             )
         };
 
+        let mgmt_verifier = Arc::new(inferadb_auth::ManagementApiVaultVerifier::new(
+            Arc::clone(&management_client),
+            std::time::Duration::from_secs(300), // 5 min vault cache TTL
+            std::time::Duration::from_secs(600), // 10 min org cache TTL
+        ));
+
+        let cert_cache = Arc::new(
+            inferadb_auth::CertificateCache::new(
+                state.config.auth.management_api_url.clone(),
+                std::time::Duration::from_secs(300), // 5 min cert cache TTL
+                1000,                                // Max 1000 cached certificates
+            )
+            .map_err(|e| {
+                ApiError::Internal(format!("Failed to create certificate cache: {}", e))
+            })?,
+        );
+
+        // Keep both trait object and concrete type references
+        let vault_verifier_trait: Arc<dyn inferadb_auth::VaultVerifier> =
+            Arc::clone(&mgmt_verifier) as Arc<dyn inferadb_auth::VaultVerifier>;
+
+        (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
+    } else {
+        // Use no-op verifier when management API not configured
+        warn!("○ Vault caching disabled");
+        warn!(
+            "  For more information, see https://inferadb.com/docs/?search=auth.management_api_url"
+        );
+        (
+            Arc::new(inferadb_auth::NoOpVaultVerifier) as Arc<dyn inferadb_auth::VaultVerifier>,
+            None,
+            None,
+        )
+    };
+
     // Apply authentication middleware
     let protected_routes = if let Some(jwks_cache) = &state.jwks_cache {
-        info!("Authentication ENABLED - applying auth middleware to protected routes");
         let jwks_cache = Arc::clone(jwks_cache);
 
         // Apply auth middleware first, then vault validation middleware
@@ -611,8 +607,6 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
     // Privileged cache invalidation routes (require Management API JWT authentication)
     // These are only enabled when management API is configured
     let privileged_routes = if !state.config.auth.management_api_url.is_empty() {
-        info!("Internal cache invalidation endpoints ENABLED");
-
         // Create Management JWKS cache for verifying Management API JWTs
         // Use internal URL if available (Management JWKS is served on internal port)
         let management_jwks_url = state
@@ -689,8 +683,9 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
                 .with_state(state.clone()),
         )
     } else {
-        info!(
-            "Internal cache invalidation endpoints DISABLED (auth disabled or management API not configured)"
+        warn!("○ Cache invalidation endpoints disabled");
+        warn!(
+            "  For more information, see https://inferadb.com/docs/?search=auth.management_api_url"
         );
         None
     };

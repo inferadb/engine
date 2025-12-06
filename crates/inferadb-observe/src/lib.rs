@@ -47,7 +47,7 @@ pub fn init_tracing_with_config(config: TracingConfig) -> Result<()> {
 
     let subscriber = tracing_subscriber::registry()
         .with(env_filter)
-        .with(tracing_subscriber::fmt::layer().with_target(true));
+        .with(tracing_subscriber::fmt::layer().with_target(false));
 
     // Add OpenTelemetry layer if endpoint is configured
     let otlp_enabled = config.otlp_endpoint.is_some();

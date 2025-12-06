@@ -23,6 +23,14 @@ struct Args {
     /// Server port (overrides config)
     #[arg(short, long)]
     port: Option<u16>,
+
+    /// Environment (development, staging, production)
+    #[arg(short, long, env = "ENVIRONMENT", default_value = "development")]
+    environment: String,
+
+    /// Worker ID for distributed deployments (0-1023)
+    #[arg(short, long, env = "WORKER_ID", default_value = "0")]
+    worker_id: u16,
 }
 
 #[tokio::main]
@@ -53,30 +61,61 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }
 
+    // Get full path of configuration file
+    let config_path = std::fs::canonicalize(&args.config)
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| args.config.clone());
+
     // Display startup banner and configuration summary
-    use inferadb_observe::startup::{ConfigEntry, ServiceInfo, StartupDisplay};
+    use inferadb_observe::startup::{ConfigEntry, ServiceInfo, StartupDisplay, private_key_hint};
+    use inferadb_config::DiscoveryMode;
+
+    // Create the private key entry based on whether it's configured
+    let private_key_entry = if let Some(ref pem) = config.auth.server_identity_private_key {
+        ConfigEntry::new("Identity", "Private Key", private_key_hint(pem))
+    } else {
+        ConfigEntry::warning("Identity", "Private Key", "○ Unassigned")
+    };
+
+    // Create discovery mode entry
+    let discovery_entry = match config.auth.discovery.mode {
+        DiscoveryMode::None => {
+            ConfigEntry::warning("Network", "Management API Service Discovery", "○ Disabled")
+        }
+        DiscoveryMode::Kubernetes | DiscoveryMode::Tailscale { .. } => {
+            ConfigEntry::new("Network", "Management API Service Discovery", "✓ Enabled")
+        }
+    };
+
     StartupDisplay::new(ServiceInfo {
         name: "InferaDB",
         subtext: "Policy Decision Engine Server",
         version: env!("CARGO_PKG_VERSION"),
-        environment: "development".to_string(), // TODO: Get from config
+        environment: args.environment.clone(),
     })
     .entries(vec![
-        ConfigEntry::new("General", "config_file", &args.config),
-        ConfigEntry::new("Server", "public_host", &config.server.host),
-        ConfigEntry::new("Server", "public_port", config.server.port),
-        ConfigEntry::new("Server", "internal_host", &config.server.internal_host),
-        ConfigEntry::new("Server", "internal_port", config.server.internal_port),
-        ConfigEntry::new("Auth", "jwks_base_url", &config.auth.jwks_base_url),
-        ConfigEntry::new("Auth", "jwks_cache_ttl", format!("{}s", config.auth.jwks_cache_ttl)),
+        // General
+        ConfigEntry::new("General", "Environment", &args.environment),
+        ConfigEntry::new("General", "Configuration File", &config_path),
+        ConfigEntry::new("General", "Worker ID", args.worker_id),
+        // Storage
+        ConfigEntry::new("Storage", "Backend", &config.store.backend),
+        // Network
+        ConfigEntry::new("Network", "Public API", format!("{}:{}", config.server.host, config.server.port)),
+        ConfigEntry::new("Network", "Private API", format!("{}:{}", config.server.internal_host, config.server.internal_port)),
+        ConfigEntry::new("Network", "Management API Service REST", &config.auth.management_api_url),
+        discovery_entry,
+        // Identity
+        ConfigEntry::new("Identity", "Service ID", &config.auth.server_id),
+        ConfigEntry::new("Identity", "Service KID", &config.auth.server_identity_kid),
+        private_key_entry,
     ])
     .display();
 
     let config = Arc::new(config);
 
-    // ━━━ Initialize Components ━━━
-    use inferadb_observe::startup::{log_initialized, log_phase, log_ready, log_skipped};
-    log_phase("Initializing Components");
+    // Initialize components
+    use inferadb_observe::startup::{log_initialized, log_ready, log_skipped};
 
     // Initialize storage backend
     // TODO: Support multiple backends based on config
@@ -127,17 +166,15 @@ async fn main() -> Result<()> {
             )
             .map_err(|e| anyhow::anyhow!("Failed to load server identity from PEM: {}", e))?
         } else {
-            // Generate new identity and log the PEM (for development)
-            tracing::warn!("No server identity configured - generating new Ed25519 keypair");
-            tracing::warn!("This should ONLY be used in development environments");
+            // Generate new identity and display in formatted box
             let identity = ServerIdentity::generate(
                 config.auth.server_id.clone(),
                 config.auth.server_identity_kid.clone(),
             );
             let pem = identity.to_pem();
-            tracing::warn!(
-                "Generated server identity PEM (save this to config for production):\n{}",
-                pem
+            inferadb_observe::startup::print_generated_keypair(
+                &pem,
+                "auth.server_identity_private_key",
             );
             identity
         };
@@ -148,9 +185,6 @@ async fn main() -> Result<()> {
         log_skipped("Server identity", "management_api_url not configured");
         None
     };
-
-    // ━━━ Start Server ━━━
-    log_phase("Starting Server");
 
     // Clone components for each server
     let public_components = inferadb_api::ServerComponents {
@@ -179,7 +213,7 @@ async fn main() -> Result<()> {
     let internal_listener = tokio::net::TcpListener::bind(&internal_addr).await?;
 
     // Log ready status
-    log_ready("InferaDB", &[("Public API", &public_addr), ("Internal API", &internal_addr)]);
+    log_ready("Policy API Service");
 
     // Setup graceful shutdown
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel::<()>(2);

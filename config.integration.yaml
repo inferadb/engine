@@ -26,7 +26,6 @@ observability:
   tracing_enabled: false
 
 auth:
-  enabled: true
   management_api_url: "http://management-api:9091"
   management_api_timeout_ms: 10000 # Higher timeout for CI
   management_cache_ttl_seconds: 30 # Short cache for tests

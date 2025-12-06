@@ -52,7 +52,7 @@ impl Default for LogConfig {
         Self {
             format: LogFormat::default(),
             include_location: cfg!(debug_assertions),
-            include_target: true,
+            include_target: false,
             include_thread_id: false,
             log_spans: cfg!(debug_assertions),
             filter: None,
@@ -232,7 +232,7 @@ mod tests {
     fn test_log_config_default() {
         let config = LogConfig::default();
         assert_eq!(config.format, LogFormat::default());
-        assert!(config.include_target);
+        assert!(!config.include_target);
     }
 
     #[test]
