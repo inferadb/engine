@@ -7,7 +7,7 @@ pub mod refresh;
 pub mod secrets;
 pub mod validation;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use config::{Config as ConfigBuilder, ConfigError, Environment, File};
 pub use refresh::ConfigRefresher;
@@ -18,7 +18,7 @@ pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,
     #[serde(default)]
-    pub store: StoreConfig,
+    pub storage: StorageConfig,
     #[serde(default)]
     pub cache: CacheConfig,
     #[serde(default)]
@@ -26,7 +26,9 @@ pub struct Config {
     #[serde(default)]
     pub auth: AuthConfig,
     #[serde(default)]
-    pub multi_tenancy: MultiTenancyConfig,
+    pub identity: IdentityConfig,
+    #[serde(default)]
+    pub discovery: DiscoveryConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,16 +84,50 @@ fn default_worker_threads() -> usize {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StoreConfig {
+pub struct IdentityConfig {
+    /// Service ID for JWT subject claim (sub: "server:{service_id}")
+    #[serde(default = "default_service_id")]
+    pub service_id: String,
+
+    /// Key ID (kid) for JWKS - identifies the server's public key
+    #[serde(default = "default_kid")]
+    pub kid: String,
+
+    /// Server identity Ed25519 private key (PEM format) for signing server-to-management requests
+    /// This key is used to authenticate the server when making calls to the management API
+    /// If not provided, will be generated on startup and logged (not recommended for production)
+    pub private_key_pem: Option<String>,
+}
+
+impl Default for IdentityConfig {
+    fn default() -> Self {
+        Self {
+            service_id: default_service_id(),
+            kid: default_kid(),
+            private_key_pem: None,
+        }
+    }
+}
+
+fn default_service_id() -> String {
+    "default".to_string()
+}
+
+fn default_kid() -> String {
+    "server-default".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageConfig {
     #[serde(default = "default_backend")]
     pub backend: String,
 
-    pub connection_string: Option<String>,
+    pub fdb_cluster_file: Option<String>,
 }
 
-impl Default for StoreConfig {
+impl Default for StorageConfig {
     fn default() -> Self {
-        Self { backend: default_backend(), connection_string: None }
+        Self { backend: default_backend(), fdb_cluster_file: None }
     }
 }
 
@@ -193,32 +229,9 @@ pub struct AuthConfig {
     #[serde(default = "default_replay_protection")]
     pub replay_protection: bool,
 
-    /// Control Plane JWKS base URL
-    #[serde(default = "default_jwks_base_url")]
-    pub jwks_base_url: String,
-
-    /// OAuth introspection endpoint (optional)
-    pub oauth_introspection_endpoint: Option<String>,
-
-    /// OAuth introspection client ID for authentication (optional)
-    pub oauth_introspection_client_id: Option<String>,
-
-    /// OAuth introspection client secret for authentication (optional)
-    pub oauth_introspection_client_secret: Option<String>,
-
     /// OIDC discovery cache TTL in seconds
     #[serde(default = "default_oidc_discovery_cache_ttl")]
     pub oidc_discovery_cache_ttl: u64,
-
-    /// OAuth introspection result cache TTL in seconds
-    #[serde(default = "default_introspection_cache_ttl")]
-    pub introspection_cache_ttl: u64,
-
-    /// Internal JWKS file path (optional)
-    pub internal_jwks_path: Option<PathBuf>,
-
-    /// Internal JWKS environment variable name (optional)
-    pub internal_jwks_env: Option<String>,
 
     /// Internal JWT issuer
     #[serde(default = "default_internal_issuer")]
@@ -266,14 +279,11 @@ pub struct AuthConfig {
     /// OIDC client secret
     pub oidc_client_secret: Option<String>,
 
-    /// OAuth introspection URL
-    pub introspection_url: Option<String>,
-
     /// Required scopes for authorization
     #[serde(default = "default_required_scopes")]
     pub required_scopes: Vec<String>,
 
-    /// JWKS URL (alternative to jwks_base_url)
+    /// JWKS URL for tenant authentication
     #[serde(default = "default_jwks_url")]
     pub jwks_url: String,
 
@@ -305,24 +315,6 @@ pub struct AuthConfig {
     /// Whether to verify organization status against management API
     #[serde(default = "default_true")]
     pub management_verify_org_status: bool,
-
-    /// Server identity Ed25519 private key (PEM format) for signing server-to-management requests
-    /// This key is used to authenticate the server when making calls to the management API
-    /// If not provided, will be generated on startup and logged (not recommended for production)
-    pub server_identity_private_key: Option<String>,
-
-    /// Server identity key ID (kid) for JWKS
-    /// Used to identify the server's public key in its JWKS endpoint
-    #[serde(default = "default_server_identity_kid")]
-    pub server_identity_kid: String,
-
-    /// Server ID for JWT subject claim (sub: "server:{server_id}")
-    #[serde(default = "default_server_id")]
-    pub server_id: String,
-
-    /// Service discovery configuration for management API
-    #[serde(default)]
-    pub discovery: DiscoveryConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -441,16 +433,8 @@ fn default_replay_protection() -> bool {
     false
 }
 
-fn default_jwks_base_url() -> String {
-    "https://auth.inferadb.com/.well-known".to_string()
-}
-
 fn default_oidc_discovery_cache_ttl() -> u64 {
     86400 // 24 hours in seconds
-}
-
-fn default_introspection_cache_ttl() -> u64 {
-    60 // 1 minute in seconds
 }
 
 fn default_internal_issuer() -> String {
@@ -484,14 +468,6 @@ fn default_true() -> bool {
     true
 }
 
-fn default_server_identity_kid() -> String {
-    "server-default".to_string()
-}
-
-fn default_server_id() -> String {
-    "default".to_string()
-}
-
 fn default_discovery_cache_ttl() -> u64 {
     300 // 5 minutes
 }
@@ -502,49 +478,6 @@ fn default_discovery_health_check() -> bool {
 
 fn default_discovery_health_check_interval() -> u64 {
     30 // 30 seconds
-}
-
-/// Multi-tenancy configuration
-///
-/// Controls default organization and vault used when authentication is disabled.
-/// These values are auto-generated on first startup if not specified.
-///
-/// # Configuration
-///
-/// YAML:
-/// ```yaml
-/// multi_tenancy:
-///   default_vault: "550e8400-e29b-41d4-a716-446655440000"
-///   default_organization: "550e8400-e29b-41d4-a716-446655440001"
-/// ```
-///
-/// Environment:
-/// ```bash
-/// INFERADB__MULTI_TENANCY__DEFAULT_VAULT=550e8400-e29b-41d4-a716-446655440000
-/// INFERADB__MULTI_TENANCY__DEFAULT_ORGANIZATION=550e8400-e29b-41d4-a716-446655440001
-/// ```
-///
-/// # Auto-Initialization
-///
-/// On first startup, if these values are not set:
-/// 1. A new Organization is created with name "Default Organization"
-/// 2. A new Vault is created with name "Default Vault"
-/// 3. The SystemConfig is stored in the database
-/// 4. All subsequent startups use these defaults
-///
-/// If values are specified in configuration:
-/// - The system will use those UUIDs
-/// - Organizations and Vaults will be created if they don't exist
-/// - Existing organizations/vaults with those IDs will be reused
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct MultiTenancyConfig {
-    /// Default vault UUID (auto-generated on first startup if not set)
-    #[serde(default)]
-    pub default_vault: Option<String>,
-
-    /// Default organization UUID (auto-generated on first startup if not set)
-    #[serde(default)]
-    pub default_organization: Option<String>,
 }
 
 impl Config {
@@ -561,17 +494,17 @@ impl Config {
             anyhow::bail!("server.worker_threads must be greater than 0");
         }
 
-        // Validate store backend
-        if self.store.backend != "memory" && self.store.backend != "foundationdb" {
+        // Validate storage backend
+        if self.storage.backend != "memory" && self.storage.backend != "foundationdb" {
             anyhow::bail!(
-                "Invalid store.backend: '{}'. Must be 'memory' or 'foundationdb'",
-                self.store.backend
+                "Invalid storage.backend: '{}'. Must be 'memory' or 'foundationdb'",
+                self.storage.backend
             );
         }
 
         // Validate FoundationDB configuration
-        if self.store.backend == "foundationdb" && self.store.connection_string.is_none() {
-            anyhow::bail!("store.connection_string is required when using FoundationDB backend");
+        if self.storage.backend == "foundationdb" && self.storage.fdb_cluster_file.is_none() {
+            anyhow::bail!("storage.fdb_cluster_file is required when using FoundationDB backend");
         }
 
         // Validate authentication config (delegates to AuthConfig::validate)
@@ -593,28 +526,12 @@ impl Config {
             );
         }
 
-        // Validate JWKS base URL format
-        if !self.auth.jwks_base_url.starts_with("http://")
-            && !self.auth.jwks_base_url.starts_with("https://")
-        {
-            anyhow::bail!(
-                "auth.jwks_base_url must start with http:// or https://, got: {}",
-                self.auth.jwks_base_url
-            );
-        }
-        if self.auth.jwks_base_url.ends_with('/') {
-            anyhow::bail!(
-                "auth.jwks_base_url must not end with trailing slash: {}",
-                self.auth.jwks_base_url
-            );
-        }
-
         // Validate server identity configuration
-        if self.auth.server_identity_kid.is_empty() {
-            anyhow::bail!("auth.server_identity_kid cannot be empty");
+        if self.identity.kid.is_empty() {
+            anyhow::bail!("identity.kid cannot be empty");
         }
-        if self.auth.server_id.is_empty() {
-            anyhow::bail!("auth.server_id cannot be empty");
+        if self.identity.service_id.is_empty() {
+            anyhow::bail!("identity.service_id cannot be empty");
         }
 
         // Validate cache TTL values are reasonable
@@ -641,14 +558,7 @@ impl Default for AuthConfig {
             audience: default_audience(),
             enforce_scopes: default_enforce_scopes(),
             replay_protection: default_replay_protection(),
-            jwks_base_url: default_jwks_base_url(),
-            oauth_introspection_endpoint: None,
-            oauth_introspection_client_id: None,
-            oauth_introspection_client_secret: None,
             oidc_discovery_cache_ttl: default_oidc_discovery_cache_ttl(),
-            introspection_cache_ttl: default_introspection_cache_ttl(),
-            internal_jwks_path: None,
-            internal_jwks_env: Some("INFERADB_INTERNAL_JWKS".to_string()),
             internal_issuer: default_internal_issuer(),
             internal_audience: default_internal_audience(),
             redis_url: None,
@@ -662,7 +572,6 @@ impl Default for AuthConfig {
             oidc_discovery_url: None,
             oidc_client_id: None,
             oidc_client_secret: None,
-            introspection_url: None,
             required_scopes: default_required_scopes(),
             jwks_url: default_jwks_url(),
             management_api_url: default_management_api_url(),
@@ -672,10 +581,6 @@ impl Default for AuthConfig {
             cert_cache_ttl_seconds: default_cert_cache_ttl(),
             management_verify_vault_ownership: default_true(),
             management_verify_org_status: default_true(),
-            server_identity_private_key: None,
-            server_identity_kid: default_server_identity_kid(),
-            server_id: default_server_id(),
-            discovery: DiscoveryConfig::default(),
         }
     }
 }
@@ -690,23 +595,11 @@ impl AuthConfig {
     /// - Validates issuer and audience configuration
     /// - Ensures required JTI when replay protection is enabled
     pub fn validate(&self) -> Result<(), String> {
-        // Warn if JWKS base URL is missing
-        if self.jwks_base_url.is_empty() && self.jwks_url.is_empty() {
+        // Warn if JWKS URL is missing
+        if self.jwks_url.is_empty() {
             tracing::warn!(
-                "jwks_base_url and jwks_url are empty. \
+                "jwks_url is empty. \
                  Tenant JWT authentication will not work."
-            );
-        }
-
-        // Warn if internal JWT sources are configured but both are missing
-        let has_internal_path = self.internal_jwks_path.is_some();
-        let has_internal_env = self.internal_jwks_env.is_some();
-
-        if !has_internal_path && !has_internal_env {
-            tracing::info!(
-                "No internal JWT JWKS source configured. \
-                 Internal service-to-service authentication will not be available. \
-                 Set internal_jwks_path or internal_jwks_env to enable."
             );
         }
 
@@ -809,7 +702,7 @@ impl Default for Config {
                 internal_port: default_internal_port(),
                 worker_threads: default_worker_threads(),
             },
-            store: StoreConfig { backend: default_backend(), connection_string: None },
+            storage: StorageConfig { backend: default_backend(), fdb_cluster_file: None },
             cache: CacheConfig {
                 enabled: default_cache_enabled(),
                 max_capacity: default_cache_max_capacity(),
@@ -821,7 +714,8 @@ impl Default for Config {
                 tracing_enabled: default_tracing_enabled(),
             },
             auth: AuthConfig::default(),
-            multi_tenancy: MultiTenancyConfig::default(),
+            identity: IdentityConfig::default(),
+            discovery: DiscoveryConfig::default(),
         }
     }
 }
@@ -891,23 +785,9 @@ mod tests {
             .with_test_writer()
             .try_init();
 
-        let config = AuthConfig { jwks_base_url: String::new(), ..Default::default() };
+        let config = AuthConfig { jwks_url: String::new(), ..Default::default() };
 
         // Should warn but not panic
-        let _ = config.validate();
-    }
-
-    #[test]
-    fn test_auth_config_validation_no_internal_jwks_source() {
-        let _subscriber = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::INFO)
-            .with_test_writer()
-            .try_init();
-
-        let config =
-            AuthConfig { internal_jwks_path: None, internal_jwks_env: None, ..Default::default() };
-
-        // Should log info but not panic
         let _ = config.validate();
     }
 
@@ -945,8 +825,7 @@ mod tests {
             .try_init();
 
         let config = AuthConfig {
-            jwks_base_url: "https://auth.example.com".to_string(),
-            internal_jwks_env: Some("JWKS_ENV".to_string()),
+            jwks_url: "https://auth.example.com/.well-known/jwks.json".to_string(),
             replay_protection: false,
             accepted_algorithms: vec!["EdDSA".to_string()],
             ..Default::default()

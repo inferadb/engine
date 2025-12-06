@@ -400,20 +400,19 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
     {
         // Check if discovery is enabled for Management API
         let management_client = if matches!(
-            state.config.auth.discovery.mode,
+            state.config.discovery.mode,
             inferadb_config::DiscoveryMode::Kubernetes
                 | inferadb_config::DiscoveryMode::Tailscale { .. }
         ) {
             // Discovery enabled - create discovery service and load balancing client
             info!(
                 "Management API discovery ENABLED - mode: {:?}",
-                state.config.auth.discovery.mode
+                state.config.discovery.mode
             );
 
             // Create discovery service based on mode
             let discovery: Arc<dyn inferadb_discovery::EndpointDiscovery> = match &state
                 .config
-                .auth
                 .discovery
                 .mode
             {
@@ -446,7 +445,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             let refresher = Arc::new(inferadb_discovery::DiscoveryRefresher::new(
                 Arc::clone(&discovery),
                 Arc::clone(&lb_client),
-                state.config.auth.discovery.cache_ttl_seconds,
+                state.config.discovery.cache_ttl_seconds,
                 state.config.auth.management_api_url.clone(),
             ));
 
@@ -454,7 +453,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             Arc::clone(&refresher).spawn();
             info!(
                 "Discovery refresh task spawned (interval: {}s)",
-                state.config.auth.discovery.cache_ttl_seconds
+                state.config.discovery.cache_ttl_seconds
             );
 
             // Create ManagementClient with load balancing
@@ -790,10 +789,11 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
 
     info!("Starting gRPC server on {} with authentication enabled", addr);
 
-    // Try to load internal JWKS if configured
+    // Try to load internal JWKS from well-known environment variable
+    // Internal service authentication is optional; if INFERADB_INTERNAL_JWKS is not set, it's skipped
     let internal_loader = inferadb_auth::InternalJwksLoader::from_config(
-        components.config.auth.internal_jwks_path.as_deref(),
-        components.config.auth.internal_jwks_env.as_deref(),
+        None,
+        Some("INFERADB_INTERNAL_JWKS"),
     )
     .ok()
     .map(Arc::new);

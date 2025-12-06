@@ -12,7 +12,7 @@ server:
 
   worker_threads: 2 # Reduced for test environment
 
-store:
+storage:
   backend: "memory" # In-memory for fast tests
 
 cache:

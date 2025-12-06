@@ -15,12 +15,9 @@ data:
   INFERADB__SERVER__RATE_LIMIT_PERIOD: "{{ .Values.config.server.rateLimitPeriod }}"
 
   # Storage configuration
-  INFERADB__STORE__BACKEND: "{{ .Values.config.store.backend }}"
-  {{- if eq .Values.config.store.backend "foundationdb" }}
-  INFERADB__STORE__CONNECTION_STRING: "{{ .Values.config.store.connectionString }}"
-  INFERADB__STORE__TIMEOUT: "{{ .Values.config.store.timeout }}"
-  INFERADB__STORE__MAX_RETRY_DELAY: "{{ .Values.config.store.maxRetryDelay }}"
-  INFERADB__STORE__TRANSACTION_TIMEOUT: "{{ .Values.config.store.transactionTimeout }}"
+  INFERADB__STORAGE__BACKEND: "{{ .Values.config.storage.backend }}"
+  {{- if eq .Values.config.storage.backend "foundationdb" }}
+  INFERADB__STORAGE__FDB_CLUSTER_FILE: "{{ .Values.config.storage.fdbClusterFile }}"
   {{- end }}
 
   # Cache configuration

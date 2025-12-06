@@ -350,7 +350,7 @@ store:
 
         // Verify initial values
         assert_eq!(config.read().server.port, 8080);
-        assert_eq!(config.read().store.backend, "memory");
+        assert_eq!(config.read().storage.backend, "memory");
 
         // Write invalid config (invalid storage backend)
         fs::write(
@@ -375,7 +375,7 @@ store:
         // Verify config was not changed (should still be valid)
         let current = config.read();
         assert_eq!(current.server.port, 8080);
-        assert_eq!(current.store.backend, "memory");
+        assert_eq!(current.storage.backend, "memory");
     }
 
     #[tokio::test]

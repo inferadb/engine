@@ -9,8 +9,8 @@ data:
   # Environment variables
   INFERADB__SERVER__WORKER_THREADS: "4"
 
-  INFERADB__STORE__BACKEND: "foundationdb"
-  INFERADB__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
+  INFERADB__STORAGE__BACKEND: "foundationdb"
+  INFERADB__STORAGE__FDB_CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
 
   INFERADB__CACHE__ENABLED: "true"
   INFERADB__CACHE__MAX_CAPACITY: "100000"
@@ -36,9 +36,9 @@ data:
       port: 8080
       worker_threads: 4
 
-    store:
+    storage:
       backend: "foundationdb"
-      connection_string: "/etc/foundationdb/fdb.cluster"
+      fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
 
     cache:
       enabled: true

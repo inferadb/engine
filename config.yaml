@@ -12,7 +12,7 @@ server:
 
   worker_threads: 4
 
-store:
+storage:
   # In-memory storage for development
   backend: "memory"
 

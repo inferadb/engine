@@ -1,6 +1,6 @@
 //! # InferaDB Server Binary
 //!
-//! Main entrypoint for the InferaDB policy decision engine server.
+//! Main entrypoint for the InferaDB policy service.
 
 use std::sync::Arc;
 
@@ -14,7 +14,7 @@ use inferadb_wasm::WasmHost;
 
 #[derive(Parser, Debug)]
 #[command(name = "inferadb")]
-#[command(about = "InferaDB Policy Decision Engine", long_about = None)]
+#[command(about = "InferaDB Policy Service", long_about = None)]
 struct Args {
     /// Path to configuration file
     #[arg(short, long, default_value = "config.yaml")]
@@ -44,6 +44,11 @@ async fn main() -> Result<()> {
     // Parse command-line arguments
     let args = Args::parse();
 
+    // Clear terminal in development mode when running interactively
+    if args.environment != "production" && std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        print!("\x1B[2J\x1B[1;1H");
+    }
+
     // Initialize observability
     inferadb_observe::init()?;
 
@@ -71,43 +76,44 @@ async fn main() -> Result<()> {
     use inferadb_config::DiscoveryMode;
 
     // Create the private key entry based on whether it's configured
-    let private_key_entry = if let Some(ref pem) = config.auth.server_identity_private_key {
+    let private_key_entry = if let Some(ref pem) = config.identity.private_key_pem {
         ConfigEntry::new("Identity", "Private Key", private_key_hint(pem))
     } else {
         ConfigEntry::warning("Identity", "Private Key", "○ Unassigned")
     };
 
     // Create discovery mode entry
-    let discovery_entry = match config.auth.discovery.mode {
+    let discovery_entry = match config.discovery.mode {
         DiscoveryMode::None => {
-            ConfigEntry::warning("Network", "Management API Service Discovery", "○ Disabled")
+            ConfigEntry::warning("Network", "Service Discovery", "○ Disabled")
         }
         DiscoveryMode::Kubernetes | DiscoveryMode::Tailscale { .. } => {
-            ConfigEntry::new("Network", "Management API Service Discovery", "✓ Enabled")
+            ConfigEntry::new("Network", "Service Discovery", "✓ Enabled")
         }
     };
 
     StartupDisplay::new(ServiceInfo {
         name: "InferaDB",
-        subtext: "Policy Decision Engine Server",
+        subtext: "Policy Service",
         version: env!("CARGO_PKG_VERSION"),
         environment: args.environment.clone(),
     })
     .entries(vec![
         // General
         ConfigEntry::new("General", "Environment", &args.environment),
-        ConfigEntry::new("General", "Configuration File", &config_path),
         ConfigEntry::new("General", "Worker ID", args.worker_id),
+        ConfigEntry::new("General", "Configuration File", &config_path),
         // Storage
-        ConfigEntry::new("Storage", "Backend", &config.store.backend),
+        ConfigEntry::new("Storage", "Backend", &config.storage.backend),
         // Network
         ConfigEntry::new("Network", "Public API", format!("{}:{}", config.server.host, config.server.port)),
         ConfigEntry::new("Network", "Private API", format!("{}:{}", config.server.internal_host, config.server.internal_port)),
-        ConfigEntry::new("Network", "Management API Service REST", &config.auth.management_api_url),
+        ConfigEntry::separator("Network"),
+        ConfigEntry::new("Network", "Management Service REST", &config.auth.management_api_url),
         discovery_entry,
         // Identity
-        ConfigEntry::new("Identity", "Service ID", &config.auth.server_id),
-        ConfigEntry::new("Identity", "Service KID", &config.auth.server_identity_kid),
+        ConfigEntry::new("Identity", "Service ID", &config.identity.service_id),
+        ConfigEntry::new("Identity", "Service KID", &config.identity.kid),
         private_key_entry,
     ])
     .display();
@@ -146,7 +152,7 @@ async fn main() -> Result<()> {
 
     // Create the JWKS cache
     let jwks_cache = JwksCache::new(
-        config.auth.jwks_base_url.clone(),
+        config.auth.jwks_url.clone(),
         cache,
         Duration::from_secs(config.auth.jwks_cache_ttl),
     )?;
@@ -158,31 +164,31 @@ async fn main() -> Result<()> {
     let server_identity = if !config.auth.management_api_url.is_empty() {
         use inferadb_auth::ServerIdentity;
 
-        let identity = if let Some(ref pem) = config.auth.server_identity_private_key {
+        let identity = if let Some(ref pem) = config.identity.private_key_pem {
             ServerIdentity::from_pem(
-                config.auth.server_id.clone(),
-                config.auth.server_identity_kid.clone(),
+                config.identity.service_id.clone(),
+                config.identity.kid.clone(),
                 pem,
             )
             .map_err(|e| anyhow::anyhow!("Failed to load server identity from PEM: {}", e))?
         } else {
             // Generate new identity and display in formatted box
             let identity = ServerIdentity::generate(
-                config.auth.server_id.clone(),
-                config.auth.server_identity_kid.clone(),
+                config.identity.service_id.clone(),
+                config.identity.kid.clone(),
             );
             let pem = identity.to_pem();
             inferadb_observe::startup::print_generated_keypair(
                 &pem,
-                "auth.server_identity_private_key",
+                "identity.private_key_pem",
             );
             identity
         };
 
-        log_initialized("Server identity");
+        log_initialized("Identity");
         Some(Arc::new(identity))
     } else {
-        log_skipped("Server identity", "management_api_url not configured");
+        log_skipped("Identity", "management_api_url not configured");
         None
     };
 
@@ -213,7 +219,7 @@ async fn main() -> Result<()> {
     let internal_listener = tokio::net::TcpListener::bind(&internal_addr).await?;
 
     // Log ready status
-    log_ready("Policy API Service");
+    log_ready("Policy Service");
 
     // Setup graceful shutdown
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel::<()>(2);

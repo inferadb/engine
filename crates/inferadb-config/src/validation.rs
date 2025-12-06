@@ -4,7 +4,7 @@
 
 use thiserror::Error;
 
-use crate::{CacheConfig, Config, ObservabilityConfig, ServerConfig, StoreConfig};
+use crate::{CacheConfig, Config, ObservabilityConfig, ServerConfig, StorageConfig};
 
 #[derive(Debug, Error)]
 pub enum ValidationError {
@@ -47,7 +47,7 @@ pub fn validate(config: &Config) -> Result<()> {
         errors.push(e);
     }
 
-    if let Err(e) = validate_store(&config.store) {
+    if let Err(e) = validate_storage(&config.storage) {
         errors.push(e);
     }
 
@@ -88,17 +88,17 @@ pub fn validate_server(config: &ServerConfig) -> Result<()> {
     Ok(())
 }
 
-/// Validate store configuration
-pub fn validate_store(config: &StoreConfig) -> Result<()> {
+/// Validate storage configuration
+pub fn validate_storage(config: &StorageConfig) -> Result<()> {
     // Validate backend type
     match config.backend.as_str() {
         "memory" => {
-            // Memory backend doesn't need connection string
+            // Memory backend doesn't need cluster file
             Ok(())
         },
         "foundationdb" => {
-            // FoundationDB requires connection string
-            if config.connection_string.is_none() {
+            // FoundationDB requires cluster file
+            if config.fdb_cluster_file.is_none() {
                 return Err(ValidationError::MissingConnectionString(config.backend.clone()));
             }
             Ok(())
@@ -180,33 +180,33 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_store_memory_backend() {
-        let config = StoreConfig { backend: "memory".to_string(), connection_string: None };
-        assert!(validate_store(&config).is_ok());
+    fn test_validate_storage_memory_backend() {
+        let config = StorageConfig { backend: "memory".to_string(), fdb_cluster_file: None };
+        assert!(validate_storage(&config).is_ok());
     }
 
     #[test]
-    fn test_validate_store_foundationdb_without_connection() {
-        let config = StoreConfig { backend: "foundationdb".to_string(), connection_string: None };
+    fn test_validate_storage_foundationdb_without_cluster_file() {
+        let config = StorageConfig { backend: "foundationdb".to_string(), fdb_cluster_file: None };
         assert!(matches!(
-            validate_store(&config),
+            validate_storage(&config),
             Err(ValidationError::MissingConnectionString(_))
         ));
     }
 
     #[test]
-    fn test_validate_store_foundationdb_with_connection() {
-        let config = StoreConfig {
+    fn test_validate_storage_foundationdb_with_cluster_file() {
+        let config = StorageConfig {
             backend: "foundationdb".to_string(),
-            connection_string: Some("fdb:cluster".to_string()),
+            fdb_cluster_file: Some("/etc/foundationdb/fdb.cluster".to_string()),
         };
-        assert!(validate_store(&config).is_ok());
+        assert!(validate_storage(&config).is_ok());
     }
 
     #[test]
-    fn test_validate_store_invalid_backend() {
-        let config = StoreConfig { backend: "redis".to_string(), connection_string: None };
-        assert!(matches!(validate_store(&config), Err(ValidationError::InvalidBackend(_))));
+    fn test_validate_storage_invalid_backend() {
+        let config = StorageConfig { backend: "redis".to_string(), fdb_cluster_file: None };
+        assert!(matches!(validate_storage(&config), Err(ValidationError::InvalidBackend(_))));
     }
 
     #[test]
@@ -263,7 +263,7 @@ mod tests {
                 internal_port: 9090,
                 worker_threads: 0,
             },
-            store: StoreConfig { backend: "invalid".to_string(), connection_string: None },
+            storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },
             cache: CacheConfig { enabled: true, max_capacity: 0, ttl_seconds: 0 },
             observability: ObservabilityConfig {
                 log_level: "invalid".to_string(),
@@ -271,7 +271,8 @@ mod tests {
                 tracing_enabled: true,
             },
             auth: crate::AuthConfig::default(),
-            multi_tenancy: crate::MultiTenancyConfig::default(),
+            identity: crate::IdentityConfig::default(),
+            discovery: crate::DiscoveryConfig::default(),
         };
 
         match validate(&config) {

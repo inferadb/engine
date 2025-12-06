@@ -18,13 +18,13 @@ server:
   # Worker threads (recommended: number of CPU cores)
   worker_threads: 16
 
-store:
+storage:
   # Use FoundationDB for production
   backend: "foundationdb"
 
   # FoundationDB cluster file path
   # This file contains the connection string for your FDB cluster
-  connection_string: "fdb:cluster_file=/etc/foundationdb/fdb.cluster"
+  fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
 
 cache:
   enabled: true
