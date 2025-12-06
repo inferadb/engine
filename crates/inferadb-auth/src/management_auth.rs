@@ -330,9 +330,8 @@ impl AggregatedManagementJwksCache {
             },
             DiscoveryMode::Kubernetes => {
                 // Kubernetes discovery
-                let discovery = inferadb_discovery::KubernetesServiceDiscovery::new()
-                    .await
-                    .map_err(|e| {
+                let discovery =
+                    inferadb_discovery::KubernetesServiceDiscovery::new().await.map_err(|e| {
                         AuthError::JwksError(format!("Failed to create K8s discovery: {}", e))
                     })?;
 
@@ -346,10 +345,8 @@ impl AggregatedManagementJwksCache {
                 })?;
 
                 // Filter to only healthy endpoints
-                let healthy: Vec<_> = endpoints
-                    .into_iter()
-                    .filter(|e| e.health == EndpointHealth::Healthy)
-                    .collect();
+                let healthy: Vec<_> =
+                    endpoints.into_iter().filter(|e| e.health == EndpointHealth::Healthy).collect();
 
                 if healthy.is_empty() {
                     return Err(AuthError::JwksError(
@@ -390,10 +387,8 @@ impl AggregatedManagementJwksCache {
                     AuthError::JwksError(format!("Tailscale discovery failed: {}", e))
                 })?;
 
-                let healthy: Vec<_> = endpoints
-                    .into_iter()
-                    .filter(|e| e.health == EndpointHealth::Healthy)
-                    .collect();
+                let healthy: Vec<_> =
+                    endpoints.into_iter().filter(|e| e.health == EndpointHealth::Healthy).collect();
 
                 if healthy.is_empty() {
                     return Err(AuthError::JwksError(
@@ -482,10 +477,8 @@ impl AggregatedManagementJwksCache {
         }
 
         // Fetch JWKS from all endpoints in parallel
-        let fetch_futures: Vec<_> = endpoints
-            .iter()
-            .map(|ep| self.fetch_jwks_from_endpoint(&ep.url))
-            .collect();
+        let fetch_futures: Vec<_> =
+            endpoints.iter().map(|ep| self.fetch_jwks_from_endpoint(&ep.url)).collect();
 
         let results = futures::future::join_all(fetch_futures).await;
 
