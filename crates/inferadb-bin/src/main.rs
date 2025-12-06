@@ -72,8 +72,8 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| args.config.clone());
 
     // Display startup banner and configuration summary
-    use inferadb_observe::startup::{ConfigEntry, ServiceInfo, StartupDisplay, private_key_hint};
     use inferadb_config::DiscoveryMode;
+    use inferadb_observe::startup::{ConfigEntry, ServiceInfo, StartupDisplay, private_key_hint};
 
     // Create the private key entry based on whether it's configured
     let private_key_entry = if let Some(ref pem) = config.identity.private_key_pem {
@@ -82,14 +82,34 @@ async fn main() -> Result<()> {
         ConfigEntry::warning("Identity", "Private Key", "○ Unassigned")
     };
 
-    // Create discovery mode entry
-    let discovery_entry = match config.discovery.mode {
+    // Create discovery mode entry with descriptive text
+    let (discovery_entry, discovery_mode_text) = match &config.discovery.mode {
         DiscoveryMode::None => {
-            ConfigEntry::warning("Network", "Service Discovery", "○ Disabled")
-        }
-        DiscoveryMode::Kubernetes | DiscoveryMode::Tailscale { .. } => {
-            ConfigEntry::new("Network", "Service Discovery", "✓ Enabled")
-        }
+            (ConfigEntry::warning("Network", "Service Discovery", "○ Disabled"), "local")
+        },
+        DiscoveryMode::Kubernetes => {
+            (ConfigEntry::new("Network", "Service Discovery", "Kubernetes"), "kubernetes")
+        },
+        DiscoveryMode::Tailscale { local_cluster, .. } => (
+            ConfigEntry::new(
+                "Network",
+                "Service Discovery",
+                format!("Tailscale ({})", local_cluster),
+            ),
+            "tailscale",
+        ),
+    };
+
+    // Create management service entry with discovery context
+    let mgmt_url = config.effective_management_url();
+    let mgmt_entry = if config.is_discovery_enabled() {
+        ConfigEntry::new(
+            "Network",
+            "Management Service",
+            format!("{} ({})", mgmt_url, discovery_mode_text),
+        )
+    } else {
+        ConfigEntry::new("Network", "Management Service", format!("{} (local)", mgmt_url))
     };
 
     StartupDisplay::new(ServiceInfo {
@@ -106,10 +126,18 @@ async fn main() -> Result<()> {
         // Storage
         ConfigEntry::new("Storage", "Backend", &config.storage.backend),
         // Network
-        ConfigEntry::new("Network", "Public API", format!("{}:{}", config.server.host, config.server.port)),
-        ConfigEntry::new("Network", "Private API", format!("{}:{}", config.server.internal_host, config.server.internal_port)),
+        ConfigEntry::new(
+            "Network",
+            "Public API",
+            format!("{}:{}", config.server.host, config.server.port),
+        ),
+        ConfigEntry::new(
+            "Network",
+            "Private API",
+            format!("{}:{}", config.server.internal_host, config.server.internal_port),
+        ),
         ConfigEntry::separator("Network"),
-        ConfigEntry::new("Network", "Management Service REST", &config.auth.management_api_url),
+        mgmt_entry,
         discovery_entry,
         // Identity
         ConfigEntry::new("Identity", "Service ID", &config.identity.service_id),
@@ -161,7 +189,7 @@ async fn main() -> Result<()> {
     let jwks_cache = Some(Arc::new(jwks_cache));
 
     // Initialize server identity for server-to-management authentication
-    let server_identity = if !config.auth.management_api_url.is_empty() {
+    let server_identity = if !config.effective_management_url().is_empty() {
         use inferadb_auth::ServerIdentity;
 
         let identity = if let Some(ref pem) = config.identity.private_key_pem {
@@ -178,17 +206,14 @@ async fn main() -> Result<()> {
                 config.identity.kid.clone(),
             );
             let pem = identity.to_pem();
-            inferadb_observe::startup::print_generated_keypair(
-                &pem,
-                "identity.private_key_pem",
-            );
+            inferadb_observe::startup::print_generated_keypair(&pem, "identity.private_key_pem");
             identity
         };
 
         log_initialized("Identity");
         Some(Arc::new(identity))
     } else {
-        log_skipped("Identity", "management_api_url not configured");
+        log_skipped("Identity", "management_service.service_url not configured");
         None
     };
 

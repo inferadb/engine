@@ -6,6 +6,17 @@
 //!
 //! The Management API uses this to authenticate when calling server internal endpoints
 //! (like cache invalidation callbacks).
+//!
+//! ## Discovery Support
+//!
+//! When service discovery is enabled (Kubernetes or Tailscale), the cache will:
+//! 1. Discover all management service pod IPs
+//! 2. Fetch JWKS from each discovered endpoint
+//! 3. Aggregate all keys by `kid` (key ID)
+//! 4. Validate JWTs using any key from any management instance
+//!
+//! This allows the server to validate JWTs signed by any management service instance
+//! in a distributed deployment.
 
 use std::sync::Arc;
 
@@ -16,8 +27,11 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use inferadb_config::DiscoveryMode;
+use inferadb_discovery::{Endpoint, EndpointDiscovery, EndpointHealth};
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 
 use crate::{error::AuthError, jwt::decode_jwt_header, middleware::extract_bearer_token};
 
@@ -36,16 +50,18 @@ pub struct ManagementContext {
 
 /// JWKS response from Management API
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ManagementJwks {
-    keys: Vec<ManagementJwk>,
+pub struct ManagementJwks {
+    /// List of JWKs
+    pub keys: Vec<ManagementJwk>,
 }
 
 /// JWK from Management API JWKS endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ManagementJwk {
+pub struct ManagementJwk {
     kty: String,
     alg: String,
-    kid: String,
+    /// Key ID - unique identifier for this key
+    pub kid: String,
     #[serde(rename = "use")]
     key_use: String,
     // EdDSA key
@@ -246,6 +262,344 @@ impl ManagementJwksCache {
     }
 }
 
+/// Discovery-aware Management API JWKS cache
+///
+/// This cache supports multi-instance management service deployments by:
+/// 1. Discovering all management service pod IPs (when discovery is enabled)
+/// 2. Fetching JWKS from each discovered endpoint in parallel
+/// 3. Aggregating all keys by `kid` (key ID)
+/// 4. Validating JWTs using any key from any management instance
+///
+/// When discovery is disabled, it falls back to single-URL behavior.
+pub struct AggregatedManagementJwksCache {
+    /// Discovery mode
+    discovery_mode: DiscoveryMode,
+    /// Fallback URL (for development/None mode)
+    fallback_url: String,
+    /// HTTP client
+    http_client: reqwest::Client,
+    /// Aggregated keys cache (kid -> key)
+    keys_cache: Cache<String, Arc<ManagementJwk>>,
+    /// Discovered endpoints (cached for refresh)
+    endpoints: RwLock<Vec<Endpoint>>,
+    /// Cache TTL (used for documentation/configuration purposes)
+    #[allow(dead_code)]
+    cache_ttl: std::time::Duration,
+}
+
+impl AggregatedManagementJwksCache {
+    /// Create a new discovery-aware Management JWKS cache
+    ///
+    /// # Arguments
+    ///
+    /// * `discovery_mode` - The service discovery mode (None, Kubernetes, or Tailscale)
+    /// * `fallback_url` - URL to use when discovery is disabled (e.g., "http://localhost:9091")
+    /// * `cache_ttl` - How long to cache JWKS before refreshing (recommended: 15 minutes)
+    pub fn new(
+        discovery_mode: DiscoveryMode,
+        fallback_url: String,
+        cache_ttl: std::time::Duration,
+    ) -> Self {
+        let http_client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .expect("Failed to create HTTP client for Management JWKS");
+
+        // Max capacity is higher to support multiple keys from multiple instances
+        let keys_cache = Cache::builder()
+            .time_to_live(cache_ttl)
+            .max_capacity(100) // Support up to 100 unique keys
+            .build();
+
+        Self {
+            discovery_mode,
+            fallback_url,
+            http_client,
+            keys_cache,
+            endpoints: RwLock::new(Vec::new()),
+            cache_ttl,
+        }
+    }
+
+    /// Discover management service endpoints
+    async fn discover_endpoints(&self) -> Result<Vec<Endpoint>, AuthError> {
+        match &self.discovery_mode {
+            DiscoveryMode::None => {
+                // No discovery - use fallback URL as single endpoint
+                Ok(vec![Endpoint::healthy(self.fallback_url.clone())])
+            },
+            DiscoveryMode::Kubernetes => {
+                // Kubernetes discovery
+                let discovery = inferadb_discovery::KubernetesServiceDiscovery::new()
+                    .await
+                    .map_err(|e| {
+                        AuthError::JwksError(format!("Failed to create K8s discovery: {}", e))
+                    })?;
+
+                let endpoints = discovery.discover(&self.fallback_url).await.map_err(|e| {
+                    tracing::warn!(
+                        error = %e,
+                        fallback_url = %self.fallback_url,
+                        "Failed to discover management endpoints, using fallback"
+                    );
+                    AuthError::JwksError(format!("Discovery failed: {}", e))
+                })?;
+
+                // Filter to only healthy endpoints
+                let healthy: Vec<_> = endpoints
+                    .into_iter()
+                    .filter(|e| e.health == EndpointHealth::Healthy)
+                    .collect();
+
+                if healthy.is_empty() {
+                    return Err(AuthError::JwksError(
+                        "No healthy management endpoints found".into(),
+                    ));
+                }
+
+                tracing::info!(
+                    endpoint_count = healthy.len(),
+                    "Discovered management service endpoints"
+                );
+
+                Ok(healthy)
+            },
+            DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
+                // Tailscale discovery
+                let remote_configs: Vec<_> = remote_clusters
+                    .iter()
+                    .map(|rc| inferadb_discovery::RemoteClusterConfig {
+                        name: rc.name.clone(),
+                        tailscale_domain: rc.tailscale_domain.clone(),
+                        service_name: rc.service_name.clone(),
+                        port: rc.port,
+                    })
+                    .collect();
+
+                let discovery = inferadb_discovery::TailscaleServiceDiscovery::new(
+                    local_cluster.clone(),
+                    remote_configs,
+                );
+
+                let endpoints = discovery.discover(&self.fallback_url).await.map_err(|e| {
+                    tracing::warn!(
+                        error = %e,
+                        fallback_url = %self.fallback_url,
+                        "Failed to discover management endpoints via Tailscale, using fallback"
+                    );
+                    AuthError::JwksError(format!("Tailscale discovery failed: {}", e))
+                })?;
+
+                let healthy: Vec<_> = endpoints
+                    .into_iter()
+                    .filter(|e| e.health == EndpointHealth::Healthy)
+                    .collect();
+
+                if healthy.is_empty() {
+                    return Err(AuthError::JwksError(
+                        "No healthy management endpoints found via Tailscale".into(),
+                    ));
+                }
+
+                tracing::info!(
+                    endpoint_count = healthy.len(),
+                    local_cluster = %local_cluster,
+                    "Discovered management service endpoints via Tailscale"
+                );
+
+                Ok(healthy)
+            },
+        }
+    }
+
+    /// Fetch JWKS from a single endpoint
+    async fn fetch_jwks_from_endpoint(&self, endpoint_url: &str) -> Result<ManagementJwks, String> {
+        let jwks_url = format!("{}/internal/management-jwks.json", endpoint_url);
+
+        tracing::debug!(
+            jwks_url = %jwks_url,
+            "Fetching Management API JWKS from endpoint"
+        );
+
+        let response = self
+            .http_client
+            .get(&jwks_url)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch JWKS from {}: {}", jwks_url, e))?;
+
+        if !response.status().is_success() {
+            return Err(format!(
+                "JWKS endpoint {} returned status: {}",
+                jwks_url,
+                response.status()
+            ));
+        }
+
+        let jwks: ManagementJwks = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse JWKS JSON from {}: {}", jwks_url, e))?;
+
+        tracing::debug!(
+            endpoint_url = %endpoint_url,
+            key_count = jwks.keys.len(),
+            "Fetched JWKS from endpoint"
+        );
+
+        Ok(jwks)
+    }
+
+    /// Refresh keys from all discovered endpoints
+    async fn refresh_keys(&self) -> Result<(), AuthError> {
+        // Discover endpoints
+        let endpoints = match self.discover_endpoints().await {
+            Ok(eps) => eps,
+            Err(e) => {
+                // On discovery failure, fall back to cached endpoints or fallback URL
+                let cached = self.endpoints.read().await;
+                if cached.is_empty() {
+                    tracing::warn!(
+                        error = %e,
+                        "Discovery failed and no cached endpoints, using fallback URL"
+                    );
+                    vec![Endpoint::healthy(self.fallback_url.clone())]
+                } else {
+                    tracing::warn!(
+                        error = %e,
+                        cached_count = cached.len(),
+                        "Discovery failed, using cached endpoints"
+                    );
+                    cached.clone()
+                }
+            },
+        };
+
+        // Update cached endpoints
+        {
+            let mut eps = self.endpoints.write().await;
+            *eps = endpoints.clone();
+        }
+
+        // Fetch JWKS from all endpoints in parallel
+        let fetch_futures: Vec<_> = endpoints
+            .iter()
+            .map(|ep| self.fetch_jwks_from_endpoint(&ep.url))
+            .collect();
+
+        let results = futures::future::join_all(fetch_futures).await;
+
+        // Aggregate keys from all successful fetches
+        let mut aggregated_keys = 0;
+        for (endpoint, result) in endpoints.iter().zip(results) {
+            match result {
+                Ok(jwks) => {
+                    for key in jwks.keys {
+                        self.keys_cache.insert(key.kid.clone(), Arc::new(key)).await;
+                        aggregated_keys += 1;
+                    }
+                },
+                Err(e) => {
+                    tracing::warn!(
+                        endpoint = %endpoint.url,
+                        error = %e,
+                        "Failed to fetch JWKS from endpoint"
+                    );
+                },
+            }
+        }
+
+        if aggregated_keys == 0 {
+            return Err(AuthError::JwksError(
+                "Failed to fetch any JWKS from discovered endpoints".into(),
+            ));
+        }
+
+        tracing::info!(
+            aggregated_keys = aggregated_keys,
+            endpoint_count = endpoints.len(),
+            "Aggregated management JWKS from discovered endpoints"
+        );
+
+        Ok(())
+    }
+
+    /// Get a specific key by key ID
+    async fn get_key(&self, kid: &str) -> Result<Arc<ManagementJwk>, AuthError> {
+        // Try cache first
+        if let Some(key) = self.keys_cache.get(kid).await {
+            tracing::debug!(kid = %kid, "Management key cache hit");
+            return Ok(key);
+        }
+
+        // Cache miss - refresh keys from all endpoints
+        tracing::debug!(kid = %kid, "Management key cache miss, refreshing from endpoints");
+        self.refresh_keys().await?;
+
+        // Try cache again after refresh
+        self.keys_cache.get(kid).await.ok_or_else(|| {
+            AuthError::JwksError(format!(
+                "Management key '{}' not found in any discovered JWKS",
+                kid
+            ))
+        })
+    }
+
+    /// Verify a JWT from the Management API
+    ///
+    /// # Arguments
+    ///
+    /// * `token` - The JWT token from the Management API
+    ///
+    /// # Returns
+    ///
+    /// Returns the validated JWT claims if verification succeeds
+    pub async fn verify_management_jwt(
+        &self,
+        token: &str,
+    ) -> Result<ManagementJwtClaims, AuthError> {
+        // Decode header to get key ID
+        let header = decode_jwt_header(token)?;
+
+        let kid = header
+            .kid
+            .ok_or_else(|| AuthError::InvalidTokenFormat("Management JWT missing kid".into()))?;
+
+        // Validate algorithm
+        let alg_str = format!("{:?}", header.alg);
+        crate::validation::validate_algorithm(
+            &alg_str,
+            &["EdDSA".to_string(), "RS256".to_string()],
+        )?;
+
+        // Get key from aggregated JWKS (may trigger discovery + fetch)
+        let jwk = self.get_key(&kid).await?;
+        let decoding_key = jwk.to_decoding_key()?;
+
+        // Verify signature using ManagementJwtClaims (not JwtClaims)
+        let mut validation = jsonwebtoken::Validation::new(header.alg);
+        validation.validate_exp = true;
+        validation.validate_nbf = false;
+        validation.validate_aud = false;
+
+        let token_data =
+            jsonwebtoken::decode::<ManagementJwtClaims>(token, &decoding_key, &validation)
+                .map_err(|e| AuthError::InvalidTokenFormat(format!("JWT error: {}", e)))?;
+
+        let mgmt_claims = token_data.claims;
+
+        // Validate claims
+        validate_management_claims(&mgmt_claims)?;
+
+        Ok(mgmt_claims)
+    }
+
+    /// Get the number of cached keys (for diagnostics)
+    pub fn cached_key_count(&self) -> u64 {
+        self.keys_cache.entry_count()
+    }
+}
+
 /// JWT claims from Management API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManagementJwtClaims {
@@ -367,6 +721,71 @@ pub async fn management_auth_middleware(
         management_id = %management_id,
         event_type = "management.auth_success",
         "Management API authenticated successfully"
+    );
+
+    // Insert context into request extensions
+    request.extensions_mut().insert(Arc::new(context));
+
+    // Continue to next middleware/handler
+    Ok(next.run(request).await)
+}
+
+/// Axum middleware for Management API authentication using aggregated discovery-aware JWKS cache
+///
+/// This middleware verifies JWTs issued by any discovered Management API instance.
+/// Use this when service discovery is enabled to validate tokens from multiple
+/// management service instances.
+///
+/// # Security
+///
+/// This middleware should ONLY be applied to internal endpoints that should be
+/// callable by the Management API (like cache invalidation callbacks).
+pub async fn aggregated_management_auth_middleware(
+    jwks_cache: Arc<AggregatedManagementJwksCache>,
+    mut request: Request<Body>,
+    next: Next,
+) -> Result<Response, Response> {
+    // Extract bearer token
+    let token = extract_bearer_token(request.headers()).map_err(|e| {
+        tracing::warn!(
+            error = %e,
+            "Management authentication failed: missing or invalid token"
+        );
+        (StatusCode::UNAUTHORIZED, format!("Invalid Management API token: {}", e)).into_response()
+    })?;
+
+    // Verify JWT using aggregated cache (may trigger discovery + fetch)
+    let claims = jwks_cache.verify_management_jwt(&token).await.map_err(|e| {
+        tracing::warn!(
+            error = %e,
+            "Management JWT verification failed"
+        );
+        (StatusCode::UNAUTHORIZED, format!("Invalid Management API JWT: {}", e)).into_response()
+    })?;
+
+    // Extract management ID
+    let management_id = extract_management_id(&claims).map_err(|e| {
+        tracing::warn!(
+            error = %e,
+            "Failed to extract management ID from JWT"
+        );
+        (StatusCode::UNAUTHORIZED, format!("Invalid Management API JWT: {}", e)).into_response()
+    })?;
+
+    // Create ManagementContext
+    let context = ManagementContext {
+        management_id: management_id.clone(),
+        jti: claims.jti,
+        issued_at: chrono::DateTime::from_timestamp(claims.iat as i64, 0)
+            .unwrap_or_else(chrono::Utc::now),
+        expires_at: chrono::DateTime::from_timestamp(claims.exp as i64, 0)
+            .unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::seconds(300)),
+    };
+
+    tracing::info!(
+        management_id = %management_id,
+        event_type = "management.auth_success",
+        "Management API authenticated successfully (aggregated)"
     );
 
     // Insert context into request extensions

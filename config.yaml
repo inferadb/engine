@@ -28,8 +28,6 @@ observability:
   # otlp_endpoint: "http://localhost:4317"
 
 auth:
-  # Management API Internal URL for token validation (server-to-server communication)
-  management_api_url: "http://localhost:9091"
   management_api_timeout_ms: 5000
   management_cache_ttl_seconds: 300
   cert_cache_ttl_seconds: 900

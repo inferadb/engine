@@ -73,7 +73,10 @@ pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
 pub use internal::{InternalJwks, InternalJwksLoader};
 pub use jwks_cache::{Jwk, JwksCache};
-pub use management_auth::{ManagementContext, ManagementJwksCache, management_auth_middleware};
+pub use management_auth::{
+    AggregatedManagementJwksCache, ManagementContext, ManagementJwk, ManagementJwks,
+    ManagementJwksCache, aggregated_management_auth_middleware, management_auth_middleware,
+};
 pub use management_client::{
     ManagementApiError, ManagementClient, OrgStatus, OrganizationInfo, VaultInfo,
 };

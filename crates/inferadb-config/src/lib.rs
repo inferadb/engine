@@ -29,6 +29,8 @@ pub struct Config {
     pub identity: IdentityConfig,
     #[serde(default)]
     pub discovery: DiscoveryConfig,
+    #[serde(default)]
+    pub management_service: ManagementServiceConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,11 +103,7 @@ pub struct IdentityConfig {
 
 impl Default for IdentityConfig {
     fn default() -> Self {
-        Self {
-            service_id: default_service_id(),
-            kid: default_kid(),
-            private_key_pem: None,
-        }
+        Self { service_id: default_service_id(), kid: default_kid(), private_key_pem: None }
     }
 }
 
@@ -287,15 +285,6 @@ pub struct AuthConfig {
     #[serde(default = "default_jwks_url")]
     pub jwks_url: String,
 
-    /// Management API base URL for token validation (public endpoints like JWKS)
-    #[serde(default = "default_management_api_url")]
-    pub management_api_url: String,
-
-    /// Management API internal URL for server-to-server communication
-    /// Used for privileged /internal/* endpoints (vault/org verification)
-    /// If not set, falls back to management_api_url
-    pub management_internal_api_url: Option<String>,
-
     /// Timeout for management API calls in milliseconds
     #[serde(default = "default_management_api_timeout")]
     pub management_api_timeout_ms: u64,
@@ -381,6 +370,44 @@ pub struct RemoteCluster {
     pub port: u16,
 }
 
+/// Management service discovery configuration
+///
+/// This configuration controls how the server discovers and connects to
+/// management service instances. The server needs to fetch JWKS from
+/// management services to validate JWTs signed by them.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManagementServiceConfig {
+    /// Internal port where management services expose their internal API (including JWKS)
+    /// Default: 9091
+    #[serde(default = "default_management_internal_port")]
+    pub internal_port: u16,
+
+    /// Service URL pattern for Kubernetes/Tailscale discovery
+    /// e.g., "http://inferadb-management.inferadb:9091"
+    /// This is used as a template when discovery is enabled
+    #[serde(default = "default_management_service_url")]
+    pub service_url: String,
+}
+
+impl Default for ManagementServiceConfig {
+    fn default() -> Self {
+        Self {
+            internal_port: default_management_internal_port(),
+            service_url: default_management_service_url(),
+        }
+    }
+}
+
+fn default_management_internal_port() -> u16 {
+    9091 // Management internal server port
+}
+
+fn default_management_service_url() -> String {
+    // Default for development - localhost
+    // In production with discovery, this should be the K8s service URL
+    "http://localhost:9091".to_string()
+}
+
 fn default_jwks_cache_ttl() -> u64 {
     300 // 5 minutes
 }
@@ -445,13 +472,6 @@ fn default_internal_audience() -> String {
     "https://api.inferadb.com/internal".to_string()
 }
 
-fn default_management_api_url() -> String {
-    // Management API internal server port (server-to-server communication)
-    // This should point to the Management API's internal_port (default 9091)
-    // NOT the public http_port (default 3000)
-    "http://localhost:9091".to_string()
-}
-
 fn default_management_api_timeout() -> u64 {
     5000 // 5 seconds
 }
@@ -510,19 +530,18 @@ impl Config {
         // Validate authentication config (delegates to AuthConfig::validate)
         self.auth.validate().map_err(|e| anyhow::anyhow!(e))?;
 
-        // Additional validation for management API URL format
-        if !self.auth.management_api_url.starts_with("http://")
-            && !self.auth.management_api_url.starts_with("https://")
-        {
+        // Validate management service URL format
+        let mgmt_url = self.effective_management_url();
+        if !mgmt_url.starts_with("http://") && !mgmt_url.starts_with("https://") {
             anyhow::bail!(
-                "auth.management_api_url must start with http:// or https://, got: {}",
-                self.auth.management_api_url
+                "management_service.service_url must start with http:// or https://, got: {}",
+                mgmt_url
             );
         }
-        if self.auth.management_api_url.ends_with('/') {
+        if mgmt_url.ends_with('/') {
             anyhow::bail!(
-                "auth.management_api_url must not end with trailing slash: {}",
-                self.auth.management_api_url
+                "management_service.service_url must not end with trailing slash: {}",
+                mgmt_url
             );
         }
 
@@ -546,6 +565,18 @@ impl Config {
         }
 
         Ok(())
+    }
+
+    /// Get the management service URL
+    ///
+    /// Returns the URL for management service communication.
+    pub fn effective_management_url(&self) -> String {
+        self.management_service.service_url.clone()
+    }
+
+    /// Check if service discovery is enabled
+    pub fn is_discovery_enabled(&self) -> bool {
+        !matches!(self.discovery.mode, DiscoveryMode::None)
     }
 }
 
@@ -574,8 +605,6 @@ impl Default for AuthConfig {
             oidc_client_secret: None,
             required_scopes: default_required_scopes(),
             jwks_url: default_jwks_url(),
-            management_api_url: default_management_api_url(),
-            management_internal_api_url: None,
             management_api_timeout_ms: default_management_api_timeout(),
             management_cache_ttl_seconds: default_management_cache_ttl(),
             cert_cache_ttl_seconds: default_cert_cache_ttl(),
@@ -716,6 +745,7 @@ impl Default for Config {
             auth: AuthConfig::default(),
             identity: IdentityConfig::default(),
             discovery: DiscoveryConfig::default(),
+            management_service: ManagementServiceConfig::default(),
         }
     }
 }

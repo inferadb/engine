@@ -359,6 +359,7 @@ pub struct RedisHealth {
 /// - Redis connectivity (if replay protection enabled)
 pub async fn auth_health_check_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let config = &state.config;
+    let effective_mgmt_url = config.effective_management_url();
 
     let mut overall_status = HealthStatus::Healthy;
     let mut management_api_health = None;
@@ -367,9 +368,9 @@ pub async fn auth_health_check_handler(State(state): State<crate::AppState>) -> 
     let mut redis_health = None;
 
     // Check management API connectivity
-    if !config.auth.management_api_url.is_empty() {
+    if !effective_mgmt_url.is_empty() {
         let start = std::time::Instant::now();
-        let url = format!("{}/health", config.auth.management_api_url);
+        let url = format!("{}/health", effective_mgmt_url);
 
         match tokio::time::timeout(
             Duration::from_millis(config.auth.management_api_timeout_ms),
@@ -380,7 +381,7 @@ pub async fn auth_health_check_handler(State(state): State<crate::AppState>) -> 
             Ok(Ok(response)) if response.status().is_success() => {
                 let latency = start.elapsed().as_millis() as u64;
                 management_api_health = Some(ManagementApiHealth {
-                    url: config.auth.management_api_url.clone(),
+                    url: effective_mgmt_url.clone(),
                     reachable: true,
                     latency_ms: Some(latency),
                     error: None,
@@ -389,7 +390,7 @@ pub async fn auth_health_check_handler(State(state): State<crate::AppState>) -> 
             Ok(Ok(response)) => {
                 let status_code = response.status();
                 management_api_health = Some(ManagementApiHealth {
-                    url: config.auth.management_api_url.clone(),
+                    url: effective_mgmt_url.clone(),
                     reachable: false,
                     latency_ms: None,
                     error: Some(format!("HTTP {}", status_code)),
@@ -398,7 +399,7 @@ pub async fn auth_health_check_handler(State(state): State<crate::AppState>) -> 
             },
             Ok(Err(e)) => {
                 management_api_health = Some(ManagementApiHealth {
-                    url: config.auth.management_api_url.clone(),
+                    url: effective_mgmt_url.clone(),
                     reachable: false,
                     latency_ms: None,
                     error: Some(format!("Connection error: {}", e)),
@@ -407,7 +408,7 @@ pub async fn auth_health_check_handler(State(state): State<crate::AppState>) -> 
             },
             Err(_) => {
                 management_api_health = Some(ManagementApiHealth {
-                    url: config.auth.management_api_url.clone(),
+                    url: effective_mgmt_url.clone(),
                     reachable: false,
                     latency_ms: None,
                     error: Some(format!(

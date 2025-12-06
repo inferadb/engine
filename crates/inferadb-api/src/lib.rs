@@ -391,11 +391,11 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         Option<Arc<inferadb_auth::ManagementApiVaultVerifier>>,
     );
 
+    // Get effective management URL (respects both new and legacy config)
+    let effective_mgmt_url = state.config.effective_management_url();
+
     // Create VaultVerifier and CertificateCache instances based on configuration
-    let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents = if !state
-        .config
-        .auth
-        .management_api_url
+    let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents = if !effective_mgmt_url
         .is_empty()
     {
         // Check if discovery is enabled for Management API
@@ -405,10 +405,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                 | inferadb_config::DiscoveryMode::Tailscale { .. }
         ) {
             // Discovery enabled - create discovery service and load balancing client
-            info!(
-                "Management API discovery ENABLED - mode: {:?}",
-                state.config.discovery.mode
-            );
+            info!("Management API discovery ENABLED - mode: {:?}", state.config.discovery.mode);
 
             // Create discovery service based on mode
             let discovery: Arc<dyn inferadb_discovery::EndpointDiscovery> = match &state
@@ -430,10 +427,9 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             };
 
             // Perform initial discovery to get endpoints
-            let initial_endpoints =
-                discovery.discover(&state.config.auth.management_api_url).await.map_err(|e| {
-                    ApiError::Internal(format!("Initial endpoint discovery failed: {}", e))
-                })?;
+            let initial_endpoints = discovery.discover(&effective_mgmt_url).await.map_err(|e| {
+                ApiError::Internal(format!("Initial endpoint discovery failed: {}", e))
+            })?;
 
             info!("Discovered {} Management API endpoints", initial_endpoints.len());
 
@@ -446,7 +442,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                 Arc::clone(&discovery),
                 Arc::clone(&lb_client),
                 state.config.discovery.cache_ttl_seconds,
-                state.config.auth.management_api_url.clone(),
+                effective_mgmt_url.clone(),
             ));
 
             // Spawn background refresh task
@@ -459,8 +455,8 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             // Create ManagementClient with load balancing
             Arc::new(
                 inferadb_auth::ManagementClient::new(
-                    state.config.auth.management_api_url.clone(),
-                    state.config.auth.management_internal_api_url.clone(),
+                    effective_mgmt_url.clone(),
+                    None, // Internal URL same as service_url
                     state.config.auth.management_api_timeout_ms,
                     Some(lb_client),
                     state.server_identity.clone(),
@@ -476,8 +472,8 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             // Discovery disabled - use static URL (Kubernetes service handles load balancing)
             Arc::new(
                 inferadb_auth::ManagementClient::new(
-                    state.config.auth.management_api_url.clone(),
-                    state.config.auth.management_internal_api_url.clone(),
+                    effective_mgmt_url.clone(),
+                    None, // Internal URL same as service_url
                     state.config.auth.management_api_timeout_ms,
                     None,
                     state.server_identity.clone(),
@@ -496,7 +492,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
         let cert_cache = Arc::new(
             inferadb_auth::CertificateCache::new(
-                state.config.auth.management_api_url.clone(),
+                effective_mgmt_url.clone(),
                 std::time::Duration::from_secs(300), // 5 min cert cache TTL
                 1000,                                // Max 1000 cached certificates
             )
@@ -603,19 +599,17 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         .route("/metrics", get(handlers::internal::metrics_handler))
         .with_state(state.clone());
 
+    // Get effective management URL (respects both new and legacy config)
+    let effective_mgmt_url = state.config.effective_management_url();
+
     // Privileged cache invalidation routes (require Management API JWT authentication)
     // These are only enabled when management API is configured
-    let privileged_routes = if !state.config.auth.management_api_url.is_empty() {
-        // Create Management JWKS cache for verifying Management API JWTs
-        // Use internal URL if available (Management JWKS is served on internal port)
-        let management_jwks_url = state
-            .config
-            .auth
-            .management_internal_api_url
-            .clone()
-            .unwrap_or_else(|| state.config.auth.management_api_url.clone());
-        let management_jwks_cache = Arc::new(inferadb_auth::ManagementJwksCache::new(
-            management_jwks_url,
+    let privileged_routes = if !effective_mgmt_url.is_empty() {
+        // Create aggregated Management JWKS cache for verifying Management API JWTs
+        // This cache supports discovery and aggregates keys from all management instances
+        let management_jwks_cache = Arc::new(inferadb_auth::AggregatedManagementJwksCache::new(
+            state.config.discovery.mode.clone(),
+            effective_mgmt_url.clone(),
             std::time::Duration::from_secs(900), // 15 minutes TTL
         ));
 
@@ -623,8 +617,8 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         // This requires creating a ManagementClient first
         let management_client = Arc::new(
             inferadb_auth::ManagementClient::new(
-                state.config.auth.management_api_url.clone(),
-                state.config.auth.management_internal_api_url.clone(),
+                effective_mgmt_url.clone(),
+                None, // Internal URL same as service_url
                 state.config.auth.management_api_timeout_ms,
                 None,
                 state.server_identity.clone(),
@@ -643,7 +637,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         // Create certificate cache for internal routes
         let cert_cache = Arc::new(
             inferadb_auth::CertificateCache::new(
-                state.config.auth.management_api_url.clone(),
+                effective_mgmt_url.clone(),
                 std::time::Duration::from_secs(300), // 5 min cert cache TTL
                 1000,                                // Max 1000 cached certificates
             )
@@ -674,10 +668,12 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
                 // Add vault verifier and cert cache as Extensions for handlers
                 .layer(Extension(verifier_clone))
                 .layer(Extension(cert_cache_clone))
-                // Apply Management JWT auth middleware
+                // Apply Management JWT auth middleware (discovery-aware)
                 .layer(axum::middleware::from_fn(move |req, next| {
                     let cache = Arc::clone(&mgmt_cache_clone);
-                    async move { inferadb_auth::management_auth_middleware(cache, req, next).await }
+                    async move {
+                        inferadb_auth::aggregated_management_auth_middleware(cache, req, next).await
+                    }
                 }))
                 .with_state(state.clone()),
         )
@@ -790,13 +786,12 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     info!("Starting gRPC server on {} with authentication enabled", addr);
 
     // Try to load internal JWKS from well-known environment variable
-    // Internal service authentication is optional; if INFERADB_INTERNAL_JWKS is not set, it's skipped
-    let internal_loader = inferadb_auth::InternalJwksLoader::from_config(
-        None,
-        Some("INFERADB_INTERNAL_JWKS"),
-    )
-    .ok()
-    .map(Arc::new);
+    // Internal service authentication is optional; if INFERADB_INTERNAL_JWKS is not set, it's
+    // skipped
+    let internal_loader =
+        inferadb_auth::InternalJwksLoader::from_config(None, Some("INFERADB_INTERNAL_JWKS"))
+            .ok()
+            .map(Arc::new);
 
     if internal_loader.is_some() {
         info!("Internal JWT authentication enabled for gRPC");

@@ -243,7 +243,6 @@ mod tests {
             max_token_age_seconds: Some(86400),
             internal_issuer: "https://internal.inferadb.com".into(),
             internal_audience: "https://api.inferadb.com/internal".into(),
-            management_api_url: "https://api.example.com".into(),
             management_verify_vault_ownership: false,
             management_verify_org_status: false,
             ..Default::default()

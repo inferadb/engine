@@ -45,12 +45,6 @@ observability:
   otlp_endpoint: "http://otel-collector:4317"
 
 auth:
-  # Management API URL for token validation (server-to-server communication)
-  # IMPORTANT: This should point to the Management API's INTERNAL port (default: 9091)
-  # In production, use internal Kubernetes service name or private endpoint
-  # Example: "http://management-internal.inferadb.svc.cluster.local:9091"
-  management_api_url: "http://management-internal:9091"
-
   management_api_timeout_ms: 5000
   management_cache_ttl_seconds: 600 # Longer cache for performance
   cert_cache_ttl_seconds: 1800 # 30 minutes
