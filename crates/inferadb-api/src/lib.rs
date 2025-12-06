@@ -764,9 +764,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
 
     let service = grpc::InferadbServiceImpl::new(state.clone());
 
-    // Use port + 1 for gRPC by default
-    let grpc_port = components.config.server.port + 1;
-    let addr = format!("{}:{}", components.config.server.host, grpc_port).parse()?;
+    let addr = format!("{}:{}", components.config.server.host, components.config.server.grpc_port).parse()?;
 
     // Set up reflection service
     let file_descriptor_set = tonic::include_file_descriptor_set!("inferadb_descriptor");

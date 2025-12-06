@@ -128,12 +128,17 @@ async fn main() -> Result<()> {
         // Network
         ConfigEntry::new(
             "Network",
-            "Public API",
+            "Public API (REST)",
             format!("{}:{}", config.server.host, config.server.port),
         ),
         ConfigEntry::new(
             "Network",
-            "Private API",
+            "Public API (gRPC)",
+            format!("{}:{}", config.server.host, config.server.grpc_port),
+        ),
+        ConfigEntry::new(
+            "Network",
+            "Private API (REST)",
             format!("{}:{}", config.server.internal_host, config.server.internal_port),
         ),
         ConfigEntry::separator("Network"),

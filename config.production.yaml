@@ -7,13 +7,16 @@
 # Use environment variables or a secrets management system in production.
 
 server:
-  # Public server binding (client-facing traffic)
+  # Public REST API server binding (client-facing traffic)
   host: "0.0.0.0"
   port: 8080
 
-  # Internal server (server-to-server communication)
+  # Public gRPC API server
+  grpc_port: 8081
+
+  # Internal/Private REST API server (server-to-server communication)
   internal_host: "0.0.0.0"
-  internal_port: 9090
+  internal_port: 8082
 
   # Worker threads (recommended: number of CPU cores)
   worker_threads: 16

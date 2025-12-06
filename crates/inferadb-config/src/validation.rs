@@ -148,8 +148,9 @@ mod tests {
         let config = ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 0,
+            grpc_port: 8081,
             internal_host: "0.0.0.0".to_string(),
-            internal_port: 9090,
+            internal_port: 8082,
             worker_threads: 4,
         };
         assert!(matches!(validate_server(&config), Err(ValidationError::InvalidPort(0))));
@@ -160,8 +161,9 @@ mod tests {
         let config = ServerConfig {
             host: "".to_string(),
             port: 8080,
+            grpc_port: 8081,
             internal_host: "0.0.0.0".to_string(),
-            internal_port: 9090,
+            internal_port: 8082,
             worker_threads: 4,
         };
         assert!(matches!(validate_server(&config), Err(ValidationError::InvalidHost(_))));
@@ -172,8 +174,9 @@ mod tests {
         let config = ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 8080,
+            grpc_port: 8081,
             internal_host: "0.0.0.0".to_string(),
-            internal_port: 9090,
+            internal_port: 8082,
             worker_threads: 0,
         };
         assert!(matches!(validate_server(&config), Err(ValidationError::InvalidWorkerThreads(0))));
@@ -259,8 +262,9 @@ mod tests {
             server: ServerConfig {
                 host: "".to_string(),
                 port: 0,
+                grpc_port: 8081,
                 internal_host: "0.0.0.0".to_string(),
-                internal_port: 9090,
+                internal_port: 8082,
                 worker_threads: 0,
             },
             storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },

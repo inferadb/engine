@@ -35,14 +35,18 @@ pub struct Config {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
-    // Public server (client-facing)
+    // Public REST API server (client-facing)
     #[serde(default = "default_host")]
     pub host: String,
 
     #[serde(default = "default_port")]
     pub port: u16,
 
-    // Internal server (server-to-server communication)
+    // Public gRPC API server
+    #[serde(default = "default_grpc_port")]
+    pub grpc_port: u16,
+
+    // Internal/Private REST API server (server-to-server communication)
     #[serde(default = "default_internal_host")]
     pub internal_host: String,
 
@@ -58,6 +62,7 @@ impl Default for ServerConfig {
         Self {
             host: default_host(),
             port: default_port(),
+            grpc_port: default_grpc_port(),
             internal_host: default_internal_host(),
             internal_port: default_internal_port(),
             worker_threads: default_worker_threads(),
@@ -73,12 +78,16 @@ fn default_port() -> u16 {
     8080
 }
 
+fn default_grpc_port() -> u16 {
+    8081
+}
+
 fn default_internal_host() -> String {
     "0.0.0.0".to_string() // Bind to all interfaces, restrict via network policies
 }
 
 fn default_internal_port() -> u16 {
-    9090 // Internal server-to-server port
+    8082 // Internal/Private server-to-server port
 }
 
 fn default_worker_threads() -> usize {
@@ -108,11 +117,11 @@ impl Default for IdentityConfig {
 }
 
 fn default_service_id() -> String {
-    "default".to_string()
+    "policy-service".to_string()
 }
 
 fn default_kid() -> String {
-    "server-default".to_string()
+    "policy-service".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -378,12 +387,12 @@ pub struct RemoteCluster {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManagementServiceConfig {
     /// Internal port where management services expose their internal API (including JWKS)
-    /// Default: 9091
+    /// Default: 9092
     #[serde(default = "default_management_internal_port")]
     pub internal_port: u16,
 
     /// Service URL pattern for Kubernetes/Tailscale discovery
-    /// e.g., "http://inferadb-management.inferadb:9091"
+    /// e.g., "http://inferadb-management.inferadb:9092"
     /// This is used as a template when discovery is enabled
     #[serde(default = "default_management_service_url")]
     pub service_url: String,
@@ -399,13 +408,13 @@ impl Default for ManagementServiceConfig {
 }
 
 fn default_management_internal_port() -> u16 {
-    9091 // Management internal server port
+    9092 // Management internal/private server port
 }
 
 fn default_management_service_url() -> String {
     // Default for development - localhost
     // In production with discovery, this should be the K8s service URL
-    "http://localhost:9091".to_string()
+    "http://localhost:9092".to_string()
 }
 
 fn default_jwks_cache_ttl() -> u64 {
@@ -727,6 +736,7 @@ impl Default for Config {
             server: ServerConfig {
                 host: default_host(),
                 port: default_port(),
+                grpc_port: default_grpc_port(),
                 internal_host: default_internal_host(),
                 internal_port: default_internal_port(),
                 worker_threads: default_worker_threads(),
