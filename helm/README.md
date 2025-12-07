@@ -56,9 +56,9 @@ resources:
     memory: 8Gi
 
 config:
-  store:
+  storage:
     backend: "foundationdb"
-    connectionString: "/etc/foundationdb/fdb.cluster"
+    fdbClusterFile: "/etc/foundationdb/fdb.cluster"
 
   auth:
     enabled: true
@@ -93,7 +93,7 @@ resources:
     memory: 128Mi
 
 config:
-  store:
+  storage:
     backend: "memory"
 
   auth:
@@ -142,11 +142,12 @@ helm uninstall inferadb --namespace inferadb
 
 ### Service Parameters
 
-| Name               | Description             | Value       |
-| ------------------ | ----------------------- | ----------- |
-| `service.type`     | Kubernetes service type | `ClusterIP` |
-| `service.port`     | HTTP service port       | `8080`      |
-| `service.grpcPort` | gRPC service port       | `8081`      |
+| Name                   | Description                     | Value       |
+| ---------------------- | ------------------------------- | ----------- |
+| `service.type`         | Kubernetes service type         | `ClusterIP` |
+| `service.port`         | Public REST API service port    | `8080`      |
+| `service.grpcPort`     | Public gRPC service port        | `8081`      |
+| `service.internalPort` | Internal/private REST API port  | `8082`      |
 
 ### Autoscaling Parameters
 
@@ -162,7 +163,7 @@ helm uninstall inferadb --namespace inferadb
 | Name                          | Description           | Value    |
 | ----------------------------- | --------------------- | -------- |
 | `config.server.workerThreads` | Tokio worker threads  | `4`      |
-| `config.store.backend`        | Storage backend       | `memory` |
+| `config.storage.backend`      | Storage backend       | `memory` |
 | `config.cache.enabled`        | Enable caching        | `true`   |
 | `config.auth.enabled`         | Enable authentication | `true`   |
 
@@ -246,7 +247,7 @@ helm install inferadb ./helm \
 cat > production-values.yaml <<EOF
 replicaCount: 5
 config:
-  store:
+  storage:
     backend: foundationdb
   auth:
     enabled: true

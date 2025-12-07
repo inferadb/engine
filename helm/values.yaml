@@ -50,12 +50,12 @@ service:
   type: ClusterIP
   port: 8080
   grpcPort: 8081
-  internalPort: 9090 # Internal server port for server-to-server communication
+  internalPort: 8082 # Internal/private REST API for server-to-server communication
   annotations: {}
   sessionAffinity: None
   # nodePort: 30080  # Only used when service.type is NodePort
   # grpcNodePort: 30081
-  # internalNodePort: 30090
+  # internalNodePort: 30082
   # loadBalancerIP: ""  # Only used when service.type is LoadBalancer
   headless:
     enabled: false # Enable for StatefulSet deployments
@@ -139,67 +139,40 @@ topologySpreadConstraints:
 # InferaDB configuration
 config:
   server:
-    host: "0.0.0.0"
-    port: 8080
-    internalHost: "0.0.0.0"
-    internalPort: 9090
+    # Worker threads for async runtime (default: number of CPU cores)
     workerThreads: 4
-    maxConnections: 10000
-    requestTimeout: 30
-    rateLimitingEnabled: true
-    rateLimitRequests: 100
-    rateLimitPeriod: 60
 
-  store:
-    backend: "memory" # or "foundationdb"
-    connectionString: "" # /etc/foundationdb/fdb.cluster for FDB
-    timeout: 5000
-    maxRetryDelay: 1000
-    transactionTimeout: 5000
+  # Storage backend configuration
+  storage:
+    backend: "memory" # "memory" or "foundationdb"
+    fdbClusterFile: "/etc/foundationdb/fdb.cluster" # Required if backend=foundationdb
 
+  # Cache configuration
   cache:
     enabled: true
-    maxCapacity: 100000
-    ttlSeconds: 600
-    evictionPolicy: "lru"
+    maxCapacity: 10000 # Max cache entries
+    ttl: 300 # TTL in seconds
 
+  # Observability configuration
   observability:
     logLevel: "info"
     logFormat: "json"
     metricsEnabled: true
     tracingEnabled: false
-    tracingEndpoint: ""
-    tracingSampleRate: 0.1
 
+  # Authentication configuration
   auth:
     enabled: true
-    jwksCacheTtl: 300
-    acceptedAlgorithms:
-      - "EdDSA"
-      - "RS256"
-      - "ES256"
-    enforceAudience: true
-    # REQUIRED: Set to your JWT issuer's expected audience value
-    # Example: "https://api.example.com/evaluate" or "https://your-domain.com/api"
-    audience: ""
-    allowedAudiences: []
-      # Example configuration:
-      # - "https://api.example.com/evaluate"
-      # - "https://api.example.com/admin"
-    enforceScopes: true
-    requiredScopes:
-      - "authz:check"
-      - "authz:write"
-    replayProtection: true
-    requireJti: true
-    allowedClockSkew: 30
-    maxTokenAge: 3600
-    oidc:
-      enabled: false
-      issuer: ""
-      clientId: ""
-      redirectUri: ""
-      scopes: []
+    jwksCacheTtl: 300 # JWKS cache TTL in seconds
+    replayProtection: false # Requires Redis if enabled
+    clockSkewSeconds: 60 # JWT clock tolerance
+    maxTokenAgeSeconds: 86400 # Maximum token age (24 hours)
+    requireJti: false # Require JTI claim in tokens
+    # Management API verification
+    managementCacheTtl: 300 # Org/vault cache TTL in seconds
+    certCacheTtl: 900 # Client cert cache TTL in seconds
+    managementVerifyVaultOwnership: true
+    managementVerifyOrgStatus: true
 
   # Optional: provide full config file as YAML string
   configFile: ""
