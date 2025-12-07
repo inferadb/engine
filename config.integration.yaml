@@ -21,7 +21,7 @@ storage:
 cache:
   enabled: true
   max_capacity: 1000 # Small cache for tests
-  ttl_seconds: 60
+  ttl: 60
 
 observability:
   log_level: "debug" # Verbose logging for tests
@@ -30,7 +30,7 @@ observability:
 
 auth:
   management_api_timeout_ms: 10000 # Higher timeout for CI
-  management_cache_ttl_seconds: 30 # Short cache for tests
-  cert_cache_ttl_seconds: 60
+  management_cache_ttl: 30 # Short cache for tests
+  cert_cache_ttl: 60
   management_verify_vault_ownership: true
   management_verify_org_status: true

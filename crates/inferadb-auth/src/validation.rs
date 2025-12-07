@@ -106,43 +106,6 @@ pub fn validate_timestamp_claims(claims: &JwtClaims, config: &AuthConfig) -> Res
     Ok(())
 }
 
-/// Validate issuer against allowlist/blocklist
-///
-/// # Arguments
-///
-/// * `iss` - The issuer claim from the JWT
-/// * `config` - Authentication configuration containing issuer lists
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Issuer is empty
-/// - Issuer is in the blocklist
-/// - Allowlist is configured and issuer is not in it
-pub fn validate_issuer(iss: &str, config: &AuthConfig) -> Result<(), AuthError> {
-    if iss.is_empty() {
-        return Err(AuthError::InvalidIssuer("Issuer cannot be empty".into()));
-    }
-
-    // Check blocklist first
-    if let Some(ref blocklist) = config.issuer_blocklist {
-        if blocklist.iter().any(|blocked| blocked == iss) {
-            warn!(issuer = %iss, "Issuer is blocked");
-            return Err(AuthError::InvalidIssuer(format!("Issuer '{}' is blocked", iss)));
-        }
-    }
-
-    // Check allowlist if configured
-    if let Some(ref allowlist) = config.issuer_allowlist {
-        if !allowlist.iter().any(|allowed| allowed == iss) {
-            warn!(issuer = %iss, "Issuer not in allowlist");
-            return Err(AuthError::InvalidIssuer(format!("Issuer '{}' is not in allowlist", iss)));
-        }
-    }
-
-    Ok(())
-}
-
 /// Validate audience claim against the required InferaDB Server API audience
 ///
 /// Audience validation is always enforced - tokens must have an audience
@@ -248,8 +211,6 @@ mod tests {
             jwks_url: "https://example.com".into(),
             clock_skew_seconds: Some(60),
             max_token_age_seconds: Some(86400),
-            internal_issuer: "https://internal.inferadb.com".into(),
-            internal_audience: "https://api.inferadb.com/internal".into(),
             management_verify_vault_ownership: false,
             management_verify_org_status: false,
             ..Default::default()
@@ -322,42 +283,6 @@ mod tests {
 
         let result = validate_timestamp_claims(&claims, &config);
         assert!(matches!(result, Err(AuthError::TokenTooOld)));
-    }
-
-    #[test]
-    fn test_validate_issuer_valid() {
-        let config = default_config();
-        assert!(validate_issuer("tenant:acme", &config).is_ok());
-    }
-
-    #[test]
-    fn test_validate_issuer_empty() {
-        let config = default_config();
-        let result = validate_issuer("", &config);
-        assert!(matches!(result, Err(AuthError::InvalidIssuer(_))));
-    }
-
-    #[test]
-    fn test_validate_issuer_allowlist() {
-        let mut config = default_config();
-        config.issuer_allowlist = Some(vec!["tenant:acme".into(), "tenant:globex".into()]);
-
-        assert!(validate_issuer("tenant:acme", &config).is_ok());
-        assert!(validate_issuer("tenant:globex", &config).is_ok());
-
-        let result = validate_issuer("tenant:evil", &config);
-        assert!(matches!(result, Err(AuthError::InvalidIssuer(_))));
-    }
-
-    #[test]
-    fn test_validate_issuer_blocklist() {
-        let mut config = default_config();
-        config.issuer_blocklist = Some(vec!["tenant:evil".into(), "tenant:banned".into()]);
-
-        assert!(validate_issuer("tenant:acme", &config).is_ok());
-
-        let result = validate_issuer("tenant:evil", &config);
-        assert!(matches!(result, Err(AuthError::InvalidIssuer(_))));
     }
 
     #[test]

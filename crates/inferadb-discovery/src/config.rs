@@ -23,7 +23,7 @@ pub struct DiscoveryConfig {
 
     /// Cache TTL for discovered endpoints (in seconds)
     #[serde(default = "default_cache_ttl")]
-    pub cache_ttl_seconds: u64,
+    pub cache_ttl: u64,
 
     /// Whether to enable health checking of endpoints
     #[serde(default = "default_health_check")]
@@ -31,16 +31,16 @@ pub struct DiscoveryConfig {
 
     /// Health check interval (in seconds)
     #[serde(default = "default_health_check_interval")]
-    pub health_check_interval_seconds: u64,
+    pub health_check_interval: u64,
 }
 
 impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
             mode: DiscoveryMode::None,
-            cache_ttl_seconds: default_cache_ttl(),
+            cache_ttl: default_cache_ttl(),
             enable_health_check: default_health_check(),
-            health_check_interval_seconds: default_health_check_interval(),
+            health_check_interval: default_health_check_interval(),
         }
     }
 }
@@ -71,9 +71,9 @@ mod tests {
     fn test_discovery_config_default() {
         let config: DiscoveryConfig = Default::default();
         assert_eq!(config.mode, DiscoveryMode::None);
-        assert_eq!(config.cache_ttl_seconds, 300);
+        assert_eq!(config.cache_ttl, 300);
         assert!(!config.enable_health_check);
-        assert_eq!(config.health_check_interval_seconds, 30);
+        assert_eq!(config.health_check_interval, 30);
     }
 
     #[test]
@@ -91,14 +91,14 @@ mod tests {
     fn test_discovery_config_serialization() {
         let config = DiscoveryConfig {
             mode: DiscoveryMode::Kubernetes,
-            cache_ttl_seconds: 600,
+            cache_ttl: 600,
             enable_health_check: true,
-            health_check_interval_seconds: 60,
+            health_check_interval: 60,
         };
 
         let yaml = serde_yaml::to_string(&config).unwrap();
         assert!(yaml.contains("kubernetes"));
-        assert!(yaml.contains("cache_ttl_seconds: 600"));
+        assert!(yaml.contains("cache_ttl: 600"));
         assert!(yaml.contains("enable_health_check: true"));
     }
 }

@@ -199,7 +199,7 @@ impl HotReloadHandle {
             return Err("Cache max_capacity must be > 0 when cache is enabled".to_string());
         }
 
-        if config.cache.ttl_seconds == 0 {
+        if config.cache.ttl == 0 {
             return Err("Cache TTL must be > 0".to_string());
         }
 

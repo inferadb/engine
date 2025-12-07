@@ -58,7 +58,7 @@ pub fn create_test_config() -> Config {
     let mut config = Config::default();
     config.cache.enabled = true;
     config.cache.max_capacity = 1000;
-    config.cache.ttl_seconds = 300;
+    config.cache.ttl = 300;
     config
 }
 

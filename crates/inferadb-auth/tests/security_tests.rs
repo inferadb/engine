@@ -5,7 +5,6 @@
 //! - Algorithm security (rejecting symmetric algorithms)
 //! - Clock skew tolerance
 //! - Maximum token age
-//! - Issuer validation
 //! - Audience validation
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,10 +13,7 @@ use inferadb_auth::{
     error::AuthError,
     jwt::JwtClaims,
     replay::{InMemoryReplayProtection, ReplayProtection},
-    validation::{
-        validate_algorithm, validate_audience, validate_issuer, validate_timestamp_claims,
-        REQUIRED_AUDIENCE,
-    },
+    validation::{validate_algorithm, validate_audience, validate_timestamp_claims, REQUIRED_AUDIENCE},
 };
 use inferadb_config::AuthConfig;
 
@@ -53,8 +49,6 @@ fn default_config() -> AuthConfig {
         jwks_url: "https://auth.example.com/.well-known/jwks.json".into(),
         clock_skew_seconds: Some(60),
         max_token_age_seconds: Some(86400),
-        issuer_allowlist: None,
-        issuer_blocklist: None,
         require_jti: false,
         oauth_enabled: false,
         oidc_discovery_url: None,
@@ -64,11 +58,9 @@ fn default_config() -> AuthConfig {
         jwks_cache_ttl: 300,
         replay_protection: false,
         oidc_discovery_cache_ttl: 86400,
-        internal_issuer: "https://internal.inferadb.com".into(),
-        internal_audience: "https://api.inferadb.com/internal".into(),
         management_api_timeout_ms: 5000,
-        management_cache_ttl_seconds: 300,
-        cert_cache_ttl_seconds: 300,
+        management_cache_ttl: 300,
+        cert_cache_ttl: 300,
         management_verify_vault_ownership: false,
         management_verify_org_status: false,
     }
@@ -261,51 +253,6 @@ fn test_iat_in_future_rejected() {
 }
 
 // ============================================================================
-// Issuer Validation Tests
-// ============================================================================
-
-#[test]
-fn test_issuer_in_allowlist_accepted() {
-    let mut config = default_config();
-    config.issuer_allowlist = Some(vec!["tenant:acme".into(), "tenant:globex".into()]);
-
-    assert!(validate_issuer("tenant:acme", &config).is_ok());
-    assert!(validate_issuer("tenant:globex", &config).is_ok());
-}
-
-#[test]
-fn test_issuer_not_in_allowlist_rejected() {
-    let mut config = default_config();
-    config.issuer_allowlist = Some(vec!["tenant:acme".into()]);
-
-    let result = validate_issuer("tenant:evil", &config);
-    assert!(
-        matches!(result, Err(AuthError::InvalidIssuer(_))),
-        "Issuer not in allowlist should be rejected"
-    );
-}
-
-#[test]
-fn test_issuer_in_blocklist_rejected() {
-    let mut config = default_config();
-    config.issuer_blocklist = Some(vec!["tenant:evil".into(), "tenant:banned".into()]);
-
-    let result = validate_issuer("tenant:evil", &config);
-    assert!(
-        matches!(result, Err(AuthError::InvalidIssuer(_))),
-        "Issuer in blocklist should be rejected"
-    );
-}
-
-#[test]
-fn test_empty_issuer_rejected() {
-    let config = default_config();
-
-    let result = validate_issuer("", &config);
-    assert!(matches!(result, Err(AuthError::InvalidIssuer(_))), "Empty issuer should be rejected");
-}
-
-// ============================================================================
 // Audience Validation Tests
 // ============================================================================
 
@@ -346,9 +293,6 @@ async fn test_full_validation_flow_success() {
 
     // Validate timestamps
     assert!(validate_timestamp_claims(&claims, &config).is_ok());
-
-    // Validate issuer
-    assert!(validate_issuer(&claims.iss, &config).is_ok());
 
     // Validate audience
     assert!(validate_audience(&claims.aud).is_ok());

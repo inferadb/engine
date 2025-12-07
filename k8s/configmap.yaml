@@ -41,7 +41,7 @@ data:
     cache:
       enabled: true
       max_capacity: 100000
-      ttl_seconds: 600
+      ttl: 600
 
     observability:
       log_level: "info"

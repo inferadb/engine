@@ -53,7 +53,7 @@ storage:
 cache:
   enabled: true
   max_capacity: 10000
-  ttl_seconds: 300
+  ttl: 300
 
 observability:
   log_level: "info"
@@ -70,7 +70,7 @@ identity:
 discovery:
   mode:
     type: none
-  cache_ttl_seconds: 300
+  cache_ttl: 300
 
 management_service:
   service_url: "http://localhost:9092"
@@ -103,7 +103,7 @@ export INFERADB__STORAGE__FDB_CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
 # Cache configuration
 export INFERADB__CACHE__ENABLED=true
 export INFERADB__CACHE__MAX_CAPACITY=10000
-export INFERADB__CACHE__TTL_SECONDS=300
+export INFERADB__CACHE__TTL=300
 
 # Observability configuration
 export INFERADB__OBSERVABILITY__LOG_LEVEL="info"
@@ -249,7 +249,7 @@ Controls the in-memory check result cache.
 | -------------- | ------- | ------- | -------------------------------- |
 | `enabled`      | boolean | `true`  | Enable result caching            |
 | `max_capacity` | integer | `10000` | Maximum number of cached entries |
-| `ttl_seconds`  | integer | `300`   | Cache entry TTL (5 minutes)      |
+| `ttl`          | integer | `300`   | Cache entry TTL in seconds (5 minutes) |
 
 ### Examples
 
@@ -259,7 +259,7 @@ Controls the in-memory check result cache.
 cache:
   enabled: true
   max_capacity: 10000
-  ttl_seconds: 300
+  ttl: 300
 ```
 
 **Large deployment**:
@@ -268,7 +268,7 @@ cache:
 cache:
   enabled: true
   max_capacity: 1000000
-  ttl_seconds: 600
+  ttl: 600
 ```
 
 **Testing** (disable for predictability):
@@ -283,7 +283,7 @@ cache:
 ```bash
 export INFERADB__CACHE__ENABLED=true
 export INFERADB__CACHE__MAX_CAPACITY=100000
-export INFERADB__CACHE__TTL_SECONDS=600
+export INFERADB__CACHE__TTL=600
 ```
 
 ### Memory Usage
@@ -298,9 +298,9 @@ Approximate memory usage per entry: 200-500 bytes
 
 - **Development**: `max_capacity: 1,000-10,000`
 - **Production**: `max_capacity: 100,000-1,000,000`
-- **Low-latency workloads**: `ttl_seconds: 60-300`
-- **Standard workloads**: `ttl_seconds: 300-600`
-- **Static data**: `ttl_seconds: 3600+`
+- **Low-latency workloads**: `ttl: 60-300`
+- **Standard workloads**: `ttl: 300-600`
+- **Static data**: `ttl: 3600+`
 
 ## Observability Configuration
 
@@ -389,8 +389,8 @@ Controls JWT authentication and authorization for tenant requests.
 | Option                              | Type    | Default | Description                                       |
 | ----------------------------------- | ------- | ------- | ------------------------------------------------- |
 | `management_api_timeout_ms`         | integer | `5000`  | Timeout for management API calls (milliseconds)   |
-| `management_cache_ttl_seconds`      | integer | `300`   | Cache TTL for org/vault lookups (seconds)         |
-| `cert_cache_ttl_seconds`            | integer | `900`   | Cache TTL for client certificates (seconds)       |
+| `management_cache_ttl`              | integer | `300`   | Cache TTL for org/vault lookups (seconds)         |
+| `cert_cache_ttl`                    | integer | `900`   | Cache TTL for client certificates (seconds)       |
 | `management_verify_vault_ownership` | boolean | `true`  | Verify vault ownership against management API     |
 | `management_verify_org_status`      | boolean | `true`  | Verify organization status against management API |
 
@@ -404,21 +404,12 @@ Controls JWT authentication and authorization for tenant requests.
 | `oidc_client_secret`       | string (optional) | `null`  | OIDC client secret        |
 | `oidc_discovery_cache_ttl` | integer           | `86400` | OIDC cache TTL (24 hours) |
 
-### Internal Service JWT
-
-| Option              | Type   | Default                               | Description           |
-| ------------------- | ------ | ------------------------------------- | --------------------- |
-| `internal_issuer`   | string | `"https://internal.inferadb.com"`     | Internal JWT issuer   |
-| `internal_audience` | string | `"https://api.inferadb.com/internal"` | Internal JWT audience |
-
 ### Security Options
 
 | Option                  | Type               | Default | Description                     |
 | ----------------------- | ------------------ | ------- | ------------------------------- |
 | `clock_skew_seconds`    | integer (optional) | `60`    | Clock skew tolerance            |
 | `max_token_age_seconds` | integer (optional) | `86400` | Max token age (24 hours)        |
-| `issuer_allowlist`      | array (optional)   | `null`  | Allowed issuers                 |
-| `issuer_blocklist`      | array (optional)   | `null`  | Blocked issuers                 |
 | `redis_url`             | string (optional)  | `null`  | Redis URL for replay protection |
 
 ### Examples
@@ -428,8 +419,6 @@ Controls JWT authentication and authorization for tenant requests.
 ```yaml
 auth:
   jwks_cache_ttl: 300
-  # Algorithms are hardcoded to EdDSA and RS256 for security
-  # Audience is hardcoded to https://api.inferadb.com (not configurable)
 ```
 
 **Production** (full validation):
@@ -437,8 +426,6 @@ auth:
 ```yaml
 auth:
   jwks_cache_ttl: 300
-  # Algorithms are hardcoded to EdDSA and RS256 for security
-  # Audience is hardcoded to https://api.inferadb.com (not configurable)
   replay_protection: true
   require_jti: true
   redis_url: "redis://localhost:6379"
@@ -456,8 +443,8 @@ export INFERADB__AUTH__JWKS_CACHE_TTL=300
 
 # Management API integration
 export INFERADB__AUTH__MANAGEMENT_API_TIMEOUT_MS=5000
-export INFERADB__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
-export INFERADB__AUTH__CERT_CACHE_TTL_SECONDS=900
+export INFERADB__AUTH__MANAGEMENT_CACHE_TTL=300
+export INFERADB__AUTH__CERT_CACHE_TTL=900
 
 # Replay protection
 export INFERADB__AUTH__REPLAY_PROTECTION=true
@@ -508,9 +495,9 @@ Controls service discovery for multi-node deployments.
 | Option                          | Type    | Default | Description                         |
 | ------------------------------- | ------- | ------- | ----------------------------------- |
 | `mode`                          | object  | `none`  | Discovery mode configuration        |
-| `cache_ttl_seconds`             | integer | `300`   | Cache TTL for discovered endpoints  |
+| `cache_ttl`                     | integer | `300`   | Cache TTL for discovered endpoints (seconds)  |
 | `enable_health_check`           | boolean | `false` | Enable health checking of endpoints |
-| `health_check_interval_seconds` | integer | `30`    | Health check interval               |
+| `health_check_interval`         | integer | `30`    | Health check interval (seconds)     |
 
 ### Discovery Modes
 
@@ -532,9 +519,9 @@ Discover pod IPs via Kubernetes service:
 discovery:
   mode:
     type: kubernetes
-  cache_ttl_seconds: 30
+  cache_ttl: 30
   enable_health_check: true
-  health_check_interval_seconds: 10
+  health_check_interval: 10
 ```
 
 #### Tailscale
@@ -555,15 +542,15 @@ discovery:
         tailscale_domain: "ap-southeast-1.ts.net"
         service_name: "inferadb-server"
         port: 8082
-  cache_ttl_seconds: 60
+  cache_ttl: 60
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__DISCOVERY__CACHE_TTL_SECONDS=30
+export INFERADB__DISCOVERY__CACHE_TTL=30
 export INFERADB__DISCOVERY__ENABLE_HEALTH_CHECK=true
-export INFERADB__DISCOVERY__HEALTH_CHECK_INTERVAL_SECONDS=10
+export INFERADB__DISCOVERY__HEALTH_CHECK_INTERVAL=10
 ```
 
 ## Management Service Configuration
@@ -623,7 +610,7 @@ storage:
 cache:
   enabled: true
   max_capacity: 1000
-  ttl_seconds: 60
+  ttl: 60
 
 observability:
   log_level: "debug"
@@ -666,7 +653,7 @@ storage:
 cache:
   enabled: true
   max_capacity: 100000
-  ttl_seconds: 300
+  ttl: 300
 
 observability:
   log_level: "info"
@@ -690,7 +677,7 @@ identity:
 discovery:
   mode:
     type: kubernetes
-  cache_ttl_seconds: 30
+  cache_ttl: 30
   enable_health_check: true
 
 management_service:
@@ -818,7 +805,7 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 **Cache**:
 
 - `max_capacity` must be > 0 when enabled
-- `ttl_seconds` must be > 0
+- `ttl` must be > 0
 
 **Observability**:
 
@@ -895,7 +882,7 @@ Error: management_service.service_url must start with http:// or https://
 2. **Optimize cache settings**
 
    - Increase `max_capacity` for large datasets
-   - Adjust `ttl_seconds` based on update frequency
+   - Adjust `ttl` based on update frequency
    - Monitor cache hit rate (target >80%)
 
 3. **Use FoundationDB in production**

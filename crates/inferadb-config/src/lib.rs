@@ -150,8 +150,8 @@ pub struct CacheConfig {
     #[serde(default = "default_cache_max_capacity")]
     pub max_capacity: u64,
 
-    #[serde(default = "default_cache_ttl_seconds")]
-    pub ttl_seconds: u64,
+    #[serde(default = "default_cache_ttl")]
+    pub ttl: u64,
 }
 
 impl Default for CacheConfig {
@@ -159,7 +159,7 @@ impl Default for CacheConfig {
         Self {
             enabled: default_cache_enabled(),
             max_capacity: default_cache_max_capacity(),
-            ttl_seconds: default_cache_ttl_seconds(),
+            ttl: default_cache_ttl(),
         }
     }
 }
@@ -172,7 +172,7 @@ fn default_cache_max_capacity() -> u64 {
     10_000
 }
 
-fn default_cache_ttl_seconds() -> u64 {
+fn default_cache_ttl() -> u64 {
     300
 }
 
@@ -224,14 +224,6 @@ pub struct AuthConfig {
     #[serde(default = "default_oidc_discovery_cache_ttl")]
     pub oidc_discovery_cache_ttl: u64,
 
-    /// Internal JWT issuer
-    #[serde(default = "default_internal_issuer")]
-    pub internal_issuer: String,
-
-    /// Internal JWT audience
-    #[serde(default = "default_internal_audience")]
-    pub internal_audience: String,
-
     /// Redis URL for replay protection (optional)
     pub redis_url: Option<String>,
 
@@ -242,12 +234,6 @@ pub struct AuthConfig {
     /// Maximum token age in seconds (from iat to now)
     #[serde(default = "default_max_token_age_seconds")]
     pub max_token_age_seconds: Option<u64>,
-
-    /// Issuer allowlist (if set, only these issuers are accepted)
-    pub issuer_allowlist: Option<Vec<String>>,
-
-    /// Issuer blocklist (these issuers are always rejected)
-    pub issuer_blocklist: Option<Vec<String>>,
 
     /// Require JTI claim in all tokens
     #[serde(default = "default_require_jti")]
@@ -276,11 +262,11 @@ pub struct AuthConfig {
 
     /// Cache TTL for management API responses (org/vault) in seconds
     #[serde(default = "default_management_cache_ttl")]
-    pub management_cache_ttl_seconds: u64,
+    pub management_cache_ttl: u64,
 
     /// Cache TTL for client certificates in seconds
     #[serde(default = "default_cert_cache_ttl")]
-    pub cert_cache_ttl_seconds: u64,
+    pub cert_cache_ttl: u64,
 
     /// Whether to verify vault ownership against management API
     #[serde(default = "default_true")]
@@ -299,7 +285,7 @@ pub struct DiscoveryConfig {
 
     /// Cache TTL for discovered endpoints (in seconds)
     #[serde(default = "default_discovery_cache_ttl")]
-    pub cache_ttl_seconds: u64,
+    pub cache_ttl: u64,
 
     /// Whether to enable health checking of endpoints
     #[serde(default = "default_discovery_health_check")]
@@ -307,16 +293,16 @@ pub struct DiscoveryConfig {
 
     /// Health check interval (in seconds)
     #[serde(default = "default_discovery_health_check_interval")]
-    pub health_check_interval_seconds: u64,
+    pub health_check_interval: u64,
 }
 
 impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
             mode: DiscoveryMode::None,
-            cache_ttl_seconds: default_discovery_cache_ttl(),
+            cache_ttl: default_discovery_cache_ttl(),
             enable_health_check: default_discovery_health_check(),
-            health_check_interval_seconds: default_discovery_health_check_interval(),
+            health_check_interval: default_discovery_health_check_interval(),
         }
     }
 }
@@ -423,14 +409,6 @@ fn default_replay_protection() -> bool {
 
 fn default_oidc_discovery_cache_ttl() -> u64 {
     86400 // 24 hours in seconds
-}
-
-fn default_internal_issuer() -> String {
-    "https://internal.inferadb.com".to_string()
-}
-
-fn default_internal_audience() -> String {
-    "https://api.inferadb.com/internal".to_string()
 }
 
 fn default_management_api_timeout() -> u64 {
@@ -547,13 +525,9 @@ impl Default for AuthConfig {
             jwks_cache_ttl: default_jwks_cache_ttl(),
             replay_protection: default_replay_protection(),
             oidc_discovery_cache_ttl: default_oidc_discovery_cache_ttl(),
-            internal_issuer: default_internal_issuer(),
-            internal_audience: default_internal_audience(),
             redis_url: None,
             clock_skew_seconds: default_clock_skew_seconds(),
             max_token_age_seconds: default_max_token_age_seconds(),
-            issuer_allowlist: None,
-            issuer_blocklist: None,
             require_jti: default_require_jti(),
             oauth_enabled: default_oauth_enabled(),
             oidc_discovery_url: None,
@@ -561,8 +535,8 @@ impl Default for AuthConfig {
             oidc_client_secret: None,
             jwks_url: default_jwks_url(),
             management_api_timeout_ms: default_management_api_timeout(),
-            management_cache_ttl_seconds: default_management_cache_ttl(),
-            cert_cache_ttl_seconds: default_cert_cache_ttl(),
+            management_cache_ttl: default_management_cache_ttl(),
+            cert_cache_ttl: default_cert_cache_ttl(),
             management_verify_vault_ownership: default_true(),
             management_verify_org_status: default_true(),
         }
@@ -622,19 +596,6 @@ impl AuthConfig {
             }
         }
 
-        // Info about issuer validation
-        if self.issuer_allowlist.is_some() {
-            tracing::info!(
-                "Issuer allowlist is configured. Only tokens from allowed issuers will be accepted."
-            );
-        }
-
-        if self.issuer_blocklist.is_some() {
-            tracing::info!(
-                "Issuer blocklist is configured. Tokens from blocked issuers will be rejected."
-            );
-        }
-
         Ok(())
     }
 }
@@ -654,7 +615,7 @@ impl Default for Config {
             cache: CacheConfig {
                 enabled: default_cache_enabled(),
                 max_capacity: default_cache_max_capacity(),
-                ttl_seconds: default_cache_ttl_seconds(),
+                ttl: default_cache_ttl(),
             },
             observability: ObservabilityConfig {
                 log_level: default_log_level(),

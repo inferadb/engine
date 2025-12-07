@@ -140,8 +140,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("    internal_jwks_path: /etc/inferadb/internal-jwks.json");
     println!("    # Option 2: Load from environment variable");
     println!("    internal_jwks_env: INFERADB_INTERNAL_JWKS");
-    println!("    internal_issuer: https://internal.inferadb.com");
-    println!("    internal_audience: https://api.inferadb.com/internal\n");
+    println!("    # Note: issuer and audience are hardcoded to:");
+    println!("    #   issuer: https://internal.inferadb.com");
+    println!("    #   audience: https://api.inferadb.com/internal\n");
 
     // Step 7: Show gRPC client usage
     println!("Step 7: gRPC Client Usage Example\n");

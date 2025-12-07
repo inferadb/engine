@@ -116,8 +116,8 @@ pub fn validate_cache(config: &CacheConfig) -> Result<()> {
         }
 
         // Validate TTL
-        if config.ttl_seconds == 0 {
-            return Err(ValidationError::InvalidCacheTTL(config.ttl_seconds));
+        if config.ttl == 0 {
+            return Err(ValidationError::InvalidCacheTTL(config.ttl));
         }
     }
 
@@ -214,19 +214,19 @@ mod tests {
 
     #[test]
     fn test_validate_cache_zero_capacity() {
-        let config = CacheConfig { enabled: true, max_capacity: 0, ttl_seconds: 300 };
+        let config = CacheConfig { enabled: true, max_capacity: 0, ttl: 300 };
         assert!(matches!(validate_cache(&config), Err(ValidationError::InvalidCacheCapacity(0))));
     }
 
     #[test]
     fn test_validate_cache_zero_ttl() {
-        let config = CacheConfig { enabled: true, max_capacity: 10000, ttl_seconds: 0 };
+        let config = CacheConfig { enabled: true, max_capacity: 10000, ttl: 0 };
         assert!(matches!(validate_cache(&config), Err(ValidationError::InvalidCacheTTL(0))));
     }
 
     #[test]
     fn test_validate_cache_disabled() {
-        let config = CacheConfig { enabled: false, max_capacity: 0, ttl_seconds: 0 };
+        let config = CacheConfig { enabled: false, max_capacity: 0, ttl: 0 };
         // When disabled, zero values are acceptable
         assert!(validate_cache(&config).is_ok());
     }
@@ -268,7 +268,7 @@ mod tests {
                 worker_threads: 0,
             },
             storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },
-            cache: CacheConfig { enabled: true, max_capacity: 0, ttl_seconds: 0 },
+            cache: CacheConfig { enabled: true, max_capacity: 0, ttl: 0 },
             observability: ObservabilityConfig {
                 log_level: "invalid".to_string(),
                 metrics_enabled: true,

@@ -22,7 +22,7 @@ storage:
 cache:
   enabled: true
   max_capacity: 10000
-  ttl_seconds: 300
+  ttl: 300
 
 observability:
   log_level: "info"
@@ -32,7 +32,7 @@ observability:
 
 auth:
   management_api_timeout_ms: 5000
-  management_cache_ttl_seconds: 300
-  cert_cache_ttl_seconds: 900
+  management_cache_ttl: 300
+  cert_cache_ttl: 900
   management_verify_vault_ownership: true
   management_verify_org_status: true

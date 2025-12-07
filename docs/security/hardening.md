@@ -4,24 +4,6 @@ This document provides a comprehensive checklist for deploying InferaDB securely
 
 ## Pre-Deployment Checklist
 
-### Authentication Configuration
-
-- [ ] **Authentication enabled**: Set `auth.enabled = true` in production config
-- [ ] **JWKS endpoint configured**: Verify `jwks_base_url` or `jwks_url` points to production JWKS endpoint
-- [ ] **HTTPS only**: Ensure all JWKS URLs use `https://` scheme
-- [ ] **Accepted algorithms**: Algorithms are hardcoded to EdDSA and RS256 for security (no configuration needed)
-
-- [ ] **Audience validation configured**: Configure `allowed_audiences` (always enforced)
-
-  ```toml
-  allowed_audiences = ["https://api.inferadb.com/evaluate"]
-  ```
-
-- [ ] **Scope validation enabled**: Scopes are validated per-endpoint based on the JWT's `scope` claim. Required scopes are:
-  - `inferadb.check` for `/v1/evaluate` endpoint
-  - `inferadb.write` for `/v1/relationships/write` endpoint
-  - `inferadb.read`, `inferadb.list`, `inferadb.expand` for read operations
-
 ### Clock and Time Configuration
 
 - [ ] **Clock skew minimal**: Keep `clock_skew_seconds` ≤ 60 seconds
@@ -173,30 +155,6 @@ throttle:
   rateLimit: 1000 # requests per second
   burstLimit: 2000 # max concurrent requests
 ```
-
-### Issuer and Audience Configuration
-
-- [ ] **Issuer allowlist**: If using multiple IdPs, configure issuer allowlist
-
-  ```toml
-  issuer_allowlist = ["https://auth.company.com", "tenant:*"]
-  ```
-
-- [ ] **Issuer blocklist**: Block known malicious issuers
-
-  ```toml
-  issuer_blocklist = ["https://evil.example.com"]
-  ```
-
-- [ ] **Audience enforcement**: Ensure `allowed_audiences` is properly configured (always enforced)
-- [ ] **Multiple audiences**: Configure all valid audience values
-
-  ```toml
-  allowed_audiences = [
-      "https://api.inferadb.com/evaluate",
-      "https://api.inferadb.com/admin"
-  ]
-  ```
 
 ## Post-Deployment Verification
 

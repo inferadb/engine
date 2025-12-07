@@ -420,11 +420,6 @@ auth:
   # Maximum token age (seconds from iat)
   max_token_age_seconds: 3600
 
-  # Issuer validation
-  issuer_allowlist:
-    - "tenant:*"
-    - "https://auth.example.com"
-
   # OAuth configuration (optional)
   oauth_introspection_endpoint: "https://auth.example.com/oauth/introspect"
   oauth_introspection_client_id: "inferadb-server"
@@ -681,18 +676,7 @@ Audience validation is always enforced and must validate with "<https://api.infe
 
 This prevents tokens intended for other services from being accepted.
 
-### 6. Use Issuer Allowlists
-
-Restrict which issuers are accepted:
-
-```yaml
-auth:
-  issuer_allowlist:
-    - "tenant:*"
-    - "https://auth.example.com"
-```
-
-### 7. Scope Validation
+### 6. Scope Validation
 
 Scope validation is per-endpoint based on the JWT's `scope` claim. Each endpoint requires specific scopes:
 
@@ -703,7 +687,7 @@ Scope validation is per-endpoint based on the JWT's `scope` claim. Each endpoint
 
 Ensure your JWTs include the appropriate scopes for the endpoints your application uses.
 
-### 8. Configure Clock Skew Tolerance
+### 7. Configure Clock Skew Tolerance
 
 Account for clock drift between systems:
 
@@ -788,22 +772,6 @@ date +%s
 
 2. Update server configuration to accept your scopes
 3. Check scope validation is correctly configured
-
-### Error: "Audience mismatch"
-
-**Cause**: Token `aud` claim doesn't match server configuration
-
-**Solutions**:
-
-1. Ensure JWT `aud` matches server `audience`:
-
-   ```json
-   {
-     "aud": "https://api.inferadb.com/evaluate"
-   }
-   ```
-
-2. Add audience to `allowed_audiences` list
 
 ### Error: "Replay attack detected"
 
@@ -941,9 +909,6 @@ Host at: `https://your-domain.com/jwks/acme.json`
 auth:
   enabled: true
   jwks_base_url: "https://your-domain.com/jwks"
-  audience: "https://api.inferadb.com/evaluate"
-  allowed_audiences:
-    - "https://api.inferadb.com/evaluate"
   replay_protection: true
   redis_url: "redis://localhost:6379"
 ```

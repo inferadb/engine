@@ -227,7 +227,7 @@ impl AppState {
         let auth_cache = if builder.config.cache.enabled {
             Arc::new(inferadb_cache::AuthCache::new(
                 builder.config.cache.max_capacity,
-                std::time::Duration::from_secs(builder.config.cache.ttl_seconds),
+                std::time::Duration::from_secs(builder.config.cache.ttl),
             ))
         } else {
             // Create a minimal cache that won't be used
@@ -441,7 +441,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             let refresher = Arc::new(inferadb_discovery::DiscoveryRefresher::new(
                 Arc::clone(&discovery),
                 Arc::clone(&lb_client),
-                state.config.discovery.cache_ttl_seconds,
+                state.config.discovery.cache_ttl,
                 effective_mgmt_url.clone(),
             ));
 
@@ -449,7 +449,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             Arc::clone(&refresher).spawn();
             info!(
                 "Discovery refresh task spawned (interval: {}s)",
-                state.config.discovery.cache_ttl_seconds
+                state.config.discovery.cache_ttl
             );
 
             // Create ManagementClient with load balancing

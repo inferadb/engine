@@ -32,7 +32,7 @@ storage:
 cache:
   enabled: true
   max_capacity: 1000000 # 1M entries for high-throughput
-  ttl_seconds: 300
+  ttl: 300
 
 observability:
   # Log level: trace, debug, info, warn, error
@@ -49,8 +49,8 @@ observability:
 
 auth:
   management_api_timeout_ms: 5000
-  management_cache_ttl_seconds: 600 # Longer cache for performance
-  cert_cache_ttl_seconds: 1800 # 30 minutes
+  management_cache_ttl: 600 # Longer cache for performance
+  cert_cache_ttl: 1800 # 30 minutes
   management_verify_vault_ownership: true
   management_verify_org_status: true
 
