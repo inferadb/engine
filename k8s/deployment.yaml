@@ -79,14 +79,12 @@ spec:
               value: "info"
             - name: RUST_BACKTRACE
               value: "1"
-            - name: INFERADB__SERVER__HOST
-              value: "0.0.0.0"
-            - name: INFERADB__SERVER__PORT
-              value: "8080"
-            - name: INFERADB__SERVER__INTERNAL_HOST
-              value: "0.0.0.0"
-            - name: INFERADB__SERVER__INTERNAL_PORT
-              value: "9090"
+            - name: INFERADB__SERVER__PUBLIC_REST
+              value: "0.0.0.0:8080"
+            - name: INFERADB__SERVER__PUBLIC_GRPC
+              value: "0.0.0.0:8081"
+            - name: INFERADB__SERVER__PRIVATE_REST
+              value: "0.0.0.0:8082"
             - name: INFERADB__OBSERVABILITY__METRICS_ENABLED
               value: "true"
             - name: INFERADB__OBSERVABILITY__TRACING_ENABLED

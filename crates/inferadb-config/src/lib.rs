@@ -35,23 +35,20 @@ pub struct Config {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
-    // Public REST API server (client-facing)
-    #[serde(default = "default_host")]
-    pub host: String,
+    /// Public REST API server address (client-facing)
+    /// Format: "host:port" (e.g., "0.0.0.0:8080")
+    #[serde(default = "default_public_rest")]
+    pub public_rest: String,
 
-    #[serde(default = "default_port")]
-    pub port: u16,
+    /// Public gRPC API server address
+    /// Format: "host:port" (e.g., "0.0.0.0:8081")
+    #[serde(default = "default_public_grpc")]
+    pub public_grpc: String,
 
-    // Public gRPC API server
-    #[serde(default = "default_grpc_port")]
-    pub grpc_port: u16,
-
-    // Internal/Private REST API server (server-to-server communication)
-    #[serde(default = "default_internal_host")]
-    pub internal_host: String,
-
-    #[serde(default = "default_internal_port")]
-    pub internal_port: u16,
+    /// Internal/Private REST API server address (server-to-server communication)
+    /// Format: "host:port" (e.g., "0.0.0.0:8082")
+    #[serde(default = "default_private_rest")]
+    pub private_rest: String,
 
     #[serde(default = "default_worker_threads")]
     pub worker_threads: usize,
@@ -60,34 +57,24 @@ pub struct ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            host: default_host(),
-            port: default_port(),
-            grpc_port: default_grpc_port(),
-            internal_host: default_internal_host(),
-            internal_port: default_internal_port(),
+            public_rest: default_public_rest(),
+            public_grpc: default_public_grpc(),
+            private_rest: default_private_rest(),
             worker_threads: default_worker_threads(),
         }
     }
 }
 
-fn default_host() -> String {
-    "0.0.0.0".to_string()
+fn default_public_rest() -> String {
+    "0.0.0.0:8080".to_string()
 }
 
-fn default_port() -> u16 {
-    8080
+fn default_public_grpc() -> String {
+    "0.0.0.0:8081".to_string()
 }
 
-fn default_grpc_port() -> u16 {
-    8081
-}
-
-fn default_internal_host() -> String {
-    "0.0.0.0".to_string() // Bind to all interfaces, restrict via network policies
-}
-
-fn default_internal_port() -> u16 {
-    8082 // Internal/Private server-to-server port
+fn default_private_rest() -> String {
+    "0.0.0.0:8082".to_string() // Internal/Private server-to-server port
 }
 
 fn default_worker_threads() -> usize {
@@ -423,10 +410,17 @@ impl Config {
     /// This method performs comprehensive validation of all configuration values,
     /// catching errors early before they cause runtime failures.
     pub fn validate(&self) -> anyhow::Result<()> {
-        // Validate server config
-        if self.server.port == 0 {
-            anyhow::bail!("server.port cannot be 0");
-        }
+        // Validate server addresses are parseable
+        self.server.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!("server.public_rest '{}' is not a valid socket address: {}", self.server.public_rest, e)
+        })?;
+        self.server.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!("server.public_grpc '{}' is not a valid socket address: {}", self.server.public_grpc, e)
+        })?;
+        self.server.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!("server.private_rest '{}' is not a valid socket address: {}", self.server.private_rest, e)
+        })?;
+
         if self.server.worker_threads == 0 {
             anyhow::bail!("server.worker_threads must be greater than 0");
         }
@@ -574,11 +568,9 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             server: ServerConfig {
-                host: default_host(),
-                port: default_port(),
-                grpc_port: default_grpc_port(),
-                internal_host: default_internal_host(),
-                internal_port: default_internal_port(),
+                public_rest: default_public_rest(),
+                public_grpc: default_public_grpc(),
+                private_rest: default_private_rest(),
                 worker_threads: default_worker_threads(),
             },
             storage: StorageConfig { backend: default_backend(), fdb_cluster_file: None },
@@ -653,8 +645,9 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = Config::default();
-        assert_eq!(config.server.port, 8080);
-        assert_eq!(config.server.host, "0.0.0.0");
+        assert_eq!(config.server.public_rest, "0.0.0.0:8080");
+        assert_eq!(config.server.public_grpc, "0.0.0.0:8081");
+        assert_eq!(config.server.private_rest, "0.0.0.0:8082");
         assert!(config.cache.enabled);
     }
 

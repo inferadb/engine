@@ -289,8 +289,9 @@ server:
             &config_path,
             r#"
 server:
-  port: 8080
-  host: "127.0.0.1"
+  public_rest: "127.0.0.1:8080"
+  public_grpc: "127.0.0.1:8081"
+  private_rest: "127.0.0.1:8082"
 "#,
         )
         .unwrap();
@@ -299,16 +300,17 @@ server:
         let initial_config = crate::load(&config_path).unwrap();
         let config = Arc::new(RwLock::new(initial_config));
 
-        // Verify initial port
-        assert_eq!(config.read().server.port, 8080);
+        // Verify initial address
+        assert_eq!(config.read().server.public_rest, "127.0.0.1:8080");
 
-        // Modify config file with a different port
+        // Modify config file with a different address
         fs::write(
             &config_path,
             r#"
 server:
-  port: 9090
-  host: "127.0.0.1"
+  public_rest: "127.0.0.1:9090"
+  public_grpc: "127.0.0.1:9091"
+  private_rest: "127.0.0.1:9092"
 "#,
         )
         .unwrap();
@@ -320,9 +322,9 @@ server:
         let changed = refresher.refresh_once().await.unwrap();
         assert!(changed, "Config should have changed");
 
-        // Verify port was updated
+        // Verify address was updated
         let current = config.read();
-        assert_eq!(current.server.port, 9090, "Port should be updated to 9090");
+        assert_eq!(current.server.public_rest, "127.0.0.1:9090", "Address should be updated");
     }
 
     #[tokio::test]
@@ -336,8 +338,9 @@ server:
             &config_path,
             r#"
 server:
-  port: 8080
-  host: "127.0.0.1"
+  public_rest: "127.0.0.1:8080"
+  public_grpc: "127.0.0.1:8081"
+  private_rest: "127.0.0.1:8082"
 store:
   backend: "memory"
 "#,
@@ -349,7 +352,7 @@ store:
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial values
-        assert_eq!(config.read().server.port, 8080);
+        assert_eq!(config.read().server.public_rest, "127.0.0.1:8080");
         assert_eq!(config.read().storage.backend, "memory");
 
         // Write invalid config (invalid storage backend)
@@ -357,8 +360,9 @@ store:
             &config_path,
             r#"
 server:
-  port: 0
-  host: "127.0.0.1"
+  public_rest: "invalid"
+  public_grpc: "127.0.0.1:8081"
+  private_rest: "127.0.0.1:8082"
 store:
   backend: "invalid_backend"
 "#,
@@ -374,7 +378,7 @@ store:
 
         // Verify config was not changed (should still be valid)
         let current = config.read();
-        assert_eq!(current.server.port, 8080);
+        assert_eq!(current.server.public_rest, "127.0.0.1:8080");
         assert_eq!(current.storage.backend, "memory");
     }
 
@@ -389,8 +393,9 @@ store:
             &config_path,
             r#"
 server:
-  port: 8080
-  host: "127.0.0.1"
+  public_rest: "127.0.0.1:8080"
+  public_grpc: "127.0.0.1:8081"
+  private_rest: "127.0.0.1:8082"
 "#,
         )
         .unwrap();
@@ -399,8 +404,8 @@ server:
         let initial_config = crate::load(&config_path).unwrap();
         let config = Arc::new(RwLock::new(initial_config));
 
-        // Verify initial port
-        assert_eq!(config.read().server.port, 8080);
+        // Verify initial address
+        assert_eq!(config.read().server.public_rest, "127.0.0.1:8080");
 
         // Create and spawn refresher with 1 second interval
         let refresher = Arc::new(ConfigRefresher::new(config.clone(), config_path.clone(), 1));
@@ -413,8 +418,9 @@ server:
             &config_path,
             r#"
 server:
-  port: 9090
-  host: "127.0.0.1"
+  public_rest: "127.0.0.1:9090"
+  public_grpc: "127.0.0.1:9091"
+  private_rest: "127.0.0.1:9092"
 "#,
         )
         .unwrap();
@@ -424,6 +430,6 @@ server:
 
         // Verify config was updated
         let current = config.read();
-        assert_eq!(current.server.port, 9090, "Port should be updated to 9090");
+        assert_eq!(current.server.public_rest, "127.0.0.1:9090", "Address should be updated");
     }
 }

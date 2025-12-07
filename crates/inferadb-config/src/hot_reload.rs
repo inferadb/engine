@@ -185,10 +185,22 @@ impl HotReloadHandle {
         // Validate authentication config
         config.auth.validate()?;
 
-        // Validate server config
-        if config.server.port == 0 {
-            return Err("Server port cannot be 0".to_string());
-        }
+        // Validate server addresses are parseable
+        config
+            .server
+            .public_rest
+            .parse::<std::net::SocketAddr>()
+            .map_err(|e| format!("Invalid public_rest address '{}': {}", config.server.public_rest, e))?;
+        config
+            .server
+            .public_grpc
+            .parse::<std::net::SocketAddr>()
+            .map_err(|e| format!("Invalid public_grpc address '{}': {}", config.server.public_grpc, e))?;
+        config
+            .server
+            .private_rest
+            .parse::<std::net::SocketAddr>()
+            .map_err(|e| format!("Invalid private_rest address '{}': {}", config.server.private_rest, e))?;
 
         if config.server.worker_threads == 0 {
             return Err("Worker threads must be > 0".to_string());
@@ -235,7 +247,7 @@ mod tests {
         let handle = HotReloadHandle::new(temp_file.path(), config.clone());
 
         let current = handle.get().await;
-        assert_eq!(current.server.port, config.server.port);
+        assert_eq!(current.server.public_rest, config.server.public_rest);
     }
 
     #[tokio::test]
@@ -248,9 +260,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_validate_config_invalid_port() {
+    async fn test_validate_config_invalid_address() {
         let mut config = Config::default();
-        config.server.port = 0;
+        config.server.public_rest = "invalid-address".to_string();
 
         let temp_file = NamedTempFile::new().unwrap();
         let handle = HotReloadHandle::new(temp_file.path(), Config::default());
@@ -285,28 +297,28 @@ mod tests {
     async fn test_reload_config_invalid_falls_back() {
         // Use default config instead of loading from file
         let mut initial_config = Config::default();
-        initial_config.server.port = 8080;
+        initial_config.server.public_rest = "0.0.0.0:8080".to_string();
 
         let temp_file = NamedTempFile::new().unwrap();
         let handle = HotReloadHandle::new(temp_file.path(), initial_config);
 
         // Create invalid config in memory and validate
         let mut invalid_config = Config::default();
-        invalid_config.server.port = 0; // Invalid: port cannot be 0
+        invalid_config.server.public_rest = "invalid".to_string(); // Invalid address
 
         // Verify validation fails
         assert!(handle.validate_config(&invalid_config).await.is_err());
 
         // Verify current config unchanged
         let current = handle.get().await;
-        assert_eq!(current.server.port, 8080);
+        assert_eq!(current.server.public_rest, "0.0.0.0:8080");
     }
 
     #[tokio::test]
     async fn test_rollback() {
         let temp_file = NamedTempFile::new().unwrap();
         let mut config = Config::default();
-        config.server.port = 8080;
+        config.server.public_rest = "0.0.0.0:8080".to_string();
 
         let handle = HotReloadHandle::new(temp_file.path(), config.clone());
 
@@ -315,17 +327,17 @@ mod tests {
 
         // Change current config
         let mut new_config = config.clone();
-        new_config.server.port = 9090;
+        new_config.server.public_rest = "0.0.0.0:9090".to_string();
         *handle.config.write().await = new_config;
 
         // Verify changed
-        assert_eq!(handle.get().await.server.port, 9090);
+        assert_eq!(handle.get().await.server.public_rest, "0.0.0.0:9090");
 
         // Rollback
         handle.rollback().await.unwrap();
 
         // Verify rolled back
-        assert_eq!(handle.get().await.server.port, 8080);
+        assert_eq!(handle.get().await.server.public_rest, "0.0.0.0:8080");
     }
 
     #[tokio::test]

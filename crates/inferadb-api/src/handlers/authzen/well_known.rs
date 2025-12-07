@@ -81,7 +81,7 @@ pub async fn get_authzen_configuration(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
     // Construct the base URL from configuration
-    let base_url = format!("http://{}:{}", state.config.server.host, state.config.server.port);
+    let base_url = format!("http://{}", state.config.server.public_rest);
 
     // Build the configuration response
     let config = AuthZENConfiguration {

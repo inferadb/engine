@@ -8,11 +8,8 @@ use crate::{CacheConfig, Config, ObservabilityConfig, ServerConfig, StorageConfi
 
 #[derive(Debug, Error)]
 pub enum ValidationError {
-    #[error("Invalid port number: {0}")]
-    InvalidPort(u16),
-
-    #[error("Invalid host: {0}")]
-    InvalidHost(String),
+    #[error("Invalid address '{0}': {1}")]
+    InvalidAddress(String, String),
 
     #[error("Invalid worker thread count: {0} (must be > 0)")]
     InvalidWorkerThreads(usize),
@@ -70,15 +67,16 @@ pub fn validate(config: &Config) -> Result<()> {
 
 /// Validate server configuration
 pub fn validate_server(config: &ServerConfig) -> Result<()> {
-    // Validate port (must be in valid range)
-    if config.port == 0 {
-        return Err(ValidationError::InvalidPort(config.port));
-    }
-
-    // Validate host (basic check for empty or invalid)
-    if config.host.is_empty() {
-        return Err(ValidationError::InvalidHost(config.host.clone()));
-    }
+    // Validate addresses are parseable as SocketAddr
+    config.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+        ValidationError::InvalidAddress(config.public_rest.clone(), e.to_string())
+    })?;
+    config.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
+        ValidationError::InvalidAddress(config.public_grpc.clone(), e.to_string())
+    })?;
+    config.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+        ValidationError::InvalidAddress(config.private_rest.clone(), e.to_string())
+    })?;
 
     // Validate worker threads
     if config.worker_threads == 0 {
@@ -144,39 +142,22 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_server_invalid_port() {
+    fn test_validate_server_invalid_address() {
         let config = ServerConfig {
-            host: "127.0.0.1".to_string(),
-            port: 0,
-            grpc_port: 8081,
-            internal_host: "0.0.0.0".to_string(),
-            internal_port: 8082,
+            public_rest: "invalid".to_string(),
+            public_grpc: "0.0.0.0:8081".to_string(),
+            private_rest: "0.0.0.0:8082".to_string(),
             worker_threads: 4,
         };
-        assert!(matches!(validate_server(&config), Err(ValidationError::InvalidPort(0))));
-    }
-
-    #[test]
-    fn test_validate_server_invalid_host() {
-        let config = ServerConfig {
-            host: "".to_string(),
-            port: 8080,
-            grpc_port: 8081,
-            internal_host: "0.0.0.0".to_string(),
-            internal_port: 8082,
-            worker_threads: 4,
-        };
-        assert!(matches!(validate_server(&config), Err(ValidationError::InvalidHost(_))));
+        assert!(matches!(validate_server(&config), Err(ValidationError::InvalidAddress(_, _))));
     }
 
     #[test]
     fn test_validate_server_invalid_workers() {
         let config = ServerConfig {
-            host: "127.0.0.1".to_string(),
-            port: 8080,
-            grpc_port: 8081,
-            internal_host: "0.0.0.0".to_string(),
-            internal_port: 8082,
+            public_rest: "0.0.0.0:8080".to_string(),
+            public_grpc: "0.0.0.0:8081".to_string(),
+            private_rest: "0.0.0.0:8082".to_string(),
             worker_threads: 0,
         };
         assert!(matches!(validate_server(&config), Err(ValidationError::InvalidWorkerThreads(0))));
@@ -260,11 +241,9 @@ mod tests {
     fn test_validate_multiple_errors() {
         let config = Config {
             server: ServerConfig {
-                host: "".to_string(),
-                port: 0,
-                grpc_port: 8081,
-                internal_host: "0.0.0.0".to_string(),
-                internal_port: 8082,
+                public_rest: "invalid-address".to_string(),
+                public_grpc: "0.0.0.0:8081".to_string(),
+                private_rest: "0.0.0.0:8082".to_string(),
                 worker_threads: 0,
             },
             storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },

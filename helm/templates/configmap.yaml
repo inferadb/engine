@@ -5,14 +5,11 @@ metadata:
   labels:
     {{- include "inferadb.labels" . | nindent 4 }}
 data:
-  # Server configuration
-  INFERADB__SERVER__HOST: "0.0.0.0"
-  INFERADB__SERVER__PORT: "{{ .Values.service.port }}"
+  # Server configuration (combined host:port addresses)
+  INFERADB__SERVER__PUBLIC_REST: "0.0.0.0:{{ .Values.service.port }}"
+  INFERADB__SERVER__PUBLIC_GRPC: "0.0.0.0:{{ .Values.service.grpcPort }}"
+  INFERADB__SERVER__PRIVATE_REST: "0.0.0.0:{{ .Values.service.internalPort }}"
   INFERADB__SERVER__WORKER_THREADS: "{{ .Values.config.server.workerThreads }}"
-  INFERADB__SERVER__MAX_CONNECTIONS: "{{ .Values.config.server.maxConnections }}"
-  INFERADB__SERVER__REQUEST_TIMEOUT: "{{ .Values.config.server.requestTimeout }}"
-  INFERADB__SERVER__RATE_LIMIT_REQUESTS: "{{ .Values.config.server.rateLimitRequests }}"
-  INFERADB__SERVER__RATE_LIMIT_PERIOD: "{{ .Values.config.server.rateLimitPeriod }}"
 
   # Storage configuration
   INFERADB__STORAGE__BACKEND: "{{ .Values.config.storage.backend }}"

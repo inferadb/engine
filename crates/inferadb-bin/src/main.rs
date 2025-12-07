@@ -20,9 +20,9 @@ struct Args {
     #[arg(short, long, default_value = "config.yaml")]
     config: String,
 
-    /// Server port (overrides config)
-    #[arg(short, long)]
-    port: Option<u16>,
+    /// Public REST address (overrides config), e.g., "0.0.0.0:8080"
+    #[arg(long)]
+    public_rest: Option<String>,
 
     /// Environment (development, staging, production)
     #[arg(short, long, env = "ENVIRONMENT", default_value = "development")]
@@ -56,8 +56,8 @@ async fn main() -> Result<()> {
     let mut config = load_or_default(&args.config);
 
     // Override with CLI args
-    if let Some(port) = args.port {
-        config.server.port = port;
+    if let Some(ref addr) = args.public_rest {
+        config.server.public_rest = addr.clone();
     }
 
     // Validate configuration
@@ -126,21 +126,9 @@ async fn main() -> Result<()> {
         // Storage
         ConfigEntry::new("Storage", "Backend", &config.storage.backend),
         // Network
-        ConfigEntry::new(
-            "Network",
-            "Public API (REST)",
-            format!("{}:{}", config.server.host, config.server.port),
-        ),
-        ConfigEntry::new(
-            "Network",
-            "Public API (gRPC)",
-            format!("{}:{}", config.server.host, config.server.grpc_port),
-        ),
-        ConfigEntry::new(
-            "Network",
-            "Private API (REST)",
-            format!("{}:{}", config.server.internal_host, config.server.internal_port),
-        ),
+        ConfigEntry::new("Network", "Public API (REST)", &config.server.public_rest),
+        ConfigEntry::new("Network", "Public API (gRPC)", &config.server.public_grpc),
+        ConfigEntry::new("Network", "Private API (REST)", &config.server.private_rest),
         ConfigEntry::separator("Network"),
         mgmt_entry,
         discovery_entry,
@@ -237,12 +225,9 @@ async fn main() -> Result<()> {
         server_identity: server_identity.clone(),
     };
 
-    // Bind listeners
-    let public_addr = format!("{}:{}", config.server.host, config.server.port);
-    let internal_addr = format!("{}:{}", config.server.internal_host, config.server.internal_port);
-
-    let public_listener = tokio::net::TcpListener::bind(&public_addr).await?;
-    let internal_listener = tokio::net::TcpListener::bind(&internal_addr).await?;
+    // Bind listeners (addresses are already validated at config.validate())
+    let public_listener = tokio::net::TcpListener::bind(&config.server.public_rest).await?;
+    let internal_listener = tokio::net::TcpListener::bind(&config.server.private_rest).await?;
 
     // Log ready status
     log_ready("Policy Service");
