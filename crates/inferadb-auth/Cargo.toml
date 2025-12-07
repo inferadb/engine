@@ -16,6 +16,7 @@ base64 = { workspace = true }
 chrono = { workspace = true }
 ed25519-dalek = { workspace = true }
 futures = { workspace = true }
+hostname = "0.4"
 jsonwebtoken = { workspace = true }
 moka = { workspace = true }
 pem = "3.0"

@@ -63,9 +63,8 @@ observability:
 auth:
   jwks_cache_ttl: 300
 
-identity:
-  service_id: "policy-service"
-  kid: "policy-service"
+# Identity: server_id and kid are auto-generated
+identity: {}
 
 discovery:
   mode:
@@ -111,8 +110,7 @@ export INFERADB__OBSERVABILITY__METRICS_ENABLED=true
 export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 
 # Identity configuration
-export INFERADB__IDENTITY__SERVICE_ID="policy-service"
-export INFERADB__IDENTITY__KID="policy-service"
+export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 ```
 
 ### Method 3: Combined (File + Environment)
@@ -457,26 +455,26 @@ Controls server identity for service-to-service authentication.
 
 ### Options
 
-| Option            | Type              | Default            | Description                                                   |
-| ----------------- | ----------------- | ------------------ | ------------------------------------------------------------- |
-| `service_id`      | string            | `"policy-service"` | Service ID for JWT subject claim                              |
-| `kid`             | string            | `"policy-service"` | Key ID (kid) for JWKS                                         |
-| `private_key_pem` | string (optional) | `null`             | Ed25519 private key in PEM format (auto-generated if not set) |
+| Option            | Type              | Default | Description                                                   |
+| ----------------- | ----------------- | ------- | ------------------------------------------------------------- |
+| `private_key_pem` | string (optional) | `null`  | Ed25519 private key in PEM format (auto-generated if not set) |
 
 ### Example
 
 ```yaml
 identity:
-  service_id: "policy-service"
-  kid: "policy-service-2024"
   private_key_pem: "${SERVER_PRIVATE_KEY}"
+```
+
+Or with no configuration (all values auto-generated):
+
+```yaml
+identity: {}
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__IDENTITY__SERVICE_ID="policy-service"
-export INFERADB__IDENTITY__KID="policy-service-2024"
 export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 ```
 
@@ -484,7 +482,7 @@ export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 
 - In production, always provide `private_key_pem` rather than relying on auto-generation
 - Use Kubernetes secrets or a secret manager for the private key
-- Rotate keys periodically by updating the `kid` value
+- The `kid` is deterministically derived from the public key (RFC 7638), so it remains consistent when using the same private key
 
 ## Discovery Configuration
 
@@ -617,13 +615,9 @@ observability:
   metrics_enabled: true
   tracing_enabled: false
 
-auth:
-  # Audience is hardcoded to https://api.inferadb.com (not configurable)
-  # Scopes are validated per-endpoint
+auth: {}
 
-identity:
-  service_id: "policy-service-dev"
-  kid: "dev-key"
+identity: {}
 
 discovery:
   mode:
@@ -662,16 +656,12 @@ observability:
 
 auth:
   jwks_cache_ttl: 300
-  # Audience is hardcoded to https://api.inferadb.com (not configurable)
-  # Scopes validated per-endpoint (inferadb.check, inferadb.write, etc.)
   replay_protection: true
   redis_url: "redis://redis:6379"
   management_verify_vault_ownership: true
   management_verify_org_status: true
 
 identity:
-  service_id: "policy-service"
-  kid: "policy-service-prod-2024"
   private_key_pem: "${SERVER_PRIVATE_KEY}"
 
 discovery:
@@ -708,13 +698,9 @@ observability:
   metrics_enabled: false
   tracing_enabled: false
 
-auth:
-  # Audience is hardcoded to https://api.inferadb.com (not configurable)
-  # Scopes are validated per-endpoint
+auth: {}
 
-identity:
-  service_id: "test-service"
-  kid: "test-key"
+identity: {}
 
 discovery:
   mode:
@@ -820,8 +806,7 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 
 **Identity**:
 
-- `service_id` cannot be empty
-- `kid` cannot be empty
+- `private_key_pem` is optional (auto-generated if not set)
 
 **Management Service**:
 

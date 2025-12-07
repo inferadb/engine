@@ -13,7 +13,9 @@ use inferadb_auth::{
     error::AuthError,
     jwt::JwtClaims,
     replay::{InMemoryReplayProtection, ReplayProtection},
-    validation::{validate_algorithm, validate_audience, validate_timestamp_claims, REQUIRED_AUDIENCE},
+    validation::{
+        REQUIRED_AUDIENCE, validate_algorithm, validate_audience, validate_timestamp_claims,
+    },
 };
 use inferadb_config::AuthConfig;
 

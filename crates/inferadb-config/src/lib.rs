@@ -94,34 +94,12 @@ fn default_worker_threads() -> usize {
     num_cpus::get()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IdentityConfig {
-    /// Service ID for JWT subject claim (sub: "server:{service_id}")
-    #[serde(default = "default_service_id")]
-    pub service_id: String,
-
-    /// Key ID (kid) for JWKS - identifies the server's public key
-    #[serde(default = "default_kid")]
-    pub kid: String,
-
-    /// Server identity Ed25519 private key (PEM format) for signing server-to-management requests
-    /// This key is used to authenticate the server when making calls to the management API
-    /// If not provided, will be generated on startup and logged (not recommended for production)
+    /// Server identity Ed25519 private key (PEM format) for signing server-to-management requests.
+    /// This key is used to authenticate the server when making calls to the management API.
+    /// If not provided, will be generated on startup and logged (not recommended for production).
     pub private_key_pem: Option<String>,
-}
-
-impl Default for IdentityConfig {
-    fn default() -> Self {
-        Self { service_id: default_service_id(), kid: default_kid(), private_key_pem: None }
-    }
-}
-
-fn default_service_id() -> String {
-    "policy-service".to_string()
-}
-
-fn default_kid() -> String {
-    "policy-service".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -482,14 +460,6 @@ impl Config {
                 "management_service.service_url must not end with trailing slash: {}",
                 mgmt_url
             );
-        }
-
-        // Validate server identity configuration
-        if self.identity.kid.is_empty() {
-            anyhow::bail!("identity.kid cannot be empty");
-        }
-        if self.identity.service_id.is_empty() {
-            anyhow::bail!("identity.service_id cannot be empty");
         }
 
         // Validate cache TTL values are reasonable

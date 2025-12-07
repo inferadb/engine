@@ -144,9 +144,6 @@ async fn main() -> Result<()> {
         ConfigEntry::separator("Network"),
         mgmt_entry,
         discovery_entry,
-        // Identity
-        ConfigEntry::new("Identity", "Service ID", &config.identity.service_id),
-        ConfigEntry::new("Identity", "Service KID", &config.identity.kid),
         private_key_entry,
     ])
     .display();
@@ -198,22 +195,21 @@ async fn main() -> Result<()> {
         use inferadb_auth::ServerIdentity;
 
         let identity = if let Some(ref pem) = config.identity.private_key_pem {
-            ServerIdentity::from_pem(
-                config.identity.service_id.clone(),
-                config.identity.kid.clone(),
-                pem,
-            )
-            .map_err(|e| anyhow::anyhow!("Failed to load server identity from PEM: {}", e))?
+            ServerIdentity::from_pem(pem)
+                .map_err(|e| anyhow::anyhow!("Failed to load server identity from PEM: {}", e))?
         } else {
             // Generate new identity and display in formatted box
-            let identity = ServerIdentity::generate(
-                config.identity.service_id.clone(),
-                config.identity.kid.clone(),
-            );
+            let identity = ServerIdentity::generate();
             let pem = identity.to_pem();
             inferadb_observe::startup::print_generated_keypair(&pem, "identity.private_key_pem");
             identity
         };
+
+        tracing::info!(
+            server_id = %identity.server_id,
+            kid = %identity.kid,
+            "Server identity initialized"
+        );
 
         log_initialized("Identity");
         Some(Arc::new(identity))
