@@ -541,9 +541,6 @@ curl -X POST http://localhost:8080/v1/evaluate \
 auth:
   enabled: true
   jwks_base_url: "https://your-idp.com/.well-known/jwks.json"
-  accepted_algorithms: ["EdDSA", "RS256", "ES256"]
-  # Scopes are validated per-endpoint based on JWT's scope claim
-  # inferadb.check, inferadb.write, inferadb.read, etc.
 ```
 
 **Automatic validation**:

@@ -216,14 +216,6 @@ pub struct AuthConfig {
     #[serde(default = "default_jwks_cache_ttl")]
     pub jwks_cache_ttl: u64,
 
-    /// Accepted signature algorithms
-    #[serde(default = "default_accepted_algorithms")]
-    pub accepted_algorithms: Vec<String>,
-
-    /// Expected audience value
-    #[serde(default = "default_audience")]
-    pub audience: String,
-
     /// Enable replay protection (requires Redis)
     #[serde(default = "default_replay_protection")]
     pub replay_protection: bool,
@@ -256,10 +248,6 @@ pub struct AuthConfig {
 
     /// Issuer blocklist (these issuers are always rejected)
     pub issuer_blocklist: Option<Vec<String>>,
-
-    /// Allowed audience values (for audience validation)
-    #[serde(default = "default_allowed_audiences")]
-    pub allowed_audiences: Vec<String>,
 
     /// Require JTI claim in all tokens
     #[serde(default = "default_require_jti")]
@@ -409,24 +397,12 @@ fn default_jwks_cache_ttl() -> u64 {
     300 // 5 minutes
 }
 
-fn default_accepted_algorithms() -> Vec<String> {
-    vec!["EdDSA".to_string(), "RS256".to_string()]
-}
-
-fn default_audience() -> String {
-    "https://api.inferadb.com/evaluate".to_string()
-}
-
 fn default_clock_skew_seconds() -> Option<u64> {
     Some(60) // 1 minute tolerance for clock differences
 }
 
 fn default_max_token_age_seconds() -> Option<u64> {
     Some(86400) // 24 hours maximum token age
-}
-
-fn default_allowed_audiences() -> Vec<String> {
-    vec!["https://api.inferadb.com/evaluate".to_string()]
 }
 
 fn default_require_jti() -> bool {
@@ -569,8 +545,6 @@ impl Default for AuthConfig {
     fn default() -> Self {
         Self {
             jwks_cache_ttl: default_jwks_cache_ttl(),
-            accepted_algorithms: default_accepted_algorithms(),
-            audience: default_audience(),
             replay_protection: default_replay_protection(),
             oidc_discovery_cache_ttl: default_oidc_discovery_cache_ttl(),
             internal_issuer: default_internal_issuer(),
@@ -580,7 +554,6 @@ impl Default for AuthConfig {
             max_token_age_seconds: default_max_token_age_seconds(),
             issuer_allowlist: None,
             issuer_blocklist: None,
-            allowed_audiences: default_allowed_audiences(),
             require_jti: default_require_jti(),
             oauth_enabled: default_oauth_enabled(),
             oidc_discovery_url: None,
@@ -612,26 +585,6 @@ impl AuthConfig {
                 "jwks_url is empty. \
                  Tenant JWT authentication will not work."
             );
-        }
-
-        // CRITICAL: Reject if accepted_algorithms is empty
-        if self.accepted_algorithms.is_empty() {
-            return Err(
-                "accepted_algorithms cannot be empty. At least one algorithm must be configured."
-                    .to_string(),
-            );
-        }
-
-        // CRITICAL: Reject if accepted_algorithms contains forbidden algorithms
-        const FORBIDDEN: &[&str] = &["none", "HS256", "HS384", "HS512"];
-        for alg in &self.accepted_algorithms {
-            if FORBIDDEN.contains(&alg.as_str()) {
-                return Err(format!(
-                    "Algorithm '{}' is forbidden for security reasons (symmetric or none). \
-                     Only asymmetric algorithms (EdDSA, RS256, ES256, etc.) are allowed.",
-                    alg
-                ));
-            }
         }
 
         // CRITICAL: Reject if replay_protection enabled but no redis_url
@@ -667,14 +620,6 @@ impl AuthConfig {
                      Recommended: 60 seconds or less."
                 );
             }
-        }
-
-        // Warn if allowed_audiences is empty (audience validation is always enforced)
-        if self.allowed_audiences.is_empty() {
-            tracing::warn!(
-                "allowed_audiences is empty. \
-                 All tokens will be rejected due to audience mismatch."
-            );
         }
 
         // Info about issuer validation
@@ -809,19 +754,6 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_config_validation_no_accepted_algorithms() {
-        let _subscriber = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::WARN)
-            .with_test_writer()
-            .try_init();
-
-        let config = AuthConfig { accepted_algorithms: vec![], ..Default::default() };
-
-        // Should warn but not panic
-        let _ = config.validate();
-    }
-
-    #[test]
     fn test_auth_config_validation_valid_config() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::INFO)
@@ -831,7 +763,6 @@ mod tests {
         let config = AuthConfig {
             jwks_url: "https://auth.example.com/.well-known/jwks.json".to_string(),
             replay_protection: false,
-            accepted_algorithms: vec!["EdDSA".to_string()],
             ..Default::default()
         };
 

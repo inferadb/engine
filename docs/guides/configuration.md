@@ -62,12 +62,6 @@ observability:
 
 auth:
   jwks_cache_ttl: 300
-  accepted_algorithms:
-    - "EdDSA"
-    - "RS256"
-  allowed_audiences:
-    - "https://api.inferadb.com/evaluate"
-  # Scopes are validated per-endpoint (inferadb.check, inferadb.write, etc.)
 
 identity:
   service_id: "policy-service"
@@ -377,15 +371,18 @@ Controls JWT authentication and authorization for tenant requests.
 
 ### Core Options
 
-| Option                | Type    | Default                                 | Description                               |
-| --------------------- | ------- | --------------------------------------- | ----------------------------------------- |
-| `jwks_cache_ttl`      | integer | `300`                                   | JWKS cache TTL (seconds)                  |
-| `accepted_algorithms` | array   | `["EdDSA", "RS256"]`                    | Accepted JWT algorithms                   |
-| `audience`            | string  | `"https://api.inferadb.com/evaluate"`   | Expected audience value                   |
-| `allowed_audiences`   | array   | `["https://api.inferadb.com/evaluate"]` | Allowed audiences (always validated)      |
-| `replay_protection`   | boolean | `false`                                 | Enable replay protection (requires Redis) |
-| `require_jti`         | boolean | `false`                                 | Require JTI claim in tokens               |
-| `jwks_url`            | string  | `""`                                    | JWKS URL for tenant authentication        |
+| Option              | Type    | Default | Description                               |
+| ------------------- | ------- | ------- | ----------------------------------------- |
+| `jwks_cache_ttl`    | integer | `300`   | JWKS cache TTL (seconds)                  |
+| `replay_protection` | boolean | `false` | Enable replay protection (requires Redis) |
+| `require_jti`       | boolean | `false` | Require JTI claim in tokens               |
+| `jwks_url`          | string  | `""`    | JWKS URL for tenant authentication        |
+
+> **Note**: JWT algorithms are hardcoded to EdDSA and RS256 for security and cannot be configured.
+>
+> **Note**: The JWT audience is hardcoded to `https://api.inferadb.com` per RFC 8725 best practices.
+> The audience identifies the InferaDB Server API as the intended recipient, not a specific endpoint.
+> This value must match the audience set by the Management API when generating tokens.
 
 ### Management API Integration
 
@@ -431,11 +428,8 @@ Controls JWT authentication and authorization for tenant requests.
 ```yaml
 auth:
   jwks_cache_ttl: 300
-  accepted_algorithms:
-    - "EdDSA"
-    - "RS256"
-  allowed_audiences:
-    - "inferadb"
+  # Algorithms are hardcoded to EdDSA and RS256 for security
+  # Audience is hardcoded to https://api.inferadb.com (not configurable)
 ```
 
 **Production** (full validation):
@@ -443,12 +437,8 @@ auth:
 ```yaml
 auth:
   jwks_cache_ttl: 300
-  accepted_algorithms:
-    - "EdDSA"
-    - "RS256"
-    - "ES256"
-  allowed_audiences:
-    - "https://api.inferadb.com/evaluate"
+  # Algorithms are hardcoded to EdDSA and RS256 for security
+  # Audience is hardcoded to https://api.inferadb.com (not configurable)
   replay_protection: true
   require_jti: true
   redis_url: "redis://localhost:6379"
@@ -641,8 +631,7 @@ observability:
   tracing_enabled: false
 
 auth:
-  allowed_audiences:
-    - "inferadb"
+  # Audience is hardcoded to https://api.inferadb.com (not configurable)
   # Scopes are validated per-endpoint
 
 identity:
@@ -686,8 +675,7 @@ observability:
 
 auth:
   jwks_cache_ttl: 300
-  allowed_audiences:
-    - "https://api.inferadb.com/evaluate"
+  # Audience is hardcoded to https://api.inferadb.com (not configurable)
   # Scopes validated per-endpoint (inferadb.check, inferadb.write, etc.)
   replay_protection: true
   redis_url: "redis://redis:6379"
@@ -734,8 +722,7 @@ observability:
   tracing_enabled: false
 
 auth:
-  allowed_audiences:
-    - "inferadb"
+  # Audience is hardcoded to https://api.inferadb.com (not configurable)
   # Scopes are validated per-endpoint
 
 identity:
@@ -839,10 +826,9 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 
 **Authentication**:
 
-- `accepted_algorithms` cannot be empty
-- Cannot accept symmetric algorithms (HS256, HS384, HS512) or `"none"`
+- Algorithms are hardcoded to EdDSA and RS256 (not configurable)
+- Audience is hardcoded to `https://api.inferadb.com` (not configurable)
 - `replay_protection = true` requires `redis_url`
-- `allowed_audiences` should not be empty (audience validation is always enforced)
 - `clock_skew_seconds > 300` generates warning
 
 **Identity**:
@@ -881,12 +867,7 @@ Error: management_service.service_url must start with http:// or https://
 
 ### Security
 
-1. **Use asymmetric algorithms only**
-
-   ```yaml
-   auth:
-     accepted_algorithms: ["EdDSA", "RS256", "ES256"]
-   ```
+1. **Asymmetric algorithms only** - Algorithms are hardcoded to EdDSA and RS256 for security
 
 2. **Enable replay protection in production**
 
@@ -896,13 +877,7 @@ Error: management_service.service_url must start with http:// or https://
      redis_url: "redis://redis:6379"
    ```
 
-3. **Configure allowed audiences** (always validated)
-
-   ```yaml
-   auth:
-     allowed_audiences:
-       - "https://api.inferadb.com/evaluate"
-   ```
+3. **Audience validation** - The JWT audience is hardcoded to `https://api.inferadb.com` per RFC 8725 best practices. This ensures tokens are issued for the InferaDB Server API (not a specific endpoint).
 
 4. **Never commit secrets**
    - Use environment variables

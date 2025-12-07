@@ -51,14 +51,6 @@ data:
     auth:
       enabled: true
       jwks_cache_ttl: 300
-      accepted_algorithms:
-        - "EdDSA"
-        - "RS256"
-        - "ES256"
-      # REQUIRED: Replace with your JWT issuer's audience value
-      audience: "https://your-domain.com/api/evaluate"
-      allowed_audiences:
-        - "https://your-domain.com/api/evaluate"
       replay_protection: true
       require_jti: true
       clock_skew_seconds: 30

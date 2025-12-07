@@ -234,10 +234,7 @@ impl ManagementJwksCache {
 
         // Validate algorithm
         let alg_str = format!("{:?}", header.alg);
-        crate::validation::validate_algorithm(
-            &alg_str,
-            &["EdDSA".to_string(), "RS256".to_string()],
-        )?;
+        crate::validation::validate_algorithm(&alg_str)?;
 
         // Get key from JWKS
         let jwk = self.get_key(&kid).await?;
@@ -560,10 +557,7 @@ impl AggregatedManagementJwksCache {
 
         // Validate algorithm
         let alg_str = format!("{:?}", header.alg);
-        crate::validation::validate_algorithm(
-            &alg_str,
-            &["EdDSA".to_string(), "RS256".to_string()],
-        )?;
+        crate::validation::validate_algorithm(&alg_str)?;
 
         // Get key from aggregated JWKS (may trigger discovery + fetch)
         let jwk = self.get_key(&kid).await?;

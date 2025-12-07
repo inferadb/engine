@@ -460,7 +460,6 @@ Our Docker image follows security best practices:
 2. **Replay protection**: Enable `INFERA__AUTH__REPLAY_PROTECTION=true`
 3. **Token validation**: Configure JWKS URL correctly
 4. **Clock skew**: Adjust `INFERA__AUTH__ALLOWED_CLOCK_SKEW` as needed
-5. **Configure audiences**: Set `allowed_audiences` to your expected JWT audience values
 
 ## Monitoring
 

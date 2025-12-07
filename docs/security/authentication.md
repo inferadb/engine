@@ -404,17 +404,6 @@ auth:
   # JWKS cache TTL (seconds)
   jwks_cache_ttl: 300
 
-  # Accepted signature algorithms
-  accepted_algorithms:
-    - EdDSA
-    - RS256
-
-  # Audience validation (always enforced)
-  audience: "https://api.inferadb.com/evaluate"
-  allowed_audiences:
-    - "https://api.inferadb.com/evaluate"
-    - "https://api.inferadb.com/*"
-
   # Scope validation is per-endpoint (inferadb.check, inferadb.write, etc.)
   # Scopes are validated based on the endpoint being accessed
 
@@ -688,14 +677,7 @@ auth:
 
 ### 5. Validate Audience
 
-Audience validation is always enforced. Configure your allowed audiences:
-
-```yaml
-auth:
-  audience: "https://api.inferadb.com/evaluate"
-  allowed_audiences:
-    - "https://api.inferadb.com/evaluate"
-```
+Audience validation is always enforced and must validate with "<https://api.inferadb.com>".
 
 This prevents tokens intended for other services from being accepted.
 

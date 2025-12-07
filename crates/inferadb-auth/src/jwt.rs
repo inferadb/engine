@@ -255,7 +255,7 @@ pub async fn verify_with_jwks(
 
     // Validate algorithm
     let alg_str = format!("{:?}", header.alg);
-    validate_algorithm(&alg_str, &["EdDSA".to_string(), "RS256".to_string()])?;
+    validate_algorithm(&alg_str)?;
 
     // 2. Decode claims without verification to extract organization ID
     let claims = decode_jwt_claims(token)?;
@@ -374,7 +374,7 @@ pub async fn verify_with_cert_cache_or_jwks(
 
     // Validate algorithm
     let alg_str = format!("{:?}", header.alg);
-    validate_algorithm(&alg_str, &["EdDSA".to_string(), "RS256".to_string()])?;
+    validate_algorithm(&alg_str)?;
 
     // 2. Try certificate cache first if available and kid matches format
     if let Some(cache) = cert_cache {

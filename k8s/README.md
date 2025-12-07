@@ -17,9 +17,8 @@ This directory contains Kubernetes manifests for deploying InferaDB to a Kuberne
 
 **IMPORTANT:** Before deploying, update these files with your environment-specific values:
 
-1. **configmap.yaml** (line 63-66):
-   - Replace `https://your-domain.com/api/evaluate` with your actual JWT audience
-   - Update any other configuration values as needed
+1. **configmap.yaml**:
+   - Update any configuration values as needed
 
 2. **secret.yaml**:
    - Replace all placeholder values marked with `change-me-in-production`

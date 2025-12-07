@@ -9,11 +9,7 @@ This document provides a comprehensive checklist for deploying InferaDB securely
 - [ ] **Authentication enabled**: Set `auth.enabled = true` in production config
 - [ ] **JWKS endpoint configured**: Verify `jwks_base_url` or `jwks_url` points to production JWKS endpoint
 - [ ] **HTTPS only**: Ensure all JWKS URLs use `https://` scheme
-- [ ] **Accepted algorithms**: Verify only asymmetric algorithms (EdDSA, RS256) are configured
-
-  ```toml
-  accepted_algorithms = ["EdDSA", "RS256"]
-  ```
+- [ ] **Accepted algorithms**: Algorithms are hardcoded to EdDSA and RS256 for security (no configuration needed)
 
 - [ ] **Audience validation configured**: Configure `allowed_audiences` (always enforced)
 

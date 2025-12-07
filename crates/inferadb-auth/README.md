@@ -204,12 +204,6 @@ auth:
     enabled: true
     jwks_base_url: "https://auth.inferadb.com/tenants"
     jwks_cache_ttl: 300 # 5 minutes
-    accepted_algorithms:
-        - "EdDSA"
-        - "RS256"
-    audience: "https://api.inferadb.com/evaluate"
-    allowed_audiences:
-        - "https://api.inferadb.com/evaluate"
 ```
 
 ### Development Mode

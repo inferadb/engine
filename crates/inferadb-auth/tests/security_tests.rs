@@ -16,6 +16,7 @@ use inferadb_auth::{
     replay::{InMemoryReplayProtection, ReplayProtection},
     validation::{
         validate_algorithm, validate_audience, validate_issuer, validate_timestamp_claims,
+        REQUIRED_AUDIENCE,
     },
 };
 use inferadb_config::AuthConfig;
@@ -36,7 +37,7 @@ fn test_claims(exp: u64, iat: u64, nbf: Option<u64>, jti: Option<String>) -> Jwt
     JwtClaims {
         iss: "tenant:acme".into(),
         sub: "test-user".into(),
-        aud: "inferadb".into(),
+        aud: REQUIRED_AUDIENCE.into(),
         exp,
         iat,
         nbf,
@@ -50,8 +51,6 @@ fn test_claims(exp: u64, iat: u64, nbf: Option<u64>, jti: Option<String>) -> Jwt
 fn default_config() -> AuthConfig {
     AuthConfig {
         jwks_url: "https://auth.example.com/.well-known/jwks.json".into(),
-        accepted_algorithms: vec!["EdDSA".into(), "RS256".into()],
-        allowed_audiences: vec!["inferadb".into()],
         clock_skew_seconds: Some(60),
         max_token_age_seconds: Some(86400),
         issuer_allowlist: None,
@@ -67,7 +66,6 @@ fn default_config() -> AuthConfig {
         oidc_discovery_cache_ttl: 86400,
         internal_issuer: "https://internal.inferadb.com".into(),
         internal_audience: "https://api.inferadb.com/internal".into(),
-        audience: "inferadb".into(),
         management_api_timeout_ms: 5000,
         management_cache_ttl_seconds: 300,
         cert_cache_ttl_seconds: 300,
@@ -142,19 +140,15 @@ async fn test_replay_protection_different_jtis_independent() {
 
 #[test]
 fn test_symmetric_algorithms_rejected() {
-    let config = default_config();
-
     // HS256, HS384, HS512 should all be rejected
-    assert!(validate_algorithm("HS256", &config.accepted_algorithms).is_err());
-    assert!(validate_algorithm("HS384", &config.accepted_algorithms).is_err());
-    assert!(validate_algorithm("HS512", &config.accepted_algorithms).is_err());
+    assert!(validate_algorithm("HS256").is_err());
+    assert!(validate_algorithm("HS384").is_err());
+    assert!(validate_algorithm("HS512").is_err());
 }
 
 #[test]
 fn test_none_algorithm_rejected() {
-    let config = default_config();
-
-    let result = validate_algorithm("none", &config.accepted_algorithms);
+    let result = validate_algorithm("none");
     assert!(
         matches!(result, Err(AuthError::UnsupportedAlgorithm(_))),
         "Algorithm 'none' should be rejected"
@@ -163,18 +157,13 @@ fn test_none_algorithm_rejected() {
 
 #[test]
 fn test_accepted_algorithms_allowed() {
-    let config = default_config();
-
-    assert!(validate_algorithm("EdDSA", &config.accepted_algorithms).is_ok());
-    assert!(validate_algorithm("RS256", &config.accepted_algorithms).is_ok());
+    assert!(validate_algorithm("EdDSA").is_ok());
+    assert!(validate_algorithm("RS256").is_ok());
 }
 
 #[test]
 fn test_unlisted_asymmetric_algorithm_rejected() {
-    let config = default_config();
-
-    // ES256 is asymmetric but not in our accepted list
-    let result = validate_algorithm("ES256", &config.accepted_algorithms);
+    let result = validate_algorithm("ES256");
     assert!(
         matches!(result, Err(AuthError::UnsupportedAlgorithm(_))),
         "Unlisted algorithm should be rejected"
@@ -321,33 +310,16 @@ fn test_empty_issuer_rejected() {
 // ============================================================================
 
 #[test]
-fn test_audience_in_allowed_list_accepted() {
-    let config = default_config();
-
-    assert!(validate_audience("inferadb", &config).is_ok());
+fn test_audience_matches_required() {
+    assert!(validate_audience(REQUIRED_AUDIENCE).is_ok());
 }
 
 #[test]
-fn test_audience_not_in_allowed_list_rejected() {
-    let config = default_config();
-
-    let result = validate_audience("wrong-audience", &config);
+fn test_audience_mismatch_rejected() {
+    let result = validate_audience("wrong-audience");
     assert!(
         matches!(result, Err(AuthError::InvalidAudience(_))),
-        "Audience not in allowed list should be rejected"
-    );
-}
-
-#[test]
-fn test_audience_empty_allowed_list_rejected() {
-    let mut config = default_config();
-    config.allowed_audiences = vec![];
-
-    // Should reject when no allowed audiences are configured
-    let result = validate_audience("inferadb", &config);
-    assert!(
-        matches!(result, Err(AuthError::InvalidAudience(_))),
-        "Empty allowed_audiences should cause rejection"
+        "Audience not matching REQUIRED_AUDIENCE should be rejected"
     );
 }
 
@@ -356,38 +328,11 @@ fn test_audience_empty_allowed_list_rejected() {
 // ============================================================================
 
 #[test]
-fn test_config_rejects_symmetric_algorithms() {
-    let mut config = default_config();
-    config.accepted_algorithms = vec!["HS256".into()];
-
-    let result = config.validate();
-    assert!(result.is_err(), "Config with HS256 should be rejected");
-}
-
-#[test]
-fn test_config_rejects_none_algorithm() {
-    let mut config = default_config();
-    config.accepted_algorithms = vec!["none".into()];
-
-    let result = config.validate();
-    assert!(result.is_err(), "Config with 'none' should be rejected");
-}
-
-#[test]
-fn test_config_rejects_empty_algorithms() {
-    let mut config = default_config();
-    config.accepted_algorithms = vec![];
-
-    let result = config.validate();
-    assert!(result.is_err(), "Config with empty algorithms should be rejected");
-}
-
-#[test]
-fn test_config_validates_with_asymmetric_algorithms() {
+fn test_config_validates_successfully() {
     let config = default_config();
 
     let result = config.validate();
-    assert!(result.is_ok(), "Config with only asymmetric algorithms should be valid");
+    assert!(result.is_ok(), "Default config should be valid");
 }
 
 // ============================================================================
@@ -406,10 +351,10 @@ async fn test_full_validation_flow_success() {
     assert!(validate_issuer(&claims.iss, &config).is_ok());
 
     // Validate audience
-    assert!(validate_audience(&claims.aud, &config).is_ok());
+    assert!(validate_audience(&claims.aud).is_ok());
 
     // Validate algorithm
-    assert!(validate_algorithm("EdDSA", &config.accepted_algorithms).is_ok());
+    assert!(validate_algorithm("EdDSA").is_ok());
 
     // Check replay protection
     let replay = InMemoryReplayProtection::new();

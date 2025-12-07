@@ -7,16 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fuzz_target!(|data: &[u8]| {
     // Fuzz algorithm validation with random strings
     if let Ok(s) = std::str::from_utf8(data) {
-        let accepted = vec!["EdDSA".to_string(), "RS256".to_string()];
-        let _ = validate_algorithm(s, &accepted);
-
-        // Also try with random accepted algorithms
-        if data.len() > 10 {
-            let alg1 = String::from_utf8_lossy(&data[0..data.len()/2]).to_string();
-            let alg2 = String::from_utf8_lossy(&data[data.len()/2..]).to_string();
-            let random_accepted = vec![alg1, alg2];
-            let _ = validate_algorithm(s, &random_accepted);
-        }
+        let _ = validate_algorithm(s);
     }
 
     // Fuzz claims validation with random timestamp values

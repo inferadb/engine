@@ -29,8 +29,27 @@ use crate::{error::AuthError, jwt::JwtClaims};
 /// - `none`: No signature verification (trivially bypassable)
 /// - `HS256`, `HS384`, `HS512`: Symmetric algorithms (shared secret vulnerability)
 ///
-/// Only asymmetric algorithms (EdDSA, RS256, RS384, RS512) are allowed.
+/// Only asymmetric algorithms (EdDSA, RS256) are allowed.
 pub const FORBIDDEN_ALGORITHMS: &[&str] = &["none", "HS256", "HS384", "HS512"];
+
+/// Accepted JWT algorithms
+///
+/// These are the only algorithms accepted:
+/// - `EdDSA`: Ed25519 signatures (recommended, fastest, most secure)
+/// - `RS256`: RSA-SHA256 signatures (legacy support)
+///
+/// This list is intentionally not configurable to ensure consistent security
+/// across all deployments. The management API uses EdDSA exclusively.
+pub const ACCEPTED_ALGORITHMS: &[&str] = &["EdDSA", "RS256"];
+
+/// Required JWT audience for InferaDB Server API
+///
+/// Per RFC 8725 (JWT Best Current Practices), the audience claim identifies
+/// the intended recipient of the token - in this case, the InferaDB Server API.
+///
+/// This value is hardcoded to ensure consistent security across all deployments
+/// and to match the audience set by the Management API when generating tokens.
+pub const REQUIRED_AUDIENCE: &str = "https://api.inferadb.com";
 
 /// Validate all timestamp-related claims with clock skew tolerance
 ///
@@ -124,31 +143,29 @@ pub fn validate_issuer(iss: &str, config: &AuthConfig) -> Result<(), AuthError> 
     Ok(())
 }
 
-/// Validate audience claim
+/// Validate audience claim against the required InferaDB Server API audience
 ///
 /// Audience validation is always enforced - tokens must have an audience
-/// that matches one of the configured allowed audiences.
+/// that matches the hardcoded REQUIRED_AUDIENCE constant.
 ///
 /// # Arguments
 ///
 /// * `aud` - The audience claim from the JWT
-/// * `config` - Authentication configuration containing allowed audiences
 ///
 /// # Errors
 ///
-/// Returns an error if:
-/// - No allowed audiences are configured
-/// - Audience is not in the allowed audiences list
-pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError> {
-    // Check against allowed audiences
-    if config.allowed_audiences.is_empty() {
-        warn!("No allowed audiences configured");
-        return Err(AuthError::InvalidAudience("No allowed audiences configured".into()));
-    }
-
-    if !config.allowed_audiences.iter().any(|allowed| allowed == aud) {
-        warn!(audience = %aud, "Audience not in allowed list");
-        return Err(AuthError::InvalidAudience(format!("Audience '{}' is not allowed", aud)));
+/// Returns an error if the audience doesn't match REQUIRED_AUDIENCE
+pub fn validate_audience(aud: &str) -> Result<(), AuthError> {
+    if aud != REQUIRED_AUDIENCE {
+        warn!(
+            audience = %aud,
+            expected = %REQUIRED_AUDIENCE,
+            "Audience mismatch"
+        );
+        return Err(AuthError::InvalidAudience(format!(
+            "Audience '{}' does not match required audience '{}'",
+            aud, REQUIRED_AUDIENCE
+        )));
     }
 
     Ok(())
@@ -159,41 +176,39 @@ pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError
 /// This function enforces strict algorithm security:
 /// - ALWAYS rejects symmetric algorithms (HS256, HS384, HS512)
 /// - ALWAYS rejects "none" algorithm
-/// - Only accepts algorithms in the provided allowed list
+/// - Only accepts EdDSA and RS256
 ///
 /// Uses constant-time comparison to prevent timing attacks.
 ///
 /// # Arguments
 ///
 /// * `alg` - The algorithm from the JWT header
-/// * `accepted_algorithms` - List of accepted algorithm names
 ///
 /// # Errors
 ///
 /// Returns an error if:
 /// - Algorithm is symmetric (HS256, HS384, HS512)
 /// - Algorithm is "none"
-/// - Algorithm is not in the accepted algorithms list
+/// - Algorithm is not EdDSA or RS256
 ///
 /// # Examples
 ///
 /// ```rust
 /// use inferadb_auth::validation::validate_algorithm;
 ///
-/// // With explicit list
-/// let result = validate_algorithm("EdDSA", &["EdDSA".to_string(), "RS256".to_string()]);
+/// // EdDSA is accepted
+/// let result = validate_algorithm("EdDSA");
+/// assert!(result.is_ok());
+///
+/// // RS256 is accepted
+/// let result = validate_algorithm("RS256");
 /// assert!(result.is_ok());
 ///
 /// // Symmetric algorithm rejected
-/// let result = validate_algorithm("HS256", &["EdDSA".to_string()]);
+/// let result = validate_algorithm("HS256");
 /// assert!(result.is_err());
-///
-/// // With config
-/// use inferadb_config::AuthConfig;
-/// # let config = AuthConfig::default();
-/// let result = validate_algorithm("EdDSA", &config.accepted_algorithms);
 /// ```
-pub fn validate_algorithm(alg: &str, accepted_algorithms: &[String]) -> Result<(), AuthError> {
+pub fn validate_algorithm(alg: &str) -> Result<(), AuthError> {
     // Check against forbidden algorithms using constant-time comparison
     if FORBIDDEN_ALGORITHMS
         .iter()
@@ -206,9 +221,9 @@ pub fn validate_algorithm(alg: &str, accepted_algorithms: &[String]) -> Result<(
     }
 
     // Check if in accepted list (using constant-time comparison)
-    if !accepted_algorithms.iter().any(|a| a.as_bytes().ct_eq(alg.as_bytes()).into()) {
+    if !ACCEPTED_ALGORITHMS.iter().any(|a| a.as_bytes().ct_eq(alg.as_bytes()).into()) {
         return Err(AuthError::UnsupportedAlgorithm(format!(
-            "Algorithm '{}' is not in accepted list",
+            "Algorithm '{}' is not in accepted list (only EdDSA and RS256 are supported)",
             alg
         )));
     }
@@ -231,9 +246,6 @@ mod tests {
         AuthConfig {
             jwks_cache_ttl: 300,
             jwks_url: "https://example.com".into(),
-            accepted_algorithms: vec!["EdDSA".into(), "RS256".into()],
-            audience: "inferadb".into(),
-            allowed_audiences: vec!["inferadb".into()],
             clock_skew_seconds: Some(60),
             max_token_age_seconds: Some(86400),
             internal_issuer: "https://internal.inferadb.com".into(),
@@ -248,7 +260,7 @@ mod tests {
         JwtClaims {
             iss: "tenant:acme".into(),
             sub: "test".into(),
-            aud: "inferadb".into(),
+            aud: REQUIRED_AUDIENCE.into(),
             exp,
             iat,
             nbf,
@@ -350,87 +362,52 @@ mod tests {
 
     #[test]
     fn test_validate_audience_valid() {
-        let config = default_config();
-        assert!(validate_audience("inferadb", &config).is_ok());
+        assert!(validate_audience(REQUIRED_AUDIENCE).is_ok());
     }
 
     #[test]
     fn test_validate_audience_invalid() {
-        let config = default_config();
-        let result = validate_audience("wrong-audience", &config);
+        let result = validate_audience("wrong-audience");
         assert!(matches!(result, Err(AuthError::InvalidAudience(_))));
     }
 
     #[test]
-    fn test_validate_audience_empty_allowed_audiences() {
-        let mut config = default_config();
-        config.allowed_audiences = vec![];
-
-        // Should reject when no allowed audiences configured
-        let result = validate_audience("inferadb", &config);
+    fn test_validate_audience_rejects_old_endpoint_style() {
+        // The old endpoint-style audience is no longer valid
+        let result = validate_audience("https://api.inferadb.com/evaluate");
         assert!(matches!(result, Err(AuthError::InvalidAudience(_))));
+    }
+
+    #[test]
+    fn test_required_audience_constant() {
+        // Verify the constant is set correctly
+        assert_eq!(REQUIRED_AUDIENCE, "https://api.inferadb.com");
     }
 
     #[test]
     fn test_validate_algorithm_asymmetric() {
-        let config = default_config();
-        assert!(validate_algorithm("EdDSA", &config.accepted_algorithms).is_ok());
-        assert!(validate_algorithm("RS256", &config.accepted_algorithms).is_ok());
+        assert!(validate_algorithm("EdDSA").is_ok());
+        assert!(validate_algorithm("RS256").is_ok());
     }
 
     #[test]
     fn test_validate_algorithm_symmetric_rejected() {
-        let config = default_config();
-        assert!(validate_algorithm("HS256", &config.accepted_algorithms).is_err());
-        assert!(validate_algorithm("HS384", &config.accepted_algorithms).is_err());
-        assert!(validate_algorithm("HS512", &config.accepted_algorithms).is_err());
+        assert!(validate_algorithm("HS256").is_err());
+        assert!(validate_algorithm("HS384").is_err());
+        assert!(validate_algorithm("HS512").is_err());
     }
 
     #[test]
     fn test_validate_algorithm_none_rejected() {
-        let config = default_config();
-        let result = validate_algorithm("none", &config.accepted_algorithms);
+        let result = validate_algorithm("none");
         assert!(matches!(result, Err(AuthError::UnsupportedAlgorithm(_))));
     }
 
     #[test]
     fn test_validate_algorithm_not_in_list() {
-        let config = default_config();
-        let result = validate_algorithm("ES256", &config.accepted_algorithms);
+        // ES256 is not in ACCEPTED_ALGORITHMS
+        let result = validate_algorithm("ES256");
         assert!(matches!(result, Err(AuthError::UnsupportedAlgorithm(_))));
-    }
-
-    #[test]
-    fn test_validate_algorithm_empty_list() {
-        let empty: Vec<String> = vec![];
-        let result = validate_algorithm("EdDSA", &empty);
-        assert!(matches!(result, Err(AuthError::UnsupportedAlgorithm(_))));
-    }
-
-    #[test]
-    fn test_validate_algorithm_rejects_symmetric() {
-        let accepted = vec!["EdDSA".to_string(), "RS256".to_string()];
-
-        assert!(validate_algorithm("HS256", &accepted).is_err());
-        assert!(validate_algorithm("HS384", &accepted).is_err());
-        assert!(validate_algorithm("HS512", &accepted).is_err());
-        assert!(validate_algorithm("none", &accepted).is_err());
-    }
-
-    #[test]
-    fn test_validate_algorithm_accepts_asymmetric() {
-        let accepted = vec!["EdDSA".to_string(), "RS256".to_string()];
-
-        assert!(validate_algorithm("EdDSA", &accepted).is_ok());
-        assert!(validate_algorithm("RS256", &accepted).is_ok());
-    }
-
-    #[test]
-    fn test_validate_algorithm_rejects_unlisted() {
-        let accepted = vec!["EdDSA".to_string()];
-
-        assert!(validate_algorithm("RS256", &accepted).is_err());
-        assert!(validate_algorithm("ES256", &accepted).is_err());
     }
 
     #[test]
@@ -441,5 +418,13 @@ mod tests {
         assert!(FORBIDDEN_ALGORITHMS.contains(&"HS256"));
         assert!(FORBIDDEN_ALGORITHMS.contains(&"HS384"));
         assert!(FORBIDDEN_ALGORITHMS.contains(&"HS512"));
+    }
+
+    #[test]
+    fn test_accepted_algorithms_constant() {
+        // Verify the ACCEPTED_ALGORITHMS constant is correctly defined
+        assert_eq!(ACCEPTED_ALGORITHMS.len(), 2);
+        assert!(ACCEPTED_ALGORITHMS.contains(&"EdDSA"));
+        assert!(ACCEPTED_ALGORITHMS.contains(&"RS256"));
     }
 }
