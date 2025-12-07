@@ -207,8 +207,9 @@ auth:
     accepted_algorithms:
         - "EdDSA"
         - "RS256"
-    enforce_audience: true
     audience: "https://api.inferadb.com/evaluate"
+    allowed_audiences:
+        - "https://api.inferadb.com/evaluate"
 ```
 
 ### Development Mode

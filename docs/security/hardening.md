@@ -15,17 +15,16 @@ This document provides a comprehensive checklist for deploying InferaDB securely
   accepted_algorithms = ["EdDSA", "RS256"]
   ```
 
-- [ ] **Audience validation enabled**: Set `enforce_audience = true`
+- [ ] **Audience validation configured**: Configure `allowed_audiences` (always enforced)
 
   ```toml
-  enforce_audience = true
   allowed_audiences = ["https://api.inferadb.com/evaluate"]
   ```
 
-- [ ] **Scope validation enabled**: Set `enforce_scopes = true`
+- [ ] **Scope validation configured**: Configure `required_scopes` (always enforced)
 
   ```toml
-  enforce_scopes = true
+  required_scopes = ["inferadb.check"]
   ```
 
 ### Clock and Time Configuration
@@ -194,7 +193,7 @@ throttle:
   issuer_blocklist = ["https://evil.example.com"]
   ```
 
-- [ ] **Audience enforcement**: Never disable `enforce_audience` in production
+- [ ] **Audience enforcement**: Ensure `allowed_audiences` is properly configured (always enforced)
 - [ ] **Multiple audiences**: Configure all valid audience values
 
   ```toml

@@ -1,6 +1,6 @@
-# InferaDB Configuration Guide
+# InferaDB Server Configuration Guide
 
-Complete guide for configuring InferaDB using configuration files and environment variables.
+Complete guide for configuring the InferaDB server using configuration files and environment variables.
 
 ## Table of Contents
 
@@ -11,6 +11,9 @@ Complete guide for configuring InferaDB using configuration files and environmen
 - [Cache Configuration](#cache-configuration)
 - [Observability Configuration](#observability-configuration)
 - [Authentication Configuration](#authentication-configuration)
+- [Identity Configuration](#identity-configuration)
+- [Discovery Configuration](#discovery-configuration)
+- [Management Service Configuration](#management-service-configuration)
 - [Configuration Profiles](#configuration-profiles)
 - [Secrets Management](#secrets-management)
 - [Validation](#validation)
@@ -38,11 +41,14 @@ Create a `config.yaml` or `config.json` file:
 server:
   host: "0.0.0.0"
   port: 8080
+  grpc_port: 8081
+  internal_host: "0.0.0.0"
+  internal_port: 8082
   worker_threads: 4
 
-store:
+storage:
   backend: "memory"
-  connection_string: null
+  fdb_cluster_file: null
 
 cache:
   enabled: true
@@ -55,42 +61,33 @@ observability:
   tracing_enabled: true
 
 auth:
-  enabled: false
-```
+  jwks_cache_ttl: 300
+  accepted_algorithms:
+    - "EdDSA"
+    - "RS256"
+  allowed_audiences:
+    - "https://api.inferadb.com/evaluate"
+  required_scopes:
+    - "inferadb.check"
 
-**JSON format**:
+identity:
+  service_id: "policy-service"
+  kid: "policy-service"
 
-```json
-{
-  "server": {
-    "host": "0.0.0.0",
-    "port": 8080,
-    "worker_threads": 4
-  },
-  "store": {
-    "backend": "memory",
-    "connection_string": null
-  },
-  "cache": {
-    "enabled": true,
-    "max_capacity": 10000,
-    "ttl_seconds": 300
-  },
-  "observability": {
-    "log_level": "info",
-    "metrics_enabled": true,
-    "tracing_enabled": true
-  },
-  "auth": {
-    "enabled": false
-  }
-}
+discovery:
+  mode:
+    type: none
+  cache_ttl_seconds: 300
+
+management_service:
+  service_url: "http://localhost:9092"
+  internal_port: 9092
 ```
 
 **Load configuration file**:
 
 ```bash
-inferadb --config config.yaml
+inferadb-server --config config.yaml
 ```
 
 ### Method 2: Environment Variables
@@ -101,10 +98,14 @@ All configuration options can be set via environment variables using the `INFERA
 # Server configuration
 export INFERADB__SERVER__HOST="0.0.0.0"
 export INFERADB__SERVER__PORT=8080
+export INFERADB__SERVER__GRPC_PORT=8081
+export INFERADB__SERVER__INTERNAL_HOST="0.0.0.0"
+export INFERADB__SERVER__INTERNAL_PORT=8082
 export INFERADB__SERVER__WORKER_THREADS=4
 
-# Store configuration
-export INFERADB__STORE__BACKEND="memory"
+# Storage configuration
+export INFERADB__STORAGE__BACKEND="memory"
+export INFERADB__STORAGE__FDB_CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
 
 # Cache configuration
 export INFERADB__CACHE__ENABLED=true
@@ -116,8 +117,9 @@ export INFERADB__OBSERVABILITY__LOG_LEVEL="info"
 export INFERADB__OBSERVABILITY__METRICS_ENABLED=true
 export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 
-# Authentication configuration
-export INFERADB__AUTH__ENABLED=false
+# Identity configuration
+export INFERADB__IDENTITY__SERVICE_ID="policy-service"
+export INFERADB__IDENTITY__KID="policy-service"
 ```
 
 ### Method 3: Combined (File + Environment)
@@ -128,39 +130,52 @@ Environment variables override file configuration:
 # config.yaml sets port to 8080
 # Environment variable overrides to 3000
 export INFERADB__SERVER__PORT=3000
-inferadb --config config.yaml
+inferadb-server --config config.yaml
 # Server starts on port 3000
 ```
 
 ## Server Configuration
 
-Controls HTTP/gRPC server behavior.
+Controls HTTP/gRPC server behavior. The server exposes three interfaces:
+
+- **Public REST API** (port 8080): Client-facing HTTP API
+- **Public gRPC API** (port 8081): Client-facing gRPC API
+- **Internal REST API** (port 8082): Server-to-server communication
 
 ### Options
 
-| Option           | Type    | Default       | Description                         |
-| ---------------- | ------- | ------------- | ----------------------------------- |
-| `host`           | string  | `"127.0.0.1"` | Server bind address                 |
-| `port`           | integer | `8080`        | HTTP server port (gRPC uses port+1) |
-| `worker_threads` | integer | CPU count     | Number of Tokio worker threads      |
+| Option           | Type    | Default     | Description                                 |
+| ---------------- | ------- | ----------- | ------------------------------------------- |
+| `host`           | string  | `"0.0.0.0"` | Public REST API bind address                |
+| `port`           | integer | `8080`      | Public REST API port                        |
+| `grpc_port`      | integer | `8081`      | Public gRPC API port                        |
+| `internal_host`  | string  | `"0.0.0.0"` | Internal REST API bind address              |
+| `internal_port`  | integer | `8082`      | Internal REST API port (cache invalidation) |
+| `worker_threads` | integer | CPU count   | Number of Tokio worker threads              |
 
 ### Examples
 
-**Development** (localhost only):
-
-```yaml
-server:
-  host: "127.0.0.1"
-  port: 8080
-  worker_threads: 2
-```
-
-**Production** (all interfaces):
+**Development** (all interfaces):
 
 ```yaml
 server:
   host: "0.0.0.0"
   port: 8080
+  grpc_port: 8081
+  internal_host: "0.0.0.0"
+  internal_port: 8082
+  worker_threads: 2
+```
+
+**Production** (all interfaces, more workers):
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 8080
+  grpc_port: 8081
+  internal_host: "0.0.0.0"
+  internal_port: 8082
   worker_threads: 8
 ```
 
@@ -169,13 +184,16 @@ server:
 ```bash
 export INFERADB__SERVER__HOST="0.0.0.0"
 export INFERADB__SERVER__PORT=8080
+export INFERADB__SERVER__GRPC_PORT=8081
+export INFERADB__SERVER__INTERNAL_HOST="0.0.0.0"
+export INFERADB__SERVER__INTERNAL_PORT=8082
 export INFERADB__SERVER__WORKER_THREADS=8
 ```
 
 ### Recommendations
 
-- **Development**: `host: "127.0.0.1"`, `worker_threads: 2-4`
-- **Production**: `host: "0.0.0.0"`, `worker_threads: 1-2x CPU cores`
+- **Development**: `worker_threads: 2-4`
+- **Production**: `worker_threads: 1-2x CPU cores`
 - **High-load**: `worker_threads: 2-4x CPU cores`
 
 ## Storage Configuration
@@ -184,10 +202,10 @@ Controls the tuple storage backend.
 
 ### Options
 
-| Option              | Type              | Default    | Description                                     |
-| ------------------- | ----------------- | ---------- | ----------------------------------------------- |
-| `backend`           | string            | `"memory"` | Storage backend: `"memory"` or `"foundationdb"` |
-| `connection_string` | string (optional) | `null`     | Connection string for storage backend           |
+| Option             | Type              | Default    | Description                                     |
+| ------------------ | ----------------- | ---------- | ----------------------------------------------- |
+| `backend`          | string            | `"memory"` | Storage backend: `"memory"` or `"foundationdb"` |
+| `fdb_cluster_file` | string (optional) | `null`     | Path to FoundationDB cluster file               |
 
 ### Backend Options
 
@@ -196,10 +214,10 @@ Controls the tuple storage backend.
 - **Use case**: Local development, testing
 - **Persistence**: None (data lost on restart)
 - **Performance**: Fastest
-- **Configuration**: No connection string needed
+- **Configuration**: No cluster file needed
 
 ```yaml
-store:
+storage:
   backend: "memory"
 ```
 
@@ -211,16 +229,16 @@ store:
 - **Configuration**: Requires FDB cluster file path
 
 ```yaml
-store:
+storage:
   backend: "foundationdb"
-  connection_string: "/etc/foundationdb/fdb.cluster"
+  fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__STORE__BACKEND="foundationdb"
-export INFERADB__STORE__CONNECTION_STRING="/etc/foundationdb/fdb.cluster"
+export INFERADB__STORAGE__BACKEND="foundationdb"
+export INFERADB__STORAGE__FDB_CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
 ```
 
 ### Recommendations
@@ -279,9 +297,9 @@ export INFERADB__CACHE__TTL_SECONDS=600
 
 Approximate memory usage per entry: 200-500 bytes
 
-- 10,000 entries ≈ 2-5 MB
-- 100,000 entries ≈ 20-50 MB
-- 1,000,000 entries ≈ 200-500 MB
+- 10,000 entries: 2-5 MB
+- 100,000 entries: 20-50 MB
+- 1,000,000 entries: 200-500 MB
 
 ### Recommendations
 
@@ -356,54 +374,47 @@ export OTEL_SERVICE_NAME="inferadb"
 
 ## Authentication Configuration
 
-Controls JWT authentication, OAuth, and authorization.
-
-For detailed authentication setup, see [Authentication Guide](../security/authentication.md).
+Controls JWT authentication and authorization for tenant requests.
 
 ### Core Options
 
 | Option                | Type    | Default                                 | Description                               |
 | --------------------- | ------- | --------------------------------------- | ----------------------------------------- |
-| `enabled`             | boolean | `false`                                 | Enable authentication                     |
 | `jwks_cache_ttl`      | integer | `300`                                   | JWKS cache TTL (seconds)                  |
 | `accepted_algorithms` | array   | `["EdDSA", "RS256"]`                    | Accepted JWT algorithms                   |
-| `enforce_audience`    | boolean | `true`                                  | Enforce audience validation               |
 | `audience`            | string  | `"https://api.inferadb.com/evaluate"`   | Expected audience value                   |
-| `allowed_audiences`   | array   | `["https://api.inferadb.com/evaluate"]` | Allowed audiences                         |
-| `enforce_scopes`      | boolean | `true`                                  | Enforce scope validation                  |
-| `required_scopes`     | array   | `[]`                                    | Required scopes for access                |
+| `allowed_audiences`   | array   | `["https://api.inferadb.com/evaluate"]` | Allowed audiences (always validated)      |
+| `required_scopes`     | array   | `[]`                                    | Required scopes for access (always validated) |
 | `replay_protection`   | boolean | `false`                                 | Enable replay protection (requires Redis) |
 | `require_jti`         | boolean | `false`                                 | Require JTI claim in tokens               |
+| `jwks_url`            | string  | `""`                                    | JWKS URL for tenant authentication        |
 
-### JWKS Configuration
+### Management API Integration
 
-| Option          | Type   | Default                                   | Description                   |
-| --------------- | ------ | ----------------------------------------- | ----------------------------- |
-| `jwks_base_url` | string | `"https://auth.inferadb.com/.well-known"` | Base URL for JWKS             |
-| `jwks_url`      | string | `""`                                      | Direct JWKS URL (alternative) |
+| Option                              | Type    | Default | Description                                       |
+| ----------------------------------- | ------- | ------- | ------------------------------------------------- |
+| `management_api_timeout_ms`         | integer | `5000`  | Timeout for management API calls (milliseconds)   |
+| `management_cache_ttl_seconds`      | integer | `300`   | Cache TTL for org/vault lookups (seconds)         |
+| `cert_cache_ttl_seconds`            | integer | `900`   | Cache TTL for client certificates (seconds)       |
+| `management_verify_vault_ownership` | boolean | `true`  | Verify vault ownership against management API     |
+| `management_verify_org_status`      | boolean | `true`  | Verify organization status against management API |
 
 ### OAuth/OIDC Configuration
 
-| Option                              | Type              | Default | Description                         |
-| ----------------------------------- | ----------------- | ------- | ----------------------------------- |
-| `oauth_enabled`                     | boolean           | `false` | Enable OAuth validation             |
-| `oidc_discovery_url`                | string (optional) | `null`  | OIDC discovery endpoint             |
-| `oidc_client_id`                    | string (optional) | `null`  | OIDC client ID                      |
-| `oidc_client_secret`                | string (optional) | `null`  | OIDC client secret                  |
-| `oidc_discovery_cache_ttl`          | integer           | `86400` | OIDC cache TTL (24 hours)           |
-| `oauth_introspection_endpoint`      | string (optional) | `null`  | OAuth introspection URL             |
-| `oauth_introspection_client_id`     | string (optional) | `null`  | Introspection client ID             |
-| `oauth_introspection_client_secret` | string (optional) | `null`  | Introspection client secret         |
-| `introspection_cache_ttl`           | integer           | `300`   | Introspection cache TTL (5 minutes) |
+| Option                     | Type              | Default | Description               |
+| -------------------------- | ----------------- | ------- | ------------------------- |
+| `oauth_enabled`            | boolean           | `false` | Enable OAuth validation   |
+| `oidc_discovery_url`       | string (optional) | `null`  | OIDC discovery endpoint   |
+| `oidc_client_id`           | string (optional) | `null`  | OIDC client ID            |
+| `oidc_client_secret`       | string (optional) | `null`  | OIDC client secret        |
+| `oidc_discovery_cache_ttl` | integer           | `86400` | OIDC cache TTL (24 hours) |
 
 ### Internal Service JWT
 
-| Option               | Type              | Default                    | Description                |
-| -------------------- | ----------------- | -------------------------- | -------------------------- |
-| `internal_jwks_path` | path (optional)   | `null`                     | Path to internal JWKS file |
-| `internal_jwks_env`  | string (optional) | `null`                     | Env var with internal JWKS |
-| `internal_issuer`    | string            | `"inferadb-control-plane"` | Internal JWT issuer        |
-| `internal_audience`  | string            | `"inferadb-pdp"`           | Internal JWT audience      |
+| Option              | Type   | Default                               | Description           |
+| ------------------- | ------ | ------------------------------------- | --------------------- |
+| `internal_issuer`   | string | `"https://internal.inferadb.com"`     | Internal JWT issuer   |
+| `internal_audience` | string | `"https://api.inferadb.com/internal"` | Internal JWT audience |
 
 ### Security Options
 
@@ -417,71 +428,194 @@ For detailed authentication setup, see [Authentication Guide](../security/authen
 
 ### Examples
 
-**Development** (no auth):
+**Development** (minimal config):
 
 ```yaml
 auth:
-  enabled: false
+  jwks_cache_ttl: 300
+  accepted_algorithms:
+    - "EdDSA"
+    - "RS256"
+  allowed_audiences:
+    - "inferadb"
+  required_scopes: []
 ```
 
-**Production** (Private-Key JWT):
+**Production** (full validation):
 
 ```yaml
 auth:
-  enabled: true
-  jwks_base_url: "https://your-domain.com/jwks"
+  jwks_cache_ttl: 300
   accepted_algorithms:
     - "EdDSA"
     - "RS256"
     - "ES256"
-  enforce_audience: true
   allowed_audiences:
     - "https://api.inferadb.com/evaluate"
-  enforce_scopes: true
   required_scopes:
-    - "authz:check"
-    - "authz:write"
+    - "inferadb.check"
+    - "inferadb.write"
   replay_protection: true
   require_jti: true
   redis_url: "redis://localhost:6379"
   clock_skew_seconds: 30
   max_token_age_seconds: 3600
-```
-
-**Production** (OAuth/OIDC):
-
-```yaml
-auth:
-  enabled: true
-  oauth_enabled: true
-  oidc_discovery_url: "https://auth.example.com/.well-known/openid-configuration"
-  oidc_client_id: "inferadb-server"
-  oidc_client_secret: "${OAUTH_CLIENT_SECRET}"
-  enforce_audience: true
-  allowed_audiences:
-    - "inferadb-api"
-  enforce_scopes: true
-  required_scopes:
-    - "authz:check"
-    - "authz:write"
+  management_verify_vault_ownership: true
+  management_verify_org_status: true
 ```
 
 ### Environment Variables
 
 ```bash
 # Core authentication
-export INFERADB__AUTH__ENABLED=true
-export INFERADB__AUTH__JWKS_BASE_URL="https://your-domain.com/jwks"
+export INFERADB__AUTH__JWKS_CACHE_TTL=300
 
-# OAuth/OIDC
-export INFERADB__AUTH__OAUTH_ENABLED=true
-export INFERADB__AUTH__OIDC_DISCOVERY_URL="https://auth.example.com/.well-known/openid-configuration"
-export INFERADB__AUTH__OIDC_CLIENT_ID="inferadb-server"
-export INFERADB__AUTH__OIDC_CLIENT_SECRET="secret"
+# Management API integration
+export INFERADB__AUTH__MANAGEMENT_API_TIMEOUT_MS=5000
+export INFERADB__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
+export INFERADB__AUTH__CERT_CACHE_TTL_SECONDS=900
 
 # Replay protection
 export INFERADB__AUTH__REPLAY_PROTECTION=true
 export INFERADB__AUTH__REDIS_URL="redis://localhost:6379"
+```
+
+## Identity Configuration
+
+Controls server identity for service-to-service authentication.
+
+### Options
+
+| Option            | Type              | Default            | Description                                                   |
+| ----------------- | ----------------- | ------------------ | ------------------------------------------------------------- |
+| `service_id`      | string            | `"policy-service"` | Service ID for JWT subject claim                              |
+| `kid`             | string            | `"policy-service"` | Key ID (kid) for JWKS                                         |
+| `private_key_pem` | string (optional) | `null`             | Ed25519 private key in PEM format (auto-generated if not set) |
+
+### Example
+
+```yaml
+identity:
+  service_id: "policy-service"
+  kid: "policy-service-2024"
+  private_key_pem: "${SERVER_PRIVATE_KEY}"
+```
+
+### Environment Variables
+
+```bash
+export INFERADB__IDENTITY__SERVICE_ID="policy-service"
+export INFERADB__IDENTITY__KID="policy-service-2024"
+export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
+```
+
+### Recommendations
+
+- In production, always provide `private_key_pem` rather than relying on auto-generation
+- Use Kubernetes secrets or a secret manager for the private key
+- Rotate keys periodically by updating the `kid` value
+
+## Discovery Configuration
+
+Controls service discovery for multi-node deployments.
+
+### Options
+
+| Option                          | Type    | Default | Description                         |
+| ------------------------------- | ------- | ------- | ----------------------------------- |
+| `mode`                          | object  | `none`  | Discovery mode configuration        |
+| `cache_ttl_seconds`             | integer | `300`   | Cache TTL for discovered endpoints  |
+| `enable_health_check`           | boolean | `false` | Enable health checking of endpoints |
+| `health_check_interval_seconds` | integer | `30`    | Health check interval               |
+
+### Discovery Modes
+
+#### None (Default)
+
+Direct connection to a single service URL:
+
+```yaml
+discovery:
+  mode:
+    type: none
+```
+
+#### Kubernetes
+
+Discover pod IPs via Kubernetes service:
+
+```yaml
+discovery:
+  mode:
+    type: kubernetes
+  cache_ttl_seconds: 30
+  enable_health_check: true
+  health_check_interval_seconds: 10
+```
+
+#### Tailscale
+
+Multi-region discovery via Tailscale mesh:
+
+```yaml
+discovery:
+  mode:
+    type: tailscale
+    local_cluster: "us-west-1"
+    remote_clusters:
+      - name: "eu-west-1"
+        tailscale_domain: "eu-west-1.ts.net"
+        service_name: "inferadb-server"
+        port: 8082
+      - name: "ap-southeast-1"
+        tailscale_domain: "ap-southeast-1.ts.net"
+        service_name: "inferadb-server"
+        port: 8082
+  cache_ttl_seconds: 60
+```
+
+### Environment Variables
+
+```bash
+export INFERADB__DISCOVERY__CACHE_TTL_SECONDS=30
+export INFERADB__DISCOVERY__ENABLE_HEALTH_CHECK=true
+export INFERADB__DISCOVERY__HEALTH_CHECK_INTERVAL_SECONDS=10
+```
+
+## Management Service Configuration
+
+Controls connection to the InferaDB Management API for JWKS and tenant validation.
+
+### Options
+
+| Option          | Type    | Default                   | Description                      |
+| --------------- | ------- | ------------------------- | -------------------------------- |
+| `service_url`   | string  | `"http://localhost:9092"` | Management service URL           |
+| `internal_port` | integer | `9092`                    | Management service internal port |
+
+### Examples
+
+**Development**:
+
+```yaml
+management_service:
+  service_url: "http://localhost:9092"
+  internal_port: 9092
+```
+
+**Kubernetes**:
+
+```yaml
+management_service:
+  service_url: "http://inferadb-management.inferadb:9092"
+  internal_port: 9092
+```
+
+### Environment Variables
+
+```bash
+export INFERADB__MANAGEMENT_SERVICE__SERVICE_URL="http://inferadb-management.inferadb:9092"
+export INFERADB__MANAGEMENT_SERVICE__INTERNAL_PORT=9092
 ```
 
 ## Configuration Profiles
@@ -492,11 +626,14 @@ Optimized for local development:
 
 ```yaml
 server:
-  host: "127.0.0.1"
+  host: "0.0.0.0"
   port: 8080
+  grpc_port: 8081
+  internal_host: "0.0.0.0"
+  internal_port: 8082
   worker_threads: 2
 
-store:
+storage:
   backend: "memory"
 
 cache:
@@ -510,7 +647,20 @@ observability:
   tracing_enabled: false
 
 auth:
-  enabled: false
+  allowed_audiences:
+    - "inferadb"
+  required_scopes: []
+
+identity:
+  service_id: "policy-service-dev"
+  kid: "dev-key"
+
+discovery:
+  mode:
+    type: none
+
+management_service:
+  service_url: "http://localhost:9092"
 ```
 
 ### Production Profile
@@ -521,11 +671,14 @@ Optimized for production deployment:
 server:
   host: "0.0.0.0"
   port: 8080
+  grpc_port: 8081
+  internal_host: "0.0.0.0"
+  internal_port: 8082
   worker_threads: 8
 
-store:
+storage:
   backend: "foundationdb"
-  connection_string: "/etc/foundationdb/fdb.cluster"
+  fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
 
 cache:
   enabled: true
@@ -538,10 +691,30 @@ observability:
   tracing_enabled: true
 
 auth:
-  enabled: true
-  jwks_base_url: "https://your-domain.com/jwks"
+  jwks_cache_ttl: 300
+  allowed_audiences:
+    - "https://api.inferadb.com/evaluate"
+  required_scopes:
+    - "inferadb.check"
+    - "inferadb.write"
   replay_protection: true
   redis_url: "redis://redis:6379"
+  management_verify_vault_ownership: true
+  management_verify_org_status: true
+
+identity:
+  service_id: "policy-service"
+  kid: "policy-service-prod-2024"
+  private_key_pem: "${SERVER_PRIVATE_KEY}"
+
+discovery:
+  mode:
+    type: kubernetes
+  cache_ttl_seconds: 30
+  enable_health_check: true
+
+management_service:
+  service_url: "http://inferadb-management.inferadb:9092"
 ```
 
 ### Testing Profile
@@ -550,15 +723,18 @@ Optimized for predictable testing:
 
 ```yaml
 server:
-  host: "127.0.0.1"
+  host: "0.0.0.0"
   port: 8080
+  grpc_port: 8081
+  internal_host: "0.0.0.0"
+  internal_port: 8082
   worker_threads: 1
 
-store:
+storage:
   backend: "memory"
 
 cache:
-  enabled: false # Disable for predictable tests
+  enabled: false
 
 observability:
   log_level: "warn"
@@ -566,12 +742,25 @@ observability:
   tracing_enabled: false
 
 auth:
-  enabled: false
+  allowed_audiences:
+    - "inferadb"
+  required_scopes: []
+
+identity:
+  service_id: "test-service"
+  kid: "test-key"
+
+discovery:
+  mode:
+    type: none
+
+management_service:
+  service_url: "http://localhost:9092"
 ```
 
 ## Secrets Management
 
-**⚠️ Never commit secrets to configuration files!**
+**Never commit secrets to configuration files.**
 
 ### Environment Variables (Recommended)
 
@@ -580,20 +769,7 @@ Use environment variables for sensitive values:
 ```bash
 export INFERADB__AUTH__OIDC_CLIENT_SECRET="secret-value"
 export INFERADB__AUTH__REDIS_URL="redis://:password@localhost:6379"
-export INFERADB__STORE__CONNECTION_STRING="/etc/foundationdb/fdb.cluster"
-```
-
-### Docker Secrets
-
-For Docker Swarm or Compose:
-
-```bash
-echo "my-secret-value" | docker secret create oauth_client_secret -
-
-docker service create \
-  --secret oauth_client_secret \
-  --env INFERADB__AUTH__OIDC_CLIENT_SECRET_FILE=/run/secrets/oauth_client_secret \
-  inferadb:latest
+export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 ```
 
 ### Kubernetes Secrets
@@ -602,26 +778,29 @@ docker service create \
 apiVersion: v1
 kind: Secret
 metadata:
-  name: inferadb-secrets
+  name: inferadb-server-secrets
 type: Opaque
 stringData:
-  oauth-client-secret: "your-secret-here"
   redis-url: "redis://:password@redis:6379"
+  private-key: |
+    -----BEGIN PRIVATE KEY-----
+    ...
+    -----END PRIVATE KEY-----
 ```
 
 ```yaml
 # In deployment
 env:
-  - name: INFERADB__AUTH__OIDC_CLIENT_SECRET
-    valueFrom:
-      secretKeyRef:
-        name: inferadb-secrets
-        key: oauth-client-secret
   - name: INFERADB__AUTH__REDIS_URL
     valueFrom:
       secretKeyRef:
-        name: inferadb-secrets
+        name: inferadb-server-secrets
         key: redis-url
+  - name: INFERADB__IDENTITY__PRIVATE_KEY_PEM
+    valueFrom:
+      secretKeyRef:
+        name: inferadb-server-secrets
+        key: private-key
 ```
 
 ### External Secret Managers
@@ -629,23 +808,16 @@ env:
 **AWS Secrets Manager**:
 
 ```bash
-export INFERADB__AUTH__OIDC_CLIENT_SECRET=$(aws secretsmanager get-secret-value \
-  --secret-id inferadb/oauth/client-secret \
+export INFERADB__IDENTITY__PRIVATE_KEY_PEM=$(aws secretsmanager get-secret-value \
+  --secret-id inferadb/server/private-key \
   --query SecretString --output text)
 ```
 
 **HashiCorp Vault**:
 
 ```bash
-export INFERADB__AUTH__OIDC_CLIENT_SECRET=$(vault kv get \
-  -field=client_secret secret/inferadb/oauth)
-```
-
-**Google Secret Manager**:
-
-```bash
-export INFERADB__AUTH__OIDC_CLIENT_SECRET=$(gcloud secrets versions access latest \
-  --secret=inferadb-oauth-client-secret)
+export INFERADB__IDENTITY__PRIVATE_KEY_PEM=$(vault kv get \
+  -field=private_key secret/inferadb/server)
 ```
 
 ## Validation
@@ -658,12 +830,11 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 
 - `port` must be 1-65535
 - `worker_threads` must be > 0
-- `host` must be a valid IP or hostname
 
-**Store**:
+**Storage**:
 
 - `backend` must be `"memory"` or `"foundationdb"`
-- `connection_string` required when `backend = "foundationdb"`
+- `fdb_cluster_file` required when `backend = "foundationdb"`
 
 **Cache**:
 
@@ -677,48 +848,55 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 **Authentication**:
 
 - `accepted_algorithms` cannot be empty
-- Cannot accept symmetric algorithms (HS256, HS384, HS512)
+- Cannot accept symmetric algorithms (HS256, HS384, HS512) or `"none"`
 - `replay_protection = true` requires `redis_url`
-- `enforce_audience = true` should have non-empty `allowed_audiences`
+- `allowed_audiences` should not be empty (audience validation is always enforced)
 - `clock_skew_seconds > 300` generates warning
+
+**Identity**:
+
+- `service_id` cannot be empty
+- `kid` cannot be empty
+
+**Management Service**:
+
+- `service_url` must start with `http://` or `https://`
+- `service_url` must not end with trailing slash
 
 ### Example Validation Errors
 
 ```text
-Error: Invalid server port: 99999 (must be between 1 and 65535)
+Error: Invalid storage.backend: 'postgres'. Must be 'memory' or 'foundationdb'
 ```
 
 ```text
-Error: Invalid log level: 'invalid' (must be one of: error, warn, info, debug, trace)
+Error: storage.fdb_cluster_file is required when using FoundationDB backend
 ```
 
 ```text
-Error: Unknown storage backend: 'postgres' (supported: memory, foundationdb)
+Error: Algorithm 'HS256' is forbidden for security reasons
 ```
 
 ```text
-Error: Replay protection enabled but redis_url not configured
+Error: replay_protection is enabled but redis_url is not configured
+```
+
+```text
+Error: management_service.service_url must start with http:// or https://
 ```
 
 ## Best Practices
 
 ### Security
 
-1. **Enable authentication in production**
-
-   ```yaml
-   auth:
-     enabled: true
-   ```
-
-2. **Use asymmetric algorithms only**
+1. **Use asymmetric algorithms only**
 
    ```yaml
    auth:
      accepted_algorithms: ["EdDSA", "RS256", "ES256"]
    ```
 
-3. **Enable replay protection**
+2. **Enable replay protection in production**
 
    ```yaml
    auth:
@@ -726,16 +904,15 @@ Error: Replay protection enabled but redis_url not configured
      redis_url: "redis://redis:6379"
    ```
 
-4. **Validate audiences**
+3. **Configure allowed audiences** (always validated)
 
    ```yaml
    auth:
-     enforce_audience: true
      allowed_audiences:
        - "https://api.inferadb.com/evaluate"
    ```
 
-5. **Never commit secrets**
+4. **Never commit secrets**
    - Use environment variables
    - Use secret managers
    - Use `.gitignore` for config files with secrets
@@ -743,11 +920,13 @@ Error: Replay protection enabled but redis_url not configured
 ### Performance
 
 1. **Tune worker threads**
+
    - CPU-bound: 2x CPU cores
    - I/O-bound: 4-8x CPU cores
    - Benchmark and adjust
 
 2. **Optimize cache settings**
+
    - Increase `max_capacity` for large datasets
    - Adjust `ttl_seconds` based on update frequency
    - Monitor cache hit rate (target >80%)
@@ -767,6 +946,7 @@ Error: Replay protection enabled but redis_url not configured
    ```
 
 2. **Choose appropriate log level**
+
    - Production: `"info"`
    - Development: `"debug"`
    - Troubleshooting: `"debug"` temporarily
@@ -780,10 +960,12 @@ Error: Replay protection enabled but redis_url not configured
 ### Operations
 
 1. **Use configuration files for defaults**
+
    - Non-sensitive configuration
    - Version control tracked
 
 2. **Use environment variables for overrides**
+
    - Secrets
    - Environment-specific values
    - Dynamic configuration
@@ -791,13 +973,8 @@ Error: Replay protection enabled but redis_url not configured
 3. **Validate before deploying**
 
    ```bash
-   inferadb --config config.yaml --validate
+   inferadb-server --config config.yaml --validate
    ```
-
-4. **Document configuration changes**
-   - Comment config files
-   - Track in version control
-   - Document non-obvious values
 
 ## Deployment Examples
 
@@ -806,25 +983,27 @@ Error: Replay protection enabled but redis_url not configured
 ```yaml
 version: "3.8"
 services:
-  inferadb:
-    image: inferadb:latest
+  inferadb-server:
+    image: inferadb/server:latest
     ports:
       - "8080:8080"
       - "8081:8081"
+      - "8082:8082"
     environment:
       INFERADB__SERVER__HOST: "0.0.0.0"
       INFERADB__SERVER__PORT: "8080"
-      INFERADB__STORE__BACKEND: "foundationdb"
-      INFERADB__STORE__CONNECTION_STRING: "/etc/foundationdb/fdb.cluster"
-      INFERADB__AUTH__ENABLED: "true"
-      INFERADB__AUTH__JWKS_BASE_URL: "https://your-domain.com/jwks"
+      INFERADB__SERVER__GRPC_PORT: "8081"
+      INFERADB__SERVER__INTERNAL_PORT: "8082"
+      INFERADB__STORAGE__BACKEND: "foundationdb"
+      INFERADB__STORAGE__FDB_CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
+      INFERADB__MANAGEMENT_SERVICE__SERVICE_URL: "http://management:9092"
     volumes:
       - /etc/foundationdb:/etc/foundationdb:ro
 ```
 
 ### Kubernetes
 
-See [Deployment Guide](deployment.md) and [Kubernetes manifests](../k8s/README.md).
+See [Deployment Guide](deployment.md) for complete Kubernetes manifests.
 
 ## Troubleshooting
 
@@ -833,8 +1012,8 @@ See [Deployment Guide](deployment.md) and [Kubernetes manifests](../k8s/README.m
 **Check configuration**:
 
 ```bash
-inferadb --config config.yaml --validate
-inferadb --config config.yaml 2>&1 | grep ERROR
+inferadb-server --config config.yaml --validate
+inferadb-server --config config.yaml 2>&1 | grep ERROR
 ```
 
 ### Port Already in Use
@@ -844,7 +1023,7 @@ inferadb --config config.yaml 2>&1 | grep ERROR
 lsof -i :8080
 
 # Change port
-export INFERADB__SERVER__PORT=8081
+export INFERADB__SERVER__PORT=8090
 ```
 
 ### Out of Memory
@@ -853,7 +1032,7 @@ Reduce cache size:
 
 ```yaml
 cache:
-  max_capacity: 10000 # Reduce from larger value
+  max_capacity: 10000
 ```
 
 ### Slow Performance
@@ -866,6 +1045,4 @@ cache:
 
 - [Authentication Guide](../security/authentication.md) - Detailed authentication setup
 - [Deployment Guide](deployment.md) - Production deployment
-- [Observability Guide](../operations/observability/README.md) - Metrics and tracing
-- [Kubernetes Deployment](../k8s/README.md) - K8s manifests
-- [Helm Chart](../../helm/README.md) - Helm deployment
+- [Management Configuration](../../../../management/docs/guides/configuration.md) - Management API configuration

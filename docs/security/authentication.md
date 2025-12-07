@@ -409,15 +409,13 @@ auth:
     - EdDSA
     - RS256
 
-  # Audience validation
-  enforce_audience: true
+  # Audience validation (always enforced)
   audience: "https://api.inferadb.com/evaluate"
   allowed_audiences:
     - "https://api.inferadb.com/evaluate"
     - "https://api.inferadb.com/*"
 
-  # Scope validation
-  enforce_scopes: true
+  # Scope validation (always enforced)
   required_scopes:
     - "inferadb.check"
     - "inferadb.write"
@@ -464,8 +462,7 @@ export INFERADB__AUTH__ENABLED=true
 export INFERADB__AUTH__JWKS_BASE_URL=https://your-domain.com/jwks
 export INFERADB__AUTH__JWKS_CACHE_TTL=300
 
-# Audience validation
-export INFERADB__AUTH__ENFORCE_AUDIENCE=true
+# Audience validation (always enforced)
 export INFERADB__AUTH__AUDIENCE=https://api.inferadb.com/evaluate
 
 # Replay protection
@@ -693,12 +690,13 @@ auth:
 
 ### 5. Validate Audience
 
-Always enforce audience validation:
+Audience validation is always enforced. Configure your allowed audiences:
 
 ```yaml
 auth:
-  enforce_audience: true
   audience: "https://api.inferadb.com/evaluate"
+  allowed_audiences:
+    - "https://api.inferadb.com/evaluate"
 ```
 
 This prevents tokens intended for other services from being accepted.
@@ -714,13 +712,12 @@ auth:
     - "https://auth.example.com"
 ```
 
-### 7. Enable Scope Validation
+### 7. Configure Scope Validation
 
-Ensure tokens have required scopes:
+Scope validation is always enforced. Configure required scopes:
 
 ```yaml
 auth:
-  enforce_scopes: true
   required_scopes:
     - "inferadb.check"
     - "inferadb.write"
@@ -827,7 +824,6 @@ date +%s
    ```
 
 2. Add audience to `allowed_audiences` list
-3. Disable audience validation (NOT recommended for production)
 
 ### Error: "Replay attack detected"
 
@@ -965,8 +961,9 @@ Host at: `https://your-domain.com/jwks/acme.json`
 auth:
   enabled: true
   jwks_base_url: "https://your-domain.com/jwks"
-  enforce_audience: true
   audience: "https://api.inferadb.com/evaluate"
+  allowed_audiences:
+    - "https://api.inferadb.com/evaluate"
   replay_protection: true
   redis_url: "redis://localhost:6379"
 ```
@@ -1029,7 +1026,7 @@ For production deployments:
 1. Use **EdDSA (Ed25519)** for signing
 2. Enable **replay protection** with Redis
 3. Set **short token expiration** (1 hour)
-4. Enforce **audience validation**
+4. Configure **allowed audiences**
 5. Use **scope-based authorization**
 6. Monitor **authentication metrics**
 7. Keep **private keys secure**

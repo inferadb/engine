@@ -220,17 +220,9 @@ pub struct AuthConfig {
     #[serde(default = "default_accepted_algorithms")]
     pub accepted_algorithms: Vec<String>,
 
-    /// Enforce audience validation
-    #[serde(default = "default_enforce_audience")]
-    pub enforce_audience: bool,
-
     /// Expected audience value
     #[serde(default = "default_audience")]
     pub audience: String,
-
-    /// Enforce scope validation
-    #[serde(default = "default_enforce_scopes")]
-    pub enforce_scopes: bool,
 
     /// Enable replay protection (requires Redis)
     #[serde(default = "default_replay_protection")]
@@ -425,16 +417,8 @@ fn default_accepted_algorithms() -> Vec<String> {
     vec!["EdDSA".to_string(), "RS256".to_string()]
 }
 
-fn default_enforce_audience() -> bool {
-    true
-}
-
 fn default_audience() -> String {
     "https://api.inferadb.com/evaluate".to_string()
-}
-
-fn default_enforce_scopes() -> bool {
-    true
 }
 
 fn default_clock_skew_seconds() -> Option<u64> {
@@ -594,9 +578,7 @@ impl Default for AuthConfig {
         Self {
             jwks_cache_ttl: default_jwks_cache_ttl(),
             accepted_algorithms: default_accepted_algorithms(),
-            enforce_audience: default_enforce_audience(),
             audience: default_audience(),
-            enforce_scopes: default_enforce_scopes(),
             replay_protection: default_replay_protection(),
             oidc_discovery_cache_ttl: default_oidc_discovery_cache_ttl(),
             internal_issuer: default_internal_issuer(),
@@ -696,19 +678,10 @@ impl AuthConfig {
             }
         }
 
-        // Warn if audience validation is disabled
-        if !self.enforce_audience {
+        // Warn if allowed_audiences is empty (audience validation is always enforced)
+        if self.allowed_audiences.is_empty() {
             tracing::warn!(
-                "Audience validation is disabled. This is a security risk. \
-                 Tokens intended for other services may be accepted. \
-                 Set enforce_audience=true for production."
-            );
-        }
-
-        // Warn if allowed_audiences is empty but enforce_audience is true
-        if self.enforce_audience && self.allowed_audiences.is_empty() {
-            tracing::warn!(
-                "Audience enforcement is enabled but allowed_audiences is empty. \
+                "allowed_audiences is empty. \
                  All tokens will be rejected due to audience mismatch."
             );
         }

@@ -51,9 +51,7 @@ fn default_config() -> AuthConfig {
     AuthConfig {
         jwks_url: "https://auth.example.com/.well-known/jwks.json".into(),
         accepted_algorithms: vec!["EdDSA".into(), "RS256".into()],
-        enforce_audience: true,
         allowed_audiences: vec!["inferadb".into()],
-        enforce_scopes: true,
         required_scopes: vec!["inferadb.check".into()],
         clock_skew_seconds: Some(60),
         max_token_age_seconds: Some(86400),
@@ -342,13 +340,16 @@ fn test_audience_not_in_allowed_list_rejected() {
 }
 
 #[test]
-fn test_audience_validation_disabled() {
+fn test_audience_empty_allowed_list_rejected() {
     let mut config = default_config();
-    config.enforce_audience = false;
+    config.allowed_audiences = vec![];
 
-    // Any audience should be accepted when enforcement is disabled
-    assert!(validate_audience("any-audience", &config).is_ok());
-    assert!(validate_audience("wrong-audience", &config).is_ok());
+    // Should reject when no allowed audiences are configured
+    let result = validate_audience("inferadb", &config);
+    assert!(
+        matches!(result, Err(AuthError::InvalidAudience(_))),
+        "Empty allowed_audiences should cause rejection"
+    );
 }
 
 // ============================================================================

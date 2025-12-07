@@ -22,8 +22,6 @@ data:
 
   INFERADB__AUTH__ENABLED: "true"
   INFERADB__AUTH__JWKS_CACHE_TTL: "300"
-  INFERADB__AUTH__ENFORCE_AUDIENCE: "true"
-  INFERADB__AUTH__ENFORCE_SCOPES: "true"
   INFERADB__AUTH__REPLAY_PROTECTION: "true"
   INFERADB__AUTH__REQUIRE_JTI: "true"
   INFERADB__AUTH__CLOCK_SKEW_SECONDS: "30"
@@ -57,12 +55,10 @@ data:
         - "EdDSA"
         - "RS256"
         - "ES256"
-      enforce_audience: true
       # REQUIRED: Replace with your JWT issuer's audience value
       audience: "https://your-domain.com/api/evaluate"
       allowed_audiences:
         - "https://your-domain.com/api/evaluate"
-      enforce_scopes: true
       required_scopes:
         - "authz:check"
         - "authz:write"

@@ -126,6 +126,9 @@ pub fn validate_issuer(iss: &str, config: &AuthConfig) -> Result<(), AuthError> 
 
 /// Validate audience claim
 ///
+/// Audience validation is always enforced - tokens must have an audience
+/// that matches one of the configured allowed audiences.
+///
 /// # Arguments
 ///
 /// * `aud` - The audience claim from the JWT
@@ -134,17 +137,12 @@ pub fn validate_issuer(iss: &str, config: &AuthConfig) -> Result<(), AuthError> 
 /// # Errors
 ///
 /// Returns an error if:
-/// - Audience enforcement is enabled and audience doesn't match
+/// - No allowed audiences are configured
 /// - Audience is not in the allowed audiences list
 pub fn validate_audience(aud: &str, config: &AuthConfig) -> Result<(), AuthError> {
-    // If enforcement is disabled, skip validation
-    if !config.enforce_audience {
-        return Ok(());
-    }
-
     // Check against allowed audiences
     if config.allowed_audiences.is_empty() {
-        warn!("No allowed audiences configured but enforcement is enabled");
+        warn!("No allowed audiences configured");
         return Err(AuthError::InvalidAudience("No allowed audiences configured".into()));
     }
 
@@ -234,10 +232,8 @@ mod tests {
             jwks_cache_ttl: 300,
             jwks_url: "https://example.com".into(),
             accepted_algorithms: vec!["EdDSA".into(), "RS256".into()],
-            enforce_audience: true,
             audience: "inferadb".into(),
             allowed_audiences: vec!["inferadb".into()],
-            enforce_scopes: true,
             required_scopes: vec!["inferadb.check".into()],
             clock_skew_seconds: Some(60),
             max_token_age_seconds: Some(86400),
@@ -367,12 +363,13 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_audience_disabled() {
+    fn test_validate_audience_empty_allowed_audiences() {
         let mut config = default_config();
-        config.enforce_audience = false;
+        config.allowed_audiences = vec![];
 
-        // Should accept any audience when enforcement is disabled
-        assert!(validate_audience("any-audience", &config).is_ok());
+        // Should reject when no allowed audiences configured
+        let result = validate_audience("inferadb", &config);
+        assert!(matches!(result, Err(AuthError::InvalidAudience(_))));
     }
 
     #[test]
