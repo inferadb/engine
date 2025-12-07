@@ -99,11 +99,11 @@ multi_tenancy:
 auth:
   enabled: true
   jwks_url: "https://your-auth-provider.com/.well-known/jwks.json"
-  required_audience: "inferadb"
-  required_issuer: "https://your-auth-provider.com"
-  required_scopes:
-    - "inferadb.read"
-    - "inferadb.write"
+  audience: "inferadb"
+  allowed_audiences:
+    - "inferadb"
+  # Scopes are validated per-endpoint based on JWT's scope claim
+  # inferadb.check, inferadb.write, inferadb.read, etc.
 
 server:
   port: 8080

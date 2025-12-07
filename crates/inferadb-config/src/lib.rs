@@ -278,10 +278,6 @@ pub struct AuthConfig {
     /// OIDC client secret
     pub oidc_client_secret: Option<String>,
 
-    /// Required scopes for authorization
-    #[serde(default = "default_required_scopes")]
-    pub required_scopes: Vec<String>,
-
     /// JWKS URL for tenant authentication
     #[serde(default = "default_jwks_url")]
     pub jwks_url: String,
@@ -441,10 +437,6 @@ fn default_oauth_enabled() -> bool {
     false
 }
 
-fn default_required_scopes() -> Vec<String> {
-    vec![]
-}
-
 fn default_jwks_url() -> String {
     String::new()
 }
@@ -594,7 +586,6 @@ impl Default for AuthConfig {
             oidc_discovery_url: None,
             oidc_client_id: None,
             oidc_client_secret: None,
-            required_scopes: default_required_scopes(),
             jwks_url: default_jwks_url(),
             management_api_timeout_ms: default_management_api_timeout(),
             management_cache_ttl_seconds: default_management_cache_ttl(),

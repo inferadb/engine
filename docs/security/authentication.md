@@ -415,10 +415,8 @@ auth:
     - "https://api.inferadb.com/evaluate"
     - "https://api.inferadb.com/*"
 
-  # Scope validation (always enforced)
-  required_scopes:
-    - "inferadb.check"
-    - "inferadb.write"
+  # Scope validation is per-endpoint (inferadb.check, inferadb.write, etc.)
+  # Scopes are validated based on the endpoint being accessed
 
   # Replay protection (requires Redis)
   replay_protection: true
@@ -712,16 +710,16 @@ auth:
     - "https://auth.example.com"
 ```
 
-### 7. Configure Scope Validation
+### 7. Scope Validation
 
-Scope validation is always enforced. Configure required scopes:
+Scope validation is per-endpoint based on the JWT's `scope` claim. Each endpoint requires specific scopes:
 
-```yaml
-auth:
-  required_scopes:
-    - "inferadb.check"
-    - "inferadb.write"
-```
+- **`/v1/evaluate`**: Requires `inferadb.check`
+- **`/v1/relationships/write`**: Requires `inferadb.write`
+- **`/v1/relationships`**: Requires `inferadb.read` or `inferadb.list`
+- **`/v1/expand`**: Requires `inferadb.expand`
+
+Ensure your JWTs include the appropriate scopes for the endpoints your application uses.
 
 ### 8. Configure Clock Skew Tolerance
 

@@ -21,11 +21,10 @@ This document provides a comprehensive checklist for deploying InferaDB securely
   allowed_audiences = ["https://api.inferadb.com/evaluate"]
   ```
 
-- [ ] **Scope validation configured**: Configure `required_scopes` (always enforced)
-
-  ```toml
-  required_scopes = ["inferadb.check"]
-  ```
+- [ ] **Scope validation enabled**: Scopes are validated per-endpoint based on the JWT's `scope` claim. Required scopes are:
+  - `inferadb.check` for `/v1/evaluate` endpoint
+  - `inferadb.write` for `/v1/relationships/write` endpoint
+  - `inferadb.read`, `inferadb.list`, `inferadb.expand` for read operations
 
 ### Clock and Time Configuration
 

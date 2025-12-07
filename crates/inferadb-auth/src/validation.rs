@@ -234,7 +234,6 @@ mod tests {
             accepted_algorithms: vec!["EdDSA".into(), "RS256".into()],
             audience: "inferadb".into(),
             allowed_audiences: vec!["inferadb".into()],
-            required_scopes: vec!["inferadb.check".into()],
             clock_skew_seconds: Some(60),
             max_token_age_seconds: Some(86400),
             internal_issuer: "https://internal.inferadb.com".into(),

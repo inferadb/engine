@@ -59,9 +59,6 @@ data:
       audience: "https://your-domain.com/api/evaluate"
       allowed_audiences:
         - "https://your-domain.com/api/evaluate"
-      required_scopes:
-        - "authz:check"
-        - "authz:write"
       replay_protection: true
       require_jti: true
       clock_skew_seconds: 30

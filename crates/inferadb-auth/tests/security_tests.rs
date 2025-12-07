@@ -52,7 +52,6 @@ fn default_config() -> AuthConfig {
         jwks_url: "https://auth.example.com/.well-known/jwks.json".into(),
         accepted_algorithms: vec!["EdDSA".into(), "RS256".into()],
         allowed_audiences: vec!["inferadb".into()],
-        required_scopes: vec!["inferadb.check".into()],
         clock_skew_seconds: Some(60),
         max_token_age_seconds: Some(86400),
         issuer_allowlist: None,

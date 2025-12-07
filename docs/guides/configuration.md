@@ -67,8 +67,7 @@ auth:
     - "RS256"
   allowed_audiences:
     - "https://api.inferadb.com/evaluate"
-  required_scopes:
-    - "inferadb.check"
+  # Scopes are validated per-endpoint (inferadb.check, inferadb.write, etc.)
 
 identity:
   service_id: "policy-service"
@@ -384,7 +383,6 @@ Controls JWT authentication and authorization for tenant requests.
 | `accepted_algorithms` | array   | `["EdDSA", "RS256"]`                    | Accepted JWT algorithms                   |
 | `audience`            | string  | `"https://api.inferadb.com/evaluate"`   | Expected audience value                   |
 | `allowed_audiences`   | array   | `["https://api.inferadb.com/evaluate"]` | Allowed audiences (always validated)      |
-| `required_scopes`     | array   | `[]`                                    | Required scopes for access (always validated) |
 | `replay_protection`   | boolean | `false`                                 | Enable replay protection (requires Redis) |
 | `require_jti`         | boolean | `false`                                 | Require JTI claim in tokens               |
 | `jwks_url`            | string  | `""`                                    | JWKS URL for tenant authentication        |
@@ -438,7 +436,6 @@ auth:
     - "RS256"
   allowed_audiences:
     - "inferadb"
-  required_scopes: []
 ```
 
 **Production** (full validation):
@@ -452,9 +449,6 @@ auth:
     - "ES256"
   allowed_audiences:
     - "https://api.inferadb.com/evaluate"
-  required_scopes:
-    - "inferadb.check"
-    - "inferadb.write"
   replay_protection: true
   require_jti: true
   redis_url: "redis://localhost:6379"
@@ -649,7 +643,7 @@ observability:
 auth:
   allowed_audiences:
     - "inferadb"
-  required_scopes: []
+  # Scopes are validated per-endpoint
 
 identity:
   service_id: "policy-service-dev"
@@ -694,9 +688,7 @@ auth:
   jwks_cache_ttl: 300
   allowed_audiences:
     - "https://api.inferadb.com/evaluate"
-  required_scopes:
-    - "inferadb.check"
-    - "inferadb.write"
+  # Scopes validated per-endpoint (inferadb.check, inferadb.write, etc.)
   replay_protection: true
   redis_url: "redis://redis:6379"
   management_verify_vault_ownership: true
@@ -744,7 +736,7 @@ observability:
 auth:
   allowed_audiences:
     - "inferadb"
-  required_scopes: []
+  # Scopes are validated per-endpoint
 
 identity:
   service_id: "test-service"
