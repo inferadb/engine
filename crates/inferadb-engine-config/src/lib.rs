@@ -59,6 +59,11 @@ pub struct Config {
     #[serde(default = "default_logging")]
     pub logging: String,
 
+    /// Server identity Ed25519 private key (PEM format) for signing server-to-control requests.
+    /// This key is used to authenticate the server when making calls to the control API.
+    /// If not provided, will be generated on startup and logged (not recommended for production).
+    pub pem: Option<String>,
+
     #[serde(default)]
     pub listen: ListenConfig,
     #[serde(default)]
@@ -66,13 +71,7 @@ pub struct Config {
     #[serde(default)]
     pub cache: CacheConfig,
     #[serde(default)]
-    pub auth: AuthConfig,
-
-    /// Server identity Ed25519 private key (PEM format) for signing server-to-control requests.
-    /// This key is used to authenticate the server when making calls to the control API.
-    /// If not provided, will be generated on startup and logged (not recommended for production).
-    pub pem: Option<String>,
-
+    pub authentication: AuthenticationConfig,
     #[serde(default)]
     pub discovery: DiscoveryConfig,
     #[serde(default)]
@@ -82,42 +81,39 @@ pub struct Config {
 /// Listen address configuration for API servers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListenConfig {
-    /// Public REST API server address (client-facing)
+    /// Client-facing HTTP/REST API server address
     /// Format: "host:port" (e.g., "0.0.0.0:8080")
-    #[serde(default = "default_public_rest")]
-    pub public_rest: String,
+    #[serde(default = "default_http")]
+    pub http: String,
 
-    /// Public gRPC API server address
+    /// Client-facing gRPC API server address
     /// Format: "host:port" (e.g., "0.0.0.0:8081")
-    #[serde(default = "default_public_grpc")]
-    pub public_grpc: String,
+    #[serde(default = "default_grpc")]
+    pub grpc: String,
 
-    /// Internal/Private REST API server address (server-to-server communication)
+    /// Service mesh / inter-service communication address
+    /// Used for JWKS endpoints, metrics, cache invalidation webhooks
     /// Format: "host:port" (e.g., "0.0.0.0:8082")
-    #[serde(default = "default_private_rest")]
-    pub private_rest: String,
+    #[serde(default = "default_mesh")]
+    pub mesh: String,
 }
 
 impl Default for ListenConfig {
     fn default() -> Self {
-        Self {
-            public_rest: default_public_rest(),
-            public_grpc: default_public_grpc(),
-            private_rest: default_private_rest(),
-        }
+        Self { http: default_http(), grpc: default_grpc(), mesh: default_mesh() }
     }
 }
 
-fn default_public_rest() -> String {
+fn default_http() -> String {
     "0.0.0.0:8080".to_string()
 }
 
-fn default_public_grpc() -> String {
+fn default_grpc() -> String {
     "0.0.0.0:8081".to_string()
 }
 
-fn default_private_rest() -> String {
-    "0.0.0.0:8082".to_string() // Internal/Private server-to-server port
+fn default_mesh() -> String {
+    "0.0.0.0:8082".to_string()
 }
 
 fn default_threads() -> usize {
@@ -182,7 +178,7 @@ fn default_cache_ttl() -> u64 {
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthConfig {
+pub struct AuthenticationConfig {
     /// JWKS cache TTL in seconds
     #[serde(default = "default_jwks_cache_ttl")]
     pub jwks_cache_ttl: u64,
@@ -413,26 +409,14 @@ impl Config {
         }
 
         // Validate listen addresses are parseable
-        self.listen.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!(
-                "listen.public_rest '{}' is not a valid socket address: {}",
-                self.listen.public_rest,
-                e
-            )
+        self.listen.http.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!("listen.http '{}' is not a valid socket address: {}", self.listen.http, e)
         })?;
-        self.listen.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!(
-                "listen.public_grpc '{}' is not a valid socket address: {}",
-                self.listen.public_grpc,
-                e
-            )
+        self.listen.grpc.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!("listen.grpc '{}' is not a valid socket address: {}", self.listen.grpc, e)
         })?;
-        self.listen.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!(
-                "listen.private_rest '{}' is not a valid socket address: {}",
-                self.listen.private_rest,
-                e
-            )
+        self.listen.mesh.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!("listen.mesh '{}' is not a valid socket address: {}", self.listen.mesh, e)
         })?;
 
         // Validate storage backend
@@ -448,8 +432,8 @@ impl Config {
             anyhow::bail!("storage.fdb_cluster_file is required when using FoundationDB backend");
         }
 
-        // Validate authentication config (delegates to AuthConfig::validate)
-        self.auth.validate().map_err(|e| anyhow::anyhow!(e))?;
+        // Validate authentication config (delegates to AuthenticationConfig::validate)
+        self.authentication.validate().map_err(|e| anyhow::anyhow!(e))?;
 
         // Validate control service URL format
         let control_url = self.effective_control_url();
@@ -464,13 +448,13 @@ impl Config {
         }
 
         // Validate cache TTL values are reasonable
-        if self.auth.jwks_cache_ttl == 0 {
-            tracing::warn!("auth.jwks_cache_ttl is 0. This will cause frequent JWKS fetches.");
+        if self.authentication.jwks_cache_ttl == 0 {
+            tracing::warn!("authentication.jwks_cache_ttl is 0. This will cause frequent JWKS fetches.");
         }
-        if self.auth.jwks_cache_ttl > 3600 {
+        if self.authentication.jwks_cache_ttl > 3600 {
             tracing::warn!(
-                ttl = self.auth.jwks_cache_ttl,
-                "auth.jwks_cache_ttl is very high (>1 hour). Consider using a lower TTL for security."
+                ttl = self.authentication.jwks_cache_ttl,
+                "authentication.jwks_cache_ttl is very high (>1 hour). Consider using a lower TTL for security."
             );
         }
 
@@ -490,7 +474,7 @@ impl Config {
     }
 }
 
-impl Default for AuthConfig {
+impl Default for AuthenticationConfig {
     fn default() -> Self {
         Self {
             jwks_cache_ttl: default_jwks_cache_ttl(),
@@ -512,7 +496,7 @@ impl Default for AuthConfig {
     }
 }
 
-impl AuthConfig {
+impl AuthenticationConfig {
     /// Validate the authentication configuration and log warnings for potential issues
     ///
     /// This method performs comprehensive validation of security-related settings:
@@ -528,7 +512,7 @@ impl AuthConfig {
             && !self.jwks_url.starts_with("https://")
         {
             return Err(format!(
-                "auth.jwks_url must start with http:// or https://, got: {}",
+                "authentication.jwks_url must start with http:// or https://, got: {}",
                 self.jwks_url
             ));
         }
@@ -577,18 +561,14 @@ impl Default for Config {
         Self {
             threads: default_threads(),
             logging: default_logging(),
-            listen: ListenConfig {
-                public_rest: default_public_rest(),
-                public_grpc: default_public_grpc(),
-                private_rest: default_private_rest(),
-            },
+            listen: ListenConfig { http: default_http(), grpc: default_grpc(), mesh: default_mesh() },
             storage: StorageConfig { backend: default_backend(), fdb_cluster_file: None },
             cache: CacheConfig {
                 enabled: default_cache_enabled(),
                 max_capacity: default_cache_max_capacity(),
                 ttl: default_cache_ttl(),
             },
-            auth: AuthConfig::default(),
+            authentication: AuthenticationConfig::default(),
             pem: None,
             discovery: DiscoveryConfig::default(),
             control: ControlConfig::default(),
@@ -615,7 +595,7 @@ impl Default for Config {
 ///   threads: 4
 ///   logging: "info"
 ///   listen:
-///     public_rest: "127.0.0.1:8080"
+///     http: "127.0.0.1:8080"
 ///   storage:
 ///     backend: "memory"
 /// ```
@@ -623,7 +603,7 @@ impl Default for Config {
 /// Environment variables use the `INFERADB__ENGINE__` prefix:
 /// - `INFERADB__ENGINE__THREADS=8`
 /// - `INFERADB__ENGINE__LOGGING=debug`
-/// - `INFERADB__ENGINE__LISTEN__PUBLIC_REST=0.0.0.0:8080`
+/// - `INFERADB__ENGINE__LISTEN__HTTP=0.0.0.0:8080`
 /// - `INFERADB__ENGINE__STORAGE__BACKEND=foundationdb`
 pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
     // The config crate will use serde's #[serde(default)] annotations for defaults
@@ -675,30 +655,30 @@ mod tests {
         let config = Config::default();
         assert!(config.threads > 0);
         assert_eq!(config.logging, "info");
-        assert_eq!(config.listen.public_rest, "0.0.0.0:8080");
-        assert_eq!(config.listen.public_grpc, "0.0.0.0:8081");
-        assert_eq!(config.listen.private_rest, "0.0.0.0:8082");
+        assert_eq!(config.listen.http, "0.0.0.0:8080");
+        assert_eq!(config.listen.grpc, "0.0.0.0:8081");
+        assert_eq!(config.listen.mesh, "0.0.0.0:8082");
         assert!(config.cache.enabled);
         // Default JWKS URL points to control's public API for local development
-        assert_eq!(config.auth.jwks_url, "http://localhost:9090");
+        assert_eq!(config.authentication.jwks_url, "http://localhost:9090");
         // Default control service URL points to control's internal API
         assert_eq!(config.control.service_url, "http://localhost:9092");
     }
 
     #[test]
-    fn test_auth_config_validation_with_empty_jwks_url() {
+    fn test_authentication_config_validation_with_empty_jwks_url() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::WARN)
             .with_test_writer()
             .try_init();
 
         // Empty JWKS URL is valid (falls back to default behavior)
-        let config = AuthConfig { jwks_url: String::new(), ..Default::default() };
+        let config = AuthenticationConfig { jwks_url: String::new(), ..Default::default() };
         assert!(config.validate().is_ok());
     }
 
     #[test]
-    fn test_auth_config_validation_invalid_jwks_url() {
+    fn test_authentication_config_validation_invalid_jwks_url() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::WARN)
             .with_test_writer()
@@ -706,31 +686,31 @@ mod tests {
 
         // Invalid JWKS URL (not http/https) should fail
         let config =
-            AuthConfig { jwks_url: "ftp://invalid.example.com".to_string(), ..Default::default() };
+            AuthenticationConfig { jwks_url: "ftp://invalid.example.com".to_string(), ..Default::default() };
         assert!(config.validate().is_err());
     }
 
     #[test]
-    fn test_auth_config_validation_replay_protection_without_redis() {
+    fn test_authentication_config_validation_replay_protection_without_redis() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::WARN)
             .with_test_writer()
             .try_init();
 
-        let config = AuthConfig { replay_protection: true, redis_url: None, ..Default::default() };
+        let config = AuthenticationConfig { replay_protection: true, redis_url: None, ..Default::default() };
 
         // Should warn but not panic
         let _ = config.validate();
     }
 
     #[test]
-    fn test_auth_config_validation_valid_config() {
+    fn test_authentication_config_validation_valid_config() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::INFO)
             .with_test_writer()
             .try_init();
 
-        let config = AuthConfig {
+        let config = AuthenticationConfig {
             jwks_url: "https://auth.example.com/.well-known/jwks.json".to_string(),
             replay_protection: false,
             ..Default::default()

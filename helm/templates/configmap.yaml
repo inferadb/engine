@@ -10,9 +10,9 @@ data:
   INFERADB__ENGINE__LOGGING: "{{ .Values.config.logging }}"
 
   # Listen configuration (combined host:port addresses)
-  INFERADB__ENGINE__LISTEN__PUBLIC_REST: "0.0.0.0:{{ .Values.service.port }}"
-  INFERADB__ENGINE__LISTEN__PUBLIC_GRPC: "0.0.0.0:{{ .Values.service.grpcPort }}"
-  INFERADB__ENGINE__LISTEN__PRIVATE_REST: "0.0.0.0:{{ .Values.service.internalPort }}"
+  INFERADB__ENGINE__LISTEN__HTTP: "0.0.0.0:{{ .Values.service.port }}"
+  INFERADB__ENGINE__LISTEN__GRPC: "0.0.0.0:{{ .Values.service.grpcPort }}"
+  INFERADB__ENGINE__LISTEN__MESH: "0.0.0.0:{{ .Values.service.internalPort }}"
 
   # Storage configuration
   INFERADB__ENGINE__STORAGE__BACKEND: "{{ .Values.config.storage.backend }}"
@@ -28,14 +28,14 @@ data:
   {{- end }}
 
   # Authentication configuration
-  {{- if .Values.config.auth.enabled }}
-  INFERADB__ENGINE__AUTH__JWKS_CACHE_TTL: "{{ .Values.config.auth.jwksCacheTtl }}"
-  INFERADB__ENGINE__AUTH__REPLAY_PROTECTION: "{{ .Values.config.auth.replayProtection }}"
-  INFERADB__ENGINE__AUTH__CLOCK_SKEW_SECONDS: "{{ .Values.config.auth.clockSkewSeconds }}"
-  INFERADB__ENGINE__AUTH__MAX_TOKEN_AGE_SECONDS: "{{ .Values.config.auth.maxTokenAgeSeconds }}"
-  INFERADB__ENGINE__AUTH__REQUIRE_JTI: "{{ .Values.config.auth.requireJti }}"
-  INFERADB__ENGINE__AUTH__MANAGEMENT_CACHE_TTL: "{{ .Values.config.auth.managementCacheTtl }}"
-  INFERADB__ENGINE__AUTH__CERT_CACHE_TTL: "{{ .Values.config.auth.certCacheTtl }}"
+  {{- if .Values.config.authentication.enabled }}
+  INFERADB__ENGINE__AUTHENTICATION__JWKS_CACHE_TTL: "{{ .Values.config.authentication.jwksCacheTtl }}"
+  INFERADB__ENGINE__AUTHENTICATION__REPLAY_PROTECTION: "{{ .Values.config.authentication.replayProtection }}"
+  INFERADB__ENGINE__AUTHENTICATION__CLOCK_SKEW_SECONDS: "{{ .Values.config.authentication.clockSkewSeconds }}"
+  INFERADB__ENGINE__AUTHENTICATION__MAX_TOKEN_AGE_SECONDS: "{{ .Values.config.authentication.maxTokenAgeSeconds }}"
+  INFERADB__ENGINE__AUTHENTICATION__REQUIRE_JTI: "{{ .Values.config.authentication.requireJti }}"
+  INFERADB__ENGINE__AUTHENTICATION__MANAGEMENT_CACHE_TTL: "{{ .Values.config.authentication.managementCacheTtl }}"
+  INFERADB__ENGINE__AUTHENTICATION__CERT_CACHE_TTL: "{{ .Values.config.authentication.certCacheTtl }}"
   {{- end }}
   {{- if .Values.config.configFile }}
   config.yaml: |

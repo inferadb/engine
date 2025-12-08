@@ -262,7 +262,7 @@ mod tests {
             r#"
 engine:
   server:
-    public_rest: "127.0.0.1:8080"
+    http: "127.0.0.1:8080"
 "#,
         )
         .unwrap();
@@ -291,9 +291,9 @@ engine:
             r#"
 engine:
   listen:
-    public_rest: "127.0.0.1:8080"
-    public_grpc: "127.0.0.1:8081"
-    private_rest: "127.0.0.1:8082"
+    http: "127.0.0.1:8080"
+    grpc: "127.0.0.1:8081"
+    mesh: "127.0.0.1:8082"
 "#,
         )
         .unwrap();
@@ -303,7 +303,7 @@ engine:
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial address
-        assert_eq!(config.read().listen.public_rest, "127.0.0.1:8080");
+        assert_eq!(config.read().listen.http, "127.0.0.1:8080");
 
         // Modify config file with a different address (using nested format)
         fs::write(
@@ -311,9 +311,9 @@ engine:
             r#"
 engine:
   listen:
-    public_rest: "127.0.0.1:9090"
-    public_grpc: "127.0.0.1:9091"
-    private_rest: "127.0.0.1:9092"
+    http: "127.0.0.1:9090"
+    grpc: "127.0.0.1:9091"
+    mesh: "127.0.0.1:9092"
 "#,
         )
         .unwrap();
@@ -327,7 +327,7 @@ engine:
 
         // Verify address was updated
         let current = config.read();
-        assert_eq!(current.listen.public_rest, "127.0.0.1:9090", "Address should be updated");
+        assert_eq!(current.listen.http, "127.0.0.1:9090", "Address should be updated");
     }
 
     #[tokio::test]
@@ -342,9 +342,9 @@ engine:
             r#"
 engine:
   listen:
-    public_rest: "127.0.0.1:8080"
-    public_grpc: "127.0.0.1:8081"
-    private_rest: "127.0.0.1:8082"
+    http: "127.0.0.1:8080"
+    grpc: "127.0.0.1:8081"
+    mesh: "127.0.0.1:8082"
   storage:
     backend: "memory"
 "#,
@@ -356,7 +356,7 @@ engine:
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial values
-        assert_eq!(config.read().listen.public_rest, "127.0.0.1:8080");
+        assert_eq!(config.read().listen.http, "127.0.0.1:8080");
         assert_eq!(config.read().storage.backend, "memory");
 
         // Write invalid config (invalid storage backend)
@@ -365,9 +365,9 @@ engine:
             r#"
 engine:
   listen:
-    public_rest: "invalid"
-    public_grpc: "127.0.0.1:8081"
-    private_rest: "127.0.0.1:8082"
+    http: "invalid"
+    grpc: "127.0.0.1:8081"
+    mesh: "127.0.0.1:8082"
   storage:
     backend: "invalid_backend"
 "#,
@@ -383,7 +383,7 @@ engine:
 
         // Verify config was not changed (should still be valid)
         let current = config.read();
-        assert_eq!(current.listen.public_rest, "127.0.0.1:8080");
+        assert_eq!(current.listen.http, "127.0.0.1:8080");
         assert_eq!(current.storage.backend, "memory");
     }
 
@@ -399,9 +399,9 @@ engine:
             r#"
 engine:
   listen:
-    public_rest: "127.0.0.1:8080"
-    public_grpc: "127.0.0.1:8081"
-    private_rest: "127.0.0.1:8082"
+    http: "127.0.0.1:8080"
+    grpc: "127.0.0.1:8081"
+    mesh: "127.0.0.1:8082"
 "#,
         )
         .unwrap();
@@ -411,7 +411,7 @@ engine:
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial address
-        assert_eq!(config.read().listen.public_rest, "127.0.0.1:8080");
+        assert_eq!(config.read().listen.http, "127.0.0.1:8080");
 
         // Create and spawn refresher with 1 second interval
         let refresher = Arc::new(ConfigRefresher::new(config.clone(), config_path.clone(), 1));
@@ -425,9 +425,9 @@ engine:
             r#"
 engine:
   listen:
-    public_rest: "127.0.0.1:9090"
-    public_grpc: "127.0.0.1:9091"
-    private_rest: "127.0.0.1:9092"
+    http: "127.0.0.1:9090"
+    grpc: "127.0.0.1:9091"
+    mesh: "127.0.0.1:9092"
 "#,
         )
         .unwrap();
@@ -437,6 +437,6 @@ engine:
 
         // Verify config was updated
         let current = config.read();
-        assert_eq!(current.listen.public_rest, "127.0.0.1:9090", "Address should be updated");
+        assert_eq!(current.listen.http, "127.0.0.1:9090", "Address should be updated");
     }
 }

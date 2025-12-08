@@ -17,7 +17,7 @@ use inferadb_engine_auth::{
         REQUIRED_AUDIENCE, validate_algorithm, validate_audience, validate_timestamp_claims,
     },
 };
-use inferadb_engine_config::AuthConfig;
+use inferadb_engine_config::AuthenticationConfig;
 
 fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
@@ -46,8 +46,8 @@ fn test_claims(exp: u64, iat: u64, nbf: Option<u64>, jti: Option<String>) -> Jwt
     }
 }
 
-fn default_config() -> AuthConfig {
-    AuthConfig {
+fn default_config() -> AuthenticationConfig {
+    AuthenticationConfig {
         jwks_url: "https://auth.example.com/.well-known/jwks.json".into(),
         clock_skew_seconds: Some(60),
         max_token_age_seconds: Some(86400),

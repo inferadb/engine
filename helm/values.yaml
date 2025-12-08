@@ -155,7 +155,7 @@ config:
     ttl: 300 # TTL in seconds
 
   # Authentication configuration
-  auth:
+  authentication:
     enabled: true
     jwksCacheTtl: 300 # JWKS cache TTL in seconds
     replayProtection: false # Requires Redis if enabled

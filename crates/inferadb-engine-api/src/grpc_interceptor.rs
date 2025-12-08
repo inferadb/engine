@@ -31,7 +31,7 @@ use inferadb_engine_auth::{
     jwks_cache::JwksCache,
     jwt, oauth,
 };
-use inferadb_engine_config::AuthConfig;
+use inferadb_engine_config::AuthenticationConfig;
 use inferadb_engine_observe::metrics;
 use inferadb_engine_types::{AuthContext, AuthMethod};
 use tonic::{Request, Status, metadata::MetadataMap};
@@ -87,7 +87,7 @@ pub struct AuthInterceptor {
     jwks_cache: Arc<JwksCache>,
     internal_loader: Option<Arc<InternalJwksLoader>>,
     #[allow(dead_code)] // May be used for future auth config checks
-    config: Arc<AuthConfig>,
+    config: Arc<AuthenticationConfig>,
 }
 
 impl AuthInterceptor {
@@ -95,7 +95,7 @@ impl AuthInterceptor {
     pub fn new(
         jwks_cache: Arc<JwksCache>,
         internal_loader: Option<Arc<InternalJwksLoader>>,
-        config: Arc<AuthConfig>,
+        config: Arc<AuthenticationConfig>,
     ) -> Self {
         Self { jwks_cache, internal_loader, config }
     }

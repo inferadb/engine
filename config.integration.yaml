@@ -9,14 +9,14 @@ engine:
   logging: "debug"  # Verbose logging for tests
 
   listen:
-    # Public REST API server binding (bind to all interfaces for Docker)
-    public_rest: "0.0.0.0:8080"
+    # Client-facing HTTP/REST API server (bind to all interfaces for Docker)
+    http: "0.0.0.0:8080"
 
-    # Public gRPC API server
-    public_grpc: "0.0.0.0:8081"
+    # Client-facing gRPC API server
+    grpc: "0.0.0.0:8081"
 
-    # Private REST API server (server-to-server communication)
-    private_rest: "0.0.0.0:8082"
+    # Service mesh / inter-service communication
+    mesh: "0.0.0.0:8082"
 
   storage:
     backend: "memory"  # In-memory for fast tests
@@ -26,7 +26,7 @@ engine:
     max_capacity: 1000  # Small cache for tests
     ttl: 60
 
-  auth:
+  authentication:
     management_api_timeout_ms: 10000  # Higher timeout for CI
     management_cache_ttl: 30  # Short cache for tests
     cert_cache_ttl: 60

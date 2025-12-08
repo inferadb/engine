@@ -6,9 +6,9 @@ engine:
   logging: "info"
 
   listen:
-    public_rest: "127.0.0.1:8080"
-    public_grpc: "127.0.0.1:8081"
-    private_rest: "0.0.0.0:8082"
+    http: "127.0.0.1:8080"
+    grpc: "127.0.0.1:8081"
+    mesh: "0.0.0.0:8082"
 
   storage:
     backend: "memory"
@@ -18,7 +18,7 @@ engine:
     max_capacity: 10000
     ttl: 300
 
-  auth:
+  authentication:
     management_api_timeout_ms: 5000
     management_cache_ttl: 300
     cert_cache_ttl: 900

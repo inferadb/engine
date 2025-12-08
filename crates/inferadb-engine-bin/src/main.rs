@@ -20,9 +20,9 @@ struct Args {
     #[arg(short, long, default_value = "config.yaml")]
     config: String,
 
-    /// Public REST address (overrides config), e.g., "0.0.0.0:8080"
+    /// HTTP address (overrides config), e.g., "0.0.0.0:8080"
     #[arg(long)]
-    public_rest: Option<String>,
+    http: Option<String>,
 
     /// Environment (development, staging, production)
     #[arg(short, long, env = "ENVIRONMENT", default_value = "development")]
@@ -52,8 +52,8 @@ async fn main() -> Result<()> {
     let mut config = load_or_default(&args.config);
 
     // Override with CLI args
-    if let Some(ref addr) = args.public_rest {
-        config.listen.public_rest = addr.clone();
+    if let Some(ref addr) = args.http {
+        config.listen.http = addr.clone();
     }
 
     // Validate configuration
@@ -123,9 +123,9 @@ async fn main() -> Result<()> {
         // Storage
         ConfigEntry::new("Storage", "Backend", &config.storage.backend),
         // Listen
-        ConfigEntry::new("Listen", "Public API (REST)", &config.listen.public_rest),
-        ConfigEntry::new("Listen", "Public API (gRPC)", &config.listen.public_grpc),
-        ConfigEntry::new("Listen", "Private API (REST)", &config.listen.private_rest),
+        ConfigEntry::new("Listen", "HTTP", &config.listen.http),
+        ConfigEntry::new("Listen", "gRPC", &config.listen.grpc),
+        ConfigEntry::new("Listen", "Mesh", &config.listen.mesh),
         ConfigEntry::separator("Listen"),
         control_entry,
         discovery_entry,
@@ -160,16 +160,16 @@ async fn main() -> Result<()> {
     let cache = Arc::new(
         moka::future::Cache::builder()
             .max_capacity(1000) // Up to 1000 tenants
-            .time_to_live(Duration::from_secs(config.auth.jwks_cache_ttl))
-            .time_to_idle(Duration::from_secs(config.auth.jwks_cache_ttl * 2))
+            .time_to_live(Duration::from_secs(config.authentication.jwks_cache_ttl))
+            .time_to_idle(Duration::from_secs(config.authentication.jwks_cache_ttl * 2))
             .build(),
     );
 
     // Create the JWKS cache
     let jwks_cache = JwksCache::new(
-        config.auth.jwks_url.clone(),
+        config.authentication.jwks_url.clone(),
         cache,
-        Duration::from_secs(config.auth.jwks_cache_ttl),
+        Duration::from_secs(config.authentication.jwks_cache_ttl),
     )?;
     log_initialized("JWKS cache");
 
@@ -223,8 +223,8 @@ async fn main() -> Result<()> {
     };
 
     // Bind listeners (addresses are already validated at config.validate())
-    let public_listener = tokio::net::TcpListener::bind(&config.listen.public_rest).await?;
-    let internal_listener = tokio::net::TcpListener::bind(&config.listen.private_rest).await?;
+    let public_listener = tokio::net::TcpListener::bind(&config.listen.http).await?;
+    let internal_listener = tokio::net::TcpListener::bind(&config.listen.mesh).await?;
 
     // Log ready status
     log_ready("Authorization Engine");

@@ -89,17 +89,17 @@ pub fn validate_logging(level: &str) -> Result<()> {
 pub fn validate_listen(config: &ListenConfig) -> Result<()> {
     // Validate addresses are parseable as SocketAddr
     config
-        .public_rest
+        .http
         .parse::<std::net::SocketAddr>()
-        .map_err(|e| ValidationError::InvalidAddress(config.public_rest.clone(), e.to_string()))?;
+        .map_err(|e| ValidationError::InvalidAddress(config.http.clone(), e.to_string()))?;
     config
-        .public_grpc
+        .grpc
         .parse::<std::net::SocketAddr>()
-        .map_err(|e| ValidationError::InvalidAddress(config.public_grpc.clone(), e.to_string()))?;
+        .map_err(|e| ValidationError::InvalidAddress(config.grpc.clone(), e.to_string()))?;
     config
-        .private_rest
+        .mesh
         .parse::<std::net::SocketAddr>()
-        .map_err(|e| ValidationError::InvalidAddress(config.private_rest.clone(), e.to_string()))?;
+        .map_err(|e| ValidationError::InvalidAddress(config.mesh.clone(), e.to_string()))?;
 
     Ok(())
 }
@@ -175,9 +175,9 @@ mod tests {
     #[test]
     fn test_validate_listen_invalid_address() {
         let config = ListenConfig {
-            public_rest: "invalid".to_string(),
-            public_grpc: "0.0.0.0:8081".to_string(),
-            private_rest: "0.0.0.0:8082".to_string(),
+            http: "invalid".to_string(),
+            grpc: "0.0.0.0:8081".to_string(),
+            mesh: "0.0.0.0:8082".to_string(),
         };
         assert!(matches!(validate_listen(&config), Err(ValidationError::InvalidAddress(_, _))));
     }
@@ -185,9 +185,9 @@ mod tests {
     #[test]
     fn test_validate_listen_valid() {
         let config = ListenConfig {
-            public_rest: "0.0.0.0:8080".to_string(),
-            public_grpc: "0.0.0.0:8081".to_string(),
-            private_rest: "0.0.0.0:8082".to_string(),
+            http: "0.0.0.0:8080".to_string(),
+            grpc: "0.0.0.0:8081".to_string(),
+            mesh: "0.0.0.0:8082".to_string(),
         };
         assert!(validate_listen(&config).is_ok());
     }
@@ -247,13 +247,13 @@ mod tests {
             threads: 0,
             logging: "invalid".to_string(),
             listen: ListenConfig {
-                public_rest: "invalid-address".to_string(),
-                public_grpc: "0.0.0.0:8081".to_string(),
-                private_rest: "0.0.0.0:8082".to_string(),
+                http: "invalid-address".to_string(),
+                grpc: "0.0.0.0:8081".to_string(),
+                mesh: "0.0.0.0:8082".to_string(),
             },
             storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },
             cache: CacheConfig { enabled: true, max_capacity: 0, ttl: 0 },
-            auth: crate::AuthConfig::default(),
+            authentication: crate::AuthenticationConfig::default(),
             pem: None,
             discovery: crate::DiscoveryConfig::default(),
             control: crate::ControlConfig::default(),

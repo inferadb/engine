@@ -460,7 +460,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                     inferadb_engine_auth::ManagementClient::new(
                         effective_control_url.clone(),
                         None, // Internal URL same as service_url
-                        state.config.auth.management_api_timeout_ms,
+                        state.config.authentication.management_api_timeout_ms,
                         Some(lb_client),
                         state.server_identity.clone(),
                     )
@@ -477,7 +477,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                     inferadb_engine_auth::ManagementClient::new(
                         effective_control_url.clone(),
                         None, // Internal URL same as service_url
-                        state.config.auth.management_api_timeout_ms,
+                        state.config.authentication.management_api_timeout_ms,
                         None,
                         state.server_identity.clone(),
                     )
@@ -633,7 +633,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
             inferadb_engine_auth::ManagementClient::new(
                 effective_control_url.clone(),
                 None, // Internal URL same as service_url
-                state.config.auth.management_api_timeout_ms,
+                state.config.authentication.management_api_timeout_ms,
                 None,
                 state.server_identity.clone(),
             )
@@ -781,7 +781,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
 
     let service = grpc::InferadbServiceImpl::new(state.clone());
 
-    let addr = components.config.listen.public_grpc.parse()?;
+    let addr = components.config.listen.grpc.parse()?;
 
     // Set up reflection service
     let file_descriptor_set = tonic::include_file_descriptor_set!("inferadb_descriptor");
@@ -816,7 +816,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     let interceptor = grpc_interceptor::AuthInterceptor::new(
         Arc::clone(cache),
         internal_loader,
-        Arc::new(components.config.auth.clone()),
+        Arc::new(components.config.authentication.clone()),
     );
 
     // Add service with interceptor and reflection
