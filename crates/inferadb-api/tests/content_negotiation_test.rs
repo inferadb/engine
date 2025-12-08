@@ -48,7 +48,7 @@ async fn create_test_app() -> (inferadb_api::AppState, Router) {
             "/v1/organizations/{id}",
             get(inferadb_api::handlers::organizations::get::get_organization),
         )
-        .route("/health", get(inferadb_api::health::health_check_handler))
+        .route("/healthz", get(inferadb_api::health::healthz_handler))
         .with_state(state.clone());
     let authenticated_router = integration::with_test_auth(router, TEST_VAULT, TEST_ORGANIZATION);
 

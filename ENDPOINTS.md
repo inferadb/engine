@@ -40,7 +40,10 @@ Defined in: `api/openapi.yaml`
 
 | Method | Path                    | Purpose                                                  | Status         |
 | ------ | ----------------------- | -------------------------------------------------------- | -------------- |
-| `GET`  | `/health`               | Health check                                             | ✅ Implemented |
+| `GET`  | `/livez`                | Liveness probe (K8s)                                     | ✅ Implemented |
+| `GET`  | `/readyz`               | Readiness probe (K8s)                                    | ✅ Implemented |
+| `GET`  | `/startupz`             | Startup probe (K8s)                                      | ✅ Implemented |
+| `GET`  | `/healthz`              | Detailed health check                                    | ✅ Implemented |
 | `POST` | `/evaluate`             | Evaluate permissions (SSE stream, batch, optional trace) | ✅ Implemented |
 | `POST` | `/simulate`             | Test authorization with ephemeral relationships          | ✅ Implemented |
 | `POST` | `/expand`               | Expand relation (SSE stream)                             | ✅ Implemented |
@@ -2127,6 +2130,15 @@ response = client.put_schema(
 
 #### InferaDB
 
+InferaDB follows Kubernetes API server conventions for health endpoints:
+
+| Endpoint | Purpose | Response |
+|----------|---------|----------|
+| `/livez` | Liveness probe - is the process alive? | 200 OK / 503 |
+| `/readyz` | Readiness probe - ready for traffic? | 200 OK / 503 |
+| `/startupz` | Startup probe - initialization complete? | 200 OK / 503 |
+| `/healthz` | Detailed health status | JSON with details |
+
 **gRPC:**
 
 ```protobuf
@@ -2134,23 +2146,45 @@ rpc Health(HealthRequest) returns (HealthResponse);
 
 message HealthResponse {
   string status = 1;   // "healthy"
-  string service = 2;  // "InferaDB"
+  string service = 2;  // "inferadb"
 }
 ```
 
 **REST:**
 
 ```http
-GET /health
+GET /healthz
 
 Response:
 {
   "status": "healthy",
-  "version": "0.1.0"
+  "service": "inferadb",
+  "version": "0.1.0",
+  "uptime_seconds": 3600,
+  "details": {
+    "storage": "healthy",
+    "cache": "healthy",
+    "auth": "healthy"
+  }
 }
 ```
 
-**Simple health check** - just up/down status
+**Kubernetes Probes:**
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /livez
+    port: 8080
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8080
+startupProbe:
+  httpGet:
+    path: /startupz
+    port: 8080
+```
 
 #### SpiceDB
 

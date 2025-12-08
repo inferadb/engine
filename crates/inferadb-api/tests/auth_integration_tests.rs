@@ -198,7 +198,7 @@ async fn test_missing_authorization_header() {
             "/v1/evaluate",
             post(inferadb_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
-        .route("/health", get(inferadb_api::health::health_check_handler))
+        .route("/healthz", get(inferadb_api::health::healthz_handler))
         .with_state(state);
 
     let check_request = json!({
@@ -316,11 +316,11 @@ async fn test_health_endpoint_unauthenticated() {
 
     // Create a router with just the health route (no auth middleware needed)
     let router = Router::new()
-        .route("/health", get(inferadb_api::health::health_check_handler))
+        .route("/healthz", get(inferadb_api::health::healthz_handler))
         .with_state(state);
 
     let response = router
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(Request::builder().uri("/healthz").body(Body::empty()).unwrap())
         .await
         .unwrap();
 

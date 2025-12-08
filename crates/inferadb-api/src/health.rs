@@ -1,6 +1,10 @@
 //! Health check endpoints for Kubernetes probes
 //!
-//! Provides liveness, readiness, and startup probes for container orchestration.
+//! Provides standard Kubernetes health endpoints following the API server conventions:
+//! - `/livez` - Liveness probe (is the process alive?)
+//! - `/readyz` - Readiness probe (can it accept traffic?)
+//! - `/startupz` - Startup probe (has initialization completed?)
+//! - `/healthz` - Detailed health status for debugging/monitoring
 
 use std::{
     sync::{
@@ -211,265 +215,66 @@ impl HealthTracker {
     }
 }
 
-/// Liveness probe handler
+/// Liveness probe handler (`/livez`)
 ///
 /// Indicates whether the service is running. If this fails, Kubernetes will restart the pod.
 /// This should only fail if the service is completely broken (e.g., deadlock, panic).
-pub async fn liveness_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
+///
+/// Returns:
+/// - 200 OK if the service is alive
+/// - 503 Service Unavailable if the service is dead
+pub async fn livez_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let tracker = &state.health_tracker;
-    if tracker.is_alive() {
-        (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "status": "alive",
-                "service": "inferadb",
-                "uptime_seconds": tracker.uptime_seconds()
-            })),
-        )
-    } else {
-        (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "status": "dead",
-                "service": "inferadb"
-            })),
-        )
-    }
+    if tracker.is_alive() { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE }
 }
 
-/// Readiness probe handler
+/// Readiness probe handler (`/readyz`)
 ///
 /// Indicates whether the service is ready to accept traffic.
 /// If this fails, Kubernetes will remove the pod from the load balancer.
-pub async fn readiness_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
+///
+/// Returns:
+/// - 200 OK if the service is ready (healthy or degraded)
+/// - 503 Service Unavailable if the service is unhealthy
+pub async fn readyz_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let health = state.health_tracker.check_health(&state.store).await;
 
     match health.status {
-        HealthStatus::Healthy => (StatusCode::OK, Json(health)),
-        HealthStatus::Degraded => (StatusCode::OK, Json(health)), // Still serve traffic when
-        // degraded
-        HealthStatus::Unhealthy => (StatusCode::SERVICE_UNAVAILABLE, Json(health)),
+        HealthStatus::Healthy | HealthStatus::Degraded => StatusCode::OK,
+        HealthStatus::Unhealthy => StatusCode::SERVICE_UNAVAILABLE,
     }
 }
 
-/// Startup probe handler
+/// Startup probe handler (`/startupz`)
 ///
 /// Indicates whether the service has completed initialization.
 /// Kubernetes will not send traffic until this succeeds.
-pub async fn startup_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
+///
+/// Returns:
+/// - 200 OK if startup is complete
+/// - 503 Service Unavailable if still initializing
+pub async fn startupz_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let tracker = &state.health_tracker;
-    if tracker.is_startup_complete() {
-        (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "status": "ready",
-                "service": "inferadb",
-                "uptime_seconds": tracker.uptime_seconds()
-            })),
-        )
-    } else {
-        (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "status": "initializing",
-                "service": "inferadb"
-            })),
-        )
-    }
+    if tracker.is_startup_complete() { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE }
 }
 
-/// Legacy health check endpoint (for backward compatibility)
-pub async fn health_check_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
+/// Detailed health check handler (`/healthz`)
+///
+/// Returns comprehensive health information including component status.
+/// Useful for debugging and monitoring dashboards.
+///
+/// Returns JSON with detailed health status including:
+/// - Overall status (healthy/degraded/unhealthy)
+/// - Service name and version
+/// - Uptime in seconds
+/// - Component-level health details (storage, cache, auth)
+pub async fn healthz_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
     let health = state.health_tracker.check_health(&state.store).await;
 
     match health.status {
         HealthStatus::Healthy | HealthStatus::Degraded => (StatusCode::OK, Json(health)),
         HealthStatus::Unhealthy => (StatusCode::SERVICE_UNAVAILABLE, Json(health)),
     }
-}
-
-/// Authentication health check response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthHealthResponse {
-    /// Overall authentication health status
-    pub status: HealthStatus,
-    /// Management API connectivity status
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub management_api: Option<ManagementApiHealth>,
-    /// Certificate cache status
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub certificate_cache: Option<CacheHealth>,
-    /// Vault cache status
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vault_cache: Option<CacheHealth>,
-    /// Redis connectivity status (if replay protection enabled)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub redis: Option<RedisHealth>,
-    /// Optional message
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
-}
-
-/// Management API health status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManagementApiHealth {
-    /// Management API URL
-    pub url: String,
-    /// Is management API reachable?
-    pub reachable: bool,
-    /// Latency in milliseconds (if reachable)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub latency_ms: Option<u64>,
-    /// Error message (if unreachable)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-/// Cache health status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CacheHealth {
-    /// Number of entries in cache
-    pub size: usize,
-    /// Cache hit rate (0.0 to 1.0)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hit_rate: Option<f64>,
-    /// Optional message
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
-}
-
-/// Redis health status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisHealth {
-    /// Is Redis reachable?
-    pub reachable: bool,
-    /// Latency in milliseconds (if reachable)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub latency_ms: Option<u64>,
-    /// Error message (if unreachable)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-/// Authentication health check handler
-///
-/// Provides detailed health information about the authentication system:
-/// - Management API connectivity
-/// - Certificate and vault cache status
-/// - Redis connectivity (if replay protection enabled)
-pub async fn auth_health_check_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
-    let config = &state.config;
-    let effective_mgmt_url = config.effective_management_url();
-
-    let mut overall_status = HealthStatus::Healthy;
-    let mut management_api_health = None;
-    let mut certificate_cache_health = None;
-    let mut vault_cache_health = None;
-    let mut redis_health = None;
-
-    // Check management API connectivity
-    if !effective_mgmt_url.is_empty() {
-        let start = std::time::Instant::now();
-        let url = format!("{}/health", effective_mgmt_url);
-
-        match tokio::time::timeout(
-            Duration::from_millis(config.auth.management_api_timeout_ms),
-            reqwest::get(&url),
-        )
-        .await
-        {
-            Ok(Ok(response)) if response.status().is_success() => {
-                let latency = start.elapsed().as_millis() as u64;
-                management_api_health = Some(ManagementApiHealth {
-                    url: effective_mgmt_url.clone(),
-                    reachable: true,
-                    latency_ms: Some(latency),
-                    error: None,
-                });
-            },
-            Ok(Ok(response)) => {
-                let status_code = response.status();
-                management_api_health = Some(ManagementApiHealth {
-                    url: effective_mgmt_url.clone(),
-                    reachable: false,
-                    latency_ms: None,
-                    error: Some(format!("HTTP {}", status_code)),
-                });
-                overall_status = HealthStatus::Degraded;
-            },
-            Ok(Err(e)) => {
-                management_api_health = Some(ManagementApiHealth {
-                    url: effective_mgmt_url.clone(),
-                    reachable: false,
-                    latency_ms: None,
-                    error: Some(format!("Connection error: {}", e)),
-                });
-                overall_status = HealthStatus::Degraded;
-            },
-            Err(_) => {
-                management_api_health = Some(ManagementApiHealth {
-                    url: effective_mgmt_url.clone(),
-                    reachable: false,
-                    latency_ms: None,
-                    error: Some(format!(
-                        "Timeout after {}ms",
-                        config.auth.management_api_timeout_ms
-                    )),
-                });
-                overall_status = HealthStatus::Degraded;
-            },
-        }
-
-        // Note: Certificate and vault cache health would require access to the actual cache
-        // instances Since they're not in AppState, we report them as operational if
-        // management API is configured
-        certificate_cache_health = Some(CacheHealth {
-            size: 0, // Would need access to actual cache to get size
-            hit_rate: None,
-            message: Some(
-                "Certificate cache operational (metrics available at /metrics)".to_string(),
-            ),
-        });
-
-        vault_cache_health = Some(CacheHealth {
-            size: 0, // Would need access to actual cache to get size
-            hit_rate: None,
-            message: Some("Vault cache operational (metrics available at /metrics)".to_string()),
-        });
-    }
-
-    // Check Redis connectivity (if replay protection is configured)
-    // Note: This would require Redis URL to be in config and Redis client to be in AppState
-    // For now, we indicate if replay protection would be enabled based on config
-    if config.auth.replay_protection {
-        if let Some(_redis_url) = &config.auth.redis_url {
-            redis_health = Some(RedisHealth {
-                reachable: false,
-                latency_ms: None,
-                error: Some("Redis health check not yet implemented".to_string()),
-            });
-            // Don't mark as degraded since replay protection is optional
-        }
-    }
-
-    // Return appropriate status code
-    let status_code = match overall_status {
-        HealthStatus::Healthy => StatusCode::OK,
-        HealthStatus::Degraded => StatusCode::OK, // Still serve traffic when degraded
-        HealthStatus::Unhealthy => StatusCode::SERVICE_UNAVAILABLE,
-    };
-
-    (
-        status_code,
-        Json(AuthHealthResponse {
-            status: overall_status,
-            management_api: management_api_health,
-            certificate_cache: certificate_cache_health,
-            vault_cache: vault_cache_health,
-            redis: redis_health,
-            message: None,
-        }),
-    )
 }
 
 #[cfg(test)]

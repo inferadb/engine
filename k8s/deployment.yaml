@@ -133,10 +133,10 @@ spec:
               cpu: 2000m
               memory: 2Gi
 
-          # Health checks
+          # Health checks (Kubernetes conventions: /livez, /readyz, /startupz)
           livenessProbe:
             httpGet:
-              path: /health/live
+              path: /livez
               port: http
             initialDelaySeconds: 10
             periodSeconds: 10
@@ -146,7 +146,7 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /health/ready
+              path: /readyz
               port: http
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -156,7 +156,7 @@ spec:
 
           startupProbe:
             httpGet:
-              path: /health/startup
+              path: /startupz
               port: http
             initialDelaySeconds: 0
             periodSeconds: 5

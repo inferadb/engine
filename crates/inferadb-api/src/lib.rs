@@ -552,13 +552,14 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
     };
 
     // Combine health endpoints, public discovery, and protected routes
-    // Note: AuthZEN /access/v1/* endpoints are now in protected_routes for vault isolation
+    // Health endpoints follow Kubernetes API server conventions (/livez, /readyz, /startupz,
+    // /healthz) Note: AuthZEN /access/v1/* endpoints are now in protected_routes for vault
+    // isolation
     let router = Router::new()
-        .route("/health", get(health::health_check_handler))
-        .route("/health/live", get(health::liveness_handler))
-        .route("/health/ready", get(health::readiness_handler))
-        .route("/health/startup", get(health::startup_handler))
-        .route("/health/auth", get(health::auth_health_check_handler))
+        .route("/livez", get(health::livez_handler))
+        .route("/readyz", get(health::readyz_handler))
+        .route("/startupz", get(health::startupz_handler))
+        .route("/healthz", get(health::healthz_handler))
         // AuthZEN configuration endpoint (public for service discovery)
         .route(
             "/.well-known/authzen-configuration",
@@ -568,7 +569,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         .with_state(state.clone());
 
     // Add CORS, compression, and rate limiting layers
-    // Note: Rate limiting is applied to all routes except /health (which is separate)
+    // Note: Rate limiting is applied to all routes including health endpoints
     let router = router
         .layer(governor_layer)
         .layer(
@@ -865,9 +866,11 @@ pub async fn create_test_router(state: AppState) -> Result<Router> {
         .route("/v1/organizations/{id}", get(handlers::organizations::get::get_organization))
         // Vault management routes (for content negotiation tests)
         .route("/v1/vaults/{id}", get(handlers::vaults::get::get_vault))
-        .route("/health", get(health::health_check_handler))
-        .route("/health/ready", get(health::readiness_handler))
-        .route("/health/startup", get(health::startup_handler))
+        // Health endpoints (Kubernetes conventions)
+        .route("/livez", get(health::livez_handler))
+        .route("/readyz", get(health::readyz_handler))
+        .route("/startupz", get(health::startupz_handler))
+        .route("/healthz", get(health::healthz_handler))
         .with_state(state);
 
     Ok(router)
@@ -1036,7 +1039,7 @@ mod tests {
         let app = create_router(state, schema).await.unwrap();
 
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(Request::builder().uri("/healthz").body(Body::empty()).unwrap())
             .await
             .unwrap();
 

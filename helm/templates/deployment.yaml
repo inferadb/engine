@@ -71,17 +71,17 @@ spec:
         {{- end }}
         livenessProbe:
           httpGet:
-            path: /health/live
+            path: /livez
             port: http
           {{- toYaml .Values.healthCheck.liveness | nindent 10 }}
         readinessProbe:
           httpGet:
-            path: /health/ready
+            path: /readyz
             port: http
           {{- toYaml .Values.healthCheck.readiness | nindent 10 }}
         startupProbe:
           httpGet:
-            path: /health/startup
+            path: /startupz
             port: http
           {{- toYaml .Values.healthCheck.startup | nindent 10 }}
         resources:
