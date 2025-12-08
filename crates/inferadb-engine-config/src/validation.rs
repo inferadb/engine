@@ -4,15 +4,15 @@
 
 use thiserror::Error;
 
-use crate::{CacheConfig, Config, ObservabilityConfig, ServerConfig, StorageConfig};
+use crate::{CacheConfig, Config, ListenConfig, StorageConfig};
 
 #[derive(Debug, Error)]
 pub enum ValidationError {
     #[error("Invalid address '{0}': {1}")]
     InvalidAddress(String, String),
 
-    #[error("Invalid worker thread count: {0} (must be > 0)")]
-    InvalidWorkerThreads(usize),
+    #[error("Invalid thread count: {0} (must be > 0)")]
+    InvalidThreads(usize),
 
     #[error("Invalid cache capacity: {0} (must be > 0)")]
     InvalidCacheCapacity(u64),
@@ -40,7 +40,15 @@ pub type Result<T> = std::result::Result<T, ValidationError>;
 pub fn validate(config: &Config) -> Result<()> {
     let mut errors = Vec::new();
 
-    if let Err(e) = validate_server(&config.server) {
+    if let Err(e) = validate_threads(config.threads) {
+        errors.push(e);
+    }
+
+    if let Err(e) = validate_logging(&config.logging) {
+        errors.push(e);
+    }
+
+    if let Err(e) = validate_listen(&config.listen) {
         errors.push(e);
     }
 
@@ -49,10 +57,6 @@ pub fn validate(config: &Config) -> Result<()> {
     }
 
     if let Err(e) = validate_cache(&config.cache) {
-        errors.push(e);
-    }
-
-    if let Err(e) = validate_observability(&config.observability) {
         errors.push(e);
     }
 
@@ -65,8 +69,24 @@ pub fn validate(config: &Config) -> Result<()> {
     }
 }
 
-/// Validate server configuration
-pub fn validate_server(config: &ServerConfig) -> Result<()> {
+/// Validate threads configuration
+pub fn validate_threads(threads: usize) -> Result<()> {
+    if threads == 0 {
+        return Err(ValidationError::InvalidThreads(threads));
+    }
+    Ok(())
+}
+
+/// Validate logging level
+pub fn validate_logging(level: &str) -> Result<()> {
+    match level.to_lowercase().as_str() {
+        "trace" | "debug" | "info" | "warn" | "error" => Ok(()),
+        _ => Err(ValidationError::InvalidLogLevel(level.to_string())),
+    }
+}
+
+/// Validate listen configuration
+pub fn validate_listen(config: &ListenConfig) -> Result<()> {
     // Validate addresses are parseable as SocketAddr
     config
         .public_rest
@@ -80,11 +100,6 @@ pub fn validate_server(config: &ServerConfig) -> Result<()> {
         .private_rest
         .parse::<std::net::SocketAddr>()
         .map_err(|e| ValidationError::InvalidAddress(config.private_rest.clone(), e.to_string()))?;
-
-    // Validate worker threads
-    if config.worker_threads == 0 {
-        return Err(ValidationError::InvalidWorkerThreads(config.worker_threads));
-    }
 
     Ok(())
 }
@@ -125,15 +140,6 @@ pub fn validate_cache(config: &CacheConfig) -> Result<()> {
     Ok(())
 }
 
-/// Validate observability configuration
-pub fn validate_observability(config: &ObservabilityConfig) -> Result<()> {
-    // Validate log level
-    match config.log_level.to_lowercase().as_str() {
-        "trace" | "debug" | "info" | "warn" | "error" => Ok(()),
-        _ => Err(ValidationError::InvalidLogLevel(config.log_level.clone())),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,25 +151,45 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_server_invalid_address() {
-        let config = ServerConfig {
-            public_rest: "invalid".to_string(),
-            public_grpc: "0.0.0.0:8081".to_string(),
-            private_rest: "0.0.0.0:8082".to_string(),
-            worker_threads: 4,
-        };
-        assert!(matches!(validate_server(&config), Err(ValidationError::InvalidAddress(_, _))));
+    fn test_validate_threads_zero() {
+        assert!(matches!(validate_threads(0), Err(ValidationError::InvalidThreads(0))));
     }
 
     #[test]
-    fn test_validate_server_invalid_workers() {
-        let config = ServerConfig {
+    fn test_validate_threads_valid() {
+        assert!(validate_threads(4).is_ok());
+    }
+
+    #[test]
+    fn test_validate_logging_valid_levels() {
+        for level in &["trace", "debug", "info", "warn", "error"] {
+            assert!(validate_logging(level).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_validate_logging_invalid_level() {
+        assert!(matches!(validate_logging("invalid"), Err(ValidationError::InvalidLogLevel(_))));
+    }
+
+    #[test]
+    fn test_validate_listen_invalid_address() {
+        let config = ListenConfig {
+            public_rest: "invalid".to_string(),
+            public_grpc: "0.0.0.0:8081".to_string(),
+            private_rest: "0.0.0.0:8082".to_string(),
+        };
+        assert!(matches!(validate_listen(&config), Err(ValidationError::InvalidAddress(_, _))));
+    }
+
+    #[test]
+    fn test_validate_listen_valid() {
+        let config = ListenConfig {
             public_rest: "0.0.0.0:8080".to_string(),
             public_grpc: "0.0.0.0:8081".to_string(),
             private_rest: "0.0.0.0:8082".to_string(),
-            worker_threads: 0,
         };
-        assert!(matches!(validate_server(&config), Err(ValidationError::InvalidWorkerThreads(0))));
+        assert!(validate_listen(&config).is_ok());
     }
 
     #[test]
@@ -216,48 +242,19 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_observability_valid_log_levels() {
-        for level in &["trace", "debug", "info", "warn", "error"] {
-            let config = ObservabilityConfig {
-                log_level: level.to_string(),
-                metrics_enabled: true,
-                tracing_enabled: true,
-            };
-            assert!(validate_observability(&config).is_ok());
-        }
-    }
-
-    #[test]
-    fn test_validate_observability_invalid_log_level() {
-        let config = ObservabilityConfig {
-            log_level: "invalid".to_string(),
-            metrics_enabled: true,
-            tracing_enabled: true,
-        };
-        assert!(matches!(
-            validate_observability(&config),
-            Err(ValidationError::InvalidLogLevel(_))
-        ));
-    }
-
-    #[test]
     fn test_validate_multiple_errors() {
         let config = Config {
-            server: ServerConfig {
+            threads: 0,
+            logging: "invalid".to_string(),
+            listen: ListenConfig {
                 public_rest: "invalid-address".to_string(),
                 public_grpc: "0.0.0.0:8081".to_string(),
                 private_rest: "0.0.0.0:8082".to_string(),
-                worker_threads: 0,
             },
             storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },
             cache: CacheConfig { enabled: true, max_capacity: 0, ttl: 0 },
-            observability: ObservabilityConfig {
-                log_level: "invalid".to_string(),
-                metrics_enabled: true,
-                tracing_enabled: true,
-            },
             auth: crate::AuthConfig::default(),
-            identity: crate::IdentityConfig::default(),
+            pem: None,
             discovery: crate::DiscoveryConfig::default(),
             control: crate::ControlConfig::default(),
         };

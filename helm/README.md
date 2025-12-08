@@ -157,12 +157,13 @@ helm uninstall inferadb-engine --namespace inferadb
 
 ### InferaDB Configuration
 
-| Name                          | Description                      | Value    |
-| ----------------------------- | -------------------------------- | -------- |
-| `config.server.workerThreads` | Tokio worker threads             | `4`      |
-| `config.storage.backend`      | Storage backend                  | `memory` |
-| `config.cache.enabled`        | Enable caching                   | `true`   |
-| `config.auth.enabled`         | Include auth config in ConfigMap | `true`   |
+| Name                     | Description                      | Value    |
+| ------------------------ | -------------------------------- | -------- |
+| `config.threads`         | Worker threads                   | `4`      |
+| `config.logging`         | Log level                        | `info`   |
+| `config.storage.backend` | Storage backend                  | `memory` |
+| `config.cache.enabled`   | Enable caching                   | `true`   |
+| `config.auth.enabled`    | Include auth config in ConfigMap | `true`   |
 
 See [values.yaml](values.yaml) for complete list.
 

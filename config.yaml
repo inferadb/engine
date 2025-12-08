@@ -1,36 +1,24 @@
-# InferaDB Server Configuration - Development Defaults
+# InferaDB Engine Configuration - Development Defaults
 # Good defaults for local development and testing
 
-server:
-  # Public REST API server (client-facing traffic)
-  public_rest: "127.0.0.1:8080"
+engine:
+  threads: 4
+  logging: "info"
 
-  # Public gRPC API server
-  public_grpc: "127.0.0.1:8081"
+  listen:
+    public_rest: "127.0.0.1:8080"
+    public_grpc: "127.0.0.1:8081"
+    private_rest: "0.0.0.0:8082"
 
-  # Private REST API server (server-to-server communication)
-  private_rest: "0.0.0.0:8082"
+  storage:
+    backend: "memory"
 
-  worker_threads: 4
+  cache:
+    enabled: true
+    max_capacity: 10000
+    ttl: 300
 
-storage:
-  # In-memory storage for development
-  backend: "memory"
-
-cache:
-  enabled: true
-  max_capacity: 10000
-  ttl: 300
-
-observability:
-  log_level: "info"
-  metrics_enabled: true
-  tracing_enabled: false
-  # otlp_endpoint: "http://localhost:4317"
-
-auth:
-  management_api_timeout_ms: 5000
-  management_cache_ttl: 300
-  cert_cache_ttl: 900
-  management_verify_vault_ownership: true
-  management_verify_org_status: true
+  auth:
+    management_api_timeout_ms: 5000
+    management_cache_ttl: 300
+    cert_cache_ttl: 900

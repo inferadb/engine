@@ -211,8 +211,6 @@ mod tests {
             jwks_url: "https://example.com".into(),
             clock_skew_seconds: Some(60),
             max_token_age_seconds: Some(86400),
-            management_verify_vault_ownership: false,
-            management_verify_org_status: false,
             ..Default::default()
         }
     }

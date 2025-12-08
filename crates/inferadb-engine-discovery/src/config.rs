@@ -25,10 +25,6 @@ pub struct DiscoveryConfig {
     #[serde(default = "default_cache_ttl")]
     pub cache_ttl: u64,
 
-    /// Whether to enable health checking of endpoints
-    #[serde(default = "default_health_check")]
-    pub enable_health_check: bool,
-
     /// Health check interval (in seconds)
     #[serde(default = "default_health_check_interval")]
     pub health_check_interval: u64,
@@ -39,7 +35,6 @@ impl Default for DiscoveryConfig {
         Self {
             mode: DiscoveryMode::None,
             cache_ttl: default_cache_ttl(),
-            enable_health_check: default_health_check(),
             health_check_interval: default_health_check_interval(),
         }
     }
@@ -47,10 +42,6 @@ impl Default for DiscoveryConfig {
 
 fn default_cache_ttl() -> u64 {
     300 // 5 minutes
-}
-
-fn default_health_check() -> bool {
-    false
 }
 
 fn default_health_check_interval() -> u64 {
@@ -72,7 +63,6 @@ mod tests {
         let config: DiscoveryConfig = Default::default();
         assert_eq!(config.mode, DiscoveryMode::None);
         assert_eq!(config.cache_ttl, 300);
-        assert!(!config.enable_health_check);
         assert_eq!(config.health_check_interval, 30);
     }
 
@@ -92,13 +82,12 @@ mod tests {
         let config = DiscoveryConfig {
             mode: DiscoveryMode::Kubernetes,
             cache_ttl: 600,
-            enable_health_check: true,
             health_check_interval: 60,
         };
 
         let yaml = serde_yaml::to_string(&config).unwrap();
         assert!(yaml.contains("kubernetes"));
         assert!(yaml.contains("cache_ttl: 600"));
-        assert!(yaml.contains("enable_health_check: true"));
+        assert!(yaml.contains("health_check_interval: 60"));
     }
 }

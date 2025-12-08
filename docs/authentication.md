@@ -629,10 +629,6 @@ auth:
   vault_cache_max_capacity: 10000
   org_cache_max_capacity: 1000
 
-  # Verification options
-  management_verify_vault_ownership: true
-  management_verify_org_status: true
-
   # Server identity (for server-to-control requests)
   server_identity_private_key: |
     -----BEGIN PRIVATE KEY-----

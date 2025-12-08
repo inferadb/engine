@@ -138,9 +138,10 @@ topologySpreadConstraints:
 
 # InferaDB configuration
 config:
-  server:
-    # Worker threads for async runtime (default: number of CPU cores)
-    workerThreads: 4
+  # Worker threads for async runtime (default: number of CPU cores)
+  threads: 4
+  # Log level: trace, debug, info, warn, error
+  logging: "info"
 
   # Storage backend configuration
   storage:
@@ -153,13 +154,6 @@ config:
     maxCapacity: 10000 # Max cache entries
     ttl: 300 # TTL in seconds
 
-  # Observability configuration
-  observability:
-    logLevel: "info"
-    logFormat: "json"
-    metricsEnabled: true
-    tracingEnabled: false
-
   # Authentication configuration
   auth:
     enabled: true
@@ -171,8 +165,6 @@ config:
     # Management API verification
     managementCacheTtl: 300 # Org/vault cache TTL in seconds
     certCacheTtl: 900 # Client cert cache TTL in seconds
-    managementVerifyVaultOwnership: true
-    managementVerifyOrgStatus: true
 
   # Optional: provide full config file as YAML string
   configFile: ""

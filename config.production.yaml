@@ -1,60 +1,50 @@
-# InferaDB Server Configuration - Production Template
+# InferaDB Engine Configuration - Production Template
 #
 # This is a template for production deployment. Replace all placeholder values
 # (marked with <...>) with your actual production values.
 #
 # SECURITY: Do not commit this file with real credentials to version control.
 # Use environment variables or a secrets management system in production.
+#
+# This file uses the unified configuration format. Both engine and control
+# can share the same config file by reading their respective sections.
 
-server:
-  # Public REST API server binding (client-facing traffic)
-  public_rest: "0.0.0.0:8080"
-
-  # Public gRPC API server
-  public_grpc: "0.0.0.0:8081"
-
-  # Private REST API server (server-to-server communication)
-  private_rest: "0.0.0.0:8082"
-
+engine:
   # Worker threads (recommended: number of CPU cores)
-  worker_threads: 16
+  threads: 16
+  logging: "info"
 
-storage:
-  # Use FoundationDB for production
-  backend: "foundationdb"
+  listen:
+    # Public REST API server binding (client-facing traffic)
+    public_rest: "0.0.0.0:8080"
 
-  # FoundationDB cluster file path
-  # This file contains the connection string for your FDB cluster
-  fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
+    # Public gRPC API server
+    public_grpc: "0.0.0.0:8081"
 
-cache:
-  enabled: true
-  max_capacity: 1000000 # 1M entries for high-throughput
-  ttl: 300
+    # Private REST API server (server-to-server communication)
+    private_rest: "0.0.0.0:8082"
 
-observability:
-  # Log level: trace, debug, info, warn, error
-  log_level: "info"
+  storage:
+    # Use FoundationDB for production
+    backend: "foundationdb"
 
-  # Enable Prometheus metrics
-  metrics_enabled: true
+    # FoundationDB cluster file path
+    # This file contains the connection string for your FDB cluster
+    fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
 
-  # Enable distributed tracing
-  tracing_enabled: true
+  cache:
+    enabled: true
+    max_capacity: 1000000  # 1M entries for high-throughput
+    ttl: 300
 
-  # OTLP endpoint for distributed tracing
-  otlp_endpoint: "http://otel-collector:4317"
+  auth:
+    management_api_timeout_ms: 5000
+    management_cache_ttl: 600  # Longer cache for performance
+    cert_cache_ttl: 1800  # 30 minutes
 
-auth:
-  management_api_timeout_ms: 5000
-  management_cache_ttl: 600 # Longer cache for performance
-  cert_cache_ttl: 1800 # 30 minutes
-  management_verify_vault_ownership: true
-  management_verify_org_status: true
-
-  # Optional: Enable JWT replay protection (requires Redis)
-  # Prevents reuse of JWT tokens by tracking jti claims
-  # replay_protection: true
-  # redis_url: "redis://redis-cluster:6379"
-  # redis_key_prefix: "infera:jti:"
-  # redis_ttl_seconds: 300
+    # Optional: Enable JWT replay protection (requires Redis)
+    # Prevents reuse of JWT tokens by tracking jti claims
+    # replay_protection: true
+    # redis_url: "redis://redis-cluster:6379"
+    # redis_key_prefix: "infera:jti:"
+    # redis_ttl_seconds: 300

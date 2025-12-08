@@ -27,10 +27,6 @@ struct Args {
     /// Environment (development, staging, production)
     #[arg(short, long, env = "ENVIRONMENT", default_value = "development")]
     environment: String,
-
-    /// Worker ID for distributed deployments (0-1023)
-    #[arg(short, long, env = "WORKER_ID", default_value = "0")]
-    worker_id: u16,
 }
 
 #[tokio::main]
@@ -57,7 +53,7 @@ async fn main() -> Result<()> {
 
     // Override with CLI args
     if let Some(ref addr) = args.public_rest {
-        config.server.public_rest = addr.clone();
+        config.listen.public_rest = addr.clone();
     }
 
     // Validate configuration
@@ -78,7 +74,7 @@ async fn main() -> Result<()> {
     };
 
     // Create the private key entry based on whether it's configured
-    let private_key_entry = if let Some(ref pem) = config.identity.private_key_pem {
+    let private_key_entry = if let Some(ref pem) = config.pem {
         ConfigEntry::new("Identity", "Private Key", private_key_hint(pem))
     } else {
         ConfigEntry::warning("Identity", "Private Key", "○ Unassigned")
@@ -123,15 +119,14 @@ async fn main() -> Result<()> {
     .entries(vec![
         // General
         ConfigEntry::new("General", "Environment", &args.environment),
-        ConfigEntry::new("General", "Worker ID", args.worker_id),
         ConfigEntry::new("General", "Configuration File", &config_path),
         // Storage
         ConfigEntry::new("Storage", "Backend", &config.storage.backend),
-        // Network
-        ConfigEntry::new("Network", "Public API (REST)", &config.server.public_rest),
-        ConfigEntry::new("Network", "Public API (gRPC)", &config.server.public_grpc),
-        ConfigEntry::new("Network", "Private API (REST)", &config.server.private_rest),
-        ConfigEntry::separator("Network"),
+        // Listen
+        ConfigEntry::new("Listen", "Public API (REST)", &config.listen.public_rest),
+        ConfigEntry::new("Listen", "Public API (gRPC)", &config.listen.public_grpc),
+        ConfigEntry::new("Listen", "Private API (REST)", &config.listen.private_rest),
+        ConfigEntry::separator("Listen"),
         control_entry,
         discovery_entry,
         private_key_entry,
@@ -184,17 +179,14 @@ async fn main() -> Result<()> {
     let server_identity = if !config.effective_control_url().is_empty() {
         use inferadb_engine_auth::ServerIdentity;
 
-        let identity = if let Some(ref pem) = config.identity.private_key_pem {
+        let identity = if let Some(ref pem) = config.pem {
             ServerIdentity::from_pem(pem)
                 .map_err(|e| anyhow::anyhow!("Failed to load server identity from PEM: {}", e))?
         } else {
             // Generate new identity and display in formatted box
             let identity = ServerIdentity::generate();
             let pem = identity.to_pem();
-            inferadb_engine_observe::startup::print_generated_keypair(
-                &pem,
-                "identity.private_key_pem",
-            );
+            inferadb_engine_observe::startup::print_generated_keypair(&pem, "pem");
             identity
         };
 
@@ -231,8 +223,8 @@ async fn main() -> Result<()> {
     };
 
     // Bind listeners (addresses are already validated at config.validate())
-    let public_listener = tokio::net::TcpListener::bind(&config.server.public_rest).await?;
-    let internal_listener = tokio::net::TcpListener::bind(&config.server.private_rest).await?;
+    let public_listener = tokio::net::TcpListener::bind(&config.listen.public_rest).await?;
+    let internal_listener = tokio::net::TcpListener::bind(&config.listen.private_rest).await?;
 
     // Log ready status
     log_ready("Authorization Engine");

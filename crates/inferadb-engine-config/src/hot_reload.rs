@@ -185,20 +185,21 @@ impl HotReloadHandle {
         // Validate authentication config
         config.auth.validate()?;
 
-        // Validate server addresses are parseable
-        config.server.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-            format!("Invalid public_rest address '{}': {}", config.server.public_rest, e)
-        })?;
-        config.server.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
-            format!("Invalid public_grpc address '{}': {}", config.server.public_grpc, e)
-        })?;
-        config.server.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-            format!("Invalid private_rest address '{}': {}", config.server.private_rest, e)
-        })?;
-
-        if config.server.worker_threads == 0 {
-            return Err("Worker threads must be > 0".to_string());
+        // Validate threads
+        if config.threads == 0 {
+            return Err("threads must be > 0".to_string());
         }
+
+        // Validate listen addresses are parseable
+        config.listen.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+            format!("Invalid public_rest address '{}': {}", config.listen.public_rest, e)
+        })?;
+        config.listen.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
+            format!("Invalid public_grpc address '{}': {}", config.listen.public_grpc, e)
+        })?;
+        config.listen.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+            format!("Invalid private_rest address '{}': {}", config.listen.private_rest, e)
+        })?;
 
         // Validate cache config
         if config.cache.enabled && config.cache.max_capacity == 0 {
@@ -241,7 +242,7 @@ mod tests {
         let handle = HotReloadHandle::new(temp_file.path(), config.clone());
 
         let current = handle.get().await;
-        assert_eq!(current.server.public_rest, config.server.public_rest);
+        assert_eq!(current.listen.public_rest, config.listen.public_rest);
     }
 
     #[tokio::test]
@@ -256,7 +257,7 @@ mod tests {
     #[tokio::test]
     async fn test_validate_config_invalid_address() {
         let mut config = Config::default();
-        config.server.public_rest = "invalid-address".to_string();
+        config.listen.public_rest = "invalid-address".to_string();
 
         let temp_file = NamedTempFile::new().unwrap();
         let handle = HotReloadHandle::new(temp_file.path(), Config::default());
@@ -265,9 +266,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_validate_config_invalid_worker_threads() {
+    async fn test_validate_config_invalid_threads() {
         let mut config = Config::default();
-        config.server.worker_threads = 0;
+        config.threads = 0;
 
         let temp_file = NamedTempFile::new().unwrap();
         let handle = HotReloadHandle::new(temp_file.path(), Config::default());
@@ -291,28 +292,28 @@ mod tests {
     async fn test_reload_config_invalid_falls_back() {
         // Use default config instead of loading from file
         let mut initial_config = Config::default();
-        initial_config.server.public_rest = "0.0.0.0:8080".to_string();
+        initial_config.listen.public_rest = "0.0.0.0:8080".to_string();
 
         let temp_file = NamedTempFile::new().unwrap();
         let handle = HotReloadHandle::new(temp_file.path(), initial_config);
 
         // Create invalid config in memory and validate
         let mut invalid_config = Config::default();
-        invalid_config.server.public_rest = "invalid".to_string(); // Invalid address
+        invalid_config.listen.public_rest = "invalid".to_string(); // Invalid address
 
         // Verify validation fails
         assert!(handle.validate_config(&invalid_config).await.is_err());
 
         // Verify current config unchanged
         let current = handle.get().await;
-        assert_eq!(current.server.public_rest, "0.0.0.0:8080");
+        assert_eq!(current.listen.public_rest, "0.0.0.0:8080");
     }
 
     #[tokio::test]
     async fn test_rollback() {
         let temp_file = NamedTempFile::new().unwrap();
         let mut config = Config::default();
-        config.server.public_rest = "0.0.0.0:8080".to_string();
+        config.listen.public_rest = "0.0.0.0:8080".to_string();
 
         let handle = HotReloadHandle::new(temp_file.path(), config.clone());
 
@@ -321,17 +322,17 @@ mod tests {
 
         // Change current config
         let mut new_config = config.clone();
-        new_config.server.public_rest = "0.0.0.0:9090".to_string();
+        new_config.listen.public_rest = "0.0.0.0:9090".to_string();
         *handle.config.write().await = new_config;
 
         // Verify changed
-        assert_eq!(handle.get().await.server.public_rest, "0.0.0.0:9090");
+        assert_eq!(handle.get().await.listen.public_rest, "0.0.0.0:9090");
 
         // Rollback
         handle.rollback().await.unwrap();
 
         // Verify rolled back
-        assert_eq!(handle.get().await.server.public_rest, "0.0.0.0:8080");
+        assert_eq!(handle.get().await.listen.public_rest, "0.0.0.0:8080");
     }
 
     #[tokio::test]

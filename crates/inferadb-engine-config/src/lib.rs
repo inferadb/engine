@@ -1,6 +1,30 @@
 //! # Infera Config - Configuration Management
 //!
 //! Handles configuration loading from files, environment variables, and CLI args.
+//!
+//! ## Unified Configuration Format
+//!
+//! This crate supports a unified configuration format that allows both engine and control
+//! services to share the same configuration file:
+//!
+//! ```yaml
+//! engine:
+//!   threads: 4
+//!   logging: "info"
+//!   listen:
+//!     public_rest: "127.0.0.1:8080"
+//!   # ... other engine config
+//!
+//! control:
+//!   threads: 4
+//!   logging: "info"
+//!   listen:
+//!     public_rest: "127.0.0.1:9090"
+//!   # ... other control config (ignored by engine)
+//! ```
+//!
+//! The engine will read its configuration from the `engine:` section. Any `control:` section
+//! is ignored by the engine (and vice versa when control reads the same file).
 
 pub mod hot_reload;
 pub mod refresh;
@@ -13,28 +37,51 @@ use config::{Config as ConfigBuilder, ConfigError, Environment, File};
 pub use refresh::ConfigRefresher;
 use serde::{Deserialize, Serialize};
 
+/// Root configuration wrapper for unified config file support.
+///
+/// This allows both engine and control to read from the same YAML file,
+/// with each service reading its own section.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RootConfig {
+    /// Engine-specific configuration
+    #[serde(default)]
+    pub engine: Config,
+    // Note: `control` section may exist in the file but is ignored by engine
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Number of worker threads for the async runtime
+    #[serde(default = "default_threads")]
+    pub threads: usize,
+
+    /// Log level (trace, debug, info, warn, error)
+    #[serde(default = "default_logging")]
+    pub logging: String,
+
     #[serde(default)]
-    pub server: ServerConfig,
+    pub listen: ListenConfig,
     #[serde(default)]
     pub storage: StorageConfig,
     #[serde(default)]
     pub cache: CacheConfig,
     #[serde(default)]
-    pub observability: ObservabilityConfig,
-    #[serde(default)]
     pub auth: AuthConfig,
-    #[serde(default)]
-    pub identity: IdentityConfig,
+
+    /// Server identity Ed25519 private key (PEM format) for signing server-to-control requests.
+    /// This key is used to authenticate the server when making calls to the control API.
+    /// If not provided, will be generated on startup and logged (not recommended for production).
+    pub pem: Option<String>,
+
     #[serde(default)]
     pub discovery: DiscoveryConfig,
     #[serde(default)]
     pub control: ControlConfig,
 }
 
+/// Listen address configuration for API servers
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerConfig {
+pub struct ListenConfig {
     /// Public REST API server address (client-facing)
     /// Format: "host:port" (e.g., "0.0.0.0:8080")
     #[serde(default = "default_public_rest")]
@@ -49,18 +96,14 @@ pub struct ServerConfig {
     /// Format: "host:port" (e.g., "0.0.0.0:8082")
     #[serde(default = "default_private_rest")]
     pub private_rest: String,
-
-    #[serde(default = "default_worker_threads")]
-    pub worker_threads: usize,
 }
 
-impl Default for ServerConfig {
+impl Default for ListenConfig {
     fn default() -> Self {
         Self {
             public_rest: default_public_rest(),
             public_grpc: default_public_grpc(),
             private_rest: default_private_rest(),
-            worker_threads: default_worker_threads(),
         }
     }
 }
@@ -77,16 +120,12 @@ fn default_private_rest() -> String {
     "0.0.0.0:8082".to_string() // Internal/Private server-to-server port
 }
 
-fn default_worker_threads() -> usize {
+fn default_threads() -> usize {
     num_cpus::get()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct IdentityConfig {
-    /// Server identity Ed25519 private key (PEM format) for signing server-to-management requests.
-    /// This key is used to authenticate the server when making calls to the management API.
-    /// If not provided, will be generated on startup and logged (not recommended for production).
-    pub private_key_pem: Option<String>,
+fn default_logging() -> String {
+    "info".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,39 +180,6 @@ fn default_cache_ttl() -> u64 {
     300
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ObservabilityConfig {
-    #[serde(default = "default_log_level")]
-    pub log_level: String,
-
-    #[serde(default = "default_metrics_enabled")]
-    pub metrics_enabled: bool,
-
-    #[serde(default = "default_tracing_enabled")]
-    pub tracing_enabled: bool,
-}
-
-impl Default for ObservabilityConfig {
-    fn default() -> Self {
-        Self {
-            log_level: default_log_level(),
-            metrics_enabled: default_metrics_enabled(),
-            tracing_enabled: default_tracing_enabled(),
-        }
-    }
-}
-
-fn default_log_level() -> String {
-    "info".to_string()
-}
-
-fn default_metrics_enabled() -> bool {
-    true
-}
-
-fn default_tracing_enabled() -> bool {
-    true
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthConfig {
@@ -232,14 +238,6 @@ pub struct AuthConfig {
     /// Cache TTL for client certificates in seconds
     #[serde(default = "default_cert_cache_ttl")]
     pub cert_cache_ttl: u64,
-
-    /// Whether to verify vault ownership against management API
-    #[serde(default = "default_true")]
-    pub management_verify_vault_ownership: bool,
-
-    /// Whether to verify organization status against management API
-    #[serde(default = "default_true")]
-    pub management_verify_org_status: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -252,10 +250,6 @@ pub struct DiscoveryConfig {
     #[serde(default = "default_discovery_cache_ttl")]
     pub cache_ttl: u64,
 
-    /// Whether to enable health checking of endpoints
-    #[serde(default = "default_discovery_health_check")]
-    pub enable_health_check: bool,
-
     /// Health check interval (in seconds)
     #[serde(default = "default_discovery_health_check_interval")]
     pub health_check_interval: u64,
@@ -266,7 +260,6 @@ impl Default for DiscoveryConfig {
         Self {
             mode: DiscoveryMode::None,
             cache_ttl: default_discovery_cache_ttl(),
-            enable_health_check: default_discovery_health_check(),
             health_check_interval: default_discovery_health_check_interval(),
         }
     }
@@ -390,16 +383,8 @@ fn default_cert_cache_ttl() -> u64 {
     900 // 15 minutes
 }
 
-fn default_true() -> bool {
-    true
-}
-
 fn default_discovery_cache_ttl() -> u64 {
     300 // 5 minutes
-}
-
-fn default_discovery_health_check() -> bool {
-    false
 }
 
 fn default_discovery_health_check_interval() -> u64 {
@@ -412,32 +397,43 @@ impl Config {
     /// This method performs comprehensive validation of all configuration values,
     /// catching errors early before they cause runtime failures.
     pub fn validate(&self) -> anyhow::Result<()> {
-        // Validate server addresses are parseable
-        self.server.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!(
-                "server.public_rest '{}' is not a valid socket address: {}",
-                self.server.public_rest,
-                e
-            )
-        })?;
-        self.server.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!(
-                "server.public_grpc '{}' is not a valid socket address: {}",
-                self.server.public_grpc,
-                e
-            )
-        })?;
-        self.server.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!(
-                "server.private_rest '{}' is not a valid socket address: {}",
-                self.server.private_rest,
-                e
-            )
-        })?;
-
-        if self.server.worker_threads == 0 {
-            anyhow::bail!("server.worker_threads must be greater than 0");
+        // Validate threads
+        if self.threads == 0 {
+            anyhow::bail!("threads must be greater than 0");
         }
+
+        // Validate logging level
+        let valid_levels = ["trace", "debug", "info", "warn", "error"];
+        if !valid_levels.contains(&self.logging.to_lowercase().as_str()) {
+            anyhow::bail!(
+                "Invalid logging level: '{}'. Must be one of: {}",
+                self.logging,
+                valid_levels.join(", ")
+            );
+        }
+
+        // Validate listen addresses are parseable
+        self.listen.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!(
+                "listen.public_rest '{}' is not a valid socket address: {}",
+                self.listen.public_rest,
+                e
+            )
+        })?;
+        self.listen.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!(
+                "listen.public_grpc '{}' is not a valid socket address: {}",
+                self.listen.public_grpc,
+                e
+            )
+        })?;
+        self.listen.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+            anyhow::anyhow!(
+                "listen.private_rest '{}' is not a valid socket address: {}",
+                self.listen.private_rest,
+                e
+            )
+        })?;
 
         // Validate storage backend
         if self.storage.backend != "memory" && self.storage.backend != "foundationdb" {
@@ -512,8 +508,6 @@ impl Default for AuthConfig {
             management_api_timeout_ms: default_management_api_timeout(),
             management_cache_ttl: default_management_cache_ttl(),
             cert_cache_ttl: default_cert_cache_ttl(),
-            management_verify_vault_ownership: default_true(),
-            management_verify_org_status: default_true(),
         }
     }
 }
@@ -581,11 +575,12 @@ impl AuthConfig {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            server: ServerConfig {
+            threads: default_threads(),
+            logging: default_logging(),
+            listen: ListenConfig {
                 public_rest: default_public_rest(),
                 public_grpc: default_public_grpc(),
                 private_rest: default_private_rest(),
-                worker_threads: default_worker_threads(),
             },
             storage: StorageConfig { backend: default_backend(), fdb_cluster_file: None },
             cache: CacheConfig {
@@ -593,13 +588,8 @@ impl Default for Config {
                 max_capacity: default_cache_max_capacity(),
                 ttl: default_cache_ttl(),
             },
-            observability: ObservabilityConfig {
-                log_level: default_log_level(),
-                metrics_enabled: default_metrics_enabled(),
-                tracing_enabled: default_tracing_enabled(),
-            },
             auth: AuthConfig::default(),
-            identity: IdentityConfig::default(),
+            pem: None,
             discovery: DiscoveryConfig::default(),
             control: ControlConfig::default(),
         }
@@ -615,6 +605,26 @@ impl Default for Config {
 ///
 /// Each layer only overrides properties that are explicitly set, preserving
 /// defaults for unspecified values.
+///
+/// ## Unified Configuration Format
+///
+/// The configuration file should use the nested format with an `engine:` section:
+///
+/// ```yaml
+/// engine:
+///   threads: 4
+///   logging: "info"
+///   listen:
+///     public_rest: "127.0.0.1:8080"
+///   storage:
+///     backend: "memory"
+/// ```
+///
+/// Environment variables use the `INFERADB__ENGINE__` prefix:
+/// - `INFERADB__ENGINE__THREADS=8`
+/// - `INFERADB__ENGINE__LOGGING=debug`
+/// - `INFERADB__ENGINE__LISTEN__PUBLIC_REST=0.0.0.0:8080`
+/// - `INFERADB__ENGINE__STORAGE__BACKEND=foundationdb`
 pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
     // The config crate will use serde's #[serde(default)] annotations for defaults
     // Layer 1 (defaults) is handled by serde deserialization
@@ -622,11 +632,15 @@ pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
     let builder = ConfigBuilder::builder().add_source(File::from(path.as_ref()).required(false));
 
     // Layer 3: Add environment variables (highest precedence)
+    // Use INFERADB__ENGINE__ prefix for the nested format
     let builder =
         builder.add_source(Environment::with_prefix("INFERADB").separator("__").try_parsing(true));
 
     let config = builder.build()?;
-    config.try_deserialize()
+
+    // Deserialize as RootConfig and extract the engine section
+    let root: RootConfig = config.try_deserialize()?;
+    Ok(root.engine)
 }
 
 /// Load configuration with defaults
@@ -659,9 +673,11 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = Config::default();
-        assert_eq!(config.server.public_rest, "0.0.0.0:8080");
-        assert_eq!(config.server.public_grpc, "0.0.0.0:8081");
-        assert_eq!(config.server.private_rest, "0.0.0.0:8082");
+        assert!(config.threads > 0);
+        assert_eq!(config.logging, "info");
+        assert_eq!(config.listen.public_rest, "0.0.0.0:8080");
+        assert_eq!(config.listen.public_grpc, "0.0.0.0:8081");
+        assert_eq!(config.listen.private_rest, "0.0.0.0:8082");
         assert!(config.cache.enabled);
         // Default JWKS URL points to control's public API for local development
         assert_eq!(config.auth.jwks_url, "http://localhost:9090");

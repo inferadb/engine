@@ -1,10 +1,11 @@
-# InferaDB Server Configuration Guide
+# InferaDB Engine Configuration Guide
 
-Complete guide for configuring the InferaDB server using configuration files and environment variables.
+Complete guide for configuring the InferaDB Engine using configuration files and environment variables.
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Unified Configuration Format](#unified-configuration-format)
 - [Configuration Methods](#configuration-methods)
 - [Server Configuration](#server-configuration)
 - [Storage Configuration](#storage-configuration)
@@ -29,49 +30,101 @@ InferaDB supports configuration through multiple sources with the following prec
 
 Configuration files use **YAML or JSON** format, and environment variables use the `INFERADB__` prefix with double underscores (`__`) as separators.
 
+## Unified Configuration Format
+
+InferaDB supports a **unified configuration format** that allows both Engine and Control services to share the same configuration file. Each service reads only its own section and ignores the other.
+
+### Unified Config File Structure
+
+```yaml
+# config.yaml - shared by both services
+engine:
+  server:
+    public_rest: "127.0.0.1:8080"
+    public_grpc: "127.0.0.1:8081"
+    private_rest: "0.0.0.0:8082"
+  storage:
+    backend: "memory"
+  # ... other engine config
+
+control:
+  server:
+    public_rest: "127.0.0.1:9090"
+    public_grpc: "127.0.0.1:9091"
+    private_rest: "0.0.0.0:9092"
+  storage:
+    backend: "memory"
+  # ... other control config
+```
+
+### Using Unified Config
+
+Both services can point to the same file:
+
+```bash
+# Start engine
+inferadb-engine --config /etc/inferadb/config.yaml
+
+# Start control
+inferadb-control --config /etc/inferadb/config.yaml
+```
+
+### Environment Variables
+
+With the unified format, environment variables use the service prefix:
+
+```bash
+# Engine configuration
+export INFERADB__ENGINE__SERVER__PUBLIC_REST="0.0.0.0:8080"
+export INFERADB__ENGINE__STORAGE__BACKEND="foundationdb"
+
+# Control configuration
+export INFERADB__CONTROL__SERVER__PUBLIC_REST="0.0.0.0:9090"
+export INFERADB__CONTROL__STORAGE__BACKEND="foundationdb"
+```
+
 ## Configuration Methods
 
 ### Method 1: Configuration File
 
-Create a `config.yaml` or `config.json` file:
+Create a `config.yaml` file using the unified format:
 
 **YAML format** (recommended):
 
 ```yaml
-server:
-  public_rest: "0.0.0.0:8080"
-  public_grpc: "0.0.0.0:8081"
-  private_rest: "0.0.0.0:8082"
-  worker_threads: 4
+engine:
+  server:
+    public_rest: "0.0.0.0:8080"
+    public_grpc: "0.0.0.0:8081"
+    private_rest: "0.0.0.0:8082"
+    worker_threads: 4
 
-storage:
-  backend: "memory"
-  fdb_cluster_file: null
+  storage:
+    backend: "memory"
+    fdb_cluster_file: null
 
-cache:
-  enabled: true
-  max_capacity: 10000
-  ttl: 300
+  cache:
+    enabled: true
+    max_capacity: 10000
+    ttl: 300
 
-observability:
-  log_level: "info"
-  metrics_enabled: true
-  tracing_enabled: true
+  observability:
+    log_level: "info"
 
-auth:
-  jwks_cache_ttl: 300
+  auth:
+    jwks_cache_ttl: 300
 
-# Identity: private_key_pem is auto-generated if not set
-identity: {}
+  # Identity: private_key_pem is auto-generated if not set
+  identity: {}
 
-discovery:
-  mode:
-    type: none
-  cache_ttl: 300
+  discovery:
+    mode:
+      type: none
+    cache_ttl: 300
 
-control:
-  service_url: "http://localhost:9092"
-  internal_port: 9092
+  control:
+    service_url: "http://localhost:9092"
+    internal_port: 9092
 ```
 
 **Load configuration file**:
@@ -82,31 +135,31 @@ inferadb-engine --config config.yaml
 
 ### Method 2: Environment Variables
 
-All configuration options can be set via environment variables using the `INFERADB__` prefix:
+All configuration options can be set via environment variables using the `INFERADB__ENGINE__` prefix:
 
 ```bash
 # Server configuration (combined address format)
-export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:8080"
-export INFERADB__SERVER__PUBLIC_GRPC="0.0.0.0:8081"
-export INFERADB__SERVER__PRIVATE_REST="0.0.0.0:8082"
-export INFERADB__SERVER__WORKER_THREADS=4
+export INFERADB__ENGINE__SERVER__PUBLIC_REST="0.0.0.0:8080"
+export INFERADB__ENGINE__SERVER__PUBLIC_GRPC="0.0.0.0:8081"
+export INFERADB__ENGINE__SERVER__PRIVATE_REST="0.0.0.0:8082"
+export INFERADB__ENGINE__SERVER__WORKER_THREADS=4
 
 # Storage configuration
-export INFERADB__STORAGE__BACKEND="memory"
-export INFERADB__STORAGE__FDB_CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
+export INFERADB__ENGINE__STORAGE__BACKEND="memory"
+export INFERADB__ENGINE__STORAGE__FDB_CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
 
 # Cache configuration
-export INFERADB__CACHE__ENABLED=true
-export INFERADB__CACHE__MAX_CAPACITY=10000
-export INFERADB__CACHE__TTL=300
+export INFERADB__ENGINE__CACHE__ENABLED=true
+export INFERADB__ENGINE__CACHE__MAX_CAPACITY=10000
+export INFERADB__ENGINE__CACHE__TTL=300
 
 # Observability configuration
-export INFERADB__OBSERVABILITY__LOG_LEVEL="info"
-export INFERADB__OBSERVABILITY__METRICS_ENABLED=true
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__ENGINE__OBSERVABILITY__LOG_LEVEL="info"
+export INFERADB__ENGINE__OBSERVABILITY__METRICS_ENABLED=true
+export INFERADB__ENGINE__OBSERVABILITY__TRACING_ENABLED=true
 
 # Identity configuration
-export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
+export INFERADB__ENGINE__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 ```
 
 ### Method 3: Combined (File + Environment)
@@ -114,9 +167,9 @@ export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 Environment variables override file configuration:
 
 ```bash
-# config.yaml sets public_rest to "0.0.0.0:8080"
-# Environment variable overrides to 3000
-export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:3000"
+# config.yaml sets engine.server.public_rest to "0.0.0.0:8080"
+# Environment variable overrides to port 3000
+export INFERADB__ENGINE__SERVER__PUBLIC_REST="0.0.0.0:3000"
 inferadb-engine --config config.yaml
 # Server starts on port 3000
 ```
@@ -290,15 +343,15 @@ Approximate memory usage per entry: 200-500 bytes
 
 ## Observability Configuration
 
-Controls logging, metrics, and tracing.
+Controls logging. Metrics and tracing are always enabled.
 
 ### Options
 
-| Option            | Type    | Default  | Description                                                    |
-| ----------------- | ------- | -------- | -------------------------------------------------------------- |
-| `log_level`       | string  | `"info"` | Log level: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"` |
-| `metrics_enabled` | boolean | `true`   | Enable Prometheus metrics at `/metrics`                        |
-| `tracing_enabled` | boolean | `true`   | Enable OpenTelemetry distributed tracing                       |
+| Option      | Type   | Default  | Description                                                    |
+| ----------- | ------ | -------- | -------------------------------------------------------------- |
+| `log_level` | string | `"info"` | Log level: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"` |
+
+> **Note**: Prometheus metrics (at `/metrics`) and OpenTelemetry distributed tracing are always enabled and cannot be disabled.
 
 ### Examples
 
@@ -307,8 +360,6 @@ Controls logging, metrics, and tracing.
 ```yaml
 observability:
   log_level: "debug"
-  metrics_enabled: true
-  tracing_enabled: false
 ```
 
 **Production**:
@@ -316,16 +367,12 @@ observability:
 ```yaml
 observability:
   log_level: "info"
-  metrics_enabled: true
-  tracing_enabled: true
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__OBSERVABILITY__LOG_LEVEL="info"
-export INFERADB__OBSERVABILITY__METRICS_ENABLED=true
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
+export INFERADB__ENGINE__OBSERVABILITY__LOG_LEVEL="info"
 ```
 
 ### Additional Configuration
@@ -346,8 +393,8 @@ export OTEL_SERVICE_NAME="inferadb"
 
 ### Recommendations
 
-- **Development**: `log_level: "debug"`, `tracing_enabled: false`
-- **Production**: `log_level: "info"`, `tracing_enabled: true`
+- **Development**: `log_level: "debug"`
+- **Production**: `log_level: "info"`
 - **Troubleshooting**: `log_level: "debug"` temporarily
 - **Low disk space**: `log_level: "warn"` or `"error"`
 
@@ -372,13 +419,13 @@ Controls JWT authentication and authorization for tenant requests.
 
 ### Management API Integration
 
-| Option                              | Type    | Default | Description                                       |
-| ----------------------------------- | ------- | ------- | ------------------------------------------------- |
-| `management_api_timeout_ms`         | integer | `5000`  | Timeout for management API calls (milliseconds)   |
-| `management_cache_ttl`              | integer | `300`   | Cache TTL for org/vault lookups (seconds)         |
-| `cert_cache_ttl`                    | integer | `900`   | Cache TTL for client certificates (seconds)       |
-| `management_verify_vault_ownership` | boolean | `true`  | Verify vault ownership against management API     |
-| `management_verify_org_status`      | boolean | `true`  | Verify organization status against management API |
+| Option                      | Type    | Default | Description                                     |
+| --------------------------- | ------- | ------- | ----------------------------------------------- |
+| `management_api_timeout_ms` | integer | `5000`  | Timeout for management API calls (milliseconds) |
+| `management_cache_ttl`      | integer | `300`   | Cache TTL for org/vault lookups (seconds)       |
+| `cert_cache_ttl`            | integer | `900`   | Cache TTL for client certificates (seconds)     |
+
+> **Note**: Vault ownership and organization status verification are always enforced and cannot be disabled.
 
 ### OAuth/OIDC Configuration
 
@@ -417,8 +464,6 @@ auth:
   redis_url: "redis://localhost:6379"
   clock_skew_seconds: 30
   max_token_age_seconds: 3600
-  management_verify_vault_ownership: true
-  management_verify_org_status: true
 ```
 
 ### Environment Variables
@@ -598,8 +643,6 @@ cache:
 
 observability:
   log_level: "debug"
-  metrics_enabled: true
-  tracing_enabled: false
 
 auth: {}
 
@@ -635,15 +678,11 @@ cache:
 
 observability:
   log_level: "info"
-  metrics_enabled: true
-  tracing_enabled: true
 
 auth:
   jwks_cache_ttl: 300
   replay_protection: true
   redis_url: "redis://redis:6379"
-  management_verify_vault_ownership: true
-  management_verify_org_status: true
 
 identity:
   private_key_pem: "${SERVER_PRIVATE_KEY}"
@@ -677,8 +716,6 @@ cache:
 
 observability:
   log_level: "warn"
-  metrics_enabled: false
-  tracing_enabled: false
 
 auth: {}
 
@@ -858,11 +895,7 @@ Error: control.service_url must start with http:// or https://
 
 1. **Enable metrics and tracing**
 
-   ```yaml
-   observability:
-     metrics_enabled: true
-     tracing_enabled: true
-   ```
+   Metrics and tracing are always enabled.
 
 2. **Choose appropriate log level**
    - Production: `"info"`

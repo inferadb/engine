@@ -63,8 +63,6 @@ fn default_config() -> AuthConfig {
         management_api_timeout_ms: 5000,
         management_cache_ttl: 300,
         cert_cache_ttl: 300,
-        management_verify_vault_ownership: false,
-        management_verify_org_status: false,
     }
 }
 

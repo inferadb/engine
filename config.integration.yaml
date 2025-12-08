@@ -1,34 +1,32 @@
-# InferaDB Server Configuration - Integration Tests
+# InferaDB Engine Configuration - Integration Tests
 # This config is optimized for Docker container E2E testing
+#
+# This file uses the unified configuration format. Both engine and control
+# can share the same config file by reading their respective sections.
 
-server:
-  # Public REST API server binding (bind to all interfaces for Docker)
-  public_rest: "0.0.0.0:8080"
+engine:
+  threads: 2  # Reduced for test environment
+  logging: "debug"  # Verbose logging for tests
 
-  # Public gRPC API server
-  public_grpc: "0.0.0.0:8081"
+  listen:
+    # Public REST API server binding (bind to all interfaces for Docker)
+    public_rest: "0.0.0.0:8080"
 
-  # Private REST API server (server-to-server communication)
-  private_rest: "0.0.0.0:8082"
+    # Public gRPC API server
+    public_grpc: "0.0.0.0:8081"
 
-  worker_threads: 2 # Reduced for test environment
+    # Private REST API server (server-to-server communication)
+    private_rest: "0.0.0.0:8082"
 
-storage:
-  backend: "memory" # In-memory for fast tests
+  storage:
+    backend: "memory"  # In-memory for fast tests
 
-cache:
-  enabled: true
-  max_capacity: 1000 # Small cache for tests
-  ttl: 60
+  cache:
+    enabled: true
+    max_capacity: 1000  # Small cache for tests
+    ttl: 60
 
-observability:
-  log_level: "debug" # Verbose logging for tests
-  metrics_enabled: true
-  tracing_enabled: false
-
-auth:
-  management_api_timeout_ms: 10000 # Higher timeout for CI
-  management_cache_ttl: 30 # Short cache for tests
-  cert_cache_ttl: 60
-  management_verify_vault_ownership: true
-  management_verify_org_status: true
+  auth:
+    management_api_timeout_ms: 10000  # Higher timeout for CI
+    management_cache_ttl: 30  # Short cache for tests
+    cert_cache_ttl: 60
