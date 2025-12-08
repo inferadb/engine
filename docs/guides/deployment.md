@@ -413,8 +413,9 @@ docker service create \
 ### Network Security
 
 1. **TLS Termination**: Use a reverse proxy (nginx, Envoy) or ingress controller
-2. **Network Policies**: Restrict pod-to-pod communication
-3. **Firewall Rules**: Limit external access
+2. **Service Mesh mTLS**: Use Istio/Linkerd for transparent pod-to-pod encryption
+3. **Network Policies**: Restrict pod-to-pod communication
+4. **Firewall Rules**: Limit external access
 
 **Example nginx TLS termination:**
 
