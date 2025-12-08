@@ -259,7 +259,7 @@ mod tests {
             auth: crate::AuthConfig::default(),
             identity: crate::IdentityConfig::default(),
             discovery: crate::DiscoveryConfig::default(),
-            management_service: crate::ManagementServiceConfig::default(),
+            control: crate::ControlConfig::default(),
         };
 
         match validate(&config) {

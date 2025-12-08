@@ -69,7 +69,7 @@ discovery:
     type: none
   cache_ttl: 300
 
-management_service:
+control:
   service_url: "http://localhost:9092"
   internal_port: 9092
 ```
@@ -555,7 +555,7 @@ Controls connection to InferaDB Control for JWKS and tenant validation.
 **Development**:
 
 ```yaml
-management_service:
+control:
   service_url: "http://localhost:9092"
   internal_port: 9092
 ```
@@ -563,7 +563,7 @@ management_service:
 **Kubernetes**:
 
 ```yaml
-management_service:
+control:
   service_url: "http://inferadb-control.inferadb:9092"
   internal_port: 9092
 ```
@@ -571,8 +571,8 @@ management_service:
 ### Environment Variables
 
 ```bash
-export INFERADB__MANAGEMENT_SERVICE__SERVICE_URL="http://inferadb-control.inferadb:9092"
-export INFERADB__MANAGEMENT_SERVICE__INTERNAL_PORT=9092
+export INFERADB__CONTROL__SERVICE_URL="http://inferadb-control.inferadb:9092"
+export INFERADB__CONTROL__INTERNAL_PORT=9092
 ```
 
 ## Configuration Profiles
@@ -609,7 +609,7 @@ discovery:
   mode:
     type: none
 
-management_service:
+control:
   service_url: "http://localhost:9092"
 ```
 
@@ -654,7 +654,7 @@ discovery:
   cache_ttl: 30
   enable_health_check: true
 
-management_service:
+control:
   service_url: "http://inferadb-control.inferadb:9092"
 ```
 
@@ -688,7 +688,7 @@ discovery:
   mode:
     type: none
 
-management_service:
+control:
   service_url: "http://localhost:9092"
 ```
 
@@ -814,7 +814,7 @@ Error: replay_protection is enabled but redis_url is not configured
 ```
 
 ```text
-Error: management_service.service_url must start with http:// or https://
+Error: control.service_url must start with http:// or https://
 ```
 
 ## Best Practices
@@ -911,7 +911,7 @@ services:
       INFERADB__SERVER__PRIVATE_REST: "0.0.0.0:8082"
       INFERADB__STORAGE__BACKEND: "foundationdb"
       INFERADB__STORAGE__FDB_CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
-      INFERADB__MANAGEMENT_SERVICE__SERVICE_URL: "http://management:9092"
+      INFERADB__CONTROL__SERVICE_URL: "http://management:9092"
     volumes:
       - /etc/foundationdb:/etc/foundationdb:ro
 ```

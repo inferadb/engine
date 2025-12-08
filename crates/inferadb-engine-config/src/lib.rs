@@ -30,7 +30,7 @@ pub struct Config {
     #[serde(default)]
     pub discovery: DiscoveryConfig,
     #[serde(default)]
-    pub management_service: ManagementServiceConfig,
+    pub control: ControlConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -306,39 +306,39 @@ pub struct RemoteCluster {
     pub port: u16,
 }
 
-/// Management service discovery configuration
+/// Control service discovery configuration
 ///
-/// This configuration controls how the server discovers and connects to
-/// management service instances. The server needs to fetch JWKS from
-/// management services to validate JWTs signed by them.
+/// This configuration controls how the engine discovers and connects to
+/// control service instances. The engine needs to fetch JWKS from
+/// control services to validate JWTs signed by them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManagementServiceConfig {
-    /// Internal port where management services expose their internal API (including JWKS)
+pub struct ControlConfig {
+    /// Internal port where control services expose their internal API (including JWKS)
     /// Default: 9092
-    #[serde(default = "default_management_internal_port")]
+    #[serde(default = "default_control_internal_port")]
     pub internal_port: u16,
 
     /// Service URL pattern for Kubernetes/Tailscale discovery
     /// e.g., "http://inferadb-control.inferadb:9092"
     /// This is used as a template when discovery is enabled
-    #[serde(default = "default_management_service_url")]
+    #[serde(default = "default_control_service_url")]
     pub service_url: String,
 }
 
-impl Default for ManagementServiceConfig {
+impl Default for ControlConfig {
     fn default() -> Self {
         Self {
-            internal_port: default_management_internal_port(),
-            service_url: default_management_service_url(),
+            internal_port: default_control_internal_port(),
+            service_url: default_control_service_url(),
         }
     }
 }
 
-fn default_management_internal_port() -> u16 {
-    9092 // Management internal/private server port
+fn default_control_internal_port() -> u16 {
+    9092 // Control internal/private server port
 }
 
-fn default_management_service_url() -> String {
+fn default_control_service_url() -> String {
     // Default for development - localhost
     // In production with discovery, this should be the K8s service URL
     "http://localhost:9092".to_string()
@@ -365,7 +365,9 @@ fn default_oauth_enabled() -> bool {
 }
 
 fn default_jwks_url() -> String {
-    String::new()
+    // Default for development - control's public API port
+    // In production, this should be configured to point to the control service's public endpoint
+    "http://localhost:9090".to_string()
 }
 
 fn default_replay_protection() -> bool {
@@ -453,19 +455,16 @@ impl Config {
         // Validate authentication config (delegates to AuthConfig::validate)
         self.auth.validate().map_err(|e| anyhow::anyhow!(e))?;
 
-        // Validate management service URL format
-        let mgmt_url = self.effective_management_url();
-        if !mgmt_url.starts_with("http://") && !mgmt_url.starts_with("https://") {
+        // Validate control service URL format
+        let control_url = self.effective_control_url();
+        if !control_url.starts_with("http://") && !control_url.starts_with("https://") {
             anyhow::bail!(
-                "management_service.service_url must start with http:// or https://, got: {}",
-                mgmt_url
+                "control.service_url must start with http:// or https://, got: {}",
+                control_url
             );
         }
-        if mgmt_url.ends_with('/') {
-            anyhow::bail!(
-                "management_service.service_url must not end with trailing slash: {}",
-                mgmt_url
-            );
+        if control_url.ends_with('/') {
+            anyhow::bail!("control.service_url must not end with trailing slash: {}", control_url);
         }
 
         // Validate cache TTL values are reasonable
@@ -482,11 +481,11 @@ impl Config {
         Ok(())
     }
 
-    /// Get the management service URL
+    /// Get the control service URL
     ///
-    /// Returns the URL for management service communication.
-    pub fn effective_management_url(&self) -> String {
-        self.management_service.service_url.clone()
+    /// Returns the URL for control service communication.
+    pub fn effective_control_url(&self) -> String {
+        self.control.service_url.clone()
     }
 
     /// Check if service discovery is enabled
@@ -529,12 +528,15 @@ impl AuthConfig {
     /// - Validates issuer and audience configuration
     /// - Ensures required JTI when replay protection is enabled
     pub fn validate(&self) -> Result<(), String> {
-        // Warn if JWKS URL is missing
-        if self.jwks_url.is_empty() {
-            tracing::warn!(
-                "jwks_url is empty. \
-                 Tenant JWT authentication will not work."
-            );
+        // Validate JWKS URL format if provided
+        if !self.jwks_url.is_empty()
+            && !self.jwks_url.starts_with("http://")
+            && !self.jwks_url.starts_with("https://")
+        {
+            return Err(format!(
+                "auth.jwks_url must start with http:// or https://, got: {}",
+                self.jwks_url
+            ));
         }
 
         // CRITICAL: Reject if replay_protection enabled but no redis_url
@@ -599,7 +601,7 @@ impl Default for Config {
             auth: AuthConfig::default(),
             identity: IdentityConfig::default(),
             discovery: DiscoveryConfig::default(),
-            management_service: ManagementServiceConfig::default(),
+            control: ControlConfig::default(),
         }
     }
 }
@@ -661,19 +663,35 @@ mod tests {
         assert_eq!(config.server.public_grpc, "0.0.0.0:8081");
         assert_eq!(config.server.private_rest, "0.0.0.0:8082");
         assert!(config.cache.enabled);
+        // Default JWKS URL points to control's public API for local development
+        assert_eq!(config.auth.jwks_url, "http://localhost:9090");
+        // Default control service URL points to control's internal API
+        assert_eq!(config.control.service_url, "http://localhost:9092");
     }
 
     #[test]
-    fn test_auth_config_validation_without_jwks_url() {
+    fn test_auth_config_validation_with_empty_jwks_url() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::WARN)
             .with_test_writer()
             .try_init();
 
+        // Empty JWKS URL is valid (falls back to default behavior)
         let config = AuthConfig { jwks_url: String::new(), ..Default::default() };
+        assert!(config.validate().is_ok());
+    }
 
-        // Should warn but not panic
-        let _ = config.validate();
+    #[test]
+    fn test_auth_config_validation_invalid_jwks_url() {
+        let _subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .with_test_writer()
+            .try_init();
+
+        // Invalid JWKS URL (not http/https) should fail
+        let config =
+            AuthConfig { jwks_url: "ftp://invalid.example.com".to_string(), ..Default::default() };
+        assert!(config.validate().is_err());
     }
 
     #[test]

@@ -102,16 +102,16 @@ async fn main() -> Result<()> {
         ),
     };
 
-    // Create management service entry with discovery context
-    let mgmt_url = config.effective_management_url();
-    let mgmt_entry = if config.is_discovery_enabled() {
+    // Create control service entry with discovery context
+    let control_url = config.effective_control_url();
+    let control_entry = if config.is_discovery_enabled() {
         ConfigEntry::new(
             "Network",
-            "Management Service",
-            format!("{} ({})", mgmt_url, discovery_mode_text),
+            "Control Endpoint",
+            format!("{} ({})", control_url, discovery_mode_text),
         )
     } else {
-        ConfigEntry::new("Network", "Management Service", format!("{} (local)", mgmt_url))
+        ConfigEntry::new("Network", "Control Endpoint", format!("{} (local)", control_url))
     };
 
     StartupDisplay::new(ServiceInfo {
@@ -132,7 +132,7 @@ async fn main() -> Result<()> {
         ConfigEntry::new("Network", "Public API (gRPC)", &config.server.public_grpc),
         ConfigEntry::new("Network", "Private API (REST)", &config.server.private_rest),
         ConfigEntry::separator("Network"),
-        mgmt_entry,
+        control_entry,
         discovery_entry,
         private_key_entry,
     ])
@@ -180,8 +180,8 @@ async fn main() -> Result<()> {
 
     let jwks_cache = Some(Arc::new(jwks_cache));
 
-    // Initialize server identity for server-to-management authentication
-    let server_identity = if !config.effective_management_url().is_empty() {
+    // Initialize server identity for server-to-control authentication
+    let server_identity = if !config.effective_control_url().is_empty() {
         use inferadb_engine_auth::ServerIdentity;
 
         let identity = if let Some(ref pem) = config.identity.private_key_pem {
@@ -207,7 +207,7 @@ async fn main() -> Result<()> {
         log_initialized("Identity");
         Some(Arc::new(identity))
     } else {
-        log_skipped("Identity", "management_service.service_url not configured");
+        log_skipped("Identity", "control.service_url not configured");
         None
     };
 
