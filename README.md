@@ -61,8 +61,8 @@ graph TD
     Store --> FDB[(FoundationDB)]
 ```
 
-| Crate          | Purpose                            |
-| -------------- | ---------------------------------- |
+| Crate                 | Purpose                            |
+| --------------------- | ---------------------------------- |
 | inferadb-engine-core  | Policy evaluation, IPL interpreter |
 | inferadb-engine-api   | REST and gRPC endpoints            |
 | inferadb-engine-store | Storage abstraction                |

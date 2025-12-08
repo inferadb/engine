@@ -2132,12 +2132,12 @@ response = client.put_schema(
 
 InferaDB follows Kubernetes API server conventions for health endpoints:
 
-| Endpoint | Purpose | Response |
-|----------|---------|----------|
-| `/livez` | Liveness probe - is the process alive? | 200 OK / 503 |
-| `/readyz` | Readiness probe - ready for traffic? | 200 OK / 503 |
-| `/startupz` | Startup probe - initialization complete? | 200 OK / 503 |
-| `/healthz` | Detailed health status | JSON with details |
+| Endpoint    | Purpose                                  | Response          |
+| ----------- | ---------------------------------------- | ----------------- |
+| `/livez`    | Liveness probe - is the process alive?   | 200 OK / 503      |
+| `/readyz`   | Readiness probe - ready for traffic?     | 200 OK / 503      |
+| `/startupz` | Startup probe - initialization complete? | 200 OK / 503      |
+| `/healthz`  | Detailed health status                   | JSON with details |
 
 **gRPC:**
 

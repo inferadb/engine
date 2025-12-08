@@ -130,12 +130,12 @@ helm uninstall inferadb-engine --namespace inferadb
 
 ### Global Parameters
 
-| Name               | Description                                   | Value             |
-| ------------------ | --------------------------------------------- | ----------------- |
-| `image.repository` | InferaDB Engine image repository              | `inferadb-engine` |
-| `image.tag`        | Image tag (overrides Chart appVersion)        | `""`              |
-| `image.pullPolicy` | Image pull policy                             | `IfNotPresent`    |
-| `replicaCount`     | Number of replicas                            | `3`               |
+| Name               | Description                            | Value             |
+| ------------------ | -------------------------------------- | ----------------- |
+| `image.repository` | InferaDB Engine image repository       | `inferadb-engine` |
+| `image.tag`        | Image tag (overrides Chart appVersion) | `""`              |
+| `image.pullPolicy` | Image pull policy                      | `IfNotPresent`    |
+| `replicaCount`     | Number of replicas                     | `3`               |
 
 ### Service Parameters
 

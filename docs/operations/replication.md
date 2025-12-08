@@ -344,8 +344,8 @@ The replication system exposes comprehensive Prometheus metrics:
 
 ### Counters
 
-| Metric                                           | Description                                 |
-| ------------------------------------------------ | ------------------------------------------- |
+| Metric                                                  | Description                                 |
+| ------------------------------------------------------- | ------------------------------------------- |
 | `inferadb_engine_replication_changes_total`             | Total changes replicated                    |
 | `inferadb_engine_replication_failures_total`            | Total replication failures                  |
 | `inferadb_engine_replication_conflicts_total`           | Total conflicts detected                    |
@@ -354,16 +354,16 @@ The replication system exposes comprehensive Prometheus metrics:
 
 ### Gauges
 
-| Metric                                   | Description                 |
-| ---------------------------------------- | --------------------------- |
+| Metric                                          | Description                 |
+| ----------------------------------------------- | --------------------------- |
 | `inferadb_engine_replication_lag_milliseconds`  | Current replication lag     |
 | `inferadb_engine_replication_targets_connected` | Number of connected targets |
 | `inferadb_engine_replication_targets_total`     | Total configured targets    |
 
 ### Histograms
 
-| Metric                                  | Description                        |
-| --------------------------------------- | ---------------------------------- |
+| Metric                                         | Description                        |
+| ---------------------------------------------- | ---------------------------------- |
 | `inferadb_engine_replication_batch_size`       | Distribution of batch sizes        |
 | `inferadb_engine_replication_duration_seconds` | Duration of replication operations |
 

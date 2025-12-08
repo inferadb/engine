@@ -25,19 +25,19 @@ make dev                                     # Or use make
 
 ### Layered Dependencies (flow downward only)
 
-| Layer | Crates                                            | Purpose                               |
-| ----- | ------------------------------------------------- | ------------------------------------- |
-| 0     | `inferadb-engine-types`, `inferadb-engine-const`                | Foundation types (zero internal deps) |
-| 1     | `inferadb-engine-config`, `inferadb-engine-observe`             | Configuration, telemetry              |
-| 2     | `inferadb-engine-store`, `inferadb-engine-cache`                | Storage abstraction, caching          |
+| Layer | Crates                                                                 | Purpose                               |
+| ----- | ---------------------------------------------------------------------- | ------------------------------------- |
+| 0     | `inferadb-engine-types`, `inferadb-engine-const`                       | Foundation types (zero internal deps) |
+| 1     | `inferadb-engine-config`, `inferadb-engine-observe`                    | Configuration, telemetry              |
+| 2     | `inferadb-engine-store`, `inferadb-engine-cache`                       | Storage abstraction, caching          |
 | 3     | `inferadb-engine-wasm`, `inferadb-engine-core`, `inferadb-engine-auth` | Runtime, policy evaluation, auth      |
-| 4     | `inferadb-engine-repl`, `inferadb-engine-api`                   | REPL, API servers                     |
-| 5     | `inferadb-engine-bin`                                    | Binary entry point                    |
+| 4     | `inferadb-engine-repl`, `inferadb-engine-api`                          | REPL, API servers                     |
+| 5     | `inferadb-engine-bin`                                                  | Binary entry point                    |
 
 ### Key Crates
 
-| Crate            | Purpose                                                  |
-| ---------------- | -------------------------------------------------------- |
+| Crate                   | Purpose                                                  |
+| ----------------------- | -------------------------------------------------------- |
 | `inferadb-engine-types` | Shared types: Relationship, Vault, Account, Decision     |
 | `inferadb-engine-store` | Storage: MemoryBackend (dev), FoundationDBBackend (prod) |
 | `inferadb-engine-cache` | Two-layer caching, vault-scoped                          |

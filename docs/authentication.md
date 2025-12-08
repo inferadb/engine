@@ -90,7 +90,7 @@ The Server API authenticates requests using **vault-scoped JWTs** issued by Cont
 | Claim          | Description                                                                       | Validation                            |
 | -------------- | --------------------------------------------------------------------------------- | ------------------------------------- |
 | `kid` (header) | Certificate identifier in format `org-{org_id}-client-{client_id}-cert-{cert_id}` | Used to fetch public key              |
-| `iss`          | Control URL                                                                   | Must match configured `jwks_base_url` |
+| `iss`          | Control URL                                                                       | Must match configured `jwks_base_url` |
 | `aud`          | Server API URL                                                                    | Must match server's expected audience |
 | `exp`          | Expiration timestamp (Unix seconds)                                               | Must be in the future                 |
 | `org_id`       | Organization ID (Snowflake ID as string)                                          | Verified against vault ownership      |

@@ -45,10 +45,10 @@ InferaDB tracks comprehensive authentication metrics for monitoring security and
 
 | Metric                                       | Type      | Labels                              | Description                                 |
 | -------------------------------------------- | --------- | ----------------------------------- | ------------------------------------------- |
-| `inferadb_engine_auth_attempts_total`               | Counter   | `method`, `tenant_id`               | Total number of authentication attempts     |
-| `inferadb_engine_auth_success_total`                | Counter   | `method`, `tenant_id`               | Total number of successful authentications  |
-| `inferadb_engine_auth_failure_total`                | Counter   | `method`, `error_type`, `tenant_id` | Total number of failed authentications      |
-| `inferadb_engine_auth_duration_seconds`             | Histogram | `method`, `tenant_id`               | Duration of authentication operations       |
+| `inferadb_engine_auth_attempts_total`        | Counter   | `method`, `tenant_id`               | Total number of authentication attempts     |
+| `inferadb_engine_auth_success_total`         | Counter   | `method`, `tenant_id`               | Total number of successful authentications  |
+| `inferadb_engine_auth_failure_total`         | Counter   | `method`, `error_type`, `tenant_id` | Total number of failed authentications      |
+| `inferadb_engine_auth_duration_seconds`      | Histogram | `method`, `tenant_id`               | Duration of authentication operations       |
 | `inferadb_jwt_signature_verifications_total` | Counter   | `algorithm`, `result`               | Total number of JWT signature verifications |
 | `inferadb_jwt_validation_errors_total`       | Counter   | `error_type`                        | Total number of JWT validation errors       |
 
@@ -140,8 +140,8 @@ histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m]))
 
 ### Cache Metrics
 
-| Metric                        | Type    | Description                        |
-| ----------------------------- | ------- | ---------------------------------- |
+| Metric                               | Type    | Description                        |
+| ------------------------------------ | ------- | ---------------------------------- |
 | `inferadb_engine_cache_hits_total`   | Counter | Total number of cache hits         |
 | `inferadb_engine_cache_misses_total` | Counter | Total number of cache misses       |
 | `inferadb_engine_cache_entries`      | Gauge   | Current number of entries in cache |
@@ -189,8 +189,8 @@ rate(inferadb_storage_tuples_total[1h])
 
 ### WASM Metrics
 
-| Metric                            | Type      | Description                             |
-| --------------------------------- | --------- | --------------------------------------- |
+| Metric                                   | Type      | Description                             |
+| ---------------------------------------- | --------- | --------------------------------------- |
 | `inferadb_engine_wasm_invocations_total` | Counter   | Total number of WASM module invocations |
 | `inferadb_engine_wasm_errors_total`      | Counter   | Total number of WASM execution errors   |
 | `inferadb_engine_wasm_duration_seconds`  | Histogram | Duration of WASM module executions      |
@@ -242,8 +242,8 @@ histogram_quantile(0.99, rate(inferadb_evaluation_depth_bucket[5m]))
 
 InferaDB tracks comprehensive replication metrics for monitoring multi-region deployments.
 
-| Metric                                           | Type      | Description                                           |
-| ------------------------------------------------ | --------- | ----------------------------------------------------- |
+| Metric                                                  | Type      | Description                                           |
+| ------------------------------------------------------- | --------- | ----------------------------------------------------- |
 | `inferadb_engine_replication_changes_total`             | Counter   | Total number of changes replicated to remote regions  |
 | `inferadb_engine_replication_failures_total`            | Counter   | Total number of replication failures                  |
 | `inferadb_engine_replication_conflicts_total`           | Counter   | Total number of replication conflicts detected        |
@@ -354,8 +354,8 @@ For comprehensive audit logging documentation, see [Audit Logging](auditing.md).
 
 ### API Metrics
 
-| Metric                                            | Type      | Description                                  |
-| ------------------------------------------------- | --------- | -------------------------------------------- |
+| Metric                                                   | Type      | Description                                  |
+| -------------------------------------------------------- | --------- | -------------------------------------------- |
 | `inferadb_engine_api_requests_total{endpoint,method}`    | Counter   | Total API requests by endpoint and method    |
 | `inferadb_engine_api_errors_total{endpoint,status}`      | Counter   | Total API errors by endpoint and status code |
 | `inferadb_engine_api_request_duration_seconds{endpoint}` | Histogram | API request duration by endpoint             |

@@ -204,21 +204,21 @@ export RUST_LOG="inferadb_engine_api,inferadb_engine_cache=debug"
 
 InferaDB uses specific log targets for different subsystems:
 
-| Target                      | Description                         | Default Level |
-| --------------------------- | ----------------------------------- | ------------- |
+| Target                             | Description                         | Default Level |
+| ---------------------------------- | ----------------------------------- | ------------- |
 | `inferadb_engine_api`              | REST and gRPC API requests          | INFO          |
 | `inferadb_engine_core::evaluator`  | Authorization evaluation engine     | INFO          |
 | `inferadb_engine_store`            | Storage backend operations          | INFO          |
 | `inferadb_engine_auth`             | Authentication and JWT validation   | INFO          |
 | `inferadb_engine_cache`            | Cache operations (hits/misses)      | DEBUG         |
-| `inferadb_audit`            | Audit logging (JSON events)         | INFO          |
+| `inferadb_audit`                   | Audit logging (JSON events)         | INFO          |
 | `inferadb_engine_observe::metrics` | Metrics recording                   | DEBUG         |
 | `inferadb_engine_observe::tracing` | Distributed tracing                 | DEBUG         |
 | `inferadb_engine_core::optimizer`  | Query optimization                  | DEBUG         |
 | `inferadb_engine_core::parallel`   | Parallel evaluation                 | DEBUG         |
 | `inferadb_engine_replication`      | Multi-region replication            | INFO          |
-| `h2`, `hyper`, `tower`      | HTTP/gRPC framework logs (external) | WARN          |
-| `foundationdb`              | FoundationDB client logs (external) | WARN          |
+| `h2`, `hyper`, `tower`             | HTTP/gRPC framework logs (external) | WARN          |
+| `foundationdb`                     | FoundationDB client logs (external) | WARN          |
 
 ## Common Logging Patterns
 
