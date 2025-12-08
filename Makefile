@@ -46,31 +46,44 @@ help: ## Show this help message
 
 setup: ## One-time development environment setup
 	@echo "🔧 Setting up development environment..."
-	@mise trust && mise install
-	@mise run setup
+	@if command -v mise > /dev/null 2>&1; then \
+		mise trust && mise install; \
+	else \
+		echo "⚠️  mise not found - using system cargo"; \
+	fi
+	@$(CARGO) fetch
+	@echo "✅ Setup complete!"
 
 test: ## Run unit tests
+	@echo "🧪 Running unit tests..."
 	@$(CARGO) nextest run --lib --workspace
 
 test-integration: ## Run integration tests
+	@echo "🧪 Running integration tests..."
 	@$(CARGO) nextest run --test '*' --workspace
 
 test-leaks: ## Run memory leak detection tests
+	@echo "🧪 Running memory leak detection tests..."
 	@$(CARGO) test --test memory_leak_tests --package infera-api
 
 test-load: ## Run load/stress tests (ignored by default)
+	@echo "🧪 Running load/stress tests..."
 	@$(CARGO) test --package infera-core --test performance_load -- --ignored --test-threads=1
 
 test-fdb: ## Run FoundationDB integration tests (requires Docker)
+	@echo "🧪 Running FDB integration tests..."
 	@./docker/fdb-integration-tests/test.sh
 
 test-aws: ## Run AWS Secrets Manager tests (requires Docker)
+	@echo "🧪 Running AWS Secrets Manager tests..."
 	@./docker/aws-integration-tests/test.sh
 
 test-gcp: ## Run GCP Secret Manager tests (requires Docker)
+	@echo "🧪 Running GCP Secret Manager tests..."
 	@./docker/gcp-integration-tests/test.sh
 
 test-azure: ## Run Azure Key Vault tests (requires Docker)
+	@echo "🧪 Running Azure Key Vault tests..."
 	@./docker/azure-integration-tests/test.sh
 
 check: ## Run code quality checks (format, lint, audit)
@@ -81,31 +94,40 @@ check: ## Run code quality checks (format, lint, audit)
 	@echo "✅ All checks passed!"
 
 format: ## Format code (Prettier, Taplo, markdownlint, rustfmt)
+	@echo "📝 Formatting code..."
 	@$(PRETTIER) --write "**/*.{md,yml,yaml,json}" --log-level warn || true
 	@$(MARKDOWNLINT) --fix "**/*.md" || true
 	@$(TAPLO) fmt
 	@$(CARGO) +nightly fmt --all
+	@echo "✅ Formatting complete!"
 
 lint: ## Run linters (clippy, markdownlint)
+	@echo "🔍 Running linters..."
 	@$(MARKDOWNLINT) "**/*.md"
 	@$(CARGO) clippy --workspace --all-targets -- -D warnings
 
 audit: ## Run security audit
+	@echo "🔒 Running security audit..."
 	@$(CARGO) audit
 
 deny: ## Check dependencies with cargo-deny
+	@echo "🔍 Checking dependencies..."
 	@$(CARGO) deny check
 
 run: ## Run the inferadb server (debug mode)
+	@echo "🚀 Starting InferaDB server..."
 	@$(CARGO) run --bin inferadb-server
 
 build: ## Build debug binary
+	@echo "🔨 Building debug binary..."
 	@$(CARGO) build
 
 release: ## Build optimized release binary
+	@echo "🚀 Building release binary..."
 	@$(CARGO) build --release --workspace
 
 clean: ## Clean build artifacts
+	@echo "🧹 Cleaning build artifacts..."
 	@$(CARGO) clean
 
 reset: ## Reset the dev environment
@@ -155,9 +177,11 @@ reset: ## Reset the dev environment
 	@echo "✅ Reset complete! Run 'make setup' to reinitialize."
 
 dev: ## Start development server with auto-reload
+	@echo "🔄 Starting InferaDB server with auto-reload..."
 	@$(CARGO) watch -x 'run --bin inferadb-server'
 
 doc: ## Generate and open documentation (Rustdoc + API docs)
+	@echo "📚 Generating documentation..."
 	@$(CARGO) doc --workspace --no-deps
 	@./scripts/generate-docs.sh
 
@@ -166,11 +190,13 @@ coverage: ## Generate code coverage report
 	@echo "📊 Coverage report generated at target/llvm-cov/html/index.html"
 
 bench: ## Run benchmarks
+	@echo "⚡ Running benchmarks..."
 	@$(CARGO) bench --workspace
 
 # Advanced targets
 
 fix: ## Auto-fix clippy warnings where possible
+	@echo "🔧 Auto-fixing clippy warnings..."
 	@$(CARGO) clippy --workspace --all-targets --fix --allow-dirty --allow-staged
 
 expand: ## Expand macros (usage: make expand FILE=path/to/file.rs)
@@ -200,17 +226,21 @@ bloat: ## Analyze binary size (requires cargo-bloat)
 # Docker targets
 
 docker-build: ## Build Docker image
+	@echo "🐳 Building Docker image..."
 	@docker build -t inferadb:dev .
 
 docker-run: ## Run Docker container
+	@echo "🐳 Running Docker container..."
 	@docker run -p 8080:8080 -p 8081:8081 inferadb:dev
 
 # Kubernetes targets
 
 k8s-deploy: ## Deploy to local Kubernetes
+	@echo "☸️  Deploying to Kubernetes..."
 	@kubectl apply -k k8s/
 
 k8s-delete: ## Delete from local Kubernetes
+	@echo "☸️  Deleting from Kubernetes..."
 	@kubectl delete -k k8s/
 
 # CI simulation
