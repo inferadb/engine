@@ -8,15 +8,13 @@
 
 server:
   # Public REST API server binding (client-facing traffic)
-  host: "0.0.0.0"
-  port: 8080
+  public_rest: "0.0.0.0:8080"
 
   # Public gRPC API server
-  grpc_port: 8081
+  public_grpc: "0.0.0.0:8081"
 
-  # Internal/Private REST API server (server-to-server communication)
-  internal_host: "0.0.0.0"
-  internal_port: 8082
+  # Private REST API server (server-to-server communication)
+  private_rest: "0.0.0.0:8082"
 
   # Worker threads (recommended: number of CPU cores)
   worker_threads: 16

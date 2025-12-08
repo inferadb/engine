@@ -90,8 +90,8 @@ docker run -d \
   --name inferadb \
   -p 8080:8080 \
   -p 8081:8081 \
-  -e INFERA__STORE__BACKEND=memory \
-  -e INFERA__AUTH__ENABLED=false \
+  -e INFERADB__STORAGE__BACKEND=memory \
+  -e INFERADB__AUTH__ENABLED=false \
   inferadb:latest
 
 # Verify health
@@ -106,15 +106,15 @@ mkdir -p /var/run/secrets/inferadb
 
 # Create environment file
 cat > inferadb.env <<EOF
-INFERA__SERVER__WORKER_THREADS=4
-INFERA__STORE__BACKEND=foundationdb
-INFERA__STORE__CONNECTION_STRING=/etc/foundationdb/fdb.cluster
-INFERA__CACHE__ENABLED=true
-INFERA__CACHE__MAX_CAPACITY=100000
-INFERA__AUTH__ENABLED=true
-INFERA__AUTH__JWKS_URL=https://auth.example.com/.well-known/jwks.json
-INFERA__AUTH__REDIS_URL=redis://redis:6379
-INFERA__AUTH__REPLAY_PROTECTION=true
+INFERADB__SERVER__WORKER_THREADS=4
+INFERADB__STORAGE__BACKEND=foundationdb
+INFERADB__STORAGE__FDB_CLUSTER_FILE=/etc/foundationdb/fdb.cluster
+INFERADB__CACHE__ENABLED=true
+INFERADB__CACHE__MAX_CAPACITY=100000
+INFERADB__AUTH__ENABLED=true
+INFERADB__AUTH__JWKS_URL=https://auth.example.com/.well-known/jwks.json
+INFERADB__AUTH__REDIS_URL=redis://redis:6379
+INFERADB__AUTH__REPLAY_PROTECTION=true
 EOF
 
 # Run with configuration
@@ -142,11 +142,11 @@ services:
       - "8081:8081"
       - "9090:9090" # Metrics
     environment:
-      INFERA__SERVER__WORKER_THREADS: "4"
-      INFERA__STORE__BACKEND: "memory"
-      INFERA__CACHE__ENABLED: "true"
-      INFERA__AUTH__ENABLED: "false"
-      INFERA__OBSERVABILITY__LOG_LEVEL: "info"
+      INFERADB__SERVER__WORKER_THREADS: "4"
+      INFERADB__STORAGE__BACKEND: "memory"
+      INFERADB__CACHE__ENABLED: "true"
+      INFERADB__AUTH__ENABLED: "false"
+      INFERADB__OBSERVABILITY__LOG_LEVEL: "info"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -181,8 +181,8 @@ kubectl create namespace inferadb
 
 # Create secrets
 kubectl create secret generic inferadb-secrets \
-  --from-literal=INFERA__AUTH__JWKS_URL="https://auth.example.com/.well-known/jwks.json" \
-  --from-literal=INFERA__AUTH__REDIS_URL="redis://redis:6379" \
+  --from-literal=INFERADB__AUTH__JWKS_URL="https://auth.example.com/.well-known/jwks.json" \
+  --from-literal=INFERADB__AUTH__REDIS_URL="redis://redis:6379" \
   -n inferadb
 
 # Deploy
@@ -311,18 +311,18 @@ See [terraform/README.md](../../terraform/README.md) for detailed documentation.
 
 ### Environment Variables
 
-All configuration can be provided via environment variables using the `INFERA__` prefix:
+All configuration can be provided via environment variables using the `INFERADB__` prefix:
 
-| Environment Variable             | Description                                  | Default   |
-| -------------------------------- | -------------------------------------------- | --------- |
-| `INFERA__SERVER__HOST`           | Server bind address                          | `0.0.0.0` |
-| `INFERA__SERVER__PORT`           | HTTP port                                    | `8080`    |
-| `INFERA__SERVER__WORKER_THREADS` | Tokio worker threads                         | CPU count |
-| `INFERA__STORE__BACKEND`         | Storage backend (`memory` or `foundationdb`) | `memory`  |
-| `INFERA__CACHE__ENABLED`         | Enable caching                               | `true`    |
-| `INFERA__AUTH__ENABLED`          | Enable authentication                        | `true`    |
+| Environment Variable               | Description                                  | Default        |
+| ---------------------------------- | -------------------------------------------- | -------------- |
+| `INFERADB__SERVER__PUBLIC_REST`    | Public REST API address (host:port)          | `0.0.0.0:8080` |
+| `INFERADB__SERVER__PUBLIC_GRPC`    | Public gRPC API address (host:port)          | `0.0.0.0:8081` |
+| `INFERADB__SERVER__PRIVATE_REST`   | Private REST API address (host:port)         | `0.0.0.0:8082` |
+| `INFERADB__SERVER__WORKER_THREADS` | Tokio worker threads                         | CPU count      |
+| `INFERADB__STORAGE__BACKEND`       | Storage backend (`memory` or `foundationdb`) | `memory`       |
+| `INFERADB__CACHE__ENABLED`         | Enable caching                               | `true`         |
 
-See [Configuration Reference](../docs/configuration.md) for complete list.
+See [Configuration Guide](configuration.md) for complete list.
 
 ### Configuration File
 
@@ -330,21 +330,21 @@ Alternatively, use a YAML configuration file:
 
 ```yaml
 server:
-  host: 0.0.0.0
-  port: 8080
+  public_rest: "0.0.0.0:8080"
+  public_grpc: "0.0.0.0:8081"
+  private_rest: "0.0.0.0:8082"
   worker_threads: 4
 
-store:
+storage:
   backend: foundationdb
-  connection_string: /etc/foundationdb/fdb.cluster
+  fdb_cluster_file: /etc/foundationdb/fdb.cluster
 
 cache:
   enabled: true
   max_capacity: 100000
-  ttl_seconds: 600
+  ttl: 600
 
 auth:
-  enabled: true
   jwks_url: https://auth.example.com/.well-known/jwks.json
   replay_protection: true
   redis_url: redis://redis:6379
@@ -353,7 +353,7 @@ auth:
 Load with:
 
 ```bash
-inferadb --config /etc/inferadb/config.yaml
+inferadb-server --config /etc/inferadb/config.yaml
 ```
 
 ### Secrets Management
@@ -363,8 +363,8 @@ inferadb --config /etc/inferadb/config.yaml
 #### 1. Environment Variables
 
 ```bash
-export INFERA__AUTH__JWKS_URL="https://..."
-export INFERA__AUTH__REDIS_URL="redis://..."
+export INFERADB__AUTH__JWKS_URL="https://..."
+export INFERADB__AUTH__REDIS_URL="redis://..."
 inferadb
 ```
 
@@ -372,8 +372,8 @@ inferadb
 
 ```bash
 kubectl create secret generic inferadb-secrets \
-  --from-literal=INFERA__AUTH__JWKS_URL="..." \
-  --from-literal=INFERA__AUTH__REDIS_URL="..."
+  --from-literal=INFERADB__AUTH__JWKS_URL="..." \
+  --from-literal=INFERADB__AUTH__REDIS_URL="..."
 ```
 
 #### 3. External Secrets Operator
@@ -390,7 +390,7 @@ spec:
   target:
     name: inferadb-secrets
   data:
-    - secretKey: INFERA__AUTH__JWKS_URL
+    - secretKey: INFERADB__AUTH__JWKS_URL
       remoteRef:
         key: inferadb/prod/auth
         property: jwks_url
@@ -404,7 +404,7 @@ echo "https://auth.example.com/.well-known/jwks.json" | \
 
 docker service create \
   --secret jwks_url \
-  --env INFERA__AUTH__JWKS_URL=/run/secrets/jwks_url \
+  --env INFERADB__AUTH__JWKS_URL=/run/secrets/jwks_url \
   inferadb:latest
 ```
 
@@ -456,10 +456,10 @@ Our Docker image follows security best practices:
 
 ### Authentication Security
 
-1. **Enable authentication**: Always use `INFERA__AUTH__ENABLED=true` in production
-2. **Replay protection**: Enable `INFERA__AUTH__REPLAY_PROTECTION=true`
+1. **Enable authentication**: Always use `INFERADB__AUTH__ENABLED=true` in production
+2. **Replay protection**: Enable `INFERADB__AUTH__REPLAY_PROTECTION=true`
 3. **Token validation**: Configure JWKS URL correctly
-4. **Clock skew**: Adjust `INFERA__AUTH__ALLOWED_CLOCK_SKEW` as needed
+4. **Clock skew**: Adjust `INFERADB__AUTH__ALLOWED_CLOCK_SKEW` as needed
 
 ## Monitoring
 
@@ -678,7 +678,7 @@ curl http://localhost:8080/metrics | grep inferadb_request_duration
 
 1. **Increase replicas**: Scale horizontally
 2. **Increase resources**: More CPU/memory
-3. **Enable caching**: Set `INFERA__CACHE__ENABLED=true`
+3. **Enable caching**: Set `INFERADB__CACHE__ENABLED=true`
 4. **Optimize queries**: Review application logic
 5. **Check backend**: FDB performance, Redis latency
 
@@ -694,9 +694,9 @@ kubectl exec -it -n inferadb deployment/inferadb -- \
 
 **Common issues:**
 
-1. **Wrong JWKS URL**: Verify `INFERA__AUTH__JWKS_URL`
+1. **Wrong JWKS URL**: Verify `INFERADB__AUTH__JWKS_URL`
 2. **Network restrictions**: Check firewall/egress rules
-3. **Clock skew**: Increase `INFERA__AUTH__ALLOWED_CLOCK_SKEW`
+3. **Clock skew**: Increase `INFERADB__AUTH__ALLOWED_CLOCK_SKEW`
 4. **Token format**: Verify JWT structure and claims
 
 ### Storage Issues

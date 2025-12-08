@@ -68,15 +68,18 @@ pub fn validate(config: &Config) -> Result<()> {
 /// Validate server configuration
 pub fn validate_server(config: &ServerConfig) -> Result<()> {
     // Validate addresses are parseable as SocketAddr
-    config.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-        ValidationError::InvalidAddress(config.public_rest.clone(), e.to_string())
-    })?;
-    config.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
-        ValidationError::InvalidAddress(config.public_grpc.clone(), e.to_string())
-    })?;
-    config.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-        ValidationError::InvalidAddress(config.private_rest.clone(), e.to_string())
-    })?;
+    config
+        .public_rest
+        .parse::<std::net::SocketAddr>()
+        .map_err(|e| ValidationError::InvalidAddress(config.public_rest.clone(), e.to_string()))?;
+    config
+        .public_grpc
+        .parse::<std::net::SocketAddr>()
+        .map_err(|e| ValidationError::InvalidAddress(config.public_grpc.clone(), e.to_string()))?;
+    config
+        .private_rest
+        .parse::<std::net::SocketAddr>()
+        .map_err(|e| ValidationError::InvalidAddress(config.private_rest.clone(), e.to_string()))?;
 
     // Validate worker threads
     if config.worker_threads == 0 {

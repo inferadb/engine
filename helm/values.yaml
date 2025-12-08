@@ -187,10 +187,10 @@ discovery:
     # Kubernetes service name (when mode = kubernetes_service)
     serviceName: "inferadb-management"
     namespace: "inferadb"
-    port: 3000
+    port: 9092 # Management internal/private API port
 
     # Static URL (when mode = static)
-    staticUrl: "http://localhost:8081"
+    staticUrl: "http://localhost:9092"
 
     # Refresh interval for discovery (seconds)
     refreshInterval: 30
@@ -208,11 +208,11 @@ discovery:
     # - name: "eu-west-1"
     #   tailscaleDomain: "eu-west-1.ts.net"
     #   serviceName: "inferadb-management"
-    #   port: 3000
+    #   port: 9092
     # - name: "ap-southeast-1"
     #   tailscaleDomain: "ap-southeast-1.ts.net"
     #   serviceName: "inferadb-management"
-    #   port: 3000
+    #   port: 9092
     remoteClusters: []
 
     # Tailscale auth key (reference to secret)

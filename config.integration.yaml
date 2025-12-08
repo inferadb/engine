@@ -2,16 +2,14 @@
 # This config is optimized for Docker container E2E testing
 
 server:
-  # Public REST API server binding
-  host: "0.0.0.0" # Bind to all interfaces for Docker
-  port: 8080 # Match docker-compose exposed port
+  # Public REST API server binding (bind to all interfaces for Docker)
+  public_rest: "0.0.0.0:8080"
 
   # Public gRPC API server
-  grpc_port: 8081
+  public_grpc: "0.0.0.0:8081"
 
-  # Internal/Private REST API server (server-to-server communication)
-  internal_host: "0.0.0.0"
-  internal_port: 8082
+  # Private REST API server (server-to-server communication)
+  private_rest: "0.0.0.0:8082"
 
   worker_threads: 2 # Reduced for test environment
 

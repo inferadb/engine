@@ -412,13 +412,25 @@ impl Config {
     pub fn validate(&self) -> anyhow::Result<()> {
         // Validate server addresses are parseable
         self.server.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!("server.public_rest '{}' is not a valid socket address: {}", self.server.public_rest, e)
+            anyhow::anyhow!(
+                "server.public_rest '{}' is not a valid socket address: {}",
+                self.server.public_rest,
+                e
+            )
         })?;
         self.server.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!("server.public_grpc '{}' is not a valid socket address: {}", self.server.public_grpc, e)
+            anyhow::anyhow!(
+                "server.public_grpc '{}' is not a valid socket address: {}",
+                self.server.public_grpc,
+                e
+            )
         })?;
         self.server.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!("server.private_rest '{}' is not a valid socket address: {}", self.server.private_rest, e)
+            anyhow::anyhow!(
+                "server.private_rest '{}' is not a valid socket address: {}",
+                self.server.private_rest,
+                e
+            )
         })?;
 
         if self.server.worker_threads == 0 {

@@ -39,11 +39,9 @@ Create a `config.yaml` or `config.json` file:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  grpc_port: 8081
-  internal_host: "0.0.0.0"
-  internal_port: 8082
+  public_rest: "0.0.0.0:8080"
+  public_grpc: "0.0.0.0:8081"
+  private_rest: "0.0.0.0:8082"
   worker_threads: 4
 
 storage:
@@ -63,7 +61,7 @@ observability:
 auth:
   jwks_cache_ttl: 300
 
-# Identity: server_id and kid are auto-generated
+# Identity: private_key_pem is auto-generated if not set
 identity: {}
 
 discovery:
@@ -87,12 +85,10 @@ inferadb-server --config config.yaml
 All configuration options can be set via environment variables using the `INFERADB__` prefix:
 
 ```bash
-# Server configuration
-export INFERADB__SERVER__HOST="0.0.0.0"
-export INFERADB__SERVER__PORT=8080
-export INFERADB__SERVER__GRPC_PORT=8081
-export INFERADB__SERVER__INTERNAL_HOST="0.0.0.0"
-export INFERADB__SERVER__INTERNAL_PORT=8082
+# Server configuration (combined address format)
+export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:8080"
+export INFERADB__SERVER__PUBLIC_GRPC="0.0.0.0:8081"
+export INFERADB__SERVER__PRIVATE_REST="0.0.0.0:8082"
 export INFERADB__SERVER__WORKER_THREADS=4
 
 # Storage configuration
@@ -118,9 +114,9 @@ export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 Environment variables override file configuration:
 
 ```bash
-# config.yaml sets port to 8080
+# config.yaml sets public_rest to "0.0.0.0:8080"
 # Environment variable overrides to 3000
-export INFERADB__SERVER__PORT=3000
+export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:3000"
 inferadb-server --config config.yaml
 # Server starts on port 3000
 ```
@@ -129,20 +125,18 @@ inferadb-server --config config.yaml
 
 Controls HTTP/gRPC server behavior. The server exposes three interfaces:
 
-- **Public REST API** (port 8080): Client-facing HTTP API
-- **Public gRPC API** (port 8081): Client-facing gRPC API
-- **Internal REST API** (port 8082): Server-to-server communication
+- **Public REST API** (default `0.0.0.0:8080`): Client-facing HTTP API
+- **Public gRPC API** (default `0.0.0.0:8081`): Client-facing gRPC API
+- **Private REST API** (default `0.0.0.0:8082`): Server-to-server communication
 
 ### Options
 
-| Option           | Type    | Default     | Description                                 |
-| ---------------- | ------- | ----------- | ------------------------------------------- |
-| `host`           | string  | `"0.0.0.0"` | Public REST API bind address                |
-| `port`           | integer | `8080`      | Public REST API port                        |
-| `grpc_port`      | integer | `8081`      | Public gRPC API port                        |
-| `internal_host`  | string  | `"0.0.0.0"` | Internal REST API bind address              |
-| `internal_port`  | integer | `8082`      | Internal REST API port (cache invalidation) |
-| `worker_threads` | integer | CPU count   | Number of Tokio worker threads              |
+| Option           | Type    | Default          | Description                                 |
+| ---------------- | ------- | ---------------- | ------------------------------------------- |
+| `public_rest`    | string  | `"0.0.0.0:8080"` | Public REST API address (host:port)         |
+| `public_grpc`    | string  | `"0.0.0.0:8081"` | Public gRPC API address (host:port)         |
+| `private_rest`   | string  | `"0.0.0.0:8082"` | Private REST API address (server-to-server) |
+| `worker_threads` | integer | CPU count        | Number of Tokio worker threads              |
 
 ### Examples
 
@@ -150,11 +144,9 @@ Controls HTTP/gRPC server behavior. The server exposes three interfaces:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  grpc_port: 8081
-  internal_host: "0.0.0.0"
-  internal_port: 8082
+  public_rest: "0.0.0.0:8080"
+  public_grpc: "0.0.0.0:8081"
+  private_rest: "0.0.0.0:8082"
   worker_threads: 2
 ```
 
@@ -162,22 +154,18 @@ server:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  grpc_port: 8081
-  internal_host: "0.0.0.0"
-  internal_port: 8082
+  public_rest: "0.0.0.0:8080"
+  public_grpc: "0.0.0.0:8081"
+  private_rest: "0.0.0.0:8082"
   worker_threads: 8
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__SERVER__HOST="0.0.0.0"
-export INFERADB__SERVER__PORT=8080
-export INFERADB__SERVER__GRPC_PORT=8081
-export INFERADB__SERVER__INTERNAL_HOST="0.0.0.0"
-export INFERADB__SERVER__INTERNAL_PORT=8082
+export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:8080"
+export INFERADB__SERVER__PUBLIC_GRPC="0.0.0.0:8081"
+export INFERADB__SERVER__PRIVATE_REST="0.0.0.0:8082"
 export INFERADB__SERVER__WORKER_THREADS=8
 ```
 
@@ -243,10 +231,10 @@ Controls the in-memory check result cache.
 
 ### Options
 
-| Option         | Type    | Default | Description                      |
-| -------------- | ------- | ------- | -------------------------------- |
-| `enabled`      | boolean | `true`  | Enable result caching            |
-| `max_capacity` | integer | `10000` | Maximum number of cached entries |
+| Option         | Type    | Default | Description                            |
+| -------------- | ------- | ------- | -------------------------------------- |
+| `enabled`      | boolean | `true`  | Enable result caching                  |
+| `max_capacity` | integer | `10000` | Maximum number of cached entries       |
 | `ttl`          | integer | `300`   | Cache entry TTL in seconds (5 minutes) |
 
 ### Examples
@@ -490,12 +478,12 @@ Controls service discovery for multi-node deployments.
 
 ### Options
 
-| Option                          | Type    | Default | Description                         |
-| ------------------------------- | ------- | ------- | ----------------------------------- |
-| `mode`                          | object  | `none`  | Discovery mode configuration        |
-| `cache_ttl`                     | integer | `300`   | Cache TTL for discovered endpoints (seconds)  |
-| `enable_health_check`           | boolean | `false` | Enable health checking of endpoints |
-| `health_check_interval`         | integer | `30`    | Health check interval (seconds)     |
+| Option                  | Type    | Default | Description                                  |
+| ----------------------- | ------- | ------- | -------------------------------------------- |
+| `mode`                  | object  | `none`  | Discovery mode configuration                 |
+| `cache_ttl`             | integer | `300`   | Cache TTL for discovered endpoints (seconds) |
+| `enable_health_check`   | boolean | `false` | Enable health checking of endpoints          |
+| `health_check_interval` | integer | `30`    | Health check interval (seconds)              |
 
 ### Discovery Modes
 
@@ -595,11 +583,9 @@ Optimized for local development:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  grpc_port: 8081
-  internal_host: "0.0.0.0"
-  internal_port: 8082
+  public_rest: "0.0.0.0:8080"
+  public_grpc: "0.0.0.0:8081"
+  private_rest: "0.0.0.0:8082"
   worker_threads: 2
 
 storage:
@@ -633,11 +619,9 @@ Optimized for production deployment:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  grpc_port: 8081
-  internal_host: "0.0.0.0"
-  internal_port: 8082
+  public_rest: "0.0.0.0:8080"
+  public_grpc: "0.0.0.0:8081"
+  private_rest: "0.0.0.0:8082"
   worker_threads: 8
 
 storage:
@@ -680,11 +664,9 @@ Optimized for predictable testing:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  grpc_port: 8081
-  internal_host: "0.0.0.0"
-  internal_port: 8082
+  public_rest: "0.0.0.0:8080"
+  public_grpc: "0.0.0.0:8081"
+  private_rest: "0.0.0.0:8082"
   worker_threads: 1
 
 storage:
@@ -780,7 +762,7 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 
 **Server**:
 
-- `port` must be 1-65535
+- `public_rest`, `public_grpc`, `private_rest` must be valid socket addresses (e.g., `"0.0.0.0:8080"`)
 - `worker_threads` must be > 0
 
 **Storage**:
@@ -859,13 +841,11 @@ Error: management_service.service_url must start with http:// or https://
 ### Performance
 
 1. **Tune worker threads**
-
    - CPU-bound: 2x CPU cores
    - I/O-bound: 4-8x CPU cores
    - Benchmark and adjust
 
 2. **Optimize cache settings**
-
    - Increase `max_capacity` for large datasets
    - Adjust `ttl` based on update frequency
    - Monitor cache hit rate (target >80%)
@@ -885,7 +865,6 @@ Error: management_service.service_url must start with http:// or https://
    ```
 
 2. **Choose appropriate log level**
-
    - Production: `"info"`
    - Development: `"debug"`
    - Troubleshooting: `"debug"` temporarily
@@ -899,12 +878,10 @@ Error: management_service.service_url must start with http:// or https://
 ### Operations
 
 1. **Use configuration files for defaults**
-
    - Non-sensitive configuration
    - Version control tracked
 
 2. **Use environment variables for overrides**
-
    - Secrets
    - Environment-specific values
    - Dynamic configuration
@@ -929,10 +906,9 @@ services:
       - "8081:8081"
       - "8082:8082"
     environment:
-      INFERADB__SERVER__HOST: "0.0.0.0"
-      INFERADB__SERVER__PORT: "8080"
-      INFERADB__SERVER__GRPC_PORT: "8081"
-      INFERADB__SERVER__INTERNAL_PORT: "8082"
+      INFERADB__SERVER__PUBLIC_REST: "0.0.0.0:8080"
+      INFERADB__SERVER__PUBLIC_GRPC: "0.0.0.0:8081"
+      INFERADB__SERVER__PRIVATE_REST: "0.0.0.0:8082"
       INFERADB__STORAGE__BACKEND: "foundationdb"
       INFERADB__STORAGE__FDB_CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
       INFERADB__MANAGEMENT_SERVICE__SERVICE_URL: "http://management:9092"
@@ -962,7 +938,7 @@ inferadb-server --config config.yaml 2>&1 | grep ERROR
 lsof -i :8080
 
 # Change port
-export INFERADB__SERVER__PORT=8090
+export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:8090"
 ```
 
 ### Out of Memory

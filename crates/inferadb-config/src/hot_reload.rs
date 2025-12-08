@@ -186,21 +186,15 @@ impl HotReloadHandle {
         config.auth.validate()?;
 
         // Validate server addresses are parseable
-        config
-            .server
-            .public_rest
-            .parse::<std::net::SocketAddr>()
-            .map_err(|e| format!("Invalid public_rest address '{}': {}", config.server.public_rest, e))?;
-        config
-            .server
-            .public_grpc
-            .parse::<std::net::SocketAddr>()
-            .map_err(|e| format!("Invalid public_grpc address '{}': {}", config.server.public_grpc, e))?;
-        config
-            .server
-            .private_rest
-            .parse::<std::net::SocketAddr>()
-            .map_err(|e| format!("Invalid private_rest address '{}': {}", config.server.private_rest, e))?;
+        config.server.public_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+            format!("Invalid public_rest address '{}': {}", config.server.public_rest, e)
+        })?;
+        config.server.public_grpc.parse::<std::net::SocketAddr>().map_err(|e| {
+            format!("Invalid public_grpc address '{}': {}", config.server.public_grpc, e)
+        })?;
+        config.server.private_rest.parse::<std::net::SocketAddr>().map_err(|e| {
+            format!("Invalid private_rest address '{}': {}", config.server.private_rest, e)
+        })?;
 
         if config.server.worker_threads == 0 {
             return Err("Worker threads must be > 0".to_string());

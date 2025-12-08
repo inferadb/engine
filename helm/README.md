@@ -61,8 +61,8 @@ config:
     fdbClusterFile: "/etc/foundationdb/fdb.cluster"
 
   auth:
-    enabled: true
     replayProtection: true
+    jwksCacheTtl: 300
 
 autoscaling:
   enabled: true
@@ -95,9 +95,6 @@ resources:
 config:
   storage:
     backend: "memory"
-
-  auth:
-    enabled: false
 
 autoscaling:
   enabled: false
@@ -142,12 +139,12 @@ helm uninstall inferadb --namespace inferadb
 
 ### Service Parameters
 
-| Name                   | Description                     | Value       |
-| ---------------------- | ------------------------------- | ----------- |
-| `service.type`         | Kubernetes service type         | `ClusterIP` |
-| `service.port`         | Public REST API service port    | `8080`      |
-| `service.grpcPort`     | Public gRPC service port        | `8081`      |
-| `service.internalPort` | Internal/private REST API port  | `8082`      |
+| Name                   | Description                    | Value       |
+| ---------------------- | ------------------------------ | ----------- |
+| `service.type`         | Kubernetes service type        | `ClusterIP` |
+| `service.port`         | Public REST API service port   | `8080`      |
+| `service.grpcPort`     | Public gRPC service port       | `8081`      |
+| `service.internalPort` | Internal/private REST API port | `8082`      |
 
 ### Autoscaling Parameters
 
@@ -160,12 +157,12 @@ helm uninstall inferadb --namespace inferadb
 
 ### InferaDB Configuration
 
-| Name                          | Description           | Value    |
-| ----------------------------- | --------------------- | -------- |
-| `config.server.workerThreads` | Tokio worker threads  | `4`      |
-| `config.storage.backend`      | Storage backend       | `memory` |
-| `config.cache.enabled`        | Enable caching        | `true`   |
-| `config.auth.enabled`         | Enable authentication | `true`   |
+| Name                          | Description                      | Value    |
+| ----------------------------- | -------------------------------- | -------- |
+| `config.server.workerThreads` | Tokio worker threads             | `4`      |
+| `config.storage.backend`      | Storage backend                  | `memory` |
+| `config.cache.enabled`        | Enable caching                   | `true`   |
+| `config.auth.enabled`         | Include auth config in ConfigMap | `true`   |
 
 See [values.yaml](values.yaml) for complete list.
 
@@ -228,7 +225,7 @@ spec:
 ### Minimal Installation
 
 ```bash
-helm install inferadb ./helm --set config.auth.enabled=false
+helm install inferadb ./helm --set config.storage.backend=memory
 ```
 
 ### High Availability
@@ -249,9 +246,10 @@ replicaCount: 5
 config:
   storage:
     backend: foundationdb
+    fdbClusterFile: "/etc/foundationdb/fdb.cluster"
   auth:
-    enabled: true
     replayProtection: true
+    jwksCacheTtl: 300
 EOF
 
 helm install inferadb ./helm -f production-values.yaml
