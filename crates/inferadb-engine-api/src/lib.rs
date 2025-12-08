@@ -587,6 +587,10 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         )
         .layer(CompressionLayer::new());
 
+    // Mark service as ready to accept traffic
+    state.health_tracker.set_ready(true);
+    state.health_tracker.set_startup_complete(true);
+
     Ok(router)
 }
 
