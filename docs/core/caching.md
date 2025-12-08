@@ -103,7 +103,7 @@ AuthCache::with_tti(Duration::from_secs(120))  // 2 minutes
 ### Basic Usage
 
 ```rust
-use inferadb_cache::AuthCache;
+use inferadb_engine_cache::AuthCache;
 use std::sync::Arc;
 
 // Create cache

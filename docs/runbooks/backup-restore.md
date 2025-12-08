@@ -28,7 +28,7 @@ This runbook covers backup and restoration procedures for InferaDB data and conf
 
 ```bash
 # Export current configuration
-kubectl get configmap inferadb-config -n inferadb -o yaml > backup-configmap-$(date +%Y%m%d).yaml
+kubectl get configmap inferadb-engine-config -n inferadb -o yaml > backup-configmap-$(date +%Y%m%d).yaml
 
 # With labels
 kubectl get configmap -n inferadb -l app=inferadb -o yaml > backup-all-configmaps-$(date +%Y%m%d).yaml

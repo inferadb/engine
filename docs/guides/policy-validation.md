@@ -13,7 +13,7 @@ The validation framework consists of three main components:
 ## Quick Start
 
 ```rust
-use inferadb_core::ipl::{parse_schema, Validator};
+use inferadb_engine_core::ipl::{parse_schema, Validator};
 
 let source = r#"
     type document {
@@ -316,7 +316,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
       - name: Validate schemas
-        run: cargo test --package inferadb-core --lib ipl::validation
+        run: cargo test --package inferadb-engine-core --lib ipl::validation
 ```
 
 ## Error Reference
@@ -353,7 +353,7 @@ jobs:
 You can implement custom validation logic:
 
 ```rust
-use inferadb_core::ipl::validation::{ValidationError, Validator};
+use inferadb_engine_core::ipl::validation::{ValidationError, Validator};
 
 fn validate_naming_convention(schema: &Schema) -> Vec<ValidationError> {
     let mut errors = Vec::new();

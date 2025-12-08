@@ -475,7 +475,7 @@ For security issues or vulnerabilities, please contact:
 ## Version History
 
 - **1.0.0** (2025-11-03): Initial security model documentation
-- Scope constants defined in `crates/inferadb-const/src/scopes.rs`
+- Scope constants defined in `crates/inferadb-engine-const/src/scopes.rs`
 - All scopes enforced via type-safe constants
 
 ---
@@ -575,13 +575,13 @@ sbom-tool validate -b sbom-linux-x86_64.spdx.json
 
 ```bash
 # Download binary and provenance
-gh release download v1.0.0 --pattern "inferadb-linux-x86_64.tar.gz"
+gh release download v1.0.0 --pattern "inferadb-engine-linux-x86_64.tar.gz"
 gh release download v1.0.0 --pattern "*.intoto.jsonl"
 
 # Verify provenance
 # (Install: https://github.com/slsa-framework/slsa-verifier)
-slsa-verifier verify-artifact inferadb-linux-x86_64.tar.gz \
-  --provenance-path inferadb-linux-x86_64.tar.gz.intoto.jsonl \
+slsa-verifier verify-artifact inferadb-engine-linux-x86_64.tar.gz \
+  --provenance-path inferadb-engine-linux-x86_64.tar.gz.intoto.jsonl \
   --source-uri github.com/inferadb/inferadb \
   --source-tag v1.0.0
 ```
@@ -590,21 +590,21 @@ slsa-verifier verify-artifact inferadb-linux-x86_64.tar.gz \
 
 ```bash
 # Pull image
-docker pull inferadb/inferadb:latest
-# or: docker pull ghcr.io/inferadb/inferadb:latest
+docker pull inferadb/inferadb-engine:latest
+# or: docker pull ghcr.io/inferadb/inferadb-engine:latest
 
 # Inspect SBOM (embedded in image)
-docker buildx imagetools inspect inferadb/inferadb:latest --format "{{json .SBOM}}" | jq
+docker buildx imagetools inspect inferadb/inferadb-engine:latest --format "{{json .SBOM}}" | jq
 
 # Inspect provenance
-docker buildx imagetools inspect inferadb/inferadb:latest --format "{{json .Provenance}}" | jq
+docker buildx imagetools inspect inferadb/inferadb-engine:latest --format "{{json .Provenance}}" | jq
 ```
 
 **4. Verify Checksums:**
 
 ```bash
 # Calculate SHA-256 of downloaded binary
-sha256sum inferadb-linux-x86_64.tar.gz
+sha256sum inferadb-engine-linux-x86_64.tar.gz
 
 # Compare with GitHub release checksums
 # (Future: checksums.txt will be attached to releases)

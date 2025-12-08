@@ -50,7 +50,7 @@ export AZURE_VAULT_URL=https://your-test-vault.vault.azure.net
 az keyvault secret set --vault-name your-test-vault --name test-secret --value "test-value"
 
 # 5. Run integration tests
-cargo test --package inferadb-config --features azure-secrets test_azure_secrets_provider -- --ignored --nocapture
+cargo test --package inferadb-engine-config --features azure-secrets test_azure_secrets_provider -- --ignored --nocapture
 ```
 
 ## Usage
@@ -100,7 +100,7 @@ docker-compose up -d
 docker-compose exec test-runner bash
 
 # Inside container - run specific tests
-cargo test -p inferadb-config --features azure-secrets --lib azure
+cargo test -p inferadb-engine-config --features azure-secrets --lib azure
 
 # Exit and cleanup
 exit
@@ -215,7 +215,7 @@ When running unit tests locally without Azure:
 
 ### Adding New Tests
 
-1. Write tests in `crates/inferadb-config/src/secrets.rs`
+1. Write tests in `crates/inferadb-engine-config/src/secrets.rs`
 2. Ensure tests are marked with `#[ignore]` if they require real Azure
 3. Run tests: `./docker/azure-integration-tests/test.sh`
 4. Iterate in interactive mode:
@@ -223,7 +223,7 @@ When running unit tests locally without Azure:
    ```bash
    ./docker/azure-integration-tests/shell.sh
    # Inside container
-   cargo test -p inferadb-config --features azure-secrets <test_name>
+   cargo test -p inferadb-engine-config --features azure-secrets <test_name>
    ```
 
 ### Debugging Test Failures
@@ -244,7 +244,7 @@ When running unit tests locally without Azure:
 3. Re-run specific test:
 
    ```bash
-   RUST_BACKTRACE=full cargo test -p inferadb-config \
+   RUST_BACKTRACE=full cargo test -p inferadb-engine-config \
      --features azure-secrets \
      test_name -- --nocapture
    ```

@@ -1,0 +1,80 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+name = "inferadb-engine-api"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+test-utils = []
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true }
+base64 = { workspace = true }
+chrono = { workspace = true }
+hex = "0.4"
+moka = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"
+thiserror = { workspace = true }
+tokio = { workspace = true }
+toon = "0.1.2"
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["compression-gzip", "cors"] }
+tower_governor = { workspace = true }
+tracing = { workspace = true }
+urlencoding = "2.1"
+uuid = { version = "1.10", features = ["v4"] }
+
+# gRPC dependencies
+async-stream = "0.3"
+futures = { workspace = true }
+pin-project = "1.1"
+prost = "0.14.1"
+tonic = "0.14.2"
+tonic-prost = "0.14"
+tonic-reflection = "0.14.2"
+
+# Internal dependencies
+inferadb-engine-auth = { path = "../inferadb-engine-auth" }
+inferadb-engine-cache = { path = "../inferadb-engine-cache" }
+inferadb-engine-config = { path = "../inferadb-engine-config" }
+inferadb-engine-const = { path = "../inferadb-engine-const" }
+inferadb-engine-core = { path = "../inferadb-engine-core" }
+inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
+inferadb-engine-observe = { path = "../inferadb-engine-observe" }
+inferadb-engine-store = { path = "../inferadb-engine-store" }
+inferadb-engine-types = { path = "../inferadb-engine-types" }
+inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
+
+[build-dependencies]
+tonic-build = "0.14.2"
+tonic-prost-build = "0.14"
+
+[dev-dependencies]
+base64 = { workspace = true }
+chrono = { workspace = true }
+criterion = { workspace = true }
+ed25519-dalek = { workspace = true }
+inferadb-engine-test-fixtures = { path = "../inferadb-engine-test-fixtures" }
+jsonwebtoken = { workspace = true }
+moka = { workspace = true }
+portpicker = "0.1"
+proptest = "1.5"
+rand = { workspace = true }
+rand_core = { version = "0.6", features = ["getrandom"] }
+tempfile = "3.8"
+tokio-test = "0.4"
+uuid = "1.10"
+warp = { version = "0.4.2", features = ["server"] }
+
+[[bench]]
+harness = false
+name = "api_throughput"

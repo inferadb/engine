@@ -141,7 +141,7 @@ assert!(token_a.is_concurrent_with(&token_b));  // Concurrent writes
 The `SnapshotReader` provides consistent reads at specific tokens:
 
 ```rust
-use inferadb_repl::snapshot::SnapshotReader;
+use inferadb_engine_repl::snapshot::SnapshotReader;
 use std::sync::Arc;
 
 let store = Arc::new(MemoryBackend::new());

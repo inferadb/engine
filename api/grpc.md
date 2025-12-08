@@ -4,7 +4,7 @@ InferaDB provides a high-performance gRPC API for authorization checks, relation
 
 **🚀 Interactive API Explorer**: Try the gRPC API with [grpcui](./grpc-explorer.html)
 
-**📋 Protocol Buffer Definition**: View the complete [proto file](../crates/inferadb-api/proto/infera.proto)
+**📋 Protocol Buffer Definition**: View the complete [proto file](../crates/inferadb-engine-api/proto/infera.proto)
 
 ## Why gRPC?
 
@@ -24,7 +24,7 @@ By default, the gRPC server runs on port 8081 (REST API port + 1). This can be c
 
 ## Protocol Buffers
 
-The complete Protocol Buffer definition is available at [`crates/inferadb-api/proto/infera.proto`](../crates/inferadb-api/proto/infera.proto).
+The complete Protocol Buffer definition is available at [`crates/inferadb-engine-api/proto/infera.proto`](../crates/inferadb-engine-api/proto/infera.proto).
 
 ## Service Definition
 
@@ -579,7 +579,7 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 # Generate code
 protoc --go_out=. --go_opt=paths=source_relative \
     --go-grpc_out=. --go-grpc_opt=paths=source_relative \
-    crates/inferadb-api/proto/infera.proto
+    crates/inferadb-engine-api/proto/infera.proto
 ```
 
 ### Python
@@ -592,7 +592,7 @@ pip install grpcio-tools
 python -m grpc_tools.protoc -I. \
     --python_out=. \
     --grpc_python_out=. \
-    crates/inferadb-api/proto/infera.proto
+    crates/inferadb-engine-api/proto/infera.proto
 ```
 
 ### TypeScript/Node.js
@@ -604,7 +604,7 @@ npm install -g grpc-tools ts-proto
 # Generate code
 protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts \
     --ts_out=. \
-    crates/inferadb-api/proto/infera.proto
+    crates/inferadb-engine-api/proto/infera.proto
 ```
 
 ### Rust

@@ -24,10 +24,10 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 
 # Build the application in release mode
-RUN cargo build --release --bin inferadb-server
+RUN cargo build --release --bin inferadb-engine
 
 # Strip debug symbols to reduce binary size
-RUN strip /app/target/release/inferadb-server
+RUN strip /app/target/release/inferadb-engine
 
 # ============================================================================
 # Stage 2: Runtime - Minimal Debian slim image
@@ -57,7 +57,7 @@ USER nonroot:nonroot
 WORKDIR /app
 
 # Copy the binary from builder
-COPY --from=builder --chown=nonroot:nonroot /app/target/release/inferadb-server /app/inferadb-server
+COPY --from=builder --chown=nonroot:nonroot /app/target/release/inferadb-engine /app/inferadb-engine
 
 # Expose gRPC port (default 8080)
 EXPOSE 8080
@@ -74,28 +74,28 @@ ENV RUST_LOG=info
 ENV RUST_BACKTRACE=1
 
 # Run the binary
-ENTRYPOINT ["/app/inferadb-server"]
+ENTRYPOINT ["/app/inferadb-engine"]
 CMD ["--config", "/etc/inferadb/config.yaml"]
 
 # ============================================================================
 # Build Instructions:
 #
 # Build the image:
-#   docker build -t inferadb:latest .
+#   docker build -t inferadb-engine:latest .
 #
 # Build with specific tag:
-#   docker build -t inferadb:v1.0.0 .
+#   docker build -t inferadb-engine:v1.0.0 .
 #
 # Build with BuildKit (recommended for better caching):
-#   DOCKER_BUILDKIT=1 docker build -t inferadb:latest .
+#   DOCKER_BUILDKIT=1 docker build -t inferadb-engine:latest .
 #
 # Run the container:
 #   docker run -p 8080:8080 \
 #     -v $(pwd)/config.yaml:/etc/inferadb/config.yaml \
-#     inferadb:latest
+#     inferadb-engine:latest
 #
 # Security Scanning:
-#   docker scan inferadb:latest
-#   trivy image inferadb:latest
-#   grype inferadb:latest
+#   docker scan inferadb-engine:latest
+#   trivy image inferadb-engine:latest
+#   grype inferadb-engine:latest
 # ============================================================================

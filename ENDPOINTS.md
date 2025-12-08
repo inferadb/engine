@@ -19,7 +19,7 @@ Comprehensive mapping of InferaDB API endpoints compared to alternatives (SpiceD
 
 ### gRPC API
 
-Defined in: `crates/inferadb-api/proto/infera.proto`
+Defined in: `crates/inferadb-engine-api/proto/infera.proto`
 
 | RPC Method            | Request                    | Response                           | Purpose                                                               |
 | --------------------- | -------------------------- | ---------------------------------- | --------------------------------------------------------------------- |
@@ -741,8 +741,8 @@ Similar to SpiceDB's "contextual tuples" feature, but InferaDB provides:
 
 **Implementation:**
 
-- **gRPC**: `crates/inferadb-api/src/grpc.rs:706-779` + proto definition in `crates/inferadb-api/proto/infera.proto:421-453`
-- **REST**: `crates/inferadb-api/src/lib.rs:766-839`
+- **gRPC**: `crates/inferadb-engine-api/src/grpc.rs:706-779` + proto definition in `crates/inferadb-engine-api/proto/infera.proto:421-453`
+- **REST**: `crates/inferadb-engine-api/src/lib.rs:766-839`
 
 #### Alternatives
 
@@ -2158,7 +2158,7 @@ GET /healthz
 Response:
 {
   "status": "healthy",
-  "service": "inferadb",
+  "service": "inferadb-engine",
   "version": "0.1.0",
   "uptime_seconds": 3600,
   "details": {
@@ -2770,4 +2770,4 @@ POST /evaluate
 - [COMPARISON.md](./COMPARISON.md) - Full comparative analysis
 - [ROADMAP.md](./ROADMAP.md) - Implementation plan
 - [api/openapi.yaml](./api/openapi.yaml) - REST API specification
-- [crates/inferadb-api/proto/infera.proto](./crates/inferadb-api/proto/infera.proto) - gRPC specification
+- [crates/inferadb-engine-api/proto/infera.proto](./crates/inferadb-engine-api/proto/infera.proto) - gRPC specification

@@ -1,6 +1,6 @@
-# InferaDB Server
+# InferaDB Authorization Engine
 
-**Authorization engine** — high-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency.
+**Policy Decision Endpoint** — high-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency.
 
 [AuthZEN](https://openid.net/wg/authzen/)-compliant. Inspired by [Google Zanzibar](https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/).
 
@@ -10,7 +10,7 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/inferadb/server && cd server
+git clone https://github.com/inferadb/engine && cd engine
 mise trust && mise install && mise run dev
 ```
 
@@ -54,21 +54,21 @@ curl -X POST http://localhost:8080/v1/relationships/write \
 
 ```mermaid
 graph TD
-    API[inferadb-api] --> Core[inferadb-core]
-    API --> Auth[inferadb-auth]
-    Core --> Store[inferadb-store]
-    Core --> Cache[inferadb-cache]
+    API[inferadb-engine-api] --> Core[inferadb-engine-core]
+    API --> Auth[inferadb-engine-auth]
+    Core --> Store[inferadb-engine-store]
+    Core --> Cache[inferadb-engine-cache]
     Store --> FDB[(FoundationDB)]
 ```
 
 | Crate          | Purpose                            |
 | -------------- | ---------------------------------- |
-| inferadb-core  | Policy evaluation, IPL interpreter |
-| inferadb-api   | REST and gRPC endpoints            |
-| inferadb-store | Storage abstraction                |
-| inferadb-auth  | JWT validation, JWKS               |
-| inferadb-cache | Result caching                     |
-| inferadb-wasm  | WebAssembly modules                |
+| inferadb-engine-core  | Policy evaluation, IPL interpreter |
+| inferadb-engine-api   | REST and gRPC endpoints            |
+| inferadb-engine-store | Storage abstraction                |
+| inferadb-engine-auth  | JWT validation, JWKS               |
+| inferadb-engine-cache | Result caching                     |
+| inferadb-engine-wasm  | WebAssembly modules                |
 
 ## Configuration
 
@@ -104,7 +104,7 @@ make check                    # All quality checks
 ## Deployment
 
 ```bash
-docker run -p 8080:8080 inferadb:latest   # Docker
+docker run -p 8080:8080 inferadb-engine:latest   # Docker
 kubectl apply -k k8s/                     # Kubernetes
 helm install inferadb ./helm              # Helm
 ```

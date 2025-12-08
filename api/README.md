@@ -24,7 +24,7 @@ Detailed API documentation:
 Machine-readable API definitions:
 
 - **[OpenAPI Specification (openapi.yaml)](./openapi.yaml)** - OpenAPI 3.1 spec for REST API
-- **[Protocol Buffer Definition](../crates/inferadb-api/proto/infera.proto)** - Proto file for gRPC API
+- **[Protocol Buffer Definition](../crates/inferadb-engine-api/proto/infera.proto)** - Proto file for gRPC API
 
 ## Getting Started
 
@@ -252,7 +252,7 @@ grpcui -plaintext localhost:8081
 
 ```bash
 # Docker
-docker run -p 8080:8080 -p 8081:8081 inferadb/server:latest
+docker run -p 8080:8080 -p 8081:8081 inferadb/inferadb-engine:latest
 
 # From source
 cargo run --release

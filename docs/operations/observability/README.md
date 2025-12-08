@@ -99,7 +99,7 @@ docker run -d --name prometheus \
         "title": "Cache Hit Rate",
         "targets": [
           {
-            "expr": "inferadb_cache_hit_rate"
+            "expr": "inferadb_engine_cache_hit_rate"
           }
         ]
       },
@@ -107,7 +107,7 @@ docker run -d --name prometheus \
         "title": "Error Rate",
         "targets": [
           {
-            "expr": "sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) * 100"
+            "expr": "sum(rate(inferadb_engine_api_errors_total[5m])) / sum(rate(inferadb_engine_api_requests_total[5m])) * 100"
           }
         ]
       }
@@ -126,7 +126,7 @@ groups:
     rules:
       # High error rate
       - alert: HighErrorRate
-        expr: sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) > 0.05
+        expr: sum(rate(inferadb_engine_api_errors_total[5m])) / sum(rate(inferadb_engine_api_requests_total[5m])) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -146,7 +146,7 @@ groups:
 
       # Low cache hit rate
       - alert: LowCacheHitRate
-        expr: inferadb_cache_hit_rate < 50
+        expr: inferadb_engine_cache_hit_rate < 50
         for: 10m
         labels:
           severity: info
@@ -166,14 +166,14 @@ groups:
 
       # High replication lag
       - alert: HighReplicationLag
-        expr: inferadb_replication_lag_milliseconds > 100
+        expr: inferadb_engine_replication_lag_milliseconds > 100
         for: 5m
         annotations:
           summary: "High replication lag ({{ $value }}ms)"
 
       # Replication target unhealthy
       - alert: ReplicationTargetUnhealthy
-        expr: (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
+        expr: (inferadb_engine_replication_targets_connected / inferadb_engine_replication_targets_total) < 1
         for: 2m
         annotations:
           summary: "Replication target unhealthy"
@@ -185,8 +185,8 @@ groups:
 
 1. **Request Rate**: `rate(inferadb_checks_total[5m])`
 2. **p99 Latency**: `histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m]))`
-3. **Error Rate**: `sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m]))`
-4. **Cache Hit Rate**: `inferadb_cache_hit_rate`
+3. **Error Rate**: `sum(rate(inferadb_engine_api_errors_total[5m])) / sum(rate(inferadb_engine_api_requests_total[5m]))`
+4. **Cache Hit Rate**: `inferadb_engine_cache_hit_rate`
 5. **Storage Throughput**: `rate(inferadb_storage_reads_total[5m]) + rate(inferadb_storage_writes_total[5m])`
 
 ### Performance Thresholds

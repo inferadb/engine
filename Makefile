@@ -1,4 +1,4 @@
-# Makefile for InferaDB development
+# Makefile for the InferaDB Authorization Engine
 # Provides convenient shortcuts for common cargo commands
 #
 # Quick start:
@@ -114,9 +114,9 @@ deny: ## Check dependencies with cargo-deny
 	@echo "🔍 Checking dependencies..."
 	@$(CARGO) deny check
 
-run: ## Run the inferadb server (debug mode)
-	@echo "🚀 Starting InferaDB server..."
-	@$(CARGO) run --bin inferadb-server
+run: ## Run the inferadb engine (debug mode)
+	@echo "🚀 Starting InferaDB engine..."
+	@$(CARGO) run --bin inferadb-engine
 
 build: ## Build debug binary
 	@echo "🔨 Building debug binary..."
@@ -177,8 +177,8 @@ reset: ## Reset the dev environment
 	@echo "✅ Reset complete! Run 'make setup' to reinitialize."
 
 dev: ## Start development server with auto-reload
-	@echo "🔄 Starting InferaDB server with auto-reload..."
-	@$(CARGO) watch -x 'run --bin inferadb-server'
+	@echo "🔄 Starting InferaDB engine with auto-reload..."
+	@$(CARGO) watch -x 'run --bin inferadb-engine'
 
 doc: ## Generate and open documentation (Rustdoc + API docs)
 	@echo "📚 Generating documentation..."
@@ -205,7 +205,7 @@ expand: ## Expand macros (usage: make expand FILE=path/to/file.rs)
 		echo "Install with: cargo install cargo-expand"; \
 		exit 1; \
 	fi
-	@$(CARGO) expand -p infera-bin --bin inferadb-server
+	@$(CARGO) expand -p infera-bin --bin inferadb-engine
 
 outdated: ## Check for outdated dependencies
 	@echo "🔍 Checking for outdated dependencies..."
@@ -227,11 +227,11 @@ bloat: ## Analyze binary size (requires cargo-bloat)
 
 docker-build: ## Build Docker image
 	@echo "🐳 Building Docker image..."
-	@docker build -t inferadb:dev .
+	@docker build -t inferadb-engine:dev .
 
 docker-run: ## Run Docker container
 	@echo "🐳 Running Docker container..."
-	@docker run -p 8080:8080 -p 8081:8081 inferadb:dev
+	@docker run -p 8080:8080 -p 8081:8081 inferadb-engine:dev
 
 # Kubernetes targets
 

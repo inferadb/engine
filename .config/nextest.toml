@@ -38,7 +38,7 @@ store-failure-output = true
 # Test-specific overrides
 [[profile.ci.overrides]]
 # WASM tests are resource-intensive, run serially
-filter = 'package(inferadb-wasm)'
+filter = 'package(inferadb-engine-wasm)'
 test-threads = 1
 slow-timeout = { period = "120s", terminate-after = 2 }
 

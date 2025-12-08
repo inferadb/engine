@@ -1,8 +1,8 @@
-# Default values for InferaDB Helm chart
+# Default values for InferaDB Engine Helm chart
 
 # Image configuration
 image:
-  repository: inferadb
+  repository: inferadb-engine
   pullPolicy: IfNotPresent
   tag: "" # Overrides the image tag (default is Chart appVersion)
 
@@ -124,7 +124,7 @@ affinity:
               - key: app.kubernetes.io/name
                 operator: In
                 values:
-                  - inferadb
+                  - inferadb-engine
           topologyKey: kubernetes.io/hostname
 
 # Topology spread constraints
@@ -134,7 +134,7 @@ topologySpreadConstraints:
     whenUnsatisfiable: ScheduleAnyway
     labelSelector:
       matchLabels:
-        app.kubernetes.io/name: inferadb
+        app.kubernetes.io/name: inferadb-engine
 
 # InferaDB configuration
 config:
@@ -185,7 +185,7 @@ discovery:
   # Management API discovery
   managementApi:
     # Kubernetes service name (when mode = kubernetes_service)
-    serviceName: "inferadb-management"
+    serviceName: "inferadb-control"
     namespace: "inferadb"
     port: 9092 # Management internal/private API port
 
@@ -207,11 +207,11 @@ discovery:
     # remoteClusters:
     # - name: "eu-west-1"
     #   tailscaleDomain: "eu-west-1.ts.net"
-    #   serviceName: "inferadb-management"
+    #   serviceName: "inferadb-control"
     #   port: 9092
     # - name: "ap-southeast-1"
     #   tailscaleDomain: "ap-southeast-1.ts.net"
-    #   serviceName: "inferadb-management"
+    #   serviceName: "inferadb-control"
     #   port: 9092
     remoteClusters: []
 

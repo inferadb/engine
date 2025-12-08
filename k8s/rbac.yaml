@@ -1,12 +1,12 @@
 ---
-# ServiceAccount for InferaDB Server
+# ServiceAccount for InferaDB Engine
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: inferadb-server
+  name: inferadb-engine
   namespace: inferadb
   labels:
-    app.kubernetes.io/name: inferadb-server
+    app.kubernetes.io/name: inferadb-engine
     app.kubernetes.io/component: authorization-engine
 
 ---
@@ -15,9 +15,9 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: inferadb-server-discovery
+  name: inferadb-engine-discovery
   labels:
-    app.kubernetes.io/name: inferadb-server
+    app.kubernetes.io/name: inferadb-engine
     app.kubernetes.io/component: authorization-engine
 rules:
   - apiGroups: [""]
@@ -29,15 +29,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: inferadb-server-discovery
+  name: inferadb-engine-discovery
   labels:
-    app.kubernetes.io/name: inferadb-server
+    app.kubernetes.io/name: inferadb-engine
     app.kubernetes.io/component: authorization-engine
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: inferadb-server-discovery
+  name: inferadb-engine-discovery
 subjects:
   - kind: ServiceAccount
-    name: inferadb-server
+    name: inferadb-engine
     namespace: inferadb

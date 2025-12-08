@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "inferadb.name" -}}
+{{- define "inferadb-engine.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "inferadb.fullname" -}}
+{{- define "inferadb-engine.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "inferadb.chart" -}}
+{{- define "inferadb-engine.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "inferadb.labels" -}}
-helm.sh/chart: {{ include "inferadb.chart" . }}
-{{ include "inferadb.selectorLabels" . }}
+{{- define "inferadb-engine.labels" -}}
+helm.sh/chart: {{ include "inferadb-engine.chart" . }}
+{{ include "inferadb-engine.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,17 +43,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "inferadb.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "inferadb.name" . }}
+{{- define "inferadb-engine.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "inferadb-engine.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "inferadb.serviceAccountName" -}}
+{{- define "inferadb-engine.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "inferadb.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "inferadb-engine.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

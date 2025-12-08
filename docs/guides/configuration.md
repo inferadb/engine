@@ -13,7 +13,7 @@ Complete guide for configuring the InferaDB server using configuration files and
 - [Authentication Configuration](#authentication-configuration)
 - [Identity Configuration](#identity-configuration)
 - [Discovery Configuration](#discovery-configuration)
-- [Management Service Configuration](#management-service-configuration)
+- [Control Service Configuration](#control-service-configuration)
 - [Configuration Profiles](#configuration-profiles)
 - [Secrets Management](#secrets-management)
 - [Validation](#validation)
@@ -77,7 +77,7 @@ management_service:
 **Load configuration file**:
 
 ```bash
-inferadb-server --config config.yaml
+inferadb-engine --config config.yaml
 ```
 
 ### Method 2: Environment Variables
@@ -117,7 +117,7 @@ Environment variables override file configuration:
 # config.yaml sets public_rest to "0.0.0.0:8080"
 # Environment variable overrides to 3000
 export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:3000"
-inferadb-server --config config.yaml
+inferadb-engine --config config.yaml
 # Server starts on port 3000
 ```
 
@@ -334,7 +334,7 @@ export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 
 ```bash
 # Set log level per module
-export RUST_LOG="infera=debug,inferadb_api=info,inferadb_store=warn"
+export RUST_LOG="infera=debug,inferadb_engine_api=info,inferadb_engine_store=warn"
 ```
 
 **OpenTelemetry tracing**:
@@ -522,11 +522,11 @@ discovery:
     remote_clusters:
       - name: "eu-west-1"
         tailscale_domain: "eu-west-1.ts.net"
-        service_name: "inferadb-server"
+        service_name: "inferadb-engine"
         port: 8082
       - name: "ap-southeast-1"
         tailscale_domain: "ap-southeast-1.ts.net"
-        service_name: "inferadb-server"
+        service_name: "inferadb-engine"
         port: 8082
   cache_ttl: 60
 ```
@@ -539,16 +539,16 @@ export INFERADB__DISCOVERY__ENABLE_HEALTH_CHECK=true
 export INFERADB__DISCOVERY__HEALTH_CHECK_INTERVAL=10
 ```
 
-## Management Service Configuration
+## Control Service Configuration
 
-Controls connection to the InferaDB Management API for JWKS and tenant validation.
+Controls connection to InferaDB Control for JWKS and tenant validation.
 
 ### Options
 
-| Option          | Type    | Default                   | Description                      |
-| --------------- | ------- | ------------------------- | -------------------------------- |
-| `service_url`   | string  | `"http://localhost:9092"` | Management service URL           |
-| `internal_port` | integer | `9092`                    | Management service internal port |
+| Option          | Type    | Default                   | Description                   |
+| --------------- | ------- | ------------------------- | ----------------------------- |
+| `service_url`   | string  | `"http://localhost:9092"` | Control service URL           |
+| `internal_port` | integer | `9092`                    | Control service internal port |
 
 ### Examples
 
@@ -564,14 +564,14 @@ management_service:
 
 ```yaml
 management_service:
-  service_url: "http://inferadb-management.inferadb:9092"
+  service_url: "http://inferadb-control.inferadb:9092"
   internal_port: 9092
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__MANAGEMENT_SERVICE__SERVICE_URL="http://inferadb-management.inferadb:9092"
+export INFERADB__MANAGEMENT_SERVICE__SERVICE_URL="http://inferadb-control.inferadb:9092"
 export INFERADB__MANAGEMENT_SERVICE__INTERNAL_PORT=9092
 ```
 
@@ -655,7 +655,7 @@ discovery:
   enable_health_check: true
 
 management_service:
-  service_url: "http://inferadb-management.inferadb:9092"
+  service_url: "http://inferadb-control.inferadb:9092"
 ```
 
 ### Testing Profile
@@ -712,7 +712,7 @@ export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 apiVersion: v1
 kind: Secret
 metadata:
-  name: inferadb-server-secrets
+  name: inferadb-engine-secrets
 type: Opaque
 stringData:
   redis-url: "redis://:password@redis:6379"
@@ -728,12 +728,12 @@ env:
   - name: INFERADB__AUTH__REDIS_URL
     valueFrom:
       secretKeyRef:
-        name: inferadb-server-secrets
+        name: inferadb-engine-secrets
         key: redis-url
   - name: INFERADB__IDENTITY__PRIVATE_KEY_PEM
     valueFrom:
       secretKeyRef:
-        name: inferadb-server-secrets
+        name: inferadb-engine-secrets
         key: private-key
 ```
 
@@ -889,7 +889,7 @@ Error: management_service.service_url must start with http:// or https://
 3. **Validate before deploying**
 
    ```bash
-   inferadb-server --config config.yaml --validate
+   inferadb-engine --config config.yaml --validate
    ```
 
 ## Deployment Examples
@@ -899,8 +899,8 @@ Error: management_service.service_url must start with http:// or https://
 ```yaml
 version: "3.8"
 services:
-  inferadb-server:
-    image: inferadb/server:latest
+  inferadb-engine:
+    image: inferadb/inferadb-engine:latest
     ports:
       - "8080:8080"
       - "8081:8081"
@@ -927,8 +927,8 @@ See [Deployment Guide](deployment.md) for complete Kubernetes manifests.
 **Check configuration**:
 
 ```bash
-inferadb-server --config config.yaml --validate
-inferadb-server --config config.yaml 2>&1 | grep ERROR
+inferadb-engine --config config.yaml --validate
+inferadb-engine --config config.yaml 2>&1 | grep ERROR
 ```
 
 ### Port Already in Use

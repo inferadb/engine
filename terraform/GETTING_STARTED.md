@@ -59,8 +59,8 @@ node_desired_size   = 3
 node_max_size       = 10
 
 # InferaDB configuration
-inferadb_replica_count = 3
-inferadb_auth_enabled  = true
+inferadb_engine_replica_count = 3
+inferadb_engine_auth_enabled  = true
 EOF
 
 # 3. Initialize and apply
@@ -142,8 +142,8 @@ node_count_per_zone    = 1
 max_node_count_per_zone = 3
 
 # InferaDB configuration
-inferadb_replica_count = 3
-inferadb_auth_enabled  = true
+inferadb_engine_replica_count = 3
+inferadb_engine_auth_enabled  = true
 EOF
 
 # 3. Initialize and apply
@@ -283,7 +283,7 @@ gcloud redis instances describe inferadb-prod-redis --region us-central1
 kubectl scale deployment -n inferadb inferadb --replicas=10
 
 # Via Terraform
-terraform apply -var="inferadb_replica_count=10"
+terraform apply -var="inferadb_engine_replica_count=10"
 ```
 
 ### Scale Nodes

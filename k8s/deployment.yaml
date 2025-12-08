@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: inferadb
+  name: inferadb-engine
   labels:
-    app: inferadb
+    app: inferadb-engine
     component: server
     version: v1.0.0
 spec:
@@ -15,12 +15,12 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: inferadb
+      app: inferadb-engine
       component: server
   template:
     metadata:
       labels:
-        app: inferadb
+        app: inferadb-engine
         component: server
         version: v1.0.0
       annotations:
@@ -28,7 +28,7 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: inferadb
+      serviceAccountName: inferadb-engine
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -59,8 +59,8 @@ spec:
             readOnlyRootFilesystem: true
 
       containers:
-        - name: inferadb
-          image: inferadb:latest
+        - name: inferadb-engine
+          image: inferadb-engine:latest
           imagePullPolicy: IfNotPresent
 
           ports:
@@ -94,7 +94,7 @@ spec:
             - name: INFERADB__AUTH__MANAGEMENT_API__DISCOVERY_MODE
               value: "kubernetes_service"
             - name: INFERADB__AUTH__MANAGEMENT_API__SERVICE_NAME
-              value: "inferadb-management"
+              value: "inferadb-control"
             - name: INFERADB__AUTH__MANAGEMENT_API__NAMESPACE
               valueFrom:
                 fieldRef:
@@ -107,11 +107,11 @@ spec:
           # Load config from ConfigMap
           envFrom:
             - configMapRef:
-                name: inferadb-config
+                name: inferadb-engine-config
 
             # Load secrets from Secret
             - secretRef:
-                name: inferadb-secrets
+                name: inferadb-engine-secrets
 
           # Volume mounts
           volumeMounts:
@@ -178,7 +178,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: inferadb-config
+            name: inferadb-engine-config
             items:
               - key: config.yaml
                 path: config.yaml
@@ -204,7 +204,7 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - inferadb
+                        - inferadb-engine
                 topologyKey: kubernetes.io/hostname
 
       # Topology spread for better availability
@@ -214,7 +214,7 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: inferadb
+              app: inferadb-engine
 
       # Termination grace period for graceful shutdown
       terminationGracePeriodSeconds: 30

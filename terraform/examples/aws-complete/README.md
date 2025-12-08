@@ -70,10 +70,10 @@ node_min_size       = 3
 node_max_size       = 10
 
 # InferaDB configuration
-inferadb_replica_count = 3
+inferadb_engine_replica_count = 3
 inferadb_min_replicas  = 3
 inferadb_max_replicas  = 20
-inferadb_auth_enabled  = true
+inferadb_engine_auth_enabled  = true
 
 # Use internal LB for private deployments
 inferadb_internal_lb = false

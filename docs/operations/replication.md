@@ -16,7 +16,7 @@ The replication system provides:
 
 The replication system consists of four main components:
 
-### 1. Topology (`inferadb-repl/topology.rs`)
+### 1. Topology (`inferadb-engine-repl/topology.rs`)
 
 Defines the multi-region infrastructure with a hierarchical structure:
 
@@ -36,7 +36,7 @@ Region (e.g., "us-west-1")
 **Example:**
 
 ```rust
-use inferadb_repl::{TopologyBuilder, RegionId, ZoneId, NodeId, ReplicationStrategy};
+use inferadb_engine_repl::{TopologyBuilder, RegionId, ZoneId, NodeId, ReplicationStrategy};
 
 let topology = TopologyBuilder::new(
     ReplicationStrategy::ActiveActive,
@@ -77,7 +77,7 @@ let topology = TopologyBuilder::new(
 .build()?;
 ```
 
-### 2. Conflict Resolution (`inferadb-repl/conflict.rs`)
+### 2. Conflict Resolution (`inferadb-engine-repl/conflict.rs`)
 
 Handles conflicts when the same tuple is modified concurrently in different regions.
 
@@ -88,7 +88,7 @@ Handles conflicts when the same tuple is modified concurrently in different regi
 Uses timestamp to determine winner. If timestamps are equal, uses source node as tiebreaker.
 
 ```rust
-use inferadb_repl::{ConflictResolver, ConflictResolutionStrategy};
+use inferadb_engine_repl::{ConflictResolver, ConflictResolutionStrategy};
 
 let resolver = ConflictResolver::new(ConflictResolutionStrategy::LastWriteWins);
 ```
@@ -131,7 +131,7 @@ let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom);
 
 **Best for:** Complex business rules
 
-### 3. Replication Agent (`inferadb-repl/agent.rs`)
+### 3. Replication Agent (`inferadb-engine-repl/agent.rs`)
 
 Subscribes to local changes and replicates them to remote regions.
 
@@ -145,7 +145,7 @@ Subscribes to local changes and replicates them to remote regions.
 **Configuration:**
 
 ```rust
-use inferadb_repl::ReplicationConfig;
+use inferadb_engine_repl::ReplicationConfig;
 use std::time::Duration;
 
 let config = ReplicationConfig {
@@ -160,7 +160,7 @@ let config = ReplicationConfig {
 **Usage:**
 
 ```rust
-use inferadb_repl::ReplicationAgent;
+use inferadb_engine_repl::ReplicationAgent;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -181,7 +181,7 @@ println!("Changes replicated: {}", stats.changes_replicated);
 println!("Failures: {}", stats.replication_failures);
 ```
 
-### 4. Region-Aware Router (`inferadb-repl/router.rs`)
+### 4. Region-Aware Router (`inferadb-engine-repl/router.rs`)
 
 Routes requests to appropriate regions based on operation type and replication strategy.
 
@@ -198,7 +198,7 @@ Routes requests to appropriate regions based on operation type and replication s
 **Usage:**
 
 ```rust
-use inferadb_repl::{Router, RequestType};
+use inferadb_engine_repl::{Router, RequestType};
 
 let router = Router::new(Arc::new(RwLock::new(topology)));
 
@@ -312,7 +312,7 @@ The replication system uses the change feed to track all tuple modifications.
 **Publishing Changes:**
 
 ```rust
-use inferadb_repl::{ChangeFeed, Change, Operation};
+use inferadb_engine_repl::{ChangeFeed, Change, Operation};
 
 let change_feed = ChangeFeed::new();
 
@@ -346,44 +346,44 @@ The replication system exposes comprehensive Prometheus metrics:
 
 | Metric                                           | Description                                 |
 | ------------------------------------------------ | ------------------------------------------- |
-| `inferadb_replication_changes_total`             | Total changes replicated                    |
-| `inferadb_replication_failures_total`            | Total replication failures                  |
-| `inferadb_replication_conflicts_total`           | Total conflicts detected                    |
-| `inferadb_replication_conflicts_resolved_local`  | Conflicts resolved by keeping local change  |
-| `inferadb_replication_conflicts_resolved_remote` | Conflicts resolved by keeping remote change |
+| `inferadb_engine_replication_changes_total`             | Total changes replicated                    |
+| `inferadb_engine_replication_failures_total`            | Total replication failures                  |
+| `inferadb_engine_replication_conflicts_total`           | Total conflicts detected                    |
+| `inferadb_engine_replication_conflicts_resolved_local`  | Conflicts resolved by keeping local change  |
+| `inferadb_engine_replication_conflicts_resolved_remote` | Conflicts resolved by keeping remote change |
 
 ### Gauges
 
 | Metric                                   | Description                 |
 | ---------------------------------------- | --------------------------- |
-| `inferadb_replication_lag_milliseconds`  | Current replication lag     |
-| `inferadb_replication_targets_connected` | Number of connected targets |
-| `inferadb_replication_targets_total`     | Total configured targets    |
+| `inferadb_engine_replication_lag_milliseconds`  | Current replication lag     |
+| `inferadb_engine_replication_targets_connected` | Number of connected targets |
+| `inferadb_engine_replication_targets_total`     | Total configured targets    |
 
 ### Histograms
 
 | Metric                                  | Description                        |
 | --------------------------------------- | ---------------------------------- |
-| `inferadb_replication_batch_size`       | Distribution of batch sizes        |
-| `inferadb_replication_duration_seconds` | Duration of replication operations |
+| `inferadb_engine_replication_batch_size`       | Distribution of batch sizes        |
+| `inferadb_engine_replication_duration_seconds` | Duration of replication operations |
 
 **Example Prometheus Queries:**
 
 ```promql
 # Replication lag
-inferadb_replication_lag_milliseconds
+inferadb_engine_replication_lag_milliseconds
 
 # Conflict rate (conflicts per second)
-rate(inferadb_replication_conflicts_total[5m])
+rate(inferadb_engine_replication_conflicts_total[5m])
 
 # Replication throughput (changes per second)
-rate(inferadb_replication_changes_total[5m])
+rate(inferadb_engine_replication_changes_total[5m])
 
 # Failure rate
-rate(inferadb_replication_failures_total[5m])
+rate(inferadb_engine_replication_failures_total[5m])
 
 # Target health
-inferadb_replication_targets_connected / inferadb_replication_targets_total
+inferadb_engine_replication_targets_connected / inferadb_engine_replication_targets_total
 ```
 
 ## Configuration
@@ -543,7 +543,7 @@ replication:
 
 ### High Replication Lag
 
-**Symptoms:** `inferadb_replication_lag_milliseconds` increasing
+**Symptoms:** `inferadb_engine_replication_lag_milliseconds` increasing
 
 **Causes:**
 
@@ -560,7 +560,7 @@ replication:
 
 ### Frequent Conflicts
 
-**Symptoms:** High `inferadb_replication_conflicts_total` rate
+**Symptoms:** High `inferadb_engine_replication_conflicts_total` rate
 
 **Causes:**
 
@@ -577,7 +577,7 @@ replication:
 
 ### Replication Failures
 
-**Symptoms:** Increasing `inferadb_replication_failures_total`
+**Symptoms:** Increasing `inferadb_engine_replication_failures_total`
 
 **Causes:**
 
@@ -595,7 +595,7 @@ replication:
 
 ### Node Failures
 
-**Symptoms:** `inferadb_replication_targets_connected` < `inferadb_replication_targets_total`
+**Symptoms:** `inferadb_engine_replication_targets_connected` < `inferadb_engine_replication_targets_total`
 
 **Causes:**
 
@@ -687,16 +687,16 @@ Regularly test:
 - Replication adds ~20-30% overhead
 - Plan for peak write load × (1 + number of replicas)
 - Network bandwidth for replication stream
-- Monitor `inferadb_replication_batch_size` histogram
+- Monitor `inferadb_engine_replication_batch_size` histogram
 
 ## API Reference
 
 ### Complete API documentation
 
-- **Topology API**: See [`inferadb-repl/src/topology.rs`](../crates/inferadb-repl/src/topology.rs)
-- **Conflict Resolution API**: See [`inferadb-repl/src/conflict.rs`](../crates/inferadb-repl/src/conflict.rs)
-- **Replication Agent API**: See [`inferadb-repl/src/agent.rs`](../crates/inferadb-repl/src/agent.rs)
-- **Router API**: See [`inferadb-repl/src/router.rs`](../crates/inferadb-repl/src/router.rs)
+- **Topology API**: See [`inferadb-engine-repl/src/topology.rs`](../crates/inferadb-engine-repl/src/topology.rs)
+- **Conflict Resolution API**: See [`inferadb-engine-repl/src/conflict.rs`](../crates/inferadb-engine-repl/src/conflict.rs)
+- **Replication Agent API**: See [`inferadb-engine-repl/src/agent.rs`](../crates/inferadb-engine-repl/src/agent.rs)
+- **Router API**: See [`inferadb-engine-repl/src/router.rs`](../crates/inferadb-engine-repl/src/router.rs)
 
 ## Related Documentation
 
@@ -709,4 +709,4 @@ Regularly test:
 
 Complete examples are available in the integration tests:
 
-- [`crates/inferadb-repl/tests/replication_integration.rs`](../crates/inferadb-repl/tests/replication_integration.rs)
+- [`crates/inferadb-engine-repl/tests/replication_integration.rs`](../crates/inferadb-engine-repl/tests/replication_integration.rs)

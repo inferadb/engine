@@ -18,17 +18,17 @@ This guide covers integrating InferaDB's audit logging system into your applicat
 
 ### 1. Add Dependency
 
-The audit module is part of `inferadb-observe`:
+The audit module is part of `inferadb-engine-observe`:
 
 ```toml
 [dependencies]
-inferadb-observe = { path = "../crates/inferadb-observe" }
+inferadb-engine-observe = { path = "../crates/inferadb-engine-observe" }
 ```
 
 ### 2. Initialize Audit Logger
 
 ```rust
-use inferadb_observe::audit::{AuditLogger, AuditConfig};
+use inferadb_engine_observe::audit::{AuditLogger, AuditConfig};
 
 // Use default configuration (everything enabled)
 let audit_logger = AuditLogger::default();
@@ -52,7 +52,7 @@ let audit_logger = AuditLogger::new(config);
 ### 3. Log Your First Event
 
 ```rust
-use inferadb_observe::audit::*;
+use inferadb_engine_observe::audit::*;
 
 // Create metadata
 let metadata = AuditMetadata {
@@ -407,7 +407,7 @@ let config = AuditConfig {
 
 ```rust
 use axum::{extract::State, Json};
-use inferadb_observe::audit::*;
+use inferadb_engine_observe::audit::*;
 
 struct AppState {
     audit_logger: Arc<AuditLogger>,
@@ -461,7 +461,7 @@ async fn check_handler(
 
 ```rust
 use tonic::{Request, Response, Status};
-use inferadb_observe::audit::*;
+use inferadb_engine_observe::audit::*;
 
 impl InferaService for MyService {
     async fn evaluate(
@@ -993,7 +993,7 @@ async fn test_all_operations_audited() {
 
 ## References
 
-- [Audit Module Source](../crates/inferadb-observe/src/audit.rs)
+- [Audit Module Source](../crates/inferadb-engine-observe/src/audit.rs)
 - [SIEM Integration Guide](../AUDIT_LOGGING.md)
 - [Metrics Reference](../grafana/METRICS_REFERENCE.md)
 - [API Examples](../examples/audit-integration/)

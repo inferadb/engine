@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - REST APIs now support both JSON (`application/json`) and TOON (`text/toon`) formats
   - Clients can request format via `Accept` header
   - TOON (Token Oriented Object Notation) provides 30-60% token reduction for LLM clients
-  - New module: `inferadb-api::content_negotiation`
+  - New module: `inferadb-engine-api::content_negotiation`
   - New types: `ResponseFormat`, `AcceptHeader`, `ResponseData<T>`
   - JSON remains the default format for backward compatibility
 - Comprehensive TOON documentation in `api/content-negotiation.md`

@@ -1,6 +1,6 @@
-# Manual Test Protocol: Server-Management Authentication Integration
+# Manual Test Protocol: Server-Control Authentication Integration
 
-This document provides a comprehensive manual testing protocol for validating the server-management authentication integration. Use this protocol to verify that all authentication features are working correctly before deployment.
+This document provides a comprehensive manual testing protocol for validating the server-control authentication integration. Use this protocol to verify that all authentication features are working correctly before deployment.
 
 ## Table of Contents
 
@@ -30,7 +30,7 @@ pip install requests PyJWT cryptography
 ### Environment Variables
 
 ```bash
-export MANAGEMENT_API_URL="http://localhost:8081"
+export CONTROL_API_URL="http://localhost:8081"
 export SERVER_URL="http://localhost:8080"
 export TEST_USER_EMAIL="test-$(date +%s)@example.com"
 export TEST_USER_PASSWORD="TestPassword123!"
@@ -40,16 +40,16 @@ export TEST_USER_PASSWORD="TestPassword123!"
 
 ### Option 1: Local Development Environment
 
-#### Step 1: Start Management API
+#### Step 1: Start Control
 
 ```bash
-cd management
+cd control
 make run
-# Management API starts on http://localhost:8081
+# Control starts on http://localhost:8081
 # Wait for "Server listening on 0.0.0.0:8081"
 ```
 
-Verify management API is running:
+Verify Control is running:
 
 ```bash
 curl http://localhost:8081/health
@@ -76,7 +76,7 @@ curl http://localhost:8080/health
 
 ```bash
 # From repository root
-docker-compose up -d foundationdb management-api server
+docker-compose up -d foundationdb control-api server
 docker-compose ps
 # All services should be "healthy"
 ```
@@ -92,7 +92,7 @@ docker-compose ps
 1. Register a new user:
 
 ```bash
-curl -X POST $MANAGEMENT_API_URL/v1/auth/register \
+curl -X POST $CONTROL_API_URL/v1/auth/register \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"Test User\",
@@ -147,7 +147,7 @@ export ORG_ID="<organization_id from response>"
 1. Login with registered user:
 
 ```bash
-curl -X POST $MANAGEMENT_API_URL/v1/auth/login \
+curl -X POST $CONTROL_API_URL/v1/auth/login \
   -H "Content-Type: application/json" \
   -d "{
     \"email\": \"$TEST_USER_EMAIL\",
@@ -189,7 +189,7 @@ export SESSION_ID="<session_id from response>"
 1. Create a vault:
 
 ```bash
-curl -X POST $MANAGEMENT_API_URL/v1/vaults \
+curl -X POST $CONTROL_API_URL/v1/vaults \
   -H "Authorization: Bearer $SESSION_ID" \
   -H "Content-Type: application/json" \
   -d "{
@@ -237,7 +237,7 @@ export ACCOUNT_ID="<account_id from response>"
 1. Create a client:
 
 ```bash
-curl -X POST $MANAGEMENT_API_URL/v1/organizations/$ORG_ID/clients \
+curl -X POST $CONTROL_API_URL/v1/organizations/$ORG_ID/clients \
   -H "Authorization: Bearer $SESSION_ID" \
   -H "Content-Type: application/json" \
   -d "{
@@ -310,7 +310,7 @@ python3 generate_keys.py
 ```bash
 export PUBLIC_KEY_B64="<base64_public_key from above>"
 
-curl -X POST $MANAGEMENT_API_URL/v1/organizations/$ORG_ID/clients/$CLIENT_ID/certificates \
+curl -X POST $CONTROL_API_URL/v1/organizations/$ORG_ID/clients/$CLIENT_ID/certificates \
   -H "Authorization: Bearer $SESSION_ID" \
   -H "Content-Type: application/json" \
   -d "{
@@ -371,13 +371,13 @@ client_id = os.getenv('CLIENT_ID')
 vault_id = os.getenv('VAULT_ID')
 account_id = os.getenv('ACCOUNT_ID')
 cert_kid = os.getenv('CERT_KID')
-management_url = os.getenv('MANAGEMENT_API_URL')
+control_url = os.getenv('CONTROL_API_URL')
 server_url = os.getenv('SERVER_URL')
 
 # Create claims
 now = datetime.datetime.now(datetime.timezone.utc)
 claims = {
-    "iss": f"{management_url}/v1",
+    "iss": f"{control_url}/v1",
     "sub": f"client:{client_id}",
     "aud": server_url,
     "exp": int((now + datetime.timedelta(minutes=5)).timestamp()),
@@ -414,7 +414,7 @@ echo "JWT Token (first 100 chars): ${JWT_TOKEN:0:100}..."
 
 ### Test 7: Authenticated Request to Server
 
-**Objective**: Verify server accepts JWT and validates it against management API.
+**Objective**: Verify server accepts JWT and validates it against Control.
 
 **Steps**:
 
@@ -500,7 +500,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
 1. Create a second vault:
 
 ```bash
-curl -X POST $MANAGEMENT_API_URL/v1/vaults \
+curl -X POST $CONTROL_API_URL/v1/vaults \
   -H "Authorization: Bearer $SESSION_ID" \
   -H "Content-Type: application/json" \
   -d "{
@@ -551,7 +551,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
 1. Delete the certificate:
 
 ```bash
-curl -X DELETE $MANAGEMENT_API_URL/v1/organizations/$ORG_ID/clients/$CLIENT_ID/certificates/$CERT_ID \
+curl -X DELETE $CONTROL_API_URL/v1/organizations/$ORG_ID/clients/$CLIENT_ID/certificates/$CERT_ID \
   -H "Authorization: Bearer $SESSION_ID" | jq .
 ```
 
@@ -632,18 +632,18 @@ grep "authentication_success" logs/server.log
 1. Fetch metrics endpoint:
 
 ```bash
-curl $SERVER_URL/metrics | grep inferadb_auth
+curl $SERVER_URL/metrics | grep inferadb_engine_auth
 ```
 
 1. Check for key metrics:
 
 ```bash
 # Expected metrics:
-inferadb_auth_validations_total{method="jwt",result="success"} 5
-inferadb_auth_cache_hits_total{cache_type="certificate"} 4
-inferadb_auth_cache_misses_total{cache_type="certificate"} 1
-inferadb_auth_management_api_calls_total{endpoint="/v1/vaults",status="200"} 1
-inferadb_auth_validation_duration_seconds_bucket{method="jwt",le="0.01"} 5
+inferadb_engine_auth_validations_total{method="jwt",result="success"} 5
+inferadb_engine_auth_cache_hits_total{cache_type="certificate"} 4
+inferadb_engine_auth_cache_misses_total{cache_type="certificate"} 1
+inferadb_engine_auth_management_api_calls_total{endpoint="/v1/vaults",status="200"} 1
+inferadb_engine_auth_validation_duration_seconds_bucket{method="jwt",le="0.01"} 5
 ```
 
 **Expected Results**:
@@ -667,7 +667,7 @@ inferadb_auth_validation_duration_seconds_bucket{method="jwt",le="0.01"} 5
 ```bash
 export TEST_USER2_EMAIL="test2-$(date +%s)@example.com"
 
-curl -X POST $MANAGEMENT_API_URL/v1/auth/register \
+curl -X POST $CONTROL_API_URL/v1/auth/register \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"Test User 2\",
@@ -721,8 +721,8 @@ done | awk '{sum+=$1; count++} END {print "Average: " sum/count " seconds"}'
 1. Check cache metrics:
 
 ```bash
-curl $SERVER_URL/metrics | grep inferadb_auth_cache_hits_total
-curl $SERVER_URL/metrics | grep inferadb_auth_cache_misses_total
+curl $SERVER_URL/metrics | grep inferadb_engine_auth_cache_hits_total
+curl $SERVER_URL/metrics | grep inferadb_engine_auth_cache_misses_total
 ```
 
 1. Calculate cache hit rate:
@@ -735,13 +735,13 @@ curl $SERVER_URL/metrics | grep inferadb_auth_cache_misses_total
 
 - ✅ Average latency < 50ms per request
 - ✅ Cache hit rate > 90% after warmup
-- ✅ Management API call rate < 10%
+- ✅ Control call rate < 10%
 
 ---
 
 ### Test 15: Graceful Degradation
 
-**Objective**: Verify server continues operating with cached data when management API is unavailable.
+**Objective**: Verify server continues operating with cached data when Control is unavailable.
 
 **Steps**:
 
@@ -760,10 +760,10 @@ curl -X POST $SERVER_URL/v1/evaluate \
   }' | jq .
 ```
 
-1. Stop management API:
+1. Stop Control:
 
 ```bash
-# Ctrl+C in management API terminal
+# Ctrl+C in Control terminal
 ```
 
 1. Make another request (within cache TTL):
@@ -781,18 +781,18 @@ curl -X POST $SERVER_URL/v1/evaluate \
   }' | jq .
 ```
 
-1. Restart management API:
+1. Restart Control:
 
 ```bash
-cd management && make run
+cd control && make run
 ```
 
 **Expected Results**:
 
 - ✅ Cached requests succeed (HTTP 200 OK)
 - ✅ New certificate requests fail gracefully (HTTP 503)
-- ✅ Server logs warning about management API unavailability
-- ✅ Server resumes normal operation when management API returns
+- ✅ Server logs warning about Control unavailability
+- ✅ Server resumes normal operation when Control returns
 
 ---
 
@@ -823,8 +823,8 @@ Use this checklist to track test completion:
 
 - [ ] Cache hit rate > 90%
 - [ ] Average latency < 50ms
-- [ ] Management API call rate < 10%
-- [ ] Server handles management API downtime gracefully
+- [ ] Control call rate < 10%
+- [ ] Server handles Control downtime gracefully
 - [ ] No memory leaks during extended operation
 
 ### Observability
@@ -839,7 +839,7 @@ Use this checklist to track test completion:
 
 - [ ] 401 Unauthorized for invalid auth
 - [ ] 403 Forbidden for cross-org/vault access
-- [ ] 503 Service Unavailable when management API down
+- [ ] 503 Service Unavailable when Control down
 - [ ] Error messages don't leak sensitive information
 
 ## Troubleshooting
@@ -860,7 +860,7 @@ echo $JWT_TOKEN | cut -d'.' -f2 | base64 -d | jq .exp
 date +%s  # Compare with current timestamp
 
 # Verify certificate exists
-curl $MANAGEMENT_API_URL/v1/organizations/$ORG_ID/clients/$CLIENT_ID/certificates \
+curl $CONTROL_API_URL/v1/organizations/$ORG_ID/clients/$CLIENT_ID/certificates \
   -H "Authorization: Bearer $SESSION_ID" | jq .
 
 # Generate fresh JWT
@@ -879,7 +879,7 @@ python3 generate_jwt.py
 
 ```bash
 # Verify vault exists
-curl $MANAGEMENT_API_URL/v1/vaults/$VAULT_ID \
+curl $CONTROL_API_URL/v1/vaults/$VAULT_ID \
   -H "Authorization: Bearer $SESSION_ID" | jq .
 
 # Check vault ownership matches JWT claims
@@ -890,14 +890,14 @@ curl $MANAGEMENT_API_URL/v1/vaults/$VAULT_ID \
 
 **Possible Causes**:
 
-1. Management API is down
+1. Control is down
 2. Network connectivity issues
 
 **Resolution**:
 
 ```bash
-# Check management API health
-curl $MANAGEMENT_API_URL/health
+# Check Control health
+curl $CONTROL_API_URL/health
 
 # Check server logs for connectivity errors
 grep "management_api" logs/server.log
@@ -909,7 +909,7 @@ grep "management_api" logs/server.log
 
 1. JWT expired (5-minute TTL)
 2. Session expired
-3. Cache expired and management API down
+3. Cache expired and Control down
 
 **Resolution**:
 
@@ -918,7 +918,7 @@ grep "management_api" logs/server.log
 python3 generate_jwt.py
 
 # Re-login to get new session
-curl -X POST $MANAGEMENT_API_URL/v1/auth/login \
+curl -X POST $CONTROL_API_URL/v1/auth/login \
   -H "Content-Type: application/json" \
   -d "{\"email\": \"$TEST_USER_EMAIL\", \"password\": \"$TEST_USER_PASSWORD\"}"
 ```
@@ -933,7 +933,7 @@ Use this template to document test results:
 **Test Date**: YYYY-MM-DD
 **Tester**: Your Name
 **Environment**: Local / Docker / Staging
-**Management API Version**: vX.Y.Z
+**Control Version**: vX.Y.Z
 **Server Version**: vX.Y.Z
 
 ## Test Summary

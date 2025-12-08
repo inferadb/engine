@@ -91,8 +91,8 @@ docker-compose up -d
 docker-compose exec test-runner bash
 
 # Inside container - run specific tests
-cargo test -p inferadb-store --features fdb,fdb-integration-tests --lib foundationdb::tests::test_fdb_connection
-cargo test -p inferadb-store --features fdb,fdb-integration-tests --lib foundationdb::tests::test_fdb_basic_operations
+cargo test -p inferadb-engine-store --features fdb,fdb-integration-tests --lib foundationdb::tests::test_fdb_connection
+cargo test -p inferadb-engine-store --features fdb,fdb-integration-tests --lib foundationdb::tests::test_fdb_basic_operations
 
 # Check FDB status
 fdbcli --exec "status"
@@ -316,7 +316,7 @@ fdb-integration-tests:
 
 ### Adding New Tests
 
-1. Write tests in `crates/inferadb-store/src/foundationdb.rs`
+1. Write tests in `crates/inferadb-engine-store/src/foundationdb.rs`
 2. Mark with `#[cfg(all(test, feature = "fdb-integration-tests"))]`
 3. Run tests: `./docker/fdb-integration-tests/test.sh`
 4. Iterate in interactive mode:
@@ -324,7 +324,7 @@ fdb-integration-tests:
    ```bash
    ./docker/fdb-integration-tests/shell.sh
    # Inside container
-   cargo test -p inferadb-store --features fdb,fdb-integration-tests <test_name>
+   cargo test -p inferadb-engine-store --features fdb,fdb-integration-tests <test_name>
    ```
 
 ### Debugging Test Failures
@@ -353,7 +353,7 @@ fdb-integration-tests:
 4. Re-run specific test:
 
    ```bash
-   RUST_BACKTRACE=full cargo test -p inferadb-store \
+   RUST_BACKTRACE=full cargo test -p inferadb-engine-store \
      --features fdb,fdb-integration-tests \
      test_name -- --nocapture
    ```

@@ -1,6 +1,6 @@
-# InferaDB Helm Chart
+# InferaDB Engine Helm Chart
 
-Official Helm chart for deploying InferaDB to Kubernetes.
+Official Helm chart for deploying InferaDB Engine to Kubernetes.
 
 ## Prerequisites
 
@@ -19,10 +19,10 @@ git clone https://github.com/inferadb/inferadb.git
 cd inferadb
 
 # Install with default values
-helm install inferadb ./helm --namespace inferadb --create-namespace
+helm install inferadb-engine ./helm --namespace inferadb --create-namespace
 
 # Install with custom values
-helm install inferadb ./helm -f custom-values.yaml --namespace inferadb --create-namespace
+helm install inferadb-engine ./helm -f custom-values.yaml --namespace inferadb --create-namespace
 ```
 
 ### Install from Helm Repository (if available)
@@ -33,7 +33,7 @@ helm repo add inferadb https://charts.inferadb.com
 helm repo update
 
 # Install chart
-helm install inferadb inferadb/inferadb --namespace inferadb --create-namespace
+helm install inferadb-engine inferadb/inferadb-engine --namespace inferadb --create-namespace
 ```
 
 ## Configuration
@@ -105,37 +105,37 @@ autoscaling:
 ### Upgrade Release
 
 ```bash
-helm upgrade inferadb inferadb/inferadb --namespace inferadb
+helm upgrade inferadb-engine inferadb/inferadb-engine --namespace inferadb
 ```
 
 ### Upgrade with New Values
 
 ```bash
-helm upgrade inferadb inferadb/inferadb -f new-values.yaml --namespace inferadb
+helm upgrade inferadb-engine inferadb/inferadb-engine -f new-values.yaml --namespace inferadb
 ```
 
 ### Rollback
 
 ```bash
-helm rollback inferadb --namespace inferadb
+helm rollback inferadb-engine --namespace inferadb
 ```
 
 ## Uninstallation
 
 ```bash
-helm uninstall inferadb --namespace inferadb
+helm uninstall inferadb-engine --namespace inferadb
 ```
 
 ## Parameters
 
 ### Global Parameters
 
-| Name               | Description                            | Value          |
-| ------------------ | -------------------------------------- | -------------- |
-| `image.repository` | InferaDB image repository              | `inferadb`     |
-| `image.tag`        | Image tag (overrides Chart appVersion) | `""`           |
-| `image.pullPolicy` | Image pull policy                      | `IfNotPresent` |
-| `replicaCount`     | Number of replicas                     | `3`            |
+| Name               | Description                                   | Value             |
+| ------------------ | --------------------------------------------- | ----------------- |
+| `image.repository` | InferaDB Engine image repository              | `inferadb-engine` |
+| `image.tag`        | Image tag (overrides Chart appVersion)        | `""`              |
+| `image.pullPolicy` | Image pull policy                             | `IfNotPresent`    |
+| `replicaCount`     | Number of replicas                            | `3`               |
 
 ### Service Parameters
 
@@ -206,13 +206,13 @@ For production, use external secret managers:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: inferadb-secrets
+  name: inferadb-engine-secrets
 spec:
   secretStoreRef:
     name: aws-secrets-manager
     kind: SecretStore
   target:
-    name: inferadb-secrets
+    name: inferadb-engine-secrets
   data:
     - secretKey: jwksUrl
       remoteRef:
@@ -225,13 +225,13 @@ spec:
 ### Minimal Installation
 
 ```bash
-helm install inferadb ./helm --set config.storage.backend=memory
+helm install inferadb-engine ./helm --set config.storage.backend=memory
 ```
 
 ### High Availability
 
 ```bash
-helm install inferadb ./helm \
+helm install inferadb-engine ./helm \
   --set replicaCount=5 \
   --set autoscaling.minReplicas=5 \
   --set autoscaling.maxReplicas=50 \
@@ -252,7 +252,7 @@ config:
     jwksCacheTtl: 300
 EOF
 
-helm install inferadb ./helm -f production-values.yaml
+helm install inferadb-engine ./helm -f production-values.yaml
 ```
 
 ## Troubleshooting
@@ -260,19 +260,19 @@ helm install inferadb ./helm -f production-values.yaml
 ### Check Release Status
 
 ```bash
-helm status inferadb --namespace inferadb
+helm status inferadb-engine --namespace inferadb
 ```
 
 ### View Values
 
 ```bash
-helm get values inferadb --namespace inferadb
+helm get values inferadb-engine --namespace inferadb
 ```
 
 ### Debug Templates
 
 ```bash
-helm template inferadb ./helm --debug
+helm template inferadb-engine ./helm --debug
 ```
 
 ## Support

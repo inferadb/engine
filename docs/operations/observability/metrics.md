@@ -32,9 +32,9 @@ inferadb_check_duration_seconds_bucket{le="+Inf"} 12453
 inferadb_check_duration_seconds_sum 8.234
 inferadb_check_duration_seconds_count 12453
 
-# HELP inferadb_cache_hit_rate Current cache hit rate as a percentage
-# TYPE inferadb_cache_hit_rate gauge
-inferadb_cache_hit_rate 85.3
+# HELP inferadb_engine_cache_hit_rate Current cache hit rate as a percentage
+# TYPE inferadb_engine_cache_hit_rate gauge
+inferadb_engine_cache_hit_rate 85.3
 ```
 
 ## Available Metrics
@@ -45,10 +45,10 @@ InferaDB tracks comprehensive authentication metrics for monitoring security and
 
 | Metric                                       | Type      | Labels                              | Description                                 |
 | -------------------------------------------- | --------- | ----------------------------------- | ------------------------------------------- |
-| `inferadb_auth_attempts_total`               | Counter   | `method`, `tenant_id`               | Total number of authentication attempts     |
-| `inferadb_auth_success_total`                | Counter   | `method`, `tenant_id`               | Total number of successful authentications  |
-| `inferadb_auth_failure_total`                | Counter   | `method`, `error_type`, `tenant_id` | Total number of failed authentications      |
-| `inferadb_auth_duration_seconds`             | Histogram | `method`, `tenant_id`               | Duration of authentication operations       |
+| `inferadb_engine_auth_attempts_total`               | Counter   | `method`, `tenant_id`               | Total number of authentication attempts     |
+| `inferadb_engine_auth_success_total`                | Counter   | `method`, `tenant_id`               | Total number of successful authentications  |
+| `inferadb_engine_auth_failure_total`                | Counter   | `method`, `error_type`, `tenant_id` | Total number of failed authentications      |
+| `inferadb_engine_auth_duration_seconds`             | Histogram | `method`, `tenant_id`               | Duration of authentication operations       |
 | `inferadb_jwt_signature_verifications_total` | Counter   | `algorithm`, `result`               | Total number of JWT signature verifications |
 | `inferadb_jwt_validation_errors_total`       | Counter   | `error_type`                        | Total number of JWT validation errors       |
 
@@ -62,13 +62,13 @@ InferaDB tracks comprehensive authentication metrics for monitoring security and
 
 ```promql
 # Authentication success rate
-sum(rate(inferadb_auth_success_total[5m])) / sum(rate(inferadb_auth_attempts_total[5m])) * 100
+sum(rate(inferadb_engine_auth_success_total[5m])) / sum(rate(inferadb_engine_auth_attempts_total[5m])) * 100
 
 # Authentication failures by error type
-sum(rate(inferadb_auth_failure_total[5m])) by (error_type)
+sum(rate(inferadb_engine_auth_failure_total[5m])) by (error_type)
 
 # p99 authentication latency
-histogram_quantile(0.99, sum(rate(inferadb_auth_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.99, sum(rate(inferadb_engine_auth_duration_seconds_bucket[5m])) by (le))
 ```
 
 ### JWKS Cache Metrics
@@ -142,22 +142,22 @@ histogram_quantile(0.50, rate(inferadb_check_duration_seconds_bucket[5m]))
 
 | Metric                        | Type    | Description                        |
 | ----------------------------- | ------- | ---------------------------------- |
-| `inferadb_cache_hits_total`   | Counter | Total number of cache hits         |
-| `inferadb_cache_misses_total` | Counter | Total number of cache misses       |
-| `inferadb_cache_entries`      | Gauge   | Current number of entries in cache |
-| `inferadb_cache_hit_rate`     | Gauge   | Current cache hit rate (0-100%)    |
+| `inferadb_engine_cache_hits_total`   | Counter | Total number of cache hits         |
+| `inferadb_engine_cache_misses_total` | Counter | Total number of cache misses       |
+| `inferadb_engine_cache_entries`      | Gauge   | Current number of entries in cache |
+| `inferadb_engine_cache_hit_rate`     | Gauge   | Current cache hit rate (0-100%)    |
 
 **Example PromQL Queries**:
 
 ```promql
 # Cache hit rate
-inferadb_cache_hit_rate
+inferadb_engine_cache_hit_rate
 
 # Cache hit rate (calculated)
-sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m]))) * 100
+sum(rate(inferadb_engine_cache_hits_total[5m])) / (sum(rate(inferadb_engine_cache_hits_total[5m])) + sum(rate(inferadb_engine_cache_misses_total[5m]))) * 100
 
 # Cache usage
-inferadb_cache_entries
+inferadb_engine_cache_entries
 ```
 
 ### Storage Metrics
@@ -191,22 +191,22 @@ rate(inferadb_storage_tuples_total[1h])
 
 | Metric                            | Type      | Description                             |
 | --------------------------------- | --------- | --------------------------------------- |
-| `inferadb_wasm_invocations_total` | Counter   | Total number of WASM module invocations |
-| `inferadb_wasm_errors_total`      | Counter   | Total number of WASM execution errors   |
-| `inferadb_wasm_duration_seconds`  | Histogram | Duration of WASM module executions      |
-| `inferadb_wasm_fuel_consumed`     | Histogram | Amount of fuel consumed by WASM         |
+| `inferadb_engine_wasm_invocations_total` | Counter   | Total number of WASM module invocations |
+| `inferadb_engine_wasm_errors_total`      | Counter   | Total number of WASM execution errors   |
+| `inferadb_engine_wasm_duration_seconds`  | Histogram | Duration of WASM module executions      |
+| `inferadb_engine_wasm_fuel_consumed`     | Histogram | Amount of fuel consumed by WASM         |
 
 **Example PromQL Queries**:
 
 ```promql
 # WASM invocation rate
-rate(inferadb_wasm_invocations_total[5m])
+rate(inferadb_engine_wasm_invocations_total[5m])
 
 # WASM error rate
-rate(inferadb_wasm_errors_total[5m])
+rate(inferadb_engine_wasm_errors_total[5m])
 
 # p99 WASM execution time
-histogram_quantile(0.99, rate(inferadb_wasm_duration_seconds_bucket[5m]))
+histogram_quantile(0.99, rate(inferadb_engine_wasm_duration_seconds_bucket[5m]))
 ```
 
 ### Evaluation Metrics
@@ -244,43 +244,43 @@ InferaDB tracks comprehensive replication metrics for monitoring multi-region de
 
 | Metric                                           | Type      | Description                                           |
 | ------------------------------------------------ | --------- | ----------------------------------------------------- |
-| `inferadb_replication_changes_total`             | Counter   | Total number of changes replicated to remote regions  |
-| `inferadb_replication_failures_total`            | Counter   | Total number of replication failures                  |
-| `inferadb_replication_conflicts_total`           | Counter   | Total number of replication conflicts detected        |
-| `inferadb_replication_conflicts_resolved_local`  | Counter   | Number of conflicts resolved by keeping local change  |
-| `inferadb_replication_conflicts_resolved_remote` | Counter   | Number of conflicts resolved by keeping remote change |
-| `inferadb_replication_lag_milliseconds`          | Gauge     | Current replication lag in milliseconds               |
-| `inferadb_replication_targets_connected`         | Gauge     | Number of replication targets currently connected     |
-| `inferadb_replication_targets_total`             | Gauge     | Total number of configured replication targets        |
-| `inferadb_replication_batch_size`                | Histogram | Distribution of replication batch sizes               |
-| `inferadb_replication_duration_seconds`          | Histogram | Duration of replication operations in seconds         |
+| `inferadb_engine_replication_changes_total`             | Counter   | Total number of changes replicated to remote regions  |
+| `inferadb_engine_replication_failures_total`            | Counter   | Total number of replication failures                  |
+| `inferadb_engine_replication_conflicts_total`           | Counter   | Total number of replication conflicts detected        |
+| `inferadb_engine_replication_conflicts_resolved_local`  | Counter   | Number of conflicts resolved by keeping local change  |
+| `inferadb_engine_replication_conflicts_resolved_remote` | Counter   | Number of conflicts resolved by keeping remote change |
+| `inferadb_engine_replication_lag_milliseconds`          | Gauge     | Current replication lag in milliseconds               |
+| `inferadb_engine_replication_targets_connected`         | Gauge     | Number of replication targets currently connected     |
+| `inferadb_engine_replication_targets_total`             | Gauge     | Total number of configured replication targets        |
+| `inferadb_engine_replication_batch_size`                | Histogram | Distribution of replication batch sizes               |
+| `inferadb_engine_replication_duration_seconds`          | Histogram | Duration of replication operations in seconds         |
 
 **Example PromQL Queries**:
 
 ```promql
 # Replication lag
-inferadb_replication_lag_milliseconds
+inferadb_engine_replication_lag_milliseconds
 
 # Replication throughput (changes per second)
-rate(inferadb_replication_changes_total[5m])
+rate(inferadb_engine_replication_changes_total[5m])
 
 # Replication failure rate
-rate(inferadb_replication_failures_total[5m])
+rate(inferadb_engine_replication_failures_total[5m])
 
 # Conflict rate (conflicts per second)
-rate(inferadb_replication_conflicts_total[5m])
+rate(inferadb_engine_replication_conflicts_total[5m])
 
 # Conflict resolution distribution
-sum(rate(inferadb_replication_conflicts_resolved_local[5m])) / sum(rate(inferadb_replication_conflicts_total[5m])) * 100
+sum(rate(inferadb_engine_replication_conflicts_resolved_local[5m])) / sum(rate(inferadb_engine_replication_conflicts_total[5m])) * 100
 
 # Target health (percentage of connected targets)
-inferadb_replication_targets_connected / inferadb_replication_targets_total * 100
+inferadb_engine_replication_targets_connected / inferadb_engine_replication_targets_total * 100
 
 # Average batch size
-avg(rate(inferadb_replication_batch_size_sum[5m]) / rate(inferadb_replication_batch_size_count[5m]))
+avg(rate(inferadb_engine_replication_batch_size_sum[5m]) / rate(inferadb_engine_replication_batch_size_count[5m]))
 
 # p99 replication duration
-histogram_quantile(0.99, rate(inferadb_replication_duration_seconds_bucket[5m]))
+histogram_quantile(0.99, rate(inferadb_engine_replication_duration_seconds_bucket[5m]))
 ```
 
 **Recommended Alerts**:
@@ -288,28 +288,28 @@ histogram_quantile(0.99, rate(inferadb_replication_duration_seconds_bucket[5m]))
 ```yaml
 # Alert when replication lag exceeds 100ms
 - alert: HighReplicationLag
-  expr: inferadb_replication_lag_milliseconds > 100
+  expr: inferadb_engine_replication_lag_milliseconds > 100
   for: 5m
   annotations:
     summary: "High replication lag ({{ $value }}ms)"
 
 # Alert when target health drops below 100%
 - alert: ReplicationTargetUnhealthy
-  expr: (inferadb_replication_targets_connected / inferadb_replication_targets_total) < 1
+  expr: (inferadb_engine_replication_targets_connected / inferadb_engine_replication_targets_total) < 1
   for: 2m
   annotations:
     summary: "Replication target unhealthy"
 
 # Alert on high failure rate
 - alert: HighReplicationFailureRate
-  expr: rate(inferadb_replication_failures_total[5m]) > 0.01
+  expr: rate(inferadb_engine_replication_failures_total[5m]) > 0.01
   for: 5m
   annotations:
     summary: "High replication failure rate"
 
 # Alert on high conflict rate
 - alert: HighConflictRate
-  expr: rate(inferadb_replication_conflicts_total[5m]) / rate(inferadb_replication_changes_total[5m]) > 0.01
+  expr: rate(inferadb_engine_replication_conflicts_total[5m]) / rate(inferadb_engine_replication_changes_total[5m]) > 0.01
   for: 10m
   annotations:
     summary: "High conflict rate (>1% of changes)"
@@ -356,28 +356,28 @@ For comprehensive audit logging documentation, see [Audit Logging](auditing.md).
 
 | Metric                                            | Type      | Description                                  |
 | ------------------------------------------------- | --------- | -------------------------------------------- |
-| `inferadb_api_requests_total{endpoint,method}`    | Counter   | Total API requests by endpoint and method    |
-| `inferadb_api_errors_total{endpoint,status}`      | Counter   | Total API errors by endpoint and status code |
-| `inferadb_api_request_duration_seconds{endpoint}` | Histogram | API request duration by endpoint             |
-| `inferadb_api_active_connections`                 | Gauge     | Number of currently active connections       |
+| `inferadb_engine_api_requests_total{endpoint,method}`    | Counter   | Total API requests by endpoint and method    |
+| `inferadb_engine_api_errors_total{endpoint,status}`      | Counter   | Total API errors by endpoint and status code |
+| `inferadb_engine_api_request_duration_seconds{endpoint}` | Histogram | API request duration by endpoint             |
+| `inferadb_engine_api_active_connections`                 | Gauge     | Number of currently active connections       |
 
 **Example PromQL Queries**:
 
 ```promql
 # Request rate by endpoint
-rate(inferadb_api_requests_total[5m])
+rate(inferadb_engine_api_requests_total[5m])
 
 # Error rate
-rate(inferadb_api_errors_total[5m])
+rate(inferadb_engine_api_errors_total[5m])
 
 # Error rate percentage
-sum(rate(inferadb_api_errors_total[5m])) / sum(rate(inferadb_api_requests_total[5m])) * 100
+sum(rate(inferadb_engine_api_errors_total[5m])) / sum(rate(inferadb_engine_api_requests_total[5m])) * 100
 
 # p99 API latency
-histogram_quantile(0.99, rate(inferadb_api_request_duration_seconds_bucket[5m]))
+histogram_quantile(0.99, rate(inferadb_engine_api_request_duration_seconds_bucket[5m]))
 
 # Active connections
-inferadb_api_active_connections
+inferadb_engine_api_active_connections
 ```
 
 ### System Metrics

@@ -57,16 +57,16 @@ InferaDB is organized as a Rust workspace with multiple crates:
 ```text
 server/
 ├── crates/
-│   ├── inferadb-api/       # REST + gRPC API layer
-│   ├── inferadb-auth/      # Authentication & authorization
-│   ├── inferadb-cache/     # Result caching
-│   ├── inferadb-config/    # Configuration management
-│   ├── inferadb-core/      # Policy evaluation engine (the heart)
-│   ├── inferadb-observe/   # Metrics, tracing, logging
-│   ├── inferadb-repl/      # Replication & consistency
-│   ├── inferadb-store/     # Storage abstraction
-│   ├── inferadb-wasm/      # WASM policy modules
-│   └── inferadb-bin/       # Binary entry point
+│   ├── inferadb-engine-api/       # REST + gRPC API layer
+│   ├── inferadb-engine-auth/      # Authentication & authorization
+│   ├── inferadb-engine-cache/     # Result caching
+│   ├── inferadb-engine-config/    # Configuration management
+│   ├── inferadb-engine-core/      # Policy evaluation engine (the heart)
+│   ├── inferadb-engine-observe/   # Metrics, tracing, logging
+│   ├── inferadb-engine-repl/      # Replication & consistency
+│   ├── inferadb-engine-store/     # Storage abstraction
+│   ├── inferadb-engine-wasm/      # WASM policy modules
+│   └── inferadb-engine-bin/       # Binary entry point
 ├── docs/                 # Documentation
 ├── api/                  # API documentation (OpenAPI, Swagger UI)
 ├── tests/                # End-to-end tests
@@ -81,25 +81,25 @@ server/
 ### Crate Dependency Graph
 
 ```text
-inferadb-bin
-    ├── inferadb-api
-    │   ├── inferadb-auth
-    │   ├── inferadb-core
-    │   └── inferadb-observe
-    ├── inferadb-core
-    │   ├── inferadb-cache
-    │   ├── inferadb-store
-    │   ├── inferadb-wasm
-    │   └── inferadb-observe
-    ├── inferadb-repl
-    │   ├── inferadb-store
-    │   └── inferadb-observe
-    └── inferadb-config
+inferadb-engine-bin
+    ├── inferadb-engine-api
+    │   ├── inferadb-engine-auth
+    │   ├── inferadb-engine-core
+    │   └── inferadb-engine-observe
+    ├── inferadb-engine-core
+    │   ├── inferadb-engine-cache
+    │   ├── inferadb-engine-store
+    │   ├── inferadb-engine-wasm
+    │   └── inferadb-engine-observe
+    ├── inferadb-engine-repl
+    │   ├── inferadb-engine-store
+    │   └── inferadb-engine-observe
+    └── inferadb-engine-config
 ```
 
 ### Key Modules
 
-#### inferadb-core
+#### inferadb-engine-core
 
 The evaluation engine - the heart of InferaDB:
 
@@ -109,7 +109,7 @@ The evaluation engine - the heart of InferaDB:
 - `types.rs` - Core data structures (Tuple, Schema, etc.)
 - `trace.rs` - Decision tracing for debugging
 
-#### inferadb-store
+#### inferadb-engine-store
 
 Storage abstraction with multiple backends:
 
@@ -118,7 +118,7 @@ Storage abstraction with multiple backends:
 - `foundationdb.rs` - FoundationDB backend (production)
 - `factory.rs` - Backend selection and initialization
 
-#### inferadb-auth
+#### inferadb-engine-auth
 
 Authentication and authorization:
 
@@ -128,7 +128,7 @@ Authentication and authorization:
 - `middleware.rs` - gRPC/REST authentication middleware
 - `replay.rs` - Replay attack protection
 
-#### inferadb-api
+#### inferadb-engine-api
 
 API layer with REST and gRPC:
 
@@ -316,10 +316,10 @@ pub async fn check_permission(
 
 ### Core Evaluation API
 
-The main evaluation API is in `inferadb-core`:
+The main evaluation API is in `inferadb-engine-core`:
 
 ```rust
-use inferadb_core::{Evaluator, Schema, Tuple};
+use inferadb_engine_core::{Evaluator, Schema, Tuple};
 
 // Create evaluator
 let evaluator = Evaluator::new(store, cache, schema);
@@ -336,10 +336,10 @@ let response = evaluator.expand(resource, relation, limit, offset).await?;
 
 ### Storage API
 
-The storage abstraction is in `inferadb-store`:
+The storage abstraction is in `inferadb-engine-store`:
 
 ```rust
-use inferadb_store::{TupleStore, StorageFactory, StorageConfig};
+use inferadb_engine_store::{TupleStore, StorageFactory, StorageConfig};
 
 // Create storage backend
 let config = StorageConfig::default();
@@ -357,10 +357,10 @@ store.delete(&[tuple1]).await?;
 
 ### Caching API
 
-The cache is in `inferadb-cache`:
+The cache is in `inferadb-engine-cache`:
 
 ```rust
-use inferadb_cache::Cache;
+use inferadb_engine_cache::Cache;
 
 // Create cache
 let cache = Cache::new(10000, Duration::from_secs(300));
@@ -395,7 +395,7 @@ pub trait TupleStore: Send + Sync {
 }
 ```
 
-See [storage/memory.rs](../../crates/inferadb-store/src/memory.rs) for an example.
+See [storage/memory.rs](../../crates/inferadb-engine-store/src/memory.rs) for an example.
 
 ### 2. WASM Policy Modules
 
@@ -439,7 +439,7 @@ pub trait SecretProvider: Send + Sync {
 
 ### Adding a New Endpoint
 
-1. Define the endpoint in `crates/inferadb-api/src/lib.rs`:
+1. Define the endpoint in `crates/inferadb-engine-api/src/lib.rs`:
 
 ```rust
 async fn new_endpoint(
@@ -458,7 +458,7 @@ let app = Router::new()
     .with_state(evaluator);
 ```
 
-1. Add tests in `crates/inferadb-api/tests/`:
+1. Add tests in `crates/inferadb-engine-api/tests/`:
 
 ```rust
 #[tokio::test]
@@ -469,7 +469,7 @@ async fn test_new_endpoint() {
 
 ### Adding a New Metric
 
-1. Define the metric in `crates/inferadb-observe/src/metrics.rs`:
+1. Define the metric in `crates/inferadb-engine-observe/src/metrics.rs`:
 
 ```rust
 pub fn record_new_metric(value: f64, labels: &[(&str, &str)]) {
@@ -490,7 +490,7 @@ describe_histogram!(
 1. Use in your code:
 
 ```rust
-use inferadb_observe::record_new_metric;
+use inferadb_engine_observe::record_new_metric;
 
 let start = Instant::now();
 // ... operation ...
@@ -499,7 +499,7 @@ record_new_metric(start.elapsed().as_secs_f64(), &[("label", "value")]);
 
 ### Adding a New Test Scenario
 
-1. Create a new test file in `crates/inferadb-core/tests/`:
+1. Create a new test file in `crates/inferadb-engine-core/tests/`:
 
 ```rust
 mod common;
@@ -527,10 +527,10 @@ async fn test_new_scenario() {
 RUST_LOG=debug cargo run
 
 # Specific module
-RUST_LOG=inferadb_core=debug cargo run
+RUST_LOG=inferadb_engine_core=debug cargo run
 
 # Multiple modules
-RUST_LOG=inferadb_core=debug,inferadb_store=trace cargo run
+RUST_LOG=inferadb_engine_core=debug,inferadb_engine_store=trace cargo run
 ```
 
 ### Use Decision Traces

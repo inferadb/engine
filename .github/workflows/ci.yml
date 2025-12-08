@@ -256,7 +256,7 @@ jobs:
           retention-days: 7
 
   # IPL Parser Security Tests (reuses build cache)
-  # Only runs on PRs that modify inferadb-core
+  # Only runs on PRs that modify inferadb-engine-core
   ipl-parser-security-tests:
     name: IPL Parser Security Tests
     needs: build
@@ -273,21 +273,21 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: Check if inferadb-core was modified
+      - name: Check if inferadb-engine-core was modified
         id: check-core
         uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
         with:
           filters: |
             core:
-              - 'crates/inferadb-core/**'
+              - 'crates/inferadb-engine-core/**'
 
-      - name: Skip if inferadb-core not modified
+      - name: Skip if inferadb-engine-core not modified
         if: steps.check-core.outputs.core != 'true'
         run: |
-          echo "inferadb-core not modified, skipping tests"
+          echo "inferadb-engine-core not modified, skipping tests"
           exit 0
 
-      # Only run these steps if inferadb-core was modified
+      # Only run these steps if inferadb-engine-core was modified
       - name: Checkout code
         if: steps.check-core.outputs.core == 'true'
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -321,11 +321,11 @@ jobs:
 
       - name: Run IPL parser fuzz tests
         if: steps.check-core.outputs.core == 'true'
-        run: cargo nextest run --package inferadb-core --test ipl_parser_fuzz
+        run: cargo nextest run --package inferadb-engine-core --test ipl_parser_fuzz
         continue-on-error: true
 
   # WASM Security Tests (reuses build cache)
-  # Only runs on PRs that modify inferadb-wasm
+  # Only runs on PRs that modify inferadb-engine-wasm
   wasm-security-tests:
     name: WASM Security Tests
     needs: build
@@ -342,21 +342,21 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: Check if inferadb-wasm was modified
+      - name: Check if inferadb-engine-wasm was modified
         id: check-wasm
         uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
         with:
           filters: |
             wasm:
-              - 'crates/inferadb-wasm/**'
+              - 'crates/inferadb-engine-wasm/**'
 
-      - name: Skip if inferadb-wasm not modified
+      - name: Skip if inferadb-engine-wasm not modified
         if: steps.check-wasm.outputs.wasm != 'true'
         run: |
-          echo "inferadb-wasm not modified, skipping tests"
+          echo "inferadb-engine-wasm not modified, skipping tests"
           exit 0
 
-      # Only run these steps if inferadb-wasm was modified
+      # Only run these steps if inferadb-engine-wasm was modified
       - name: Checkout code
         if: steps.check-wasm.outputs.wasm == 'true'
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -390,7 +390,7 @@ jobs:
 
       - name: Run WASM sandbox security tests
         if: steps.check-wasm.outputs.wasm == 'true'
-        run: cargo nextest run --package inferadb-wasm --test sandbox_security
+        run: cargo nextest run --package inferadb-engine-wasm --test sandbox_security
         continue-on-error: true
 
   # Test code coverage (reuses build cache)

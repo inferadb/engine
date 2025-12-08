@@ -161,7 +161,7 @@ let vault = auth.as_ref()
 
 ```rust
 // Ensure vault exists and account owns it
-inferadb_auth::validate_vault_access_with_store(
+inferadb_engine_auth::validate_vault_access_with_store(
     &auth_context,
     &state.store,
 ).await?;
@@ -311,7 +311,7 @@ Content-Type: application/json
 **Programmatically**:
 
 ```rust
-use inferadb_types::Vault;
+use inferadb_engine_types::Vault;
 use uuid::Uuid;
 
 let account_id = Uuid::new_v4();
@@ -400,14 +400,14 @@ Every access token **must** include vault and account claims:
 1. **Basic Validation** (always performed):
 
    ```rust
-   inferadb_auth::validate_vault_access(&auth_context)?;
+   inferadb_engine_auth::validate_vault_access(&auth_context)?;
    // Checks: vault != Uuid::nil() && account != Uuid::nil()
    ```
 
 2. **Existence Check** (recommended):
 
    ```rust
-   inferadb_auth::validate_vault_access_with_store(&auth_context, &store).await?;
+   inferadb_engine_auth::validate_vault_access_with_store(&auth_context, &store).await?;
    // Checks: vault exists in database
    ```
 

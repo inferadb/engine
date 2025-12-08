@@ -1,0 +1,11 @@
+[package]
+authors.workspace = true
+description = "Shared constants for InferaDB"
+edition.workspace = true
+license.workspace = true
+name = "inferadb-engine-const"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]

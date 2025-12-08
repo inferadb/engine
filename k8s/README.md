@@ -346,7 +346,7 @@ FoundationDB backups are handled by FDB operator. For configuration:
 
 ```bash
 # Backup ConfigMap
-kubectl get configmap inferadb-config -n inferadb -o yaml > backup-configmap.yaml
+kubectl get configmap inferadb-engine-config -n inferadb -o yaml > backup-configmap.yaml
 
 # Backup Secrets (encrypted)
 kubectl get secret inferadb-secrets -n inferadb -o yaml > backup-secrets.yaml

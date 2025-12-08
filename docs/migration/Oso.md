@@ -547,7 +547,7 @@ type document {
 **WASM Module** (Rust):
 
 ```rust
-use inferadb_wasm_sdk::*;
+use inferadb_engine_wasm_sdk::*;
 
 #[wasm_policy]
 fn document_access(subject: &Subject, resource: &Resource, context: &Context) -> Decision {

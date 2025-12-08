@@ -25,7 +25,7 @@ export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 
 # Set service name
-export OTEL_SERVICE_NAME=inferadb
+export OTEL_SERVICE_NAME=inferadb-engine
 
 # Set sampling rate (0.0 to 1.0)
 export OTEL_TRACES_SAMPLER=always_on  # Sample all traces
@@ -46,7 +46,7 @@ observability:
     sampling:
       type: "traceidratio" # or "always_on", "always_off"
       ratio: 0.1 # 10% sampling
-    service_name: "inferadb"
+    service_name: "inferadb-engine"
 ```
 
 ## Trace Structure
@@ -117,7 +117,7 @@ docker run -d --name jaeger \
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
-inferadb
+inferadb-engine
 ```
 
 **3. View Traces**: <http://localhost:16686>
@@ -381,7 +381,7 @@ Tracing overhead depends on sampling rate and export method:
 
 In Jaeger UI:
 
-1. Search by service: "inferadb"
+1. Search by service: "inferadb-engine"
 2. Filter by min duration: "100ms"
 3. Analyze span waterfall
 4. Identify bottlenecks (storage, evaluation depth, cache misses)

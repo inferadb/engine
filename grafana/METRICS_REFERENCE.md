@@ -263,7 +263,7 @@ sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m]))
 
 ## Cache Metrics
 
-### `inferadb_cache_hits_total`
+### `inferadb_engine_cache_hits_total`
 
 **Type**: Counter
 
@@ -274,10 +274,10 @@ sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m]))
 **Usage Example**:
 
 ```promql
-rate(inferadb_cache_hits_total[5m])
+rate(inferadb_engine_cache_hits_total[5m])
 ```
 
-### `inferadb_cache_misses_total`
+### `inferadb_engine_cache_misses_total`
 
 **Type**: Counter
 
@@ -288,10 +288,10 @@ rate(inferadb_cache_hits_total[5m])
 **Usage Example**:
 
 ```promql
-sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m]))) * 100
+sum(rate(inferadb_engine_cache_hits_total[5m])) / (sum(rate(inferadb_engine_cache_hits_total[5m])) + sum(rate(inferadb_engine_cache_misses_total[5m]))) * 100
 ```
 
-### `inferadb_cache_entries`
+### `inferadb_engine_cache_entries`
 
 **Type**: Gauge
 
@@ -302,10 +302,10 @@ sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5
 **Usage Example**:
 
 ```promql
-inferadb_cache_entries
+inferadb_engine_cache_entries
 ```
 
-### `inferadb_cache_hit_rate`
+### `inferadb_engine_cache_hit_rate`
 
 **Type**: Gauge
 
@@ -316,7 +316,7 @@ inferadb_cache_entries
 **Usage Example**:
 
 ```promql
-inferadb_cache_hit_rate
+inferadb_engine_cache_hit_rate
 ```
 
 ---
@@ -415,7 +415,7 @@ inferadb_storage_revision
 
 ## WASM Metrics
 
-### `inferadb_wasm_invocations_total`
+### `inferadb_engine_wasm_invocations_total`
 
 **Type**: Counter
 
@@ -428,10 +428,10 @@ inferadb_storage_revision
 **Usage Example**:
 
 ```promql
-sum by (module) (rate(inferadb_wasm_invocations_total[5m]))
+sum by (module) (rate(inferadb_engine_wasm_invocations_total[5m]))
 ```
 
-### `inferadb_wasm_errors_total`
+### `inferadb_engine_wasm_errors_total`
 
 **Type**: Counter
 
@@ -444,10 +444,10 @@ sum by (module) (rate(inferadb_wasm_invocations_total[5m]))
 **Usage Example**:
 
 ```promql
-sum by (module) (rate(inferadb_wasm_errors_total[5m]))
+sum by (module) (rate(inferadb_engine_wasm_errors_total[5m]))
 ```
 
-### `inferadb_wasm_duration_seconds`
+### `inferadb_engine_wasm_duration_seconds`
 
 **Type**: Histogram
 
@@ -462,10 +462,10 @@ sum by (module) (rate(inferadb_wasm_errors_total[5m]))
 **Usage Example**:
 
 ```promql
-histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000
+histogram_quantile(0.99, sum by (module, le) (rate(inferadb_engine_wasm_duration_seconds_bucket[5m]))) * 1000
 ```
 
-### `inferadb_wasm_fuel_consumed`
+### `inferadb_engine_wasm_fuel_consumed`
 
 **Type**: Histogram
 
@@ -480,7 +480,7 @@ histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_duration_second
 **Usage Example**:
 
 ```promql
-histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))
+histogram_quantile(0.99, sum by (module, le) (rate(inferadb_engine_wasm_fuel_consumed_bucket[5m])))
 ```
 
 ---
@@ -537,7 +537,7 @@ histogram_quantile(0.99, rate(inferadb_evaluation_branches_bucket[5m]))
 
 ## API Metrics
 
-### `inferadb_api_requests_total`
+### `inferadb_engine_api_requests_total`
 
 **Type**: Counter
 
@@ -552,10 +552,10 @@ histogram_quantile(0.99, rate(inferadb_evaluation_branches_bucket[5m]))
 **Usage Example**:
 
 ```promql
-sum by (endpoint, method) (rate(inferadb_api_requests_total[5m]))
+sum by (endpoint, method) (rate(inferadb_engine_api_requests_total[5m]))
 ```
 
-### `inferadb_api_errors_total`
+### `inferadb_engine_api_errors_total`
 
 **Type**: Counter
 
@@ -569,10 +569,10 @@ sum by (endpoint, method) (rate(inferadb_api_requests_total[5m]))
 **Usage Example**:
 
 ```promql
-sum by (endpoint) (rate(inferadb_api_errors_total{status=~"5.."}[5m]))
+sum by (endpoint) (rate(inferadb_engine_api_errors_total{status=~"5.."}[5m]))
 ```
 
-### `inferadb_api_request_duration_seconds`
+### `inferadb_engine_api_request_duration_seconds`
 
 **Type**: Histogram
 
@@ -588,10 +588,10 @@ sum by (endpoint) (rate(inferadb_api_errors_total{status=~"5.."}[5m]))
 **Usage Example**:
 
 ```promql
-histogram_quantile(0.99, sum by (endpoint, le) (rate(inferadb_api_request_duration_seconds_bucket[5m]))) * 1000
+histogram_quantile(0.99, sum by (endpoint, le) (rate(inferadb_engine_api_request_duration_seconds_bucket[5m]))) * 1000
 ```
 
-### `inferadb_api_active_connections`
+### `inferadb_engine_api_active_connections`
 
 **Type**: Gauge
 
@@ -602,14 +602,14 @@ histogram_quantile(0.99, sum by (endpoint, le) (rate(inferadb_api_request_durati
 **Usage Example**:
 
 ```promql
-inferadb_api_active_connections
+inferadb_engine_api_active_connections
 ```
 
 ---
 
 ## Authentication Metrics
 
-### `inferadb_auth_attempts_total`
+### `inferadb_engine_auth_attempts_total`
 
 **Type**: Counter
 
@@ -623,10 +623,10 @@ inferadb_api_active_connections
 **Usage Example**:
 
 ```promql
-sum by (method) (rate(inferadb_auth_attempts_total[5m]))
+sum by (method) (rate(inferadb_engine_auth_attempts_total[5m]))
 ```
 
-### `inferadb_auth_success_total`
+### `inferadb_engine_auth_success_total`
 
 **Type**: Counter
 
@@ -640,10 +640,10 @@ sum by (method) (rate(inferadb_auth_attempts_total[5m]))
 **Usage Example**:
 
 ```promql
-sum by (method) (rate(inferadb_auth_success_total[5m]))
+sum by (method) (rate(inferadb_engine_auth_success_total[5m]))
 ```
 
-### `inferadb_auth_failure_total`
+### `inferadb_engine_auth_failure_total`
 
 **Type**: Counter
 
@@ -658,10 +658,10 @@ sum by (method) (rate(inferadb_auth_success_total[5m]))
 **Usage Example**:
 
 ```promql
-sum by (error_type) (rate(inferadb_auth_failure_total[5m]))
+sum by (error_type) (rate(inferadb_engine_auth_failure_total[5m]))
 ```
 
-### `inferadb_auth_duration_seconds`
+### `inferadb_engine_auth_duration_seconds`
 
 **Type**: Histogram
 
@@ -677,14 +677,14 @@ sum by (error_type) (rate(inferadb_auth_failure_total[5m]))
 **Usage Example**:
 
 ```promql
-histogram_quantile(0.99, sum by (method, le) (rate(inferadb_auth_duration_seconds_bucket[5m]))) * 1000
+histogram_quantile(0.99, sum by (method, le) (rate(inferadb_engine_auth_duration_seconds_bucket[5m]))) * 1000
 ```
 
 ---
 
 ## Replication Metrics
 
-### `inferadb_replication_changes_total`
+### `inferadb_engine_replication_changes_total`
 
 **Type**: Counter
 
@@ -695,10 +695,10 @@ histogram_quantile(0.99, sum by (method, le) (rate(inferadb_auth_duration_second
 **Usage Example**:
 
 ```promql
-rate(inferadb_replication_changes_total[5m])
+rate(inferadb_engine_replication_changes_total[5m])
 ```
 
-### `inferadb_replication_failures_total`
+### `inferadb_engine_replication_failures_total`
 
 **Type**: Counter
 
@@ -709,10 +709,10 @@ rate(inferadb_replication_changes_total[5m])
 **Usage Example**:
 
 ```promql
-rate(inferadb_replication_failures_total[5m])
+rate(inferadb_engine_replication_failures_total[5m])
 ```
 
-### `inferadb_replication_conflicts_total`
+### `inferadb_engine_replication_conflicts_total`
 
 **Type**: Counter
 
@@ -723,10 +723,10 @@ rate(inferadb_replication_failures_total[5m])
 **Usage Example**:
 
 ```promql
-rate(inferadb_replication_conflicts_total[5m])
+rate(inferadb_engine_replication_conflicts_total[5m])
 ```
 
-### `inferadb_replication_lag_milliseconds`
+### `inferadb_engine_replication_lag_milliseconds`
 
 **Type**: Gauge
 
@@ -737,10 +737,10 @@ rate(inferadb_replication_conflicts_total[5m])
 **Usage Example**:
 
 ```promql
-inferadb_replication_lag_milliseconds
+inferadb_engine_replication_lag_milliseconds
 ```
 
-### `inferadb_replication_targets_connected`
+### `inferadb_engine_replication_targets_connected`
 
 **Type**: Gauge
 
@@ -751,10 +751,10 @@ inferadb_replication_lag_milliseconds
 **Usage Example**:
 
 ```promql
-inferadb_replication_targets_connected
+inferadb_engine_replication_targets_connected
 ```
 
-### `inferadb_replication_targets_total`
+### `inferadb_engine_replication_targets_total`
 
 **Type**: Gauge
 
@@ -765,7 +765,7 @@ inferadb_replication_targets_connected
 **Usage Example**:
 
 ```promql
-inferadb_replication_targets_total
+inferadb_engine_replication_targets_total
 ```
 
 ---
@@ -855,8 +855,8 @@ groups:
         expr: sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m]))
 
       # Cache hit rate
-      - record: job:inferadb_cache:hit_rate
-        expr: sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))
+      - record: job:inferadb_engine_cache:hit_rate
+        expr: sum(rate(inferadb_engine_cache_hits_total[5m])) / (sum(rate(inferadb_engine_cache_hits_total[5m])) + sum(rate(inferadb_engine_cache_misses_total[5m])))
 
       # p99 latency by operation
       - record: job:inferadb_query_operation:p99_latency_ms
@@ -873,7 +873,7 @@ groups:
     rules:
       # High error rate
       - alert: HighAuthorizationErrorRate
-        expr: sum(rate(inferadb_api_errors_total{status=~"5.."}[5m])) / sum(rate(inferadb_checks_total[5m])) > 0.01
+        expr: sum(rate(inferadb_engine_api_errors_total{status=~"5.."}[5m])) / sum(rate(inferadb_checks_total[5m])) > 0.01
         for: 5m
         labels:
           severity: warning

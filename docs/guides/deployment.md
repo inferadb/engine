@@ -83,7 +83,7 @@ Best for: Development, testing, single-node production
 
 ```bash
 # Pull the image
-docker pull inferadb:latest
+docker pull inferadb-engine:latest
 
 # Run with memory backend
 docker run -d \
@@ -92,7 +92,7 @@ docker run -d \
   -p 8081:8081 \
   -e INFERADB__STORAGE__BACKEND=memory \
   -e INFERADB__AUTH__ENABLED=false \
-  inferadb:latest
+  inferadb-engine:latest
 
 # Verify health
 curl http://localhost:8080/health
@@ -126,7 +126,7 @@ docker run -d \
   -v /etc/foundationdb:/etc/foundationdb:ro \
   -v /var/run/secrets/inferadb:/var/run/secrets:ro \
   --restart unless-stopped \
-  inferadb:latest
+  inferadb-engine:latest
 ```
 
 **Docker Compose:**
@@ -136,7 +136,7 @@ version: "3.8"
 
 services:
   inferadb:
-    image: inferadb:latest
+    image: inferadb-engine:latest
     ports:
       - "8080:8080"
       - "8081:8081"
@@ -254,8 +254,8 @@ node_desired_size   = 3
 node_max_size       = 10
 
 # InferaDB configuration
-inferadb_replica_count = 3
-inferadb_auth_enabled  = true
+inferadb_engine_replica_count = 3
+inferadb_engine_auth_enabled  = true
 EOF
 
 # Deploy everything (EKS + Redis + InferaDB)
@@ -282,7 +282,7 @@ environment     = "production"
 machine_type    = "n2-standard-4"
 
 # InferaDB configuration
-inferadb_replica_count = 3
+inferadb_engine_replica_count = 3
 EOF
 
 # Deploy everything (GKE + Redis + InferaDB)
@@ -353,7 +353,7 @@ auth:
 Load with:
 
 ```bash
-inferadb-server --config /etc/inferadb/config.yaml
+inferadb-engine --config /etc/inferadb/config.yaml
 ```
 
 ### Secrets Management
@@ -478,15 +478,15 @@ InferaDB exposes multiple health endpoints:
 ```bash
 # Liveness - is the process alive?
 curl http://localhost:8080/health/live
-{"status":"healthy","service":"inferadb","version":"0.1.0"}
+{"status":"healthy","service":"inferadb-engine","version":"0.1.0"}
 
 # Readiness - can it serve traffic?
 curl http://localhost:8080/health/ready
-{"status":"healthy","service":"inferadb","version":"0.1.0","details":{...}}
+{"status":"healthy","service":"inferadb-engine","version":"0.1.0","details":{...}}
 
 # Startup - is initialization complete?
 curl http://localhost:8080/health/startup
-{"status":"healthy","service":"inferadb","version":"0.1.0"}
+{"status":"healthy","service":"inferadb-engine","version":"0.1.0"}
 ```
 
 ### Prometheus Metrics
@@ -501,9 +501,9 @@ curl http://localhost:8080/metrics
 
 - `inferadb_requests_total` - Total requests
 - `inferadb_request_duration_seconds` - Request latency
-- `inferadb_cache_hits_total` - Cache hit count
-- `inferadb_cache_misses_total` - Cache miss count
-- `inferadb_auth_validations_total` - Authentication attempts
+- `inferadb_engine_cache_hits_total` - Cache hit count
+- `inferadb_engine_cache_misses_total` - Cache miss count
+- `inferadb_engine_auth_validations_total` - Authentication attempts
 - `inferadb_tuples_stored` - Number of stored tuples
 
 ### Distributed Tracing
@@ -546,7 +546,7 @@ observability:
 
 ```bash
 # Pull new version
-docker pull inferadb:v2.0.0
+docker pull inferadb-engine:v2.0.0
 
 # Stop old container
 docker stop inferadb
@@ -559,14 +559,14 @@ docker run -d \
   --name inferadb \
   --env-file inferadb.env \
   -p 8080:8080 \
-  inferadb:v2.0.0
+  inferadb-engine:v2.0.0
 ```
 
 ### Kubernetes Rolling Update
 
 ```bash
 # Update image
-kubectl set image deployment/inferadb inferadb=inferadb:v2.0.0 -n inferadb
+kubectl set image deployment/inferadb inferadb=inferadb-engine:v2.0.0 -n inferadb
 
 # Monitor rollout
 kubectl rollout status deployment/inferadb -n inferadb

@@ -132,7 +132,7 @@ docker run -d \
   -p 9090:9090 \
   -v $(pwd)/config.yaml:/etc/inferadb/config.yaml \
   -v /etc/foundationdb:/etc/foundationdb:ro \
-  inferadb/inferadb:latest
+  inferadb/inferadb-engine:latest
 
 # Using systemd
 sudo systemctl start inferadb
@@ -580,7 +580,7 @@ latency_ms:>1000 AND vault_id:*
 
 ```bash
 # Check per-vault cache usage
-curl http://localhost:9090/metrics | grep inferadb_cache_memory_bytes
+curl http://localhost:9090/metrics | grep inferadb_engine_cache_memory_bytes
 
 # Check number of active vaults
 curl http://localhost:9090/metrics | grep inferadb_active_vaults

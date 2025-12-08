@@ -15,7 +15,7 @@ cargo test --workspace -- --nocapture
 cargo test test_check_allow
 
 # Run tests in a specific package
-cargo test --package inferadb-core
+cargo test --package inferadb-engine-core
 
 # Run tests matching a pattern
 cargo test check_
@@ -28,7 +28,7 @@ InferaDB's test suite is organized into several categories:
 ```plaintext
 server/
 ├── crates/
-│   ├── inferadb-core/
+│   ├── inferadb-engine-core/
 │   │   ├── src/
 │   │   │   ├── evaluator.rs
 │   │   │   │   └── #[cfg(test)] mod tests { ... }  # Unit tests
@@ -40,14 +40,14 @@ server/
 │   │   └── benches/
 │   │       ├── evaluator.rs                         # Benchmarks
 │   │       └── ipl_parser.rs
-│   ├── inferadb-store/
+│   ├── inferadb-engine-store/
 │   │   ├── src/
 │   │   │   ├── memory.rs
 │   │   │   │   └── #[cfg(test)] mod tests { ... }
 │   │   │   │   └── #[cfg(test)] mod proptests { ... }  # Property tests
 │   │   └── benches/
 │   │       └── memory_backend.rs
-│   └── inferadb-wasm/
+│   └── inferadb-engine-wasm/
 │       └── tests/
 │           └── sandbox_security.rs                  # Security tests
 ```
@@ -116,19 +116,19 @@ cargo test --test '*'
 
 **Example Tests**:
 
-1. **Document Management** ([`tests/document_management.rs`](../crates/inferadb-core/tests/document_management.rs))
+1. **Document Management** ([`tests/document_management.rs`](../crates/inferadb-engine-core/tests/document_management.rs))
    - Direct document permissions
    - Editor and viewer permissions
    - Hierarchical folder permissions
    - Permission revocation
 
-2. **Organization Hierarchy** ([`tests/organization_hierarchy.rs`](../crates/inferadb-core/tests/organization_hierarchy.rs))
+2. **Organization Hierarchy** ([`tests/organization_hierarchy.rs`](../crates/inferadb-engine-core/tests/organization_hierarchy.rs))
    - Organization admin permissions
    - Team member permissions
    - Hierarchical org-to-team-to-project permissions
    - Multi-level hierarchy
 
-3. **Role-Based Access Control** ([`tests/role_based_access.rs`](../crates/inferadb-core/tests/role_based_access.rs))
+3. **Role-Based Access Control** ([`tests/role_based_access.rs`](../crates/inferadb-engine-core/tests/role_based_access.rs))
    - Basic role assignment
    - Role hierarchy
    - Multiple roles per user
@@ -237,7 +237,7 @@ proptest! {
 
 Fuzz tests use random inputs to find parser bugs.
 
-**Location**: `crates/inferadb-core/tests/ipl_parser_fuzz.rs`
+**Location**: `crates/inferadb-engine-core/tests/ipl_parser_fuzz.rs`
 
 **Run**:
 
@@ -281,12 +281,12 @@ proptest! {
 
 Security tests verify sandbox isolation and resource limits.
 
-**Location**: `crates/inferadb-wasm/tests/sandbox_security.rs`
+**Location**: `crates/inferadb-engine-wasm/tests/sandbox_security.rs`
 
 **Run**:
 
 ```bash
-cargo test --package inferadb-wasm --test sandbox_security
+cargo test --package inferadb-engine-wasm --test sandbox_security
 ```
 
 **Example Tests**:
@@ -403,7 +403,7 @@ criterion_main!(benches);
 
 Use test fixtures for common setup:
 
-**Example** ([`crates/inferadb-core/tests/common/mod.rs`](../crates/inferadb-core/tests/common/mod.rs)):
+**Example** ([`crates/inferadb-engine-core/tests/common/mod.rs`](../crates/inferadb-engine-core/tests/common/mod.rs)):
 
 ```rust
 pub struct TestFixture {
@@ -502,9 +502,9 @@ cargo test --workspace
 ### Specific Package
 
 ```bash
-cargo test --package inferadb-core
-cargo test --package inferadb-store
-cargo test --package inferadb-wasm
+cargo test --package inferadb-engine-core
+cargo test --package inferadb-engine-store
+cargo test --package inferadb-engine-wasm
 ```
 
 ### Specific Test
@@ -583,7 +583,7 @@ mod tests {
 ```rust
 // tests/my_feature.rs
 
-use inferadb_core::*;
+use inferadb_engine_core::*;
 
 mod common;
 use common::TestFixture;

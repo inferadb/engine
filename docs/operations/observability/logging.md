@@ -23,7 +23,7 @@ Set log level via environment variables:
 export INFERADB__OBSERVABILITY__LOG_LEVEL=info
 
 # Or via RUST_LOG (more granular)
-export RUST_LOG=infera=debug,inferadb_api=info
+export RUST_LOG=infera=debug,inferadb_engine_api=info
 ```
 
 **Available Log Levels**:
@@ -65,7 +65,7 @@ observability:
 Human-readable format for local development:
 
 ```text
-2025-01-15T10:30:45.123Z  INFO inferadb_api::handlers: Authorization check
+2025-01-15T10:30:45.123Z  INFO inferadb_engine_api::handlers: Authorization check
   subject: user:alice
   resource: doc:readme
   permission: viewer
@@ -88,7 +88,7 @@ Machine-parseable JSON for log aggregation systems:
 {
   "timestamp": "2025-01-15T10:30:45.123456Z",
   "level": "INFO",
-  "target": "inferadb_api::handlers",
+  "target": "inferadb_engine_api::handlers",
   "message": "Authorization check",
   "fields": {
     "subject": "user:alice",
@@ -104,7 +104,7 @@ Machine-parseable JSON for log aggregation systems:
   },
   "trace_id": "80f198ee56343ba864fe8b2a57d3eff7",
   "location": {
-    "file": "crates/inferadb-api/src/handlers/check.rs",
+    "file": "crates/inferadb-engine-api/src/handlers/check.rs",
     "line": 142
   }
 }
@@ -163,14 +163,14 @@ Filter logs by Rust module path:
 # Show all logs
 export RUST_LOG=debug
 
-# Show only inferadb-core logs at debug level
-export RUST_LOG=inferadb_core=debug
+# Show only inferadb-engine-core logs at debug level
+export RUST_LOG=inferadb_engine_core=debug
 
 # Multiple modules with different levels
-export RUST_LOG=inferadb_core=debug,inferadb_api=info,inferadb_store=warn
+export RUST_LOG=inferadb_engine_core=debug,inferadb_engine_api=info,inferadb_engine_store=warn
 
-# All modules at info, but inferadb_core at trace
-export RUST_LOG=info,inferadb_core=trace
+# All modules at info, but inferadb_engine_core at trace
+export RUST_LOG=info,inferadb_engine_core=trace
 ```
 
 ### By Span
@@ -191,13 +191,13 @@ Use regex patterns for flexible filtering:
 
 ```bash
 # All API-related modules
-export RUST_LOG=inferadb_api
+export RUST_LOG=inferadb_engine_api
 
 # All modules containing "cache"
 export RUST_LOG=cache=debug
 
 # Multiple patterns
-export RUST_LOG="inferadb_api,inferadb_cache=debug"
+export RUST_LOG="inferadb_engine_api,inferadb_engine_cache=debug"
 ```
 
 ## Log Targets
@@ -206,17 +206,17 @@ InferaDB uses specific log targets for different subsystems:
 
 | Target                      | Description                         | Default Level |
 | --------------------------- | ----------------------------------- | ------------- |
-| `inferadb_api`              | REST and gRPC API requests          | INFO          |
-| `inferadb_core::evaluator`  | Authorization evaluation engine     | INFO          |
-| `inferadb_store`            | Storage backend operations          | INFO          |
-| `inferadb_auth`             | Authentication and JWT validation   | INFO          |
-| `inferadb_cache`            | Cache operations (hits/misses)      | DEBUG         |
+| `inferadb_engine_api`              | REST and gRPC API requests          | INFO          |
+| `inferadb_engine_core::evaluator`  | Authorization evaluation engine     | INFO          |
+| `inferadb_engine_store`            | Storage backend operations          | INFO          |
+| `inferadb_engine_auth`             | Authentication and JWT validation   | INFO          |
+| `inferadb_engine_cache`            | Cache operations (hits/misses)      | DEBUG         |
 | `inferadb_audit`            | Audit logging (JSON events)         | INFO          |
-| `inferadb_observe::metrics` | Metrics recording                   | DEBUG         |
-| `inferadb_observe::tracing` | Distributed tracing                 | DEBUG         |
-| `inferadb_core::optimizer`  | Query optimization                  | DEBUG         |
-| `inferadb_core::parallel`   | Parallel evaluation                 | DEBUG         |
-| `inferadb_replication`      | Multi-region replication            | INFO          |
+| `inferadb_engine_observe::metrics` | Metrics recording                   | DEBUG         |
+| `inferadb_engine_observe::tracing` | Distributed tracing                 | DEBUG         |
+| `inferadb_engine_core::optimizer`  | Query optimization                  | DEBUG         |
+| `inferadb_engine_core::parallel`   | Parallel evaluation                 | DEBUG         |
+| `inferadb_engine_replication`      | Multi-region replication            | INFO          |
 | `h2`, `hyper`, `tower`      | HTTP/gRPC framework logs (external) | WARN          |
 | `foundationdb`              | FoundationDB client logs (external) | WARN          |
 
@@ -248,16 +248,16 @@ Enable trace for specific component:
 
 ```bash
 # Debugging slow authorization checks
-export RUST_LOG=info,inferadb_core::evaluator=trace
+export RUST_LOG=info,inferadb_engine_core::evaluator=trace
 
 # Debugging cache issues
-export RUST_LOG=info,inferadb_cache=trace
+export RUST_LOG=info,inferadb_engine_cache=trace
 
 # Debugging authentication failures
-export RUST_LOG=info,inferadb_auth=debug
+export RUST_LOG=info,inferadb_engine_auth=debug
 
 # Debugging storage performance
-export RUST_LOG=info,inferadb_store=debug
+export RUST_LOG=info,inferadb_engine_store=debug
 ```
 
 ### Performance Testing
@@ -305,7 +305,7 @@ level: ERROR AND fields.decision: deny
 fields.duration_ms: >100
 
 # Find authentication failures
-target: "inferadb_auth" AND level: WARN
+target: "inferadb_engine_auth" AND level: WARN
 ```
 
 ### Grafana Loki
@@ -417,7 +417,7 @@ Enable trace logging for detailed flow:
 
 ```bash
 # Trace authorization evaluation
-export RUST_LOG=inferadb_core::evaluator=trace
+export RUST_LOG=inferadb_engine_core::evaluator=trace
 
 # Output shows every step:
 TRACE Evaluating relation relation=viewer resource=doc:readme
@@ -487,7 +487,7 @@ Use these IDs to find the corresponding trace in Jaeger/Datadog/etc.
 
 ```bash
 # Enable trace logging for evaluation
-export RUST_LOG=info,inferadb_core::evaluator=debug
+export RUST_LOG=info,inferadb_engine_core::evaluator=debug
 
 # Look for:
 # - High relation evaluation depth
@@ -499,7 +499,7 @@ export RUST_LOG=info,inferadb_core::evaluator=debug
 
 ```bash
 # Enable debug logging for auth
-export RUST_LOG=info,inferadb_auth=debug
+export RUST_LOG=info,inferadb_engine_auth=debug
 
 # Look for:
 # - JWT validation errors
@@ -511,7 +511,7 @@ export RUST_LOG=info,inferadb_auth=debug
 
 ```bash
 # Enable trace logging for cache
-export RUST_LOG=info,inferadb_cache=trace
+export RUST_LOG=info,inferadb_engine_cache=trace
 
 # Look for:
 # - Cache hit/miss patterns
@@ -523,7 +523,7 @@ export RUST_LOG=info,inferadb_cache=trace
 
 ```bash
 # Enable debug logging for storage
-export RUST_LOG=info,inferadb_store=debug
+export RUST_LOG=info,inferadb_engine_store=debug
 
 # Look for:
 # - High read latency

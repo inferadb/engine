@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "inferadb.fullname" . }}
+  name: {{ include "inferadb-engine.fullname" . }}
   labels:
-    {{- include "inferadb.labels" . | nindent 4 }}
+    {{- include "inferadb-engine.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -15,7 +15,7 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      {{- include "inferadb.selectorLabels" . | nindent 6 }}
+      {{- include "inferadb-engine.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -25,13 +25,13 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "inferadb.selectorLabels" . | nindent 8 }}
+        {{- include "inferadb-engine.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "inferadb.serviceAccountName" . }}
+      serviceAccountName: {{ include "inferadb-engine.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- with .Values.initContainers }}
@@ -56,9 +56,9 @@ spec:
           protocol: TCP
         envFrom:
         - configMapRef:
-            name: {{ include "inferadb.fullname" . }}-config
+            name: {{ include "inferadb-engine.fullname" . }}-config
         - secretRef:
-            name: {{ include "inferadb.fullname" . }}-secrets
+            name: {{ include "inferadb-engine.fullname" . }}-secrets
         {{- with .Values.extraEnv }}
         env:
           {{- toYaml . | nindent 10 }}

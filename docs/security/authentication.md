@@ -87,7 +87,7 @@ OAuth 2.0 access tokens issued by an identity provider (e.g., Auth0, Okta, Keycl
 
 **Use case**: Control plane to PDP communication
 
-Internal JWTs signed by the control plane for service-to-service authentication.
+Internal JWTs signed by Control plane for service-to-service authentication.
 
 **Required JWT Claims**:
 
@@ -422,7 +422,7 @@ auth:
 
   # OAuth configuration (optional)
   oauth_introspection_endpoint: "https://auth.example.com/oauth/introspect"
-  oauth_introspection_client_id: "inferadb-server"
+  oauth_introspection_client_id: "inferadb-engine"
   oauth_introspection_client_secret: "<secret>"
 
   # OIDC discovery cache (seconds)
@@ -456,7 +456,7 @@ export INFERADB__AUTH__CLOCK_SKEW_SECONDS=30
 
 # OAuth introspection (optional)
 export INFERADB__AUTH__OAUTH_INTROSPECTION_ENDPOINT=https://auth.example.com/oauth/introspect
-export INFERADB__AUTH__OAUTH_INTROSPECTION_CLIENT_ID=inferadb-server
+export INFERADB__AUTH__OAUTH_INTROSPECTION_CLIENT_ID=inferadb-engine
 export INFERADB__AUTH__OAUTH_INTROSPECTION_CLIENT_SECRET=<secret>
 ```
 
@@ -550,7 +550,7 @@ For opaque OAuth tokens (non-JWT), InferaDB supports OAuth 2.0 Token Introspecti
 ```yaml
 auth:
   oauth_introspection_endpoint: "https://auth.example.com/oauth/introspect"
-  oauth_introspection_client_id: "inferadb-server"
+  oauth_introspection_client_id: "inferadb-engine"
   oauth_introspection_client_secret: "<secret>"
 ```
 

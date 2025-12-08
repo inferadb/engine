@@ -277,7 +277,7 @@
             <div class="info-box">
                 <strong>📋 Prerequisites</strong>
                 Make sure InferaDB is running locally:
-                <pre><code>docker run -p 8080:8080 -p 8081:8081 inferadb/server:latest</code></pre>
+                <pre><code>docker run -p 8080:8080 -p 8081:8081 inferadb/inferadb-engine:latest</code></pre>
                 The gRPC server runs on port <strong>8081</strong> by default.
             </div>
 
@@ -352,7 +352,7 @@ go install github.com/fullstorydev/grpcui/cmd/grpcui@latest</code></pre>
                 <h4>Response</h4>
                 <pre><code>{
   "status": "healthy",
-  "service": "inferadb"
+  "service": "inferadb-engine"
 }</code></pre>
 
                 <h4>Using grpcurl</h4>

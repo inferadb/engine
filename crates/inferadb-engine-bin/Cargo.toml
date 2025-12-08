@@ -1,0 +1,39 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+name = "inferadb-engine-bin"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "inferadb_engine_bin"
+path = "src/lib.rs"
+
+[[bin]]
+name = "inferadb-engine"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+moka = { workspace = true }
+rustls = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+# Internal dependencies
+inferadb-engine-api = { path = "../inferadb-engine-api" }
+inferadb-engine-auth = { path = "../inferadb-engine-auth" }
+inferadb-engine-cache = { path = "../inferadb-engine-cache" }
+inferadb-engine-config = { path = "../inferadb-engine-config" }
+inferadb-engine-core = { path = "../inferadb-engine-core" }
+inferadb-engine-observe = { path = "../inferadb-engine-observe" }
+inferadb-engine-store = { path = "../inferadb-engine-store" }
+inferadb-engine-types = { path = "../inferadb-engine-types" }
+inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
+
+[dev-dependencies]
+futures = { workspace = true }

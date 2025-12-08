@@ -1,6 +1,6 @@
-# Tailscale sidecar configuration for InferaDB Server
+# Tailscale sidecar configuration for InferaDB Engine
 #
-# This manifest adds a Tailscale sidecar container to the server deployment,
+# This manifest adds a Tailscale sidecar container to the engine deployment,
 # enabling multi-region mesh networking via Tailscale VPN.
 #
 # Prerequisites:
@@ -16,8 +16,8 @@
 #     template:
 #       spec:
 #         containers:
-#         - name: inferadb-server
-#           # ... existing server container config ...
+#         - name: inferadb-engine
+#           # ... existing engine container config ...
 #         - name: tailscale
 #           # ... use configuration from this file ...
 
@@ -72,13 +72,13 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: inferadb-server-with-tailscale
+  name: inferadb-engine-with-tailscale
   namespace: inferadb
 spec:
   template:
     spec:
       # Service account with RBAC permissions for Tailscale state management
-      serviceAccountName: inferadb-server
+      serviceAccountName: inferadb-engine
 
       # Optional: Use a dedicated node pool for Tailscale-enabled pods
       # nodeSelector:
@@ -86,8 +86,8 @@ spec:
 
       containers:
         # Main application container (existing)
-        - name: inferadb-server
-          image: inferadb:latest
+        - name: inferadb-engine
+          image: inferadb-engine:latest
           ports:
             - containerPort: 8080
               name: http
@@ -209,5 +209,5 @@ roleRef:
   name: tailscale-state-manager
 subjects:
   - kind: ServiceAccount
-    name: inferadb-server
+    name: inferadb-engine
     namespace: inferadb

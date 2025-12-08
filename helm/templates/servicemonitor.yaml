@@ -2,16 +2,16 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "inferadb.fullname" . }}
+  name: {{ include "inferadb-engine.fullname" . }}
   labels:
-    {{- include "inferadb.labels" . | nindent 4 }}
+    {{- include "inferadb-engine.labels" . | nindent 4 }}
     {{- with .Values.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   selector:
     matchLabels:
-      {{- include "inferadb.selectorLabels" . | nindent 6 }}
+      {{- include "inferadb-engine.selectorLabels" . | nindent 6 }}
   endpoints:
   - port: metrics
     path: /metrics

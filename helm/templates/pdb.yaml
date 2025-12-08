@@ -2,9 +2,9 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "inferadb.fullname" . }}
+  name: {{ include "inferadb-engine.fullname" . }}
   labels:
-    {{- include "inferadb.labels" . | nindent 4 }}
+    {{- include "inferadb-engine.labels" . | nindent 4 }}
 spec:
   {{- if .Values.podDisruptionBudget.minAvailable }}
   minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
@@ -14,5 +14,5 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "inferadb.selectorLabels" . | nindent 6 }}
+      {{- include "inferadb-engine.selectorLabels" . | nindent 6 }}
 {{- end }}

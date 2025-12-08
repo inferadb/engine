@@ -1,5 +1,5 @@
 apiVersion: v2
-name: inferadb
+name: inferadb-engine
 description: High-performance authorization policy decision engine
 type: application
 version: 1.0.0

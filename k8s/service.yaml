@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: inferadb
+  name: inferadb-engine
   labels:
-    app: inferadb
+    app: inferadb-engine
     component: server
   annotations:
     prometheus.io/scrape: "true"
@@ -26,16 +26,16 @@ spec:
       targetPort: internal
       protocol: TCP
   selector:
-    app: inferadb
+    app: inferadb-engine
     component: server
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: inferadb-headless
+  name: inferadb-engine-headless
   labels:
-    app: inferadb
+    app: inferadb-engine
     component: server
 spec:
   type: ClusterIP
@@ -55,5 +55,5 @@ spec:
       targetPort: internal
       protocol: TCP
   selector:
-    app: inferadb
+    app: inferadb-engine
     component: server

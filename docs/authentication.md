@@ -1,13 +1,13 @@
 # Server API Authentication Guide
 
-This guide covers how the InferaDB Server API authenticates requests using vault-scoped JWTs issued by the Management API.
+This guide covers how the InferaDB Server API authenticates requests using vault-scoped JWTs issued by Control.
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Authentication Architecture](#authentication-architecture)
 - [JWT Token Validation](#jwt-token-validation)
-- [Server-to-Management Authentication](#server-to-management-authentication)
+- [Server-to-Control Authentication](#server-to-control-authentication)
 - [Caching Strategy](#caching-strategy)
 - [Security Considerations](#security-considerations)
 - [Troubleshooting](#troubleshooting)
@@ -15,12 +15,12 @@ This guide covers how the InferaDB Server API authenticates requests using vault
 
 ## Overview
 
-The InferaDB Server API is a **policy evaluation engine** that focuses exclusively on authorization decisions. All authentication concerns are delegated to the **Management API**, which acts as the central authentication orchestrator.
+The InferaDB Server API is a **policy evaluation engine** that focuses exclusively on authorization decisions. All authentication concerns are delegated to the **Control**, which acts as the central authentication orchestrator.
 
 ### Key Principles
 
 - **Stateless Authentication**: Server validates JWTs without storing session state
-- **Management-First**: Management API is the source of truth for all identity and credential data
+- **Control-First**: Control is the source of truth for all identity and credential data
 - **Vault Isolation**: Every request is scoped to a specific vault for multi-tenant isolation
 - **Cryptographic Verification**: Ed25519 signatures provide strong authentication guarantees
 
@@ -30,19 +30,19 @@ The InferaDB Server API is a **policy evaluation engine** that focuses exclusive
 sequenceDiagram
     participant Client as Client Application
     participant Server as InferaDB Server API
-    participant Mgmt as Management API
+    participant Control as Control
 
-    Note over Client: 1. Obtain vault JWT from Management API<br/>2. Include JWT in Authorization header
+    Note over Client: 1. Obtain vault JWT from Control<br/>2. Include JWT in Authorization header
 
     Client->>Server: Authorization: Bearer <vault_jwt>
 
     Note over Server: 1. Extract kid from JWT header<br/>2. Fetch client certificate (cached)<br/>3. Verify JWT signature (Ed25519)<br/>4. Validate claims (exp, iss, aud, vault_id, org_id)<br/>5. Verify vault ownership (cached)<br/>6. Verify organization status (cached)<br/>7. Execute policy evaluation in vault context
 
-    Server->>Mgmt: Server-to-Management JWTs (bidirectional auth)
+    Server->>Control: Server-to-Control JWTs (bidirectional auth)
 
-    Note over Mgmt: • Return client certificates (Ed25519 public keys)<br/>• Return vault metadata (org ownership, status)<br/>• Return organization status (active/suspended)
+    Note over Control: • Return client certificates (Ed25519 public keys)<br/>• Return vault metadata (org ownership, status)<br/>• Return organization status (active/suspended)
 
-    Mgmt-->>Server: Certificate/Vault/Org data
+    Control-->>Server: Certificate/Vault/Org data
     Server-->>Client: Policy evaluation result
 ```
 
@@ -50,12 +50,12 @@ sequenceDiagram
 
 ### Vault-Scoped JWTs
 
-The Server API authenticates requests using **vault-scoped JWTs** issued by the Management API. These tokens:
+The Server API authenticates requests using **vault-scoped JWTs** issued by Control. These tokens:
 
 - Are signed with Ed25519 private keys (fast, small signatures)
 - Contain claims identifying the vault, organization, and permissions
 - Have short lifetimes (5 minutes) to minimize compromise risk
-- Are verified using public keys fetched from Management API
+- Are verified using public keys fetched from Control
 
 ### JWT Structure
 
@@ -75,7 +75,7 @@ The Server API authenticates requests using **vault-scoped JWTs** issued by the 
 {
   "iss": "https://api.inferadb.com",
   "sub": "client:1234567890123456789",
-  "aud": "https://api.inferadb.com/evaluate",
+  "aud": "https://api.inferadb.com",
   "exp": 1234567890,
   "iat": 1234567800,
   "org_id": "9876543210987654321",
@@ -90,8 +90,8 @@ The Server API authenticates requests using **vault-scoped JWTs** issued by the 
 | Claim          | Description                                                                       | Validation                            |
 | -------------- | --------------------------------------------------------------------------------- | ------------------------------------- |
 | `kid` (header) | Certificate identifier in format `org-{org_id}-client-{client_id}-cert-{cert_id}` | Used to fetch public key              |
-| `iss`          | Management API URL                                                                | Must match configured `jwks_base_url` |
-| `aud`          | Server API evaluation endpoint                                                    | Must match server's expected audience |
+| `iss`          | Control URL                                                                   | Must match configured `jwks_base_url` |
+| `aud`          | Server API URL                                                                    | Must match server's expected audience |
 | `exp`          | Expiration timestamp (Unix seconds)                                               | Must be in the future                 |
 | `org_id`       | Organization ID (Snowflake ID as string)                                          | Verified against vault ownership      |
 | `vault_id`     | Vault ID (Snowflake ID as string)                                                 | Determines policy evaluation context  |
@@ -119,7 +119,7 @@ let cert_id = parts[5].parse::<i64>()?;
 
 ### 2. Fetch Client Certificate
 
-The server fetches the Ed25519 public key from the Management API's **internal server** (port 9091):
+The server fetches the Ed25519 public key from Control's **internal server** (port 9091):
 
 ```http
 GET /v1/organizations/{org_id}/clients/{client_id}/certificates/{cert_id}
@@ -127,7 +127,7 @@ Authorization: Bearer {server_jwt}
 Host: localhost:9091
 ```
 
-This request is made to the Management API's **internal port** (9091), not the public port (3000), as it's a privileged server-to-server operation.
+This request is made to Control's **internal port** (9091), not the public port (3000), as it's a privileged server-to-server operation.
 
 **Caching**: Certificates are cached for 15 minutes (900 seconds) to minimize API calls.
 
@@ -153,7 +153,7 @@ if token_data.claims.exp < current_timestamp {
     return Err("Token expired");
 }
 
-// Check issuer matches Management API
+// Check issuer matches Control
 if token_data.claims.iss != config.jwks_base_url {
     return Err("Invalid issuer");
 }
@@ -171,7 +171,7 @@ if token_data.claims.org_id.is_none() || token_data.claims.vault_id.is_none() {
 
 ### 5. Verify Vault Ownership
 
-The server verifies that the vault belongs to the organization using the Management API's **privileged internal endpoint**:
+The server verifies that the vault belongs to the organization using Control's **privileged internal endpoint**:
 
 ```http
 GET /internal/vaults/{vault_id}
@@ -179,7 +179,7 @@ Authorization: Bearer {server_jwt}
 Host: localhost:9091
 ```
 
-This endpoint is served on the Management API's **internal server** (port 9091) and requires a valid server JWT, but performs **no permission checks**. It's designed specifically for server-to-server verification.
+This endpoint is served on Control's **internal server** (port 9091) and requires a valid server JWT, but performs **no permission checks**. It's designed specifically for server-to-server verification.
 
 ```rust
 let vault = management_client.get_vault(vault_id).await?;
@@ -193,7 +193,7 @@ if vault.organization_id != org_id {
 
 ### 6. Verify Organization Status
 
-The server checks that the organization is active using the Management API's **privileged internal endpoint**:
+The server checks that the organization is active using Control's **privileged internal endpoint**:
 
 ```http
 GET /internal/organizations/{org_id}
@@ -201,7 +201,7 @@ Authorization: Bearer {server_jwt}
 Host: localhost:9091
 ```
 
-This endpoint is served on the Management API's **internal server** (port 9091) and requires a valid server JWT, but performs **no permission checks**. It's designed specifically for server-to-server verification.
+This endpoint is served on Control's **internal server** (port 9091) and requires a valid server JWT, but performs **no permission checks**. It's designed specifically for server-to-server verification.
 
 ```rust
 let org = management_client.get_organization(org_id).await?;
@@ -228,13 +228,13 @@ let result = policy_engine.evaluate(
 ).await?;
 ```
 
-## Server-to-Management Authentication
+## Server-to-Control Authentication
 
-The Server API makes authenticated requests to the Management API's **internal server** (port 9091) for verification operations. This uses **bidirectional JWT authentication** where the server has its own Ed25519 keypair.
+The Server API makes authenticated requests to Control's **internal server** (port 9091) for verification operations. This uses **bidirectional JWT authentication** where the server has its own Ed25519 keypair.
 
 ### Dual-Server Architecture
 
-The Management API runs **two separate HTTP servers**:
+Control runs **two separate HTTP servers**:
 
 - **Public Server** (port 3000): User-facing API with session authentication and permission checks
 - **Internal Server** (port 9091): Server-to-server API with JWT authentication for privileged operations
@@ -248,27 +248,27 @@ The server configures its identity on startup:
 ```yaml
 auth:
   enabled: true
-  # IMPORTANT: Points to Management API's INTERNAL port (9091), not public port (3000)
+  # IMPORTANT: Points to Control's INTERNAL port (9091), not public port (3000)
   management_api_url: "http://localhost:9091"
-  # Server identity for server-to-management requests
+  # Server identity for server-to-control requests
   server_identity_private_key: |
     -----BEGIN PRIVATE KEY-----
     MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
     -----END PRIVATE KEY-----
   server_identity_kid: "server-primary-2024"
-  server_id: "inferadb-server-prod-us-east-1"
+  server_id: "inferadb-engine-prod-us-east-1"
 ```
 
 **Development Mode**: If `server_identity_private_key` is omitted, the server auto-generates a keypair and logs the PEM-encoded private key at startup.
 
 ### Server JWT Generation
 
-When making requests to the Management API, the server generates short-lived JWTs:
+When making requests to Control, the server generates short-lived JWTs:
 
 ```rust
 // Generate server JWT (5 minute TTL)
 let claims = ServerJwtClaims {
-    iss: format!("inferadb-server:{}", server_id),
+    iss: format!("inferadb-engine:{}", server_id),
     sub: format!("server:{}", server_id),
     aud: management_api_url.to_string(),
     iat: now.timestamp(),
@@ -286,7 +286,7 @@ let server_jwt = encode(
 
 ### Server JWKS Endpoint
 
-The server exposes its public key for the Management API to verify server JWTs:
+The server exposes its public key for Control to verify server JWTs:
 
 ```http
 GET /.well-known/jwks.json
@@ -309,9 +309,9 @@ Response:
 }
 ```
 
-### Management API Privileged Endpoints
+### Control Privileged Endpoints
 
-The Management API provides **dedicated server-to-server endpoints** on the internal server (port 9091) for the Server API's verification operations:
+Control provides **dedicated server-to-server endpoints** on the internal server (port 9091) for the Server API's verification operations:
 
 **Internal Endpoints** (port 9091, server JWT required):
 
@@ -332,7 +332,7 @@ The Server API **exclusively uses the internal endpoints** for verification, whi
 
 ## Caching Strategy
 
-The Server API aggressively caches authentication data to minimize latency and Management API load:
+The Server API aggressively caches authentication data to minimize latency and Control load:
 
 ### Cache Configuration
 
@@ -347,7 +347,7 @@ The Server API aggressively caches authentication data to minimize latency and M
 **Expected Metrics**:
 
 - **Cache Hit Rate**: >90% after warmup
-- **Management API Call Rate**: <10% of total requests
+- **Control Call Rate**: <10% of total requests
 - **Token Validation Latency**:
   - Cache hit: <1ms
   - Cache miss: ~50-100ms (includes network roundtrip)
@@ -357,7 +357,7 @@ The Server API aggressively caches authentication data to minimize latency and M
 ```yaml
 auth:
   enabled: true
-  # IMPORTANT: Points to Management API's INTERNAL port (9091)
+  # IMPORTANT: Points to Control's INTERNAL port (9091)
   management_api_url: "http://localhost:9091"
   management_api_timeout_ms: 5000
 
@@ -375,9 +375,9 @@ auth:
 
 **Benefits**:
 
-- Continued operation during temporary Management API outages
+- Continued operation during temporary Control outages
 - Sub-millisecond authentication for cached credentials
-- Reduced load on Management API (10x reduction)
+- Reduced load on Control (10x reduction)
 
 **Trade-offs**:
 
@@ -432,7 +432,7 @@ The server enforces strict multi-tenant isolation:
 
 When an organization is suspended:
 
-1. **Immediate**: Management API marks organization as suspended
+1. **Immediate**: Control marks organization as suspended
 2. **Delayed (5 min)**: Server cache expires, new requests fail
 3. **Existing Tokens**: Valid JWTs continue working until expiration (max 5 min)
 
@@ -440,9 +440,9 @@ When an organization is suspended:
 
 When a certificate is revoked:
 
-1. **Immediate**: Management API removes certificate from database
+1. **Immediate**: Control removes certificate from database
 2. **Delayed (15 min)**: Server cache expires
-3. **New Tokens**: Cannot be generated (Management API rejects)
+3. **New Tokens**: Cannot be generated (Control rejects)
 4. **Existing Tokens**: Valid JWTs continue working until expiration (max 5 min)
 
 **Total Revocation Time**: Max 15 minutes (cache TTL) + 5 minutes (JWT expiration) = 20 minutes
@@ -452,14 +452,14 @@ When a certificate is revoked:
 **DO**:
 
 - Use HTTPS/TLS for all communication in production
-- Monitor authentication failure rates (`inferadb_auth_failures_total`)
-- Monitor cache hit rates (`inferadb_auth_cache_hit_rate`)
+- Monitor authentication failure rates (`inferadb_engine_auth_failures_total`)
+- Monitor cache hit rates (`inferadb_engine_auth_cache_hit_rate`)
 - Set appropriate cache TTLs based on security requirements
 - Implement alerting for auth failures >5% over 5 minutes
 
 **DON'T**:
 
-- Expose Management API to public internet
+- Expose Control to public internet
 - Disable TLS certificate validation
 - Set cache TTLs longer than 15 minutes
 - Ignore authentication errors in logs
@@ -480,7 +480,7 @@ When a certificate is revoked:
 **Causes**:
 
 1. JWT signed with wrong private key
-2. Certificate not found in Management API
+2. Certificate not found in Control
 3. Certificate has been revoked
 4. Public key mismatch
 
@@ -514,7 +514,7 @@ curl -X GET http://localhost:8081/v1/organizations/$ORG_ID/clients/$CLIENT_ID/ce
 1. Vault ID in JWT doesn't exist
 2. Vault belongs to different organization
 3. Vault was recently deleted (cache not expired)
-4. Management API is unreachable
+4. Control is unreachable
 
 **Solutions**:
 
@@ -526,7 +526,7 @@ curl -X GET http://localhost:8081/v1/vaults/$VAULT_ID \
 # Verify organization ID matches
 # vault.organization_id should equal org_id claim in JWT
 
-# Check server logs for Management API errors
+# Check server logs for Control errors
 grep "management_api" /var/log/inferadb/server.log
 ```
 
@@ -585,8 +585,8 @@ tail -f /var/log/inferadb/server.log | grep -i "auth"
 
 When authentication fails, verify in order:
 
-- [ ] Management API is running and healthy (`curl http://localhost:8081/health`)
-- [ ] Server configuration points to correct Management API URL
+- [ ] Control is running and healthy (`curl http://localhost:8081/health`)
+- [ ] Server configuration points to correct Control URL
 - [ ] JWT has valid structure (header, payload, signature)
 - [ ] JWT header includes `kid` field
 - [ ] JWT is signed with Ed25519 private key
@@ -613,7 +613,7 @@ auth:
 auth:
   enabled: true
 
-  # Management API connection
+  # Control connection
   management_api_url: "https://management.example.com"
   management_api_timeout_ms: 5000
 
@@ -633,13 +633,13 @@ auth:
   management_verify_vault_ownership: true
   management_verify_org_status: true
 
-  # Server identity (for server-to-management requests)
+  # Server identity (for server-to-control requests)
   server_identity_private_key: |
     -----BEGIN PRIVATE KEY-----
-    MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
+    MC4CAQawBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
     -----END PRIVATE KEY-----
   server_identity_kid: "server-primary-2024"
-  server_id: "inferadb-server-prod-us-east-1"
+  server_id: "inferadb-engine-prod-us-east-1"
 ```
 
 ### Environment Variables
@@ -658,7 +658,7 @@ export INFERADB__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
 
 # Server identity
 export INFERADB__AUTH__SERVER_IDENTITY_KID=server-primary-2024
-export INFERADB__AUTH__SERVER_ID=inferadb-server-dev
+export INFERADB__AUTH__SERVER_ID=inferadb-engine-dev
 # Note: Set INFERADB__AUTH__SERVER_IDENTITY_PRIVATE_KEY for production
 ```
 
@@ -668,17 +668,17 @@ Monitor these Prometheus metrics for authentication health:
 
 ```promql
 # Authentication metrics
-inferadb_auth_validations_total          # Total auth validations
-inferadb_auth_failures_total             # Failed authentications
-inferadb_auth_cache_hits_total          # Cache hits (should be >90%)
-inferadb_auth_cache_misses_total        # Cache misses
-inferadb_auth_management_api_calls_total # Management API calls
-inferadb_auth_validation_duration_seconds # Validation latency
+inferadb_engine_auth_validations_total          # Total auth validations
+inferadb_engine_auth_failures_total             # Failed authentications
+inferadb_engine_auth_cache_hits_total          # Cache hits (should be >90%)
+inferadb_engine_auth_cache_misses_total        # Cache misses
+inferadb_engine_auth_management_api_calls_total # Control calls
+inferadb_engine_auth_validation_duration_seconds # Validation latency
 
 # Cache metrics
-inferadb_auth_cert_cache_size           # Current cert cache size
-inferadb_auth_vault_cache_size          # Current vault cache size
-inferadb_auth_org_cache_size            # Current org cache size
+inferadb_engine_auth_cert_cache_size           # Current cert cache size
+inferadb_engine_auth_vault_cache_size          # Current vault cache size
+inferadb_engine_auth_org_cache_size            # Current org cache size
 ```
 
 ### Logging
@@ -700,12 +700,12 @@ Authentication events are logged with structured fields:
 **Log Levels**:
 
 - `INFO`: Successful authentications (when `RUST_LOG=info`)
-- `WARN`: Cache misses, Management API errors
+- `WARN`: Cache misses, Control errors
 - `ERROR`: Authentication failures, configuration errors
 
 ## Further Reading
 
-- [Management API Authentication Flow](../../management/docs/Authentication.md) - Complete authentication architecture
+- [Control Authentication Flow](../../control/docs/Authentication.md) - Complete authentication architecture
 - [Server Configuration Guide](../guides/configuration.md) - Detailed configuration options
 - [Multi-Tenancy Architecture](../architecture/multi-tenancy.md) - Deep dive on vault isolation
 - [Security Hardening Guide](../security/hardening.md) - Production security checklist

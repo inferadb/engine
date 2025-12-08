@@ -105,8 +105,8 @@ Monitor authorization patterns and anomalies
 ```yaml
 - alert: InferaDBHighErrorRate
   expr: |
-    sum(rate(inferadb_api_errors_total{status=~"5.."}[5m])) /
-    sum(rate(inferadb_api_requests_total[5m])) > 0.05
+    sum(rate(inferadb_engine_api_errors_total{status=~"5.."}[5m])) /
+    sum(rate(inferadb_engine_api_requests_total[5m])) > 0.05
   for: 5m
   labels:
     severity: critical
@@ -171,7 +171,7 @@ Monitor authorization patterns and anomalies
 - alert: InferaDBErrorBudgetExhausted
   expr: |
     (0.001 - (
-      sum(rate(inferadb_api_errors_total{status=~"5.."}[30d])) /
+      sum(rate(inferadb_engine_api_errors_total{status=~"5.."}[30d])) /
       sum(rate(inferadb_checks_total[30d]))
     )) / 0.001 < 0.1
   for: 1h
@@ -205,8 +205,8 @@ Monitor authorization patterns and anomalies
 ```yaml
 - alert: InferaDBElevatedErrorRate
   expr: |
-    sum(rate(inferadb_api_errors_total{status=~"5.."}[5m])) /
-    sum(rate(inferadb_api_requests_total[5m])) > 0.01
+    sum(rate(inferadb_engine_api_errors_total{status=~"5.."}[5m])) /
+    sum(rate(inferadb_engine_api_requests_total[5m])) > 0.01
   for: 10m
   labels:
     severity: warning
@@ -236,9 +236,9 @@ Monitor authorization patterns and anomalies
 ```yaml
 - alert: InferaDBLowCacheHitRate
   expr: |
-    sum(rate(inferadb_cache_hits_total[5m])) /
-    (sum(rate(inferadb_cache_hits_total[5m])) +
-     sum(rate(inferadb_cache_misses_total[5m]))) < 0.80
+    sum(rate(inferadb_engine_cache_hits_total[5m])) /
+    (sum(rate(inferadb_engine_cache_hits_total[5m])) +
+     sum(rate(inferadb_engine_cache_misses_total[5m]))) < 0.80
   for: 30m
   labels:
     severity: warning
@@ -541,7 +541,7 @@ Critical - Page immediately
 1. Check specific error types:
 
    ```promql
-   topk(10, sum by (error_type) (rate(inferadb_api_errors_total[5m])))
+   topk(10, sum by (error_type) (rate(inferadb_engine_api_errors_total[5m])))
    ```
 
 2. Verify database connectivity:

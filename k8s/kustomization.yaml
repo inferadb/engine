@@ -13,25 +13,25 @@ resources:
   - pdb.yaml
 
 commonLabels:
-  app.kubernetes.io/name: inferadb
+  app.kubernetes.io/name: inferadb-engine
   app.kubernetes.io/component: server
   app.kubernetes.io/managed-by: kustomize
 
 # Optional: Uncomment to override configuration via files
 # configMapGenerator:
-#   - name: inferadb-config
+#   - name: inferadb-engine-config
 #     behavior: merge
 #     envs:
 #       - config.env
 
 # Optional: Uncomment to override secrets via files
 # secretGenerator:
-#   - name: inferadb-secrets
+#   - name: inferadb-engine-secrets
 #     behavior: merge
 #     envs:
 #       - secrets.env
 
 images:
-  - name: inferadb
-    newName: inferadb
+  - name: inferadb-engine
+    newName: inferadb-engine
     newTag: v1.0.0 # Replace with desired version

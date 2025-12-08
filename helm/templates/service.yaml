@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "inferadb.fullname" . }}
+  name: {{ include "inferadb-engine.fullname" . }}
   labels:
-    {{- include "inferadb.labels" . | nindent 4 }}
+    {{- include "inferadb-engine.labels" . | nindent 4 }}
   {{- with .Values.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -39,15 +39,15 @@ spec:
       nodePort: {{ .Values.service.internalNodePort }}
       {{- end }}
   selector:
-    {{- include "inferadb.selectorLabels" . | nindent 4 }}
+    {{- include "inferadb-engine.selectorLabels" . | nindent 4 }}
 ---
 {{- if .Values.service.headless.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "inferadb.fullname" . }}-headless
+  name: {{ include "inferadb-engine.fullname" . }}-headless
   labels:
-    {{- include "inferadb.labels" . | nindent 4 }}
+    {{- include "inferadb-engine.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   clusterIP: None
@@ -66,5 +66,5 @@ spec:
       protocol: TCP
       name: internal
   selector:
-    {{- include "inferadb.selectorLabels" . | nindent 4 }}
+    {{- include "inferadb-engine.selectorLabels" . | nindent 4 }}
 {{- end }}

@@ -18,7 +18,7 @@ SLOs define the target reliability and performance characteristics for InferaDB.
 
 ```promql
 # Availability over 30 days
-sum(rate(inferadb_checks_total[30d])) - sum(rate(inferadb_api_errors_total{code=~"5.."}[30d]))
+sum(rate(inferadb_checks_total[30d])) - sum(rate(inferadb_engine_api_errors_total{code=~"5.."}[30d]))
 / sum(rate(inferadb_checks_total[30d])) * 100
 ```
 
@@ -83,7 +83,7 @@ histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m])) * 100
 
 ```promql
 # Error rate over 5 minutes
-sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
+sum(rate(inferadb_engine_api_errors_total{code=~"5.."}[5m]))
 / sum(rate(inferadb_checks_total[5m])) * 100
 ```
 
@@ -111,8 +111,8 @@ sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
 
 ```promql
 # Cache hit rate
-sum(rate(inferadb_cache_hits_total[5m]))
-/ (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m]))) * 100
+sum(rate(inferadb_engine_cache_hits_total[5m]))
+/ (sum(rate(inferadb_engine_cache_hits_total[5m])) + sum(rate(inferadb_engine_cache_misses_total[5m]))) * 100
 ```
 
 **Measurement Window**: 5-minute rolling window
@@ -155,7 +155,7 @@ histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m]
 
 ```promql
 # Current replication lag
-inferadb_replication_lag_milliseconds
+inferadb_engine_replication_lag_milliseconds
 ```
 
 **Measurement Window**: Real-time gauge
@@ -212,22 +212,22 @@ Key metrics to display:
 
 ```promql
 # Availability (30-day)
-1 - (sum(rate(inferadb_api_errors_total{code=~"5.."}[30d]))
+1 - (sum(rate(inferadb_engine_api_errors_total{code=~"5.."}[30d]))
 / sum(rate(inferadb_checks_total[30d])))
 
 # Latency (5-minute)
 histogram_quantile(0.99, rate(inferadb_check_duration_seconds_bucket[5m]))
 
 # Error Rate (5-minute)
-sum(rate(inferadb_api_errors_total{code=~"5.."}[5m]))
+sum(rate(inferadb_engine_api_errors_total{code=~"5.."}[5m]))
 / sum(rate(inferadb_checks_total[5m]))
 
 # Cache Hit Rate (5-minute)
-sum(rate(inferadb_cache_hits_total[5m]))
-/ (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))
+sum(rate(inferadb_engine_cache_hits_total[5m]))
+/ (sum(rate(inferadb_engine_cache_hits_total[5m])) + sum(rate(inferadb_engine_cache_misses_total[5m])))
 
 # Error Budget Remaining (30-day)
-(0.001 - (sum(rate(inferadb_api_errors_total{code=~"5.."}[30d]))
+(0.001 - (sum(rate(inferadb_engine_api_errors_total{code=~"5.."}[30d]))
 / sum(rate(inferadb_checks_total[30d])))) * 100
 ```
 
@@ -269,7 +269,7 @@ Use **multi-window, multi-burn-rate alerts** to catch SLO violations early while
 # Fast burn (1h window): 14.4x burn rate = 0.1% error budget in 1h
 - alert: AvailabilitySLOFastBurn
   expr: |
-    sum(rate(inferadb_api_errors_total{code=~"5.."}[1h]))
+    sum(rate(inferadb_engine_api_errors_total{code=~"5.."}[1h]))
     / sum(rate(inferadb_checks_total[1h])) > 0.0144
   for: 5m
   labels:
@@ -281,7 +281,7 @@ Use **multi-window, multi-burn-rate alerts** to catch SLO violations early while
 # Slow burn (24h window): 3x burn rate = 0.1% error budget in 24h
 - alert: AvailabilitySLOSlowBurn
   expr: |
-    sum(rate(inferadb_api_errors_total{code=~"5.."}[24h]))
+    sum(rate(inferadb_engine_api_errors_total{code=~"5.."}[24h]))
     / sum(rate(inferadb_checks_total[24h])) > 0.003
   for: 1h
   labels:

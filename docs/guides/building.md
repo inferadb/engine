@@ -76,7 +76,7 @@ Use standard cargo commands for daily development:
 ```bash
 # Run tests
 cargo test                              # All tests
-cargo test --package inferadb-core        # Specific package
+cargo test --package inferadb-engine-core        # Specific package
 cargo nextest run                       # Using nextest (faster)
 
 # Build
@@ -90,11 +90,11 @@ cargo fmt                               # Format code
 cargo audit                             # Security audit
 
 # Development server with auto-reload
-cargo watch -x 'run --bin inferadb-server'
+cargo watch -x 'run --bin inferadb-engine'
 
 # Benchmarks
 cargo bench                             # All benchmarks
-cargo bench --package inferadb-core       # Specific package
+cargo bench --package inferadb-engine-core       # Specific package
 ```
 
 ### Make Shortcuts (Optional)
@@ -114,15 +114,15 @@ make ci          # Simulate CI checks locally
 ```text
 server/
 ├── crates/
-│   ├── inferadb-api/      # REST and gRPC APIs
-│   ├── inferadb-bin/      # Main binary
-│   ├── inferadb-cache/    # Caching layer
-│   ├── inferadb-config/   # Configuration
-│   ├── inferadb-core/     # Evaluation engine
-│   ├── inferadb-observe/  # Observability
-│   ├── inferadb-repl/     # Replication
-│   ├── inferadb-store/    # Storage backends
-│   └── inferadb-wasm/     # WASM integration
+│   ├── inferadb-engine-api/      # REST and gRPC APIs
+│   ├── inferadb-engine-bin/      # Main binary
+│   ├── inferadb-engine-cache/    # Caching layer
+│   ├── inferadb-engine-config/   # Configuration
+│   ├── inferadb-engine-core/     # Evaluation engine
+│   ├── inferadb-engine-observe/  # Observability
+│   ├── inferadb-engine-repl/     # Replication
+│   ├── inferadb-engine-store/    # Storage backends
+│   └── inferadb-engine-wasm/     # WASM integration
 ├── docs/                # Documentation
 ├── Cargo.toml          # Workspace definition
 ├── Cargo.lock          # Dependency lock file
@@ -142,7 +142,7 @@ cargo build
 - No optimizations
 - Use for development
 
-Binary location: `target/debug/inferadb-server`
+Binary location: `target/debug/inferadb-engine`
 
 ### Release Build
 
@@ -155,7 +155,7 @@ cargo build --release
 - Smaller binary size
 - Use for production
 
-Binary location: `target/release/inferadb-server`
+Binary location: `target/release/inferadb-engine`
 
 ### Profile-Guided Optimization (PGO)
 
@@ -166,7 +166,7 @@ For maximum performance:
 RUSTFLAGS="-Cprofile-generate=/tmp/pgo-data" cargo build --release
 
 # 2. Run workload to collect profile data
-./target/release/inferadb-server run
+./target/release/inferadb-engine run
 # ... run typical workload ...
 
 # 3. Build with profile optimization
@@ -185,8 +185,8 @@ cargo test
 ### Run Specific Package Tests
 
 ```bash
-cargo test --package inferadb-core
-cargo test --package inferadb-store
+cargo test --package inferadb-engine-core
+cargo test --package inferadb-engine-store
 ```
 
 ### Run Specific Test
@@ -237,9 +237,9 @@ cargo bench
 ### Run Specific Benchmark Suite
 
 ```bash
-cargo bench --package inferadb-core --bench evaluator
-cargo bench --package inferadb-core --bench ipl_parser
-cargo bench --package inferadb-core --bench optimizer
+cargo bench --package inferadb-engine-core --bench evaluator
+cargo bench --package inferadb-engine-core --bench ipl_parser
+cargo bench --package inferadb-engine-core --bench optimizer
 ```
 
 ### Benchmark Comparison
@@ -415,7 +415,7 @@ cargo build --target aarch64-unknown-linux-gnu
 ### Build Docker Image
 
 ```bash
-docker build -t inferadb:latest .
+docker build -t inferadb-engine:latest .
 ```
 
 ### Multi-Stage Build (Optimized)
@@ -428,15 +428,15 @@ COPY . .
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-COPY --from=builder /app/target/release/inferadb-server /usr/local/bin/
-CMD ["inferadb-server", "run"]
+COPY --from=builder /app/target/release/inferadb-engine /usr/local/bin/
+CMD ["inferadb-engine", "run"]
 ```
 
 ### Build and Run
 
 ```bash
-docker build -t inferadb .
-docker run -p 8080:8080 inferadb
+docker build -t inferadb-engine .
+docker run -p 8080:8080 inferadb-engine
 ```
 
 ## Troubleshooting

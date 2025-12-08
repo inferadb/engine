@@ -357,15 +357,15 @@ Maintainers handle releases:
 ```text
 server/
 ├── crates/              # Workspace crates
-│   ├── inferadb-api/      # REST and gRPC APIs
-│   ├── inferadb-bin/      # Main binary
-│   ├── inferadb-cache/    # Caching layer
-│   ├── inferadb-config/   # Configuration
-│   ├── inferadb-core/     # Evaluation engine
-│   ├── inferadb-observe/  # Observability
-│   ├── inferadb-repl/     # Replication
-│   ├── inferadb-store/    # Storage backends
-│   └── inferadb-wasm/     # WASM integration
+│   ├── inferadb-engine-api/      # REST and gRPC APIs
+│   ├── inferadb-engine-bin/      # Main binary
+│   ├── inferadb-engine-cache/    # Caching layer
+│   ├── inferadb-engine-config/   # Configuration
+│   ├── inferadb-engine-core/     # Evaluation engine
+│   ├── inferadb-engine-observe/  # Observability
+│   ├── inferadb-engine-repl/     # Replication
+│   ├── inferadb-engine-store/    # Storage backends
+│   └── inferadb-engine-wasm/     # WASM integration
 ├── docs/                # Documentation
 ├── tests/               # Integration tests
 ├── benches/             # Benchmarks
