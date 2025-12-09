@@ -58,18 +58,18 @@ kubectl logs -n inferadb -l app=inferadb-engine --tail=100
 
 Configuration uses the `INFERADB__ENGINE__` prefix:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `INFERADB__ENGINE__THREADS` | Worker threads | `4` |
-| `INFERADB__ENGINE__LOGGING` | Log level | `info` |
-| `INFERADB__ENGINE__LISTEN__HTTP` | HTTP listen address | `0.0.0.0:8080` |
-| `INFERADB__ENGINE__LISTEN__GRPC` | gRPC listen address | `0.0.0.0:8081` |
-| `INFERADB__ENGINE__LISTEN__MESH` | Mesh listen address | `0.0.0.0:8082` |
-| `INFERADB__ENGINE__STORAGE` | Storage backend | `memory` |
-| `INFERADB__ENGINE__CACHE__ENABLED` | Enable caching | `true` |
-| `INFERADB__ENGINE__CACHE__CAPACITY` | Max cache entries | `100000` |
-| `INFERADB__ENGINE__TOKEN__CACHE_TTL` | JWKS cache TTL (seconds) | `300` |
-| `INFERADB__ENGINE__MESH__URL` | Control service URL | `""` |
+| Variable                             | Description              | Default        |
+| ------------------------------------ | ------------------------ | -------------- |
+| `INFERADB__ENGINE__THREADS`          | Worker threads           | `4`            |
+| `INFERADB__ENGINE__LOGGING`          | Log level                | `info`         |
+| `INFERADB__ENGINE__LISTEN__HTTP`     | HTTP listen address      | `0.0.0.0:8080` |
+| `INFERADB__ENGINE__LISTEN__GRPC`     | gRPC listen address      | `0.0.0.0:8081` |
+| `INFERADB__ENGINE__LISTEN__MESH`     | Mesh listen address      | `0.0.0.0:8082` |
+| `INFERADB__ENGINE__STORAGE`          | Storage backend          | `memory`       |
+| `INFERADB__ENGINE__CACHE__ENABLED`   | Enable caching           | `true`         |
+| `INFERADB__ENGINE__CACHE__CAPACITY`  | Max cache entries        | `100000`       |
+| `INFERADB__ENGINE__TOKEN__CACHE_TTL` | JWKS cache TTL (seconds) | `300`          |
+| `INFERADB__ENGINE__MESH__URL`        | Control service URL      | `""`           |
 
 See [Configuration Guide](../docs/guides/configuration.md) for complete reference.
 
@@ -97,19 +97,19 @@ spec:
 
 ## Ports
 
-| Port | Name | Description |
-|------|------|-------------|
-| 8080 | http | REST API (client-facing) |
-| 8081 | grpc | gRPC API (client-facing) |
+| Port | Name | Description                             |
+| ---- | ---- | --------------------------------------- |
+| 8080 | http | REST API (client-facing)                |
+| 8081 | grpc | gRPC API (client-facing)                |
 | 8082 | mesh | Mesh API (JWKS, metrics, inter-service) |
 
 ## Health Checks
 
-| Endpoint | Purpose |
-|----------|---------|
-| `/livez` | Liveness probe |
-| `/readyz` | Readiness probe |
-| `/startupz` | Startup probe |
+| Endpoint    | Purpose         |
+| ----------- | --------------- |
+| `/livez`    | Liveness probe  |
+| `/readyz`   | Readiness probe |
+| `/startupz` | Startup probe   |
 
 ## Storage Backend
 
