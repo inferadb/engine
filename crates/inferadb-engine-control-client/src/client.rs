@@ -92,7 +92,10 @@ impl ControlClient {
     /// - The HTTP request fails
     /// - The organization is not found
     /// - The response cannot be parsed
-    pub async fn get_organization(&self, org_id: i64) -> Result<OrganizationInfo, ControlClientError> {
+    pub async fn get_organization(
+        &self,
+        org_id: i64,
+    ) -> Result<OrganizationInfo, ControlClientError> {
         // Use internal URL for /internal/* endpoints
         let internal_url = self.get_internal_base_url();
         let url = format!("{}/internal/organizations/{}", internal_url, org_id);

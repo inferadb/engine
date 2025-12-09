@@ -6,10 +6,9 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use inferadb_engine_control_client::{VaultVerificationError, VaultVerifier};
 use inferadb_engine_types::auth::AuthContext;
 use tracing::{error, warn};
-
-use inferadb_engine_control_client::{VaultVerificationError, VaultVerifier};
 
 /// Middleware that validates vault ownership using VaultVerifier
 pub async fn vault_validation_middleware(
