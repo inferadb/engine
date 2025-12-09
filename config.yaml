@@ -18,13 +18,9 @@ engine:
     ttl: 300
 
   token:
-    jwks_cache_ttl: 300
-    clock_skew_seconds: 60
-    max_token_age_seconds: 86400
-    require_jti: false
-
-  replay_protection:
-    enabled: false
+    cache_ttl: 300
+    clock_skew: 60
+    max_age: 86400
 
   mesh:
     url: "http://localhost:9092"

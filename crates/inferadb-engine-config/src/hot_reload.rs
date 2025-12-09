@@ -174,9 +174,6 @@ impl HotReloadHandle {
         if let Err(e) = new_config.token.validate() {
             warn!("Token config validation warning: {}", e);
         }
-        if let Err(e) = new_config.replay_protection.validate(new_config.token.require_jti) {
-            warn!("Replay protection config validation warning: {}", e);
-        }
         if let Err(e) = new_config.mesh.validate() {
             warn!("Mesh config validation warning: {}", e);
         }
@@ -191,9 +188,6 @@ impl HotReloadHandle {
         // Validate token config
         config.token.validate()?;
 
-        // Validate replay protection config
-        config.replay_protection.validate(config.token.require_jti)?;
-
         // Validate mesh config
         config.mesh.validate()?;
 
@@ -203,15 +197,21 @@ impl HotReloadHandle {
         }
 
         // Validate listen addresses are parseable
-        config.listen.http.parse::<std::net::SocketAddr>().map_err(|e| {
-            format!("Invalid http address '{}': {}", config.listen.http, e)
-        })?;
-        config.listen.grpc.parse::<std::net::SocketAddr>().map_err(|e| {
-            format!("Invalid grpc address '{}': {}", config.listen.grpc, e)
-        })?;
-        config.listen.mesh.parse::<std::net::SocketAddr>().map_err(|e| {
-            format!("Invalid mesh address '{}': {}", config.listen.mesh, e)
-        })?;
+        config
+            .listen
+            .http
+            .parse::<std::net::SocketAddr>()
+            .map_err(|e| format!("Invalid http address '{}': {}", config.listen.http, e))?;
+        config
+            .listen
+            .grpc
+            .parse::<std::net::SocketAddr>()
+            .map_err(|e| format!("Invalid grpc address '{}': {}", config.listen.grpc, e))?;
+        config
+            .listen
+            .mesh
+            .parse::<std::net::SocketAddr>()
+            .map_err(|e| format!("Invalid mesh address '{}': {}", config.listen.mesh, e))?;
 
         // Validate cache config
         if config.cache.enabled && config.cache.capacity == 0 {
@@ -279,8 +279,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_config_invalid_threads() {
-        let mut config = Config::default();
-        config.threads = 0;
+        let config = Config { threads: 0, ..Default::default() };
 
         let temp_file = NamedTempFile::new().unwrap();
         let handle = HotReloadHandle::new(temp_file.path(), Config::default());

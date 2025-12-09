@@ -66,14 +66,17 @@ pub const REQUIRED_AUDIENCE: &str = "https://api.inferadb.com";
 /// # Errors
 ///
 /// Returns an error if any timestamp validation fails
-pub fn validate_timestamp_claims(claims: &JwtClaims, config: &TokenConfig) -> Result<(), AuthError> {
+pub fn validate_timestamp_claims(
+    claims: &JwtClaims,
+    config: &TokenConfig,
+) -> Result<(), AuthError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| AuthError::InvalidTokenFormat("System time is before Unix epoch".to_string()))?
         .as_secs();
 
-    let clock_skew = config.clock_skew_seconds.unwrap_or(60);
-    let max_age = config.max_token_age_seconds.unwrap_or(86400); // 24 hours default
+    let clock_skew = config.clock_skew.unwrap_or(60);
+    let max_age = config.max_age.unwrap_or(86400); // 24 hours default
 
     // Check expiration with clock skew tolerance
     if claims.exp + clock_skew <= now {
@@ -206,12 +209,7 @@ mod tests {
     }
 
     fn default_config() -> TokenConfig {
-        TokenConfig {
-            jwks_cache_ttl: 300,
-            clock_skew_seconds: Some(60),
-            max_token_age_seconds: Some(86400),
-            require_jti: false,
-        }
+        TokenConfig { cache_ttl: 300, clock_skew: Some(60), max_age: Some(86400) }
     }
 
     fn test_claims(exp: u64, iat: u64, nbf: Option<u64>) -> JwtClaims {

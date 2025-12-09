@@ -75,8 +75,6 @@ pub struct Config {
     #[serde(default)]
     pub token: TokenConfig,
     #[serde(default)]
-    pub replay_protection: ReplayProtectionConfig,
-    #[serde(default)]
     pub discovery: DiscoveryConfig,
     #[serde(default)]
     pub mesh: MeshConfig,
@@ -181,29 +179,24 @@ fn default_cache_ttl() -> u64 {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenConfig {
     /// JWKS cache TTL in seconds
-    #[serde(default = "default_jwks_cache_ttl")]
-    pub jwks_cache_ttl: u64,
+    #[serde(default = "default_token_cache_ttl")]
+    pub cache_ttl: u64,
 
     /// Clock skew tolerance in seconds (for timestamp validation)
-    #[serde(default = "default_clock_skew_seconds")]
-    pub clock_skew_seconds: Option<u64>,
+    #[serde(default = "default_token_clock_skew")]
+    pub clock_skew: Option<u64>,
 
     /// Maximum token age in seconds (from iat to now)
-    #[serde(default = "default_max_token_age_seconds")]
-    pub max_token_age_seconds: Option<u64>,
-
-    /// Require JTI claim in all tokens
-    #[serde(default = "default_require_jti")]
-    pub require_jti: bool,
+    #[serde(default = "default_token_max_age")]
+    pub max_age: Option<u64>,
 }
 
 impl Default for TokenConfig {
     fn default() -> Self {
         Self {
-            jwks_cache_ttl: default_jwks_cache_ttl(),
-            clock_skew_seconds: default_clock_skew_seconds(),
-            max_token_age_seconds: default_max_token_age_seconds(),
-            require_jti: default_require_jti(),
+            cache_ttl: default_token_cache_ttl(),
+            clock_skew: default_token_clock_skew(),
+            max_age: default_token_max_age(),
         }
     }
 }
@@ -212,7 +205,7 @@ impl TokenConfig {
     /// Validate token configuration
     pub fn validate(&self) -> Result<(), String> {
         // Warn if clock skew is too permissive (> 5 minutes)
-        if let Some(skew) = self.clock_skew_seconds {
+        if let Some(skew) = self.clock_skew {
             if skew > 300 {
                 tracing::warn!(
                     clock_skew = %skew,
@@ -221,50 +214,6 @@ impl TokenConfig {
                      Recommended: 60 seconds or less."
                 );
             }
-        }
-
-        Ok(())
-    }
-}
-
-/// Replay protection configuration
-///
-/// Optional feature to prevent token replay attacks. Requires Redis
-/// for multi-node deployments.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReplayProtectionConfig {
-    /// Enable replay protection
-    #[serde(default = "default_replay_protection")]
-    pub enabled: bool,
-
-    /// Redis URL for replay protection (required when enabled)
-    pub redis_url: Option<String>,
-}
-
-impl Default for ReplayProtectionConfig {
-    fn default() -> Self {
-        Self { enabled: default_replay_protection(), redis_url: None }
-    }
-}
-
-impl ReplayProtectionConfig {
-    /// Validate replay protection configuration
-    pub fn validate(&self, require_jti: bool) -> Result<(), String> {
-        // CRITICAL: Reject if enabled but no redis_url
-        if self.enabled && self.redis_url.is_none() {
-            return Err(
-                "replay_protection.enabled is true but replay_protection.redis_url is not configured. \
-                 Either disable replay_protection or configure redis_url."
-                    .to_string(),
-            );
-        }
-
-        // Warn if replay protection is enabled with require_jti false
-        if self.enabled && !require_jti {
-            tracing::warn!(
-                "replay_protection.enabled is true but jwt.require_jti is false. \
-                 Tokens without JTI will fail validation. Consider setting jwt.require_jti=true."
-            );
         }
 
         Ok(())
@@ -372,16 +321,10 @@ impl MeshConfig {
     pub fn validate(&self) -> Result<(), String> {
         // Validate URL format
         if !self.url.starts_with("http://") && !self.url.starts_with("https://") {
-            return Err(format!(
-                "mesh.url must start with http:// or https://, got: {}",
-                self.url
-            ));
+            return Err(format!("mesh.url must start with http:// or https://, got: {}", self.url));
         }
         if self.url.ends_with('/') {
-            return Err(format!(
-                "mesh.url must not end with trailing slash: {}",
-                self.url
-            ));
+            return Err(format!("mesh.url must not end with trailing slash: {}", self.url));
         }
 
         Ok(())
@@ -406,24 +349,16 @@ fn default_mesh_cert_cache_ttl() -> u64 {
     900 // 15 minutes
 }
 
-fn default_jwks_cache_ttl() -> u64 {
+fn default_token_cache_ttl() -> u64 {
     300 // 5 minutes
 }
 
-fn default_clock_skew_seconds() -> Option<u64> {
+fn default_token_clock_skew() -> Option<u64> {
     Some(60) // 1 minute tolerance for clock differences
 }
 
-fn default_max_token_age_seconds() -> Option<u64> {
+fn default_token_max_age() -> Option<u64> {
     Some(86400) // 24 hours maximum token age
-}
-
-fn default_require_jti() -> bool {
-    false // Optional by default, but required when replay_protection is enabled
-}
-
-fn default_replay_protection() -> bool {
-    false
 }
 
 fn default_discovery_cache_ttl() -> u64 {
@@ -457,13 +392,25 @@ impl Config {
 
         // Validate listen addresses are parseable
         self.listen.http.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!("listen.http '{}' is not a valid socket address: {}", self.listen.http, e)
+            anyhow::anyhow!(
+                "listen.http '{}' is not a valid socket address: {}",
+                self.listen.http,
+                e
+            )
         })?;
         self.listen.grpc.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!("listen.grpc '{}' is not a valid socket address: {}", self.listen.grpc, e)
+            anyhow::anyhow!(
+                "listen.grpc '{}' is not a valid socket address: {}",
+                self.listen.grpc,
+                e
+            )
         })?;
         self.listen.mesh.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!("listen.mesh '{}' is not a valid socket address: {}", self.listen.mesh, e)
+            anyhow::anyhow!(
+                "listen.mesh '{}' is not a valid socket address: {}",
+                self.listen.mesh,
+                e
+            )
         })?;
 
         // Validate storage backend
@@ -482,22 +429,17 @@ impl Config {
         // Validate token config
         self.token.validate().map_err(|e| anyhow::anyhow!(e))?;
 
-        // Validate replay protection config
-        self.replay_protection
-            .validate(self.token.require_jti)
-            .map_err(|e| anyhow::anyhow!(e))?;
-
         // Validate mesh service config
         self.mesh.validate().map_err(|e| anyhow::anyhow!(e))?;
 
         // Validate cache TTL values are reasonable
-        if self.token.jwks_cache_ttl == 0 {
-            tracing::warn!("token.jwks_cache_ttl is 0. This will cause frequent JWKS fetches.");
+        if self.token.cache_ttl == 0 {
+            tracing::warn!("token.cache_ttl is 0. This will cause frequent JWKS fetches.");
         }
-        if self.token.jwks_cache_ttl > 3600 {
+        if self.token.cache_ttl > 3600 {
             tracing::warn!(
-                ttl = self.token.jwks_cache_ttl,
-                "token.jwks_cache_ttl is very high (>1 hour). Consider using a lower TTL for security."
+                ttl = self.token.cache_ttl,
+                "token.cache_ttl is very high (>1 hour). Consider using a lower TTL for security."
             );
         }
 
@@ -522,7 +464,11 @@ impl Default for Config {
         Self {
             threads: default_threads(),
             logging: default_logging(),
-            listen: ListenConfig { http: default_http(), grpc: default_grpc(), mesh: default_mesh() },
+            listen: ListenConfig {
+                http: default_http(),
+                grpc: default_grpc(),
+                mesh: default_mesh(),
+            },
             storage: default_storage(),
             foundationdb: FoundationDbConfig::default(),
             cache: CacheConfig {
@@ -531,7 +477,6 @@ impl Default for Config {
                 ttl: default_cache_ttl(),
             },
             token: TokenConfig::default(),
-            replay_protection: ReplayProtectionConfig::default(),
             pem: None,
             discovery: DiscoveryConfig::default(),
             mesh: MeshConfig::default(),
@@ -625,7 +570,7 @@ mod tests {
         // Default mesh service URL points to control's internal API
         assert_eq!(config.mesh.url, "http://localhost:9092");
         // Default token cache TTL
-        assert_eq!(config.token.jwks_cache_ttl, 300);
+        assert_eq!(config.token.cache_ttl, 300);
     }
 
     #[test]
@@ -636,54 +581,20 @@ mod tests {
             .try_init();
 
         // High clock skew should warn but not fail
-        let config = TokenConfig { clock_skew_seconds: Some(600), ..Default::default() };
+        let config = TokenConfig { clock_skew: Some(600), ..Default::default() };
         assert!(config.validate().is_ok());
     }
 
     #[test]
-    fn test_replay_protection_validation_without_redis() {
-        let _subscriber = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::WARN)
-            .with_test_writer()
-            .try_init();
-
-        let config = ReplayProtectionConfig { enabled: true, redis_url: None };
-
-        // Should fail without redis_url
-        assert!(config.validate(false).is_err());
-    }
-
-    #[test]
-    fn test_replay_protection_validation_with_redis() {
-        let _subscriber = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::WARN)
-            .with_test_writer()
-            .try_init();
-
-        let config = ReplayProtectionConfig {
-            enabled: true,
-            redis_url: Some("redis://localhost:6379".to_string()),
-        };
-
-        // Should succeed with redis_url
-        assert!(config.validate(true).is_ok());
-    }
-
-    #[test]
     fn test_mesh_config_validation_invalid_url() {
-        let config = MeshConfig {
-            url: "ftp://invalid.example.com".to_string(),
-            ..Default::default()
-        };
+        let config =
+            MeshConfig { url: "ftp://invalid.example.com".to_string(), ..Default::default() };
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_mesh_config_validation_trailing_slash() {
-        let config = MeshConfig {
-            url: "http://localhost:9092/".to_string(),
-            ..Default::default()
-        };
+        let config = MeshConfig { url: "http://localhost:9092/".to_string(), ..Default::default() };
         assert!(config.validate().is_err());
     }
 

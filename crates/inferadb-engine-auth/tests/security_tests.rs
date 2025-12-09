@@ -1,7 +1,6 @@
 //! Comprehensive security integration tests for authentication
 //!
 //! These tests verify that all security best practices are enforced:
-//! - Replay protection
 //! - Algorithm security (rejecting symmetric algorithms)
 //! - Clock skew tolerance
 //! - Maximum token age
@@ -12,7 +11,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use inferadb_engine_auth::{
     error::AuthError,
     jwt::JwtClaims,
-    replay::{InMemoryReplayProtection, ReplayProtection},
     validation::{
         REQUIRED_AUDIENCE, validate_algorithm, validate_audience, validate_timestamp_claims,
     },
@@ -47,72 +45,7 @@ fn test_claims(exp: u64, iat: u64, nbf: Option<u64>, jti: Option<String>) -> Jwt
 }
 
 fn default_config() -> TokenConfig {
-    TokenConfig {
-        jwks_cache_ttl: 300,
-        clock_skew_seconds: Some(60),
-        max_token_age_seconds: Some(86400),
-        require_jti: false,
-    }
-}
-
-// ============================================================================
-// Replay Protection Tests
-// ============================================================================
-
-#[tokio::test]
-async fn test_replay_protection_first_use_succeeds() {
-    let replay = InMemoryReplayProtection::new();
-    let exp = future_timestamp(3600);
-    let jti = "unique-jti-001";
-
-    let is_new = replay.check_and_mark(jti, exp).await.unwrap();
-    assert!(is_new, "First use of JTI should return true");
-}
-
-#[tokio::test]
-async fn test_replay_protection_second_use_fails() {
-    let replay = InMemoryReplayProtection::new();
-    let exp = future_timestamp(3600);
-    let jti = "unique-jti-002";
-
-    // First use
-    let is_new = replay.check_and_mark(jti, exp).await.unwrap();
-    assert!(is_new, "First use should return true");
-
-    // Second use (replay)
-    let is_replay = replay.check_and_mark(jti, exp).await.unwrap();
-    assert!(!is_replay, "Second use should return false (replay detected)");
-}
-
-#[tokio::test]
-async fn test_replay_protection_expired_token_rejected() {
-    let replay = InMemoryReplayProtection::new();
-    let exp = past_timestamp(10); // Expired 10 seconds ago
-    let jti = "expired-jti-001";
-
-    let result = replay.check_and_mark(jti, exp).await;
-    assert!(matches!(result, Err(AuthError::TokenExpired)), "Expired token should be rejected");
-}
-
-#[tokio::test]
-async fn test_replay_protection_different_jtis_independent() {
-    let replay = InMemoryReplayProtection::new();
-    let exp = future_timestamp(3600);
-
-    let jti1 = "jti-001";
-    let jti2 = "jti-002";
-
-    // First JTI
-    assert!(replay.check_and_mark(jti1, exp).await.unwrap());
-
-    // Second JTI (different)
-    assert!(replay.check_and_mark(jti2, exp).await.unwrap());
-
-    // Replay first JTI
-    assert!(!replay.check_and_mark(jti1, exp).await.unwrap());
-
-    // Replay second JTI
-    assert!(!replay.check_and_mark(jti2, exp).await.unwrap());
+    TokenConfig { cache_ttl: 300, clock_skew: Some(60), max_age: Some(86400) }
 }
 
 // ============================================================================
@@ -275,8 +208,8 @@ fn test_config_validates_successfully() {
 // Integration Tests
 // ============================================================================
 
-#[tokio::test]
-async fn test_full_validation_flow_success() {
+#[test]
+fn test_full_validation_flow_success() {
     let config = default_config();
     let claims = test_claims(future_timestamp(3600), now(), None, Some("unique-jti-100".into()));
 
@@ -288,24 +221,4 @@ async fn test_full_validation_flow_success() {
 
     // Validate algorithm
     assert!(validate_algorithm("EdDSA").is_ok());
-
-    // Check replay protection
-    let replay = InMemoryReplayProtection::new();
-    let jti = claims.jti.as_ref().unwrap();
-    assert!(replay.check_and_mark(jti, claims.exp).await.unwrap());
-}
-
-#[tokio::test]
-async fn test_full_validation_flow_replay_detected() {
-    let _config = default_config();
-    let claims = test_claims(future_timestamp(3600), now(), None, Some("unique-jti-101".into()));
-
-    let replay = InMemoryReplayProtection::new();
-    let jti = claims.jti.as_ref().unwrap();
-
-    // First validation succeeds
-    assert!(replay.check_and_mark(jti, claims.exp).await.unwrap());
-
-    // Second validation detects replay
-    assert!(!replay.check_and_mark(jti, claims.exp).await.unwrap());
 }

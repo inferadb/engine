@@ -160,8 +160,8 @@ async fn main() -> Result<()> {
     let cache = Arc::new(
         moka::future::Cache::builder()
             .max_capacity(1000) // Up to 1000 tenants
-            .time_to_live(Duration::from_secs(config.token.jwks_cache_ttl))
-            .time_to_idle(Duration::from_secs(config.token.jwks_cache_ttl * 2))
+            .time_to_live(Duration::from_secs(config.token.cache_ttl))
+            .time_to_idle(Duration::from_secs(config.token.cache_ttl * 2))
             .build(),
     );
 
@@ -169,7 +169,7 @@ async fn main() -> Result<()> {
     let jwks_cache = JwksCache::new(
         config.mesh.url.clone(),
         cache,
-        Duration::from_secs(config.token.jwks_cache_ttl),
+        Duration::from_secs(config.token.cache_ttl),
     )?;
     log_initialized("JWKS cache");
 

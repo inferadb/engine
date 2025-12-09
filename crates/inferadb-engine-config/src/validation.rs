@@ -209,9 +209,8 @@ mod tests {
 
     #[test]
     fn test_validate_storage_foundationdb_with_cluster_file() {
-        let fdb = FoundationDbConfig {
-            cluster_file: Some("/etc/foundationdb/fdb.cluster".to_string()),
-        };
+        let fdb =
+            FoundationDbConfig { cluster_file: Some("/etc/foundationdb/fdb.cluster".to_string()) };
         assert!(validate_storage("foundationdb", &fdb).is_ok());
     }
 
@@ -254,7 +253,6 @@ mod tests {
             foundationdb: FoundationDbConfig::default(),
             cache: CacheConfig { enabled: true, capacity: 0, ttl: 0 },
             token: crate::TokenConfig::default(),
-            replay_protection: crate::ReplayProtectionConfig::default(),
             pem: None,
             discovery: crate::DiscoveryConfig::default(),
             mesh: crate::MeshConfig::default(),

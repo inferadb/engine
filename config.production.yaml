@@ -38,16 +38,9 @@ engine:
     ttl: 300
 
   token:
-    jwks_cache_ttl: 900  # 15 minutes for production
-    clock_skew_seconds: 60
-    max_token_age_seconds: 86400  # 24 hours
-    require_jti: false
-
-  # Optional: Enable JWT replay protection (requires Redis)
-  # Prevents reuse of JWT tokens by tracking jti claims
-  replay_protection:
-    enabled: false
-    # redis_url: "redis://redis-cluster:6379"
+    cache_ttl: 900  # 15 minutes for production
+    clock_skew: 60
+    max_age: 86400  # 24 hours
 
   mesh:
     url: "http://inferadb-control.inferadb:9092"

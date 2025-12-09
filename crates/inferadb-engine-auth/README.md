@@ -200,10 +200,10 @@ The JWKS cache provides:
 ## Configuration
 
 ```yaml
-auth:
-    enabled: true
-    jwks_base_url: "https://auth.inferadb.com/tenants"
-    jwks_cache_ttl: 300 # 5 minutes
+token:
+    cache_ttl: 300     # JWKS cache TTL in seconds
+    clock_skew: 60     # Clock skew tolerance in seconds
+    max_age: 86400     # Maximum token age in seconds
 ```
 
 ### Development Mode

@@ -34,12 +34,6 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 zeroize = { workspace = true }
 
-# Optional dependencies
-redis = { version = "0.32.7", features = [
-  "connection-manager",
-  "tokio-comp",
-], optional = true }
-
 # Internal dependencies
 inferadb-engine-config = { path = "../inferadb-engine-config" }
 inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
@@ -57,4 +51,3 @@ tokio-test = "0.4"
 
 [features]
 default = []
-replay-protection = ["redis"]

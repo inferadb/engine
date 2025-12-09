@@ -63,14 +63,6 @@ pub enum AuthError {
     #[error("Missing tenant_id claim in OAuth token")]
     MissingTenantId,
 
-    /// Token replay detected (JTI already seen)
-    #[error("Token replay detected")]
-    ReplayDetected,
-
-    /// Replay protection error
-    #[error("Replay protection error: {0}")]
-    ReplayProtectionError(String),
-
     /// Token too old (issued at exceeds max age)
     #[error("Token too old")]
     TokenTooOld,
