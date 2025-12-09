@@ -7,14 +7,14 @@ Complete guide for configuring the InferaDB Engine using configuration files and
 - [Overview](#overview)
 - [Unified Configuration Format](#unified-configuration-format)
 - [Configuration Methods](#configuration-methods)
-- [Server Configuration](#server-configuration)
+- [Listen Configuration](#listen-configuration)
 - [Storage Configuration](#storage-configuration)
 - [Cache Configuration](#cache-configuration)
-- [Observability Configuration](#observability-configuration)
-- [Authentication Configuration](#authentication-configuration)
+- [Logging Configuration](#logging-configuration)
+- [Token Configuration](#token-configuration)
 - [Identity Configuration](#identity-configuration)
 - [Discovery Configuration](#discovery-configuration)
-- [Control Service Configuration](#control-service-configuration)
+- [Mesh Configuration](#mesh-configuration)
 - [Configuration Profiles](#configuration-profiles)
 - [Secrets Management](#secrets-management)
 - [Validation](#validation)
@@ -39,22 +39,24 @@ InferaDB supports a **unified configuration format** that allows both Engine and
 ```yaml
 # config.yaml - shared by both services
 engine:
-  server:
-    public_rest: "127.0.0.1:8080"
-    public_grpc: "127.0.0.1:8081"
-    private_rest: "0.0.0.0:8082"
-  storage:
-    backend: "memory"
+  threads: 4
+  logging: "info"
+  listen:
+    http: "127.0.0.1:8080"
+    grpc: "127.0.0.1:8081"
+    mesh: "0.0.0.0:8082"
+  storage: "memory"
   # ... other engine config
 
 control:
-  server:
-    public_rest: "127.0.0.1:9090"
-    public_grpc: "127.0.0.1:9091"
-    private_rest: "0.0.0.0:9092"
-  storage:
-    backend: "memory"
-  # ... other control config
+  threads: 4
+  logging: "info"
+  listen:
+    http: "127.0.0.1:9090"
+    grpc: "127.0.0.1:9091"
+    mesh: "0.0.0.0:9092"
+  storage: "memory"
+  # ... other control config (ignored by engine)
 ```
 
 ### Using Unified Config
@@ -71,16 +73,18 @@ inferadb-control --config /etc/inferadb/config.yaml
 
 ### Environment Variables
 
-With the unified format, environment variables use the service prefix:
+With the unified format, environment variables use the `INFERADB__ENGINE__` prefix:
 
 ```bash
 # Engine configuration
-export INFERADB__ENGINE__SERVER__PUBLIC_REST="0.0.0.0:8080"
-export INFERADB__ENGINE__STORAGE__BACKEND="foundationdb"
+export INFERADB__ENGINE__THREADS=4
+export INFERADB__ENGINE__LOGGING="info"
+export INFERADB__ENGINE__LISTEN__HTTP="0.0.0.0:8080"
+export INFERADB__ENGINE__STORAGE="foundationdb"
 
-# Control configuration
-export INFERADB__CONTROL__SERVER__PUBLIC_REST="0.0.0.0:9090"
-export INFERADB__CONTROL__STORAGE__BACKEND="foundationdb"
+# Control configuration (uses INFERADB__CONTROL__ prefix)
+export INFERADB__CONTROL__THREADS=4
+export INFERADB__CONTROL__LISTEN__HTTP="0.0.0.0:9090"
 ```
 
 ## Configuration Methods
@@ -93,38 +97,40 @@ Create a `config.yaml` file using the unified format:
 
 ```yaml
 engine:
-  server:
-    public_rest: "0.0.0.0:8080"
-    public_grpc: "0.0.0.0:8081"
-    private_rest: "0.0.0.0:8082"
-    worker_threads: 4
+  threads: 4
+  logging: "info"
 
-  storage:
-    backend: "memory"
-    fdb_cluster_file: null
+  listen:
+    http: "0.0.0.0:8080"
+    grpc: "0.0.0.0:8081"
+    mesh: "0.0.0.0:8082"
+
+  storage: "memory"
+  foundationdb:
+    cluster_file: null
 
   cache:
     enabled: true
-    max_capacity: 10000
+    capacity: 10000
     ttl: 300
 
-  observability:
-    log_level: "info"
+  token:
+    cache_ttl: 300
+    clock_skew: 60
+    max_age: 86400
 
-  auth:
-    jwks_cache_ttl: 300
-
-  # Identity: private_key_pem is auto-generated if not set
-  identity: {}
+  # Identity: pem is auto-generated if not set
+  pem: null
 
   discovery:
     mode:
       type: none
     cache_ttl: 300
 
-  control:
-    service_url: "http://localhost:9092"
-    internal_port: 9092
+  mesh:
+    url: "http://localhost:9092"
+    timeout: 5000
+    cache_ttl: 300
 ```
 
 **Load configuration file**:
@@ -138,28 +144,29 @@ inferadb-engine --config config.yaml
 All configuration options can be set via environment variables using the `INFERADB__ENGINE__` prefix:
 
 ```bash
-# Server configuration (combined address format)
-export INFERADB__ENGINE__SERVER__PUBLIC_REST="0.0.0.0:8080"
-export INFERADB__ENGINE__SERVER__PUBLIC_GRPC="0.0.0.0:8081"
-export INFERADB__ENGINE__SERVER__PRIVATE_REST="0.0.0.0:8082"
-export INFERADB__ENGINE__SERVER__WORKER_THREADS=4
+# Runtime configuration
+export INFERADB__ENGINE__THREADS=4
+export INFERADB__ENGINE__LOGGING="info"
+
+# Listen addresses
+export INFERADB__ENGINE__LISTEN__HTTP="0.0.0.0:8080"
+export INFERADB__ENGINE__LISTEN__GRPC="0.0.0.0:8081"
+export INFERADB__ENGINE__LISTEN__MESH="0.0.0.0:8082"
 
 # Storage configuration
-export INFERADB__ENGINE__STORAGE__BACKEND="memory"
-export INFERADB__ENGINE__STORAGE__FDB_CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
+export INFERADB__ENGINE__STORAGE="foundationdb"
+export INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
 
 # Cache configuration
 export INFERADB__ENGINE__CACHE__ENABLED=true
-export INFERADB__ENGINE__CACHE__MAX_CAPACITY=10000
+export INFERADB__ENGINE__CACHE__CAPACITY=10000
 export INFERADB__ENGINE__CACHE__TTL=300
 
-# Observability configuration
-export INFERADB__ENGINE__OBSERVABILITY__LOG_LEVEL="info"
-export INFERADB__ENGINE__OBSERVABILITY__METRICS_ENABLED=true
-export INFERADB__ENGINE__OBSERVABILITY__TRACING_ENABLED=true
+# Token configuration
+export INFERADB__ENGINE__TOKEN__CACHE_TTL=300
 
 # Identity configuration
-export INFERADB__ENGINE__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
+export INFERADB__ENGINE__PEM="-----BEGIN PRIVATE KEY-----\n..."
 ```
 
 ### Method 3: Combined (File + Environment)
@@ -167,66 +174,76 @@ export INFERADB__ENGINE__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\
 Environment variables override file configuration:
 
 ```bash
-# config.yaml sets engine.server.public_rest to "0.0.0.0:8080"
+# config.yaml sets engine.listen.http to "0.0.0.0:8080"
 # Environment variable overrides to port 3000
-export INFERADB__ENGINE__SERVER__PUBLIC_REST="0.0.0.0:3000"
+export INFERADB__ENGINE__LISTEN__HTTP="0.0.0.0:3000"
 inferadb-engine --config config.yaml
-# Server starts on port 3000
+# HTTP server starts on port 3000
 ```
 
-## Server Configuration
+## Listen Configuration
 
-Controls HTTP/gRPC server behavior. The server exposes three interfaces:
+Controls HTTP/gRPC server listen addresses. The Engine exposes three interfaces:
 
-- **Public REST API** (default `0.0.0.0:8080`): Client-facing HTTP API
-- **Public gRPC API** (default `0.0.0.0:8081`): Client-facing gRPC API
-- **Private REST API** (default `0.0.0.0:8082`): Server-to-server communication
+- **HTTP** (default `0.0.0.0:8080`): Client-facing REST API
+- **gRPC** (default `0.0.0.0:8081`): Client-facing gRPC API
+- **Mesh** (default `0.0.0.0:8082`): Service mesh / inter-service communication (JWKS, metrics, cache invalidation)
 
 ### Options
 
-| Option           | Type    | Default          | Description                                 |
-| ---------------- | ------- | ---------------- | ------------------------------------------- |
-| `public_rest`    | string  | `"0.0.0.0:8080"` | Public REST API address (host:port)         |
-| `public_grpc`    | string  | `"0.0.0.0:8081"` | Public gRPC API address (host:port)         |
-| `private_rest`   | string  | `"0.0.0.0:8082"` | Private REST API address (server-to-server) |
-| `worker_threads` | integer | CPU count        | Number of Tokio worker threads              |
+| Option    | Type   | Default          | Description                                      |
+| --------- | ------ | ---------------- | ------------------------------------------------ |
+| `http`    | string | `"0.0.0.0:8080"` | Client-facing HTTP/REST API address (host:port)  |
+| `grpc`    | string | `"0.0.0.0:8081"` | Client-facing gRPC API address (host:port)       |
+| `mesh`    | string | `"0.0.0.0:8082"` | Service mesh address (JWKS, metrics, webhooks)   |
+
+### Top-Level Options
+
+| Option    | Type    | Default | Description                    |
+| --------- | ------- | ------- | ------------------------------ |
+| `threads` | integer | CPU count | Number of Tokio worker threads |
+| `logging` | string  | `"info"` | Log level (trace, debug, info, warn, error) |
 
 ### Examples
 
-**Development** (all interfaces):
+**Development**:
 
 ```yaml
-server:
-  public_rest: "0.0.0.0:8080"
-  public_grpc: "0.0.0.0:8081"
-  private_rest: "0.0.0.0:8082"
-  worker_threads: 2
+engine:
+  threads: 2
+  logging: "debug"
+  listen:
+    http: "0.0.0.0:8080"
+    grpc: "0.0.0.0:8081"
+    mesh: "0.0.0.0:8082"
 ```
 
-**Production** (all interfaces, more workers):
+**Production**:
 
 ```yaml
-server:
-  public_rest: "0.0.0.0:8080"
-  public_grpc: "0.0.0.0:8081"
-  private_rest: "0.0.0.0:8082"
-  worker_threads: 8
+engine:
+  threads: 8
+  logging: "info"
+  listen:
+    http: "0.0.0.0:8080"
+    grpc: "0.0.0.0:8081"
+    mesh: "0.0.0.0:8082"
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:8080"
-export INFERADB__SERVER__PUBLIC_GRPC="0.0.0.0:8081"
-export INFERADB__SERVER__PRIVATE_REST="0.0.0.0:8082"
-export INFERADB__SERVER__WORKER_THREADS=8
+export INFERADB__ENGINE__THREADS=8
+export INFERADB__ENGINE__LISTEN__HTTP="0.0.0.0:8080"
+export INFERADB__ENGINE__LISTEN__GRPC="0.0.0.0:8081"
+export INFERADB__ENGINE__LISTEN__MESH="0.0.0.0:8082"
 ```
 
 ### Recommendations
 
-- **Development**: `worker_threads: 2-4`
-- **Production**: `worker_threads: 1-2x CPU cores`
-- **High-load**: `worker_threads: 2-4x CPU cores`
+- **Development**: `threads: 2-4`
+- **Production**: `threads: 1-2x CPU cores`
+- **High-load**: `threads: 2-4x CPU cores`
 
 ## Storage Configuration
 
@@ -234,10 +251,15 @@ Controls the tuple storage backend.
 
 ### Options
 
-| Option             | Type              | Default    | Description                                     |
-| ------------------ | ----------------- | ---------- | ----------------------------------------------- |
-| `backend`          | string            | `"memory"` | Storage backend: `"memory"` or `"foundationdb"` |
-| `fdb_cluster_file` | string (optional) | `null`     | Path to FoundationDB cluster file               |
+| Option    | Type   | Default    | Description                                     |
+| --------- | ------ | ---------- | ----------------------------------------------- |
+| `storage` | string | `"memory"` | Storage backend: `"memory"` or `"foundationdb"` |
+
+### FoundationDB Options
+
+| Option                        | Type              | Default | Description                       |
+| ----------------------------- | ----------------- | ------- | --------------------------------- |
+| `foundationdb.cluster_file`   | string (optional) | `null`  | Path to FoundationDB cluster file |
 
 ### Backend Options
 
@@ -249,8 +271,8 @@ Controls the tuple storage backend.
 - **Configuration**: No cluster file needed
 
 ```yaml
-storage:
-  backend: "memory"
+engine:
+  storage: "memory"
 ```
 
 #### FoundationDB Backend (Production)
@@ -261,16 +283,17 @@ storage:
 - **Configuration**: Requires FDB cluster file path
 
 ```yaml
-storage:
-  backend: "foundationdb"
-  fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
+engine:
+  storage: "foundationdb"
+  foundationdb:
+    cluster_file: "/etc/foundationdb/fdb.cluster"
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__STORAGE__BACKEND="foundationdb"
-export INFERADB__STORAGE__FDB_CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
+export INFERADB__ENGINE__STORAGE="foundationdb"
+export INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
 ```
 
 ### Recommendations
@@ -284,45 +307,48 @@ Controls the in-memory check result cache.
 
 ### Options
 
-| Option         | Type    | Default | Description                            |
-| -------------- | ------- | ------- | -------------------------------------- |
-| `enabled`      | boolean | `true`  | Enable result caching                  |
-| `max_capacity` | integer | `10000` | Maximum number of cached entries       |
-| `ttl`          | integer | `300`   | Cache entry TTL in seconds (5 minutes) |
+| Option     | Type    | Default | Description                            |
+| ---------- | ------- | ------- | -------------------------------------- |
+| `enabled`  | boolean | `true`  | Enable result caching                  |
+| `capacity` | integer | `10000` | Maximum number of cached entries       |
+| `ttl`      | integer | `300`   | Cache entry TTL in seconds (5 minutes) |
 
 ### Examples
 
 **Small deployment**:
 
 ```yaml
-cache:
-  enabled: true
-  max_capacity: 10000
-  ttl: 300
+engine:
+  cache:
+    enabled: true
+    capacity: 10000
+    ttl: 300
 ```
 
 **Large deployment**:
 
 ```yaml
-cache:
-  enabled: true
-  max_capacity: 1000000
-  ttl: 600
+engine:
+  cache:
+    enabled: true
+    capacity: 1000000
+    ttl: 600
 ```
 
 **Testing** (disable for predictability):
 
 ```yaml
-cache:
-  enabled: false
+engine:
+  cache:
+    enabled: false
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__CACHE__ENABLED=true
-export INFERADB__CACHE__MAX_CAPACITY=100000
-export INFERADB__CACHE__TTL=600
+export INFERADB__ENGINE__CACHE__ENABLED=true
+export INFERADB__ENGINE__CACHE__CAPACITY=100000
+export INFERADB__ENGINE__CACHE__TTL=600
 ```
 
 ### Memory Usage
@@ -335,21 +361,21 @@ Approximate memory usage per entry: 200-500 bytes
 
 ### Recommendations
 
-- **Development**: `max_capacity: 1,000-10,000`
-- **Production**: `max_capacity: 100,000-1,000,000`
+- **Development**: `capacity: 1,000-10,000`
+- **Production**: `capacity: 100,000-1,000,000`
 - **Low-latency workloads**: `ttl: 60-300`
 - **Standard workloads**: `ttl: 300-600`
 - **Static data**: `ttl: 3600+`
 
-## Observability Configuration
+## Logging Configuration
 
 Controls logging. Metrics and tracing are always enabled.
 
 ### Options
 
-| Option      | Type   | Default  | Description                                                    |
-| ----------- | ------ | -------- | -------------------------------------------------------------- |
-| `log_level` | string | `"info"` | Log level: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"` |
+| Option    | Type   | Default  | Description                                                    |
+| --------- | ------ | -------- | -------------------------------------------------------------- |
+| `logging` | string | `"info"` | Log level: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"` |
 
 > **Note**: Prometheus metrics (at `/metrics`) and OpenTelemetry distributed tracing are always enabled and cannot be disabled.
 
@@ -358,21 +384,21 @@ Controls logging. Metrics and tracing are always enabled.
 **Development**:
 
 ```yaml
-observability:
-  log_level: "debug"
+engine:
+  logging: "debug"
 ```
 
 **Production**:
 
 ```yaml
-observability:
-  log_level: "info"
+engine:
+  logging: "info"
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__ENGINE__OBSERVABILITY__LOG_LEVEL="info"
+export INFERADB__ENGINE__LOGGING="info"
 ```
 
 ### Additional Configuration
@@ -393,127 +419,96 @@ export OTEL_SERVICE_NAME="inferadb"
 
 ### Recommendations
 
-- **Development**: `log_level: "debug"`
-- **Production**: `log_level: "info"`
-- **Troubleshooting**: `log_level: "debug"` temporarily
-- **Low disk space**: `log_level: "warn"` or `"error"`
+- **Development**: `logging: "debug"`
+- **Production**: `logging: "info"`
+- **Troubleshooting**: `logging: "debug"` temporarily
+- **Low disk space**: `logging: "warn"` or `"error"`
 
-## Authentication Configuration
+## Token Configuration
 
-Controls JWT authentication and authorization for tenant requests.
+Controls JWT token validation, including JWKS caching, timestamp tolerance, and token age limits.
 
-### Core Options
+### Options
 
-| Option              | Type    | Default | Description                               |
-| ------------------- | ------- | ------- | ----------------------------------------- |
-| `jwks_cache_ttl`    | integer | `300`   | JWKS cache TTL (seconds)                  |
-| `replay_protection` | boolean | `false` | Enable replay protection (requires Redis) |
-| `require_jti`       | boolean | `false` | Require JTI claim in tokens               |
-| `jwks_url`          | string  | `""`    | JWKS URL for tenant authentication        |
+| Option       | Type              | Default | Description                                    |
+| ------------ | ----------------- | ------- | ---------------------------------------------- |
+| `cache_ttl`  | integer           | `300`   | JWKS cache TTL in seconds (5 minutes)          |
+| `clock_skew` | integer (optional)| `60`    | Clock skew tolerance in seconds (1 minute)     |
+| `max_age`    | integer (optional)| `86400` | Maximum token age in seconds (24 hours)        |
 
 > **Note**: JWT algorithms are hardcoded to EdDSA and RS256 for security and cannot be configured.
 >
 > **Note**: The JWT audience is hardcoded to `https://api.inferadb.com` per RFC 8725 best practices.
-> The audience identifies the InferaDB Server API as the intended recipient, not a specific endpoint.
+> The audience identifies the InferaDB Engine API as the intended recipient, not a specific endpoint.
 > This value must match the audience set by Control when generating tokens.
-
-### Control Integration
-
-| Option               | Type    | Default | Description                                |
-| -------------------- | ------- | ------- | ------------------------------------------ |
-| `control_timeout_ms` | integer | `5000`  | Timeout for Control calls (milliseconds)   |
-| `control_cache_ttl`  | integer | `300`   | Cache TTL for org/vault lookups (seconds)  |
-| `cert_cache_ttl`     | integer | `900`   | Cache TTL for client certificates (seconds)|
-
-> **Note**: Vault ownership and organization status verification are always enforced and cannot be disabled.
-
-### OAuth/OIDC Configuration
-
-| Option                     | Type              | Default | Description               |
-| -------------------------- | ----------------- | ------- | ------------------------- |
-| `oauth_enabled`            | boolean           | `false` | Enable OAuth validation   |
-| `oidc_discovery_url`       | string (optional) | `null`  | OIDC discovery endpoint   |
-| `oidc_client_id`           | string (optional) | `null`  | OIDC client ID            |
-| `oidc_client_secret`       | string (optional) | `null`  | OIDC client secret        |
-| `oidc_discovery_cache_ttl` | integer           | `86400` | OIDC cache TTL (24 hours) |
-
-### Security Options
-
-| Option                  | Type               | Default | Description                     |
-| ----------------------- | ------------------ | ------- | ------------------------------- |
-| `clock_skew_seconds`    | integer (optional) | `60`    | Clock skew tolerance            |
-| `max_token_age_seconds` | integer (optional) | `86400` | Max token age (24 hours)        |
-| `redis_url`             | string (optional)  | `null`  | Redis URL for replay protection |
 
 ### Examples
 
-**Development** (minimal config):
+**Development** (default settings):
 
 ```yaml
-auth:
-  jwks_cache_ttl: 300
+engine:
+  token:
+    cache_ttl: 300
 ```
 
-**Production** (full validation):
+**Production** (stricter validation):
 
 ```yaml
-auth:
-  jwks_cache_ttl: 300
-  replay_protection: true
-  require_jti: true
-  redis_url: "redis://localhost:6379"
-  clock_skew_seconds: 30
-  max_token_age_seconds: 3600
+engine:
+  token:
+    cache_ttl: 300
+    clock_skew: 30
+    max_age: 3600
 ```
 
 ### Environment Variables
 
 ```bash
-# Core authentication
-export INFERADB__AUTH__JWKS_CACHE_TTL=300
-
-# Control integration
-export INFERADB__AUTH__CONTROL_TIMEOUT_MS=5000
-export INFERADB__AUTH__CONTROL_CACHE_TTL=300
-export INFERADB__AUTH__CERT_CACHE_TTL=900
-
-# Replay protection
-export INFERADB__AUTH__REPLAY_PROTECTION=true
-export INFERADB__AUTH__REDIS_URL="redis://localhost:6379"
+export INFERADB__ENGINE__TOKEN__CACHE_TTL=300
+export INFERADB__ENGINE__TOKEN__CLOCK_SKEW=60
+export INFERADB__ENGINE__TOKEN__MAX_AGE=86400
 ```
+
+### Validation Warnings
+
+- `clock_skew > 300` (5 minutes) generates a warning, as high tolerance may allow expired tokens
+- `cache_ttl = 0` generates a warning, as this causes frequent JWKS fetches
+- `cache_ttl > 3600` (1 hour) generates a warning for security reasons
 
 ## Identity Configuration
 
-Controls server identity for service-to-service authentication.
+Controls Engine identity for service-to-service authentication with Control.
 
 ### Options
 
-| Option            | Type              | Default | Description                                                   |
-| ----------------- | ----------------- | ------- | ------------------------------------------------------------- |
-| `private_key_pem` | string (optional) | `null`  | Ed25519 private key in PEM format (auto-generated if not set) |
+| Option | Type              | Default | Description                                                   |
+| ------ | ----------------- | ------- | ------------------------------------------------------------- |
+| `pem`  | string (optional) | `null`  | Ed25519 private key in PEM format (auto-generated if not set) |
 
 ### Example
 
 ```yaml
-identity:
-  private_key_pem: "${SERVER_PRIVATE_KEY}"
+engine:
+  pem: "${ENGINE_PRIVATE_KEY}"
 ```
 
-Or with no configuration (all values auto-generated):
+Or with no configuration (key auto-generated at startup):
 
 ```yaml
-identity: {}
+engine:
+  pem: null
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
+export INFERADB__ENGINE__PEM="-----BEGIN PRIVATE KEY-----\n..."
 ```
 
 ### Recommendations
 
-- In production, always provide `private_key_pem` rather than relying on auto-generation
+- In production, always provide `pem` rather than relying on auto-generation
 - Use Kubernetes secrets or a secret manager for the private key
 - The `kid` is deterministically derived from the public key (RFC 7638), so it remains consistent when using the same private key
 
@@ -527,7 +522,6 @@ Controls service discovery for multi-node deployments.
 | ----------------------- | ------- | ------- | -------------------------------------------- |
 | `mode`                  | object  | `none`  | Discovery mode configuration                 |
 | `cache_ttl`             | integer | `300`   | Cache TTL for discovered endpoints (seconds) |
-| `enable_health_check`   | boolean | `false` | Enable health checking of endpoints          |
 | `health_check_interval` | integer | `30`    | Health check interval (seconds)              |
 
 ### Discovery Modes
@@ -537,9 +531,10 @@ Controls service discovery for multi-node deployments.
 Direct connection to a single service URL:
 
 ```yaml
-discovery:
-  mode:
-    type: none
+engine:
+  discovery:
+    mode:
+      type: none
 ```
 
 #### Kubernetes
@@ -547,12 +542,12 @@ discovery:
 Discover pod IPs via Kubernetes service:
 
 ```yaml
-discovery:
-  mode:
-    type: kubernetes
-  cache_ttl: 30
-  enable_health_check: true
-  health_check_interval: 10
+engine:
+  discovery:
+    mode:
+      type: kubernetes
+    cache_ttl: 30
+    health_check_interval: 10
 ```
 
 #### Tailscale
@@ -560,65 +555,79 @@ discovery:
 Multi-region discovery via Tailscale mesh:
 
 ```yaml
-discovery:
-  mode:
-    type: tailscale
-    local_cluster: "us-west-1"
-    remote_clusters:
-      - name: "eu-west-1"
-        tailscale_domain: "eu-west-1.ts.net"
-        service_name: "inferadb-engine"
-        port: 8082
-      - name: "ap-southeast-1"
-        tailscale_domain: "ap-southeast-1.ts.net"
-        service_name: "inferadb-engine"
-        port: 8082
-  cache_ttl: 60
+engine:
+  discovery:
+    mode:
+      type: tailscale
+      local_cluster: "us-west-1"
+      remote_clusters:
+        - name: "eu-west-1"
+          tailscale_domain: "eu-west-1.ts.net"
+          service_name: "inferadb-engine"
+          port: 8082
+        - name: "ap-southeast-1"
+          tailscale_domain: "ap-southeast-1.ts.net"
+          service_name: "inferadb-engine"
+          port: 8082
+    cache_ttl: 60
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__DISCOVERY__CACHE_TTL=30
-export INFERADB__DISCOVERY__ENABLE_HEALTH_CHECK=true
-export INFERADB__DISCOVERY__HEALTH_CHECK_INTERVAL=10
+export INFERADB__ENGINE__DISCOVERY__CACHE_TTL=30
+export INFERADB__ENGINE__DISCOVERY__HEALTH_CHECK_INTERVAL=10
 ```
 
-## Control Service Configuration
+## Mesh Configuration
 
-Controls connection to InferaDB Control for JWKS and tenant validation.
+Controls connection to InferaDB Control for JWKS fetching, org/vault validation, and certificate verification.
 
 ### Options
 
-| Option          | Type    | Default                   | Description                   |
-| --------------- | ------- | ------------------------- | ----------------------------- |
-| `service_url`   | string  | `"http://localhost:9092"` | Control service URL           |
-| `internal_port` | integer | `9092`                    | Control service internal port |
+| Option          | Type    | Default                   | Description                                     |
+| --------------- | ------- | ------------------------- | ----------------------------------------------- |
+| `url`           | string  | `"http://localhost:9092"` | Control service base URL                        |
+| `timeout`       | integer | `5000`                    | Timeout for mesh API calls (milliseconds)       |
+| `cache_ttl`     | integer | `300`                     | Cache TTL for org/vault lookups (seconds)       |
+| `cert_cache_ttl`| integer | `900`                     | Cache TTL for client certificates (seconds)     |
 
 ### Examples
 
 **Development**:
 
 ```yaml
-control:
-  service_url: "http://localhost:9092"
-  internal_port: 9092
+engine:
+  mesh:
+    url: "http://localhost:9092"
+    timeout: 5000
+    cache_ttl: 300
 ```
 
 **Kubernetes**:
 
 ```yaml
-control:
-  service_url: "http://inferadb-control.inferadb:9092"
-  internal_port: 9092
+engine:
+  mesh:
+    url: "http://inferadb-control.inferadb:9092"
+    timeout: 5000
+    cache_ttl: 300
+    cert_cache_ttl: 900
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__CONTROL__SERVICE_URL="http://inferadb-control.inferadb:9092"
-export INFERADB__CONTROL__INTERNAL_PORT=9092
+export INFERADB__ENGINE__MESH__URL="http://inferadb-control.inferadb:9092"
+export INFERADB__ENGINE__MESH__TIMEOUT=5000
+export INFERADB__ENGINE__MESH__CACHE_TTL=300
+export INFERADB__ENGINE__MESH__CERT_CACHE_TTL=900
 ```
+
+### Validation
+
+- `url` must start with `http://` or `https://`
+- `url` must not end with a trailing slash
 
 ## Configuration Profiles
 
@@ -627,33 +636,33 @@ export INFERADB__CONTROL__INTERNAL_PORT=9092
 Optimized for local development:
 
 ```yaml
-server:
-  public_rest: "0.0.0.0:8080"
-  public_grpc: "0.0.0.0:8081"
-  private_rest: "0.0.0.0:8082"
-  worker_threads: 2
+engine:
+  threads: 2
+  logging: "debug"
 
-storage:
-  backend: "memory"
+  listen:
+    http: "0.0.0.0:8080"
+    grpc: "0.0.0.0:8081"
+    mesh: "0.0.0.0:8082"
 
-cache:
-  enabled: true
-  max_capacity: 1000
-  ttl: 60
+  storage: "memory"
 
-observability:
-  log_level: "debug"
+  cache:
+    enabled: true
+    capacity: 1000
+    ttl: 60
 
-auth: {}
+  token:
+    cache_ttl: 300
 
-identity: {}
+  pem: null
 
-discovery:
-  mode:
-    type: none
+  discovery:
+    mode:
+      type: none
 
-control:
-  service_url: "http://localhost:9092"
+  mesh:
+    url: "http://localhost:9092"
 ```
 
 ### Production Profile
@@ -661,40 +670,41 @@ control:
 Optimized for production deployment:
 
 ```yaml
-server:
-  public_rest: "0.0.0.0:8080"
-  public_grpc: "0.0.0.0:8081"
-  private_rest: "0.0.0.0:8082"
-  worker_threads: 8
+engine:
+  threads: 8
+  logging: "info"
 
-storage:
-  backend: "foundationdb"
-  fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
+  listen:
+    http: "0.0.0.0:8080"
+    grpc: "0.0.0.0:8081"
+    mesh: "0.0.0.0:8082"
 
-cache:
-  enabled: true
-  max_capacity: 100000
-  ttl: 300
+  storage: "foundationdb"
+  foundationdb:
+    cluster_file: "/etc/foundationdb/fdb.cluster"
 
-observability:
-  log_level: "info"
+  cache:
+    enabled: true
+    capacity: 100000
+    ttl: 300
 
-auth:
-  jwks_cache_ttl: 300
-  replay_protection: true
-  redis_url: "redis://redis:6379"
+  token:
+    cache_ttl: 300
+    clock_skew: 30
+    max_age: 3600
 
-identity:
-  private_key_pem: "${SERVER_PRIVATE_KEY}"
+  pem: "${ENGINE_PRIVATE_KEY}"
 
-discovery:
-  mode:
-    type: kubernetes
-  cache_ttl: 30
-  enable_health_check: true
+  discovery:
+    mode:
+      type: kubernetes
+    cache_ttl: 30
+    health_check_interval: 10
 
-control:
-  service_url: "http://inferadb-control.inferadb:9092"
+  mesh:
+    url: "http://inferadb-control.inferadb:9092"
+    timeout: 5000
+    cache_ttl: 300
 ```
 
 ### Testing Profile
@@ -702,31 +712,31 @@ control:
 Optimized for predictable testing:
 
 ```yaml
-server:
-  public_rest: "0.0.0.0:8080"
-  public_grpc: "0.0.0.0:8081"
-  private_rest: "0.0.0.0:8082"
-  worker_threads: 1
+engine:
+  threads: 1
+  logging: "warn"
 
-storage:
-  backend: "memory"
+  listen:
+    http: "0.0.0.0:8080"
+    grpc: "0.0.0.0:8081"
+    mesh: "0.0.0.0:8082"
 
-cache:
-  enabled: false
+  storage: "memory"
 
-observability:
-  log_level: "warn"
+  cache:
+    enabled: false
 
-auth: {}
+  token:
+    cache_ttl: 300
 
-identity: {}
+  pem: null
 
-discovery:
-  mode:
-    type: none
+  discovery:
+    mode:
+      type: none
 
-control:
-  service_url: "http://localhost:9092"
+  mesh:
+    url: "http://localhost:9092"
 ```
 
 ## Secrets Management
@@ -738,9 +748,7 @@ control:
 Use environment variables for sensitive values:
 
 ```bash
-export INFERADB__AUTH__OIDC_CLIENT_SECRET="secret-value"
-export INFERADB__AUTH__REDIS_URL="redis://:password@localhost:6379"
-export INFERADB__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
+export INFERADB__ENGINE__PEM="-----BEGIN PRIVATE KEY-----\n..."
 ```
 
 ### Kubernetes Secrets
@@ -752,7 +760,6 @@ metadata:
   name: inferadb-engine-secrets
 type: Opaque
 stringData:
-  redis-url: "redis://:password@redis:6379"
   private-key: |
     -----BEGIN PRIVATE KEY-----
     ...
@@ -762,12 +769,7 @@ stringData:
 ```yaml
 # In deployment
 env:
-  - name: INFERADB__AUTH__REDIS_URL
-    valueFrom:
-      secretKeyRef:
-        name: inferadb-engine-secrets
-        key: redis-url
-  - name: INFERADB__IDENTITY__PRIVATE_KEY_PEM
+  - name: INFERADB__ENGINE__PEM
     valueFrom:
       secretKeyRef:
         name: inferadb-engine-secrets
@@ -779,16 +781,16 @@ env:
 **AWS Secrets Manager**:
 
 ```bash
-export INFERADB__IDENTITY__PRIVATE_KEY_PEM=$(aws secretsmanager get-secret-value \
-  --secret-id inferadb/server/private-key \
+export INFERADB__ENGINE__PEM=$(aws secretsmanager get-secret-value \
+  --secret-id inferadb/engine/private-key \
   --query SecretString --output text)
 ```
 
 **HashiCorp Vault**:
 
 ```bash
-export INFERADB__IDENTITY__PRIVATE_KEY_PEM=$(vault kv get \
-  -field=private_key secret/inferadb/server)
+export INFERADB__ENGINE__PEM=$(vault kv get \
+  -field=private_key secret/inferadb/engine)
 ```
 
 ## Validation
@@ -797,61 +799,60 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 
 ### Validation Rules
 
-**Server**:
+**Listen**:
 
-- `public_rest`, `public_grpc`, `private_rest` must be valid socket addresses (e.g., `"0.0.0.0:8080"`)
-- `worker_threads` must be > 0
+- `listen.http`, `listen.grpc`, `listen.mesh` must be valid socket addresses (e.g., `"0.0.0.0:8080"`)
+
+**Top-Level**:
+
+- `threads` must be > 0
+- `logging` must be valid: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`
 
 **Storage**:
 
-- `backend` must be `"memory"` or `"foundationdb"`
-- `fdb_cluster_file` required when `backend = "foundationdb"`
+- `storage` must be `"memory"` or `"foundationdb"`
+- `foundationdb.cluster_file` required when `storage = "foundationdb"`
 
 **Cache**:
 
-- `max_capacity` must be > 0 when enabled
+- `capacity` must be > 0 when enabled
 - `ttl` must be > 0
 
-**Observability**:
-
-- `log_level` must be valid: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`
-
-**Authentication**:
+**Token**:
 
 - Algorithms are hardcoded to EdDSA and RS256 (not configurable)
 - Audience is hardcoded to `https://api.inferadb.com` (not configurable)
-- `replay_protection = true` requires `redis_url`
-- `clock_skew_seconds > 300` generates warning
+- `clock_skew > 300` generates warning
 
 **Identity**:
 
-- `private_key_pem` is optional (auto-generated if not set)
+- `pem` is optional (auto-generated if not set)
 
-**Management Service**:
+**Mesh**:
 
-- `service_url` must start with `http://` or `https://`
-- `service_url` must not end with trailing slash
+- `mesh.url` must start with `http://` or `https://`
+- `mesh.url` must not end with trailing slash
 
 ### Example Validation Errors
 
 ```text
-Error: Invalid storage.backend: 'postgres'. Must be 'memory' or 'foundationdb'
+Error: Invalid storage: 'postgres'. Must be 'memory' or 'foundationdb'
 ```
 
 ```text
-Error: storage.fdb_cluster_file is required when using FoundationDB backend
+Error: foundationdb.cluster_file is required when using FoundationDB backend
 ```
 
 ```text
-Error: Algorithm 'HS256' is forbidden for security reasons
+Error: listen.http '0.0.0.0' is not a valid socket address
 ```
 
 ```text
-Error: replay_protection is enabled but redis_url is not configured
+Error: mesh.url must start with http:// or https://
 ```
 
 ```text
-Error: control.service_url must start with http:// or https://
+Error: Invalid logging level: 'verbose'. Must be one of: trace, debug, info, warn, error
 ```
 
 ## Best Practices
@@ -860,17 +861,9 @@ Error: control.service_url must start with http:// or https://
 
 1. **Asymmetric algorithms only** - Algorithms are hardcoded to EdDSA and RS256 for security
 
-2. **Enable replay protection in production**
+2. **Audience validation** - The JWT audience is hardcoded to `https://api.inferadb.com` per RFC 8725 best practices. This ensures tokens are issued for the InferaDB Engine API (not a specific endpoint).
 
-   ```yaml
-   auth:
-     replay_protection: true
-     redis_url: "redis://redis:6379"
-   ```
-
-3. **Audience validation** - The JWT audience is hardcoded to `https://api.inferadb.com` per RFC 8725 best practices. This ensures tokens are issued for the InferaDB Server API (not a specific endpoint).
-
-4. **Never commit secrets**
+3. **Never commit secrets**
    - Use environment variables
    - Use secret managers
    - Use `.gitignore` for config files with secrets
@@ -883,7 +876,7 @@ Error: control.service_url must start with http:// or https://
    - Benchmark and adjust
 
 2. **Optimize cache settings**
-   - Increase `max_capacity` for large datasets
+   - Increase `capacity` for large datasets
    - Adjust `ttl` based on update frequency
    - Monitor cache hit rate (target >80%)
 
@@ -939,12 +932,12 @@ services:
       - "8081:8081"
       - "8082:8082"
     environment:
-      INFERADB__SERVER__PUBLIC_REST: "0.0.0.0:8080"
-      INFERADB__SERVER__PUBLIC_GRPC: "0.0.0.0:8081"
-      INFERADB__SERVER__PRIVATE_REST: "0.0.0.0:8082"
-      INFERADB__STORAGE__BACKEND: "foundationdb"
-      INFERADB__STORAGE__FDB_CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
-      INFERADB__CONTROL__SERVICE_URL: "http://management:9092"
+      INFERADB__ENGINE__LISTEN__HTTP: "0.0.0.0:8080"
+      INFERADB__ENGINE__LISTEN__GRPC: "0.0.0.0:8081"
+      INFERADB__ENGINE__LISTEN__MESH: "0.0.0.0:8082"
+      INFERADB__ENGINE__STORAGE: "foundationdb"
+      INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
+      INFERADB__ENGINE__MESH__URL: "http://control:9092"
     volumes:
       - /etc/foundationdb:/etc/foundationdb:ro
 ```
@@ -955,7 +948,7 @@ See [Deployment Guide](deployment.md) for complete Kubernetes manifests.
 
 ## Troubleshooting
 
-### Server Won't Start
+### Engine Won't Start
 
 **Check configuration**:
 
@@ -971,7 +964,7 @@ inferadb-engine --config config.yaml 2>&1 | grep ERROR
 lsof -i :8080
 
 # Change port
-export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:8090"
+export INFERADB__ENGINE__LISTEN__HTTP="0.0.0.0:8090"
 ```
 
 ### Out of Memory
@@ -979,8 +972,9 @@ export INFERADB__SERVER__PUBLIC_REST="0.0.0.0:8090"
 Reduce cache size:
 
 ```yaml
-cache:
-  max_capacity: 10000
+engine:
+  cache:
+    capacity: 10000
 ```
 
 ### Slow Performance

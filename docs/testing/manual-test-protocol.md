@@ -1,6 +1,6 @@
-# Manual Test Protocol: Server-Control Authentication Integration
+# Manual Test Protocol: Engine-Control Authentication Integration
 
-This document provides a comprehensive manual testing protocol for validating the server-control authentication integration. Use this protocol to verify that all authentication features are working correctly before deployment.
+This document provides a comprehensive manual testing protocol for validating the Engine-Control authentication integration. Use this protocol to verify that all authentication features are working correctly before deployment.
 
 ## Table of Contents
 
@@ -31,7 +31,7 @@ pip install requests PyJWT cryptography
 
 ```bash
 export CONTROL_API_URL="http://localhost:8081"
-export SERVER_URL="http://localhost:8080"
+export ENGINE_URL="http://localhost:8080"
 export TEST_USER_EMAIL="test-$(date +%s)@example.com"
 export TEST_USER_PASSWORD="TestPassword123!"
 ```
@@ -56,16 +56,16 @@ curl http://localhost:8081/health
 # Expected: {"status":"healthy"}
 ```
 
-#### Step 2: Start InferaDB Server
+#### Step 2: Start InferaDB Engine
 
 ```bash
-cd server
+cd engine
 mise run dev
-# Server starts on http://localhost:8080
-# Wait for "Server listening on 127.0.0.1:8080"
+# Engine starts on http://localhost:8080
+# Wait for "Engine listening on 127.0.0.1:8080"
 ```
 
-Verify server is running:
+Verify Engine is running:
 
 ```bash
 curl http://localhost:8080/health
@@ -76,7 +76,7 @@ curl http://localhost:8080/health
 
 ```bash
 # From repository root
-docker-compose up -d foundationdb control-api server
+docker-compose up -d foundationdb control engine
 docker-compose ps
 # All services should be "healthy"
 ```
@@ -372,14 +372,14 @@ vault_id = os.getenv('VAULT_ID')
 account_id = os.getenv('ACCOUNT_ID')
 cert_kid = os.getenv('CERT_KID')
 control_url = os.getenv('CONTROL_API_URL')
-server_url = os.getenv('SERVER_URL')
+engine_url = os.getenv('ENGINE_URL')
 
 # Create claims
 now = datetime.datetime.now(datetime.timezone.utc)
 claims = {
     "iss": f"{control_url}/v1",
     "sub": f"client:{client_id}",
-    "aud": server_url,
+    "aud": engine_url,
     "exp": int((now + datetime.timedelta(minutes=5)).timestamp()),
     "iat": int(now.timestamp()),
     "jti": str(uuid.uuid4()),
@@ -412,16 +412,16 @@ echo "JWT Token (first 100 chars): ${JWT_TOKEN:0:100}..."
 
 ---
 
-### Test 7: Authenticated Request to Server
+### Test 7: Authenticated Request to Engine
 
-**Objective**: Verify server accepts JWT and validates it against Control.
+**Objective**: Verify Engine accepts JWT and validates it against Control.
 
 **Steps**:
 
 1. Make authenticated request to evaluate endpoint:
 
 ```bash
-curl -X POST $SERVER_URL/v1/evaluate \
+curl -X POST $ENGINE_URL/v1/evaluate \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -456,7 +456,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
 1. Write a relationship:
 
 ```bash
-curl -X POST $SERVER_URL/v1/relationships/write \
+curl -X POST $ENGINE_URL/v1/relationships/write \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -471,7 +471,7 @@ curl -X POST $SERVER_URL/v1/relationships/write \
 1. Verify the relationship:
 
 ```bash
-curl -X POST $SERVER_URL/v1/evaluate \
+curl -X POST $ENGINE_URL/v1/evaluate \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -522,7 +522,7 @@ export JWT_TOKEN2=$(python3 generate_jwt.py)
 1. Try to read data from vault 1 using vault 2 token:
 
 ```bash
-curl -X POST $SERVER_URL/v1/evaluate \
+curl -X POST $ENGINE_URL/v1/evaluate \
   -H "Authorization: Bearer $JWT_TOKEN2" \
   -H "Content-Type: application/json" \
   -d '{
@@ -568,7 +568,7 @@ sleep 900
 1. Try to use the revoked certificate:
 
 ```bash
-curl -X POST $SERVER_URL/v1/evaluate \
+curl -X POST $ENGINE_URL/v1/evaluate \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -593,11 +593,11 @@ curl -X POST $SERVER_URL/v1/evaluate \
 
 **Steps**:
 
-1. Check server logs for authentication success:
+1. Check Engine logs for authentication success:
 
 ```bash
-# In server terminal, look for:
-grep "authentication_success" logs/server.log
+# In Engine terminal, look for:
+grep "authentication_success" logs/engine.log
 ```
 
 1. Check for structured log fields:
@@ -632,7 +632,7 @@ grep "authentication_success" logs/server.log
 1. Fetch metrics endpoint:
 
 ```bash
-curl $SERVER_URL/metrics | grep inferadb_engine_auth
+curl $ENGINE_URL/metrics | grep inferadb_engine_auth
 ```
 
 1. Check for key metrics:
@@ -705,7 +705,7 @@ export ORG2_ID="<organization_id from response>"
 
 ```bash
 for i in {1..100}; do
-  curl -X POST $SERVER_URL/v1/evaluate \
+  curl -X POST $ENGINE_URL/v1/evaluate \
     -H "Authorization: Bearer $JWT_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{
@@ -721,8 +721,8 @@ done | awk '{sum+=$1; count++} END {print "Average: " sum/count " seconds"}'
 1. Check cache metrics:
 
 ```bash
-curl $SERVER_URL/metrics | grep inferadb_engine_auth_cache_hits_total
-curl $SERVER_URL/metrics | grep inferadb_engine_auth_cache_misses_total
+curl $ENGINE_URL/metrics | grep inferadb_engine_auth_cache_hits_total
+curl $ENGINE_URL/metrics | grep inferadb_engine_auth_cache_misses_total
 ```
 
 1. Calculate cache hit rate:
@@ -748,7 +748,7 @@ curl $SERVER_URL/metrics | grep inferadb_engine_auth_cache_misses_total
 1. Make a successful request to populate cache:
 
 ```bash
-curl -X POST $SERVER_URL/v1/evaluate \
+curl -X POST $ENGINE_URL/v1/evaluate \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -769,7 +769,7 @@ curl -X POST $SERVER_URL/v1/evaluate \
 1. Make another request (within cache TTL):
 
 ```bash
-curl -X POST $SERVER_URL/v1/evaluate \
+curl -X POST $ENGINE_URL/v1/evaluate \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -791,8 +791,8 @@ cd control && make run
 
 - ✅ Cached requests succeed (HTTP 200 OK)
 - ✅ New certificate requests fail gracefully (HTTP 503)
-- ✅ Server logs warning about Control unavailability
-- ✅ Server resumes normal operation when Control returns
+- ✅ Engine logs warning about Control unavailability
+- ✅ Engine resumes normal operation when Control returns
 
 ---
 
@@ -824,7 +824,7 @@ Use this checklist to track test completion:
 - [ ] Cache hit rate > 90%
 - [ ] Average latency < 50ms
 - [ ] Control call rate < 10%
-- [ ] Server handles Control downtime gracefully
+- [ ] Engine handles Control downtime gracefully
 - [ ] No memory leaks during extended operation
 
 ### Observability
@@ -899,8 +899,8 @@ curl $CONTROL_API_URL/v1/vaults/$VAULT_ID \
 # Check Control health
 curl $CONTROL_API_URL/health
 
-# Check server logs for connectivity errors
-grep "control" logs/server.log
+# Check Engine logs for connectivity errors
+grep "control" logs/engine.log
 ```
 
 ### Issue: Tests pass initially, then fail
@@ -934,7 +934,7 @@ Use this template to document test results:
 **Tester**: Your Name
 **Environment**: Local / Docker / Staging
 **Control Version**: vX.Y.Z
-**Server Version**: vX.Y.Z
+**Engine Version**: vX.Y.Z
 
 ## Test Summary
 
@@ -1018,6 +1018,6 @@ After completing this manual test protocol:
 ## Related Documentation
 
 - [Authentication Guide](../authentication.md) - Comprehensive authentication documentation
-- [Configuration Guide](../guides/configuration.md) - Server configuration options
+- [Configuration Guide](../guides/configuration.md) - Engine configuration options
 - [API Documentation](../../api/README.md) - Complete API reference
 - [Integration Tests](../../tests/integration/README.md) - Automated integration tests

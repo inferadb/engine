@@ -12,8 +12,8 @@ Get InferaDB up and running in 5 minutes.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/inferadb/server.git
-cd inferadb/server
+git clone https://github.com/inferadb/engine.git
+cd inferadb/engine
 ```
 
 ### 2. Build
@@ -28,7 +28,7 @@ cargo build --release
 cargo run --release
 ```
 
-The server starts on `http://localhost:8080`.
+The Engine starts on `http://localhost:8080`.
 
 ## Your First Authorization Check
 
@@ -382,7 +382,7 @@ This shows: Alice has `can_view` because she's a direct `viewer`.
 
 ### "Connection refused"
 
-Ensure the server is running:
+Ensure the Engine is running:
 
 ```bash
 cargo run --release

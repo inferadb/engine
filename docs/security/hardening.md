@@ -166,7 +166,7 @@ throttle:
 - [ ] **Expired token test**: Verify expired tokens are rejected
 - [ ] **Replay test**: Verify replay protection works (if enabled)
 - [ ] **Cross-tenant test**: Verify tenant isolation is enforced
-- [ ] **Malformed JWT test**: Verify server doesn't crash on malformed input
+- [ ] **Malformed JWT test**: Verify Engine doesn't crash on malformed input
 
 ### Configuration Validation
 

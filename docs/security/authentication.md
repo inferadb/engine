@@ -1,6 +1,6 @@
 # InferaDB Authentication Guide
 
-This guide explains how authentication works in InferaDB and how developers can authenticate with the server.
+This guide explains how authentication works in InferaDB and how developers can authenticate with the Engine.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ This guide explains how authentication works in InferaDB and how developers can 
 
 ## Overview
 
-InferaDB uses **stateless, cryptographically verifiable JWT (JSON Web Token) authentication** for all API requests. The server validates JWTs using public keys fetched from JWKS (JSON Web Key Set) endpoints.
+InferaDB uses **stateless, cryptographically verifiable JWT (JSON Web Token) authentication** for all API requests. The Engine validates JWTs using public keys fetched from JWKS (JSON Web Key Set) endpoints.
 
 ### Supported Authentication Methods
 
@@ -392,7 +392,7 @@ fetch("https://api.inferadb.com/v1/evaluate", {
 
 ## Configuration
 
-### Server Configuration
+### Engine Configuration
 
 Configure authentication in your `config.yaml` or via environment variables:
 
@@ -770,7 +770,7 @@ date +%s
    }
    ```
 
-2. Update server configuration to accept your scopes
+2. Update Engine configuration to accept your scopes
 3. Check scope validation is correctly configured
 
 ### Error: "Replay attack detected"
