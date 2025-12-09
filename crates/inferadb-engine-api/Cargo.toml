@@ -47,6 +47,7 @@ inferadb-engine-auth = { path = "../inferadb-engine-auth" }
 inferadb-engine-cache = { path = "../inferadb-engine-cache" }
 inferadb-engine-config = { path = "../inferadb-engine-config" }
 inferadb-engine-const = { path = "../inferadb-engine-const" }
+inferadb-engine-control-client = { path = "../inferadb-engine-control-client" }
 inferadb-engine-core = { path = "../inferadb-engine-core" }
 inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }

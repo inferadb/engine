@@ -7,7 +7,8 @@
 use std::sync::Arc;
 
 use axum::{Extension, extract::Path, http::StatusCode, response::IntoResponse};
-use inferadb_engine_auth::{CertificateCache, ControlVaultVerifier};
+use inferadb_engine_auth::CertificateCache;
+use inferadb_engine_control_client::ControlVaultVerifier;
 
 /// Invalidate vault cache for a specific vault
 ///
@@ -164,7 +165,7 @@ mod tests {
     use std::time::Duration;
 
     use axum::{body::Body, http::Request};
-    use inferadb_engine_auth::ControlClient;
+    use inferadb_engine_control_client::ControlClient;
     use tower::ServiceExt;
 
     use super::*;

@@ -24,6 +24,7 @@ uuid = { workspace = true }
 inferadb-engine-api = { path = "../inferadb-engine-api" }
 inferadb-engine-auth = { path = "../inferadb-engine-auth" }
 inferadb-engine-cache = { path = "../inferadb-engine-cache" }
+inferadb-engine-control-client = { path = "../inferadb-engine-control-client" }
 inferadb-engine-config = { path = "../inferadb-engine-config" }
 inferadb-engine-core = { path = "../inferadb-engine-core" }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }

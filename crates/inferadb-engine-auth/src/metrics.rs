@@ -1,3 +1,4 @@
+use inferadb_engine_control_client::vault_verifier::VaultVerifierMetrics;
 use prometheus::{
     HistogramVec, IntCounterVec, Registry, register_histogram_vec_with_registry,
     register_int_counter_vec_with_registry,
@@ -114,5 +115,23 @@ impl AuthMetrics {
         self.cache_misses_total
             .with_label_values(&[&format!("{}_invalidation_{}", cache_type, reason)])
             .inc();
+    }
+}
+
+impl VaultVerifierMetrics for AuthMetrics {
+    fn record_cache_hit(&self, cache_type: &str) {
+        AuthMetrics::record_cache_hit(self, cache_type);
+    }
+
+    fn record_cache_miss(&self, cache_type: &str) {
+        AuthMetrics::record_cache_miss(self, cache_type);
+    }
+
+    fn record_cache_invalidation(&self, cache_type: &str, reason: &str) {
+        AuthMetrics::record_cache_invalidation(self, cache_type, reason);
+    }
+
+    fn record_control_api_call(&self, operation: &str, status: u16) {
+        AuthMetrics::record_control_api_call(self, operation, status);
     }
 }

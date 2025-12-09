@@ -1,12 +1,30 @@
+//! Vault verification against Control with caching
+//!
+//! This module provides the `VaultVerifier` trait and implementations for
+//! verifying vault and organization ownership through the Control API.
+
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use moka::future::Cache;
 
 use crate::{
-    control_client::{ControlApiError, ControlClient, OrgStatus, OrganizationInfo, VaultInfo},
-    metrics::AuthMetrics,
+    client::ControlClient,
+    error::ControlClientError,
+    types::{OrgStatus, OrganizationInfo, VaultInfo},
 };
+
+/// Metrics recorder for vault verification operations
+pub trait VaultVerifierMetrics: Send + Sync {
+    /// Record a cache hit
+    fn record_cache_hit(&self, cache_type: &str);
+    /// Record a cache miss
+    fn record_cache_miss(&self, cache_type: &str);
+    /// Record a cache invalidation
+    fn record_cache_invalidation(&self, cache_type: &str, reason: &str);
+    /// Record a Control API call
+    fn record_control_api_call(&self, operation: &str, status: u16);
+}
 
 /// Trait for verifying vault and organization ownership
 #[async_trait]
@@ -30,7 +48,7 @@ pub struct ControlVaultVerifier {
     client: Arc<ControlClient>,
     vault_cache: Cache<i64, Arc<VaultInfo>>,
     org_cache: Cache<i64, Arc<OrganizationInfo>>,
-    metrics: Option<Arc<AuthMetrics>>,
+    metrics: Option<Arc<dyn VaultVerifierMetrics>>,
 }
 
 impl ControlVaultVerifier {
@@ -56,7 +74,7 @@ impl ControlVaultVerifier {
         client: Arc<ControlClient>,
         vault_cache_ttl: Duration,
         org_cache_ttl: Duration,
-        metrics: Arc<AuthMetrics>,
+        metrics: Arc<dyn VaultVerifierMetrics>,
     ) -> Self {
         Self {
             client,
@@ -181,15 +199,15 @@ impl VaultVerifier for ControlVaultVerifier {
             // Record API call status
             if let Some(ref metrics) = self.metrics {
                 let status = match &e {
-                    ControlApiError::NotFound(_) => 404,
-                    ControlApiError::UnexpectedStatus(code) => *code,
+                    ControlClientError::NotFound(_) => 404,
+                    ControlClientError::UnexpectedStatus(code) => *code,
                     _ => 500,
                 };
                 metrics.record_control_api_call("get_vault", status);
             }
 
             match e {
-                ControlApiError::NotFound(_) => VaultVerificationError::VaultNotFound(vault_id),
+                ControlClientError::NotFound(_) => VaultVerificationError::VaultNotFound(vault_id),
                 e => VaultVerificationError::ControlApiError(e.to_string()),
             }
         })?;
@@ -241,15 +259,15 @@ impl VaultVerifier for ControlVaultVerifier {
             // Record API call status
             if let Some(ref metrics) = self.metrics {
                 let status = match &e {
-                    ControlApiError::NotFound(_) => 404,
-                    ControlApiError::UnexpectedStatus(code) => *code,
+                    ControlClientError::NotFound(_) => 404,
+                    ControlClientError::UnexpectedStatus(code) => *code,
                     _ => 500,
                 };
                 metrics.record_control_api_call("get_organization", status);
             }
 
             match e {
-                ControlApiError::NotFound(_) => {
+                ControlClientError::NotFound(_) => {
                     VaultVerificationError::OrganizationNotFound(org_id)
                 },
                 e => VaultVerificationError::ControlApiError(e.to_string()),

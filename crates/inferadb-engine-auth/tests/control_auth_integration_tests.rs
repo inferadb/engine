@@ -11,11 +11,8 @@ use common::mock_control::{
     MockControlState, create_test_certificate, create_test_organization, create_test_vault,
     generate_jwt_with_key, generate_snowflake_id, start_mock_control_server,
 };
-use inferadb_engine_auth::{
-    certificate_cache::{CertificateCache, ParsedKeyId},
-    control_client::{ControlClient, OrgStatus},
-    vault_verification::{ControlVaultVerifier, VaultVerifier},
-};
+use inferadb_engine_auth::certificate_cache::{CertificateCache, ParsedKeyId};
+use inferadb_engine_control_client::{ControlClient, ControlVaultVerifier, OrgStatus, VaultVerifier};
 
 // ============================================================================
 // Certificate Cache Tests

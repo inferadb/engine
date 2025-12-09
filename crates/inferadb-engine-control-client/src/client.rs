@@ -10,9 +10,12 @@
 use std::{sync::Arc, time::Duration};
 
 use reqwest::{Client as HttpClient, StatusCode};
-use serde::Deserialize;
 
-use crate::server_identity::ServerIdentity;
+use crate::{
+    error::ControlClientError,
+    identity::ServerIdentity,
+    types::{OrganizationInfo, VaultInfo},
+};
 
 /// Control client for validating tokens and fetching metadata
 pub struct ControlClient {
@@ -24,40 +27,6 @@ pub struct ControlClient {
     server_identity: Option<Arc<ServerIdentity>>,
     /// Control URL for JWT audience
     jwt_audience_url: String,
-}
-
-/// Organization information from Control
-#[derive(Debug, Clone, Deserialize)]
-pub struct OrganizationInfo {
-    /// Organization Snowflake ID
-    pub id: i64,
-    /// Organization name
-    pub name: String,
-    /// Organization status
-    pub status: OrgStatus,
-}
-
-/// Organization status
-#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum OrgStatus {
-    /// Organization is active
-    Active,
-    /// Organization is suspended
-    Suspended,
-    /// Organization is deleted
-    Deleted,
-}
-
-/// Vault information from Control
-#[derive(Debug, Clone, Deserialize)]
-pub struct VaultInfo {
-    /// Vault Snowflake ID
-    pub id: i64,
-    /// Vault name
-    pub name: String,
-    /// Organization Snowflake ID that owns this vault
-    pub organization_id: i64,
 }
 
 impl ControlClient {
@@ -115,7 +84,7 @@ impl ControlClient {
     ///
     /// # Arguments
     ///
-    /// * `org_id` - Organization UUID
+    /// * `org_id` - Organization Snowflake ID
     ///
     /// # Errors
     ///
@@ -123,7 +92,7 @@ impl ControlClient {
     /// - The HTTP request fails
     /// - The organization is not found
     /// - The response cannot be parsed
-    pub async fn get_organization(&self, org_id: i64) -> Result<OrganizationInfo, ControlApiError> {
+    pub async fn get_organization(&self, org_id: i64) -> Result<OrganizationInfo, ControlClientError> {
         // Use internal URL for /internal/* endpoints
         let internal_url = self.get_internal_base_url();
         let url = format!("{}/internal/organizations/{}", internal_url, org_id);
@@ -136,21 +105,21 @@ impl ControlClient {
         }
 
         let response =
-            request.send().await.map_err(|e| ControlApiError::RequestFailed(e.to_string()))?;
+            request.send().await.map_err(|e| ControlClientError::RequestFailed(e.to_string()))?;
 
         match response.status() {
             StatusCode::OK => {
                 let org = response
                     .json::<OrganizationInfo>()
                     .await
-                    .map_err(|e| ControlApiError::InvalidResponse(e.to_string()))?;
+                    .map_err(|e| ControlClientError::InvalidResponse(e.to_string()))?;
                 Ok(org)
             },
             StatusCode::NOT_FOUND => {
                 // NOT_FOUND is expected for invalid org IDs
-                Err(ControlApiError::NotFound("organization"))
+                Err(ControlClientError::NotFound("organization"))
             },
-            status => Err(ControlApiError::UnexpectedStatus(status.as_u16())),
+            status => Err(ControlClientError::UnexpectedStatus(status.as_u16())),
         }
     }
 
@@ -158,7 +127,7 @@ impl ControlClient {
     ///
     /// # Arguments
     ///
-    /// * `vault_id` - Vault UUID
+    /// * `vault_id` - Vault Snowflake ID
     ///
     /// # Errors
     ///
@@ -166,7 +135,7 @@ impl ControlClient {
     /// - The HTTP request fails
     /// - The vault is not found
     /// - The response cannot be parsed
-    pub async fn get_vault(&self, vault_id: i64) -> Result<VaultInfo, ControlApiError> {
+    pub async fn get_vault(&self, vault_id: i64) -> Result<VaultInfo, ControlClientError> {
         // Use internal URL for /internal/* endpoints
         let internal_url = self.get_internal_base_url();
         let url = format!("{}/internal/vaults/{}", internal_url, vault_id);
@@ -179,41 +148,21 @@ impl ControlClient {
         }
 
         let response =
-            request.send().await.map_err(|e| ControlApiError::RequestFailed(e.to_string()))?;
+            request.send().await.map_err(|e| ControlClientError::RequestFailed(e.to_string()))?;
 
         match response.status() {
             StatusCode::OK => {
                 let vault = response
                     .json::<VaultInfo>()
                     .await
-                    .map_err(|e| ControlApiError::InvalidResponse(e.to_string()))?;
+                    .map_err(|e| ControlClientError::InvalidResponse(e.to_string()))?;
                 Ok(vault)
             },
             StatusCode::NOT_FOUND => {
                 // NOT_FOUND is expected for invalid vault IDs
-                Err(ControlApiError::NotFound("vault"))
+                Err(ControlClientError::NotFound("vault"))
             },
-            status => Err(ControlApiError::UnexpectedStatus(status.as_u16())),
+            status => Err(ControlClientError::UnexpectedStatus(status.as_u16())),
         }
     }
-}
-
-/// Errors that can occur when interacting with Control
-#[derive(Debug, thiserror::Error)]
-pub enum ControlApiError {
-    /// HTTP request failed
-    #[error("HTTP request failed: {0}")]
-    RequestFailed(String),
-
-    /// Invalid response from Control
-    #[error("Invalid response from Control: {0}")]
-    InvalidResponse(String),
-
-    /// Resource not found
-    #[error("{0} not found")]
-    NotFound(&'static str),
-
-    /// Unexpected HTTP status code
-    #[error("Unexpected HTTP status: {0}")]
-    UnexpectedStatus(u16),
 }

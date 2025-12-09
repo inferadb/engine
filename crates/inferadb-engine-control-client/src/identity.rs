@@ -1,7 +1,7 @@
-//! Server identity management for server-to-management authentication
+//! Server identity management for engine-to-control authentication
 //!
-//! This module handles the server's Ed25519 keypair used to sign JWTs when
-//! making authenticated requests to the management API.
+//! This module handles the engine's Ed25519 keypair used to sign JWTs when
+//! making authenticated requests to the Control API.
 
 use std::sync::Arc;
 
@@ -26,14 +26,14 @@ pub struct ServerIdentity {
     verifying_key: VerifyingKey,
 }
 
-/// JWT claims for server-to-management authentication
+/// JWT claims for server-to-control authentication
 #[derive(Debug, Serialize, Deserialize)]
 struct ServerJwtClaims {
     /// Issuer - the server instance
     iss: String,
     /// Subject - "server:{server_id}"
     sub: String,
-    /// Audience - the management API
+    /// Audience - the control API
     aud: String,
     /// Issued at (Unix timestamp)
     iat: i64,
@@ -87,9 +87,13 @@ impl ServerIdentity {
     }
 
     /// Create server identity from an existing Ed25519 private key (PEM format).
-    pub fn from_pem(pem: &str) -> Result<Self, String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the PEM cannot be parsed or contains an invalid key.
+    pub fn from_pem(pem_str: &str) -> Result<Self, String> {
         // Parse PEM to extract the private key bytes
-        let pem = pem::parse(pem).map_err(|e| format!("Failed to parse PEM: {}", e))?;
+        let pem = pem::parse(pem_str).map_err(|e| format!("Failed to parse PEM: {}", e))?;
 
         if pem.tag() != "PRIVATE KEY" {
             return Err(format!("Invalid PEM tag: expected 'PRIVATE KEY', got '{}'", pem.tag()));
@@ -178,6 +182,10 @@ impl ServerIdentity {
     }
 
     /// Sign a JWT for engine-to-control authentication
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JWT encoding fails.
     pub fn sign_jwt(&self, control_url: &str) -> Result<String, String> {
         let now = chrono::Utc::now();
         let exp = now + chrono::Duration::minutes(5);
@@ -204,8 +212,6 @@ impl ServerIdentity {
 
     /// Get the JWKS representation of the public key
     pub fn to_jwks(&self) -> Jwks {
-        use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-
         let public_key_bytes = self.verifying_key.as_bytes();
         let x = URL_SAFE_NO_PAD.encode(public_key_bytes);
 

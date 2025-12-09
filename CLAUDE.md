@@ -25,25 +25,26 @@ make dev                                     # Or use make
 
 ### Layered Dependencies (flow downward only)
 
-| Layer | Crates                                                                 | Purpose                               |
-| ----- | ---------------------------------------------------------------------- | ------------------------------------- |
-| 0     | `inferadb-engine-types`, `inferadb-engine-const`                       | Foundation types (zero internal deps) |
-| 1     | `inferadb-engine-config`, `inferadb-engine-observe`                    | Configuration, telemetry              |
-| 2     | `inferadb-engine-store`, `inferadb-engine-cache`                       | Storage abstraction, caching          |
-| 3     | `inferadb-engine-wasm`, `inferadb-engine-core`, `inferadb-engine-auth` | Runtime, policy evaluation, auth      |
-| 4     | `inferadb-engine-repl`, `inferadb-engine-api`                          | REPL, API servers                     |
-| 5     | `inferadb-engine`                                                      | Binary entry point                    |
+| Layer | Crates                                                                                           | Purpose                               |
+| ----- | ------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| 0     | `inferadb-engine-types`, `inferadb-engine-const`                                                 | Foundation types (zero internal deps) |
+| 1     | `inferadb-engine-config`, `inferadb-engine-observe`, `inferadb-engine-discovery`                 | Configuration, telemetry, discovery   |
+| 2     | `inferadb-engine-store`, `inferadb-engine-cache`, `inferadb-engine-control-client`               | Storage, caching, Control client      |
+| 3     | `inferadb-engine-wasm`, `inferadb-engine-core`, `inferadb-engine-auth`                           | Runtime, policy evaluation, auth      |
+| 4     | `inferadb-engine-repl`, `inferadb-engine-api`                                                    | REPL, API servers                     |
+| 5     | `inferadb-engine`                                                                                | Binary entry point                    |
 
 ### Key Crates
 
-| Crate                   | Purpose                                                  |
-| ----------------------- | -------------------------------------------------------- |
-| `inferadb-engine-types` | Shared types: Relationship, Vault, Account, Decision     |
-| `inferadb-engine-store` | Storage: MemoryBackend (dev), FoundationDBBackend (prod) |
-| `inferadb-engine-cache` | Two-layer caching, vault-scoped                          |
-| `inferadb-engine-core`  | IPL parser, graph traversal, decision engine             |
-| `inferadb-engine-auth`  | JWT (EdDSA/RS256 only), OAuth 2.0                        |
-| `inferadb-engine-api`   | REST (Axum) + gRPC (Tonic), service layer                |
+| Crate                           | Purpose                                                  |
+| ------------------------------- | -------------------------------------------------------- |
+| `inferadb-engine-types`         | Shared types: Relationship, Vault, Account, Decision     |
+| `inferadb-engine-store`         | Storage: MemoryBackend (dev), FoundationDBBackend (prod) |
+| `inferadb-engine-cache`         | Two-layer caching, vault-scoped                          |
+| `inferadb-engine-control-client`| HTTP client for Engine→Control communication             |
+| `inferadb-engine-core`          | IPL parser, graph traversal, decision engine             |
+| `inferadb-engine-auth`          | JWT (EdDSA/RS256 only), OAuth 2.0                        |
+| `inferadb-engine-api`           | REST (Axum) + gRPC (Tonic), service layer                |
 
 ## Critical Patterns
 

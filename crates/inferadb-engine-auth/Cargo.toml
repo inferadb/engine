@@ -36,6 +36,7 @@ zeroize = { workspace = true }
 
 # Internal dependencies
 inferadb-engine-config = { path = "../inferadb-engine-config" }
+inferadb-engine-control-client = { path = "../inferadb-engine-control-client" }
 inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
@@ -43,6 +44,7 @@ inferadb-engine-types = { path = "../inferadb-engine-types" }
 [dev-dependencies]
 axum = { workspace = true }
 futures = { workspace = true }
+inferadb-engine-control-client = { path = "../inferadb-engine-control-client" }
 proptest = "1.4"
 rand = { workspace = true }
 rand_core = { version = "0.6", features = ["getrandom"] }

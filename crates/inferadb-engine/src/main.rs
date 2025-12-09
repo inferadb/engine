@@ -177,7 +177,7 @@ async fn main() -> Result<()> {
 
     // Initialize server identity for server-to-control authentication
     let server_identity = if !config.effective_mesh_url().is_empty() {
-        use inferadb_engine_auth::ServerIdentity;
+        use inferadb_engine_control_client::ServerIdentity;
 
         let identity = if let Some(ref pem) = config.pem {
             ServerIdentity::from_pem(pem)

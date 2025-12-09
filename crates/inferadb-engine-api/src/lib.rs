@@ -148,7 +148,7 @@ pub struct AppState {
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
     /// Server identity for signing engine-to-control requests
-    pub server_identity: Option<Arc<inferadb_engine_auth::ServerIdentity>>,
+    pub server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
 
     // Shared cache for authorization decisions and expansions
     pub auth_cache: Arc<inferadb_engine_cache::AuthCache>,
@@ -169,7 +169,7 @@ pub struct AppStateBuilder {
     config: Arc<Config>,
     wasm_host: Option<Arc<inferadb_engine_wasm::WasmHost>>,
     jwks_cache: Option<Arc<JwksCache>>,
-    server_identity: Option<Arc<inferadb_engine_auth::ServerIdentity>>,
+    server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
 }
 
 impl AppStateBuilder {
@@ -197,7 +197,7 @@ impl AppStateBuilder {
     /// Set the server identity
     pub fn server_identity(
         mut self,
-        server_identity: Option<Arc<inferadb_engine_auth::ServerIdentity>>,
+        server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
     ) -> Self {
         self.server_identity = server_identity;
         self
@@ -386,9 +386,9 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
     // Type alias for complex auth components tuple (reduces clippy::type_complexity)
     type AuthComponents = (
-        Arc<dyn inferadb_engine_auth::VaultVerifier>,
+        Arc<dyn inferadb_engine_control_client::VaultVerifier>,
         Option<Arc<inferadb_engine_auth::CertificateCache>>,
-        Option<Arc<inferadb_engine_auth::ControlVaultVerifier>>,
+        Option<Arc<inferadb_engine_control_client::ControlVaultVerifier>>,
     );
 
     // Get effective mesh URL
@@ -456,7 +456,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
             // Create ControlClient with load balancing
             Arc::new(
-                inferadb_engine_auth::ControlClient::new(
+                inferadb_engine_control_client::ControlClient::new(
                     effective_mesh_url.clone(),
                     None, // Internal URL same as url
                     state.config.mesh.timeout,
@@ -473,7 +473,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         } else {
             // Discovery disabled - use static URL (Kubernetes service handles load balancing)
             Arc::new(
-                inferadb_engine_auth::ControlClient::new(
+                inferadb_engine_control_client::ControlClient::new(
                     effective_mesh_url.clone(),
                     None, // Internal URL same as url
                     state.config.mesh.timeout,
@@ -486,7 +486,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             )
         };
 
-        let ctrl_verifier = Arc::new(inferadb_engine_auth::ControlVaultVerifier::new(
+        let ctrl_verifier = Arc::new(inferadb_engine_control_client::ControlVaultVerifier::new(
             Arc::clone(&control_client),
             std::time::Duration::from_secs(300), // 5 min vault cache TTL
             std::time::Duration::from_secs(600), // 10 min org cache TTL
@@ -504,8 +504,8 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         );
 
         // Keep both trait object and concrete type references
-        let vault_verifier_trait: Arc<dyn inferadb_engine_auth::VaultVerifier> =
-            Arc::clone(&ctrl_verifier) as Arc<dyn inferadb_engine_auth::VaultVerifier>;
+        let vault_verifier_trait: Arc<dyn inferadb_engine_control_client::VaultVerifier> =
+            Arc::clone(&ctrl_verifier) as Arc<dyn inferadb_engine_control_client::VaultVerifier>;
 
         (vault_verifier_trait, Some(cert_cache), Some(ctrl_verifier))
     } else {
@@ -513,8 +513,8 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         warn!("○ Vault caching disabled");
         warn!("  For more information, see https://inferadb.com/docs/?search=auth.control_url");
         (
-            Arc::new(inferadb_engine_auth::NoOpVaultVerifier)
-                as Arc<dyn inferadb_engine_auth::VaultVerifier>,
+            Arc::new(inferadb_engine_control_client::NoOpVaultVerifier)
+                as Arc<dyn inferadb_engine_control_client::VaultVerifier>,
             None,
             None,
         )
@@ -626,7 +626,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         // Create ControlVaultVerifier for cache invalidation handlers
         // This requires creating a ControlClient first
         let control_client = Arc::new(
-            inferadb_engine_auth::ControlClient::new(
+            inferadb_engine_control_client::ControlClient::new(
                 effective_mesh_url.clone(),
                 None, // Internal URL same as url
                 state.config.mesh.timeout,
@@ -636,7 +636,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
             .map_err(|e| ApiError::Internal(format!("Failed to create Control client: {}", e)))?,
         );
 
-        let ctrl_verifier = Arc::new(inferadb_engine_auth::ControlVaultVerifier::new(
+        let ctrl_verifier = Arc::new(inferadb_engine_control_client::ControlVaultVerifier::new(
             Arc::clone(&control_client),
             std::time::Duration::from_secs(300), // 5 min vault cache TTL
             std::time::Duration::from_secs(600), // 10 min org cache TTL
@@ -739,7 +739,7 @@ pub struct ServerComponents {
     pub wasm_host: Option<Arc<inferadb_engine_wasm::WasmHost>>,
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
-    pub server_identity: Option<Arc<inferadb_engine_auth::ServerIdentity>>,
+    pub server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
 }
 
 impl ServerComponents {

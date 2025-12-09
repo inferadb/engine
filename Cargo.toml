@@ -6,6 +6,7 @@ members = [
   "crates/inferadb-engine-cache",
   "crates/inferadb-engine-config",
   "crates/inferadb-engine-const",
+  "crates/inferadb-engine-control-client",
   "crates/inferadb-engine-core",
   "crates/inferadb-engine-discovery",
   "crates/inferadb-engine-observe",
