@@ -12,14 +12,14 @@
 //!   threads: 4
 //!   logging: "info"
 //!   listen:
-//!     public_rest: "127.0.0.1:8080"
+//!     http: "127.0.0.1:8080"
 //!   # ... other engine config
 //!
 //! control:
 //!   threads: 4
 //!   logging: "info"
 //!   listen:
-//!     public_rest: "127.0.0.1:9090"
+//!     http: "127.0.0.1:9090"
 //!   # ... other control config (ignored by engine)
 //! ```
 //!
@@ -66,16 +66,20 @@ pub struct Config {
 
     #[serde(default)]
     pub listen: ListenConfig,
+    #[serde(default = "default_storage")]
+    pub storage: String,
     #[serde(default)]
-    pub storage: StorageConfig,
+    pub foundationdb: FoundationDbConfig,
     #[serde(default)]
     pub cache: CacheConfig,
     #[serde(default)]
-    pub authentication: AuthenticationConfig,
+    pub token: TokenConfig,
+    #[serde(default)]
+    pub replay_protection: ReplayProtectionConfig,
     #[serde(default)]
     pub discovery: DiscoveryConfig,
     #[serde(default)]
-    pub control: ControlConfig,
+    pub mesh: MeshConfig,
 }
 
 /// Listen address configuration for API servers
@@ -124,22 +128,16 @@ fn default_logging() -> String {
     "info".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageConfig {
-    #[serde(default = "default_backend")]
-    pub backend: String,
-
-    pub fdb_cluster_file: Option<String>,
-}
-
-impl Default for StorageConfig {
-    fn default() -> Self {
-        Self { backend: default_backend(), fdb_cluster_file: None }
-    }
-}
-
-fn default_backend() -> String {
+fn default_storage() -> String {
     "memory".to_string()
+}
+
+/// FoundationDB configuration (only used when storage = "foundationdb")
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FoundationDbConfig {
+    /// FoundationDB cluster file path
+    /// e.g., "/etc/foundationdb/fdb.cluster"
+    pub cluster_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,8 +145,8 @@ pub struct CacheConfig {
     #[serde(default = "default_cache_enabled")]
     pub enabled: bool,
 
-    #[serde(default = "default_cache_max_capacity")]
-    pub max_capacity: u64,
+    #[serde(default = "default_cache_capacity")]
+    pub capacity: u64,
 
     #[serde(default = "default_cache_ttl")]
     pub ttl: u64,
@@ -158,7 +156,7 @@ impl Default for CacheConfig {
     fn default() -> Self {
         Self {
             enabled: default_cache_enabled(),
-            max_capacity: default_cache_max_capacity(),
+            capacity: default_cache_capacity(),
             ttl: default_cache_ttl(),
         }
     }
@@ -168,7 +166,7 @@ fn default_cache_enabled() -> bool {
     true
 }
 
-fn default_cache_max_capacity() -> u64 {
+fn default_cache_capacity() -> u64 {
     10_000
 }
 
@@ -176,23 +174,15 @@ fn default_cache_ttl() -> u64 {
     300
 }
 
-
+/// Token validation configuration
+///
+/// Controls how JWT tokens are validated, including JWKS caching,
+/// timestamp tolerance, and token age limits.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthenticationConfig {
+pub struct TokenConfig {
     /// JWKS cache TTL in seconds
     #[serde(default = "default_jwks_cache_ttl")]
     pub jwks_cache_ttl: u64,
-
-    /// Enable replay protection (requires Redis)
-    #[serde(default = "default_replay_protection")]
-    pub replay_protection: bool,
-
-    /// OIDC discovery cache TTL in seconds
-    #[serde(default = "default_oidc_discovery_cache_ttl")]
-    pub oidc_discovery_cache_ttl: u64,
-
-    /// Redis URL for replay protection (optional)
-    pub redis_url: Option<String>,
 
     /// Clock skew tolerance in seconds (for timestamp validation)
     #[serde(default = "default_clock_skew_seconds")]
@@ -205,35 +195,80 @@ pub struct AuthenticationConfig {
     /// Require JTI claim in all tokens
     #[serde(default = "default_require_jti")]
     pub require_jti: bool,
+}
 
-    /// Enable OAuth token validation
-    #[serde(default = "default_oauth_enabled")]
-    pub oauth_enabled: bool,
+impl Default for TokenConfig {
+    fn default() -> Self {
+        Self {
+            jwks_cache_ttl: default_jwks_cache_ttl(),
+            clock_skew_seconds: default_clock_skew_seconds(),
+            max_token_age_seconds: default_max_token_age_seconds(),
+            require_jti: default_require_jti(),
+        }
+    }
+}
 
-    /// OIDC discovery URL (for OAuth providers)
-    pub oidc_discovery_url: Option<String>,
+impl TokenConfig {
+    /// Validate token configuration
+    pub fn validate(&self) -> Result<(), String> {
+        // Warn if clock skew is too permissive (> 5 minutes)
+        if let Some(skew) = self.clock_skew_seconds {
+            if skew > 300 {
+                tracing::warn!(
+                    clock_skew = %skew,
+                    "Clock skew tolerance is very high (> 5 minutes). \
+                     This may allow expired tokens to be accepted. \
+                     Recommended: 60 seconds or less."
+                );
+            }
+        }
 
-    /// OIDC client ID
-    pub oidc_client_id: Option<String>,
+        Ok(())
+    }
+}
 
-    /// OIDC client secret
-    pub oidc_client_secret: Option<String>,
+/// Replay protection configuration
+///
+/// Optional feature to prevent token replay attacks. Requires Redis
+/// for multi-node deployments.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplayProtectionConfig {
+    /// Enable replay protection
+    #[serde(default = "default_replay_protection")]
+    pub enabled: bool,
 
-    /// JWKS URL for tenant authentication
-    #[serde(default = "default_jwks_url")]
-    pub jwks_url: String,
+    /// Redis URL for replay protection (required when enabled)
+    pub redis_url: Option<String>,
+}
 
-    /// Timeout for management API calls in milliseconds
-    #[serde(default = "default_management_api_timeout")]
-    pub management_api_timeout_ms: u64,
+impl Default for ReplayProtectionConfig {
+    fn default() -> Self {
+        Self { enabled: default_replay_protection(), redis_url: None }
+    }
+}
 
-    /// Cache TTL for management API responses (org/vault) in seconds
-    #[serde(default = "default_management_cache_ttl")]
-    pub management_cache_ttl: u64,
+impl ReplayProtectionConfig {
+    /// Validate replay protection configuration
+    pub fn validate(&self, require_jti: bool) -> Result<(), String> {
+        // CRITICAL: Reject if enabled but no redis_url
+        if self.enabled && self.redis_url.is_none() {
+            return Err(
+                "replay_protection.enabled is true but replay_protection.redis_url is not configured. \
+                 Either disable replay_protection or configure redis_url."
+                    .to_string(),
+            );
+        }
 
-    /// Cache TTL for client certificates in seconds
-    #[serde(default = "default_cert_cache_ttl")]
-    pub cert_cache_ttl: u64,
+        // Warn if replay protection is enabled with require_jti false
+        if self.enabled && !require_jti {
+            tracing::warn!(
+                "replay_protection.enabled is true but jwt.require_jti is false. \
+                 Tokens without JTI will fail validation. Consider setting jwt.require_jti=true."
+            );
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -295,42 +330,80 @@ pub struct RemoteCluster {
     pub port: u16,
 }
 
-/// Control service discovery configuration
+/// Service mesh configuration for control communication
 ///
 /// This configuration controls how the engine discovers and connects to
-/// control service instances. The engine needs to fetch JWKS from
-/// control services to validate JWTs signed by them.
+/// control service instances. The engine needs to communicate with control
+/// services for JWKS fetching, org/vault validation, and certificate verification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ControlConfig {
-    /// Internal port where control services expose their internal API (including JWKS)
-    /// Default: 9092
-    #[serde(default = "default_control_internal_port")]
-    pub internal_port: u16,
+pub struct MeshConfig {
+    /// Base URL for control service
+    /// e.g., "http://inferadb-control.inferadb:9092" for K8s
+    /// or "http://localhost:9092" for development
+    #[serde(default = "default_mesh_url")]
+    pub url: String,
 
-    /// Service URL pattern for Kubernetes/Tailscale discovery
-    /// e.g., "http://inferadb-control.inferadb:9092"
-    /// This is used as a template when discovery is enabled
-    #[serde(default = "default_control_service_url")]
-    pub service_url: String,
+    /// Timeout for mesh API calls in milliseconds
+    #[serde(default = "default_mesh_timeout")]
+    pub timeout: u64,
+
+    /// Cache TTL for mesh API responses (org/vault lookups) in seconds
+    #[serde(default = "default_mesh_cache_ttl")]
+    pub cache_ttl: u64,
+
+    /// Cache TTL for client certificates in seconds
+    #[serde(default = "default_mesh_cert_cache_ttl")]
+    pub cert_cache_ttl: u64,
 }
 
-impl Default for ControlConfig {
+impl Default for MeshConfig {
     fn default() -> Self {
         Self {
-            internal_port: default_control_internal_port(),
-            service_url: default_control_service_url(),
+            url: default_mesh_url(),
+            timeout: default_mesh_timeout(),
+            cache_ttl: default_mesh_cache_ttl(),
+            cert_cache_ttl: default_mesh_cert_cache_ttl(),
         }
     }
 }
 
-fn default_control_internal_port() -> u16 {
-    9092 // Control internal/private server port
+impl MeshConfig {
+    /// Validate mesh service configuration
+    pub fn validate(&self) -> Result<(), String> {
+        // Validate URL format
+        if !self.url.starts_with("http://") && !self.url.starts_with("https://") {
+            return Err(format!(
+                "mesh.url must start with http:// or https://, got: {}",
+                self.url
+            ));
+        }
+        if self.url.ends_with('/') {
+            return Err(format!(
+                "mesh.url must not end with trailing slash: {}",
+                self.url
+            ));
+        }
+
+        Ok(())
+    }
 }
 
-fn default_control_service_url() -> String {
+fn default_mesh_url() -> String {
     // Default for development - localhost
     // In production with discovery, this should be the K8s service URL
     "http://localhost:9092".to_string()
+}
+
+fn default_mesh_timeout() -> u64 {
+    5000 // 5 seconds (in milliseconds)
+}
+
+fn default_mesh_cache_ttl() -> u64 {
+    300 // 5 minutes
+}
+
+fn default_mesh_cert_cache_ttl() -> u64 {
+    900 // 15 minutes
 }
 
 fn default_jwks_cache_ttl() -> u64 {
@@ -349,34 +422,8 @@ fn default_require_jti() -> bool {
     false // Optional by default, but required when replay_protection is enabled
 }
 
-fn default_oauth_enabled() -> bool {
-    false
-}
-
-fn default_jwks_url() -> String {
-    // Default for development - control's public API port
-    // In production, this should be configured to point to the control service's public endpoint
-    "http://localhost:9090".to_string()
-}
-
 fn default_replay_protection() -> bool {
     false
-}
-
-fn default_oidc_discovery_cache_ttl() -> u64 {
-    86400 // 24 hours in seconds
-}
-
-fn default_management_api_timeout() -> u64 {
-    5000 // 5 seconds
-}
-
-fn default_management_cache_ttl() -> u64 {
-    300 // 5 minutes
-}
-
-fn default_cert_cache_ttl() -> u64 {
-    900 // 15 minutes
 }
 
 fn default_discovery_cache_ttl() -> u64 {
@@ -420,139 +467,53 @@ impl Config {
         })?;
 
         // Validate storage backend
-        if self.storage.backend != "memory" && self.storage.backend != "foundationdb" {
+        if self.storage != "memory" && self.storage != "foundationdb" {
             anyhow::bail!(
-                "Invalid storage.backend: '{}'. Must be 'memory' or 'foundationdb'",
-                self.storage.backend
+                "Invalid storage: '{}'. Must be 'memory' or 'foundationdb'",
+                self.storage
             );
         }
 
         // Validate FoundationDB configuration
-        if self.storage.backend == "foundationdb" && self.storage.fdb_cluster_file.is_none() {
-            anyhow::bail!("storage.fdb_cluster_file is required when using FoundationDB backend");
+        if self.storage == "foundationdb" && self.foundationdb.cluster_file.is_none() {
+            anyhow::bail!("foundationdb.cluster_file is required when using FoundationDB backend");
         }
 
-        // Validate authentication config (delegates to AuthenticationConfig::validate)
-        self.authentication.validate().map_err(|e| anyhow::anyhow!(e))?;
+        // Validate token config
+        self.token.validate().map_err(|e| anyhow::anyhow!(e))?;
 
-        // Validate control service URL format
-        let control_url = self.effective_control_url();
-        if !control_url.starts_with("http://") && !control_url.starts_with("https://") {
-            anyhow::bail!(
-                "control.service_url must start with http:// or https://, got: {}",
-                control_url
-            );
-        }
-        if control_url.ends_with('/') {
-            anyhow::bail!("control.service_url must not end with trailing slash: {}", control_url);
-        }
+        // Validate replay protection config
+        self.replay_protection
+            .validate(self.token.require_jti)
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        // Validate mesh service config
+        self.mesh.validate().map_err(|e| anyhow::anyhow!(e))?;
 
         // Validate cache TTL values are reasonable
-        if self.authentication.jwks_cache_ttl == 0 {
-            tracing::warn!("authentication.jwks_cache_ttl is 0. This will cause frequent JWKS fetches.");
+        if self.token.jwks_cache_ttl == 0 {
+            tracing::warn!("token.jwks_cache_ttl is 0. This will cause frequent JWKS fetches.");
         }
-        if self.authentication.jwks_cache_ttl > 3600 {
+        if self.token.jwks_cache_ttl > 3600 {
             tracing::warn!(
-                ttl = self.authentication.jwks_cache_ttl,
-                "authentication.jwks_cache_ttl is very high (>1 hour). Consider using a lower TTL for security."
+                ttl = self.token.jwks_cache_ttl,
+                "token.jwks_cache_ttl is very high (>1 hour). Consider using a lower TTL for security."
             );
         }
 
         Ok(())
     }
 
-    /// Get the control service URL
+    /// Get the mesh service URL
     ///
     /// Returns the URL for control service communication.
-    pub fn effective_control_url(&self) -> String {
-        self.control.service_url.clone()
+    pub fn effective_mesh_url(&self) -> String {
+        self.mesh.url.clone()
     }
 
     /// Check if service discovery is enabled
     pub fn is_discovery_enabled(&self) -> bool {
         !matches!(self.discovery.mode, DiscoveryMode::None)
-    }
-}
-
-impl Default for AuthenticationConfig {
-    fn default() -> Self {
-        Self {
-            jwks_cache_ttl: default_jwks_cache_ttl(),
-            replay_protection: default_replay_protection(),
-            oidc_discovery_cache_ttl: default_oidc_discovery_cache_ttl(),
-            redis_url: None,
-            clock_skew_seconds: default_clock_skew_seconds(),
-            max_token_age_seconds: default_max_token_age_seconds(),
-            require_jti: default_require_jti(),
-            oauth_enabled: default_oauth_enabled(),
-            oidc_discovery_url: None,
-            oidc_client_id: None,
-            oidc_client_secret: None,
-            jwks_url: default_jwks_url(),
-            management_api_timeout_ms: default_management_api_timeout(),
-            management_cache_ttl: default_management_cache_ttl(),
-            cert_cache_ttl: default_cert_cache_ttl(),
-        }
-    }
-}
-
-impl AuthenticationConfig {
-    /// Validate the authentication configuration and log warnings for potential issues
-    ///
-    /// This method performs comprehensive validation of security-related settings:
-    /// - Checks for forbidden algorithms (symmetric algorithms, "none")
-    /// - Validates replay protection configuration
-    /// - Warns about overly permissive clock skew settings
-    /// - Validates issuer and audience configuration
-    /// - Ensures required JTI when replay protection is enabled
-    pub fn validate(&self) -> Result<(), String> {
-        // Validate JWKS URL format if provided
-        if !self.jwks_url.is_empty()
-            && !self.jwks_url.starts_with("http://")
-            && !self.jwks_url.starts_with("https://")
-        {
-            return Err(format!(
-                "authentication.jwks_url must start with http:// or https://, got: {}",
-                self.jwks_url
-            ));
-        }
-
-        // CRITICAL: Reject if replay_protection enabled but no redis_url
-        if self.replay_protection && self.redis_url.is_none() {
-            return Err("replay_protection is enabled but redis_url is not configured. \
-                 Either disable replay_protection or configure redis_url."
-                .to_string());
-        }
-
-        // Warn if replay protection is enabled with require_jti false
-        if self.replay_protection && !self.require_jti {
-            tracing::warn!(
-                "replay_protection is enabled but require_jti is false. \
-                 Tokens without JTI will fail validation. Consider setting require_jti=true."
-            );
-        }
-
-        // Warn if using in-memory replay protection (when Redis is not configured)
-        if self.replay_protection && self.redis_url.is_none() {
-            tracing::warn!(
-                "In-memory replay protection is NOT suitable for multi-node deployments. \
-                 Configure redis_url for production use."
-            );
-        }
-
-        // Warn if clock skew is too permissive (> 5 minutes)
-        if let Some(skew) = self.clock_skew_seconds {
-            if skew > 300 {
-                tracing::warn!(
-                    clock_skew = %skew,
-                    "Clock skew tolerance is very high (> 5 minutes). \
-                     This may allow expired tokens to be accepted. \
-                     Recommended: 60 seconds or less."
-                );
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -562,16 +523,18 @@ impl Default for Config {
             threads: default_threads(),
             logging: default_logging(),
             listen: ListenConfig { http: default_http(), grpc: default_grpc(), mesh: default_mesh() },
-            storage: StorageConfig { backend: default_backend(), fdb_cluster_file: None },
+            storage: default_storage(),
+            foundationdb: FoundationDbConfig::default(),
             cache: CacheConfig {
                 enabled: default_cache_enabled(),
-                max_capacity: default_cache_max_capacity(),
+                capacity: default_cache_capacity(),
                 ttl: default_cache_ttl(),
             },
-            authentication: AuthenticationConfig::default(),
+            token: TokenConfig::default(),
+            replay_protection: ReplayProtectionConfig::default(),
             pem: None,
             discovery: DiscoveryConfig::default(),
-            control: ControlConfig::default(),
+            mesh: MeshConfig::default(),
         }
     }
 }
@@ -659,64 +622,74 @@ mod tests {
         assert_eq!(config.listen.grpc, "0.0.0.0:8081");
         assert_eq!(config.listen.mesh, "0.0.0.0:8082");
         assert!(config.cache.enabled);
-        // Default JWKS URL points to control's public API for local development
-        assert_eq!(config.authentication.jwks_url, "http://localhost:9090");
-        // Default control service URL points to control's internal API
-        assert_eq!(config.control.service_url, "http://localhost:9092");
+        // Default mesh service URL points to control's internal API
+        assert_eq!(config.mesh.url, "http://localhost:9092");
+        // Default token cache TTL
+        assert_eq!(config.token.jwks_cache_ttl, 300);
     }
 
     #[test]
-    fn test_authentication_config_validation_with_empty_jwks_url() {
+    fn test_token_config_validation_high_clock_skew() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::WARN)
             .with_test_writer()
             .try_init();
 
-        // Empty JWKS URL is valid (falls back to default behavior)
-        let config = AuthenticationConfig { jwks_url: String::new(), ..Default::default() };
+        // High clock skew should warn but not fail
+        let config = TokenConfig { clock_skew_seconds: Some(600), ..Default::default() };
         assert!(config.validate().is_ok());
     }
 
     #[test]
-    fn test_authentication_config_validation_invalid_jwks_url() {
+    fn test_replay_protection_validation_without_redis() {
         let _subscriber = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::WARN)
             .with_test_writer()
             .try_init();
 
-        // Invalid JWKS URL (not http/https) should fail
-        let config =
-            AuthenticationConfig { jwks_url: "ftp://invalid.example.com".to_string(), ..Default::default() };
+        let config = ReplayProtectionConfig { enabled: true, redis_url: None };
+
+        // Should fail without redis_url
+        assert!(config.validate(false).is_err());
+    }
+
+    #[test]
+    fn test_replay_protection_validation_with_redis() {
+        let _subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .with_test_writer()
+            .try_init();
+
+        let config = ReplayProtectionConfig {
+            enabled: true,
+            redis_url: Some("redis://localhost:6379".to_string()),
+        };
+
+        // Should succeed with redis_url
+        assert!(config.validate(true).is_ok());
+    }
+
+    #[test]
+    fn test_mesh_config_validation_invalid_url() {
+        let config = MeshConfig {
+            url: "ftp://invalid.example.com".to_string(),
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 
     #[test]
-    fn test_authentication_config_validation_replay_protection_without_redis() {
-        let _subscriber = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::WARN)
-            .with_test_writer()
-            .try_init();
-
-        let config = AuthenticationConfig { replay_protection: true, redis_url: None, ..Default::default() };
-
-        // Should warn but not panic
-        let _ = config.validate();
+    fn test_mesh_config_validation_trailing_slash() {
+        let config = MeshConfig {
+            url: "http://localhost:9092/".to_string(),
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
     }
 
     #[test]
-    fn test_authentication_config_validation_valid_config() {
-        let _subscriber = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::INFO)
-            .with_test_writer()
-            .try_init();
-
-        let config = AuthenticationConfig {
-            jwks_url: "https://auth.example.com/.well-known/jwks.json".to_string(),
-            replay_protection: false,
-            ..Default::default()
-        };
-
-        // Should not log any warnings
-        let _ = config.validate();
+    fn test_mesh_config_validation_valid() {
+        let config = MeshConfig::default();
+        assert!(config.validate().is_ok());
     }
 }

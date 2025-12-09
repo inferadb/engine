@@ -27,16 +27,27 @@ data:
   INFERADB__ENGINE__CACHE__TTL: "{{ .Values.config.cache.ttl }}"
   {{- end }}
 
-  # Authentication configuration
-  {{- if .Values.config.authentication.enabled }}
-  INFERADB__ENGINE__AUTHENTICATION__JWKS_CACHE_TTL: "{{ .Values.config.authentication.jwksCacheTtl }}"
-  INFERADB__ENGINE__AUTHENTICATION__REPLAY_PROTECTION: "{{ .Values.config.authentication.replayProtection }}"
-  INFERADB__ENGINE__AUTHENTICATION__CLOCK_SKEW_SECONDS: "{{ .Values.config.authentication.clockSkewSeconds }}"
-  INFERADB__ENGINE__AUTHENTICATION__MAX_TOKEN_AGE_SECONDS: "{{ .Values.config.authentication.maxTokenAgeSeconds }}"
-  INFERADB__ENGINE__AUTHENTICATION__REQUIRE_JTI: "{{ .Values.config.authentication.requireJti }}"
-  INFERADB__ENGINE__AUTHENTICATION__MANAGEMENT_CACHE_TTL: "{{ .Values.config.authentication.managementCacheTtl }}"
-  INFERADB__ENGINE__AUTHENTICATION__CERT_CACHE_TTL: "{{ .Values.config.authentication.certCacheTtl }}"
+  # JWT validation configuration
+  INFERADB__ENGINE__JWT__JWKS_CACHE_TTL: "{{ .Values.config.jwt.jwksCacheTtl }}"
+  INFERADB__ENGINE__JWT__CLOCK_SKEW_SECONDS: "{{ .Values.config.jwt.clockSkewSeconds }}"
+  INFERADB__ENGINE__JWT__MAX_TOKEN_AGE_SECONDS: "{{ .Values.config.jwt.maxTokenAgeSeconds }}"
+  INFERADB__ENGINE__JWT__REQUIRE_JTI: "{{ .Values.config.jwt.requireJti }}"
+
+  # Replay protection configuration
+  INFERADB__ENGINE__REPLAY_PROTECTION__ENABLED: "{{ .Values.config.replayProtection.enabled }}"
+  {{- if .Values.config.replayProtection.enabled }}
+  {{- if .Values.config.replayProtection.redisUrl }}
+  INFERADB__ENGINE__REPLAY_PROTECTION__REDIS_URL: "{{ .Values.config.replayProtection.redisUrl }}"
   {{- end }}
+  {{- end }}
+
+  # Control service configuration
+  {{- if .Values.config.control.serviceUrl }}
+  INFERADB__ENGINE__CONTROL__SERVICE_URL: "{{ .Values.config.control.serviceUrl }}"
+  {{- end }}
+  INFERADB__ENGINE__CONTROL__API_TIMEOUT_MS: "{{ .Values.config.control.apiTimeoutMs }}"
+  INFERADB__ENGINE__CONTROL__CACHE_TTL: "{{ .Values.config.control.cacheTtl }}"
+  INFERADB__ENGINE__CONTROL__CERT_CACHE_TTL: "{{ .Values.config.control.certCacheTtl }}"
   {{- if .Values.config.configFile }}
   config.yaml: |
     {{- .Values.config.configFile | nindent 4 }}

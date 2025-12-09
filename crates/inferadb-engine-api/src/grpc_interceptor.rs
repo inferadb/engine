@@ -31,7 +31,7 @@ use inferadb_engine_auth::{
     jwks_cache::JwksCache,
     jwt, oauth,
 };
-use inferadb_engine_config::AuthenticationConfig;
+use inferadb_engine_config::TokenConfig;
 use inferadb_engine_observe::metrics;
 use inferadb_engine_types::{AuthContext, AuthMethod};
 use tonic::{Request, Status, metadata::MetadataMap};
@@ -86,8 +86,8 @@ pub fn extract_bearer_from_metadata(metadata: &MetadataMap) -> Result<String, Au
 pub struct AuthInterceptor {
     jwks_cache: Arc<JwksCache>,
     internal_loader: Option<Arc<InternalJwksLoader>>,
-    #[allow(dead_code)] // May be used for future auth config checks
-    config: Arc<AuthenticationConfig>,
+    #[allow(dead_code)] // May be used for future token validation config
+    config: Arc<TokenConfig>,
 }
 
 impl AuthInterceptor {
@@ -95,7 +95,7 @@ impl AuthInterceptor {
     pub fn new(
         jwks_cache: Arc<JwksCache>,
         internal_loader: Option<Arc<InternalJwksLoader>>,
-        config: Arc<AuthenticationConfig>,
+        config: Arc<TokenConfig>,
     ) -> Self {
         Self { jwks_cache, internal_loader, config }
     }

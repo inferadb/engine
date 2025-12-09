@@ -98,16 +98,16 @@ async fn main() -> Result<()> {
         ),
     };
 
-    // Create control service entry with discovery context
-    let control_url = config.effective_control_url();
-    let control_entry = if config.is_discovery_enabled() {
+    // Create mesh service entry with discovery context
+    let mesh_url = config.effective_mesh_url();
+    let mesh_entry = if config.is_discovery_enabled() {
         ConfigEntry::new(
             "Network",
             "Control Endpoint",
-            format!("{} ({})", control_url, discovery_mode_text),
+            format!("{} ({})", mesh_url, discovery_mode_text),
         )
     } else {
-        ConfigEntry::new("Network", "Control Endpoint", format!("{} (local)", control_url))
+        ConfigEntry::new("Network", "Control Endpoint", format!("{} (local)", mesh_url))
     };
 
     StartupDisplay::new(ServiceInfo {
@@ -121,13 +121,13 @@ async fn main() -> Result<()> {
         ConfigEntry::new("General", "Environment", &args.environment),
         ConfigEntry::new("General", "Configuration File", &config_path),
         // Storage
-        ConfigEntry::new("Storage", "Backend", &config.storage.backend),
+        ConfigEntry::new("Storage", "Backend", &config.storage),
         // Listen
         ConfigEntry::new("Listen", "HTTP", &config.listen.http),
         ConfigEntry::new("Listen", "gRPC", &config.listen.grpc),
         ConfigEntry::new("Listen", "Mesh", &config.listen.mesh),
         ConfigEntry::separator("Listen"),
-        control_entry,
+        mesh_entry,
         discovery_entry,
         private_key_entry,
     ])
@@ -160,23 +160,23 @@ async fn main() -> Result<()> {
     let cache = Arc::new(
         moka::future::Cache::builder()
             .max_capacity(1000) // Up to 1000 tenants
-            .time_to_live(Duration::from_secs(config.authentication.jwks_cache_ttl))
-            .time_to_idle(Duration::from_secs(config.authentication.jwks_cache_ttl * 2))
+            .time_to_live(Duration::from_secs(config.token.jwks_cache_ttl))
+            .time_to_idle(Duration::from_secs(config.token.jwks_cache_ttl * 2))
             .build(),
     );
 
     // Create the JWKS cache
     let jwks_cache = JwksCache::new(
-        config.authentication.jwks_url.clone(),
+        config.mesh.url.clone(),
         cache,
-        Duration::from_secs(config.authentication.jwks_cache_ttl),
+        Duration::from_secs(config.token.jwks_cache_ttl),
     )?;
     log_initialized("JWKS cache");
 
     let jwks_cache = Some(Arc::new(jwks_cache));
 
     // Initialize server identity for server-to-control authentication
-    let server_identity = if !config.effective_control_url().is_empty() {
+    let server_identity = if !config.effective_mesh_url().is_empty() {
         use inferadb_engine_auth::ServerIdentity;
 
         let identity = if let Some(ref pem) = config.pem {
@@ -199,7 +199,7 @@ async fn main() -> Result<()> {
         log_initialized("Identity");
         Some(Arc::new(identity))
     } else {
-        log_skipped("Identity", "control.service_url not configured");
+        log_skipped("Identity", "mesh.url not configured");
         None
     };
 

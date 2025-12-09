@@ -24,27 +24,33 @@ engine:
     # Service mesh / inter-service communication
     mesh: "0.0.0.0:8082"
 
-  storage:
-    # Use FoundationDB for production
-    backend: "foundationdb"
+  # Use FoundationDB for production
+  storage: "foundationdb"
 
+  foundationdb:
     # FoundationDB cluster file path
     # This file contains the connection string for your FDB cluster
-    fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
+    cluster_file: "/etc/foundationdb/fdb.cluster"
 
   cache:
     enabled: true
-    max_capacity: 1000000  # 1M entries for high-throughput
+    capacity: 1000000  # 1M entries for high-throughput
     ttl: 300
 
-  authentication:
-    management_api_timeout_ms: 5000
-    management_cache_ttl: 600  # Longer cache for performance
-    cert_cache_ttl: 1800  # 30 minutes
+  token:
+    jwks_cache_ttl: 900  # 15 minutes for production
+    clock_skew_seconds: 60
+    max_token_age_seconds: 86400  # 24 hours
+    require_jti: false
 
-    # Optional: Enable JWT replay protection (requires Redis)
-    # Prevents reuse of JWT tokens by tracking jti claims
-    # replay_protection: true
+  # Optional: Enable JWT replay protection (requires Redis)
+  # Prevents reuse of JWT tokens by tracking jti claims
+  replay_protection:
+    enabled: false
     # redis_url: "redis://redis-cluster:6379"
-    # redis_key_prefix: "infera:jti:"
-    # redis_ttl_seconds: 300
+
+  mesh:
+    url: "http://inferadb-control.inferadb:9092"
+    timeout: 5000
+    cache_ttl: 600  # Longer cache for performance
+    cert_cache_ttl: 1800  # 30 minutes

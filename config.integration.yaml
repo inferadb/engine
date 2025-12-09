@@ -18,15 +18,24 @@ engine:
     # Service mesh / inter-service communication
     mesh: "0.0.0.0:8082"
 
-  storage:
-    backend: "memory"  # In-memory for fast tests
+  storage: "memory"  # In-memory for fast tests
 
   cache:
     enabled: true
-    max_capacity: 1000  # Small cache for tests
+    capacity: 1000  # Small cache for tests
     ttl: 60
 
-  authentication:
-    management_api_timeout_ms: 10000  # Higher timeout for CI
-    management_cache_ttl: 30  # Short cache for tests
+  token:
+    jwks_cache_ttl: 60  # Short cache for tests
+    clock_skew_seconds: 60
+    max_token_age_seconds: 86400
+    require_jti: false
+
+  replay_protection:
+    enabled: false
+
+  mesh:
+    url: "http://inferadb-control:9092"
+    timeout: 10000  # Higher timeout for CI
+    cache_ttl: 30  # Short cache for tests
     cert_cache_ttl: 60

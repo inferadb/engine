@@ -226,7 +226,7 @@ impl AppState {
         // Create shared cache
         let auth_cache = if builder.config.cache.enabled {
             Arc::new(inferadb_engine_cache::AuthCache::new(
-                builder.config.cache.max_capacity,
+                builder.config.cache.capacity,
                 std::time::Duration::from_secs(builder.config.cache.ttl),
             ))
         } else {
@@ -391,12 +391,12 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         Option<Arc<inferadb_engine_auth::ManagementApiVaultVerifier>>,
     );
 
-    // Get effective control URL
-    let effective_control_url = state.config.effective_control_url();
+    // Get effective mesh URL
+    let effective_mesh_url = state.config.effective_mesh_url();
 
     // Create VaultVerifier and CertificateCache instances based on configuration
     let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents =
-        if !effective_control_url.is_empty() {
+        if !effective_mesh_url.is_empty() {
             // Check if discovery is enabled for Management API
             let management_client = if matches!(
                 state.config.discovery.mode,
@@ -429,7 +429,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
                 // Perform initial discovery to get endpoints
                 let initial_endpoints =
-                    discovery.discover(&effective_control_url).await.map_err(|e| {
+                    discovery.discover(&effective_mesh_url).await.map_err(|e| {
                         ApiError::Internal(format!("Initial endpoint discovery failed: {}", e))
                     })?;
 
@@ -445,7 +445,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                     Arc::clone(&discovery),
                     Arc::clone(&lb_client),
                     state.config.discovery.cache_ttl,
-                    effective_control_url.clone(),
+                    effective_mesh_url.clone(),
                 ));
 
                 // Spawn background refresh task
@@ -458,9 +458,9 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                 // Create ManagementClient with load balancing
                 Arc::new(
                     inferadb_engine_auth::ManagementClient::new(
-                        effective_control_url.clone(),
-                        None, // Internal URL same as service_url
-                        state.config.authentication.management_api_timeout_ms,
+                        effective_mesh_url.clone(),
+                        None, // Internal URL same as url
+                        state.config.mesh.timeout,
                         Some(lb_client),
                         state.server_identity.clone(),
                     )
@@ -475,9 +475,9 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                 // Discovery disabled - use static URL (Kubernetes service handles load balancing)
                 Arc::new(
                     inferadb_engine_auth::ManagementClient::new(
-                        effective_control_url.clone(),
-                        None, // Internal URL same as service_url
-                        state.config.authentication.management_api_timeout_ms,
+                        effective_mesh_url.clone(),
+                        None, // Internal URL same as url
+                        state.config.mesh.timeout,
                         None,
                         state.server_identity.clone(),
                     )
@@ -495,7 +495,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
             let cert_cache = Arc::new(
                 inferadb_engine_auth::CertificateCache::new(
-                    effective_control_url.clone(),
+                    effective_mesh_url.clone(),
                     std::time::Duration::from_secs(300), // 5 min cert cache TTL
                     1000,                                // Max 1000 cached certificates
                 )
@@ -612,18 +612,18 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         .route("/metrics", get(handlers::internal::metrics_handler))
         .with_state(state.clone());
 
-    // Get effective control URL
-    let effective_control_url = state.config.effective_control_url();
+    // Get effective mesh URL
+    let effective_mesh_url = state.config.effective_mesh_url();
 
     // Privileged cache invalidation routes (require Management API JWT authentication)
     // These are only enabled when management API is configured
-    let privileged_routes = if !effective_control_url.is_empty() {
+    let privileged_routes = if !effective_mesh_url.is_empty() {
         // Create aggregated Management JWKS cache for verifying Management API JWTs
         // This cache supports discovery and aggregates keys from all management instances
         let management_jwks_cache =
             Arc::new(inferadb_engine_auth::AggregatedManagementJwksCache::new(
                 state.config.discovery.mode.clone(),
-                effective_control_url.clone(),
+                effective_mesh_url.clone(),
                 std::time::Duration::from_secs(900), // 15 minutes TTL
             ));
 
@@ -631,9 +631,9 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         // This requires creating a ManagementClient first
         let management_client = Arc::new(
             inferadb_engine_auth::ManagementClient::new(
-                effective_control_url.clone(),
-                None, // Internal URL same as service_url
-                state.config.authentication.management_api_timeout_ms,
+                effective_mesh_url.clone(),
+                None, // Internal URL same as url
+                state.config.mesh.timeout,
                 None,
                 state.server_identity.clone(),
             )
@@ -651,7 +651,7 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         // Create certificate cache for internal routes
         let cert_cache = Arc::new(
             inferadb_engine_auth::CertificateCache::new(
-                effective_control_url.clone(),
+                effective_mesh_url.clone(),
                 std::time::Duration::from_secs(300), // 5 min cert cache TTL
                 1000,                                // Max 1000 cached certificates
             )
@@ -816,7 +816,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     let interceptor = grpc_interceptor::AuthInterceptor::new(
         Arc::clone(cache),
         internal_loader,
-        Arc::new(components.config.authentication.clone()),
+        Arc::new(components.config.token.clone()),
     );
 
     // Add service with interceptor and reflection

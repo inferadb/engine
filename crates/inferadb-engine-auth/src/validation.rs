@@ -17,7 +17,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use inferadb_engine_config::AuthenticationConfig;
+use inferadb_engine_config::TokenConfig;
 use subtle::ConstantTimeEq;
 use tracing::warn;
 
@@ -66,7 +66,7 @@ pub const REQUIRED_AUDIENCE: &str = "https://api.inferadb.com";
 /// # Errors
 ///
 /// Returns an error if any timestamp validation fails
-pub fn validate_timestamp_claims(claims: &JwtClaims, config: &AuthenticationConfig) -> Result<(), AuthError> {
+pub fn validate_timestamp_claims(claims: &JwtClaims, config: &TokenConfig) -> Result<(), AuthError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| AuthError::InvalidTokenFormat("System time is before Unix epoch".to_string()))?
@@ -205,13 +205,12 @@ mod tests {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
     }
 
-    fn default_config() -> AuthenticationConfig {
-        AuthenticationConfig {
+    fn default_config() -> TokenConfig {
+        TokenConfig {
             jwks_cache_ttl: 300,
-            jwks_url: "https://example.com".into(),
             clock_skew_seconds: Some(60),
             max_token_age_seconds: Some(86400),
-            ..Default::default()
+            require_jti: false,
         }
     }
 

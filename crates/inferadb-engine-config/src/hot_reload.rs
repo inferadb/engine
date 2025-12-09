@@ -171,8 +171,14 @@ impl HotReloadHandle {
         info!("Configuration reloaded successfully");
 
         // Log validation warnings
-        if let Err(e) = new_config.authentication.validate() {
-            warn!("Authentication config validation warning: {}", e);
+        if let Err(e) = new_config.token.validate() {
+            warn!("Token config validation warning: {}", e);
+        }
+        if let Err(e) = new_config.replay_protection.validate(new_config.token.require_jti) {
+            warn!("Replay protection config validation warning: {}", e);
+        }
+        if let Err(e) = new_config.mesh.validate() {
+            warn!("Mesh config validation warning: {}", e);
         }
 
         Ok(())
@@ -182,8 +188,14 @@ impl HotReloadHandle {
     ///
     /// This can be extended to perform additional validation checks
     async fn validate_config(&self, config: &Config) -> Result<(), String> {
-        // Validate authentication config
-        config.authentication.validate()?;
+        // Validate token config
+        config.token.validate()?;
+
+        // Validate replay protection config
+        config.replay_protection.validate(config.token.require_jti)?;
+
+        // Validate mesh config
+        config.mesh.validate()?;
 
         // Validate threads
         if config.threads == 0 {
@@ -202,8 +214,8 @@ impl HotReloadHandle {
         })?;
 
         // Validate cache config
-        if config.cache.enabled && config.cache.max_capacity == 0 {
-            return Err("Cache max_capacity must be > 0 when cache is enabled".to_string());
+        if config.cache.enabled && config.cache.capacity == 0 {
+            return Err("Cache capacity must be > 0 when cache is enabled".to_string());
         }
 
         if config.cache.ttl == 0 {
@@ -280,7 +292,7 @@ mod tests {
     async fn test_validate_config_invalid_cache() {
         let mut config = Config::default();
         config.cache.enabled = true;
-        config.cache.max_capacity = 0;
+        config.cache.capacity = 0;
 
         let temp_file = NamedTempFile::new().unwrap();
         let handle = HotReloadHandle::new(temp_file.path(), Config::default());

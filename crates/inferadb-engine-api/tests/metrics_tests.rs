@@ -68,7 +68,7 @@ async fn start_grpc_server_with_auth(
     let handle = tokio::spawn(async move {
         if let Some(cache) = state.jwks_cache {
             let interceptor =
-                AuthInterceptor::new(cache, internal_loader, Arc::new(state.config.authentication.clone()));
+                AuthInterceptor::new(cache, internal_loader, Arc::new(state.config.token.clone()));
 
             Server::builder()
                 .add_service(InferadbServiceServer::with_interceptor(service, interceptor))

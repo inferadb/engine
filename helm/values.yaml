@@ -154,16 +154,23 @@ config:
     maxCapacity: 10000 # Max cache entries
     ttl: 300 # TTL in seconds
 
-  # Authentication configuration
-  authentication:
-    enabled: true
+  # JWT validation configuration
+  jwt:
     jwksCacheTtl: 300 # JWKS cache TTL in seconds
-    replayProtection: false # Requires Redis if enabled
     clockSkewSeconds: 60 # JWT clock tolerance
     maxTokenAgeSeconds: 86400 # Maximum token age (24 hours)
     requireJti: false # Require JTI claim in tokens
-    # Management API verification
-    managementCacheTtl: 300 # Org/vault cache TTL in seconds
+
+  # Replay protection configuration (requires Redis if enabled)
+  replayProtection:
+    enabled: false
+    # redisUrl: "redis://redis-master:6379"
+
+  # Control service configuration
+  control:
+    serviceUrl: "" # Set automatically via discovery, or set to static URL
+    apiTimeoutMs: 5000 # Timeout for control API calls
+    cacheTtl: 300 # Org/vault cache TTL in seconds
     certCacheTtl: 900 # Client cert cache TTL in seconds
 
   # Optional: provide full config file as YAML string

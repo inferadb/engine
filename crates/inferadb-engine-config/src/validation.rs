@@ -4,7 +4,7 @@
 
 use thiserror::Error;
 
-use crate::{CacheConfig, Config, ListenConfig, StorageConfig};
+use crate::{CacheConfig, Config, FoundationDbConfig, ListenConfig};
 
 #[derive(Debug, Error)]
 pub enum ValidationError {
@@ -52,7 +52,7 @@ pub fn validate(config: &Config) -> Result<()> {
         errors.push(e);
     }
 
-    if let Err(e) = validate_storage(&config.storage) {
+    if let Err(e) = validate_storage(&config.storage, &config.foundationdb) {
         errors.push(e);
     }
 
@@ -105,21 +105,21 @@ pub fn validate_listen(config: &ListenConfig) -> Result<()> {
 }
 
 /// Validate storage configuration
-pub fn validate_storage(config: &StorageConfig) -> Result<()> {
+pub fn validate_storage(storage: &str, foundationdb: &FoundationDbConfig) -> Result<()> {
     // Validate backend type
-    match config.backend.as_str() {
+    match storage {
         "memory" => {
             // Memory backend doesn't need cluster file
             Ok(())
         },
         "foundationdb" => {
             // FoundationDB requires cluster file
-            if config.fdb_cluster_file.is_none() {
-                return Err(ValidationError::MissingConnectionString(config.backend.clone()));
+            if foundationdb.cluster_file.is_none() {
+                return Err(ValidationError::MissingConnectionString(storage.to_string()));
             }
             Ok(())
         },
-        _ => Err(ValidationError::InvalidBackend(config.backend.clone())),
+        _ => Err(ValidationError::InvalidBackend(storage.to_string())),
     }
 }
 
@@ -127,8 +127,8 @@ pub fn validate_storage(config: &StorageConfig) -> Result<()> {
 pub fn validate_cache(config: &CacheConfig) -> Result<()> {
     if config.enabled {
         // Validate capacity
-        if config.max_capacity == 0 {
-            return Err(ValidationError::InvalidCacheCapacity(config.max_capacity));
+        if config.capacity == 0 {
+            return Err(ValidationError::InvalidCacheCapacity(config.capacity));
         }
 
         // Validate TTL
@@ -194,49 +194,48 @@ mod tests {
 
     #[test]
     fn test_validate_storage_memory_backend() {
-        let config = StorageConfig { backend: "memory".to_string(), fdb_cluster_file: None };
-        assert!(validate_storage(&config).is_ok());
+        let fdb = FoundationDbConfig { cluster_file: None };
+        assert!(validate_storage("memory", &fdb).is_ok());
     }
 
     #[test]
     fn test_validate_storage_foundationdb_without_cluster_file() {
-        let config = StorageConfig { backend: "foundationdb".to_string(), fdb_cluster_file: None };
+        let fdb = FoundationDbConfig { cluster_file: None };
         assert!(matches!(
-            validate_storage(&config),
+            validate_storage("foundationdb", &fdb),
             Err(ValidationError::MissingConnectionString(_))
         ));
     }
 
     #[test]
     fn test_validate_storage_foundationdb_with_cluster_file() {
-        let config = StorageConfig {
-            backend: "foundationdb".to_string(),
-            fdb_cluster_file: Some("/etc/foundationdb/fdb.cluster".to_string()),
+        let fdb = FoundationDbConfig {
+            cluster_file: Some("/etc/foundationdb/fdb.cluster".to_string()),
         };
-        assert!(validate_storage(&config).is_ok());
+        assert!(validate_storage("foundationdb", &fdb).is_ok());
     }
 
     #[test]
     fn test_validate_storage_invalid_backend() {
-        let config = StorageConfig { backend: "redis".to_string(), fdb_cluster_file: None };
-        assert!(matches!(validate_storage(&config), Err(ValidationError::InvalidBackend(_))));
+        let fdb = FoundationDbConfig { cluster_file: None };
+        assert!(matches!(validate_storage("redis", &fdb), Err(ValidationError::InvalidBackend(_))));
     }
 
     #[test]
     fn test_validate_cache_zero_capacity() {
-        let config = CacheConfig { enabled: true, max_capacity: 0, ttl: 300 };
+        let config = CacheConfig { enabled: true, capacity: 0, ttl: 300 };
         assert!(matches!(validate_cache(&config), Err(ValidationError::InvalidCacheCapacity(0))));
     }
 
     #[test]
     fn test_validate_cache_zero_ttl() {
-        let config = CacheConfig { enabled: true, max_capacity: 10000, ttl: 0 };
+        let config = CacheConfig { enabled: true, capacity: 10000, ttl: 0 };
         assert!(matches!(validate_cache(&config), Err(ValidationError::InvalidCacheTTL(0))));
     }
 
     #[test]
     fn test_validate_cache_disabled() {
-        let config = CacheConfig { enabled: false, max_capacity: 0, ttl: 0 };
+        let config = CacheConfig { enabled: false, capacity: 0, ttl: 0 };
         // When disabled, zero values are acceptable
         assert!(validate_cache(&config).is_ok());
     }
@@ -251,12 +250,14 @@ mod tests {
                 grpc: "0.0.0.0:8081".to_string(),
                 mesh: "0.0.0.0:8082".to_string(),
             },
-            storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },
-            cache: CacheConfig { enabled: true, max_capacity: 0, ttl: 0 },
-            authentication: crate::AuthenticationConfig::default(),
+            storage: "invalid".to_string(),
+            foundationdb: FoundationDbConfig::default(),
+            cache: CacheConfig { enabled: true, capacity: 0, ttl: 0 },
+            token: crate::TokenConfig::default(),
+            replay_protection: crate::ReplayProtectionConfig::default(),
             pem: None,
             discovery: crate::DiscoveryConfig::default(),
-            control: crate::ControlConfig::default(),
+            mesh: crate::MeshConfig::default(),
         };
 
         match validate(&config) {

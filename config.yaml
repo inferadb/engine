@@ -10,15 +10,24 @@ engine:
     grpc: "127.0.0.1:8081"
     mesh: "0.0.0.0:8082"
 
-  storage:
-    backend: "memory"
+  storage: "memory"
 
   cache:
     enabled: true
-    max_capacity: 10000
+    capacity: 10000
     ttl: 300
 
-  authentication:
-    management_api_timeout_ms: 5000
-    management_cache_ttl: 300
+  token:
+    jwks_cache_ttl: 300
+    clock_skew_seconds: 60
+    max_token_age_seconds: 86400
+    require_jti: false
+
+  replay_protection:
+    enabled: false
+
+  mesh:
+    url: "http://localhost:9092"
+    timeout: 5000
+    cache_ttl: 300
     cert_cache_ttl: 900

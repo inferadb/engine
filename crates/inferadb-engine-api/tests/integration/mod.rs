@@ -57,7 +57,7 @@ pub fn create_test_schema() -> Arc<Schema> {
 pub fn create_test_config() -> Config {
     let mut config = Config::default();
     config.cache.enabled = true;
-    config.cache.max_capacity = 1000;
+    config.cache.capacity = 1000;
     config.cache.ttl = 300;
     config
 }

@@ -345,8 +345,7 @@ engine:
     http: "127.0.0.1:8080"
     grpc: "127.0.0.1:8081"
     mesh: "127.0.0.1:8082"
-  storage:
-    backend: "memory"
+  storage: "memory"
 "#,
         )
         .unwrap();
@@ -357,7 +356,7 @@ engine:
 
         // Verify initial values
         assert_eq!(config.read().listen.http, "127.0.0.1:8080");
-        assert_eq!(config.read().storage.backend, "memory");
+        assert_eq!(config.read().storage, "memory");
 
         // Write invalid config (invalid storage backend)
         fs::write(
@@ -368,8 +367,7 @@ engine:
     http: "invalid"
     grpc: "127.0.0.1:8081"
     mesh: "127.0.0.1:8082"
-  storage:
-    backend: "invalid_backend"
+  storage: "invalid_backend"
 "#,
         )
         .unwrap();
@@ -384,7 +382,7 @@ engine:
         // Verify config was not changed (should still be valid)
         let current = config.read();
         assert_eq!(current.listen.http, "127.0.0.1:8080");
-        assert_eq!(current.storage.backend, "memory");
+        assert_eq!(current.storage, "memory");
     }
 
     #[tokio::test]
