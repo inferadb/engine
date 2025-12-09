@@ -181,12 +181,12 @@ discovery:
   # Discovery mode: "static", "kubernetes_service", "tailscale"
   mode: "kubernetes_service"
 
-  # Management API discovery
-  managementApi:
+  # Control discovery
+  control:
     # Kubernetes service name (when mode = kubernetes_service)
     serviceName: "inferadb-control"
     namespace: "inferadb"
-    port: 9092 # Management internal/private API port
+    port: 9092 # Control internal/private API port
 
     # Static URL (when mode = static)
     staticUrl: "http://localhost:9092"

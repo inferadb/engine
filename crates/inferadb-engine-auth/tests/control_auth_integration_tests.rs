@@ -1,20 +1,20 @@
-//! Integration tests for Management API authentication
+//! Integration tests for Control authentication
 //!
-//! These tests verify the integration between the InferaDB server and the Management API
+//! These tests verify the integration between the InferaDB Engine and Control
 //! for JWT authentication, vault verification, and organization status checks.
 
 mod common;
 
 use std::{sync::Arc, time::Duration};
 
-use common::mock_management::{
-    MockManagementState, create_test_certificate, create_test_organization, create_test_vault,
-    generate_jwt_with_key, generate_snowflake_id, start_mock_management_server,
+use common::mock_control::{
+    MockControlState, create_test_certificate, create_test_organization, create_test_vault,
+    generate_jwt_with_key, generate_snowflake_id, start_mock_control_server,
 };
 use inferadb_engine_auth::{
     certificate_cache::{CertificateCache, ParsedKeyId},
-    management_client::{ManagementClient, OrgStatus},
-    vault_verification::{ManagementApiVaultVerifier, VaultVerifier},
+    control_client::{ControlClient, OrgStatus},
+    vault_verification::{ControlVaultVerifier, VaultVerifier},
 };
 
 // ============================================================================
@@ -24,14 +24,14 @@ use inferadb_engine_auth::{
 #[tokio::test]
 async fn test_certificate_cache_fetch_and_cache() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org_id = generate_snowflake_id();
     let client_id = generate_snowflake_id();
     let (cert, _signing_key) = create_test_certificate(org_id, client_id);
     let cert_id = cert.id;
     state.add_certificate(cert);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create certificate cache
     let cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
@@ -52,8 +52,8 @@ async fn test_certificate_cache_fetch_and_cache() {
 #[tokio::test]
 async fn test_certificate_cache_not_found() {
     // Setup mock server with no certificates
-    let state = MockManagementState::new();
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let state = MockControlState::new();
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create certificate cache
     let cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
@@ -76,8 +76,8 @@ async fn test_certificate_cache_not_found() {
 #[tokio::test]
 async fn test_certificate_cache_invalid_kid_format() {
     // Setup mock server
-    let state = MockManagementState::new();
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let state = MockControlState::new();
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create certificate cache
     let cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
@@ -96,14 +96,14 @@ async fn test_certificate_cache_invalid_kid_format() {
 #[tokio::test]
 async fn test_certificate_cache_concurrent_requests() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org_id = generate_snowflake_id();
     let client_id = generate_snowflake_id();
     let (cert, _signing_key) = create_test_certificate(org_id, client_id);
     let cert_id = cert.id;
     state.add_certificate(cert);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create certificate cache
     let cache = std::sync::Arc::new(
@@ -151,7 +151,7 @@ fn test_parsed_key_id_valid() {
 #[tokio::test]
 async fn test_vault_verification_success() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
 
     let org = create_test_organization("Test Org", OrgStatus::Active);
     let org_id = org.id;
@@ -161,15 +161,15 @@ async fn test_vault_verification_success() {
     let vault_id = vault.id;
     state.add_vault(vault);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -185,16 +185,16 @@ async fn test_vault_verification_success() {
 #[tokio::test]
 async fn test_vault_verification_not_found() {
     // Setup mock server with no vaults
-    let state = MockManagementState::new();
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let state = MockControlState::new();
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -212,21 +212,21 @@ async fn test_vault_verification_not_found() {
 #[tokio::test]
 async fn test_vault_verification_account_mismatch() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -245,21 +245,21 @@ async fn test_vault_verification_account_mismatch() {
 #[tokio::test]
 async fn test_vault_verification_caching() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -279,21 +279,21 @@ async fn test_vault_verification_caching() {
 #[tokio::test]
 async fn test_vault_verification_cache_returns_error_for_mismatch() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -317,20 +317,20 @@ async fn test_vault_verification_cache_returns_error_for_mismatch() {
 #[tokio::test]
 async fn test_organization_verification_active() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org = create_test_organization("Test Org", OrgStatus::Active);
     let org_id = org.id;
     state.add_organization(org);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -348,20 +348,20 @@ async fn test_organization_verification_active() {
 #[tokio::test]
 async fn test_organization_verification_suspended() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org = create_test_organization("Suspended Org", OrgStatus::Suspended);
     let org_id = org.id;
     state.add_organization(org);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -377,16 +377,16 @@ async fn test_organization_verification_suspended() {
 #[tokio::test]
 async fn test_organization_verification_not_found() {
     // Setup mock server with no organizations
-    let state = MockManagementState::new();
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let state = MockControlState::new();
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -403,20 +403,20 @@ async fn test_organization_verification_not_found() {
 #[tokio::test]
 async fn test_organization_verification_caching() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org = create_test_organization("Test Org", OrgStatus::Active);
     let org_id = org.id;
     state.add_organization(org);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -436,20 +436,20 @@ async fn test_organization_verification_caching() {
 #[tokio::test]
 async fn test_organization_verification_cache_returns_error_for_suspended() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
     let org = create_test_organization("Test Org", OrgStatus::Suspended);
     let org_id = org.id;
     state.add_organization(org);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
     // Create vault verifier
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
-    let verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -473,7 +473,7 @@ async fn test_organization_verification_cache_returns_error_for_suspended() {
 #[tokio::test]
 async fn test_jwt_authentication_full_flow() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
 
     // Create organization
     let org = create_test_organization("Test Org", OrgStatus::Active);
@@ -491,19 +491,19 @@ async fn test_jwt_authentication_full_flow() {
     let cert_id = cert.id;
     state.add_certificate(cert);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
-    // Create management client and caches
-    let management_client = Arc::new(
-        ManagementClient::new(base_url.clone(), None, 5000, None, None)
-            .expect("Failed to create management client"),
+    // Create Control client and caches
+    let control_client = Arc::new(
+        ControlClient::new(base_url.clone(), None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
 
     let cert_cache = CertificateCache::new(base_url, Duration::from_secs(300), 100)
         .expect("Failed to create certificate cache");
 
-    let vault_verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let vault_verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -537,16 +537,16 @@ async fn test_jwt_authentication_full_flow() {
 #[tokio::test]
 async fn test_jwt_authentication_flow_vault_not_found() {
     // Setup mock server with no vaults
-    let state = MockManagementState::new();
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let state = MockControlState::new();
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
 
-    let vault_verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let vault_verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -562,7 +562,7 @@ async fn test_jwt_authentication_flow_vault_not_found() {
 #[tokio::test]
 async fn test_jwt_authentication_flow_org_suspended() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
 
     // Create suspended organization
     let org = create_test_organization("Suspended Org", OrgStatus::Suspended);
@@ -573,15 +573,15 @@ async fn test_jwt_authentication_flow_org_suspended() {
     let vault = create_test_vault("Test Vault", org_id);
     state.add_vault(vault);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
 
-    let vault_verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let vault_verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -597,7 +597,7 @@ async fn test_jwt_authentication_flow_org_suspended() {
 #[tokio::test]
 async fn test_jwt_authentication_flow_account_mismatch() {
     // Setup mock server
-    let state = MockManagementState::new();
+    let state = MockControlState::new();
 
     let org = create_test_organization("Test Org", OrgStatus::Active);
     let org_id = org.id;
@@ -607,15 +607,15 @@ async fn test_jwt_authentication_flow_account_mismatch() {
     let vault_id = vault.id;
     state.add_vault(vault);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
-    let management_client = Arc::new(
-        ManagementClient::new(base_url, None, 5000, None, None)
-            .expect("Failed to create management client"),
+    let control_client = Arc::new(
+        ControlClient::new(base_url, None, 5000, None, None)
+            .expect("Failed to create Control client"),
     );
 
-    let vault_verifier = ManagementApiVaultVerifier::new(
-        management_client,
+    let vault_verifier = ControlVaultVerifier::new(
+        control_client,
         Duration::from_secs(300),
         Duration::from_secs(300),
     );
@@ -630,20 +630,20 @@ async fn test_jwt_authentication_flow_account_mismatch() {
 }
 
 // ============================================================================
-// Management Client Tests
+// Control Client Tests
 // ============================================================================
 
 #[tokio::test]
-async fn test_management_client_get_organization() {
-    let state = MockManagementState::new();
+async fn test_control_client_get_organization() {
+    let state = MockControlState::new();
     let org = create_test_organization("Test Org", OrgStatus::Active);
     let org_id = org.id;
     state.add_organization(org);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
-    let client = ManagementClient::new(base_url, None, 5000, None, None)
-        .expect("Failed to create management client");
+    let client = ControlClient::new(base_url, None, 5000, None, None)
+        .expect("Failed to create Control client");
 
     let org_info = client.get_organization(org_id).await.expect("Failed to get organization");
 
@@ -653,17 +653,17 @@ async fn test_management_client_get_organization() {
 }
 
 #[tokio::test]
-async fn test_management_client_get_vault() {
-    let state = MockManagementState::new();
+async fn test_control_client_get_vault() {
+    let state = MockControlState::new();
     let org_id = generate_snowflake_id();
     let vault = create_test_vault("Test Vault", org_id);
     let vault_id = vault.id;
     state.add_vault(vault);
 
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
-    let client = ManagementClient::new(base_url, None, 5000, None, None)
-        .expect("Failed to create management client");
+    let client = ControlClient::new(base_url, None, 5000, None, None)
+        .expect("Failed to create Control client");
 
     let vault_info = client.get_vault(vault_id).await.expect("Failed to get vault");
 
@@ -672,13 +672,13 @@ async fn test_management_client_get_vault() {
 }
 
 #[tokio::test]
-async fn test_management_client_timeout() {
+async fn test_control_client_timeout() {
     // Create client with very short timeout
-    let state = MockManagementState::new();
-    let (base_url, _handle) = start_mock_management_server(state).await;
+    let state = MockControlState::new();
+    let (base_url, _handle) = start_mock_control_server(state).await;
 
-    let client = ManagementClient::new(base_url.clone(), None, 1, None, None)
-        .expect("Failed to create management client");
+    let client = ControlClient::new(base_url.clone(), None, 1, None, None)
+        .expect("Failed to create Control client");
 
     // This might timeout or succeed depending on timing, but shouldn't panic
     let _result = client.get_organization(generate_snowflake_id()).await;

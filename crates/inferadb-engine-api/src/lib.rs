@@ -147,7 +147,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
-    /// Server identity for signing server-to-management requests
+    /// Server identity for signing engine-to-control requests
     pub server_identity: Option<Arc<inferadb_engine_auth::ServerIdentity>>,
 
     // Shared cache for authorization decisions and expansions
@@ -388,24 +388,24 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
     type AuthComponents = (
         Arc<dyn inferadb_engine_auth::VaultVerifier>,
         Option<Arc<inferadb_engine_auth::CertificateCache>>,
-        Option<Arc<inferadb_engine_auth::ManagementApiVaultVerifier>>,
+        Option<Arc<inferadb_engine_auth::ControlVaultVerifier>>,
     );
 
     // Get effective mesh URL
     let effective_mesh_url = state.config.effective_mesh_url();
 
     // Create VaultVerifier and CertificateCache instances based on configuration
-    let (vault_verifier, cert_cache, _mgmt_vault_verifier): AuthComponents = if !effective_mesh_url
+    let (vault_verifier, cert_cache, _ctrl_vault_verifier): AuthComponents = if !effective_mesh_url
         .is_empty()
     {
-        // Check if discovery is enabled for Management API
-        let management_client = if matches!(
+        // Check if discovery is enabled for Control
+        let control_client = if matches!(
             state.config.discovery.mode,
             inferadb_engine_config::DiscoveryMode::Kubernetes
                 | inferadb_engine_config::DiscoveryMode::Tailscale { .. }
         ) {
             // Discovery enabled - create discovery service and load balancing client
-            info!("Management API discovery ENABLED - mode: {:?}", state.config.discovery.mode);
+            info!("Control discovery ENABLED - mode: {:?}", state.config.discovery.mode);
 
             // Create discovery service based on mode
             let discovery: Arc<dyn inferadb_engine_discovery::EndpointDiscovery> =
@@ -433,7 +433,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                 ApiError::Internal(format!("Initial endpoint discovery failed: {}", e))
             })?;
 
-            info!("Discovered {} Management API endpoints", initial_endpoints.len());
+            info!("Discovered {} Control endpoints", initial_endpoints.len());
 
             // Create load balancing client with discovered endpoints
             let lb_client =
@@ -454,9 +454,9 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                 state.config.discovery.cache_ttl
             );
 
-            // Create ManagementClient with load balancing
+            // Create ControlClient with load balancing
             Arc::new(
-                inferadb_engine_auth::ManagementClient::new(
+                inferadb_engine_auth::ControlClient::new(
                     effective_mesh_url.clone(),
                     None, // Internal URL same as url
                     state.config.mesh.timeout,
@@ -465,7 +465,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                 )
                 .map_err(|e| {
                     ApiError::Internal(format!(
-                        "Failed to create load-balanced management client: {}",
+                        "Failed to create load-balanced Control client: {}",
                         e
                     ))
                 })?,
@@ -473,7 +473,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         } else {
             // Discovery disabled - use static URL (Kubernetes service handles load balancing)
             Arc::new(
-                inferadb_engine_auth::ManagementClient::new(
+                inferadb_engine_auth::ControlClient::new(
                     effective_mesh_url.clone(),
                     None, // Internal URL same as url
                     state.config.mesh.timeout,
@@ -481,13 +481,13 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                     state.server_identity.clone(),
                 )
                 .map_err(|e| {
-                    ApiError::Internal(format!("Failed to create management client: {}", e))
+                    ApiError::Internal(format!("Failed to create Control client: {}", e))
                 })?,
             )
         };
 
-        let mgmt_verifier = Arc::new(inferadb_engine_auth::ManagementApiVaultVerifier::new(
-            Arc::clone(&management_client),
+        let ctrl_verifier = Arc::new(inferadb_engine_auth::ControlVaultVerifier::new(
+            Arc::clone(&control_client),
             std::time::Duration::from_secs(300), // 5 min vault cache TTL
             std::time::Duration::from_secs(600), // 10 min org cache TTL
         ));
@@ -505,15 +505,13 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
         // Keep both trait object and concrete type references
         let vault_verifier_trait: Arc<dyn inferadb_engine_auth::VaultVerifier> =
-            Arc::clone(&mgmt_verifier) as Arc<dyn inferadb_engine_auth::VaultVerifier>;
+            Arc::clone(&ctrl_verifier) as Arc<dyn inferadb_engine_auth::VaultVerifier>;
 
-        (vault_verifier_trait, Some(cert_cache), Some(mgmt_verifier))
+        (vault_verifier_trait, Some(cert_cache), Some(ctrl_verifier))
     } else {
         // Use no-op verifier when management API not configured
         warn!("○ Vault caching disabled");
-        warn!(
-            "  For more information, see https://inferadb.com/docs/?search=auth.management_api_url"
-        );
+        warn!("  For more information, see https://inferadb.com/docs/?search=auth.control_url");
         (
             Arc::new(inferadb_engine_auth::NoOpVaultVerifier)
                 as Arc<dyn inferadb_engine_auth::VaultVerifier>,
@@ -597,14 +595,14 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 // Health check handlers moved to health.rs module
 
 /// Create internal routes (server-to-server communication)
-/// Exposes JWKS endpoint (no auth) and privileged cache invalidation endpoints (Management JWT
+/// Exposes JWKS endpoint (no auth) and privileged cache invalidation endpoints (Control JWT
 /// auth)
 pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
     // Create AppState
     let state = components.create_app_state();
 
     // Public routes (no authentication required):
-    // - JWKS endpoint: Management API fetches server public keys from here
+    // - JWKS endpoint: Control fetches server public keys from here
     // - Metrics endpoint: Prometheus scrapes metrics from here
     let public_internal_routes = Router::new()
         .route("/.well-known/jwks.json", get(handlers::jwks::get_server_jwks))
@@ -614,35 +612,32 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
     // Get effective mesh URL
     let effective_mesh_url = state.config.effective_mesh_url();
 
-    // Privileged cache invalidation routes (require Management API JWT authentication)
+    // Privileged cache invalidation routes (require Control JWT authentication)
     // These are only enabled when management API is configured
     let privileged_routes = if !effective_mesh_url.is_empty() {
-        // Create aggregated Management JWKS cache for verifying Management API JWTs
-        // This cache supports discovery and aggregates keys from all management instances
-        let management_jwks_cache =
-            Arc::new(inferadb_engine_auth::AggregatedManagementJwksCache::new(
-                state.config.discovery.mode.clone(),
-                effective_mesh_url.clone(),
-                std::time::Duration::from_secs(900), // 15 minutes TTL
-            ));
+        // Create aggregated Control JWKS cache for verifying Control JWTs
+        // This cache supports discovery and aggregates keys from all Control instances
+        let control_jwks_cache = Arc::new(inferadb_engine_auth::AggregatedControlJwksCache::new(
+            state.config.discovery.mode.clone(),
+            effective_mesh_url.clone(),
+            std::time::Duration::from_secs(900), // 15 minutes TTL
+        ));
 
-        // Create ManagementApiVaultVerifier for cache invalidation handlers
-        // This requires creating a ManagementClient first
-        let management_client = Arc::new(
-            inferadb_engine_auth::ManagementClient::new(
+        // Create ControlVaultVerifier for cache invalidation handlers
+        // This requires creating a ControlClient first
+        let control_client = Arc::new(
+            inferadb_engine_auth::ControlClient::new(
                 effective_mesh_url.clone(),
                 None, // Internal URL same as url
                 state.config.mesh.timeout,
                 None,
                 state.server_identity.clone(),
             )
-            .map_err(|e| {
-                ApiError::Internal(format!("Failed to create management client: {}", e))
-            })?,
+            .map_err(|e| ApiError::Internal(format!("Failed to create Control client: {}", e)))?,
         );
 
-        let mgmt_verifier = Arc::new(inferadb_engine_auth::ManagementApiVaultVerifier::new(
-            Arc::clone(&management_client),
+        let ctrl_verifier = Arc::new(inferadb_engine_auth::ControlVaultVerifier::new(
+            Arc::clone(&control_client),
             std::time::Duration::from_secs(300), // 5 min vault cache TTL
             std::time::Duration::from_secs(600), // 10 min org cache TTL
         ));
@@ -659,9 +654,9 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
             })?,
         );
 
-        // Create internal router with Management JWT auth middleware and vault verifier extension
-        let mgmt_cache_clone = Arc::clone(&management_jwks_cache);
-        let verifier_clone = Arc::clone(&mgmt_verifier);
+        // Create internal router with Control JWT auth middleware and vault verifier extension
+        let ctrl_cache_clone = Arc::clone(&control_jwks_cache);
+        let verifier_clone = Arc::clone(&ctrl_verifier);
         let cert_cache_clone = Arc::clone(&cert_cache);
         Some(
             Router::new()
@@ -681,27 +676,23 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
                 // Add vault verifier and cert cache as Extensions for handlers
                 .layer(Extension(verifier_clone))
                 .layer(Extension(cert_cache_clone))
-                // Apply Management JWT auth middleware (discovery-aware)
+                // Apply Control JWT auth middleware (discovery-aware)
                 .layer(axum::middleware::from_fn(move |req, next| {
-                    let cache = Arc::clone(&mgmt_cache_clone);
+                    let cache = Arc::clone(&ctrl_cache_clone);
                     async move {
-                        inferadb_engine_auth::aggregated_management_auth_middleware(
-                            cache, req, next,
-                        )
-                        .await
+                        inferadb_engine_auth::aggregated_control_auth_middleware(cache, req, next)
+                            .await
                     }
                 }))
                 .with_state(state.clone()),
         )
     } else {
         warn!("○ Cache invalidation endpoints disabled");
-        warn!(
-            "  For more information, see https://inferadb.com/docs/?search=auth.management_api_url"
-        );
+        warn!("  For more information, see https://inferadb.com/docs/?search=auth.control_url");
         None
     };
 
-    // Combine public (no auth) and privileged routes (Management JWT auth)
+    // Combine public (no auth) and privileged routes (Control JWT auth)
     let router = if let Some(privileged) = privileged_routes {
         public_internal_routes.merge(privileged)
     } else {

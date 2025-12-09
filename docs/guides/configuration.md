@@ -415,15 +415,15 @@ Controls JWT authentication and authorization for tenant requests.
 >
 > **Note**: The JWT audience is hardcoded to `https://api.inferadb.com` per RFC 8725 best practices.
 > The audience identifies the InferaDB Server API as the intended recipient, not a specific endpoint.
-> This value must match the audience set by the Management API when generating tokens.
+> This value must match the audience set by Control when generating tokens.
 
-### Management API Integration
+### Control Integration
 
-| Option                      | Type    | Default | Description                                     |
-| --------------------------- | ------- | ------- | ----------------------------------------------- |
-| `management_api_timeout_ms` | integer | `5000`  | Timeout for management API calls (milliseconds) |
-| `management_cache_ttl`      | integer | `300`   | Cache TTL for org/vault lookups (seconds)       |
-| `cert_cache_ttl`            | integer | `900`   | Cache TTL for client certificates (seconds)     |
+| Option               | Type    | Default | Description                                |
+| -------------------- | ------- | ------- | ------------------------------------------ |
+| `control_timeout_ms` | integer | `5000`  | Timeout for Control calls (milliseconds)   |
+| `control_cache_ttl`  | integer | `300`   | Cache TTL for org/vault lookups (seconds)  |
+| `cert_cache_ttl`     | integer | `900`   | Cache TTL for client certificates (seconds)|
 
 > **Note**: Vault ownership and organization status verification are always enforced and cannot be disabled.
 
@@ -472,9 +472,9 @@ auth:
 # Core authentication
 export INFERADB__AUTH__JWKS_CACHE_TTL=300
 
-# Management API integration
-export INFERADB__AUTH__MANAGEMENT_API_TIMEOUT_MS=5000
-export INFERADB__AUTH__MANAGEMENT_CACHE_TTL=300
+# Control integration
+export INFERADB__AUTH__CONTROL_TIMEOUT_MS=5000
+export INFERADB__AUTH__CONTROL_CACHE_TTL=300
 export INFERADB__AUTH__CERT_CACHE_TTL=900
 
 # Replay protection
@@ -993,4 +993,4 @@ cache:
 
 - [Authentication Guide](../security/authentication.md) - Detailed authentication setup
 - [Deployment Guide](deployment.md) - Production deployment
-- [Management Configuration](../../../../management/docs/guides/configuration.md) - Management API configuration
+- [Control Configuration](../../../../control/docs/guides/configuration.md) - Control configuration

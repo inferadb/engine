@@ -85,7 +85,7 @@ struct Jwk {
 /// Certificate cache that fetches keys from JWKS
 pub struct CertificateCache {
     http_client: HttpClient,
-    management_api_url: String,
+    control_url: String,
     cache: Cache<ParsedKeyId, Arc<DecodingKey>>,
     metrics: Option<Arc<AuthMetrics>>,
 }
@@ -95,11 +95,11 @@ impl CertificateCache {
     ///
     /// # Arguments
     ///
-    /// * `management_api_url` - Base URL of Control (e.g., "http://control-api:8081")
+    /// * `control_url` - Base URL of Control (e.g., "http://control-api:8081")
     /// * `ttl` - Time-to-live for cached certificates
     /// * `max_capacity` - Maximum number of certificates to cache
     pub fn new(
-        management_api_url: String,
+        control_url: String,
         ttl: Duration,
         max_capacity: u64,
     ) -> Result<Self, CertificateCacheError> {
@@ -110,7 +110,7 @@ impl CertificateCache {
 
         Ok(Self {
             http_client,
-            management_api_url,
+            control_url,
             cache: Cache::builder().time_to_live(ttl).max_capacity(max_capacity).build(),
             metrics: None,
         })
@@ -118,12 +118,12 @@ impl CertificateCache {
 
     /// Create a new certificate cache with metrics
     pub fn new_with_metrics(
-        management_api_url: String,
+        control_url: String,
         ttl: Duration,
         max_capacity: u64,
         metrics: Arc<AuthMetrics>,
     ) -> Result<Self, CertificateCacheError> {
-        let mut cache = Self::new(management_api_url, ttl, max_capacity)?;
+        let mut cache = Self::new(control_url, ttl, max_capacity)?;
         cache.metrics = Some(metrics);
         Ok(cache)
     }
@@ -164,7 +164,7 @@ impl CertificateCache {
 
         // Fetch from JWKS endpoint
         let jwks_url =
-            format!("{}/v1/organizations/{}/jwks.json", self.management_api_url, parsed_kid.org_id);
+            format!("{}/v1/organizations/{}/jwks.json", self.control_url, parsed_kid.org_id);
 
         tracing::debug!(
             jwks_url = %jwks_url,
@@ -179,14 +179,14 @@ impl CertificateCache {
                 "Failed to fetch JWKS"
             );
             if let Some(ref metrics) = self.metrics {
-                metrics.record_management_api_call("get_jwks", 0);
+                metrics.record_control_api_call("get_jwks", 0);
             }
             CertificateCacheError::JwksFetchError(e.to_string())
         })?;
 
         let status = response.status();
         if let Some(ref metrics) = self.metrics {
-            metrics.record_management_api_call("get_jwks", status.as_u16());
+            metrics.record_control_api_call("get_jwks", status.as_u16());
         }
 
         if status == reqwest::StatusCode::NOT_FOUND {

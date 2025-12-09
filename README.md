@@ -93,8 +93,6 @@ engine:
     grpc: "0.0.0.0:8081"
     mesh: "0.0.0.0:8082"
 
-  storage: "foundationdb"  # or omit for memory
-
   cache:
     enabled: true
     capacity: 100000

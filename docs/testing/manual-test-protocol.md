@@ -642,7 +642,7 @@ curl $SERVER_URL/metrics | grep inferadb_engine_auth
 inferadb_engine_auth_validations_total{method="jwt",result="success"} 5
 inferadb_engine_auth_cache_hits_total{cache_type="certificate"} 4
 inferadb_engine_auth_cache_misses_total{cache_type="certificate"} 1
-inferadb_engine_auth_management_api_calls_total{endpoint="/v1/vaults",status="200"} 1
+inferadb_engine_auth_control_api_calls_total{endpoint="/v1/vaults",status="200"} 1
 inferadb_engine_auth_validation_duration_seconds_bucket{method="jwt",le="0.01"} 5
 ```
 
@@ -651,7 +651,7 @@ inferadb_engine_auth_validation_duration_seconds_bucket{method="jwt",le="0.01"} 
 - ✅ Metrics endpoint returns HTTP 200 OK
 - ✅ Authentication validation counters present
 - ✅ Cache hit/miss counters present
-- ✅ Management API call counters present
+- ✅ Control API call counters present
 - ✅ Validation duration histogram present
 
 ---
@@ -900,7 +900,7 @@ curl $CONTROL_API_URL/v1/vaults/$VAULT_ID \
 curl $CONTROL_API_URL/health
 
 # Check server logs for connectivity errors
-grep "management_api" logs/server.log
+grep "control" logs/server.log
 ```
 
 ### Issue: Tests pass initially, then fail

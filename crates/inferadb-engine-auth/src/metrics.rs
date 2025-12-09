@@ -15,8 +15,8 @@ pub struct AuthMetrics {
     /// Counter for cache misses
     pub cache_misses_total: IntCounterVec,
 
-    /// Counter for management API calls
-    pub management_api_calls_total: IntCounterVec,
+    /// Counter for Control API calls
+    pub control_api_calls_total: IntCounterVec,
 
     /// Histogram for authentication validation duration
     pub auth_validation_duration_seconds: HistogramVec,
@@ -54,9 +54,9 @@ impl AuthMetrics {
             registry
         )?;
 
-        let management_api_calls_total = register_int_counter_vec_with_registry!(
-            "inferadb_auth_management_api_calls_total",
-            "Total number of calls to management API",
+        let control_api_calls_total = register_int_counter_vec_with_registry!(
+            "inferadb_auth_control_api_calls_total",
+            "Total number of calls to Control",
             &["endpoint", "status"],
             registry
         )?;
@@ -72,7 +72,7 @@ impl AuthMetrics {
             auth_validations_total,
             cache_hits_total,
             cache_misses_total,
-            management_api_calls_total,
+            control_api_calls_total,
             auth_validation_duration_seconds,
         })
     }
@@ -97,9 +97,9 @@ impl AuthMetrics {
         self.cache_misses_total.with_label_values(&[cache_type]).inc();
     }
 
-    /// Record a management API call
-    pub fn record_management_api_call(&self, endpoint: &str, status: u16) {
-        self.management_api_calls_total.with_label_values(&[endpoint, &status.to_string()]).inc();
+    /// Record a Control API call
+    pub fn record_control_api_call(&self, endpoint: &str, status: u16) {
+        self.control_api_calls_total.with_label_values(&[endpoint, &status.to_string()]).inc();
     }
 
     /// Start timing an authentication validation

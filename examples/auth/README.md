@@ -17,10 +17,10 @@ This directory contains complete authentication examples in multiple programming
 Both services must be running:
 
 ```bash
-# Terminal 1: Management API
-cd management
+# Terminal 1: Control
+cd control
 make run
-# Runs on http://localhost:8081
+# Runs on http://localhost:9090
 
 # Terminal 2: InferaDB Server
 cd server
@@ -146,7 +146,7 @@ All examples support these environment variables:
 
 | Variable             | Description          | Default                       |
 | -------------------- | -------------------- | ----------------------------- |
-| `MANAGEMENT_API_URL` | Management API URL   | `http://localhost:8081`       |
+| `CONTROL_URL`        | Control URL          | `http://localhost:9090`       |
 | `SERVER_URL`         | InferaDB server URL  | `http://localhost:8080`       |
 | `USER_EMAIL`         | User email for login | Prompts or uses test email    |
 | `USER_PASSWORD`      | User password        | Prompts or uses test password |
@@ -175,12 +175,12 @@ All examples support these environment variables:
 
 ### 503 Service Unavailable
 
-**Problem:** Cannot reach management API
+**Problem:** Cannot reach Control
 
 **Solution:**
 
-- Verify management API is running: `curl http://localhost:8081/health`
-- Check the `MANAGEMENT_API_URL` environment variable
+- Verify Control is running: `curl http://localhost:9090/health`
+- Check the `CONTROL_URL` environment variable
 - Ensure network connectivity
 
 ## Next Steps

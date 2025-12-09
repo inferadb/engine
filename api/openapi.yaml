@@ -681,7 +681,7 @@ components:
         ```
 
         **Required Claims:**
-        - `iss`: Issuer (Management API URL + `/v1`)
+        - `iss`: Issuer (Control URL + `/v1`)
         - `sub`: Subject (`client:{client_id}`)
         - `aud`: Audience (InferaDB server URL)
         - `exp`: Expiration timestamp (Unix seconds)
@@ -832,7 +832,7 @@ components:
         |--------|-------|-------|
         | 401 | Unauthorized | Invalid signature, missing token, malformed JWT |
         | 403 | Forbidden | Vault not found, cross-org access, insufficient scope |
-        | 503 | Service Unavailable | Management API unreachable (no cached data) |
+        | 503 | Service Unavailable | Control unreachable (no cached data) |
 
         ## Setup Guide
 

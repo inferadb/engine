@@ -1,7 +1,7 @@
 //! Integration test fixtures and helpers for cross-service testing
 //!
 //! This module provides mock servers and utilities for testing integration
-//! between the InferaDB server and the Management API.
+//! between the InferaDB Engine and Control.
 
 #![allow(dead_code)]
 
@@ -15,7 +15,7 @@ use std::{
 };
 
 use axum::{Json, Router, extract::Path, http::StatusCode, response::IntoResponse, routing::get};
-use inferadb_engine_auth::management_client::OrgStatus;
+use inferadb_engine_auth::control_client::OrgStatus;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 
@@ -27,15 +27,15 @@ pub fn generate_snowflake_id() -> i64 {
     ID_COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-/// Mock Management API server state
+/// Mock Control server state
 #[derive(Clone)]
-pub struct MockManagementState {
+pub struct MockControlState {
     pub organizations: Arc<Mutex<HashMap<i64, MockOrganization>>>,
     pub vaults: Arc<Mutex<HashMap<i64, MockVault>>>,
     pub certificates: Arc<Mutex<HashMap<CertificateKey, MockCertificate>>>,
 }
 
-impl MockManagementState {
+impl MockControlState {
     /// Create a new mock state
     pub fn new() -> Self {
         Self {
@@ -82,7 +82,7 @@ impl MockManagementState {
     }
 }
 
-impl Default for MockManagementState {
+impl Default for MockControlState {
     fn default() -> Self {
         Self::new()
     }
@@ -127,7 +127,7 @@ pub struct MockCertificate {
 /// Handler for GET /v1/organizations/{org_id}
 async fn get_organization(
     Path(org_id): Path<i64>,
-    axum::extract::State(state): axum::extract::State<MockManagementState>,
+    axum::extract::State(state): axum::extract::State<MockControlState>,
 ) -> impl IntoResponse {
     let orgs = state.organizations.lock().unwrap();
 
@@ -140,7 +140,7 @@ async fn get_organization(
 /// Handler for GET /v1/vaults/{vault_id}
 async fn get_vault(
     Path(vault_id): Path<i64>,
-    axum::extract::State(state): axum::extract::State<MockManagementState>,
+    axum::extract::State(state): axum::extract::State<MockControlState>,
 ) -> impl IntoResponse {
     let vaults = state.vaults.lock().unwrap();
 
@@ -171,7 +171,7 @@ pub struct JwksResponse {
 /// Handler for GET /v1/organizations/{org_id}/jwks.json
 async fn get_org_jwks(
     Path(org_id): Path<i64>,
-    axum::extract::State(state): axum::extract::State<MockManagementState>,
+    axum::extract::State(state): axum::extract::State<MockControlState>,
 ) -> impl IntoResponse {
     let certs = state.certificates.lock().unwrap();
 
@@ -209,9 +209,9 @@ async fn get_org_jwks(
 /// Start a mock Management API server
 ///
 /// Returns the base URL and a handle to the server task
-pub async fn start_mock_management_server(state: MockManagementState) -> (String, JoinHandle<()>) {
+pub async fn start_mock_control_server(state: MockControlState) -> (String, JoinHandle<()>) {
     let app = Router::new()
-        // Internal endpoints used by ManagementClient
+        // Internal endpoints used by ControlClient
         .route("/internal/organizations/{org_id}", get(get_organization))
         .route("/internal/vaults/{vault_id}", get(get_vault))
         // Public JWKS endpoint (used by certificate cache)
@@ -339,12 +339,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_server_organization_endpoint() {
-        let state = MockManagementState::new();
+        let state = MockControlState::new();
         let org = create_test_organization("Test Org", OrgStatus::Active);
         let org_id = org.id;
         state.add_organization(org);
 
-        let (base_url, _handle) = start_mock_management_server(state).await;
+        let (base_url, _handle) = start_mock_control_server(state).await;
 
         let client = reqwest::Client::new();
         let response = client
@@ -361,13 +361,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_server_vault_endpoint() {
-        let state = MockManagementState::new();
+        let state = MockControlState::new();
         let org_id = generate_snowflake_id();
         let vault = create_test_vault("Test Vault", org_id);
         let vault_id = vault.id;
         state.add_vault(vault);
 
-        let (base_url, _handle) = start_mock_management_server(state).await;
+        let (base_url, _handle) = start_mock_control_server(state).await;
 
         let client = reqwest::Client::new();
         let response = client
@@ -384,14 +384,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_server_jwks_endpoint() {
-        let state = MockManagementState::new();
+        let state = MockControlState::new();
         let org_id = generate_snowflake_id();
         let client_id = generate_snowflake_id();
         let (cert, _key) = create_test_certificate(org_id, client_id);
         let cert_id = cert.id;
         state.add_certificate(cert);
 
-        let (base_url, _handle) = start_mock_management_server(state).await;
+        let (base_url, _handle) = start_mock_control_server(state).await;
 
         let client = reqwest::Client::new();
         let response = client
@@ -413,8 +413,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_server_not_found() {
-        let state = MockManagementState::new();
-        let (base_url, _handle) = start_mock_management_server(state).await;
+        let state = MockControlState::new();
+        let (base_url, _handle) = start_mock_control_server(state).await;
 
         let client = reqwest::Client::new();
         let response = client

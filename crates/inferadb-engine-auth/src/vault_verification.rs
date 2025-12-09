@@ -4,9 +4,7 @@ use async_trait::async_trait;
 use moka::future::Cache;
 
 use crate::{
-    management_client::{
-        ManagementApiError, ManagementClient, OrgStatus, OrganizationInfo, VaultInfo,
-    },
+    control_client::{ControlApiError, ControlClient, OrgStatus, OrganizationInfo, VaultInfo},
     metrics::AuthMetrics,
 };
 
@@ -27,18 +25,18 @@ pub trait VaultVerifier: Send + Sync {
     ) -> Result<OrganizationInfo, VaultVerificationError>;
 }
 
-/// Management API-based vault verifier with caching
-pub struct ManagementApiVaultVerifier {
-    client: Arc<ManagementClient>,
+/// Control-based vault verifier with caching
+pub struct ControlVaultVerifier {
+    client: Arc<ControlClient>,
     vault_cache: Cache<i64, Arc<VaultInfo>>,
     org_cache: Cache<i64, Arc<OrganizationInfo>>,
     metrics: Option<Arc<AuthMetrics>>,
 }
 
-impl ManagementApiVaultVerifier {
-    /// Create a new management API vault verifier with caching
+impl ControlVaultVerifier {
+    /// Create a new Control vault verifier with caching
     pub fn new(
-        client: Arc<ManagementClient>,
+        client: Arc<ControlClient>,
         vault_cache_ttl: Duration,
         org_cache_ttl: Duration,
     ) -> Self {
@@ -53,9 +51,9 @@ impl ManagementApiVaultVerifier {
         }
     }
 
-    /// Create a new management API vault verifier with caching and metrics
+    /// Create a new Control vault verifier with caching and metrics
     pub fn new_with_metrics(
-        client: Arc<ManagementClient>,
+        client: Arc<ControlClient>,
         vault_cache_ttl: Duration,
         org_cache_ttl: Duration,
         metrics: Arc<AuthMetrics>,
@@ -73,8 +71,8 @@ impl ManagementApiVaultVerifier {
 
     /// Invalidate a specific vault from the cache
     ///
-    /// This is called when the management API notifies us that a vault has been
-    /// updated or deleted. The next request will fetch fresh data from the management API.
+    /// This is called when Control notifies us that a vault has been
+    /// updated or deleted. The next request will fetch fresh data from Control.
     ///
     /// # Arguments
     ///
@@ -98,8 +96,8 @@ impl ManagementApiVaultVerifier {
 
     /// Invalidate a specific organization from the cache
     ///
-    /// This is called when the management API notifies us that an organization has been
-    /// updated or deleted. The next request will fetch fresh data from the management API.
+    /// This is called when Control notifies us that an organization has been
+    /// updated or deleted. The next request will fetch fresh data from Control.
     ///
     /// # Arguments
     ///
@@ -123,8 +121,8 @@ impl ManagementApiVaultVerifier {
 
     /// Clear all caches (vaults and organizations)
     ///
-    /// This is a nuclear option for troubleshooting or after major management API changes.
-    /// Use sparingly as it will cause a temporary spike in management API requests.
+    /// This is a nuclear option for troubleshooting or after major Control changes.
+    /// Use sparingly as it will cause a temporary spike in Control requests.
     pub async fn clear_all_caches(&self) {
         let vault_count = self.vault_cache.entry_count();
         let org_count = self.org_cache.entry_count();
@@ -149,7 +147,7 @@ impl ManagementApiVaultVerifier {
 }
 
 #[async_trait]
-impl VaultVerifier for ManagementApiVaultVerifier {
+impl VaultVerifier for ControlVaultVerifier {
     async fn verify_vault(
         &self,
         vault_id: i64,
@@ -178,27 +176,27 @@ impl VaultVerifier for ManagementApiVaultVerifier {
             metrics.record_cache_miss("vault");
         }
 
-        // Fetch from management API
+        // Fetch from Control
         let vault_info = self.client.get_vault(vault_id).await.map_err(|e| {
             // Record API call status
             if let Some(ref metrics) = self.metrics {
                 let status = match &e {
-                    ManagementApiError::NotFound(_) => 404,
-                    ManagementApiError::UnexpectedStatus(code) => *code,
+                    ControlApiError::NotFound(_) => 404,
+                    ControlApiError::UnexpectedStatus(code) => *code,
                     _ => 500,
                 };
-                metrics.record_management_api_call("get_vault", status);
+                metrics.record_control_api_call("get_vault", status);
             }
 
             match e {
-                ManagementApiError::NotFound(_) => VaultVerificationError::VaultNotFound(vault_id),
-                e => VaultVerificationError::ManagementApiError(e.to_string()),
+                ControlApiError::NotFound(_) => VaultVerificationError::VaultNotFound(vault_id),
+                e => VaultVerificationError::ControlApiError(e.to_string()),
             }
         })?;
 
         // Record successful API call
         if let Some(ref metrics) = self.metrics {
-            metrics.record_management_api_call("get_vault", 200);
+            metrics.record_control_api_call("get_vault", 200);
         }
 
         // Verify account ownership
@@ -238,29 +236,29 @@ impl VaultVerifier for ManagementApiVaultVerifier {
             metrics.record_cache_miss("organization");
         }
 
-        // Fetch from management API
+        // Fetch from Control
         let org_info = self.client.get_organization(org_id).await.map_err(|e| {
             // Record API call status
             if let Some(ref metrics) = self.metrics {
                 let status = match &e {
-                    ManagementApiError::NotFound(_) => 404,
-                    ManagementApiError::UnexpectedStatus(code) => *code,
+                    ControlApiError::NotFound(_) => 404,
+                    ControlApiError::UnexpectedStatus(code) => *code,
                     _ => 500,
                 };
-                metrics.record_management_api_call("get_organization", status);
+                metrics.record_control_api_call("get_organization", status);
             }
 
             match e {
-                ManagementApiError::NotFound(_) => {
+                ControlApiError::NotFound(_) => {
                     VaultVerificationError::OrganizationNotFound(org_id)
                 },
-                e => VaultVerificationError::ManagementApiError(e.to_string()),
+                e => VaultVerificationError::ControlApiError(e.to_string()),
             }
         })?;
 
         // Record successful API call
         if let Some(ref metrics) = self.metrics {
-            metrics.record_management_api_call("get_organization", 200);
+            metrics.record_control_api_call("get_organization", 200);
         }
 
         // Check status
@@ -304,11 +302,11 @@ impl VaultVerifier for NoOpVaultVerifier {
 /// Errors that can occur during vault verification
 #[derive(Debug, thiserror::Error)]
 pub enum VaultVerificationError {
-    /// Vault was not found in the management API
+    /// Vault was not found in Control
     #[error("Vault {0} not found")]
     VaultNotFound(i64),
 
-    /// Organization was not found in the management API
+    /// Organization was not found in Control
     #[error("Organization {0} not found")]
     OrganizationNotFound(i64),
 
@@ -327,7 +325,7 @@ pub enum VaultVerificationError {
         actual: i64,
     },
 
-    /// Error communicating with the management API
-    #[error("Management API error: {0}")]
-    ManagementApiError(String),
+    /// Error communicating with Control
+    #[error("Control API error: {0}")]
+    ControlApiError(String),
 }

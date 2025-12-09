@@ -1,21 +1,21 @@
-//! Management API JWT authentication middleware
+//! Control JWT authentication middleware
 //!
-//! This module provides authentication for requests FROM the Management API TO the server.
-//! This is the reverse of the normal flow where the server validates client JWTs issued by
-//! Management.
+//! This module provides authentication for requests FROM Control TO the Engine.
+//! This is the reverse of the normal flow where the Engine validates client JWTs issued by
+//! Control.
 //!
-//! The Management API uses this to authenticate when calling server internal endpoints
+//! Control uses this to authenticate when calling Engine internal endpoints
 //! (like cache invalidation callbacks).
 //!
 //! ## Discovery Support
 //!
 //! When service discovery is enabled (Kubernetes or Tailscale), the cache will:
-//! 1. Discover all management service pod IPs
+//! 1. Discover all Control service pod IPs
 //! 2. Fetch JWKS from each discovered endpoint
 //! 3. Aggregate all keys by `kid` (key ID)
-//! 4. Validate JWTs using any key from any management instance
+//! 4. Validate JWTs using any key from any Control instance
 //!
-//! This allows the server to validate JWTs signed by any management service instance
+//! This allows the server to validate JWTs signed by any Control service instance
 //! in a distributed deployment.
 
 use std::sync::Arc;
@@ -35,11 +35,11 @@ use tokio::sync::RwLock;
 
 use crate::{error::AuthError, jwt::decode_jwt_header, middleware::extract_bearer_token};
 
-/// Management context attached to requests authenticated by Management API
+/// Context attached to requests authenticated by Control
 #[derive(Clone, Debug)]
-pub struct ManagementContext {
-    /// Management API instance ID (from JWT subject: "management:{management_id}")
-    pub management_id: String,
+pub struct ControlContext {
+    /// Control instance ID (from JWT subject: "management:{control_id}")
+    pub control_id: String,
     /// JWT ID for replay protection
     pub jti: Option<String>,
     /// When the token was issued
@@ -48,16 +48,16 @@ pub struct ManagementContext {
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// JWKS response from Management API
+/// JWKS response from Control
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManagementJwks {
+pub struct ControlJwks {
     /// List of JWKs
-    pub keys: Vec<ManagementJwk>,
+    pub keys: Vec<ControlJwk>,
 }
 
-/// JWK from Management API JWKS endpoint
+/// JWK from Control JWKS endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManagementJwk {
+pub struct ControlJwk {
     kty: String,
     alg: String,
     /// Key ID - unique identifier for this key
@@ -76,7 +76,7 @@ pub struct ManagementJwk {
     e: Option<String>,
 }
 
-impl ManagementJwk {
+impl ControlJwk {
     /// Convert JWK to jsonwebtoken DecodingKey
     fn to_decoding_key(&self) -> Result<jsonwebtoken::DecodingKey, AuthError> {
         match self.kty.as_str() {
@@ -117,83 +117,83 @@ impl ManagementJwk {
     }
 }
 
-/// Management API JWKS cache
+/// Control JWKS cache
 ///
-/// This cache fetches and caches the Management API's public keys from its
+/// This cache fetches and caches the Control's public keys from its
 /// /.well-known/jwks.json endpoint. These keys are used to verify JWTs signed
-/// by the Management API when it calls server internal endpoints.
-pub struct ManagementJwksCache {
-    management_api_url: String,
+/// by the Control when it calls server internal endpoints.
+pub struct ControlJwksCache {
+    control_url: String,
     http_client: reqwest::Client,
-    cache: Cache<String, Arc<ManagementJwks>>,
+    cache: Cache<String, Arc<ControlJwks>>,
     #[allow(dead_code)] // Used for documentation purposes
     cache_ttl: std::time::Duration,
 }
 
-impl ManagementJwksCache {
-    /// Create a new Management JWKS cache
+impl ControlJwksCache {
+    /// Create a new Control JWKS cache
     ///
     /// # Arguments
     ///
-    /// * `management_api_url` - Base URL of the Management API (e.g., "http://localhost:8081")
+    /// * `control_url` - Base URL of the Control (e.g., "http://localhost:8081")
     /// * `cache_ttl` - How long to cache JWKS before refreshing (recommended: 15 minutes)
-    pub fn new(management_api_url: String, cache_ttl: std::time::Duration) -> Self {
+    pub fn new(control_url: String, cache_ttl: std::time::Duration) -> Self {
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .build()
-            .expect("Failed to create HTTP client for Management JWKS");
+            .expect("Failed to create HTTP client for Control JWKS");
 
         let cache = Cache::builder()
             .time_to_live(cache_ttl)
             .max_capacity(10) // Small cache, only one entry needed
             .build();
 
-        Self { management_api_url, http_client, cache, cache_ttl }
+        Self { control_url, http_client, cache, cache_ttl }
     }
 
-    /// Fetch JWKS from Management API
-    async fn fetch_jwks(&self) -> Result<ManagementJwks, AuthError> {
-        let jwks_url = format!("{}/internal/management-jwks.json", self.management_api_url);
+    /// Fetch JWKS from Control
+    async fn fetch_jwks(&self) -> Result<ControlJwks, AuthError> {
+        let jwks_url = format!("{}/internal/management-jwks.json", self.control_url);
 
         tracing::debug!(
             jwks_url = %jwks_url,
-            "Fetching Management API JWKS"
+            "Fetching Control JWKS"
         );
 
         let response =
             self.http_client.get(&jwks_url).send().await.map_err(|e| {
-                AuthError::JwksError(format!("Failed to fetch Management JWKS: {}", e))
+                AuthError::JwksError(format!("Failed to fetch Control JWKS: {}", e))
             })?;
 
         if !response.status().is_success() {
             return Err(AuthError::JwksError(format!(
-                "Management JWKS endpoint returned status: {}",
+                "Control JWKS endpoint returned status: {}",
                 response.status()
             )));
         }
 
-        let jwks: ManagementJwks = response.json().await.map_err(|e| {
-            AuthError::JwksError(format!("Failed to parse Management JWKS JSON: {}", e))
+        let jwks: ControlJwks = response.json().await.map_err(|e| {
+            AuthError::JwksError(format!("Failed to parse Control JWKS JSON: {}", e))
         })?;
 
-        tracing::info!(key_count = jwks.keys.len(), "Successfully fetched Management API JWKS");
+        tracing::info!(key_count = jwks.keys.len(), "Successfully fetched Control JWKS");
 
         Ok(jwks)
     }
 
     /// Get JWKS from cache or fetch if not cached
-    async fn get_jwks(&self) -> Result<Arc<ManagementJwks>, AuthError> {
-        // Use a constant cache key since there's only one Management API
+    async fn get_jwks(&self) -> Result<Arc<ControlJwks>, AuthError> {
+        // Use a constant cache key since there's only one Control
         let cache_key = "management_jwks";
 
         // Try cache first
         if let Some(cached) = self.cache.get(cache_key).await {
-            tracing::debug!("Management JWKS cache hit");
+            tracing::debug!("Control JWKS cache hit");
             return Ok(cached);
         }
 
         // Cache miss - fetch fresh
-        tracing::debug!("Management JWKS cache miss, fetching fresh");
+        tracing::debug!("Control JWKS cache miss, fetching fresh");
         let jwks = self.fetch_jwks().await?;
         let jwks = Arc::new(jwks);
 
@@ -204,33 +204,32 @@ impl ManagementJwksCache {
     }
 
     /// Get a specific key by key ID
-    async fn get_key(&self, kid: &str) -> Result<ManagementJwk, AuthError> {
+    async fn get_key(&self, kid: &str) -> Result<ControlJwk, AuthError> {
         let jwks = self.get_jwks().await?;
 
-        jwks.keys.iter().find(|k| k.kid == kid).cloned().ok_or_else(|| {
-            AuthError::JwksError(format!("Management key '{}' not found in JWKS", kid))
-        })
+        jwks.keys
+            .iter()
+            .find(|k| k.kid == kid)
+            .cloned()
+            .ok_or_else(|| AuthError::JwksError(format!("Control key '{}' not found in JWKS", kid)))
     }
 
-    /// Verify a JWT from the Management API
+    /// Verify a JWT from the Control
     ///
     /// # Arguments
     ///
-    /// * `token` - The JWT token from the Management API
+    /// * `token` - The JWT token from the Control
     ///
     /// # Returns
     ///
     /// Returns the validated JWT claims if verification succeeds
-    pub async fn verify_management_jwt(
-        &self,
-        token: &str,
-    ) -> Result<ManagementJwtClaims, AuthError> {
+    pub async fn verify_control_jwt(&self, token: &str) -> Result<ControlJwtClaims, AuthError> {
         // Decode header to get key ID
         let header = decode_jwt_header(token)?;
 
         let kid = header
             .kid
-            .ok_or_else(|| AuthError::InvalidTokenFormat("Management JWT missing kid".into()))?;
+            .ok_or_else(|| AuthError::InvalidTokenFormat("Control JWT missing kid".into()))?;
 
         // Validate algorithm
         let alg_str = format!("{:?}", header.alg);
@@ -240,35 +239,35 @@ impl ManagementJwksCache {
         let jwk = self.get_key(&kid).await?;
         let decoding_key = jwk.to_decoding_key()?;
 
-        // Verify signature using ManagementJwtClaims (not JwtClaims)
+        // Verify signature using ControlJwtClaims (not JwtClaims)
         let mut validation = jsonwebtoken::Validation::new(header.alg);
         validation.validate_exp = true;
         validation.validate_nbf = false;
         validation.validate_aud = false;
 
         let token_data =
-            jsonwebtoken::decode::<ManagementJwtClaims>(token, &decoding_key, &validation)
+            jsonwebtoken::decode::<ControlJwtClaims>(token, &decoding_key, &validation)
                 .map_err(|e| AuthError::InvalidTokenFormat(format!("JWT error: {}", e)))?;
 
         let mgmt_claims = token_data.claims;
 
         // Validate claims
-        validate_management_claims(&mgmt_claims)?;
+        validate_control_claims(&mgmt_claims)?;
 
         Ok(mgmt_claims)
     }
 }
 
-/// Discovery-aware Management API JWKS cache
+/// Discovery-aware Control JWKS cache
 ///
-/// This cache supports multi-instance management service deployments by:
-/// 1. Discovering all management service pod IPs (when discovery is enabled)
+/// This cache supports multi-instance Control service deployments by:
+/// 1. Discovering all Control service pod IPs (when discovery is enabled)
 /// 2. Fetching JWKS from each discovered endpoint in parallel
 /// 3. Aggregating all keys by `kid` (key ID)
-/// 4. Validating JWTs using any key from any management instance
+/// 4. Validating JWTs using any key from any Control instance
 ///
 /// When discovery is disabled, it falls back to single-URL behavior.
-pub struct AggregatedManagementJwksCache {
+pub struct AggregatedControlJwksCache {
     /// Discovery mode
     discovery_mode: DiscoveryMode,
     /// Fallback URL (for development/None mode)
@@ -276,7 +275,7 @@ pub struct AggregatedManagementJwksCache {
     /// HTTP client
     http_client: reqwest::Client,
     /// Aggregated keys cache (kid -> key)
-    keys_cache: Cache<String, Arc<ManagementJwk>>,
+    keys_cache: Cache<String, Arc<ControlJwk>>,
     /// Discovered endpoints (cached for refresh)
     endpoints: RwLock<Vec<Endpoint>>,
     /// Cache TTL (used for documentation/configuration purposes)
@@ -284,8 +283,8 @@ pub struct AggregatedManagementJwksCache {
     cache_ttl: std::time::Duration,
 }
 
-impl AggregatedManagementJwksCache {
-    /// Create a new discovery-aware Management JWKS cache
+impl AggregatedControlJwksCache {
+    /// Create a new discovery-aware Control JWKS cache
     ///
     /// # Arguments
     ///
@@ -300,7 +299,7 @@ impl AggregatedManagementJwksCache {
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .build()
-            .expect("Failed to create HTTP client for Management JWKS");
+            .expect("Failed to create HTTP client for Control JWKS");
 
         // Max capacity is higher to support multiple keys from multiple instances
         let keys_cache = Cache::builder()
@@ -318,7 +317,7 @@ impl AggregatedManagementJwksCache {
         }
     }
 
-    /// Discover management service endpoints
+    /// Discover Control service endpoints
     async fn discover_endpoints(&self) -> Result<Vec<Endpoint>, AuthError> {
         match &self.discovery_mode {
             DiscoveryMode::None => {
@@ -336,7 +335,7 @@ impl AggregatedManagementJwksCache {
                     tracing::warn!(
                         error = %e,
                         fallback_url = %self.fallback_url,
-                        "Failed to discover management endpoints, using fallback"
+                        "Failed to discover Control endpoints, using fallback"
                     );
                     AuthError::JwksError(format!("Discovery failed: {}", e))
                 })?;
@@ -346,14 +345,12 @@ impl AggregatedManagementJwksCache {
                     endpoints.into_iter().filter(|e| e.health == EndpointHealth::Healthy).collect();
 
                 if healthy.is_empty() {
-                    return Err(AuthError::JwksError(
-                        "No healthy management endpoints found".into(),
-                    ));
+                    return Err(AuthError::JwksError("No healthy Control endpoints found".into()));
                 }
 
                 tracing::info!(
                     endpoint_count = healthy.len(),
-                    "Discovered management service endpoints"
+                    "Discovered Control service endpoints"
                 );
 
                 Ok(healthy)
@@ -379,7 +376,7 @@ impl AggregatedManagementJwksCache {
                     tracing::warn!(
                         error = %e,
                         fallback_url = %self.fallback_url,
-                        "Failed to discover management endpoints via Tailscale, using fallback"
+                        "Failed to discover Control endpoints via Tailscale, using fallback"
                     );
                     AuthError::JwksError(format!("Tailscale discovery failed: {}", e))
                 })?;
@@ -389,14 +386,14 @@ impl AggregatedManagementJwksCache {
 
                 if healthy.is_empty() {
                     return Err(AuthError::JwksError(
-                        "No healthy management endpoints found via Tailscale".into(),
+                        "No healthy Control endpoints found via Tailscale".into(),
                     ));
                 }
 
                 tracing::info!(
                     endpoint_count = healthy.len(),
                     local_cluster = %local_cluster,
-                    "Discovered management service endpoints via Tailscale"
+                    "Discovered Control service endpoints via Tailscale"
                 );
 
                 Ok(healthy)
@@ -405,12 +402,12 @@ impl AggregatedManagementJwksCache {
     }
 
     /// Fetch JWKS from a single endpoint
-    async fn fetch_jwks_from_endpoint(&self, endpoint_url: &str) -> Result<ManagementJwks, String> {
+    async fn fetch_jwks_from_endpoint(&self, endpoint_url: &str) -> Result<ControlJwks, String> {
         let jwks_url = format!("{}/internal/management-jwks.json", endpoint_url);
 
         tracing::debug!(
             jwks_url = %jwks_url,
-            "Fetching Management API JWKS from endpoint"
+            "Fetching Control JWKS from endpoint"
         );
 
         let response = self
@@ -428,7 +425,7 @@ impl AggregatedManagementJwksCache {
             ));
         }
 
-        let jwks: ManagementJwks = response
+        let jwks: ControlJwks = response
             .json()
             .await
             .map_err(|e| format!("Failed to parse JWKS JSON from {}: {}", jwks_url, e))?;
@@ -508,52 +505,46 @@ impl AggregatedManagementJwksCache {
         tracing::info!(
             aggregated_keys = aggregated_keys,
             endpoint_count = endpoints.len(),
-            "Aggregated management JWKS from discovered endpoints"
+            "Aggregated Control JWKS from discovered endpoints"
         );
 
         Ok(())
     }
 
     /// Get a specific key by key ID
-    async fn get_key(&self, kid: &str) -> Result<Arc<ManagementJwk>, AuthError> {
+    async fn get_key(&self, kid: &str) -> Result<Arc<ControlJwk>, AuthError> {
         // Try cache first
         if let Some(key) = self.keys_cache.get(kid).await {
-            tracing::debug!(kid = %kid, "Management key cache hit");
+            tracing::debug!(kid = %kid, "Control key cache hit");
             return Ok(key);
         }
 
         // Cache miss - refresh keys from all endpoints
-        tracing::debug!(kid = %kid, "Management key cache miss, refreshing from endpoints");
+        tracing::debug!(kid = %kid, "Control key cache miss, refreshing from endpoints");
         self.refresh_keys().await?;
 
         // Try cache again after refresh
         self.keys_cache.get(kid).await.ok_or_else(|| {
-            AuthError::JwksError(format!(
-                "Management key '{}' not found in any discovered JWKS",
-                kid
-            ))
+            AuthError::JwksError(format!("Control key '{}' not found in any discovered JWKS", kid))
         })
     }
 
-    /// Verify a JWT from the Management API
+    /// Verify a JWT from the Control
     ///
     /// # Arguments
     ///
-    /// * `token` - The JWT token from the Management API
+    /// * `token` - The JWT token from the Control
     ///
     /// # Returns
     ///
     /// Returns the validated JWT claims if verification succeeds
-    pub async fn verify_management_jwt(
-        &self,
-        token: &str,
-    ) -> Result<ManagementJwtClaims, AuthError> {
+    pub async fn verify_control_jwt(&self, token: &str) -> Result<ControlJwtClaims, AuthError> {
         // Decode header to get key ID
         let header = decode_jwt_header(token)?;
 
         let kid = header
             .kid
-            .ok_or_else(|| AuthError::InvalidTokenFormat("Management JWT missing kid".into()))?;
+            .ok_or_else(|| AuthError::InvalidTokenFormat("Control JWT missing kid".into()))?;
 
         // Validate algorithm
         let alg_str = format!("{:?}", header.alg);
@@ -563,20 +554,20 @@ impl AggregatedManagementJwksCache {
         let jwk = self.get_key(&kid).await?;
         let decoding_key = jwk.to_decoding_key()?;
 
-        // Verify signature using ManagementJwtClaims (not JwtClaims)
+        // Verify signature using ControlJwtClaims (not JwtClaims)
         let mut validation = jsonwebtoken::Validation::new(header.alg);
         validation.validate_exp = true;
         validation.validate_nbf = false;
         validation.validate_aud = false;
 
         let token_data =
-            jsonwebtoken::decode::<ManagementJwtClaims>(token, &decoding_key, &validation)
+            jsonwebtoken::decode::<ControlJwtClaims>(token, &decoding_key, &validation)
                 .map_err(|e| AuthError::InvalidTokenFormat(format!("JWT error: {}", e)))?;
 
         let mgmt_claims = token_data.claims;
 
         // Validate claims
-        validate_management_claims(&mgmt_claims)?;
+        validate_control_claims(&mgmt_claims)?;
 
         Ok(mgmt_claims)
     }
@@ -587,9 +578,9 @@ impl AggregatedManagementJwksCache {
     }
 }
 
-/// JWT claims from Management API
+/// JWT claims from Control
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManagementJwtClaims {
+pub struct ControlJwtClaims {
     iss: String,
     sub: String,
     aud: String,
@@ -598,8 +589,8 @@ pub struct ManagementJwtClaims {
     jti: Option<String>,
 }
 
-/// Validate Management API JWT claims
-fn validate_management_claims(claims: &ManagementJwtClaims) -> Result<(), AuthError> {
+/// Validate Control JWT claims
+fn validate_control_claims(claims: &ControlJwtClaims) -> Result<(), AuthError> {
     let now = chrono::Utc::now().timestamp() as u64;
 
     // Check expiration
@@ -616,41 +607,41 @@ fn validate_management_claims(claims: &ManagementJwtClaims) -> Result<(), AuthEr
         return Err(AuthError::InvalidTokenFormat("iat claim is too old (> 24 hours)".into()));
     }
 
-    // Validate subject format: "management:{management_id}"
+    // Validate subject format: "management:{control_id}"
     if !claims.sub.starts_with("management:") {
         return Err(AuthError::InvalidTokenFormat(
-            "Management JWT subject must start with 'management:'".into(),
+            "Control JWT subject must start with 'management:'".into(),
         ));
     }
 
     Ok(())
 }
 
-/// Extract management ID from JWT claims
-fn extract_management_id(claims: &ManagementJwtClaims) -> Result<String, AuthError> {
-    // Subject format: "management:{management_id}"
+/// Extract Control ID from JWT claims
+fn extract_control_id(claims: &ControlJwtClaims) -> Result<String, AuthError> {
+    // Subject format: "management:{control_id}" (protocol value)
     claims
         .sub
         .strip_prefix("management:")
         .ok_or_else(|| {
             AuthError::InvalidTokenFormat(
-                "Management JWT subject must start with 'management:'".into(),
+                "Control JWT subject must start with 'management:'".into(),
             )
         })
         .map(|s| s.to_string())
 }
 
-/// Axum middleware for Management API JWT authentication
+/// Axum middleware for Control JWT authentication
 ///
 /// This middleware:
 /// 1. Extracts the bearer token from the Authorization header
-/// 2. Verifies the JWT using Management API's JWKS
-/// 3. Creates a ManagementContext from the validated claims
+/// 2. Verifies the JWT using Control's JWKS
+/// 3. Creates a ControlContext from the validated claims
 /// 4. Injects the context into request extensions
 ///
 /// # Arguments
 ///
-/// * `jwks_cache` - The Management JWKS cache for verifying signatures
+/// * `jwks_cache` - The Control JWKS cache for verifying signatures
 /// * `request` - The incoming HTTP request
 /// * `next` - The next layer in the middleware stack
 ///
@@ -661,9 +652,9 @@ fn extract_management_id(claims: &ManagementJwtClaims) -> Result<String, AuthErr
 /// # Security
 ///
 /// This middleware should ONLY be applied to internal endpoints that should be
-/// callable by the Management API (like cache invalidation callbacks).
-pub async fn management_auth_middleware(
-    jwks_cache: Arc<ManagementJwksCache>,
+/// callable by the Control (like cache invalidation callbacks).
+pub async fn control_auth_middleware(
+    jwks_cache: Arc<ControlJwksCache>,
     mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
@@ -671,32 +662,32 @@ pub async fn management_auth_middleware(
     let token = extract_bearer_token(request.headers()).map_err(|e| {
         tracing::warn!(
             error = %e,
-            "Management authentication failed: missing or invalid token"
+            "Control authentication failed: missing or invalid token"
         );
-        (StatusCode::UNAUTHORIZED, format!("Invalid Management API token: {}", e)).into_response()
+        (StatusCode::UNAUTHORIZED, format!("Invalid Control token: {}", e)).into_response()
     })?;
 
     // Verify JWT
-    let claims = jwks_cache.verify_management_jwt(&token).await.map_err(|e| {
+    let claims = jwks_cache.verify_control_jwt(&token).await.map_err(|e| {
         tracing::warn!(
             error = %e,
-            "Management JWT verification failed"
+            "Control JWT verification failed"
         );
-        (StatusCode::UNAUTHORIZED, format!("Invalid Management API JWT: {}", e)).into_response()
+        (StatusCode::UNAUTHORIZED, format!("Invalid Control JWT: {}", e)).into_response()
     })?;
 
-    // Extract management ID
-    let management_id = extract_management_id(&claims).map_err(|e| {
+    // Extract Control ID
+    let control_id = extract_control_id(&claims).map_err(|e| {
         tracing::warn!(
             error = %e,
-            "Failed to extract management ID from JWT"
+            "Failed to extract Control ID from JWT"
         );
-        (StatusCode::UNAUTHORIZED, format!("Invalid Management API JWT: {}", e)).into_response()
+        (StatusCode::UNAUTHORIZED, format!("Invalid Control JWT: {}", e)).into_response()
     })?;
 
-    // Create ManagementContext
-    let context = ManagementContext {
-        management_id: management_id.clone(),
+    // Create ControlContext
+    let context = ControlContext {
+        control_id: control_id.clone(),
         jti: claims.jti,
         issued_at: chrono::DateTime::from_timestamp(claims.iat as i64, 0)
             .unwrap_or_else(chrono::Utc::now),
@@ -705,9 +696,9 @@ pub async fn management_auth_middleware(
     };
 
     tracing::info!(
-        management_id = %management_id,
-        event_type = "management.auth_success",
-        "Management API authenticated successfully"
+        control_id = %control_id,
+        event_type = "control.auth_success",
+        "Control authenticated successfully"
     );
 
     // Insert context into request extensions
@@ -717,18 +708,18 @@ pub async fn management_auth_middleware(
     Ok(next.run(request).await)
 }
 
-/// Axum middleware for Management API authentication using aggregated discovery-aware JWKS cache
+/// Axum middleware for Control authentication using aggregated discovery-aware JWKS cache
 ///
-/// This middleware verifies JWTs issued by any discovered Management API instance.
+/// This middleware verifies JWTs issued by any discovered Control instance.
 /// Use this when service discovery is enabled to validate tokens from multiple
-/// management service instances.
+/// Control service instances.
 ///
 /// # Security
 ///
 /// This middleware should ONLY be applied to internal endpoints that should be
-/// callable by the Management API (like cache invalidation callbacks).
-pub async fn aggregated_management_auth_middleware(
-    jwks_cache: Arc<AggregatedManagementJwksCache>,
+/// callable by the Control (like cache invalidation callbacks).
+pub async fn aggregated_control_auth_middleware(
+    jwks_cache: Arc<AggregatedControlJwksCache>,
     mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
@@ -736,32 +727,32 @@ pub async fn aggregated_management_auth_middleware(
     let token = extract_bearer_token(request.headers()).map_err(|e| {
         tracing::warn!(
             error = %e,
-            "Management authentication failed: missing or invalid token"
+            "Control authentication failed: missing or invalid token"
         );
-        (StatusCode::UNAUTHORIZED, format!("Invalid Management API token: {}", e)).into_response()
+        (StatusCode::UNAUTHORIZED, format!("Invalid Control token: {}", e)).into_response()
     })?;
 
     // Verify JWT using aggregated cache (may trigger discovery + fetch)
-    let claims = jwks_cache.verify_management_jwt(&token).await.map_err(|e| {
+    let claims = jwks_cache.verify_control_jwt(&token).await.map_err(|e| {
         tracing::warn!(
             error = %e,
-            "Management JWT verification failed"
+            "Control JWT verification failed"
         );
-        (StatusCode::UNAUTHORIZED, format!("Invalid Management API JWT: {}", e)).into_response()
+        (StatusCode::UNAUTHORIZED, format!("Invalid Control JWT: {}", e)).into_response()
     })?;
 
-    // Extract management ID
-    let management_id = extract_management_id(&claims).map_err(|e| {
+    // Extract Control ID
+    let control_id = extract_control_id(&claims).map_err(|e| {
         tracing::warn!(
             error = %e,
-            "Failed to extract management ID from JWT"
+            "Failed to extract Control ID from JWT"
         );
-        (StatusCode::UNAUTHORIZED, format!("Invalid Management API JWT: {}", e)).into_response()
+        (StatusCode::UNAUTHORIZED, format!("Invalid Control JWT: {}", e)).into_response()
     })?;
 
-    // Create ManagementContext
-    let context = ManagementContext {
-        management_id: management_id.clone(),
+    // Create ControlContext
+    let context = ControlContext {
+        control_id: control_id.clone(),
         jti: claims.jti,
         issued_at: chrono::DateTime::from_timestamp(claims.iat as i64, 0)
             .unwrap_or_else(chrono::Utc::now),
@@ -770,9 +761,9 @@ pub async fn aggregated_management_auth_middleware(
     };
 
     tracing::info!(
-        management_id = %management_id,
-        event_type = "management.auth_success",
-        "Management API authenticated successfully (aggregated)"
+        control_id = %control_id,
+        event_type = "control.auth_success",
+        "Control authenticated successfully (aggregated)"
     );
 
     // Insert context into request extensions
@@ -787,9 +778,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_validate_management_claims_valid() {
+    fn test_validate_control_claims_valid() {
         let now = chrono::Utc::now().timestamp() as u64;
-        let claims = ManagementJwtClaims {
+        let claims = ControlJwtClaims {
             iss: "inferadb-management".to_string(),
             sub: "management:prod-instance-1".to_string(),
             aud: "inferadb-engine".to_string(),
@@ -798,13 +789,13 @@ mod tests {
             jti: Some("test-jti".to_string()),
         };
 
-        assert!(validate_management_claims(&claims).is_ok());
+        assert!(validate_control_claims(&claims).is_ok());
     }
 
     #[test]
-    fn test_validate_management_claims_expired() {
+    fn test_validate_control_claims_expired() {
         let now = chrono::Utc::now().timestamp() as u64;
-        let claims = ManagementJwtClaims {
+        let claims = ControlJwtClaims {
             iss: "inferadb-management".to_string(),
             sub: "management:prod-instance-1".to_string(),
             aud: "inferadb-engine".to_string(),
@@ -813,13 +804,13 @@ mod tests {
             jti: Some("test-jti".to_string()),
         };
 
-        assert!(matches!(validate_management_claims(&claims), Err(AuthError::TokenExpired)));
+        assert!(matches!(validate_control_claims(&claims), Err(AuthError::TokenExpired)));
     }
 
     #[test]
-    fn test_validate_management_claims_invalid_subject() {
+    fn test_validate_control_claims_invalid_subject() {
         let now = chrono::Utc::now().timestamp() as u64;
-        let claims = ManagementJwtClaims {
+        let claims = ControlJwtClaims {
             iss: "inferadb-management".to_string(),
             sub: "invalid-subject".to_string(), // Should start with "management:"
             aud: "inferadb-engine".to_string(),
@@ -828,15 +819,12 @@ mod tests {
             jti: Some("test-jti".to_string()),
         };
 
-        assert!(matches!(
-            validate_management_claims(&claims),
-            Err(AuthError::InvalidTokenFormat(_))
-        ));
+        assert!(matches!(validate_control_claims(&claims), Err(AuthError::InvalidTokenFormat(_))));
     }
 
     #[test]
-    fn test_extract_management_id() {
-        let claims = ManagementJwtClaims {
+    fn test_extract_control_id() {
+        let claims = ControlJwtClaims {
             iss: "inferadb-management".to_string(),
             sub: "management:prod-instance-1".to_string(),
             aud: "inferadb-engine".to_string(),
@@ -845,13 +833,13 @@ mod tests {
             jti: None,
         };
 
-        let id = extract_management_id(&claims).unwrap();
+        let id = extract_control_id(&claims).unwrap();
         assert_eq!(id, "prod-instance-1");
     }
 
     #[test]
-    fn test_extract_management_id_invalid() {
-        let claims = ManagementJwtClaims {
+    fn test_extract_control_id_invalid() {
+        let claims = ControlJwtClaims {
             iss: "inferadb-management".to_string(),
             sub: "invalid:format".to_string(),
             aud: "inferadb-engine".to_string(),
@@ -860,6 +848,6 @@ mod tests {
             jti: None,
         };
 
-        assert!(extract_management_id(&claims).is_err());
+        assert!(extract_control_id(&claims).is_err());
     }
 }

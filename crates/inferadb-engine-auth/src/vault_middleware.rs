@@ -72,7 +72,7 @@ pub async fn vault_validation_middleware(
                         VaultVerificationError::OrganizationSuspended(_) => {
                             (StatusCode::FORBIDDEN, "Organization is suspended")
                         },
-                        VaultVerificationError::ManagementApiError(_) => {
+                        VaultVerificationError::ControlApiError(_) => {
                             (StatusCode::SERVICE_UNAVAILABLE, "Unable to verify vault")
                         },
                     };

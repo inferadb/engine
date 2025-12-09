@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
 pub mod internal_jwt_helpers;
+pub mod mock_control;
 pub mod mock_jwks;
-pub mod mock_management;
 pub mod mock_oauth;
 
 use chrono::{Duration, Utc};

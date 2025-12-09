@@ -1,17 +1,17 @@
 //! Internal API handlers for cache management and metrics
 //!
-//! These handlers are called by the Management API to invalidate server-side caches
-//! when vaults or organizations are updated. They are protected by Management JWT authentication.
+//! These handlers are called by Control to invalidate Engine-side caches
+//! when vaults or organizations are updated. They are protected by Control JWT authentication.
 //! The metrics endpoint is publicly accessible for Prometheus scraping.
 
 use std::sync::Arc;
 
 use axum::{Extension, extract::Path, http::StatusCode, response::IntoResponse};
-use inferadb_engine_auth::{CertificateCache, ManagementApiVaultVerifier};
+use inferadb_engine_auth::{CertificateCache, ControlVaultVerifier};
 
 /// Invalidate vault cache for a specific vault
 ///
-/// Called by Management API when a vault is updated or deleted.
+/// Called by Control when a vault is updated or deleted.
 ///
 /// # Arguments
 ///
@@ -24,16 +24,16 @@ use inferadb_engine_auth::{CertificateCache, ManagementApiVaultVerifier};
 ///
 /// # Security
 ///
-/// This endpoint MUST be protected by Management JWT authentication middleware.
-/// Only the Management API should be able to call this endpoint.
+/// This endpoint MUST be protected by Control JWT authentication middleware.
+/// Only the Control should be able to call this endpoint.
 pub async fn invalidate_vault_cache(
     Path(vault_id): Path<i64>,
-    Extension(verifier): Extension<Arc<ManagementApiVaultVerifier>>,
+    Extension(verifier): Extension<Arc<ControlVaultVerifier>>,
 ) -> impl IntoResponse {
     tracing::info!(
         vault_id = %vault_id,
         event_type = "internal.cache_invalidation",
-        "Received vault cache invalidation request from Management API"
+        "Received vault cache invalidation request from Control"
     );
 
     verifier.invalidate_vault(vault_id).await;
@@ -43,7 +43,7 @@ pub async fn invalidate_vault_cache(
 
 /// Invalidate organization cache for a specific organization
 ///
-/// Called by Management API when an organization is updated or suspended.
+/// Called by Control when an organization is updated or suspended.
 ///
 /// # Arguments
 ///
@@ -56,16 +56,16 @@ pub async fn invalidate_vault_cache(
 ///
 /// # Security
 ///
-/// This endpoint MUST be protected by Management JWT authentication middleware.
-/// Only the Management API should be able to call this endpoint.
+/// This endpoint MUST be protected by Control JWT authentication middleware.
+/// Only the Control should be able to call this endpoint.
 pub async fn invalidate_organization_cache(
     Path(org_id): Path<i64>,
-    Extension(verifier): Extension<Arc<ManagementApiVaultVerifier>>,
+    Extension(verifier): Extension<Arc<ControlVaultVerifier>>,
 ) -> impl IntoResponse {
     tracing::info!(
         org_id = %org_id,
         event_type = "internal.cache_invalidation",
-        "Received organization cache invalidation request from Management API"
+        "Received organization cache invalidation request from Control"
     );
 
     verifier.invalidate_organization(org_id).await;
@@ -75,8 +75,8 @@ pub async fn invalidate_organization_cache(
 
 /// Clear all caches (nuclear option)
 ///
-/// Called by Management API for emergency cache clearing or after major changes.
-/// This will cause a temporary spike in management API requests as caches are rebuilt.
+/// Called by Control for emergency cache clearing or after major changes.
+/// This will cause a temporary spike in Control requests as caches are rebuilt.
 ///
 /// # Arguments
 ///
@@ -88,14 +88,14 @@ pub async fn invalidate_organization_cache(
 ///
 /// # Security
 ///
-/// This endpoint MUST be protected by Management JWT authentication middleware.
-/// Only the Management API should be able to call this endpoint.
+/// This endpoint MUST be protected by Control JWT authentication middleware.
+/// Only the Control should be able to call this endpoint.
 pub async fn clear_all_caches(
-    Extension(verifier): Extension<Arc<ManagementApiVaultVerifier>>,
+    Extension(verifier): Extension<Arc<ControlVaultVerifier>>,
 ) -> impl IntoResponse {
     tracing::warn!(
         event_type = "internal.cache_invalidation",
-        "Received clear all caches request from Management API"
+        "Received clear all caches request from Control"
     );
 
     verifier.clear_all_caches().await;
@@ -105,7 +105,7 @@ pub async fn clear_all_caches(
 
 /// Invalidate certificate cache for a specific certificate
 ///
-/// Called by Management API when a certificate is revoked or deleted.
+/// Called by Control when a certificate is revoked or deleted.
 ///
 /// # Arguments
 ///
@@ -118,8 +118,8 @@ pub async fn clear_all_caches(
 ///
 /// # Security
 ///
-/// This endpoint MUST be protected by Management JWT authentication middleware.
-/// Only the Management API should be able to call this endpoint.
+/// This endpoint MUST be protected by Control JWT authentication middleware.
+/// Only the Control should be able to call this endpoint.
 pub async fn invalidate_certificate_cache(
     Path((org_id, client_id, cert_id)): Path<(i64, i64, i64)>,
     Extension(cert_cache): Extension<Arc<CertificateCache>>,
@@ -129,7 +129,7 @@ pub async fn invalidate_certificate_cache(
         client_id = %client_id,
         cert_id = %cert_id,
         event_type = "internal.cache_invalidation",
-        "Received certificate cache invalidation request from Management API"
+        "Received certificate cache invalidation request from Control"
     );
 
     cert_cache.invalidate(org_id, client_id, cert_id).await;
@@ -164,7 +164,7 @@ mod tests {
     use std::time::Duration;
 
     use axum::{body::Body, http::Request};
-    use inferadb_engine_auth::ManagementClient;
+    use inferadb_engine_auth::ControlClient;
     use tower::ServiceExt;
 
     use super::*;
@@ -173,10 +173,10 @@ mod tests {
     async fn test_invalidate_vault_cache_handler() {
         // Create a test vault verifier
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
+            ControlClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
                 .unwrap(),
         );
-        let verifier = Arc::new(ManagementApiVaultVerifier::new(
+        let verifier = Arc::new(ControlVaultVerifier::new(
             client,
             Duration::from_secs(300),
             Duration::from_secs(600),
@@ -208,10 +208,10 @@ mod tests {
     #[tokio::test]
     async fn test_invalidate_organization_cache_handler() {
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
+            ControlClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
                 .unwrap(),
         );
-        let verifier = Arc::new(ManagementApiVaultVerifier::new(
+        let verifier = Arc::new(ControlVaultVerifier::new(
             client,
             Duration::from_secs(300),
             Duration::from_secs(600),
@@ -241,10 +241,10 @@ mod tests {
     #[tokio::test]
     async fn test_clear_all_caches_handler() {
         let client = Arc::new(
-            ManagementClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
+            ControlClient::new("http://localhost:8081".to_string(), None, 5000, None, None)
                 .unwrap(),
         );
-        let verifier = Arc::new(ManagementApiVaultVerifier::new(
+        let verifier = Arc::new(ControlVaultVerifier::new(
             client,
             Duration::from_secs(300),
             Duration::from_secs(600),

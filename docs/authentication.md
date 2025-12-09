@@ -182,7 +182,7 @@ Host: localhost:9091
 This endpoint is served on Control's **internal server** (port 9091) and requires a valid server JWT, but performs **no permission checks**. It's designed specifically for server-to-server verification.
 
 ```rust
-let vault = management_client.get_vault(vault_id).await?;
+let vault = control_client.get_vault(vault_id).await?;
 
 if vault.organization_id != org_id {
     return Err("Vault does not belong to organization");
@@ -204,7 +204,7 @@ Host: localhost:9091
 This endpoint is served on Control's **internal server** (port 9091) and requires a valid server JWT, but performs **no permission checks**. It's designed specifically for server-to-server verification.
 
 ```rust
-let org = management_client.get_organization(org_id).await?;
+let org = control_client.get_organization(org_id).await?;
 
 if org.status != "active" {
     return Err("Organization suspended");
@@ -249,7 +249,7 @@ The server configures its identity on startup:
 auth:
   enabled: true
   # IMPORTANT: Points to Control's INTERNAL port (9091), not public port (3000)
-  management_api_url: "http://localhost:9091"
+  control_url: "http://localhost:9091"
   # Server identity for server-to-control requests
   server_identity_private_key: |
     -----BEGIN PRIVATE KEY-----
@@ -270,7 +270,7 @@ When making requests to Control, the server generates short-lived JWTs:
 let claims = ServerJwtClaims {
     iss: format!("inferadb-engine:{}", server_id),
     sub: format!("server:{}", server_id),
-    aud: management_api_url.to_string(),
+    aud: control_url.to_string(),
     iat: now.timestamp(),
     exp: (now + Duration::minutes(5)).timestamp(),
     jti: uuid::new_v4().to_string(),
@@ -358,12 +358,12 @@ The Server API aggressively caches authentication data to minimize latency and C
 auth:
   enabled: true
   # IMPORTANT: Points to Control's INTERNAL port (9091)
-  management_api_url: "http://localhost:9091"
-  management_api_timeout_ms: 5000
+  control_url: "http://localhost:9091"
+  control_timeout_ms: 5000
 
   # Cache TTLs
   cert_cache_ttl_seconds: 900 # 15 minutes
-  management_cache_ttl_seconds: 300 # 5 minutes
+  control_cache_ttl_seconds: 300 # 5 minutes
 
   # Cache capacities
   cert_cache_max_capacity: 10000
@@ -399,7 +399,7 @@ auth:
 
 **Server JWTs**: 5 minutes (300 seconds)
 
-- Short-lived for server-to-management requests
+- Short-lived for engine-to-control requests
 - Generated on-demand for each verification call
 - Reduces impact of server key compromise
 
@@ -527,7 +527,7 @@ curl -X GET http://localhost:8081/v1/vaults/$VAULT_ID \
 # vault.organization_id should equal org_id claim in JWT
 
 # Check server logs for Control errors
-grep "management_api" /var/log/inferadb/server.log
+grep "control" /var/log/inferadb/server.log
 ```
 
 ### Problem: High latency on first request
@@ -604,7 +604,7 @@ When authentication fails, verify in order:
 ```yaml
 auth:
   enabled: true
-  management_api_url: "http://localhost:8081"
+  control_url: "http://localhost:8081"
 ```
 
 ### Production Configuration
@@ -614,15 +614,15 @@ auth:
   enabled: true
 
   # Control connection
-  management_api_url: "https://management.example.com"
-  management_api_timeout_ms: 5000
+  control_url: "https://management.example.com"
+  control_timeout_ms: 5000
 
   # JWKS configuration (for client token verification)
   jwks_base_url: "https://management.example.com"
 
   # Cache TTLs
   cert_cache_ttl_seconds: 900 # 15 minutes
-  management_cache_ttl_seconds: 300 # 5 minutes
+  control_cache_ttl_seconds: 300 # 5 minutes
 
   # Cache capacities
   cert_cache_max_capacity: 10000
@@ -645,12 +645,12 @@ Configuration can also be set via environment variables:
 ```bash
 # Core settings
 export INFERADB__AUTH__ENABLED=true
-export INFERADB__AUTH__MANAGEMENT_API_URL=http://localhost:8081
+export INFERADB__AUTH__CONTROL_URL=http://localhost:8081
 export INFERADB__AUTH__JWKS_BASE_URL=http://localhost:8081
 
 # Cache configuration
 export INFERADB__AUTH__CERT_CACHE_TTL_SECONDS=900
-export INFERADB__AUTH__MANAGEMENT_CACHE_TTL_SECONDS=300
+export INFERADB__AUTH__CONTROL_CACHE_TTL_SECONDS=300
 
 # Server identity
 export INFERADB__AUTH__SERVER_IDENTITY_KID=server-primary-2024
@@ -668,7 +668,7 @@ inferadb_engine_auth_validations_total          # Total auth validations
 inferadb_engine_auth_failures_total             # Failed authentications
 inferadb_engine_auth_cache_hits_total          # Cache hits (should be >90%)
 inferadb_engine_auth_cache_misses_total        # Cache misses
-inferadb_engine_auth_management_api_calls_total # Control calls
+inferadb_engine_auth_control_api_calls_total # Control calls
 inferadb_engine_auth_validation_duration_seconds # Validation latency
 
 # Cache metrics

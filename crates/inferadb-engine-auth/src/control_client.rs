@@ -1,6 +1,6 @@
-//! Management API client for validating tokens and fetching metadata
+//! Control client for validating tokens and fetching metadata
 //!
-//! This module provides an HTTP client for communicating with the InferaDB Management API
+//! This module provides an HTTP client for communicating with InferaDB Control
 //! to validate vaults, organizations, and fetch client certificates for JWT verification.
 //!
 //! Supports two modes:
@@ -14,19 +14,19 @@ use serde::Deserialize;
 
 use crate::server_identity::ServerIdentity;
 
-/// Management API client for validating tokens and fetching metadata
-pub struct ManagementClient {
+/// Control client for validating tokens and fetching metadata
+pub struct ControlClient {
     http_client: HttpClient,
-    /// Internal base URL for server-to-server /internal/* endpoints
+    /// Internal base URL for engine-to-control /internal/* endpoints
     /// Falls back to base_url if not set
     internal_base_url: String,
-    /// Optional server identity for signing server-to-management requests
+    /// Optional server identity for signing engine-to-control requests
     server_identity: Option<Arc<ServerIdentity>>,
-    /// Management API URL for JWT audience
+    /// Control URL for JWT audience
     jwt_audience_url: String,
 }
 
-/// Organization information from management API
+/// Organization information from Control
 #[derive(Debug, Clone, Deserialize)]
 pub struct OrganizationInfo {
     /// Organization Snowflake ID
@@ -49,7 +49,7 @@ pub enum OrgStatus {
     Deleted,
 }
 
-/// Vault information from management API
+/// Vault information from Control
 #[derive(Debug, Clone, Deserialize)]
 pub struct VaultInfo {
     /// Vault Snowflake ID
@@ -60,19 +60,19 @@ pub struct VaultInfo {
     pub organization_id: i64,
 }
 
-impl ManagementClient {
-    /// Create a new management API client
+impl ControlClient {
+    /// Create a new Control client
     ///
     /// # Arguments
     ///
-    /// * `base_url` - Base URL of the management API (e.g., "https://api.inferadb.com")
+    /// * `base_url` - Base URL of Control (e.g., "https://api.inferadb.com")
     ///   - Without load balancing: Used directly for all requests
     ///   - With load balancing: Used as fallback and for JWT audience
-    /// * `internal_base_url` - Base URL for internal /internal/* endpoints (e.g., "http://control-api:9091")
+    /// * `internal_base_url` - Base URL for internal /internal/* endpoints (e.g., "http://control:9091")
     ///   - If None, falls back to base_url
     /// * `timeout_ms` - Request timeout in milliseconds
     /// * `lb_client` - Optional load balancing client for discovered endpoints
-    /// * `server_identity` - Optional server identity for signing server-to-management requests
+    /// * `server_identity` - Optional server identity for signing engine-to-control requests
     ///
     /// # Errors
     ///
@@ -94,12 +94,12 @@ impl ManagementClient {
         Ok(Self { http_client, internal_base_url, server_identity, jwt_audience_url })
     }
 
-    /// Get the internal base URL for server-to-server /internal/* endpoints
+    /// Get the internal base URL for engine-to-control /internal/* endpoints
     fn get_internal_base_url(&self) -> String {
         self.internal_base_url.clone()
     }
 
-    /// Get authorization header for server-to-management requests
+    /// Get authorization header for engine-to-control requests
     ///
     /// Returns a JWT signed by the server's identity if configured,
     /// otherwise returns None (request will be unauthenticated)
@@ -123,10 +123,7 @@ impl ManagementClient {
     /// - The HTTP request fails
     /// - The organization is not found
     /// - The response cannot be parsed
-    pub async fn get_organization(
-        &self,
-        org_id: i64,
-    ) -> Result<OrganizationInfo, ManagementApiError> {
+    pub async fn get_organization(&self, org_id: i64) -> Result<OrganizationInfo, ControlApiError> {
         // Use internal URL for /internal/* endpoints
         let internal_url = self.get_internal_base_url();
         let url = format!("{}/internal/organizations/{}", internal_url, org_id);
@@ -139,21 +136,21 @@ impl ManagementClient {
         }
 
         let response =
-            request.send().await.map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
+            request.send().await.map_err(|e| ControlApiError::RequestFailed(e.to_string()))?;
 
         match response.status() {
             StatusCode::OK => {
                 let org = response
                     .json::<OrganizationInfo>()
                     .await
-                    .map_err(|e| ManagementApiError::InvalidResponse(e.to_string()))?;
+                    .map_err(|e| ControlApiError::InvalidResponse(e.to_string()))?;
                 Ok(org)
             },
             StatusCode::NOT_FOUND => {
                 // NOT_FOUND is expected for invalid org IDs
-                Err(ManagementApiError::NotFound("organization"))
+                Err(ControlApiError::NotFound("organization"))
             },
-            status => Err(ManagementApiError::UnexpectedStatus(status.as_u16())),
+            status => Err(ControlApiError::UnexpectedStatus(status.as_u16())),
         }
     }
 
@@ -169,7 +166,7 @@ impl ManagementClient {
     /// - The HTTP request fails
     /// - The vault is not found
     /// - The response cannot be parsed
-    pub async fn get_vault(&self, vault_id: i64) -> Result<VaultInfo, ManagementApiError> {
+    pub async fn get_vault(&self, vault_id: i64) -> Result<VaultInfo, ControlApiError> {
         // Use internal URL for /internal/* endpoints
         let internal_url = self.get_internal_base_url();
         let url = format!("{}/internal/vaults/{}", internal_url, vault_id);
@@ -182,34 +179,34 @@ impl ManagementClient {
         }
 
         let response =
-            request.send().await.map_err(|e| ManagementApiError::RequestFailed(e.to_string()))?;
+            request.send().await.map_err(|e| ControlApiError::RequestFailed(e.to_string()))?;
 
         match response.status() {
             StatusCode::OK => {
                 let vault = response
                     .json::<VaultInfo>()
                     .await
-                    .map_err(|e| ManagementApiError::InvalidResponse(e.to_string()))?;
+                    .map_err(|e| ControlApiError::InvalidResponse(e.to_string()))?;
                 Ok(vault)
             },
             StatusCode::NOT_FOUND => {
                 // NOT_FOUND is expected for invalid vault IDs
-                Err(ManagementApiError::NotFound("vault"))
+                Err(ControlApiError::NotFound("vault"))
             },
-            status => Err(ManagementApiError::UnexpectedStatus(status.as_u16())),
+            status => Err(ControlApiError::UnexpectedStatus(status.as_u16())),
         }
     }
 }
 
-/// Errors that can occur when interacting with the Management API
+/// Errors that can occur when interacting with Control
 #[derive(Debug, thiserror::Error)]
-pub enum ManagementApiError {
+pub enum ControlApiError {
     /// HTTP request failed
     #[error("HTTP request failed: {0}")]
     RequestFailed(String),
 
-    /// Invalid response from management API
-    #[error("Invalid response from management API: {0}")]
+    /// Invalid response from Control
+    #[error("Invalid response from Control: {0}")]
     InvalidResponse(String),
 
     /// Resource not found

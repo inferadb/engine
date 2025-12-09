@@ -177,15 +177,15 @@ impl ServerIdentity {
         pem::encode(&pem)
     }
 
-    /// Sign a JWT for server-to-management authentication
-    pub fn sign_jwt(&self, management_api_url: &str) -> Result<String, String> {
+    /// Sign a JWT for engine-to-control authentication
+    pub fn sign_jwt(&self, control_url: &str) -> Result<String, String> {
         let now = chrono::Utc::now();
         let exp = now + chrono::Duration::minutes(5);
 
         let claims = ServerJwtClaims {
             iss: format!("inferadb-engine:{}", self.server_id),
             sub: format!("server:{}", self.server_id),
-            aud: management_api_url.to_string(),
+            aud: control_url.to_string(),
             iat: now.timestamp(),
             exp: exp.timestamp(),
             jti: uuid::Uuid::new_v4().to_string(),
