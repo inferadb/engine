@@ -135,7 +135,7 @@ groups:
       # WASM latency p99 exceeds target (50ms)
       - alert: WASMLatencyHigh
         expr: |
-          histogram_quantile(0.99, rate(inferadb_wasm_execution_duration_seconds_bucket[5m])) * 1000 > 50
+          histogram_quantile(0.99, rate(inferadb_wasm_duration_seconds_bucket[5m])) * 1000 > 50
         for: 5m
         labels:
           severity: P1
@@ -180,28 +180,29 @@ groups:
           summary: "Error rate approaching 0.1% target"
           description: "5xx error rate is {{ $value | humanizePercentage }} (target: <0.1%)."
 
-      # Specific error type alerts
-      - alert: StorageErrorsHigh
+      # WASM execution errors
+      - alert: WASMErrorsHigh
         expr: |
-          rate(inferadb_storage_errors_total[5m]) > 0.01
+          rate(inferadb_wasm_errors_total[5m]) > 0.01
         for: 5m
         labels:
           severity: P1
           category: errors
         annotations:
-          summary: "High storage error rate"
-          description: "Storage errors at {{ $value }}/sec. Check storage backend health."
+          summary: "High WASM error rate"
+          description: "WASM errors at {{ $value }}/sec. Check for policy issues or module errors."
 
-      - alert: EvaluationErrorsHigh
+      # Condition evaluation failures
+      - alert: ConditionEvaluationFailuresHigh
         expr: |
-          rate(inferadb_evaluation_errors_total[5m]) > 0.01
+          rate(inferadb_condition_evaluation_failure_total[5m]) > 0.01
         for: 5m
         labels:
           severity: P1
           category: errors
         annotations:
-          summary: "High evaluation error rate"
-          description: "Evaluation errors at {{ $value }}/sec. Check for policy issues or circular references."
+          summary: "High condition evaluation failure rate"
+          description: "Condition evaluation failures at {{ $value }}/sec. Check for policy issues."
 
   # ============================================================================
   # CACHE HIT RATE SLO (>80%)
@@ -239,17 +240,17 @@ groups:
           summary: "Cache hit rate critically low"
           description: "Cache hit rate is {{ $value | humanizePercentage }} (target: >80%). Performance severely degraded."
 
-      # High cache eviction rate
-      - alert: CacheEvictionRateHigh
+      # Low cache hit rate gauge (alternative metric)
+      - alert: CacheHitRateGaugeLow
         expr: |
-          rate(inferadb_cache_evictions_total[5m]) > 100
+          inferadb_cache_hit_rate < 80
         for: 10m
         labels:
           severity: P2
           category: cache
         annotations:
-          summary: "High cache eviction rate"
-          description: "Cache evicting {{ $value }} items/sec. Cache may be undersized for workload."
+          summary: "Cache hit rate gauge below 80%"
+          description: "Cache hit rate gauge is {{ $value }}%. Cache may be undersized for workload."
 
   # ============================================================================
   # STORAGE LATENCY SLO (p99 < 5ms)
@@ -345,23 +346,23 @@ groups:
           summary: "Replication target unhealthy"
           description: "{{ $value | humanizePercentage }} of replication targets are connected. Check network and remote region health."
 
-      # Replication errors
-      - alert: ReplicationErrorsHigh
+      # Replication failures
+      - alert: ReplicationFailuresHigh
         expr: |
-          rate(inferadb_replication_errors_total[5m]) > 0.01
+          rate(inferadb_replication_failures_total[5m]) > 0.01
         for: 5m
         labels:
           severity: P1
           category: replication
         annotations:
-          summary: "High replication error rate"
-          description: "Replication errors at {{ $value }}/sec for target {{ $labels.target_region }}."
+          summary: "High replication failure rate"
+          description: "Replication failures at {{ $value }}/sec. Check network and remote region health."
 
       # Conflict rate high
       - alert: ConflictRateHigh
         expr: |
           (rate(inferadb_replication_conflicts_total[5m])
-          / rate(inferadb_replication_changes_replicated_total[5m])) > 0.05
+          / rate(inferadb_replication_changes_total[5m])) > 0.05
         for: 10m
         labels:
           severity: P2

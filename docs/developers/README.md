@@ -66,7 +66,7 @@ server/
 │   ├── inferadb-engine-repl/      # Replication & consistency
 │   ├── inferadb-engine-store/     # Storage abstraction
 │   ├── inferadb-engine-wasm/      # WASM policy modules
-│   └── inferadb-engine-bin/       # Binary entry point
+│   └── inferadb-engine/           # Binary entry point
 ├── docs/                 # Documentation
 ├── api/                  # API documentation (OpenAPI, Swagger UI)
 ├── tests/                # End-to-end tests
@@ -81,7 +81,7 @@ server/
 ### Crate Dependency Graph
 
 ```text
-inferadb-engine-bin
+inferadb-engine
     ├── inferadb-engine-api
     │   ├── inferadb-engine-auth
     │   ├── inferadb-engine-core

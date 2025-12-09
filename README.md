@@ -62,7 +62,7 @@ curl -X POST http://localhost:8080/v1/relationships/write \
 
 ```mermaid
 graph TD
-    Bin[inferadb-engine-bin] --> API[inferadb-engine-api]
+    Bin[inferadb-engine] --> API[inferadb-engine-api]
     API --> Core[inferadb-engine-core]
     API --> Auth[inferadb-engine-auth]
     Core --> Store[inferadb-engine-store]
@@ -72,7 +72,7 @@ graph TD
 
 | Crate                     | Purpose                            |
 | ------------------------- | ---------------------------------- |
-| inferadb-engine-bin       | Binary entrypoint                  |
+| inferadb-engine           | Binary entrypoint                  |
 | inferadb-engine-api       | REST and gRPC endpoints            |
 | inferadb-engine-core      | Policy evaluation, IPL interpreter |
 | inferadb-engine-auth      | JWT validation, JWKS               |

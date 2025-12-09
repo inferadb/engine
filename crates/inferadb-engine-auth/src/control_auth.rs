@@ -153,7 +153,7 @@ impl ControlJwksCache {
 
     /// Fetch JWKS from Control
     async fn fetch_jwks(&self) -> Result<ControlJwks, AuthError> {
-        let jwks_url = format!("{}/internal/management-jwks.json", self.control_url);
+        let jwks_url = format!("{}/internal/control-jwks.json", self.control_url);
 
         tracing::debug!(
             jwks_url = %jwks_url,
@@ -403,7 +403,7 @@ impl AggregatedControlJwksCache {
 
     /// Fetch JWKS from a single endpoint
     async fn fetch_jwks_from_endpoint(&self, endpoint_url: &str) -> Result<ControlJwks, String> {
-        let jwks_url = format!("{}/internal/management-jwks.json", endpoint_url);
+        let jwks_url = format!("{}/internal/control-jwks.json", endpoint_url);
 
         tracing::debug!(
             jwks_url = %jwks_url,

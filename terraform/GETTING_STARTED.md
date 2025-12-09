@@ -59,8 +59,7 @@ node_desired_size   = 3
 node_max_size       = 10
 
 # InferaDB configuration
-inferadb_engine_replica_count = 3
-inferadb_engine_auth_enabled  = true
+inferadb_replica_count = 3
 EOF
 
 # 3. Initialize and apply
@@ -142,8 +141,7 @@ node_count_per_zone    = 1
 max_node_count_per_zone = 3
 
 # InferaDB configuration
-inferadb_engine_replica_count = 3
-inferadb_engine_auth_enabled  = true
+inferadb_replica_count = 3
 EOF
 
 # 3. Initialize and apply
@@ -238,11 +236,11 @@ kubectl logs -n inferadb inferadb-<pod-id> -f
 ### View Metrics
 
 ```bash
-# Port-forward to metrics endpoint
-kubectl port-forward -n inferadb svc/inferadb 9090:9090
+# Port-forward to metrics endpoint (metrics are served on HTTP port)
+kubectl port-forward -n inferadb svc/inferadb 8080:8080
 
 # Access metrics
-curl http://localhost:9090/metrics
+curl http://localhost:8080/metrics
 ```
 
 ### Cloud Monitoring
@@ -283,7 +281,7 @@ gcloud redis instances describe inferadb-prod-redis --region us-central1
 kubectl scale deployment -n inferadb inferadb --replicas=10
 
 # Via Terraform
-terraform apply -var="inferadb_engine_replica_count=10"
+terraform apply -var="inferadb_replica_count=10"
 ```
 
 ### Scale Nodes

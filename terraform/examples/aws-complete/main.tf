@@ -1,5 +1,9 @@
-# Complete AWS Deployment for InferaDB
-# This example deploys InferaDB on EKS with ElastiCache Redis
+# Complete AWS Deployment for InferaDB Engine
+# This example deploys the InferaDB Engine on EKS.
+#
+# Note: The Redis module is included for deployments that also include
+# the Control service (which uses Redis for session/replay protection).
+# For Engine-only deployments, Redis is optional.
 
 terraform {
   required_version = ">= 1.5"
@@ -116,13 +120,17 @@ provider "helm" {
   }
 }
 
-# Generate secure Redis auth token
+# Generate secure Redis auth token (used by Control service)
 resource "random_password" "redis_auth_token" {
   length  = 32
   special = false
 }
 
-# ElastiCache Redis
+# ElastiCache Redis (for Control service - optional for Engine-only deployments)
+# The Control service uses Redis for:
+# - Session management and replay protection
+# - Distributed rate limiting
+# - Cache for organization/vault data
 module "redis" {
   source = "../../modules/aws/redis"
 
@@ -173,7 +181,7 @@ resource "kubernetes_namespace" "inferadb" {
   depends_on = [module.eks]
 }
 
-# Kubernetes Secret for Redis
+# Kubernetes Secret for Redis (used by Control service, not Engine)
 resource "kubernetes_secret" "redis" {
   metadata {
     name      = "redis-credentials"
@@ -225,33 +233,44 @@ resource "helm_release" "inferadb" {
       }
 
       config = {
-        store = {
-          backend = "memory"  # Change to "foundationdb" for production
-        }
+        # Storage backend: "memory" or "foundationdb"
+        storage = "memory"  # Change to "foundationdb" for production
+        logging = "info"
 
+        # Cache configuration
         cache = {
-          enabled     = true
-          maxCapacity = 100000
-          ttlSeconds  = 600
+          enabled  = true
+          capacity = 100000
+          ttl      = 600
         }
 
-        auth = {
-          enabled          = var.inferadb_auth_enabled
-          replayProtection = true
-          redisUrl         = module.redis.connection_string
+        # Token validation settings
+        token = {
+          cacheTtl  = 300
+          clockSkew = 60
+          maxAge    = 86400
         }
 
-        observability = {
-          logLevel       = "info"
-          logFormat      = "json"
-          metricsEnabled = true
-          tracingEnabled = var.inferadb_tracing_enabled
+        # Mesh configuration for Control service communication
+        mesh = {
+          timeout     = 5000
+          cacheTtl    = 300
+          certCacheTtl = 900
+        }
+      }
+
+      # Discovery configuration
+      discovery = {
+        mode = "kubernetes"
+        control = {
+          serviceName = "inferadb-control"
+          namespace   = "inferadb"
+          port        = 9092
         }
       }
 
       secrets = {
-        redisUrl      = module.redis.connection_string
-        redisPassword = random_password.redis_auth_token.result
+        pem = ""  # Set from external secret manager in production
       }
 
       service = {
@@ -269,9 +288,7 @@ resource "helm_release" "inferadb" {
   ]
 
   depends_on = [
-    module.eks,
-    module.redis,
-    kubernetes_secret.redis
+    module.eks
   ]
 }
 

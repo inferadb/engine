@@ -4,10 +4,10 @@ metadata:
   name: inferadb-engine
   labels:
     app: inferadb-engine
-    component: server
+    component: engine
   annotations:
     prometheus.io/scrape: "true"
-    prometheus.io/port: "8080"
+    prometheus.io/port: "8082"
     prometheus.io/path: "/metrics"
 spec:
   type: ClusterIP
@@ -21,13 +21,13 @@ spec:
       port: 8081
       targetPort: grpc
       protocol: TCP
-    - name: internal
-      port: 9090
-      targetPort: internal
+    - name: mesh
+      port: 8082
+      targetPort: mesh
       protocol: TCP
   selector:
     app: inferadb-engine
-    component: server
+    component: engine
 
 ---
 apiVersion: v1
@@ -36,7 +36,7 @@ metadata:
   name: inferadb-engine-headless
   labels:
     app: inferadb-engine
-    component: server
+    component: engine
 spec:
   type: ClusterIP
   clusterIP: None
@@ -50,10 +50,10 @@ spec:
       port: 8081
       targetPort: grpc
       protocol: TCP
-    - name: internal
-      port: 9090
-      targetPort: internal
+    - name: mesh
+      port: 8082
+      targetPort: mesh
       protocol: TCP
   selector:
     app: inferadb-engine
-    component: server
+    component: engine

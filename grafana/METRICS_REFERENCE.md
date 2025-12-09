@@ -14,8 +14,10 @@ This document provides a comprehensive reference for all Prometheus metrics expo
 - [Evaluation Metrics](#evaluation-metrics)
 - [API Metrics](#api-metrics)
 - [Authentication Metrics](#authentication-metrics)
+- [JWKS Metrics](#jwks-metrics)
 - [Replication Metrics](#replication-metrics)
 - [System Metrics](#system-metrics)
+- [Discovery & Load Balancing Metrics](#discovery--load-balancing-metrics)
 
 ---
 
@@ -263,7 +265,7 @@ sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m]))
 
 ## Cache Metrics
 
-### `inferadb_engine_cache_hits_total`
+### `inferadb_cache_hits_total`
 
 **Type**: Counter
 
@@ -274,10 +276,10 @@ sum by (condition_type) (rate(inferadb_condition_evaluation_failure_total[5m]))
 **Usage Example**:
 
 ```promql
-rate(inferadb_engine_cache_hits_total[5m])
+rate(inferadb_cache_hits_total[5m])
 ```
 
-### `inferadb_engine_cache_misses_total`
+### `inferadb_cache_misses_total`
 
 **Type**: Counter
 
@@ -288,10 +290,10 @@ rate(inferadb_engine_cache_hits_total[5m])
 **Usage Example**:
 
 ```promql
-sum(rate(inferadb_engine_cache_hits_total[5m])) / (sum(rate(inferadb_engine_cache_hits_total[5m])) + sum(rate(inferadb_engine_cache_misses_total[5m]))) * 100
+sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m]))) * 100
 ```
 
-### `inferadb_engine_cache_entries`
+### `inferadb_cache_entries`
 
 **Type**: Gauge
 
@@ -302,10 +304,10 @@ sum(rate(inferadb_engine_cache_hits_total[5m])) / (sum(rate(inferadb_engine_cach
 **Usage Example**:
 
 ```promql
-inferadb_engine_cache_entries
+inferadb_cache_entries
 ```
 
-### `inferadb_engine_cache_hit_rate`
+### `inferadb_cache_hit_rate`
 
 **Type**: Gauge
 
@@ -316,7 +318,7 @@ inferadb_engine_cache_entries
 **Usage Example**:
 
 ```promql
-inferadb_engine_cache_hit_rate
+inferadb_cache_hit_rate
 ```
 
 ---
@@ -415,7 +417,7 @@ inferadb_storage_revision
 
 ## WASM Metrics
 
-### `inferadb_engine_wasm_invocations_total`
+### `inferadb_wasm_invocations_total`
 
 **Type**: Counter
 
@@ -428,10 +430,10 @@ inferadb_storage_revision
 **Usage Example**:
 
 ```promql
-sum by (module) (rate(inferadb_engine_wasm_invocations_total[5m]))
+sum by (module) (rate(inferadb_wasm_invocations_total[5m]))
 ```
 
-### `inferadb_engine_wasm_errors_total`
+### `inferadb_wasm_errors_total`
 
 **Type**: Counter
 
@@ -444,10 +446,10 @@ sum by (module) (rate(inferadb_engine_wasm_invocations_total[5m]))
 **Usage Example**:
 
 ```promql
-sum by (module) (rate(inferadb_engine_wasm_errors_total[5m]))
+sum by (module) (rate(inferadb_wasm_errors_total[5m]))
 ```
 
-### `inferadb_engine_wasm_duration_seconds`
+### `inferadb_wasm_duration_seconds`
 
 **Type**: Histogram
 
@@ -462,10 +464,10 @@ sum by (module) (rate(inferadb_engine_wasm_errors_total[5m]))
 **Usage Example**:
 
 ```promql
-histogram_quantile(0.99, sum by (module, le) (rate(inferadb_engine_wasm_duration_seconds_bucket[5m]))) * 1000
+histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_duration_seconds_bucket[5m]))) * 1000
 ```
 
-### `inferadb_engine_wasm_fuel_consumed`
+### `inferadb_wasm_fuel_consumed`
 
 **Type**: Histogram
 
@@ -480,7 +482,7 @@ histogram_quantile(0.99, sum by (module, le) (rate(inferadb_engine_wasm_duration
 **Usage Example**:
 
 ```promql
-histogram_quantile(0.99, sum by (module, le) (rate(inferadb_engine_wasm_fuel_consumed_bucket[5m])))
+histogram_quantile(0.99, sum by (module, le) (rate(inferadb_wasm_fuel_consumed_bucket[5m])))
 ```
 
 ---
@@ -537,7 +539,7 @@ histogram_quantile(0.99, rate(inferadb_evaluation_branches_bucket[5m]))
 
 ## API Metrics
 
-### `inferadb_engine_api_requests_total`
+### `inferadb_api_requests_total`
 
 **Type**: Counter
 
@@ -552,10 +554,10 @@ histogram_quantile(0.99, rate(inferadb_evaluation_branches_bucket[5m]))
 **Usage Example**:
 
 ```promql
-sum by (endpoint, method) (rate(inferadb_engine_api_requests_total[5m]))
+sum by (endpoint, method) (rate(inferadb_api_requests_total[5m]))
 ```
 
-### `inferadb_engine_api_errors_total`
+### `inferadb_api_errors_total`
 
 **Type**: Counter
 
@@ -569,10 +571,10 @@ sum by (endpoint, method) (rate(inferadb_engine_api_requests_total[5m]))
 **Usage Example**:
 
 ```promql
-sum by (endpoint) (rate(inferadb_engine_api_errors_total{status=~"5.."}[5m]))
+sum by (endpoint) (rate(inferadb_api_errors_total{status=~"5.."}[5m]))
 ```
 
-### `inferadb_engine_api_request_duration_seconds`
+### `inferadb_api_request_duration_seconds`
 
 **Type**: Histogram
 
@@ -588,10 +590,10 @@ sum by (endpoint) (rate(inferadb_engine_api_errors_total{status=~"5.."}[5m]))
 **Usage Example**:
 
 ```promql
-histogram_quantile(0.99, sum by (endpoint, le) (rate(inferadb_engine_api_request_duration_seconds_bucket[5m]))) * 1000
+histogram_quantile(0.99, sum by (endpoint, le) (rate(inferadb_api_request_duration_seconds_bucket[5m]))) * 1000
 ```
 
-### `inferadb_engine_api_active_connections`
+### `inferadb_api_active_connections`
 
 **Type**: Gauge
 
@@ -602,14 +604,14 @@ histogram_quantile(0.99, sum by (endpoint, le) (rate(inferadb_engine_api_request
 **Usage Example**:
 
 ```promql
-inferadb_engine_api_active_connections
+inferadb_api_active_connections
 ```
 
 ---
 
 ## Authentication Metrics
 
-### `inferadb_engine_auth_attempts_total`
+### `inferadb_auth_attempts_total`
 
 **Type**: Counter
 
@@ -618,15 +620,15 @@ inferadb_engine_api_active_connections
 **Labels**:
 
 - `method`: Authentication method (e.g., "tenant_jwt", "oauth_jwt", "internal_jwt")
-- `tenant_id`: Tenant identifier
+- `org_id`: Organization identifier
 
 **Usage Example**:
 
 ```promql
-sum by (method) (rate(inferadb_engine_auth_attempts_total[5m]))
+sum by (method) (rate(inferadb_auth_attempts_total[5m]))
 ```
 
-### `inferadb_engine_auth_success_total`
+### `inferadb_auth_success_total`
 
 **Type**: Counter
 
@@ -635,15 +637,15 @@ sum by (method) (rate(inferadb_engine_auth_attempts_total[5m]))
 **Labels**:
 
 - `method`: Authentication method
-- `tenant_id`: Tenant identifier
+- `org_id`: Organization identifier
 
 **Usage Example**:
 
 ```promql
-sum by (method) (rate(inferadb_engine_auth_success_total[5m]))
+sum by (method) (rate(inferadb_auth_success_total[5m]))
 ```
 
-### `inferadb_engine_auth_failure_total`
+### `inferadb_auth_failure_total`
 
 **Type**: Counter
 
@@ -653,15 +655,15 @@ sum by (method) (rate(inferadb_engine_auth_success_total[5m]))
 
 - `method`: Authentication method
 - `error_type`: Type of authentication error
-- `tenant_id`: Tenant identifier
+- `org_id`: Organization identifier
 
 **Usage Example**:
 
 ```promql
-sum by (error_type) (rate(inferadb_engine_auth_failure_total[5m]))
+sum by (error_type) (rate(inferadb_auth_failure_total[5m]))
 ```
 
-### `inferadb_engine_auth_duration_seconds`
+### `inferadb_auth_duration_seconds`
 
 **Type**: Histogram
 
@@ -670,21 +672,154 @@ sum by (error_type) (rate(inferadb_engine_auth_failure_total[5m]))
 **Labels**:
 
 - `method`: Authentication method
-- `tenant_id`: Tenant identifier
+- `org_id`: Organization identifier
 
 **Buckets**: Standard exponential buckets
 
 **Usage Example**:
 
 ```promql
-histogram_quantile(0.99, sum by (method, le) (rate(inferadb_engine_auth_duration_seconds_bucket[5m]))) * 1000
+histogram_quantile(0.99, sum by (method, le) (rate(inferadb_auth_duration_seconds_bucket[5m]))) * 1000
+```
+
+### `inferadb_jwt_signature_verifications_total`
+
+**Type**: Counter
+
+**Description**: Total number of JWT signature verifications
+
+**Labels**:
+
+- `algorithm`: Signature algorithm (e.g., "EdDSA", "RS256")
+- `result`: Verification result ("success" or "failure")
+
+**Usage Example**:
+
+```promql
+sum by (algorithm, result) (rate(inferadb_jwt_signature_verifications_total[5m]))
+```
+
+### `inferadb_jwt_validation_errors_total`
+
+**Type**: Counter
+
+**Description**: Total number of JWT validation errors
+
+**Labels**:
+
+- `error_type`: Type of validation error (e.g., "expired", "invalid_signature", "missing_claim")
+
+**Usage Example**:
+
+```promql
+sum by (error_type) (rate(inferadb_jwt_validation_errors_total[5m]))
+```
+
+---
+
+## JWKS Metrics
+
+### `inferadb_jwks_cache_hits_total`
+
+**Type**: Counter
+
+**Description**: Total number of JWKS cache hits
+
+**Labels**:
+
+- `org_id`: Organization identifier
+
+**Usage Example**:
+
+```promql
+sum(rate(inferadb_jwks_cache_hits_total[5m]))
+```
+
+### `inferadb_jwks_cache_misses_total`
+
+**Type**: Counter
+
+**Description**: Total number of JWKS cache misses
+
+**Labels**:
+
+- `org_id`: Organization identifier
+
+**Usage Example**:
+
+```promql
+sum(rate(inferadb_jwks_cache_misses_total[5m]))
+```
+
+### `inferadb_jwks_refresh_total`
+
+**Type**: Counter
+
+**Description**: Total number of JWKS refresh operations
+
+**Labels**:
+
+- `org_id`: Organization identifier
+
+**Usage Example**:
+
+```promql
+sum(rate(inferadb_jwks_refresh_total[5m]))
+```
+
+### `inferadb_jwks_refresh_errors_total`
+
+**Type**: Counter
+
+**Description**: Total number of JWKS refresh errors
+
+**Labels**:
+
+- `org_id`: Organization identifier
+
+**Usage Example**:
+
+```promql
+sum(rate(inferadb_jwks_refresh_errors_total[5m]))
+```
+
+### `inferadb_jwks_fetch_duration_seconds`
+
+**Type**: Histogram
+
+**Description**: Duration of JWKS fetch operations in seconds
+
+**Labels**:
+
+- `org_id`: Organization identifier
+
+**Usage Example**:
+
+```promql
+histogram_quantile(0.99, rate(inferadb_jwks_fetch_duration_seconds_bucket[5m]))
+```
+
+### `inferadb_jwks_stale_served_total`
+
+**Type**: Counter
+
+**Description**: Total number of times stale JWKS was served (stale-while-revalidate)
+
+**Labels**:
+
+- `org_id`: Organization identifier
+
+**Usage Example**:
+
+```promql
+sum(rate(inferadb_jwks_stale_served_total[5m]))
 ```
 
 ---
 
 ## Replication Metrics
 
-### `inferadb_engine_replication_changes_total`
+### `inferadb_replication_changes_total`
 
 **Type**: Counter
 
@@ -695,10 +830,10 @@ histogram_quantile(0.99, sum by (method, le) (rate(inferadb_engine_auth_duration
 **Usage Example**:
 
 ```promql
-rate(inferadb_engine_replication_changes_total[5m])
+rate(inferadb_replication_changes_total[5m])
 ```
 
-### `inferadb_engine_replication_failures_total`
+### `inferadb_replication_failures_total`
 
 **Type**: Counter
 
@@ -709,10 +844,10 @@ rate(inferadb_engine_replication_changes_total[5m])
 **Usage Example**:
 
 ```promql
-rate(inferadb_engine_replication_failures_total[5m])
+rate(inferadb_replication_failures_total[5m])
 ```
 
-### `inferadb_engine_replication_conflicts_total`
+### `inferadb_replication_conflicts_total`
 
 **Type**: Counter
 
@@ -723,10 +858,38 @@ rate(inferadb_engine_replication_failures_total[5m])
 **Usage Example**:
 
 ```promql
-rate(inferadb_engine_replication_conflicts_total[5m])
+rate(inferadb_replication_conflicts_total[5m])
 ```
 
-### `inferadb_engine_replication_lag_milliseconds`
+### `inferadb_replication_conflicts_resolved_local`
+
+**Type**: Counter
+
+**Description**: Number of conflicts resolved by keeping local change
+
+**Labels**: None
+
+**Usage Example**:
+
+```promql
+rate(inferadb_replication_conflicts_resolved_local[5m])
+```
+
+### `inferadb_replication_conflicts_resolved_remote`
+
+**Type**: Counter
+
+**Description**: Number of conflicts resolved by keeping remote change
+
+**Labels**: None
+
+**Usage Example**:
+
+```promql
+rate(inferadb_replication_conflicts_resolved_remote[5m])
+```
+
+### `inferadb_replication_lag_milliseconds`
 
 **Type**: Gauge
 
@@ -737,10 +900,10 @@ rate(inferadb_engine_replication_conflicts_total[5m])
 **Usage Example**:
 
 ```promql
-inferadb_engine_replication_lag_milliseconds
+inferadb_replication_lag_milliseconds
 ```
 
-### `inferadb_engine_replication_targets_connected`
+### `inferadb_replication_targets_connected`
 
 **Type**: Gauge
 
@@ -751,10 +914,10 @@ inferadb_engine_replication_lag_milliseconds
 **Usage Example**:
 
 ```promql
-inferadb_engine_replication_targets_connected
+inferadb_replication_targets_connected
 ```
 
-### `inferadb_engine_replication_targets_total`
+### `inferadb_replication_targets_total`
 
 **Type**: Gauge
 
@@ -765,7 +928,35 @@ inferadb_engine_replication_targets_connected
 **Usage Example**:
 
 ```promql
-inferadb_engine_replication_targets_total
+inferadb_replication_targets_total
+```
+
+### `inferadb_replication_batch_size`
+
+**Type**: Histogram
+
+**Description**: Size of replication batches
+
+**Labels**: None
+
+**Usage Example**:
+
+```promql
+histogram_quantile(0.99, rate(inferadb_replication_batch_size_bucket[5m]))
+```
+
+### `inferadb_replication_duration_seconds`
+
+**Type**: Histogram
+
+**Description**: Duration of replication operations in seconds
+
+**Labels**: None
+
+**Usage Example**:
+
+```promql
+histogram_quantile(0.99, rate(inferadb_replication_duration_seconds_bucket[5m]))
 ```
 
 ---
@@ -803,6 +994,140 @@ inferadb_build_info
 
 ```promql
 inferadb_uptime_seconds
+```
+
+---
+
+## Discovery & Load Balancing Metrics
+
+### `inferadb_lb_requests_total`
+
+**Type**: Counter
+
+**Description**: Total requests per endpoint with result status
+
+**Labels**:
+
+- `endpoint`: Target endpoint URL
+- `result`: Request result (e.g., "success", "failure")
+
+**Usage Example**:
+
+```promql
+sum by (endpoint, result) (rate(inferadb_lb_requests_total[5m]))
+```
+
+### `inferadb_lb_endpoint_health`
+
+**Type**: Gauge
+
+**Description**: Endpoint health status (1=healthy, 0=unhealthy)
+
+**Labels**:
+
+- `endpoint`: Target endpoint URL
+
+**Usage Example**:
+
+```promql
+inferadb_lb_endpoint_health
+```
+
+### `inferadb_lb_failovers_total`
+
+**Type**: Counter
+
+**Description**: Total failover events from one endpoint to another
+
+**Labels**:
+
+- `from`: Source endpoint
+- `to`: Target endpoint
+
+**Usage Example**:
+
+```promql
+sum(rate(inferadb_lb_failovers_total[5m]))
+```
+
+### `inferadb_discovery_operations_total`
+
+**Type**: Counter
+
+**Description**: Total discovery operations with result status
+
+**Labels**:
+
+- `result`: Operation result (e.g., "success", "failure")
+
+**Usage Example**:
+
+```promql
+sum by (result) (rate(inferadb_discovery_operations_total[5m]))
+```
+
+### `inferadb_tailscale_dns_resolutions_total`
+
+**Type**: Counter
+
+**Description**: Total Tailscale MagicDNS resolution attempts with result status
+
+**Labels**:
+
+- `hostname`: Hostname being resolved
+- `result`: Resolution result
+
+**Usage Example**:
+
+```promql
+sum by (result) (rate(inferadb_tailscale_dns_resolutions_total[5m]))
+```
+
+### `inferadb_tailscale_discovered_endpoints`
+
+**Type**: Gauge
+
+**Description**: Number of endpoints discovered via Tailscale per cluster
+
+**Labels**:
+
+- `cluster`: Cluster name
+
+**Usage Example**:
+
+```promql
+inferadb_tailscale_discovered_endpoints
+```
+
+### `inferadb_tailscale_cluster_discovery_failures_total`
+
+**Type**: Counter
+
+**Description**: Total failures when discovering a specific Tailscale cluster
+
+**Labels**:
+
+- `cluster`: Cluster name
+- `reason`: Failure reason
+
+**Usage Example**:
+
+```promql
+sum by (cluster, reason) (rate(inferadb_tailscale_cluster_discovery_failures_total[5m]))
+```
+
+### `inferadb_tailscale_clusters_total`
+
+**Type**: Gauge
+
+**Description**: Total number of configured Tailscale clusters
+
+**Labels**: None
+
+**Usage Example**:
+
+```promql
+inferadb_tailscale_clusters_total
 ```
 
 ---
@@ -855,8 +1180,8 @@ groups:
         expr: sum(rate(inferadb_checks_allowed_total[5m])) / sum(rate(inferadb_checks_total[5m]))
 
       # Cache hit rate
-      - record: job:inferadb_engine_cache:hit_rate
-        expr: sum(rate(inferadb_engine_cache_hits_total[5m])) / (sum(rate(inferadb_engine_cache_hits_total[5m])) + sum(rate(inferadb_engine_cache_misses_total[5m])))
+      - record: job:inferadb_cache:hit_rate
+        expr: sum(rate(inferadb_cache_hits_total[5m])) / (sum(rate(inferadb_cache_hits_total[5m])) + sum(rate(inferadb_cache_misses_total[5m])))
 
       # p99 latency by operation
       - record: job:inferadb_query_operation:p99_latency_ms
@@ -873,7 +1198,7 @@ groups:
     rules:
       # High error rate
       - alert: HighAuthorizationErrorRate
-        expr: sum(rate(inferadb_engine_api_errors_total{status=~"5.."}[5m])) / sum(rate(inferadb_checks_total[5m])) > 0.01
+        expr: sum(rate(inferadb_api_errors_total{status=~"5.."}[5m])) / sum(rate(inferadb_checks_total[5m])) > 0.01
         for: 5m
         labels:
           severity: warning
@@ -934,7 +1259,7 @@ storage:
 1. Check if InferaDB is exporting the metric:
 
    ```bash
-   curl http://localhost:9090/metrics | grep inferadb_query_operations_total
+   curl http://localhost:8080/metrics | grep inferadb_query_operations_total
    ```
 
 2. Check Prometheus targets are up:

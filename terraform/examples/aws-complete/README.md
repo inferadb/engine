@@ -1,11 +1,15 @@
-# Complete AWS Deployment for InferaDB
+# Complete AWS Deployment for InferaDB Engine
 
-This example deploys a production-ready InferaDB installation on AWS using:
+This example deploys a production-ready InferaDB Engine installation on AWS using:
 
 - **Amazon EKS** for Kubernetes
-- **ElastiCache Redis** for replay protection
+- **ElastiCache Redis** (optional, for Control service deployments)
 - **Network Load Balancer** for external access
 - **Auto-scaling** for high availability
+
+> **Note:** This terraform deploys the Engine component only. Redis is included for
+> deployments that also include the Control service. For Engine-only deployments,
+> Redis resources can be removed or disabled.
 
 ## Architecture
 
@@ -70,10 +74,9 @@ node_min_size       = 3
 node_max_size       = 10
 
 # InferaDB configuration
-inferadb_engine_replica_count = 3
+inferadb_replica_count = 3
 inferadb_min_replicas  = 3
 inferadb_max_replicas  = 20
-inferadb_engine_auth_enabled  = true
 
 # Use internal LB for private deployments
 inferadb_internal_lb = false
@@ -191,11 +194,11 @@ The deployment automatically creates CloudWatch alarms for:
 InferaDB exports metrics on `/metrics`:
 
 ```bash
-# Port-forward to access metrics
-kubectl port-forward -n inferadb svc/inferadb 9090:9090
+# Port-forward to access metrics (metrics are served on HTTP port)
+kubectl port-forward -n inferadb svc/inferadb 8080:8080
 
 # Access metrics
-curl http://localhost:9090/metrics
+curl http://localhost:8080/metrics
 ```
 
 ### Logs

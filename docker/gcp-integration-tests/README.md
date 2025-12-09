@@ -173,14 +173,11 @@ graph TD
 
 **Solutions:**
 
-1. Check emulator is healthy: `docker-compose ps`
-2. View emulator logs: `docker-compose logs fake-gcp`
-3. Check emulator health: `curl http://localhost:8085`
-4. Verify secrets exist:
+This is expected behavior for unit tests - they don't require actual GCP connectivity. Unit tests mock the GCP Secret Manager API. If you're running integration tests with real GCP, ensure:
 
-   ```bash
-   docker-compose exec test-runner gcloud secrets list --project=test-project
-   ```
+1. You have valid Application Default Credentials: `gcloud auth application-default login`
+2. Your `GCP_PROJECT_ID` is set correctly
+3. The test secrets exist in your GCP project
 
 ### Build Fails with "No Space Left on Device"
 
@@ -199,47 +196,30 @@ docker system prune -a
 - Increase CPUs to 2+
 - Increase Memory to 4GB+
 
-### Emulator Container Keeps Restarting
+## GCP Secret Manager Features
 
-**Solution:** Check health check logs
+GCP Secret Manager provides:
 
-```bash
-docker-compose logs fake-gcp
-docker inspect inferadb-gcp-test
-```
+- **Secrets management** - Store and manage sensitive information
+- **Secret versioning** - Automatic version tracking
+- **IAM integration** - Fine-grained access control
+- **Audit logging** - Cloud Audit Logs integration
+- **Replication** - Automatic multi-region replication
 
-The health check waits up to 50 seconds for the emulator to initialize. If it's consistently failing:
+### Testing Without Real GCP
 
-1. Ensure you have sufficient resources
-2. Check Docker daemon logs
-3. Try pulling the latest image: `docker pull ghcr.io/googlecloudplatform/cloud-sdk-docker:emulators`
+Since GCP doesn't provide a Secret Manager emulator, this environment:
 
-## GCP Emulator Features
-
-The official GCP Secret Manager emulator provides:
-
-- **Full API compatibility** with GCP Secret Manager API
-- **Secret creation, retrieval, update, deletion**
-- **Secret versioning**
-- **IAM permissions** (simplified)
-- **Labels and annotations**
-
-### Limitations
-
-The emulator has some limitations compared to real GCP:
-
-- No encryption at rest (data is ephemeral)
-- Simplified IAM model
-- No audit logging
-- Some advanced features may not be supported
-- Performance characteristics differ from real GCP
+- Runs unit tests that mock the GCP API
+- Integration tests requiring real GCP must be run separately
+- Uses `#[ignore]` attribute for tests needing real credentials
 
 ## Development Workflow
 
 ### Adding New Tests
 
 1. Write tests in `crates/inferadb-engine-config/src/secrets.rs`
-2. Ensure tests use `SECRETMANAGER_EMULATOR_HOST` environment variable
+2. Mark integration tests with `#[ignore]` if they require real GCP
 3. Run tests: `./docker/gcp-integration-tests/test.sh`
 4. Iterate in interactive mode:
 
@@ -340,38 +320,36 @@ gcp-integration-tests:
 
 ⚠️ **For Testing Only - Not for Production**
 
-- Emulator uses fake credentials
-- No encryption or authentication
+- Unit tests use mock implementations
+- No real encryption or authentication
 - Data is ephemeral (cleared on container restart)
-- No IAM or fine-grained permissions
 
 **Do not:**
 
-- Use real GCP credentials in this environment
-- Store sensitive data in the emulator
-- Connect production services to the emulator
+- Use real GCP credentials in this environment (unless running integration tests)
+- Store sensitive data in unit tests
+- Connect production services to test environment
 - Rely on this for production testing
 
 ## Comparison with Real GCP
 
-| Feature           | GCP Emulator     | Real GCP Secret Manager  |
-| ----------------- | ---------------- | ------------------------ |
-| Cost              | Free             | Pay per secret/operation |
-| Speed             | Fast (local)     | Network latency          |
-| Encryption        | Simulated        | Real KMS encryption      |
-| IAM               | Simplified       | Full IAM integration     |
-| Audit Logs        | None             | Cloud Audit Logs         |
-| Secret Rotation   | Basic            | Full integration         |
-| High Availability | Single container | Multi-region             |
-| Data Persistence  | Ephemeral        | Durable storage          |
+| Feature           | Unit Tests (Local) | Real GCP Secret Manager  |
+| ----------------- | ------------------ | ------------------------ |
+| Cost              | Free               | Pay per secret/operation |
+| Speed             | Fast (local)       | Network latency          |
+| Encryption        | Mocked             | Real KMS encryption      |
+| IAM               | Mocked             | Full IAM integration     |
+| Audit Logs        | None               | Cloud Audit Logs         |
+| Secret Rotation   | Mocked             | Full integration         |
+| High Availability | Single container   | Multi-region             |
+| Data Persistence  | Ephemeral          | Durable storage          |
 
 ## Support
 
 For issues specific to:
 
 - **This Docker setup:** Check this README and troubleshooting section
-- **GCP Emulator:** <https://cloud.google.com/sdk/gcloud/reference/beta/emulators/secretmanager>
-- **GCP Secret Manager:** See GCP documentation
+- **GCP Secret Manager:** <https://cloud.google.com/secret-manager/docs>
 - **InferaDB:** See main project documentation
 
 ## License

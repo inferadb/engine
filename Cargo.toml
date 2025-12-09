@@ -2,7 +2,7 @@
 members = [
   "crates/inferadb-engine-api",
   "crates/inferadb-engine-auth",
-  "crates/inferadb-engine-bin",
+  "crates/inferadb-engine",
   "crates/inferadb-engine-cache",
   "crates/inferadb-engine-config",
   "crates/inferadb-engine-const",

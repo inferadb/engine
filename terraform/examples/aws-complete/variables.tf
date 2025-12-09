@@ -143,12 +143,6 @@ variable "inferadb_memory_limit" {
   default     = "2Gi"
 }
 
-variable "inferadb_auth_enabled" {
-  description = "Enable authentication"
-  type        = bool
-  default     = true
-}
-
 variable "inferadb_tracing_enabled" {
   description = "Enable distributed tracing"
   type        = bool

@@ -358,7 +358,7 @@ Maintainers handle releases:
 server/
 ├── crates/              # Workspace crates
 │   ├── inferadb-engine-api/      # REST and gRPC APIs
-│   ├── inferadb-engine-bin/      # Main binary
+│   ├── inferadb-engine/          # Main binary
 │   ├── inferadb-engine-cache/    # Caching layer
 │   ├── inferadb-engine-config/   # Configuration
 │   ├── inferadb-engine-core/     # Evaluation engine

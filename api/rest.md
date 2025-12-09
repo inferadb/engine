@@ -14,11 +14,12 @@ http://localhost:8080/api/v1
 
 ## Authentication
 
-InferaDB supports JWT (JSON Web Token) authentication with multiple signing algorithms:
+InferaDB supports JWT (JSON Web Token) authentication with asymmetric signing algorithms:
 
 - **EdDSA** (Ed25519) - Recommended for new applications
 - **RS256** (RSA with SHA-256) - Industry standard
-- **ES256** (ECDSA with P-256) - High performance
+
+> **Note**: Only asymmetric algorithms are supported. Symmetric algorithms (HS256, HS384, HS512) and ECDSA (ES256) are explicitly rejected for security reasons.
 
 **Authentication Header**:
 
@@ -35,7 +36,7 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
 See the [Authentication Guide](../docs/security/authentication.md) for detailed setup instructions.
 
-**Note**: Authentication can be disabled for development by setting `auth.enabled: false` in configuration.
+**Note**: Authentication is always enabled in production. For development testing without authentication, see the [Configuration Guide](../docs/guides/configuration.md) for token validation settings.
 
 ## Endpoints
 

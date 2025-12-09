@@ -172,7 +172,7 @@ The gRPC API is typically 20-30% faster due to binary protocol overhead.
 InferaDB uses JWT (JSON Web Token) authentication. See the [Authentication Guide](../docs/security/authentication.md) for details on:
 
 - Creating JWTs
-- Supported algorithms (EdDSA, RS256, ES256)
+- Supported algorithms (EdDSA, RS256 only)
 - OIDC Discovery
 - OAuth 2.0 integration
 
@@ -396,7 +396,7 @@ Always check status codes and implement proper error handling. Fail closed (deny
 
 ## Additional Resources
 
-- **[Quick Start Guide](../docs/guides/quickstart.md)** - Get started with InferaDB
+- **[Quick Start Guide](../docs/quickstart.md)** - Get started with InferaDB
 - **[Authentication Guide](../docs/security/authentication.md)** - JWT authentication details
 - **[Configuration Guide](../docs/guides/configuration.md)** - Server configuration
 - **[IPL Language Guide](../docs/core/ipl.md)** - Authorization policy language

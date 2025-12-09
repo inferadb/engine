@@ -32,7 +32,7 @@ make dev                                     # Or use make
 | 2     | `inferadb-engine-store`, `inferadb-engine-cache`                       | Storage abstraction, caching          |
 | 3     | `inferadb-engine-wasm`, `inferadb-engine-core`, `inferadb-engine-auth` | Runtime, policy evaluation, auth      |
 | 4     | `inferadb-engine-repl`, `inferadb-engine-api`                          | REPL, API servers                     |
-| 5     | `inferadb-engine-bin`                                                  | Binary entry point                    |
+| 5     | `inferadb-engine`                                                      | Binary entry point                    |
 
 ### Key Crates
 

@@ -4,7 +4,7 @@ metadata:
   name: inferadb-engine
   labels:
     app: inferadb-engine
-    component: server
+    component: engine
     version: v1.0.0
 spec:
   replicas: 3
@@ -16,16 +16,16 @@ spec:
   selector:
     matchLabels:
       app: inferadb-engine
-      component: server
+      component: engine
   template:
     metadata:
       labels:
         app: inferadb-engine
-        component: server
+        component: engine
         version: v1.0.0
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
+        prometheus.io/port: "8082"
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: inferadb-engine
@@ -70,8 +70,8 @@ spec:
             - name: grpc
               containerPort: 8081
               protocol: TCP
-            - name: internal
-              containerPort: 9090
+            - name: mesh
+              containerPort: 8082
               protocol: TCP
 
           env:
@@ -79,30 +79,6 @@ spec:
               value: "info"
             - name: RUST_BACKTRACE
               value: "1"
-            - name: INFERADB__SERVER__PUBLIC_REST
-              value: "0.0.0.0:8080"
-            - name: INFERADB__SERVER__PUBLIC_GRPC
-              value: "0.0.0.0:8081"
-            - name: INFERADB__SERVER__PRIVATE_REST
-              value: "0.0.0.0:8082"
-            - name: INFERADB__OBSERVABILITY__METRICS_ENABLED
-              value: "true"
-            - name: INFERADB__OBSERVABILITY__TRACING_ENABLED
-              value: "true"
-
-            # Service discovery configuration
-            - name: INFERADB__AUTH__MANAGEMENT_API__DISCOVERY_MODE
-              value: "kubernetes_service"
-            - name: INFERADB__AUTH__MANAGEMENT_API__SERVICE_NAME
-              value: "inferadb-control"
-            - name: INFERADB__AUTH__MANAGEMENT_API__NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: INFERADB__AUTH__MANAGEMENT_API__PORT
-              value: "3000"
-            - name: INFERADB__AUTH__MANAGEMENT_API__REFRESH_INTERVAL_SECONDS
-              value: "30"
 
           # Load config from ConfigMap
           envFrom:

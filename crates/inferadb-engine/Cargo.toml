@@ -2,14 +2,10 @@
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-name = "inferadb-engine-bin"
+name = "inferadb-engine"
 publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
-
-[lib]
-name = "inferadb_engine_bin"
-path = "src/lib.rs"
 
 [[bin]]
 name = "inferadb-engine"

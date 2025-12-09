@@ -520,7 +520,7 @@ Link panels to related dashboards:
 **Fix**:
 
 1. Check Prometheus targets: `http://prometheus:9090/targets`
-2. Verify InferaDB is exporting metrics: `curl http://localhost:9090/metrics`
+2. Verify InferaDB is exporting metrics: `curl http://localhost:8080/metrics`
 3. Check Prometheus scrape config includes InferaDB
 
 ### Queries are slow
@@ -556,7 +556,7 @@ Link panels to related dashboards:
 
 **Fix**:
 
-1. Check latest metric names: `curl http://localhost:9090/metrics | grep inferadb`
+1. Check latest metric names: `curl http://localhost:8080/metrics | grep inferadb`
 2. Update dashboard queries to match
 3. Re-export and re-import dashboard
 

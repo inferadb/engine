@@ -102,7 +102,7 @@ scrape_configs:
   - job_name: "inferadb"
     scrape_interval: 15s
     static_configs:
-      - targets: ["localhost:9090"] # Adjust to your InferaDB metrics endpoint
+      - targets: ["localhost:8082"] # InferaDB mesh port exposes /metrics
         labels:
           environment: "production"
           region: "us-west-1"

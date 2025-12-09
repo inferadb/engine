@@ -20,7 +20,7 @@ InferaDB provides a high-performance gRPC API for authorization checks, relation
 localhost:8081
 ```
 
-By default, the gRPC server runs on port 8081 (REST API port + 1). This can be configured via server configuration.
+By default, the gRPC server runs on port 8081. This can be configured via the `engine.listen.grpc` setting in your configuration file or the `INFERADB__ENGINE__LISTEN__GRPC` environment variable. See the [Configuration Guide](../docs/guides/configuration.md) for details.
 
 ## Protocol Buffers
 

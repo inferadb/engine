@@ -4,56 +4,75 @@ metadata:
   name: inferadb-engine-config
   labels:
     app: inferadb-engine
-    component: server
+    component: engine
 data:
-  # Environment variables
-  INFERADB__SERVER__WORKER_THREADS: "4"
+  # Root-level configuration
+  INFERADB__ENGINE__THREADS: "4"
+  INFERADB__ENGINE__LOGGING: "info"
 
-  INFERADB__STORAGE__BACKEND: "foundationdb"
-  INFERADB__STORAGE__FDB_CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
+  # Listen configuration (combined host:port addresses)
+  INFERADB__ENGINE__LISTEN__HTTP: "0.0.0.0:8080"
+  INFERADB__ENGINE__LISTEN__GRPC: "0.0.0.0:8081"
+  INFERADB__ENGINE__LISTEN__MESH: "0.0.0.0:8082"
 
-  INFERADB__CACHE__ENABLED: "true"
-  INFERADB__CACHE__MAX_CAPACITY: "100000"
-  INFERADB__CACHE__TTL_SECONDS: "600"
+  # Storage configuration
+  INFERADB__ENGINE__STORAGE: "foundationdb"
+  INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
 
-  INFERADB__OBSERVABILITY__LOG_LEVEL: "info"
-  INFERADB__OBSERVABILITY__METRICS_ENABLED: "true"
-  INFERADB__OBSERVABILITY__TRACING_ENABLED: "true"
+  # Cache configuration
+  INFERADB__ENGINE__CACHE__ENABLED: "true"
+  INFERADB__ENGINE__CACHE__CAPACITY: "100000"
+  INFERADB__ENGINE__CACHE__TTL: "600"
 
-  INFERADB__AUTH__ENABLED: "true"
-  INFERADB__AUTH__JWKS_CACHE_TTL: "300"
-  INFERADB__AUTH__REPLAY_PROTECTION: "true"
-  INFERADB__AUTH__REQUIRE_JTI: "true"
-  INFERADB__AUTH__CLOCK_SKEW_SECONDS: "30"
-  INFERADB__AUTH__MAX_TOKEN_AGE_SECONDS: "3600"
+  # Token validation configuration
+  INFERADB__ENGINE__TOKEN__CACHE_TTL: "300"
+  INFERADB__ENGINE__TOKEN__CLOCK_SKEW: "60"
+  INFERADB__ENGINE__TOKEN__MAX_AGE: "86400"
 
-  # Configuration file
+  # Mesh configuration (communication with Control service)
+  INFERADB__ENGINE__MESH__URL: "http://inferadb-control.inferadb:9092"
+  INFERADB__ENGINE__MESH__TIMEOUT: "5000"
+  INFERADB__ENGINE__MESH__CACHE_TTL: "300"
+  INFERADB__ENGINE__MESH__CERT_CACHE_TTL: "900"
+
+  # Discovery configuration
+  INFERADB__ENGINE__DISCOVERY__MODE: '{"type": "kubernetes"}'
+  INFERADB__ENGINE__DISCOVERY__CACHE_TTL: "300"
+  INFERADB__ENGINE__DISCOVERY__HEALTH_CHECK_INTERVAL: "30"
+
+  # Configuration file (optional alternative to env vars)
   config.yaml: |
-    server:
-      host: "0.0.0.0"
-      port: 8080
-      worker_threads: 4
+    engine:
+      threads: 4
+      logging: "info"
 
-    storage:
-      backend: "foundationdb"
-      fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
+      listen:
+        http: "0.0.0.0:8080"
+        grpc: "0.0.0.0:8081"
+        mesh: "0.0.0.0:8082"
 
-    cache:
-      enabled: true
-      max_capacity: 100000
-      ttl: 600
+      storage: "foundationdb"
+      foundationdb:
+        cluster_file: "/etc/foundationdb/fdb.cluster"
 
-    observability:
-      log_level: "info"
-      metrics_enabled: true
-      tracing_enabled: true
+      cache:
+        enabled: true
+        capacity: 100000
+        ttl: 600
 
-    auth:
-      enabled: true
-      jwks_cache_ttl: 300
-      replay_protection: true
-      require_jti: true
-      clock_skew_seconds: 30
-      max_token_age_seconds: 3600
-      jwks_url: "${INFERADB__AUTH__JWKS_URL}"
-      redis_url: "${INFERADB__AUTH__REDIS_URL}"
+      token:
+        cache_ttl: 300
+        clock_skew: 60
+        max_age: 86400
+
+      mesh:
+        url: "http://inferadb-control.inferadb:9092"
+        timeout: 5000
+        cache_ttl: 300
+        cert_cache_ttl: 900
+
+      discovery:
+        mode:
+          type: kubernetes
+        cache_ttl: 300
+        health_check_interval: 30
