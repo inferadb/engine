@@ -2,15 +2,10 @@
 # Good defaults for local development and testing
 
 engine:
-  threads: 4
-  logging: "info"
-
   listen:
     http: "127.0.0.1:8080"
     grpc: "127.0.0.1:8081"
     mesh: "0.0.0.0:8082"
-
-  storage: "memory"
 
   cache:
     enabled: true

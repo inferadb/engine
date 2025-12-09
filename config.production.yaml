@@ -1,49 +1,28 @@
 # InferaDB Engine Configuration - Production Template
-#
-# This is a template for production deployment. Replace all placeholder values
-# (marked with <...>) with your actual production values.
-#
-# SECURITY: Do not commit this file with real credentials to version control.
-# Use environment variables or a secrets management system in production.
-#
-# This file uses the unified configuration format. Both engine and control
-# can share the same config file by reading their respective sections.
 
 engine:
-  # Worker threads (recommended: number of CPU cores)
-  threads: 16
-  logging: "info"
-
   listen:
-    # Client-facing HTTP/REST API server
     http: "0.0.0.0:8080"
-
-    # Client-facing gRPC API server
     grpc: "0.0.0.0:8081"
-
-    # Service mesh / inter-service communication
     mesh: "0.0.0.0:8082"
 
-  # Use FoundationDB for production
   storage: "foundationdb"
 
   foundationdb:
-    # FoundationDB cluster file path
-    # This file contains the connection string for your FDB cluster
     cluster_file: "/etc/foundationdb/fdb.cluster"
 
   cache:
     enabled: true
-    capacity: 1000000  # 1M entries for high-throughput
+    capacity: 1000000
     ttl: 300
 
   token:
-    cache_ttl: 900  # 15 minutes for production
+    cache_ttl: 900
     clock_skew: 60
-    max_age: 86400  # 24 hours
+    max_age: 86400
 
   mesh:
     url: "http://inferadb-control.inferadb:9092"
     timeout: 5000
-    cache_ttl: 600  # Longer cache for performance
-    cert_cache_ttl: 1800  # 30 minutes
+    cache_ttl: 600
+    cert_cache_ttl: 1800

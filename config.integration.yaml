@@ -1,37 +1,26 @@
 # InferaDB Engine Configuration - Integration Tests
 # This config is optimized for Docker container E2E testing
-#
-# This file uses the unified configuration format. Both engine and control
-# can share the same config file by reading their respective sections.
 
 engine:
-  threads: 2  # Reduced for test environment
-  logging: "debug"  # Verbose logging for tests
+  logging: "debug" # Verbose logging for tests
 
   listen:
-    # Client-facing HTTP/REST API server (bind to all interfaces for Docker)
     http: "0.0.0.0:8080"
-
-    # Client-facing gRPC API server
     grpc: "0.0.0.0:8081"
-
-    # Service mesh / inter-service communication
     mesh: "0.0.0.0:8082"
-
-  storage: "memory"  # In-memory for fast tests
 
   cache:
     enabled: true
-    capacity: 1000  # Small cache for tests
+    capacity: 1000
     ttl: 60
 
   token:
-    cache_ttl: 60  # Short cache for tests
+    cache_ttl: 60
     clock_skew: 60
     max_age: 86400
 
   mesh:
     url: "http://inferadb-control:9092"
-    timeout: 10000  # Higher timeout for CI
-    cache_ttl: 30  # Short cache for tests
+    timeout: 10000
+    cache_ttl: 30
     cert_cache_ttl: 60

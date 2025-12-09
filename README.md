@@ -1,8 +1,8 @@
 # InferaDB Authorization Engine
 
-**Policy Decision Endpoint** — high-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency.
+High-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency.
 
-[AuthZEN](https://openid.net/wg/authzen/)-compliant. Inspired by [Google Zanzibar](https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/).
+Inspired by [Google Zanzibar](https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/). [AuthZEN](https://openid.net/wg/authzen/) compliant.
 
 > [!IMPORTANT]
 > Under active development. Not production-ready.
@@ -11,16 +11,24 @@
 
 ```bash
 git clone https://github.com/inferadb/engine && cd engine
-mise trust && mise install && mise run dev
+make setup && make dev
 ```
 
 Check a permission:
 
 ```bash
-curl -X POST http://localhost:8080/v1/evaluate \
+curl -N -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{"evaluations": [{"subject": "user:alice", "resource": "doc:readme", "permission": "viewer"}]}'
-# {"results": [{"decision": "allow"}]}
+```
+
+Response (SSE stream):
+
+```text
+data: {"decision":"allow","index":0}
+
+event: summary
+data: {"total":1,"complete":true}
 ```
 
 Write a relationship:
@@ -54,59 +62,68 @@ curl -X POST http://localhost:8080/v1/relationships/write \
 
 ```mermaid
 graph TD
-    API[inferadb-engine-api] --> Core[inferadb-engine-core]
+    Bin[inferadb-engine-bin] --> API[inferadb-engine-api]
+    API --> Core[inferadb-engine-core]
     API --> Auth[inferadb-engine-auth]
     Core --> Store[inferadb-engine-store]
     Core --> Cache[inferadb-engine-cache]
     Store --> FDB[(FoundationDB)]
 ```
 
-| Crate                 | Purpose                            |
-| --------------------- | ---------------------------------- |
-| inferadb-engine-core  | Policy evaluation, IPL interpreter |
-| inferadb-engine-api   | REST and gRPC endpoints            |
-| inferadb-engine-store | Storage abstraction                |
-| inferadb-engine-auth  | JWT validation, JWKS               |
-| inferadb-engine-cache | Result caching                     |
-| inferadb-engine-wasm  | WebAssembly modules                |
+| Crate                    | Purpose                            |
+| ------------------------ | ---------------------------------- |
+| inferadb-engine-bin      | Binary entrypoint                  |
+| inferadb-engine-api      | REST and gRPC endpoints            |
+| inferadb-engine-core     | Policy evaluation, IPL interpreter |
+| inferadb-engine-auth     | JWT validation, JWKS               |
+| inferadb-engine-store    | Storage abstraction                |
+| inferadb-engine-cache    | Result caching                     |
+| inferadb-engine-config   | Configuration loading              |
+| inferadb-engine-types    | Shared type definitions            |
+| inferadb-engine-observe  | Metrics and tracing                |
+| inferadb-engine-wasm     | WebAssembly modules                |
+| inferadb-engine-discovery| Service mesh discovery             |
 
 ## Configuration
 
 ```yaml
-server:
-  host: "0.0.0.0"
-  port: 8080
+engine:
+  listen:
+    http: "0.0.0.0:8080"
+    grpc: "0.0.0.0:8081"
+    mesh: "0.0.0.0:8082"
 
-store:
-  backend: "foundationdb" # or "memory"
+  storage: "foundationdb"  # or omit for memory
 
-cache:
-  enabled: true
-  max_capacity: 100000
-  ttl_seconds: 300
+  cache:
+    enabled: true
+    capacity: 100000
+    ttl: 300
 
-auth:
-  enabled: true
-  management_api_url: "http://localhost:8081"
+  mesh:
+    url: "http://localhost:9092"
 ```
 
-Environment variables use `INFERADB__` prefix. See [docs/guides/configuration.md](docs/guides/configuration.md).
+Environment variables use `INFERADB__` prefix (e.g., `INFERADB__ENGINE__LISTEN__HTTP`).
+
+See [docs/guides/configuration.md](docs/guides/configuration.md).
 
 ## Development
 
 ```bash
-cargo test                    # Run tests
+make setup                    # One-time setup
+make dev                      # Dev server with auto-reload
+make test                     # Run tests
+make check                    # Format, lint, audit
 cargo build --release         # Release build
-cargo clippy -- -D warnings   # Lint
-make check                    # All quality checks
 ```
 
 ## Deployment
 
 ```bash
-docker run -p 8080:8080 inferadb-engine:latest   # Docker
-kubectl apply -k k8s/                     # Kubernetes
-helm install inferadb ./helm              # Helm
+docker run -p 8080:8080 inferadb/engine:latest
+kubectl apply -k k8s/
+helm install inferadb ./helm
 ```
 
 See [docs/guides/deployment.md](docs/guides/deployment.md).
@@ -123,4 +140,4 @@ See [docs/guides/deployment.md](docs/guides/deployment.md).
 
 ## License
 
-[Business Source License 1.1](LICENSE.md)
+[InferaDB Non‑Commercial Source License](LICENSE.md)
