@@ -144,12 +144,12 @@ Each example shows the complete authentication flow:
 
 All examples support these environment variables:
 
-| Variable             | Description          | Default                       |
-| -------------------- | -------------------- | ----------------------------- |
-| `CONTROL_URL`        | Control URL          | `http://localhost:9090`       |
-| `SERVER_URL`         | InferaDB server URL  | `http://localhost:8080`       |
-| `USER_EMAIL`         | User email for login | Prompts or uses test email    |
-| `USER_PASSWORD`      | User password        | Prompts or uses test password |
+| Variable        | Description          | Default                       |
+| --------------- | -------------------- | ----------------------------- |
+| `CONTROL_URL`   | Control URL          | `http://localhost:9090`       |
+| `SERVER_URL`    | InferaDB server URL  | `http://localhost:8080`       |
+| `USER_EMAIL`    | User email for login | Prompts or uses test email    |
+| `USER_PASSWORD` | User password        | Prompts or uses test password |
 
 ## Common Issues
 

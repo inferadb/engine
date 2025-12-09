@@ -12,42 +12,49 @@ data:
   # Listen configuration (combined host:port addresses)
   INFERADB__ENGINE__LISTEN__HTTP: "0.0.0.0:{{ .Values.service.port }}"
   INFERADB__ENGINE__LISTEN__GRPC: "0.0.0.0:{{ .Values.service.grpcPort }}"
-  INFERADB__ENGINE__LISTEN__MESH: "0.0.0.0:{{ .Values.service.internalPort }}"
+  INFERADB__ENGINE__LISTEN__MESH: "0.0.0.0:{{ .Values.service.meshPort }}"
 
   # Storage configuration
-  INFERADB__ENGINE__STORAGE__BACKEND: "{{ .Values.config.storage.backend }}"
-  {{- if eq .Values.config.storage.backend "foundationdb" }}
-  INFERADB__ENGINE__STORAGE__FDB_CLUSTER_FILE: "{{ .Values.config.storage.fdbClusterFile }}"
+  INFERADB__ENGINE__STORAGE: "{{ .Values.config.storage }}"
+  {{- if eq .Values.config.storage "foundationdb" }}
+  INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE: "{{ .Values.config.foundationdb.clusterFile }}"
   {{- end }}
 
   # Cache configuration
   INFERADB__ENGINE__CACHE__ENABLED: "{{ .Values.config.cache.enabled }}"
   {{- if .Values.config.cache.enabled }}
-  INFERADB__ENGINE__CACHE__MAX_CAPACITY: "{{ .Values.config.cache.maxCapacity }}"
+  INFERADB__ENGINE__CACHE__CAPACITY: "{{ .Values.config.cache.capacity }}"
   INFERADB__ENGINE__CACHE__TTL: "{{ .Values.config.cache.ttl }}"
   {{- end }}
 
-  # JWT validation configuration
-  INFERADB__ENGINE__JWT__JWKS_CACHE_TTL: "{{ .Values.config.jwt.jwksCacheTtl }}"
-  INFERADB__ENGINE__JWT__CLOCK_SKEW_SECONDS: "{{ .Values.config.jwt.clockSkewSeconds }}"
-  INFERADB__ENGINE__JWT__MAX_TOKEN_AGE_SECONDS: "{{ .Values.config.jwt.maxTokenAgeSeconds }}"
-  INFERADB__ENGINE__JWT__REQUIRE_JTI: "{{ .Values.config.jwt.requireJti }}"
+  # Token validation configuration
+  INFERADB__ENGINE__TOKEN__CACHE_TTL: "{{ .Values.config.token.cacheTtl }}"
+  INFERADB__ENGINE__TOKEN__CLOCK_SKEW: "{{ .Values.config.token.clockSkew }}"
+  INFERADB__ENGINE__TOKEN__MAX_AGE: "{{ .Values.config.token.maxAge }}"
 
-  # Replay protection configuration
-  INFERADB__ENGINE__REPLAY_PROTECTION__ENABLED: "{{ .Values.config.replayProtection.enabled }}"
-  {{- if .Values.config.replayProtection.enabled }}
-  {{- if .Values.config.replayProtection.redisUrl }}
-  INFERADB__ENGINE__REPLAY_PROTECTION__REDIS_URL: "{{ .Values.config.replayProtection.redisUrl }}"
+  # Mesh configuration (communication with Control service)
+  {{- if .Values.config.mesh.url }}
+  INFERADB__ENGINE__MESH__URL: "{{ .Values.config.mesh.url }}"
+  {{- else if eq .Values.discovery.mode "kubernetes" }}
+  INFERADB__ENGINE__MESH__URL: "http://{{ .Values.discovery.control.serviceName }}.{{ .Values.discovery.control.namespace }}:{{ .Values.discovery.control.port }}"
+  {{- else if eq .Values.discovery.mode "none" }}
+  INFERADB__ENGINE__MESH__URL: "{{ .Values.discovery.control.staticUrl }}"
   {{- end }}
-  {{- end }}
+  INFERADB__ENGINE__MESH__TIMEOUT: "{{ .Values.config.mesh.timeout }}"
+  INFERADB__ENGINE__MESH__CACHE_TTL: "{{ .Values.config.mesh.cacheTtl }}"
+  INFERADB__ENGINE__MESH__CERT_CACHE_TTL: "{{ .Values.config.mesh.certCacheTtl }}"
 
-  # Control service configuration
-  {{- if .Values.config.control.serviceUrl }}
-  INFERADB__ENGINE__CONTROL__SERVICE_URL: "{{ .Values.config.control.serviceUrl }}"
+  # Discovery configuration
+  {{- if eq .Values.discovery.mode "kubernetes" }}
+  INFERADB__ENGINE__DISCOVERY__MODE: '{"type": "kubernetes"}'
+  {{- else if eq .Values.discovery.mode "tailscale" }}
+  INFERADB__ENGINE__DISCOVERY__MODE: '{"type": "tailscale", "local_cluster": "{{ .Values.discovery.tailscale.localCluster }}"}'
+  {{- else }}
+  INFERADB__ENGINE__DISCOVERY__MODE: '{"type": "none"}'
   {{- end }}
-  INFERADB__ENGINE__CONTROL__API_TIMEOUT_MS: "{{ .Values.config.control.apiTimeoutMs }}"
-  INFERADB__ENGINE__CONTROL__CACHE_TTL: "{{ .Values.config.control.cacheTtl }}"
-  INFERADB__ENGINE__CONTROL__CERT_CACHE_TTL: "{{ .Values.config.control.certCacheTtl }}"
+  INFERADB__ENGINE__DISCOVERY__CACHE_TTL: "{{ .Values.discovery.cacheTtl }}"
+  INFERADB__ENGINE__DISCOVERY__HEALTH_CHECK_INTERVAL: "{{ .Values.discovery.healthCheckInterval }}"
+
   {{- if .Values.config.configFile }}
   config.yaml: |
     {{- .Values.config.configFile | nindent 4 }}

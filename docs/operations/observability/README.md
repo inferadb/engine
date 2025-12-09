@@ -24,23 +24,20 @@ curl http://localhost:8080/metrics
 ### Enable Tracing
 
 ```bash
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+export OTEL_SERVICE_NAME=inferadb-engine
 ```
 
 ### Configure Logging
 
 ```bash
-export INFERADB__OBSERVABILITY__LOG_LEVEL=info
-export INFERADB__OBSERVABILITY__LOG_FORMAT=json
+export INFERADB__ENGINE__LOGGING=info
+export RUST_LOG=info,h2=warn,hyper=warn
 ```
 
 ### Enable Audit Logging
 
-```bash
-export INFERADB__OBSERVABILITY__AUDIT_ENABLED=true
-export INFERADB__OBSERVABILITY__AUDIT_SAMPLE_RATE=1.0
-```
+Audit logging is enabled by default. Configure log aggregation to capture audit events.
 
 ## Monitoring Stack
 

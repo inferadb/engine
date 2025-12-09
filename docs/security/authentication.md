@@ -397,75 +397,44 @@ fetch("https://api.inferadb.com/v1/evaluate", {
 Configure authentication in your `config.yaml` or via environment variables:
 
 ```yaml
-auth:
-  # Enable/disable authentication
+token:
+  # Enable/disable token validation
   enabled: true
 
-  # JWKS cache TTL (seconds)
-  jwks_cache_ttl: 300
-
-  # Scope validation is per-endpoint (inferadb.check, inferadb.write, etc.)
-  # Scopes are validated based on the endpoint being accessed
-
-  # Replay protection (requires Redis)
-  replay_protection: true
-  redis_url: "redis://localhost:6379"
-
-  # JWKS base URL for tenant keys
-  jwks_base_url: "https://your-domain.com/jwks"
+  # JWKS URL for validating tokens
+  jwks_url: "https://your-domain.com/.well-known/jwks.json"
 
   # Clock skew tolerance (seconds)
   clock_skew_seconds: 30
 
-  # Maximum token age (seconds from iat)
-  max_token_age_seconds: 3600
-
-  # OAuth configuration (optional)
-  oauth_introspection_endpoint: "https://auth.example.com/oauth/introspect"
-  oauth_introspection_client_id: "inferadb-engine"
-  oauth_introspection_client_secret: "<secret>"
-
-  # OIDC discovery cache (seconds)
-  oidc_discovery_cache_ttl: 86400 # 24 hours
-
-  # Introspection result cache (seconds)
-  introspection_cache_ttl: 300 # 5 minutes
+  # Audience validation
+  audience: "https://api.inferadb.com/evaluate"
 ```
 
 ### Environment Variables
 
-All configuration can be set via environment variables with the `INFERADB__` prefix:
+All configuration can be set via environment variables with the `INFERADB__ENGINE__` prefix:
 
 ```bash
-# Enable authentication
-export INFERADB__AUTH__ENABLED=true
+# Enable token validation
+export INFERADB__ENGINE__TOKEN__ENABLED=true
 
 # JWKS configuration
-export INFERADB__AUTH__JWKS_BASE_URL=https://your-domain.com/jwks
-export INFERADB__AUTH__JWKS_CACHE_TTL=300
+export INFERADB__ENGINE__TOKEN__JWKS_URL=https://your-domain.com/.well-known/jwks.json
 
-# Audience validation (always enforced)
-export INFERADB__AUTH__AUDIENCE=https://api.inferadb.com/evaluate
-
-# Replay protection
-export INFERADB__AUTH__REPLAY_PROTECTION=true
-export INFERADB__AUTH__REDIS_URL=redis://localhost:6379
+# Audience validation
+export INFERADB__ENGINE__TOKEN__AUDIENCE=https://api.inferadb.com/evaluate
 
 # Clock skew tolerance
-export INFERADB__AUTH__CLOCK_SKEW_SECONDS=30
-
-# OAuth introspection (optional)
-export INFERADB__AUTH__OAUTH_INTROSPECTION_ENDPOINT=https://auth.example.com/oauth/introspect
-export INFERADB__AUTH__OAUTH_INTROSPECTION_CLIENT_ID=inferadb-engine
-export INFERADB__AUTH__OAUTH_INTROSPECTION_CLIENT_SECRET=<secret>
+export INFERADB__ENGINE__TOKEN__CLOCK_SKEW_SECONDS=30
 ```
 
 ### Disabling Authentication (Development Only)
 
-For local development and testing, you can disable authentication:
+For local development and testing, you can disable token validation:
 
 ```bash
-export INFERADB__AUTH__ENABLED=false
+export INFERADB__ENGINE__TOKEN__ENABLED=false
 ```
 
 **⚠️ WARNING**: Never disable authentication in production!
@@ -827,14 +796,15 @@ kubectl exec -it <inferadb-pod> -- curl https://your-domain.com/jwks/tenant.json
 Enable debug logging:
 
 ```yaml
-observability:
-  log_level: "debug"
+logging: debug
 ```
 
 Or via environment variable:
 
 ```bash
-export INFERADB__OBSERVABILITY__LOG_LEVEL=debug
+export INFERADB__ENGINE__LOGGING=debug
+# Or use RUST_LOG for more granular control
+export RUST_LOG=inferadb_engine_auth=debug
 ```
 
 This will log detailed authentication information:

@@ -56,13 +56,19 @@ resources:
     memory: 8Gi
 
 config:
-  storage:
-    backend: "foundationdb"
-    fdbClusterFile: "/etc/foundationdb/fdb.cluster"
+  storage: "foundationdb"
+  foundationdb:
+    clusterFile: "/etc/foundationdb/fdb.cluster"
 
-  auth:
-    replayProtection: true
-    jwksCacheTtl: 300
+  token:
+    cacheTtl: 900 # 15 min JWKS cache for production
+    clockSkew: 60
+    maxAge: 86400
+
+  mesh:
+    timeout: 5000
+    cacheTtl: 600
+    certCacheTtl: 1800
 
 autoscaling:
   enabled: true
@@ -71,15 +77,7 @@ autoscaling:
 
 foundationdb:
   enabled: true
-  clusterName: "foundationdb-cluster" # Name of your FDB cluster
-
-redis:
-  enabled: true
-  auth:
-    enabled: true
-    # IMPORTANT: Use External Secrets or sealed-secrets for production
-    # DO NOT commit real passwords to version control
-    existingSecret: "redis-password-secret" # Reference to external secret
+  clusterName: "foundationdb-cluster"
 ```
 
 #### Development with In-Memory Storage
@@ -93,8 +91,7 @@ resources:
     memory: 128Mi
 
 config:
-  storage:
-    backend: "memory"
+  storage: "memory"
 
 autoscaling:
   enabled: false
@@ -139,12 +136,12 @@ helm uninstall inferadb-engine --namespace inferadb
 
 ### Service Parameters
 
-| Name                   | Description                    | Value       |
-| ---------------------- | ------------------------------ | ----------- |
-| `service.type`         | Kubernetes service type        | `ClusterIP` |
-| `service.port`         | Public REST API service port   | `8080`      |
-| `service.grpcPort`     | Public gRPC service port       | `8081`      |
-| `service.internalPort` | Internal/private REST API port | `8082`      |
+| Name               | Description             | Value       |
+| ------------------ | ----------------------- | ----------- |
+| `service.type`     | Kubernetes service type | `ClusterIP` |
+| `service.port`     | HTTP API service port   | `8080`      |
+| `service.grpcPort` | gRPC API service port   | `8081`      |
+| `service.meshPort` | Mesh API service port   | `8082`      |
 
 ### Autoscaling Parameters
 
@@ -157,13 +154,15 @@ helm uninstall inferadb-engine --namespace inferadb
 
 ### InferaDB Configuration
 
-| Name                     | Description                      | Value    |
-| ------------------------ | -------------------------------- | -------- |
-| `config.threads`         | Worker threads                   | `4`      |
-| `config.logging`         | Log level                        | `info`   |
-| `config.storage.backend` | Storage backend                  | `memory` |
-| `config.cache.enabled`   | Enable caching                   | `true`   |
-| `config.auth.enabled`    | Include auth config in ConfigMap | `true`   |
+| Name                    | Description              | Value    |
+| ----------------------- | ------------------------ | -------- |
+| `config.threads`        | Worker threads           | `4`      |
+| `config.logging`        | Log level                | `info`   |
+| `config.storage`        | Storage backend          | `memory` |
+| `config.cache.enabled`  | Enable caching           | `true`   |
+| `config.token.cacheTtl` | JWKS cache TTL (seconds) | `300`    |
+| `config.mesh.url`       | Control service URL      | `""`     |
+| `config.mesh.timeout`   | Mesh API timeout (ms)    | `5000`   |
 
 See [values.yaml](values.yaml) for complete list.
 
@@ -226,7 +225,7 @@ spec:
 ### Minimal Installation
 
 ```bash
-helm install inferadb-engine ./helm --set config.storage.backend=memory
+helm install inferadb-engine ./helm --set config.storage=memory
 ```
 
 ### High Availability
@@ -245,12 +244,13 @@ helm install inferadb-engine ./helm \
 cat > production-values.yaml <<EOF
 replicaCount: 5
 config:
-  storage:
-    backend: foundationdb
-    fdbClusterFile: "/etc/foundationdb/fdb.cluster"
-  auth:
-    replayProtection: true
-    jwksCacheTtl: 300
+  storage: foundationdb
+  foundationdb:
+    clusterFile: "/etc/foundationdb/fdb.cluster"
+  token:
+    cacheTtl: 900
+  mesh:
+    url: "http://inferadb-control.inferadb:9092"
 EOF
 
 helm install inferadb-engine ./helm -f production-values.yaml

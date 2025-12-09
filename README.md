@@ -70,19 +70,19 @@ graph TD
     Store --> FDB[(FoundationDB)]
 ```
 
-| Crate                    | Purpose                            |
-| ------------------------ | ---------------------------------- |
-| inferadb-engine-bin      | Binary entrypoint                  |
-| inferadb-engine-api      | REST and gRPC endpoints            |
-| inferadb-engine-core     | Policy evaluation, IPL interpreter |
-| inferadb-engine-auth     | JWT validation, JWKS               |
-| inferadb-engine-store    | Storage abstraction                |
-| inferadb-engine-cache    | Result caching                     |
-| inferadb-engine-config   | Configuration loading              |
-| inferadb-engine-types    | Shared type definitions            |
-| inferadb-engine-observe  | Metrics and tracing                |
-| inferadb-engine-wasm     | WebAssembly modules                |
-| inferadb-engine-discovery| Service mesh discovery             |
+| Crate                     | Purpose                            |
+| ------------------------- | ---------------------------------- |
+| inferadb-engine-bin       | Binary entrypoint                  |
+| inferadb-engine-api       | REST and gRPC endpoints            |
+| inferadb-engine-core      | Policy evaluation, IPL interpreter |
+| inferadb-engine-auth      | JWT validation, JWKS               |
+| inferadb-engine-store     | Storage abstraction                |
+| inferadb-engine-cache     | Result caching                     |
+| inferadb-engine-config    | Configuration loading              |
+| inferadb-engine-types     | Shared type definitions            |
+| inferadb-engine-observe   | Metrics and tracing                |
+| inferadb-engine-wasm      | WebAssembly modules                |
+| inferadb-engine-discovery | Service mesh discovery             |
 
 ## Configuration
 

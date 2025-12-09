@@ -20,7 +20,7 @@ Set log level via environment variables:
 
 ```bash
 # Via InferaDB configuration
-export INFERADB__OBSERVABILITY__LOG_LEVEL=info
+export INFERADB__ENGINE__LOGGING=info
 
 # Or via RUST_LOG (more granular)
 export RUST_LOG=infera=debug,inferadb_engine_api=info
@@ -39,24 +39,18 @@ export RUST_LOG=infera=debug,inferadb_engine_api=info
 Configure output format:
 
 ```bash
-# Compact format (human-readable, for development)
-export INFERADB__OBSERVABILITY__LOG_FORMAT=compact
-
-# JSON format (machine-parseable, for production)
-export INFERADB__OBSERVABILITY__LOG_FORMAT=json
+# Log format is controlled via RUST_LOG and the logging framework
+# For JSON output in production, configure your log aggregator accordingly
 ```
 
 ### Full Configuration Example
 
 ```yaml
-observability:
-  log_level: info
-  log_format: json
-  log_spans: true
-  include_location: true # Include file:line in logs
-  include_target: true # Include module path
-  include_thread_id: false # Include thread ID
+# In config.yaml
+logging: info # Minimum log level: error, warn, info, debug, trace
 ```
+
+For granular control, use `RUST_LOG` environment variable alongside the base level.
 
 ## Log Formats
 
@@ -228,8 +222,7 @@ Maximum verbosity for debugging:
 
 ```bash
 export RUST_LOG=debug
-export INFERADB__OBSERVABILITY__LOG_FORMAT=compact
-export INFERADB__OBSERVABILITY__LOG_SPANS=true
+export INFERADB__ENGINE__LOGGING=debug
 ```
 
 ### Production
@@ -238,8 +231,7 @@ Structured JSON with info level:
 
 ```bash
 export RUST_LOG=info,h2=warn,hyper=warn
-export INFERADB__OBSERVABILITY__LOG_FORMAT=json
-export INFERADB__OBSERVABILITY__LOG_SPANS=false
+export INFERADB__ENGINE__LOGGING=info
 ```
 
 ### Debugging Specific Issue
@@ -266,7 +258,7 @@ Minimal logging for accurate benchmarks:
 
 ```bash
 export RUST_LOG=warn
-export INFERADB__OBSERVABILITY__LOG_SPANS=false
+export INFERADB__ENGINE__LOGGING=warn
 ```
 
 ## Log Aggregation
@@ -605,7 +597,7 @@ info!("Check completed");
 Enable structured logging for log aggregation:
 
 ```bash
-export INFERADB__OBSERVABILITY__LOG_FORMAT=json
+export INFERADB__ENGINE__LOGGING=info
 ```
 
 ### 4. Filter Noisy Logs

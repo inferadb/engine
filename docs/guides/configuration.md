@@ -191,18 +191,18 @@ Controls HTTP/gRPC server listen addresses. The Engine exposes three interfaces:
 
 ### Options
 
-| Option    | Type   | Default          | Description                                      |
-| --------- | ------ | ---------------- | ------------------------------------------------ |
-| `http`    | string | `"0.0.0.0:8080"` | Client-facing HTTP/REST API address (host:port)  |
-| `grpc`    | string | `"0.0.0.0:8081"` | Client-facing gRPC API address (host:port)       |
-| `mesh`    | string | `"0.0.0.0:8082"` | Service mesh address (JWKS, metrics, webhooks)   |
+| Option | Type   | Default          | Description                                     |
+| ------ | ------ | ---------------- | ----------------------------------------------- |
+| `http` | string | `"0.0.0.0:8080"` | Client-facing HTTP/REST API address (host:port) |
+| `grpc` | string | `"0.0.0.0:8081"` | Client-facing gRPC API address (host:port)      |
+| `mesh` | string | `"0.0.0.0:8082"` | Service mesh address (JWKS, metrics, webhooks)  |
 
 ### Top-Level Options
 
-| Option    | Type    | Default | Description                    |
-| --------- | ------- | ------- | ------------------------------ |
-| `threads` | integer | CPU count | Number of Tokio worker threads |
-| `logging` | string  | `"info"` | Log level (trace, debug, info, warn, error) |
+| Option    | Type    | Default   | Description                                 |
+| --------- | ------- | --------- | ------------------------------------------- |
+| `threads` | integer | CPU count | Number of Tokio worker threads              |
+| `logging` | string  | `"info"`  | Log level (trace, debug, info, warn, error) |
 
 ### Examples
 
@@ -257,9 +257,9 @@ Controls the tuple storage backend.
 
 ### FoundationDB Options
 
-| Option                        | Type              | Default | Description                       |
-| ----------------------------- | ----------------- | ------- | --------------------------------- |
-| `foundationdb.cluster_file`   | string (optional) | `null`  | Path to FoundationDB cluster file |
+| Option                      | Type              | Default | Description                       |
+| --------------------------- | ----------------- | ------- | --------------------------------- |
+| `foundationdb.cluster_file` | string (optional) | `null`  | Path to FoundationDB cluster file |
 
 ### Backend Options
 
@@ -430,11 +430,11 @@ Controls JWT token validation, including JWKS caching, timestamp tolerance, and 
 
 ### Options
 
-| Option       | Type              | Default | Description                                    |
-| ------------ | ----------------- | ------- | ---------------------------------------------- |
-| `cache_ttl`  | integer           | `300`   | JWKS cache TTL in seconds (5 minutes)          |
-| `clock_skew` | integer (optional)| `60`    | Clock skew tolerance in seconds (1 minute)     |
-| `max_age`    | integer (optional)| `86400` | Maximum token age in seconds (24 hours)        |
+| Option       | Type               | Default | Description                                |
+| ------------ | ------------------ | ------- | ------------------------------------------ |
+| `cache_ttl`  | integer            | `300`   | JWKS cache TTL in seconds (5 minutes)      |
+| `clock_skew` | integer (optional) | `60`    | Clock skew tolerance in seconds (1 minute) |
+| `max_age`    | integer (optional) | `86400` | Maximum token age in seconds (24 hours)    |
 
 > **Note**: JWT algorithms are hardcoded to EdDSA and RS256 for security and cannot be configured.
 >
@@ -585,12 +585,12 @@ Controls connection to InferaDB Control for JWKS fetching, org/vault validation,
 
 ### Options
 
-| Option          | Type    | Default                   | Description                                     |
-| --------------- | ------- | ------------------------- | ----------------------------------------------- |
-| `url`           | string  | `"http://localhost:9092"` | Control service base URL                        |
-| `timeout`       | integer | `5000`                    | Timeout for mesh API calls (milliseconds)       |
-| `cache_ttl`     | integer | `300`                     | Cache TTL for org/vault lookups (seconds)       |
-| `cert_cache_ttl`| integer | `900`                     | Cache TTL for client certificates (seconds)     |
+| Option           | Type    | Default                   | Description                                 |
+| ---------------- | ------- | ------------------------- | ------------------------------------------- |
+| `url`            | string  | `"http://localhost:9092"` | Control service base URL                    |
+| `timeout`        | integer | `5000`                    | Timeout for mesh API calls (milliseconds)   |
+| `cache_ttl`      | integer | `300`                     | Cache TTL for org/vault lookups (seconds)   |
+| `cert_cache_ttl` | integer | `900`                     | Cache TTL for client certificates (seconds) |
 
 ### Examples
 

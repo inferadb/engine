@@ -18,8 +18,8 @@ Distributed tracing allows you to:
 ### Environment Variables
 
 ```bash
-# Enable tracing
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
+# Tracing is enabled via OpenTelemetry environment variables
+# InferaDB automatically integrates with OTEL when configured
 
 # Configure OTLP endpoint
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
@@ -35,19 +35,7 @@ export OTEL_TRACES_SAMPLER_ARG=0.1    # Sample 10% of traces
 
 ### Configuration File
 
-```yaml
-observability:
-  tracing:
-    enabled: true
-    exporter:
-      otlp:
-        endpoint: "http://localhost:4317"
-        protocol: grpc
-    sampling:
-      type: "traceidratio" # or "always_on", "always_off"
-      ratio: 0.1 # 10% sampling
-    service_name: "inferadb-engine"
-```
+Tracing is configured via standard OpenTelemetry environment variables. InferaDB automatically integrates with the OpenTelemetry SDK when these are set.
 
 ## Trace Structure
 
@@ -116,7 +104,7 @@ docker run -d --name jaeger \
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
+export OTEL_SERVICE_NAME=inferadb-engine
 inferadb-engine
 ```
 
@@ -296,7 +284,7 @@ docker run -d --name otel-collector \
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://trace.agent.datadoghq.com
 export OTEL_EXPORTER_OTLP_HEADERS="DD-API-KEY=<your-api-key>"
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
+export OTEL_SERVICE_NAME=inferadb-engine
 ```
 
 ### New Relic
@@ -304,7 +292,7 @@ export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.nr-data.net:4317
 export OTEL_EXPORTER_OTLP_HEADERS="api-key=<your-license-key>"
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
+export OTEL_SERVICE_NAME=inferadb-engine
 ```
 
 ### AWS X-Ray
@@ -312,14 +300,14 @@ export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
 ```bash
 # Use OpenTelemetry Collector with AWS X-Ray exporter
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
+export OTEL_SERVICE_NAME=inferadb-engine
 ```
 
 ### Google Cloud Trace
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://cloudtrace.googleapis.com/v2/projects/PROJECT_ID/traces:batchWrite
-export INFERADB__OBSERVABILITY__TRACING_ENABLED=true
+export OTEL_SERVICE_NAME=inferadb-engine
 ```
 
 ## Sampling Strategies

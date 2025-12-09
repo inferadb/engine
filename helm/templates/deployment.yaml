@@ -51,8 +51,8 @@ spec:
         - name: grpc
           containerPort: {{ .Values.service.grpcPort }}
           protocol: TCP
-        - name: internal
-          containerPort: {{ .Values.service.internalPort }}
+        - name: mesh
+          containerPort: {{ .Values.service.meshPort }}
           protocol: TCP
         envFrom:
         - configMapRef:

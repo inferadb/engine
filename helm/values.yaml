@@ -50,12 +50,12 @@ service:
   type: ClusterIP
   port: 8080
   grpcPort: 8081
-  internalPort: 8082 # Internal/private REST API for server-to-server communication
+  meshPort: 8082 # Service mesh API for inter-service communication
   annotations: {}
   sessionAffinity: None
   # nodePort: 30080  # Only used when service.type is NodePort
   # grpcNodePort: 30081
-  # internalNodePort: 30082
+  # meshNodePort: 30082
   # loadBalancerIP: ""  # Only used when service.type is LoadBalancer
   headless:
     enabled: false # Enable for StatefulSet deployments
@@ -136,40 +136,36 @@ topologySpreadConstraints:
       matchLabels:
         app.kubernetes.io/name: inferadb-engine
 
-# InferaDB configuration
+# InferaDB Engine configuration
 config:
   # Worker threads for async runtime (default: number of CPU cores)
   threads: 4
   # Log level: trace, debug, info, warn, error
   logging: "info"
 
-  # Storage backend configuration
-  storage:
-    backend: "memory" # "memory" or "foundationdb"
-    fdbClusterFile: "/etc/foundationdb/fdb.cluster" # Required if backend=foundationdb
+  # Storage backend: "memory" or "foundationdb"
+  storage: "memory"
+
+  # FoundationDB configuration (only used when storage = "foundationdb")
+  foundationdb:
+    clusterFile: "/etc/foundationdb/fdb.cluster"
 
   # Cache configuration
   cache:
     enabled: true
-    maxCapacity: 10000 # Max cache entries
+    capacity: 10000 # Max cache entries
     ttl: 300 # TTL in seconds
 
-  # JWT validation configuration
-  jwt:
-    jwksCacheTtl: 300 # JWKS cache TTL in seconds
-    clockSkewSeconds: 60 # JWT clock tolerance
-    maxTokenAgeSeconds: 86400 # Maximum token age (24 hours)
-    requireJti: false # Require JTI claim in tokens
+  # Token validation configuration
+  token:
+    cacheTtl: 300 # JWKS cache TTL in seconds
+    clockSkew: 60 # Clock skew tolerance in seconds
+    maxAge: 86400 # Maximum token age in seconds (24 hours)
 
-  # Replay protection configuration (requires Redis if enabled)
-  replayProtection:
-    enabled: false
-    # redisUrl: "redis://redis-master:6379"
-
-  # Control service configuration
-  control:
-    serviceUrl: "" # Set automatically via discovery, or set to static URL
-    apiTimeoutMs: 5000 # Timeout for control API calls
+  # Mesh configuration (communication with Control service)
+  mesh:
+    url: "" # Set automatically via discovery, or set to static URL (e.g., "http://inferadb-control:9092")
+    timeout: 5000 # Timeout for mesh API calls in milliseconds
     cacheTtl: 300 # Org/vault cache TTL in seconds
     certCacheTtl: 900 # Client cert cache TTL in seconds
 
@@ -178,21 +174,24 @@ config:
 
 # Service discovery configuration
 discovery:
-  # Discovery mode: "static", "kubernetes_service", "tailscale"
-  mode: "kubernetes_service"
+  # Discovery mode: "none", "kubernetes", "tailscale"
+  mode: "kubernetes"
 
-  # Control discovery
+  # Cache TTL for discovered endpoints (in seconds)
+  cacheTtl: 300
+
+  # Health check interval (in seconds)
+  healthCheckInterval: 30
+
+  # Control service discovery (used to construct mesh.url when discovery is enabled)
   control:
-    # Kubernetes service name (when mode = kubernetes_service)
+    # Kubernetes service name (when mode = kubernetes)
     serviceName: "inferadb-control"
     namespace: "inferadb"
-    port: 9092 # Control internal/private API port
+    port: 9092 # Control mesh API port
 
-    # Static URL (when mode = static)
+    # Static URL (when mode = none, set config.mesh.url directly instead)
     staticUrl: "http://localhost:9092"
-
-    # Refresh interval for discovery (seconds)
-    refreshInterval: 30
 
   # Tailscale multi-region configuration (when mode = tailscale)
   tailscale:
@@ -248,15 +247,9 @@ discovery:
 
 # Secrets (use external secret manager in production)
 secrets:
-  # JWKS URL for JWT validation
-  jwksUrl: "https://auth.example.com/.well-known/jwks.json"
-
-  # Redis URL for replay protection
-  redisUrl: "redis://redis-master:6379"
-  redisPassword: ""
-
-  # OAuth client secret
-  oidcClientSecret: ""
+  # Engine identity Ed25519 private key (PEM format) for signing requests to Control
+  # If not provided, will be generated on startup (not recommended for production)
+  pem: ""
 
   # FoundationDB cluster file content
   fdbClusterFile: ""
@@ -272,10 +265,10 @@ externalSecrets:
     kind: SecretStore # or ClusterSecretStore
   refreshInterval: 1h
   data: []
-    # - secretKey: INFERADB__AUTH__JWKS_URL
+    # - secretKey: INFERADB__ENGINE__PEM
     #   remoteRef:
-    #     key: inferadb/prod/auth
-    #     property: jwks_url
+    #     key: inferadb/prod/engine
+    #     property: pem
 
 # Health check configuration
 healthCheck:
@@ -346,11 +339,4 @@ serviceMonitor:
 foundationdb:
   enabled: false
   clusterName: "inferadb-fdb"
-  version: "7.1.38"
-
-redis:
-  enabled: false
-  architecture: standalone
-  auth:
-    enabled: true
-    password: "change-me"
+  version: "7.3.x"

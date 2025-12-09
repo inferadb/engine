@@ -602,40 +602,29 @@ When authentication fails, verify in order:
 ### Minimal Configuration
 
 ```yaml
-auth:
+token:
   enabled: true
-  control_url: "http://localhost:8081"
+
+mesh:
+  url: "http://localhost:8081"
 ```
 
 ### Production Configuration
 
 ```yaml
-auth:
+# Engine identity (for engine-to-control requests)
+pem: |
+  -----BEGIN PRIVATE KEY-----
+  MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
+  -----END PRIVATE KEY-----
+
+token:
   enabled: true
+  jwks_url: "https://control.example.com/.well-known/jwks.json"
+  clock_skew_seconds: 30
 
-  # Control connection
-  control_url: "https://control.example.com"
-  control_timeout_ms: 5000
-
-  # JWKS configuration (for client token verification)
-  jwks_base_url: "https://control.example.com"
-
-  # Cache TTLs
-  cert_cache_ttl_seconds: 900 # 15 minutes
-  control_cache_ttl_seconds: 300 # 5 minutes
-
-  # Cache capacities
-  cert_cache_max_capacity: 10000
-  vault_cache_max_capacity: 10000
-  org_cache_max_capacity: 1000
-
-  # Engine identity (for engine-to-control requests)
-  engine_identity_private_key: |
-    -----BEGIN PRIVATE KEY-----
-    MC4CAQawBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
-    -----END PRIVATE KEY-----
-  engine_identity_kid: "engine-primary-2024"
-  engine_id: "inferadb-engine-prod-us-east-1"
+mesh:
+  url: "https://control.example.com"
 ```
 
 ### Environment Variables
@@ -643,19 +632,16 @@ auth:
 Configuration can also be set via environment variables:
 
 ```bash
-# Core settings
-export INFERADB__AUTH__ENABLED=true
-export INFERADB__AUTH__CONTROL_URL=http://localhost:8081
-export INFERADB__AUTH__JWKS_BASE_URL=http://localhost:8081
+# Token validation
+export INFERADB__ENGINE__TOKEN__ENABLED=true
+export INFERADB__ENGINE__TOKEN__JWKS_URL=https://control.example.com/.well-known/jwks.json
+export INFERADB__ENGINE__TOKEN__CLOCK_SKEW_SECONDS=30
 
-# Cache configuration
-export INFERADB__AUTH__CERT_CACHE_TTL_SECONDS=900
-export INFERADB__AUTH__CONTROL_CACHE_TTL_SECONDS=300
+# Control mesh connection
+export INFERADB__ENGINE__MESH__URL=https://control.example.com
 
-# Engine identity
-export INFERADB__AUTH__ENGINE_IDENTITY_KID=engine-primary-2024
-export INFERADB__AUTH__ENGINE_ID=inferadb-engine-dev
-# Note: Set INFERADB__AUTH__ENGINE_IDENTITY_PRIVATE_KEY for production
+# Engine identity (Ed25519 private key for engine-to-control auth)
+export INFERADB__ENGINE__PEM="-----BEGIN PRIVATE KEY-----..."
 ```
 
 ### Metrics

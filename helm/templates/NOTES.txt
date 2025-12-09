@@ -58,8 +58,7 @@ Prometheus ServiceMonitor is enabled. Metrics are available at:
 {{- end }}
 
 Configuration:
-  - Storage Backend: {{ .Values.config.storage.backend }}
-  - Authentication: {{ if .Values.config.auth.enabled }}Enabled{{ else }}Disabled{{ end }}
+  - Storage Backend: {{ .Values.config.storage }}
   - Cache: {{ if .Values.config.cache.enabled }}Enabled{{ else }}Disabled{{ end }}
   {{- if .Values.autoscaling.enabled }}
   - Autoscaling: Enabled ({{ .Values.autoscaling.minReplicas }}-{{ .Values.autoscaling.maxReplicas }} replicas)
