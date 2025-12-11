@@ -532,6 +532,44 @@ impl From<Vault> for VaultResponse {
 }
 
 // ============================================================================
+// Replication Types
+// ============================================================================
+
+/// Health statistics for the change feed
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ReplicationHealth {
+    /// Whether replication is enabled
+    pub enabled: bool,
+    /// Total number of changes published
+    pub published: u64,
+    /// Number of active subscribers
+    pub subscribers: usize,
+    /// Number of dropped events (buffer full)
+    pub dropped: u64,
+    /// Whether the replication system is healthy
+    pub healthy: bool,
+    /// Optional status message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+/// Trait for publishing changes to a change feed for replication.
+///
+/// This trait allows the API layer to publish changes without depending
+/// on the concrete `ChangeFeed` implementation in `inferadb-engine-repl`.
+#[async_trait::async_trait]
+pub trait ChangePublisher: Send + Sync {
+    /// Publish an insert change event
+    async fn publish_insert(&self, revision: Revision, relationship: Relationship);
+
+    /// Publish a delete change event
+    async fn publish_delete(&self, revision: Revision, relationship: Relationship);
+
+    /// Get health status of the replication system
+    async fn health(&self) -> ReplicationHealth;
+}
+
+// ============================================================================
 // Request/Response Types - Watch
 // ============================================================================
 

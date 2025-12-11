@@ -203,6 +203,28 @@ async fn main() -> Result<()> {
         None
     };
 
+    // Initialize replication components if enabled
+    let change_publisher: Option<Arc<dyn inferadb_engine_types::ChangePublisher>> =
+        if config.replication.enabled {
+            use inferadb_engine_repl::ChangeFeed;
+
+            let change_feed = Arc::new(ChangeFeed::new());
+            log_initialized(&format!(
+                "Replication ({:?}, local_region={})",
+                config.replication.strategy, config.replication.local_region
+            ));
+
+            // Note: ReplicationAgent will be started in a separate task when we have
+            // the full topology from config. For now, we just create the change feed
+            // for publishing changes. Full replication agent startup will be added
+            // when topology configuration is parsed.
+
+            Some(change_feed)
+        } else {
+            log_skipped("Replication", "disabled in config");
+            None
+        };
+
     // Clone components for each server
     let public_components = inferadb_engine_api::ServerComponents {
         store: Arc::clone(&store),
@@ -211,6 +233,7 @@ async fn main() -> Result<()> {
         config: Arc::clone(&config),
         jwks_cache: jwks_cache.clone(),
         server_identity: server_identity.clone(),
+        change_publisher: change_publisher.clone(),
     };
 
     let internal_components = inferadb_engine_api::ServerComponents {
@@ -220,6 +243,7 @@ async fn main() -> Result<()> {
         config: Arc::clone(&config),
         jwks_cache: jwks_cache.clone(),
         server_identity: server_identity.clone(),
+        change_publisher: change_publisher.clone(),
     };
 
     // Bind listeners (addresses are already validated at config.validate())

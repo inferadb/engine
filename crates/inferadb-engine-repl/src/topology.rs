@@ -359,6 +359,217 @@ impl TopologyBuilder {
     }
 }
 
+/// Event type for topology changes
+#[derive(Debug, Clone)]
+pub enum TopologyEvent {
+    /// A node was added
+    NodeAdded { region_id: RegionId, zone_id: ZoneId, node: Node },
+    /// A node was removed
+    NodeRemoved { region_id: RegionId, zone_id: ZoneId, node_id: NodeId },
+    /// A node's status changed
+    NodeStatusChanged { region_id: RegionId, zone_id: ZoneId, node_id: NodeId, status: NodeStatus },
+    /// A region was added
+    RegionAdded { region: Region },
+    /// A region was removed
+    RegionRemoved { region_id: RegionId },
+    /// The entire topology was replaced
+    TopologyReplaced,
+}
+
+/// Manager for topology with runtime update support
+///
+/// Provides methods to update the topology at runtime and notify
+/// subscribers of changes.
+pub struct TopologyManager {
+    topology: std::sync::Arc<tokio::sync::RwLock<Topology>>,
+    event_tx: tokio::sync::broadcast::Sender<TopologyEvent>,
+}
+
+impl TopologyManager {
+    /// Create a new topology manager
+    pub fn new(topology: Topology) -> Self {
+        let (event_tx, _) = tokio::sync::broadcast::channel(64);
+        Self { topology: std::sync::Arc::new(tokio::sync::RwLock::new(topology)), event_tx }
+    }
+
+    /// Get a shared reference to the topology
+    pub fn topology(&self) -> std::sync::Arc<tokio::sync::RwLock<Topology>> {
+        self.topology.clone()
+    }
+
+    /// Subscribe to topology change events
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<TopologyEvent> {
+        self.event_tx.subscribe()
+    }
+
+    /// Update a node's status
+    pub async fn update_node_status(
+        &self,
+        region_id: &RegionId,
+        zone_id: &ZoneId,
+        node_id: &NodeId,
+        status: NodeStatus,
+    ) -> Result<(), TopologyError> {
+        let mut topology = self.topology.write().await;
+
+        let region = topology
+            .get_region_mut(region_id)
+            .ok_or_else(|| TopologyError::InvalidLocalRegion(region_id.clone()))?;
+
+        let zone = region.zones.iter_mut().find(|z| &z.id == zone_id).ok_or_else(|| {
+            TopologyError::InvalidReplicationSource(RegionId::new(zone_id.as_str()))
+        })?;
+
+        let node =
+            zone.nodes.iter_mut().find(|n| &n.id == node_id).ok_or_else(|| {
+                TopologyError::InvalidReplicationTarget(RegionId::new(node_id.as_str()))
+            })?;
+
+        let old_status = node.status;
+        node.status = status;
+        node.last_heartbeat = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        // Only emit event if status actually changed
+        if old_status != status {
+            let _ = self.event_tx.send(TopologyEvent::NodeStatusChanged {
+                region_id: region_id.clone(),
+                zone_id: zone_id.clone(),
+                node_id: node_id.clone(),
+                status,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Add a new node to a zone
+    pub async fn add_node(
+        &self,
+        region_id: &RegionId,
+        zone_id: &ZoneId,
+        node: Node,
+    ) -> Result<(), TopologyError> {
+        let mut topology = self.topology.write().await;
+
+        let region = topology
+            .get_region_mut(region_id)
+            .ok_or_else(|| TopologyError::InvalidLocalRegion(region_id.clone()))?;
+
+        let zone = region.zones.iter_mut().find(|z| &z.id == zone_id).ok_or_else(|| {
+            TopologyError::InvalidReplicationSource(RegionId::new(zone_id.as_str()))
+        })?;
+
+        // Check if node already exists
+        if zone.nodes.iter().any(|n| n.id == node.id) {
+            return Ok(()); // Node already exists, no-op
+        }
+
+        let event = TopologyEvent::NodeAdded {
+            region_id: region_id.clone(),
+            zone_id: zone_id.clone(),
+            node: node.clone(),
+        };
+
+        zone.add_node(node);
+        let _ = self.event_tx.send(event);
+
+        Ok(())
+    }
+
+    /// Remove a node from a zone
+    pub async fn remove_node(
+        &self,
+        region_id: &RegionId,
+        zone_id: &ZoneId,
+        node_id: &NodeId,
+    ) -> Result<(), TopologyError> {
+        let mut topology = self.topology.write().await;
+
+        let region = topology
+            .get_region_mut(region_id)
+            .ok_or_else(|| TopologyError::InvalidLocalRegion(region_id.clone()))?;
+
+        let zone = region.zones.iter_mut().find(|z| &z.id == zone_id).ok_or_else(|| {
+            TopologyError::InvalidReplicationSource(RegionId::new(zone_id.as_str()))
+        })?;
+
+        let original_len = zone.nodes.len();
+        zone.nodes.retain(|n| &n.id != node_id);
+
+        // Only emit event if node was actually removed
+        if zone.nodes.len() < original_len {
+            let _ = self.event_tx.send(TopologyEvent::NodeRemoved {
+                region_id: region_id.clone(),
+                zone_id: zone_id.clone(),
+                node_id: node_id.clone(),
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Replace the entire topology
+    pub async fn replace_topology(&self, new_topology: Topology) -> Result<(), TopologyError> {
+        new_topology.validate()?;
+
+        let mut topology = self.topology.write().await;
+        *topology = new_topology;
+
+        let _ = self.event_tx.send(TopologyEvent::TopologyReplaced);
+
+        Ok(())
+    }
+
+    /// Mark a node as healthy based on a heartbeat
+    pub async fn record_heartbeat(
+        &self,
+        region_id: &RegionId,
+        zone_id: &ZoneId,
+        node_id: &NodeId,
+    ) -> Result<(), TopologyError> {
+        self.update_node_status(region_id, zone_id, node_id, NodeStatus::Healthy).await
+    }
+
+    /// Check for stale nodes and mark them as unreachable
+    ///
+    /// A node is considered stale if it hasn't sent a heartbeat
+    /// within the specified timeout (in milliseconds).
+    pub async fn check_stale_nodes(&self, timeout_ms: u64) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let mut topology = self.topology.write().await;
+
+        for region in &mut topology.regions {
+            for zone in &mut region.zones {
+                for node in &mut zone.nodes {
+                    if node.status == NodeStatus::Healthy && node.last_heartbeat > 0 {
+                        let elapsed = now.saturating_sub(node.last_heartbeat);
+                        if elapsed > timeout_ms {
+                            let old_status = node.status;
+                            node.status = NodeStatus::Unreachable;
+
+                            if old_status != NodeStatus::Unreachable {
+                                let _ = self.event_tx.send(TopologyEvent::NodeStatusChanged {
+                                    region_id: region.id.clone(),
+                                    zone_id: zone.id.clone(),
+                                    node_id: node.id.clone(),
+                                    status: NodeStatus::Unreachable,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -519,5 +730,324 @@ mod tests {
         assert_eq!(targets.len(), 2);
         assert!(targets.contains(&&RegionId::new("eu-central-1")));
         assert!(targets.contains(&&RegionId::new("ap-southeast-1")));
+    }
+
+    #[tokio::test]
+    async fn test_topology_manager_update_node_status() {
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .build()
+                .unwrap();
+
+        let manager = TopologyManager::new(topology);
+        let mut rx = manager.subscribe();
+
+        // Update status to Unreachable
+        manager
+            .update_node_status(
+                &RegionId::new("us-west-1"),
+                &ZoneId::new("us-west-1a"),
+                &NodeId::new("node1"),
+                NodeStatus::Unreachable,
+            )
+            .await
+            .unwrap();
+
+        // Verify event was sent
+        let event = rx.try_recv().unwrap();
+        match event {
+            TopologyEvent::NodeStatusChanged { node_id, status, .. } => {
+                assert_eq!(node_id, NodeId::new("node1"));
+                assert_eq!(status, NodeStatus::Unreachable);
+            },
+            _ => panic!("Expected NodeStatusChanged event"),
+        }
+
+        // Verify status was updated
+        let topo = manager.topology.read().await;
+        let node = topo
+            .get_region(&RegionId::new("us-west-1"))
+            .unwrap()
+            .get_zone(&ZoneId::new("us-west-1a"))
+            .unwrap()
+            .get_node(&NodeId::new("node1"))
+            .unwrap();
+        assert_eq!(node.status, NodeStatus::Unreachable);
+    }
+
+    #[tokio::test]
+    async fn test_topology_manager_add_node() {
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .build()
+                .unwrap();
+
+        let manager = TopologyManager::new(topology);
+        let mut rx = manager.subscribe();
+
+        // Add a new node
+        let new_node = Node::new(NodeId::new("node1"), "localhost:50051".to_string());
+        manager
+            .add_node(&RegionId::new("us-west-1"), &ZoneId::new("us-west-1a"), new_node)
+            .await
+            .unwrap();
+
+        // Verify event was sent
+        let event = rx.try_recv().unwrap();
+        match event {
+            TopologyEvent::NodeAdded { node, .. } => {
+                assert_eq!(node.id, NodeId::new("node1"));
+            },
+            _ => panic!("Expected NodeAdded event"),
+        }
+
+        // Verify node was added
+        let topo = manager.topology.read().await;
+        let zone = topo
+            .get_region(&RegionId::new("us-west-1"))
+            .unwrap()
+            .get_zone(&ZoneId::new("us-west-1a"))
+            .unwrap();
+        assert_eq!(zone.nodes.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_topology_manager_remove_node() {
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .build()
+                .unwrap();
+
+        let manager = TopologyManager::new(topology);
+        let mut rx = manager.subscribe();
+
+        // Remove the node
+        manager
+            .remove_node(
+                &RegionId::new("us-west-1"),
+                &ZoneId::new("us-west-1a"),
+                &NodeId::new("node1"),
+            )
+            .await
+            .unwrap();
+
+        // Verify event was sent
+        let event = rx.try_recv().unwrap();
+        match event {
+            TopologyEvent::NodeRemoved { node_id, .. } => {
+                assert_eq!(node_id, NodeId::new("node1"));
+            },
+            _ => panic!("Expected NodeRemoved event"),
+        }
+
+        // Verify node was removed
+        let topo = manager.topology.read().await;
+        let zone = topo
+            .get_region(&RegionId::new("us-west-1"))
+            .unwrap()
+            .get_zone(&ZoneId::new("us-west-1a"))
+            .unwrap();
+        assert!(zone.nodes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_topology_manager_replace_topology() {
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .build()
+                .unwrap();
+
+        let manager = TopologyManager::new(topology);
+        let mut rx = manager.subscribe();
+
+        // Create a new topology
+        let new_topology =
+            TopologyBuilder::new(ReplicationStrategy::PrimaryReplica, RegionId::new("eu-central-1"))
+                .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), true)
+                .build()
+                .unwrap();
+
+        // Replace the topology
+        manager.replace_topology(new_topology).await.unwrap();
+
+        // Verify event was sent
+        let event = rx.try_recv().unwrap();
+        assert!(matches!(event, TopologyEvent::TopologyReplaced));
+
+        // Verify topology was replaced
+        let topo = manager.topology.read().await;
+        assert_eq!(topo.strategy, ReplicationStrategy::PrimaryReplica);
+        assert_eq!(topo.local_region, RegionId::new("eu-central-1"));
+    }
+
+    #[tokio::test]
+    async fn test_topology_manager_record_heartbeat() {
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .build()
+                .unwrap();
+
+        let manager = TopologyManager::new(topology);
+
+        // Record heartbeat
+        manager
+            .record_heartbeat(
+                &RegionId::new("us-west-1"),
+                &ZoneId::new("us-west-1a"),
+                &NodeId::new("node1"),
+            )
+            .await
+            .unwrap();
+
+        // Verify heartbeat was recorded
+        let topo = manager.topology.read().await;
+        let node = topo
+            .get_region(&RegionId::new("us-west-1"))
+            .unwrap()
+            .get_zone(&ZoneId::new("us-west-1a"))
+            .unwrap()
+            .get_node(&NodeId::new("node1"))
+            .unwrap();
+        assert!(node.last_heartbeat > 0);
+    }
+
+    #[tokio::test]
+    async fn test_topology_manager_check_stale_nodes() {
+        let mut topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .build()
+                .unwrap();
+
+        // Set an old heartbeat (1 second ago)
+        if let Some(region) = topology.get_region_mut(&RegionId::new("us-west-1")) {
+            if let Some(zone) = region.zones.get_mut(0) {
+                if let Some(node) = zone.nodes.get_mut(0) {
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64;
+                    node.last_heartbeat = now - 2000; // 2 seconds ago
+                }
+            }
+        }
+
+        let manager = TopologyManager::new(topology);
+        let mut rx = manager.subscribe();
+
+        // Check for stale nodes with 1 second timeout
+        manager.check_stale_nodes(1000).await;
+
+        // Verify event was sent
+        let event = rx.try_recv().unwrap();
+        match event {
+            TopologyEvent::NodeStatusChanged { node_id, status, .. } => {
+                assert_eq!(node_id, NodeId::new("node1"));
+                assert_eq!(status, NodeStatus::Unreachable);
+            },
+            _ => panic!("Expected NodeStatusChanged event"),
+        }
+
+        // Verify node is now unreachable
+        let topo = manager.topology.read().await;
+        let node = topo
+            .get_region(&RegionId::new("us-west-1"))
+            .unwrap()
+            .get_zone(&ZoneId::new("us-west-1a"))
+            .unwrap()
+            .get_node(&NodeId::new("node1"))
+            .unwrap();
+        assert_eq!(node.status, NodeStatus::Unreachable);
+    }
+
+    #[tokio::test]
+    async fn test_topology_manager_no_duplicate_events() {
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West 1".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .build()
+                .unwrap();
+
+        let manager = TopologyManager::new(topology);
+        let mut rx = manager.subscribe();
+
+        // Update to Healthy (same as current status)
+        manager
+            .update_node_status(
+                &RegionId::new("us-west-1"),
+                &ZoneId::new("us-west-1a"),
+                &NodeId::new("node1"),
+                NodeStatus::Healthy,
+            )
+            .await
+            .unwrap();
+
+        // Should not receive an event since status didn't change
+        assert!(rx.try_recv().is_err());
     }
 }

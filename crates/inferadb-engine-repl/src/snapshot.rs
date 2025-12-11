@@ -1,21 +1,18 @@
 //! Snapshot reads at specific revisions
 //!
-//! Provides snapshot isolation for reads at specific revision tokens
+//! Provides snapshot isolation for reads at specific revision tokens.
+//! Supports multi-vault operations for tenant isolation.
 
 use std::{sync::Arc, time::Duration};
 
 use inferadb_engine_store::RelationshipStore;
 use inferadb_engine_types::{Relationship, RelationshipKey, Revision};
+
+/// Type alias for vault identifiers
+type VaultId = i64;
 use tokio::time::timeout;
 
 use crate::{ReplError, Result, RevisionToken};
-
-/// Get the vault ID for REPL operations
-/// TODO(Phase 2): Allow users to specify vault via REPL command
-/// For Phase 1, we use 0 as a placeholder for the default vault
-fn get_vault() -> i64 {
-    0
-}
 
 /// Snapshot reader for consistent reads at a specific revision
 pub struct SnapshotReader {
@@ -35,9 +32,16 @@ impl SnapshotReader {
     }
 
     /// Read relationships at a specific revision token
-    /// Blocks until the revision is available or times out
+    ///
+    /// Blocks until the revision is available or times out.
+    ///
+    /// # Arguments
+    /// * `vault` - The vault ID for tenant isolation
+    /// * `key` - The relationship key to query
+    /// * `token` - The revision token specifying the snapshot point
     pub async fn read_at_token(
         &self,
+        vault: VaultId,
         key: &RelationshipKey,
         token: &RevisionToken,
     ) -> Result<Vec<Relationship>> {
@@ -51,7 +55,8 @@ impl SnapshotReader {
 
         // Attempt to read at the specified revision with timeout
         let result =
-            timeout(self.timeout_duration, self.wait_for_revision_and_read(key, revision)).await;
+            timeout(self.timeout_duration, self.wait_for_revision_and_read(vault, key, revision))
+                .await;
 
         match result {
             Ok(Ok(relationships)) => Ok(relationships),
@@ -65,16 +70,17 @@ impl SnapshotReader {
     /// Wait for a revision to be available, then read
     async fn wait_for_revision_and_read(
         &self,
+        vault: VaultId,
         key: &RelationshipKey,
         target_revision: Revision,
     ) -> Result<Vec<Relationship>> {
         // Poll until the store has reached the target revision
         loop {
-            let current_revision = self.store.get_revision(get_vault()).await?;
+            let current_revision = self.store.get_revision(vault).await?;
 
             if current_revision >= target_revision {
                 // Revision is available, perform the read
-                let relationships = self.store.read(get_vault(), key, target_revision).await?;
+                let relationships = self.store.read(vault, key, target_revision).await?;
                 return Ok(relationships);
             }
 
@@ -84,15 +90,27 @@ impl SnapshotReader {
     }
 
     /// Read relationships at the current revision
-    pub async fn read_current(&self, key: &RelationshipKey) -> Result<Vec<Relationship>> {
-        let current_revision = self.store.get_revision(get_vault()).await?;
-        let relationships = self.store.read(get_vault(), key, current_revision).await?;
+    ///
+    /// # Arguments
+    /// * `vault` - The vault ID for tenant isolation
+    /// * `key` - The relationship key to query
+    pub async fn read_current(
+        &self,
+        vault: VaultId,
+        key: &RelationshipKey,
+    ) -> Result<Vec<Relationship>> {
+        let current_revision = self.store.get_revision(vault).await?;
+        let relationships = self.store.read(vault, key, current_revision).await?;
         Ok(relationships)
     }
 
     /// Get the current revision as a token
-    pub async fn current_token(&self, node_id: String) -> Result<RevisionToken> {
-        let revision = self.store.get_revision(get_vault()).await?;
+    ///
+    /// # Arguments
+    /// * `vault` - The vault ID for tenant isolation
+    /// * `node_id` - The identifier for this node
+    pub async fn current_token(&self, vault: VaultId, node_id: String) -> Result<RevisionToken> {
+        let revision = self.store.get_revision(vault).await?;
         Ok(RevisionToken::new(node_id, revision.0))
     }
 }
@@ -104,6 +122,9 @@ mod tests {
 
     use super::*;
 
+    const TEST_VAULT: VaultId = 0;
+    const OTHER_VAULT: VaultId = 1;
+
     #[tokio::test]
     async fn test_read_current() {
         let store = Arc::new(MemoryBackend::new());
@@ -111,12 +132,12 @@ mod tests {
 
         // Write a relationship
         let relationship = Relationship {
-            vault: 0,
+            vault: TEST_VAULT,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        store.write(0, vec![relationship.clone()]).await.unwrap();
+        store.write(TEST_VAULT, vec![relationship.clone()]).await.unwrap();
 
         // Read at current revision
         let key = RelationshipKey {
@@ -124,7 +145,7 @@ mod tests {
             relation: "viewer".to_string(),
             subject: None,
         };
-        let relationships = reader.read_current(&key).await.unwrap();
+        let relationships = reader.read_current(TEST_VAULT, &key).await.unwrap();
 
         assert_eq!(relationships.len(), 1);
         assert_eq!(relationships[0], relationship);
@@ -137,24 +158,24 @@ mod tests {
 
         // Write first relationship
         let relationship1 = Relationship {
-            vault: 0,
+            vault: TEST_VAULT,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let rev1 = store.write(0, vec![relationship1.clone()]).await.unwrap();
+        let rev1 = store.write(TEST_VAULT, vec![relationship1.clone()]).await.unwrap();
 
         // Create token at revision 1
         let token1 = RevisionToken::new("node1".to_string(), rev1.0);
 
         // Write second relationship
         let relationship2 = Relationship {
-            vault: 0,
+            vault: TEST_VAULT,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:bob".to_string(),
         };
-        store.write(0, vec![relationship2.clone()]).await.unwrap();
+        store.write(TEST_VAULT, vec![relationship2.clone()]).await.unwrap();
 
         // Read at revision 1 (should only see first relationship)
         let key = RelationshipKey {
@@ -162,7 +183,7 @@ mod tests {
             relation: "viewer".to_string(),
             subject: None,
         };
-        let relationships = reader.read_at_token(&key, &token1).await.unwrap();
+        let relationships = reader.read_at_token(TEST_VAULT, &key, &token1).await.unwrap();
 
         assert_eq!(relationships.len(), 1);
         assert_eq!(relationships[0], relationship1);
@@ -175,15 +196,15 @@ mod tests {
 
         // Write a relationship
         let relationship = Relationship {
-            vault: 0,
+            vault: TEST_VAULT,
             resource: "document:readme".to_string(),
             relation: "viewer".to_string(),
             subject: "user:alice".to_string(),
         };
-        let revision = store.write(0, vec![relationship]).await.unwrap();
+        let revision = store.write(TEST_VAULT, vec![relationship]).await.unwrap();
 
         // Get current token
-        let token = reader.current_token("node1".to_string()).await.unwrap();
+        let token = reader.current_token(TEST_VAULT, "node1".to_string()).await.unwrap();
 
         assert_eq!(token.node_id, "node1");
         assert_eq!(token.revision, revision.0);
@@ -204,7 +225,69 @@ mod tests {
         };
 
         // This should timeout
-        let result = reader.read_at_token(&key, &token).await;
+        let result = reader.read_at_token(TEST_VAULT, &key, &token).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_multi_vault_isolation() {
+        let store = Arc::new(MemoryBackend::new());
+        let reader = SnapshotReader::new(store.clone());
+
+        // Write relationships to different vaults
+        let relationship1 = Relationship {
+            vault: TEST_VAULT,
+            resource: "document:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        let relationship2 = Relationship {
+            vault: OTHER_VAULT,
+            resource: "document:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:bob".to_string(),
+        };
+
+        store.write(TEST_VAULT, vec![relationship1.clone()]).await.unwrap();
+        store.write(OTHER_VAULT, vec![relationship2.clone()]).await.unwrap();
+
+        // Read from TEST_VAULT should only see alice
+        let key = RelationshipKey {
+            resource: "document:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: None,
+        };
+        let relationships = reader.read_current(TEST_VAULT, &key).await.unwrap();
+        assert_eq!(relationships.len(), 1);
+        assert_eq!(relationships[0].subject, "user:alice");
+
+        // Read from OTHER_VAULT should only see bob
+        let relationships = reader.read_current(OTHER_VAULT, &key).await.unwrap();
+        assert_eq!(relationships.len(), 1);
+        assert_eq!(relationships[0].subject, "user:bob");
+    }
+
+    #[tokio::test]
+    async fn test_vault_revision_independence() {
+        let store = Arc::new(MemoryBackend::new());
+        let reader = SnapshotReader::new(store.clone());
+
+        // Write to TEST_VAULT
+        let relationship1 = Relationship {
+            vault: TEST_VAULT,
+            resource: "document:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        };
+        store.write(TEST_VAULT, vec![relationship1]).await.unwrap();
+
+        // Get tokens for both vaults
+        let token1 = reader.current_token(TEST_VAULT, "node1".to_string()).await.unwrap();
+        let token2 = reader.current_token(OTHER_VAULT, "node1".to_string()).await.unwrap();
+
+        // Revisions should be independent per vault
+        // TEST_VAULT has had a write, OTHER_VAULT is still at initial revision
+        assert!(token1.revision >= 1);
+        assert_eq!(token2.revision, 0);
     }
 }

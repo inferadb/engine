@@ -137,6 +137,7 @@ impl ChangeFeed {
 
     /// Publish a change event to all subscribers
     pub async fn publish(&self, change: Change) -> Result<()> {
+        let start = std::time::Instant::now();
         let mut stats = self.stats.write().await;
 
         // Attempt to send the change
@@ -144,11 +145,23 @@ impl ChangeFeed {
             Ok(count) => {
                 stats.published += 1;
                 stats.subscribers = count;
+
+                // Record metrics
+                let duration = start.elapsed().as_secs_f64();
+                inferadb_engine_observe::metrics::record_replication_changes(1, duration);
+                inferadb_engine_observe::metrics::update_replication_targets(count, count);
+
                 Ok(())
             },
             Err(_) => {
                 // No active subscribers, which is fine
                 stats.published += 1;
+
+                // Record metrics (still a successful publish, just no subscribers)
+                let duration = start.elapsed().as_secs_f64();
+                inferadb_engine_observe::metrics::record_replication_changes(1, duration);
+                inferadb_engine_observe::metrics::update_replication_targets(0, 0);
+
                 Ok(())
             },
         }
@@ -185,6 +198,39 @@ impl ChangeFeed {
     /// Get the current configuration
     pub fn config(&self) -> &ChangeFeedConfig {
         &self.config
+    }
+}
+
+/// Implement the ChangePublisher trait for ChangeFeed
+#[async_trait::async_trait]
+impl inferadb_engine_types::ChangePublisher for ChangeFeed {
+    async fn publish_insert(&self, revision: Revision, relationship: Relationship) {
+        let change = Change::insert(revision, relationship);
+        if let Err(e) = self.publish(change).await {
+            tracing::warn!("Failed to publish insert change to change feed: {}", e);
+        }
+    }
+
+    async fn publish_delete(&self, revision: Revision, relationship: Relationship) {
+        let change = Change::delete(revision, relationship);
+        if let Err(e) = self.publish(change).await {
+            tracing::warn!("Failed to publish delete change to change feed: {}", e);
+        }
+    }
+
+    async fn health(&self) -> inferadb_engine_types::ReplicationHealth {
+        let stats = self.stats().await;
+        inferadb_engine_types::ReplicationHealth {
+            enabled: true,
+            published: stats.published,
+            subscribers: stats.subscribers,
+            dropped: stats.dropped,
+            healthy: true, // ChangeFeed is always healthy if it exists
+            message: Some(format!(
+                "Published: {}, Subscribers: {}, Dropped: {}",
+                stats.published, stats.subscribers, stats.dropped
+            )),
+        }
     }
 }
 

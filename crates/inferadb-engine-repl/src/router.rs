@@ -4,8 +4,15 @@
 //! - For reads: route to local region for lowest latency
 //! - For writes: route to primary (PrimaryReplica) or local (ActiveActive)
 //! - Handle region failures with automatic failover
+//! - Round-robin load balancing across healthy nodes
 
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
@@ -35,16 +42,39 @@ pub struct RoutingDecision {
     pub endpoint: String,
 }
 
-/// Region-aware request router
+/// Load balancing strategy for selecting nodes
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LoadBalancingStrategy {
+    /// Round-robin across healthy nodes (default)
+    #[default]
+    RoundRobin,
+    /// Always select the first healthy node
+    FirstAvailable,
+}
+
+/// Region-aware request router with load balancing
 pub struct Router {
     /// Topology configuration
     topology: Arc<RwLock<Topology>>,
+    /// Load balancing strategy
+    strategy: LoadBalancingStrategy,
+    /// Round-robin counters per region (thread-safe)
+    round_robin_counters: Arc<RwLock<HashMap<RegionId, AtomicUsize>>>,
 }
 
 impl Router {
-    /// Create a new router with the given topology
+    /// Create a new router with the given topology (defaults to round-robin)
     pub fn new(topology: Arc<RwLock<Topology>>) -> Self {
-        Self { topology }
+        Self {
+            topology,
+            strategy: LoadBalancingStrategy::RoundRobin,
+            round_robin_counters: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Create a new router with a specific load balancing strategy
+    pub fn with_strategy(topology: Arc<RwLock<Topology>>, strategy: LoadBalancingStrategy) -> Self {
+        Self { topology, strategy, round_robin_counters: Arc::new(RwLock::new(HashMap::new())) }
     }
 
     /// Route a request to the appropriate region and node
@@ -55,6 +85,32 @@ impl Router {
             RequestType::Read => self.route_read(&topology).await,
             RequestType::Write => self.route_write(&topology).await,
         }
+    }
+
+    /// Select a node from a list using the configured load balancing strategy
+    async fn select_node<'a>(
+        &self,
+        region_id: &RegionId,
+        nodes: &'a [&'a crate::topology::Node],
+    ) -> &'a crate::topology::Node {
+        match self.strategy {
+            LoadBalancingStrategy::FirstAvailable => nodes[0],
+            LoadBalancingStrategy::RoundRobin => {
+                let index = self.get_and_increment_counter(region_id).await;
+                nodes[index % nodes.len()]
+            },
+        }
+    }
+
+    /// Get and increment the round-robin counter for a region
+    async fn get_and_increment_counter(&self, region_id: &RegionId) -> usize {
+        let mut counters = self.round_robin_counters.write().await;
+
+        let counter = counters
+            .entry(region_id.clone())
+            .or_insert_with(|| AtomicUsize::new(0));
+
+        counter.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Route a read request to the local region
@@ -70,8 +126,8 @@ impl Router {
             return self.find_fallback_region(topology, RequestType::Read).await;
         }
 
-        // Select first healthy node (could use round-robin or other strategies)
-        let node = nodes[0];
+        // Select node using load balancing strategy
+        let node = self.select_node(local_region, &nodes).await;
 
         Ok(RoutingDecision {
             region_id: local_region.clone(),
@@ -112,7 +168,8 @@ impl Router {
             return Err(ReplError::Replication("Primary region has no healthy nodes".to_string()));
         }
 
-        let node = nodes[0];
+        // Select node using load balancing strategy
+        let node = self.select_node(&primary.id, &nodes).await;
 
         debug!("Routing write to primary region {} node {}", primary.id, node.id);
 
@@ -138,7 +195,8 @@ impl Router {
             return self.find_fallback_region(topology, request_type).await;
         }
 
-        let node = nodes[0];
+        // Select node using load balancing strategy
+        let node = self.select_node(local_region, &nodes).await;
 
         debug!("Routing {:?} to local region {} node {}", request_type, local_region, node.id);
 
@@ -173,7 +231,8 @@ impl Router {
 
             let nodes = topology.get_healthy_nodes(&region.id);
             if !nodes.is_empty() {
-                let node = nodes[0];
+                // Select node using load balancing strategy
+                let node = self.select_node(&region.id, &nodes).await;
 
                 warn!(
                     "Failover: routing {:?} to fallback region {} node {}",
@@ -400,5 +459,83 @@ mod tests {
         let result = router.route(RequestType::Read).await;
 
         assert!(result.is_err());
+    }
+
+    async fn create_test_topology_multiple_nodes() -> Arc<RwLock<Topology>> {
+        Arc::new(RwLock::new(
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
+                .add_zone(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    "Zone A".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node1"),
+                    "localhost:50051".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node2"),
+                    "localhost:50052".to_string(),
+                )
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("us-west-1a"),
+                    NodeId::new("node3"),
+                    "localhost:50053".to_string(),
+                )
+                .build()
+                .unwrap(),
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_round_robin_load_balancing() {
+        let topology = create_test_topology_multiple_nodes().await;
+        let router = Router::new(topology); // Default is RoundRobin
+
+        // Make multiple requests and verify round-robin distribution
+        let decision1 = router.route(RequestType::Read).await.unwrap();
+        let decision2 = router.route(RequestType::Read).await.unwrap();
+        let decision3 = router.route(RequestType::Read).await.unwrap();
+        let decision4 = router.route(RequestType::Read).await.unwrap();
+
+        // Collect the node IDs
+        let nodes: Vec<_> =
+            vec![decision1.node_id, decision2.node_id, decision3.node_id, decision4.node_id];
+
+        // Verify that requests are distributed (not all to the same node)
+        // With 3 nodes, 4 requests should cycle through and hit at least 2 different nodes
+        let unique_nodes: std::collections::HashSet<_> = nodes.iter().collect();
+        assert!(
+            unique_nodes.len() >= 2,
+            "Round-robin should distribute across multiple nodes"
+        );
+
+        // Verify the round-robin pattern: node1, node2, node3, node1
+        assert_eq!(nodes[0], NodeId::new("node1"));
+        assert_eq!(nodes[1], NodeId::new("node2"));
+        assert_eq!(nodes[2], NodeId::new("node3"));
+        assert_eq!(nodes[3], NodeId::new("node1")); // Wraps around
+    }
+
+    #[tokio::test]
+    async fn test_first_available_strategy() {
+        let topology = create_test_topology_multiple_nodes().await;
+        let router = Router::with_strategy(topology, LoadBalancingStrategy::FirstAvailable);
+
+        // Make multiple requests - should all go to the same (first) node
+        let decision1 = router.route(RequestType::Read).await.unwrap();
+        let decision2 = router.route(RequestType::Read).await.unwrap();
+        let decision3 = router.route(RequestType::Read).await.unwrap();
+
+        // All should go to the first node
+        assert_eq!(decision1.node_id, NodeId::new("node1"));
+        assert_eq!(decision2.node_id, NodeId::new("node1"));
+        assert_eq!(decision3.node_id, NodeId::new("node1"));
     }
 }

@@ -57,13 +57,6 @@ use proto::{
     inferadb_service_server::InferadbService,
 };
 
-/// Get the vault ID for the current request
-/// TODO(Phase 2): Extract this from authentication context (JWT token)
-/// For Phase 1, we use 0 as a placeholder for the default vault
-pub(crate) fn get_vault() -> i64 {
-    0
-}
-
 pub struct InferadbServiceImpl {
     state: AppState,
 }

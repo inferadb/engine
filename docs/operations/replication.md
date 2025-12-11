@@ -2,6 +2,52 @@
 
 InferaDB supports active-active multi-region replication for globally distributed deployments with low-latency access and high availability.
 
+## Quick Start
+
+Enable replication in your `config.yaml`:
+
+```yaml
+replication:
+  enabled: true
+  strategy: ActiveActive
+  local_region: "us-west-1"
+  conflict_resolution: LastWriteWins
+  agent:
+    max_retries: 5
+    retry_delay_ms: 100
+    batch_size: 100
+  regions:
+    - id: "us-west-1"
+      name: "US West"
+      is_primary: false
+      zones:
+        - id: "us-west-1a"
+          name: "Zone A"
+          nodes:
+            - id: "node1"
+              endpoint: "engine-us-west.internal:50051"
+    - id: "eu-central-1"
+      name: "EU Central"
+      is_primary: false
+      zones:
+        - id: "eu-central-1a"
+          name: "Zone A"
+          nodes:
+            - id: "node2"
+              endpoint: "engine-eu.internal:50051"
+  replication_targets:
+    us-west-1:
+      - eu-central-1
+    eu-central-1:
+      - us-west-1
+```
+
+When replication is enabled:
+
+- All relationship writes are automatically published to the change feed
+- The startup log shows replication configuration (strategy, local region)
+- The `/healthz` endpoint includes replication health metrics
+
 ## Overview
 
 The replication system provides:
@@ -122,14 +168,42 @@ let resolver = ConflictResolver::new(ConflictResolutionStrategy::InsertWins);
 
 #### Custom
 
-Application-defined resolution logic.
+Application-defined resolution logic via a resolver hook.
 
 ```rust
-let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom);
-// Implement custom resolution in application code
+use inferadb_engine_repl::{ConflictResolver, ConflictResolutionStrategy, Conflict, Resolution};
+
+// Create resolver with custom hook
+let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom)
+    .with_custom_resolver(|conflict: &Conflict| {
+        // Example: Critical resources always keep remote (authoritative source)
+        if conflict.local.resource.starts_with("critical:") {
+            return Ok(Resolution::KeepRemote);
+        }
+
+        // Example: Admin changes always win
+        if conflict.remote.subject.starts_with("user:admin") {
+            return Ok(Resolution::KeepRemote);
+        }
+
+        // Default: keep local
+        Ok(Resolution::KeepLocal)
+    });
+
+// Resolve a conflict
+let resolution = resolver.resolve(&conflict)?;
 ```
 
-**Best for:** Complex business rules
+**Resolution Options:**
+
+| Resolution | Description |
+|------------|-------------|
+| `KeepLocal` | Keep the local change, discard remote |
+| `KeepRemote` | Keep the remote change, discard local |
+| `KeepBoth` | Keep both changes (creates duplicate) |
+| `Merge` | Merge changes (application-specific) |
+
+**Best for:** Complex business rules, resource-specific policies, compliance requirements
 
 ### 3. Replication Agent (`inferadb-engine-repl/agent.rs`)
 
@@ -214,6 +288,168 @@ if router.is_region_available(&RegionId::new("us-west-1")).await {
     println!("Region is healthy");
 }
 ```
+
+#### Load Balancing Strategies
+
+The router supports configurable load balancing across healthy nodes within a region:
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| **RoundRobin** (default) | Distributes requests evenly across all healthy nodes | Production deployments with multiple nodes |
+| **FirstAvailable** | Always routes to the first healthy node | Testing or single-node deployments |
+
+**Configuration:**
+
+```rust
+use inferadb_engine_repl::{Router, LoadBalancingStrategy};
+
+// Default: round-robin load balancing
+let router = Router::new(topology.clone());
+
+// Explicit round-robin
+let router = Router::with_strategy(topology.clone(), LoadBalancingStrategy::RoundRobin);
+
+// First available (no load balancing)
+let router = Router::with_strategy(topology.clone(), LoadBalancingStrategy::FirstAvailable);
+```
+
+### 5. Runtime Topology Management (`inferadb-engine-repl/topology.rs`)
+
+The `TopologyManager` enables dynamic topology updates at runtime without service restarts.
+
+**Features:**
+
+- Add/remove nodes dynamically as they scale
+- Update node health status based on health checks
+- Replace entire topology for configuration changes
+- Event broadcasting for topology change notifications
+- Heartbeat tracking for stale node detection
+
+**Usage:**
+
+```rust
+use inferadb_engine_repl::{TopologyManager, TopologyEvent, NodeStatus, NodeId, RegionId, ZoneId, Node};
+
+// Create manager from existing topology
+let manager = TopologyManager::new(topology);
+
+// Update node status (e.g., from health check)
+manager.update_node_status(
+    &RegionId::new("us-west-1"),
+    &ZoneId::new("us-west-1a"),
+    &NodeId::new("node1"),
+    NodeStatus::Degraded,
+).await;
+
+// Add a new node dynamically
+let new_node = Node::new(NodeId::new("node3"), "localhost:50053".to_string());
+manager.add_node(
+    &RegionId::new("us-west-1"),
+    &ZoneId::new("us-west-1a"),
+    new_node,
+).await?;
+
+// Remove a node
+manager.remove_node(
+    &RegionId::new("us-west-1"),
+    &ZoneId::new("us-west-1a"),
+    &NodeId::new("node3"),
+).await?;
+
+// Record heartbeat from health check
+manager.record_heartbeat(
+    &RegionId::new("us-west-1"),
+    &ZoneId::new("us-west-1a"),
+    &NodeId::new("node1"),
+).await;
+
+// Mark nodes as unreachable if no heartbeat in 30 seconds
+manager.check_stale_nodes(30_000).await;
+```
+
+**Event Subscription:**
+
+Subscribe to topology changes for reactive updates:
+
+```rust
+let mut receiver = manager.subscribe();
+
+tokio::spawn(async move {
+    while let Ok(event) = receiver.recv().await {
+        match event {
+            TopologyEvent::NodeAdded { region_id, zone_id, node_id } => {
+                println!("Node added: {}", node_id);
+            }
+            TopologyEvent::NodeRemoved { region_id, zone_id, node_id } => {
+                println!("Node removed: {}", node_id);
+            }
+            TopologyEvent::NodeStatusChanged { node_id, old_status, new_status, .. } => {
+                println!("Node {} status: {:?} -> {:?}", node_id, old_status, new_status);
+            }
+            TopologyEvent::TopologyReplaced => {
+                println!("Topology fully replaced");
+            }
+            _ => {}
+        }
+    }
+});
+```
+
+### 6. Discovery Integration (`inferadb-engine-repl/discovery.rs`)
+
+Automatically construct replication topology from service discovery (Kubernetes or Tailscale).
+
+**Building Topology from Discovery:**
+
+```rust
+use inferadb_engine_repl::{
+    DiscoveryTopologyConfig, DiscoveredEndpoint, TopologyFromDiscovery,
+    ReplicationStrategy,
+};
+
+// Configure topology construction
+let config = DiscoveryTopologyConfig {
+    local_region: "us-west-1".to_string(),
+    strategy: ReplicationStrategy::ActiveActive,
+    default_zone: "default".to_string(),
+};
+
+// Build from discovered endpoints
+let mut builder = TopologyFromDiscovery::new(config);
+
+// Add endpoints from service discovery
+builder.add_endpoint(DiscoveredEndpoint::new(
+    "http://engine-0.engine-headless:8081".to_string(),
+    "us-west-1".to_string(),
+    "node-0".to_string(),
+));
+
+builder.add_endpoint(
+    DiscoveredEndpoint::new(
+        "http://engine-eu.tailnet:8081".to_string(),
+        "eu-central-1".to_string(),
+        "node-eu-0".to_string(),
+    )
+    .with_zone(Some("eu-central-1a".to_string()))
+    .with_health(true),
+);
+
+let topology = builder.build()?;
+```
+
+**Runtime Topology Updates from Discovery:**
+
+```rust
+use inferadb_engine_repl::update_topology_from_discovery;
+
+// Update existing topology manager with new discovered endpoints
+update_topology_from_discovery(&manager, endpoints, "default").await;
+```
+
+This integrates with the `inferadb-engine-discovery` crate which provides:
+
+- **Kubernetes discovery**: Resolves services to pod IPs
+- **Tailscale discovery**: Resolves via MagicDNS across regions
 
 ## Replication Strategies
 
@@ -338,6 +574,41 @@ while let Some(change) = stream.recv().await {
 }
 ```
 
+## Health Endpoints
+
+The `/healthz` endpoint includes replication health information when replication is enabled:
+
+```json
+{
+  "status": "healthy",
+  "service": "inferadb-engine",
+  "version": "0.1.0",
+  "uptime_seconds": 3600,
+  "timestamp": 1702000000,
+  "details": {
+    "storage": { "status": "healthy", "message": "Storage operational" },
+    "cache": { "status": "healthy", "message": "Cache operational" },
+    "auth": { "status": "healthy", "message": "Auth ready" },
+    "replication": {
+      "status": "healthy",
+      "enabled": true,
+      "published": 12345,
+      "subscribers": 2,
+      "dropped": 0,
+      "message": "Published: 12345, Subscribers: 2, Dropped: 0"
+    }
+  }
+}
+```
+
+**Replication health fields:**
+
+- `enabled`: Whether replication is active
+- `published`: Total number of change events published
+- `subscribers`: Number of active change feed subscribers
+- `dropped`: Number of events dropped due to buffer overflow
+- `status`: `healthy` if operating normally, `degraded` if issues detected
+
 ## Monitoring
 
 The replication system exposes comprehensive Prometheus metrics:
@@ -392,68 +663,71 @@ inferadb_engine_replication_targets_connected / inferadb_engine_replication_targ
 
 ```bash
 # Replication agent settings
-export INFERADB__REPLICATION__MAX_RETRIES=5
-export INFERADB__REPLICATION__RETRY_DELAY_MS=100
-export INFERADB__REPLICATION__BATCH_SIZE=100
-export INFERADB__REPLICATION__REQUEST_TIMEOUT_SECS=10
-export INFERADB__REPLICATION__BUFFER_SIZE=10000
+export INFERADB__ENGINE__REPLICATION__MAX_RETRIES=5
+export INFERADB__ENGINE__REPLICATION__RETRY_DELAY_MS=100
+export INFERADB__ENGINE__REPLICATION__BATCH_SIZE=100
+export INFERADB__ENGINE__REPLICATION__REQUEST_TIMEOUT_SECS=10
+export INFERADB__ENGINE__REPLICATION__BUFFER_SIZE=10000
 ```
 
 ### YAML Configuration
 
 ```yaml
-replication:
-  # Replication strategy: active_active, primary_replica, or multi_master
-  strategy: active_active
+engine:
+  replication:
+    enabled: true
 
-  # Local region identifier
-  local_region: us-west-1
+    # Replication strategy: active_active, primary_replica, or multi_master
+    strategy: "active_active"
 
-  # Conflict resolution: lww, source_priority, insert_wins, or custom
-  conflict_resolution: lww
+    # Local region identifier
+    local_region: "us-west-1"
 
-  # Region priorities (for source_priority strategy)
-  region_priorities:
-    - us-west-1
-    - eu-central-1
-    - ap-southeast-1
+    # Conflict resolution: lww, source_priority, insert_wins, or custom
+    conflict_resolution: "lww"
 
-  # Agent configuration
-  agent:
-    max_retries: 5
-    retry_delay_ms: 100
-    batch_size: 100
-    request_timeout_secs: 10
-    buffer_size: 10000
-
-  # Topology definition
-  regions:
-    - id: us-west-1
-      name: "US West 1"
-      is_primary: false
-      zones:
-        - id: us-west-1a
-          name: "Zone A"
-          nodes:
-            - id: node1
-              endpoint: "localhost:50051"
-
-    - id: eu-central-1
-      name: "EU Central 1"
-      is_primary: false
-      zones:
-        - id: eu-central-1a
-          name: "Zone A"
-          nodes:
-            - id: node2
-              endpoint: "localhost:50052"
-
-  # Replication graph (which regions replicate to which)
-  replication_targets:
-    us-west-1:
-      - eu-central-1
-    eu-central-1:
+    # Region priorities (for source_priority strategy)
+    region_priorities:
       - us-west-1
+      - eu-central-1
+      - ap-southeast-1
+
+    # Agent configuration
+    agent:
+      max_retries: 5
+      retry_delay_ms: 100
+      batch_size: 100
+      request_timeout_secs: 10
+      buffer_size: 10000
+
+    # Topology definition
+    regions:
+      - id: us-west-1
+        name: "US West 1"
+        is_primary: false
+        zones:
+          - id: us-west-1a
+            name: "Zone A"
+            nodes:
+              - id: node1
+                endpoint: "localhost:50051"
+
+      - id: eu-central-1
+        name: "EU Central 1"
+        is_primary: false
+        zones:
+          - id: eu-central-1a
+            name: "Zone A"
+            nodes:
+              - id: node2
+                endpoint: "localhost:50052"
+
+    # Replication graph (which regions replicate to which)
+    replication_targets:
+      us-west-1:
+        - eu-central-1
+      eu-central-1:
+        - us-west-1
 ```
 
 ## Deployment Patterns
@@ -471,17 +745,18 @@ replication:
 **Configuration:**
 
 ```yaml
-replication:
-  strategy: active_active
-  local_region: us-west-1
-  conflict_resolution: lww
-  regions:
-    - id: us-west-1
-      name: "US West"
-      zones: [...]
-    - id: eu-central-1
-      name: "EU Central"
-      zones: [...]
+engine:
+  replication:
+    strategy: active_active
+    local_region: us-west-1
+    conflict_resolution: lww
+    regions:
+      - id: us-west-1
+        name: "US West"
+        zones: [...]
+      - id: eu-central-1
+        name: "EU Central"
+        zones: [...]
 ```
 
 ### Three-Region Primary-Replica
@@ -497,23 +772,24 @@ replication:
 **Configuration:**
 
 ```yaml
-replication:
-  strategy: primary_replica
-  local_region: us-west-1 # on primary
-  conflict_resolution: lww
-  regions:
-    - id: us-west-1
-      name: "US West"
-      is_primary: true
-      zones: [...]
-    - id: eu-central-1
-      name: "EU Central"
-      is_primary: false
-      zones: [...]
-    - id: ap-southeast-1
-      name: "AP Southeast"
-      is_primary: false
-      zones: [...]
+engine:
+  replication:
+    strategy: primary_replica
+    local_region: us-west-1 # on primary
+    conflict_resolution: lww
+    regions:
+      - id: us-west-1
+        name: "US West"
+        is_primary: true
+        zones: [...]
+      - id: eu-central-1
+        name: "EU Central"
+        is_primary: false
+        zones: [...]
+      - id: ap-southeast-1
+        name: "AP Southeast"
+        is_primary: false
+        zones: [...]
 ```
 
 ### Multi-Region Multi-Master
@@ -529,14 +805,15 @@ replication:
 **Configuration:**
 
 ```yaml
-replication:
-  strategy: multi_master
-  local_region: us-west-1
-  conflict_resolution: source_priority
-  region_priorities:
-    - us-west-1
-    - eu-central-1
-    - ap-southeast-1
+engine:
+  replication:
+    strategy: multi_master
+    local_region: us-west-1
+    conflict_resolution: source_priority
+    region_priorities:
+      - us-west-1
+      - eu-central-1
+      - ap-southeast-1
 ```
 
 ## Troubleshooting
@@ -620,8 +897,10 @@ Smaller batches = lower latency, more overhead
 **Recommendation:** Start with 100, adjust based on metrics
 
 ```yaml
-agent:
-  batch_size: 100 # Good default
+engine:
+  replication:
+    agent:
+      batch_size: 100 # Good default
 ```
 
 ### Retry Configuration
@@ -632,9 +911,11 @@ Conservative retries = less load, slower recovery
 **Recommendation:** 5 retries with 100ms base delay
 
 ```yaml
-agent:
-  max_retries: 5
-  retry_delay_ms: 100
+engine:
+  replication:
+    agent:
+      max_retries: 5
+      retry_delay_ms: 100
 ```
 
 ### Buffer Size
@@ -645,8 +926,10 @@ Smaller buffer = less memory, may drop changes under load
 **Recommendation:** 10,000 for production
 
 ```yaml
-agent:
-  buffer_size: 10000
+engine:
+  replication:
+    agent:
+      buffer_size: 10000
 ```
 
 ## Best Practices
@@ -688,6 +971,157 @@ Regularly test:
 - Plan for peak write load × (1 + number of replicas)
 - Network bandwidth for replication stream
 - Monitor `inferadb_engine_replication_batch_size` histogram
+
+## Kubernetes Deployment
+
+### StatefulSet for Consistent Node IDs
+
+For replication to work correctly, each node needs a stable, unique identifier. Use a **StatefulSet** deployment to ensure consistent node IDs across restarts.
+
+**Why StatefulSet?**
+
+- Provides stable network identities (`pod-name-0`, `pod-name-1`, etc.)
+- Enables consistent node IDs for replication topology
+- Supports ordered, graceful deployment and scaling
+- Maintains persistent storage across pod restarts
+
+**Example StatefulSet configuration:**
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: inferadb-engine
+spec:
+  serviceName: inferadb-engine-headless
+  replicas: 3
+  podManagementPolicy: Parallel  # Faster rollouts
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inferadb-engine
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: inferadb-engine
+    spec:
+      containers:
+      - name: engine
+        image: inferadb-engine:latest
+        env:
+        # Use pod name as node ID for consistent identification
+        - name: INFERADB__ENGINE__NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        # Use pod namespace for region awareness
+        - name: INFERADB__ENGINE__LOCAL_REGION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8081
+          name: grpc
+```
+
+**Headless Service for pod-to-pod communication:**
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: inferadb-engine-headless
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: inferadb-engine
+  ports:
+  - port: 8081
+    name: grpc
+```
+
+### Multi-Region with Tailscale
+
+For multi-region deployments, use Tailscale mesh networking to connect clusters across cloud providers.
+
+**Enable in Helm values:**
+
+```yaml
+discovery:
+  mode: "tailscale"
+  tailscale:
+    enabled: true
+    localCluster: "us-west-1"
+    remoteClusters:
+    - name: "eu-central-1"
+      tailscaleDomain: "eu-central-1.ts.net"
+      serviceName: "inferadb-engine"
+      port: 8081
+      regionId: "eu-central-1"
+
+replication:
+  enabled: true
+  strategy: "ActiveActive"
+  localRegion: "us-west-1"
+  conflictResolution: "LastWriteWins"
+```
+
+**Tailscale sidecar is automatically injected when `discovery.tailscale.enabled: true`.**
+
+### Region-Aware Scheduling
+
+Use node labels and topology spread constraints to distribute pods across zones:
+
+```yaml
+topologySpreadConstraints:
+- maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: DoNotSchedule
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/name: inferadb-engine
+```
+
+### ConfigMap for Replication Configuration
+
+For complex topologies, use a ConfigMap with full replication configuration:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferadb-replication-config
+data:
+  replication.yaml: |
+    replication:
+      enabled: true
+      strategy: ActiveActive
+      local_region: us-west-1
+      conflict_resolution: LastWriteWins
+      regions:
+        - id: us-west-1
+          name: US West
+          zones:
+            - id: us-west-1a
+              nodes:
+                - id: engine-0
+                  endpoint: inferadb-engine-0.inferadb-engine-headless:8081
+                - id: engine-1
+                  endpoint: inferadb-engine-1.inferadb-engine-headless:8081
+        - id: eu-central-1
+          name: EU Central
+          zones:
+            - id: eu-central-1a
+              nodes:
+                - id: engine-eu-0
+                  endpoint: inferadb-engine-0.inferadb-engine-headless.eu-central-1.ts.net:8081
+      replication_targets:
+        us-west-1:
+          - eu-central-1
+        eu-central-1:
+          - us-west-1
+```
 
 ## API Reference
 

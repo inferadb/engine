@@ -6,6 +6,7 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 
 - [Quick Start Guide](quickstart.md) - Get up and running quickly
 - [Architecture Overview](architecture.md) - System design and components
+- [Distributed Architecture](architecture/distributed.md) - Multi-region replication and failover
 
 ## User Guides
 

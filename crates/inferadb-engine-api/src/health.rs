@@ -63,6 +63,27 @@ pub struct HealthDetails {
     pub cache: ComponentStatus,
     /// Authentication status
     pub auth: ComponentStatus,
+    /// Replication status (if enabled)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replication: Option<ReplicationComponentStatus>,
+}
+
+/// Replication-specific health status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplicationComponentStatus {
+    /// Component status
+    pub status: HealthStatus,
+    /// Whether replication is enabled
+    pub enabled: bool,
+    /// Number of changes published
+    pub published: u64,
+    /// Number of active subscribers
+    pub subscribers: usize,
+    /// Number of dropped events
+    pub dropped: u64,
+    /// Optional message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 /// Component health status
@@ -148,6 +169,7 @@ impl HealthTracker {
     pub async fn check_health(
         &self,
         store: &Arc<dyn inferadb_engine_store::InferaStore>,
+        change_publisher: &Option<Arc<dyn inferadb_engine_types::ChangePublisher>>,
     ) -> HealthResponse {
         let uptime = self.uptime_seconds();
         let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
@@ -190,6 +212,21 @@ impl HealthTracker {
             }
         };
 
+        // Check replication health if enabled
+        let replication_status = if let Some(publisher) = change_publisher {
+            let health = publisher.health().await;
+            Some(ReplicationComponentStatus {
+                status: if health.healthy { HealthStatus::Healthy } else { HealthStatus::Degraded },
+                enabled: health.enabled,
+                published: health.published,
+                subscribers: health.subscribers,
+                dropped: health.dropped,
+                message: health.message,
+            })
+        } else {
+            None
+        };
+
         // Determine overall status
         let overall_status =
             if !self.is_alive() || matches!(storage_status.status, HealthStatus::Unhealthy) {
@@ -210,6 +247,7 @@ impl HealthTracker {
                 storage: storage_status,
                 cache: cache_status,
                 auth: auth_status,
+                replication: replication_status,
             }),
         }
     }
@@ -237,7 +275,7 @@ pub async fn livez_handler(State(state): State<crate::AppState>) -> impl IntoRes
 /// - 200 OK if the service is ready (healthy or degraded)
 /// - 503 Service Unavailable if the service is unhealthy
 pub async fn readyz_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
-    let health = state.health_tracker.check_health(&state.store).await;
+    let health = state.health_tracker.check_health(&state.store, &state.change_publisher).await;
 
     match health.status {
         HealthStatus::Healthy | HealthStatus::Degraded => StatusCode::OK,
@@ -267,9 +305,9 @@ pub async fn startupz_handler(State(state): State<crate::AppState>) -> impl Into
 /// - Overall status (healthy/degraded/unhealthy)
 /// - Service name and version
 /// - Uptime in seconds
-/// - Component-level health details (storage, cache, auth)
+/// - Component-level health details (storage, cache, auth, replication)
 pub async fn healthz_handler(State(state): State<crate::AppState>) -> impl IntoResponse {
-    let health = state.health_tracker.check_health(&state.store).await;
+    let health = state.health_tracker.check_health(&state.store, &state.change_publisher).await;
 
     match health.status {
         HealthStatus::Healthy | HealthStatus::Degraded => (StatusCode::OK, Json(health)),

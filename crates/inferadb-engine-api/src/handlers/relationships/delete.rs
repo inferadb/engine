@@ -51,11 +51,13 @@ pub struct DeleteResponse {
 ///
 /// This function handles the actual deletion and cache invalidation,
 /// ensuring consistent behavior across different API styles.
+/// Returns (revision, count, deleted_relationships) where deleted_relationships
+/// contains the exact relationships that were deleted (for change feed publishing).
 async fn delete_relationships_internal(
     vault: i64,
     state: &AppState,
     request: DeleteRequest,
-) -> Result<(Revision, usize)> {
+) -> Result<(Revision, usize, Vec<Relationship>)> {
     // Validate that at least one deletion method is specified
     let has_filter = request.filter.is_some();
     let has_relationships = request.relationships.as_ref().is_some_and(|r| !r.is_empty());
@@ -86,6 +88,7 @@ async fn delete_relationships_internal(
     let mut total_deleted = 0;
     let mut last_revision = None;
     let mut affected_resources = std::collections::HashSet::new();
+    let mut deleted_relationships = Vec::new();
 
     // Handle filter-based deletion if filter is provided
     if let Some(filter) = request.filter {
@@ -166,11 +169,18 @@ async fn delete_relationships_internal(
             }
 
             // Delete relationships from store
-            for key in keys {
+            for (key, relationship) in keys.into_iter().zip(relationships.into_iter()) {
                 match state.store.delete(vault, &key).await {
                     Ok(revision) => {
                         last_revision = Some(revision);
                         total_deleted += 1;
+                        // Track deleted relationship for change feed
+                        deleted_relationships.push(Relationship {
+                            vault,
+                            resource: relationship.resource,
+                            relation: relationship.relation,
+                            subject: relationship.subject,
+                        });
                     },
                     Err(e) => {
                         tracing::warn!("Failed to delete relationship {:?}: {}", key, e);
@@ -189,7 +199,7 @@ async fn delete_relationships_internal(
     let resources_vec: Vec<String> = affected_resources.into_iter().collect();
     state.relationship_service.invalidate_cache_for_resources(&resources_vec).await;
 
-    Ok((revision, total_deleted))
+    Ok((revision, total_deleted, deleted_relationships))
 }
 
 /// Delete relationships endpoint (POST /v1/relationships/delete)
@@ -255,7 +265,15 @@ pub async fn delete_relationships_handler(
     }
 
     // Call internal deletion function
-    let (revision, total_deleted) = delete_relationships_internal(vault, &state, request).await?;
+    let (revision, total_deleted, deleted_relationships) =
+        delete_relationships_internal(vault, &state, request).await?;
+
+    // Publish changes to change feed for replication
+    if let Some(ref change_publisher) = state.change_publisher {
+        for relationship in &deleted_relationships {
+            change_publisher.publish_delete(revision, relationship.clone()).await;
+        }
+    }
 
     Ok(ResponseData::new(
         DeleteResponse { revision: revision.0.to_string(), relationships_deleted: total_deleted },
@@ -346,8 +364,15 @@ pub async fn delete_relationship(
     };
 
     // Call internal deletion logic (validates, deletes, and invalidates cache)
-    let (revision, deleted_count) =
+    let (revision, deleted_count, deleted_relationships) =
         delete_relationships_internal(vault, &state, delete_request).await?;
+
+    // Publish changes to change feed for replication
+    if let Some(ref change_publisher) = state.change_publisher {
+        for relationship in &deleted_relationships {
+            change_publisher.publish_delete(revision, relationship.clone()).await;
+        }
+    }
 
     // Record metrics
     let duration = start.elapsed();

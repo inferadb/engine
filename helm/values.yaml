@@ -205,12 +205,13 @@ discovery:
     # remoteClusters:
     # - name: "eu-west-1"
     #   tailscaleDomain: "eu-west-1.ts.net"
-    #   serviceName: "inferadb-control"
-    #   port: 9092
+    #   serviceName: "inferadb-engine"
+    #   port: 8081  # gRPC port for replication
+    #   regionId: "eu-west-1"  # Optional: region ID for replication topology (defaults to name)
     # - name: "ap-southeast-1"
     #   tailscaleDomain: "ap-southeast-1.ts.net"
-    #   serviceName: "inferadb-control"
-    #   port: 9092
+    #   serviceName: "inferadb-engine"
+    #   port: 8081
     remoteClusters: []
 
     # Tailscale auth key (reference to secret)
@@ -244,6 +245,57 @@ discovery:
 
     # Advertise routes
     advertiseRoutes: ""
+
+# Multi-region replication configuration
+replication:
+  # Enable replication
+  enabled: false
+
+  # Replication strategy: "ActiveActive", "PrimaryReplica", "MultiMaster"
+  strategy: "ActiveActive"
+
+  # Local region identifier (must match discovery.tailscale.localCluster for Tailscale mode)
+  localRegion: ""  # Defaults to discovery.tailscale.localCluster
+
+  # Conflict resolution strategy: "LastWriteWins", "SourcePriority", "InsertWins", "Custom"
+  conflictResolution: "LastWriteWins"
+
+  # Source priority order (for SourcePriority strategy)
+  sourcePriority: []
+    # - us-west-1
+    # - eu-central-1
+    # - ap-southeast-1
+
+  # Agent configuration
+  agent:
+    # Maximum retry attempts for replication
+    maxRetries: 5
+    # Delay between retries in milliseconds
+    retryDelayMs: 100
+    # Batch size for replication batches
+    batchSize: 100
+
+  # Region configuration (alternative to Tailscale discovery)
+  # Use this for static region configuration or when not using Tailscale
+  regions: []
+    # - id: "us-west-1"
+    #   name: "US West"
+    #   isPrimary: true  # Only for PrimaryReplica strategy
+    #   zones:
+    #     - id: "us-west-1a"
+    #       name: "Zone A"
+    #       nodes:
+    #         - id: "node1"
+    #           endpoint: "engine-us-west-1:8081"
+
+  # Replication targets (which regions replicate to which)
+  # For ActiveActive: auto-generated (all to all)
+  # For PrimaryReplica: primary replicates to all replicas
+  # For MultiMaster: specify custom targets
+  replicationTargets: {}
+    # us-west-1:
+    #   - eu-central-1
+    #   - ap-southeast-1
 
 # Secrets (use external secret manager in production)
 secrets:

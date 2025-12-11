@@ -10,6 +10,11 @@ This document covers critical architectural patterns used throughout InferaDB.
 - [Service Layer Pattern](#service-layer-pattern)
 - [Handler Organization](#handler-organization)
 
+**Related Architecture Docs:**
+
+- [Distributed Architecture](architecture/distributed.md) - Multi-region replication, service discovery, failover
+- [Multi-Tenancy](architecture/multi-tenancy.md) - Vault isolation patterns
+
 ---
 
 ## Multi-Tenancy with Vaults

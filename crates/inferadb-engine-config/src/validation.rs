@@ -256,6 +256,7 @@ mod tests {
             pem: None,
             discovery: crate::DiscoveryConfig::default(),
             mesh: crate::MeshConfig::default(),
+            replication: crate::ReplicationConfig::default(),
         };
 
         match validate(&config) {

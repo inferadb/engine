@@ -31,6 +31,7 @@ inferadb-engine-observe = { path = "../inferadb-engine-observe" }
 inferadb-engine-store = { path = "../inferadb-engine-store" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
 inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
+inferadb-engine-repl = { path = "../inferadb-engine-repl" }
 
 [dev-dependencies]
 futures = { workspace = true }

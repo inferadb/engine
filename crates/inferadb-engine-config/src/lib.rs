@@ -78,6 +78,8 @@ pub struct Config {
     pub discovery: DiscoveryConfig,
     #[serde(default)]
     pub mesh: MeshConfig,
+    #[serde(default)]
+    pub replication: ReplicationConfig,
 }
 
 /// Listen address configuration for API servers
@@ -331,6 +333,209 @@ impl MeshConfig {
     }
 }
 
+/// Replication configuration for multi-region deployments
+///
+/// Enables replication of relationship data across multiple nodes and regions
+/// for high availability and low-latency global access.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ReplicationConfig {
+    /// Enable replication (default: false)
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Replication strategy
+    #[serde(default)]
+    pub strategy: ReplicationStrategyConfig,
+
+    /// Local region identifier (e.g., "us-west-1")
+    #[serde(default)]
+    pub local_region: String,
+
+    /// Conflict resolution strategy
+    #[serde(default)]
+    pub conflict_resolution: ConflictResolutionConfig,
+
+    /// Replication agent configuration
+    #[serde(default)]
+    pub agent: ReplicationAgentConfig,
+
+    /// Region definitions
+    #[serde(default)]
+    pub regions: Vec<RegionConfig>,
+
+    /// Replication targets: which regions each region replicates to
+    /// Key: source region ID, Value: list of target region IDs
+    #[serde(default)]
+    pub replication_targets: std::collections::HashMap<String, Vec<String>>,
+}
+
+impl ReplicationConfig {
+    /// Validate replication configuration
+    pub fn validate(&self) -> Result<(), String> {
+        if !self.enabled {
+            return Ok(());
+        }
+
+        if self.local_region.is_empty() {
+            return Err("replication.local_region is required when replication is enabled".into());
+        }
+
+        // Validate that local region exists in regions list
+        if !self.regions.iter().any(|r| r.id == self.local_region) {
+            return Err(format!(
+                "replication.local_region '{}' not found in regions list",
+                self.local_region
+            ));
+        }
+
+        // Validate replication targets reference valid regions
+        for (source, targets) in &self.replication_targets {
+            if !self.regions.iter().any(|r| &r.id == source) {
+                return Err(format!(
+                    "replication_targets source '{}' not found in regions list",
+                    source
+                ));
+            }
+            for target in targets {
+                if !self.regions.iter().any(|r| &r.id == target) {
+                    return Err(format!(
+                        "replication_targets target '{}' not found in regions list",
+                        target
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Replication strategy configuration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplicationStrategyConfig {
+    /// All regions accept writes; changes replicate bidirectionally
+    #[default]
+    ActiveActive,
+    /// One primary region accepts writes; other regions are read replicas
+    PrimaryReplica,
+    /// Multiple regions as primaries for different tenants/namespaces
+    MultiMaster,
+}
+
+/// Conflict resolution strategy configuration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictResolutionConfig {
+    /// Last write wins based on timestamp
+    #[default]
+    LastWriteWins,
+    /// Region priority determines winner
+    SourcePriority,
+    /// Inserts always win over deletes
+    InsertWins,
+}
+
+/// Replication agent configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplicationAgentConfig {
+    /// Maximum retries for failed replications
+    #[serde(default = "default_replication_max_retries")]
+    pub max_retries: u32,
+
+    /// Base retry delay in milliseconds
+    #[serde(default = "default_replication_retry_delay_ms")]
+    pub retry_delay_ms: u64,
+
+    /// Maximum batch size for replication
+    #[serde(default = "default_replication_batch_size")]
+    pub batch_size: usize,
+
+    /// Request timeout in seconds
+    #[serde(default = "default_replication_request_timeout_secs")]
+    pub request_timeout_secs: u64,
+
+    /// Buffer size for pending changes
+    #[serde(default = "default_replication_buffer_size")]
+    pub buffer_size: usize,
+}
+
+impl Default for ReplicationAgentConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: default_replication_max_retries(),
+            retry_delay_ms: default_replication_retry_delay_ms(),
+            batch_size: default_replication_batch_size(),
+            request_timeout_secs: default_replication_request_timeout_secs(),
+            buffer_size: default_replication_buffer_size(),
+        }
+    }
+}
+
+fn default_replication_max_retries() -> u32 {
+    5
+}
+
+fn default_replication_retry_delay_ms() -> u64 {
+    100
+}
+
+fn default_replication_batch_size() -> usize {
+    100
+}
+
+fn default_replication_request_timeout_secs() -> u64 {
+    10
+}
+
+fn default_replication_buffer_size() -> usize {
+    10000
+}
+
+/// Region configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegionConfig {
+    /// Region identifier (e.g., "us-west-1")
+    pub id: String,
+
+    /// Human-readable region name
+    #[serde(default)]
+    pub name: String,
+
+    /// Whether this region is the primary (for PrimaryReplica strategy)
+    #[serde(default)]
+    pub is_primary: bool,
+
+    /// Zones within this region
+    #[serde(default)]
+    pub zones: Vec<ZoneConfig>,
+}
+
+/// Zone configuration within a region
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZoneConfig {
+    /// Zone identifier (e.g., "us-west-1a")
+    pub id: String,
+
+    /// Human-readable zone name
+    #[serde(default)]
+    pub name: String,
+
+    /// Nodes within this zone
+    #[serde(default)]
+    pub nodes: Vec<NodeConfig>,
+}
+
+/// Node configuration within a zone
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeConfig {
+    /// Node identifier
+    pub id: String,
+
+    /// gRPC endpoint for this node (e.g., "http://inferadb-engine-1:8081")
+    pub endpoint: String,
+}
+
 fn default_mesh_url() -> String {
     // Default for development - localhost
     // In production with discovery, this should be the K8s service URL
@@ -432,6 +637,9 @@ impl Config {
         // Validate mesh service config
         self.mesh.validate().map_err(|e| anyhow::anyhow!(e))?;
 
+        // Validate replication config
+        self.replication.validate().map_err(|e| anyhow::anyhow!(e))?;
+
         // Validate cache TTL values are reasonable
         if self.token.cache_ttl == 0 {
             tracing::warn!("token.cache_ttl is 0. This will cause frequent JWKS fetches.");
@@ -480,6 +688,7 @@ impl Default for Config {
             pem: None,
             discovery: DiscoveryConfig::default(),
             mesh: MeshConfig::default(),
+            replication: ReplicationConfig::default(),
         }
     }
 }

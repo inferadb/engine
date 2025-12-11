@@ -7,6 +7,7 @@ use thiserror::Error;
 pub mod agent;
 pub mod change_feed;
 pub mod conflict;
+pub mod discovery;
 pub mod router;
 pub mod snapshot;
 pub mod token;
@@ -19,11 +20,15 @@ pub use change_feed::{
 pub use conflict::{
     Conflict, ConflictResolutionStrategy, ConflictResolver, ConflictStats, Resolution,
 };
-pub use router::{RequestType, Router, RoutingDecision};
+pub use discovery::{
+    DiscoveredEndpoint, DiscoveryTopologyConfig, TopologyFromDiscovery,
+    update_topology_from_discovery,
+};
+pub use router::{LoadBalancingStrategy, RequestType, Router, RoutingDecision};
 pub use token::RevisionToken;
 pub use topology::{
     Node, NodeId, NodeStatus, Region, RegionId, ReplicationStrategy, Topology, TopologyBuilder,
-    TopologyError, Zone, ZoneId,
+    TopologyError, TopologyEvent, TopologyManager, Zone, ZoneId,
 };
 
 #[derive(Debug, Error)]

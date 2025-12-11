@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use inferadb_engine_store::RelationshipStore;
-use inferadb_engine_types::{EvaluateRequest as CoreEvaluateRequest, Relationship};
+use inferadb_engine_types::{AuthContext, EvaluateRequest as CoreEvaluateRequest, Relationship};
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferadbServiceImpl, get_vault,
+    InferadbServiceImpl,
     proto::{SimulateRequest, SimulateResponse},
 };
 
@@ -13,6 +13,14 @@ pub async fn simulate(
     _service: &InferadbServiceImpl,
     request: Request<SimulateRequest>,
 ) -> Result<Response<SimulateResponse>, Status> {
+    // Extract vault from request extensions (set by auth middleware)
+    // Authentication is always required
+    let vault = request
+        .extensions()
+        .get::<Arc<AuthContext>>()
+        .map(|ctx| ctx.vault)
+        .ok_or_else(|| Status::unauthenticated("Authentication required"))?;
+
     let request = request.into_inner();
 
     // Validate context relationships
@@ -28,7 +36,7 @@ pub async fn simulate(
         .context_relationships
         .into_iter()
         .map(|rel| Relationship {
-            vault: get_vault(),
+            vault,
             resource: rel.resource,
             relation: rel.relation,
             subject: rel.subject,
@@ -51,14 +59,14 @@ pub async fn simulate(
 
     // Write context relationships to ephemeral store
     ephemeral_store
-        .write(get_vault(), context_relationships.clone())
+        .write(vault, context_relationships.clone())
         .await
         .map_err(|e| Status::internal(format!("Failed to write context relationships: {}", e)))?;
 
     // Create a temporary evaluator with the ephemeral store
     use inferadb_engine_core::{Evaluator, ipl::Schema};
     let temp_schema = Arc::new(Schema { types: Vec::new() });
-    let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, get_vault());
+    let temp_evaluator = Evaluator::new(ephemeral_store.clone(), temp_schema, None, vault);
 
     // Parse context string to JSON if provided
     let context = if let Some(ctx_str) = check.context {
