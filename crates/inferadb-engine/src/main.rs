@@ -9,7 +9,7 @@ use clap::Parser;
 use inferadb_engine_auth::jwks_cache::JwksCache;
 use inferadb_engine_config::load_or_default;
 use inferadb_engine_core::ipl::Schema;
-use inferadb_engine_store::MemoryBackend;
+use inferadb_engine_store::StorageFactory;
 use inferadb_engine_wasm::WasmHost;
 
 #[derive(Parser, Debug)]
@@ -138,10 +138,14 @@ async fn main() -> Result<()> {
     // Initialize components
     use inferadb_engine_observe::startup::{log_initialized, log_ready, log_skipped};
 
-    // Initialize storage backend
-    // TODO: Support multiple backends based on config
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
-    log_initialized("Storage (memory)");
+    // Initialize storage backend based on configuration
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        StorageFactory::from_str(&config.storage, config.foundationdb.cluster_file.clone())
+            .await
+            .map_err(|e| {
+            anyhow::anyhow!("Failed to initialize storage backend '{}': {}", config.storage, e)
+        })?;
+    log_initialized(&format!("Storage ({})", config.storage));
 
     // Initialize WASM host
     let wasm_host = WasmHost::new().ok().map(Arc::new);
@@ -206,18 +210,57 @@ async fn main() -> Result<()> {
     // Initialize replication components if enabled
     let change_publisher: Option<Arc<dyn inferadb_engine_types::ChangePublisher>> =
         if config.replication.enabled {
-            use inferadb_engine_repl::ChangeFeed;
+            use inferadb_engine_repl::{ChangeFeed, ChangeFeedConfig, ConflictResolutionStrategy};
 
-            let change_feed = Arc::new(ChangeFeed::new());
+            // Convert config to change feed configuration using agent buffer_size
+            let feed_config =
+                ChangeFeedConfig { channel_capacity: config.replication.agent.buffer_size };
+
+            let change_feed = Arc::new(ChangeFeed::with_config(feed_config));
+
+            // Convert conflict resolution strategy from config to repl crate type
+            let conflict_strategy = match config.replication.conflict_resolution {
+                inferadb_engine_config::ConflictResolutionConfig::LastWriteWins => {
+                    ConflictResolutionStrategy::LastWriteWins
+                },
+                inferadb_engine_config::ConflictResolutionConfig::SourcePriority => {
+                    ConflictResolutionStrategy::SourcePriority
+                },
+                inferadb_engine_config::ConflictResolutionConfig::InsertWins => {
+                    ConflictResolutionStrategy::InsertWins
+                },
+            };
+
             log_initialized(&format!(
-                "Replication ({:?}, local_region={})",
-                config.replication.strategy, config.replication.local_region
+                "Replication ({:?}, local_region={}, conflict_resolution={:?})",
+                config.replication.strategy, config.replication.local_region, conflict_strategy
             ));
 
-            // Note: ReplicationAgent will be started in a separate task when we have
-            // the full topology from config. For now, we just create the change feed
-            // for publishing changes. Full replication agent startup will be added
-            // when topology configuration is parsed.
+            // Log agent configuration at debug level
+            tracing::debug!(
+                max_retries = config.replication.agent.max_retries,
+                retry_delay_ms = config.replication.agent.retry_delay_ms,
+                batch_size = config.replication.agent.batch_size,
+                request_timeout_secs = config.replication.agent.request_timeout_secs,
+                buffer_size = config.replication.agent.buffer_size,
+                "Replication agent configuration"
+            );
+
+            // TODO: When topology configuration (replication.regions and
+            // replication.replication_targets) is implemented, create and start the
+            // full ReplicationAgent here:
+            //
+            // 1. Build Topology from config.replication.regions
+            // 2. Create ConflictResolver with conflict_strategy and region priorities
+            // 3. Convert agent config to repl crate ReplicationConfig:
+            //    - max_retries: config.replication.agent.max_retries
+            //    - retry_delay: Duration::from_millis(config.replication.agent.retry_delay_ms)
+            //    - batch_size: config.replication.agent.batch_size
+            //    - request_timeout:
+            //      Duration::from_secs(config.replication.agent.request_timeout_secs)
+            //    - buffer_size: config.replication.agent.buffer_size
+            // 4. Create ReplicationAgent::new(topology, change_feed, store, resolver, agent_config)
+            // 5. Call agent.start().await
 
             Some(change_feed)
         } else {

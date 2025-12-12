@@ -42,10 +42,6 @@ pub enum ConflictResolutionStrategy {
     /// Insert wins - if one operation is insert and other is delete, insert wins
     /// Helps prevent data loss in certain scenarios
     InsertWins,
-
-    /// Custom - application-defined resolution logic
-    /// Most flexible, requires custom implementation
-    Custom,
 }
 
 /// Result of conflict resolution
@@ -61,60 +57,24 @@ pub enum Resolution {
     Merge(Box<Change>),
 }
 
-/// Type alias for custom conflict resolution function
-///
-/// The function receives a conflict and returns the resolution.
-/// It must be thread-safe (Send + Sync).
-pub type CustomResolutionFn =
-    Box<dyn Fn(&Conflict) -> Result<Resolution, ReplError> + Send + Sync>;
-
 /// Conflict resolver that applies a resolution strategy
 pub struct ConflictResolver {
     strategy: ConflictResolutionStrategy,
     /// Priority ordering of source regions (for SourcePriority strategy)
     /// Higher index = higher priority
     region_priorities: Vec<String>,
-    /// Custom resolution function (for Custom strategy)
-    custom_resolver: Option<CustomResolutionFn>,
 }
 
 impl ConflictResolver {
     /// Create a new resolver with the given strategy
     pub fn new(strategy: ConflictResolutionStrategy) -> Self {
-        Self { strategy, region_priorities: Vec::new(), custom_resolver: None }
+        Self { strategy, region_priorities: Vec::new() }
     }
 
     /// Set region priorities for SourcePriority strategy
     /// Regions later in the list have higher priority
     pub fn with_region_priorities(mut self, priorities: Vec<String>) -> Self {
         self.region_priorities = priorities;
-        self
-    }
-
-    /// Set a custom conflict resolution function
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom)
-    ///     .with_custom_resolver(Box::new(|conflict| {
-    ///         // Custom logic: prefer inserts, but use metadata for other decisions
-    ///         if conflict.local.operation == Operation::Insert {
-    ///             Ok(Resolution::KeepLocal)
-    ///         } else if conflict.remote.operation == Operation::Insert {
-    ///             Ok(Resolution::KeepRemote)
-    ///         } else {
-    ///             // Fall back to timestamp comparison
-    ///             if conflict.local.timestamp > conflict.remote.timestamp {
-    ///                 Ok(Resolution::KeepLocal)
-    ///             } else {
-    ///                 Ok(Resolution::KeepRemote)
-    ///             }
-    ///         }
-    ///     }));
-    /// ```
-    pub fn with_custom_resolver(mut self, resolver: CustomResolutionFn) -> Self {
-        self.custom_resolver = Some(resolver);
         self
     }
 
@@ -140,17 +100,6 @@ impl ConflictResolver {
             ConflictResolutionStrategy::LastWriteWins => self.resolve_lww(conflict),
             ConflictResolutionStrategy::SourcePriority => self.resolve_source_priority(conflict),
             ConflictResolutionStrategy::InsertWins => self.resolve_insert_wins(conflict),
-            ConflictResolutionStrategy::Custom => {
-                // Use custom resolver if provided, otherwise error
-                if let Some(ref resolver) = self.custom_resolver {
-                    resolver(conflict)
-                } else {
-                    Err(ReplError::Replication(
-                        "Custom conflict resolution strategy requires a custom resolver function"
-                            .to_string(),
-                    ))
-                }
-            },
         };
 
         // Record metrics based on resolution outcome
@@ -435,111 +384,5 @@ mod tests {
 
         // Conflict rate: 4 conflicts / 100 total operations = 4%
         assert_eq!(stats.conflict_rate(100), 0.04);
-    }
-
-    #[test]
-    fn test_custom_resolver_with_hook() {
-        // Create a custom resolver that always prefers the local change
-        let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom)
-            .with_custom_resolver(Box::new(|_conflict| Ok(Resolution::KeepLocal)));
-
-        let local = create_change_with_metadata(1000, Operation::Insert, "node1");
-        let remote = create_change_with_metadata(2000, Operation::Insert, "node2");
-
-        let conflict = Conflict::new(local, remote);
-        let resolution = resolver.resolve(&conflict).unwrap();
-
-        assert_eq!(resolution, Resolution::KeepLocal);
-    }
-
-    #[test]
-    fn test_custom_resolver_with_logic() {
-        // Create a custom resolver with specific business logic:
-        // - If resource contains "critical", always prefer the insert
-        // - Otherwise, use LWW
-        let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom)
-            .with_custom_resolver(Box::new(|conflict| {
-                if conflict.relationship.resource.contains("critical") {
-                    // For critical resources, inserts always win
-                    match (conflict.local.operation, conflict.remote.operation) {
-                        (Operation::Insert, _) => Ok(Resolution::KeepLocal),
-                        (_, Operation::Insert) => Ok(Resolution::KeepRemote),
-                        _ => {
-                            // Both deletes - use timestamp
-                            if conflict.local.timestamp > conflict.remote.timestamp {
-                                Ok(Resolution::KeepLocal)
-                            } else {
-                                Ok(Resolution::KeepRemote)
-                            }
-                        },
-                    }
-                } else {
-                    // Standard LWW for non-critical resources
-                    if conflict.local.timestamp > conflict.remote.timestamp {
-                        Ok(Resolution::KeepLocal)
-                    } else {
-                        Ok(Resolution::KeepRemote)
-                    }
-                }
-            }));
-
-        // Test critical resource - insert should win regardless of timestamp
-        let mut local = create_change_with_metadata(1000, Operation::Insert, "node1");
-        local.relationship.resource = "critical:doc".to_string();
-        let mut remote = create_change_with_metadata(2000, Operation::Delete, "node2");
-        remote.relationship.resource = "critical:doc".to_string();
-
-        let conflict = Conflict::new(local, remote);
-        let resolution = resolver.resolve(&conflict).unwrap();
-        assert_eq!(resolution, Resolution::KeepLocal); // Insert wins for critical
-
-        // Test non-critical resource - LWW applies
-        let local2 = create_change_with_metadata(1000, Operation::Insert, "node1");
-        let remote2 = create_change_with_metadata(2000, Operation::Delete, "node2");
-
-        let conflict2 = Conflict::new(local2, remote2);
-        let resolution2 = resolver.resolve(&conflict2).unwrap();
-        assert_eq!(resolution2, Resolution::KeepRemote); // LWW - remote wins
-    }
-
-    #[test]
-    fn test_custom_resolver_without_hook_errors() {
-        // Custom strategy without a resolver should error
-        let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom);
-
-        let local = create_change_with_metadata(1000, Operation::Insert, "node1");
-        let remote = create_change_with_metadata(2000, Operation::Insert, "node2");
-
-        let conflict = Conflict::new(local, remote);
-        let result = resolver.resolve(&conflict);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_custom_resolver_with_merge() {
-        // Create a custom resolver that merges changes
-        let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom)
-            .with_custom_resolver(Box::new(|conflict| {
-                // Create a merged change with the latest timestamp
-                let mut merged = conflict.local.clone();
-                merged.timestamp =
-                    std::cmp::max(conflict.local.timestamp, conflict.remote.timestamp);
-                Ok(Resolution::Merge(Box::new(merged)))
-            }));
-
-        let local = create_change_with_metadata(1000, Operation::Insert, "node1");
-        let remote = create_change_with_metadata(2000, Operation::Insert, "node2");
-
-        let conflict = Conflict::new(local.clone(), remote);
-        let resolution = resolver.resolve(&conflict).unwrap();
-
-        match resolution {
-            Resolution::Merge(merged) => {
-                assert_eq!(merged.timestamp, 2000); // Max of both timestamps
-                assert_eq!(merged.relationship, local.relationship);
-            },
-            _ => panic!("Expected Merge resolution"),
-        }
     }
 }

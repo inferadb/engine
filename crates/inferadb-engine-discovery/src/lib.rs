@@ -17,9 +17,7 @@ pub mod metrics;
 pub mod refresh;
 pub mod tailscale;
 
-pub use config::{
-    DiscoveryConfig, DiscoveryMode, RemoteClusterConfigEntry, TailscaleConfig,
-};
+pub use config::{DiscoveryConfig, DiscoveryMode, RemoteClusterConfigEntry, TailscaleConfig};
 pub use error::{DiscoveryError, Result};
 pub use kubernetes::KubernetesServiceDiscovery;
 pub use lb_client::LoadBalancingClient;

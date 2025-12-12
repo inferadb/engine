@@ -1463,6 +1463,539 @@ impl RelationshipStore for FoundationDBBackend {
     }
 }
 
+// ============================================================================
+// OrganizationStore Implementation
+// ============================================================================
+//
+// Note: Organizations and Vaults are typically managed by the Control plane,
+// not the Engine. These implementations provide basic storage operations
+// for standalone engine deployments or testing scenarios.
+// ============================================================================
+
+use inferadb_engine_types::{Organization, SystemConfig, Vault};
+
+#[async_trait]
+impl crate::OrganizationStore for FoundationDBBackend {
+    async fn create_organization(&self, organization: Organization) -> Result<Organization> {
+        let db = Arc::clone(&self.db);
+        // Use a dedicated subspace for organizations
+        let org_subspace = Subspace::from_bytes(b"organizations");
+        let org_id = organization.id;
+        let org_json = serde_json::to_vec(&organization).map_err(|e| {
+            StoreError::Internal(format!("Failed to serialize organization: {}", e))
+        })?;
+
+        db.run({
+            let org_subspace = org_subspace.clone();
+            let org_json = org_json.clone();
+            move |trx, _maybe_committed| {
+                let org_subspace = org_subspace.clone();
+                let org_json = org_json.clone();
+                async move {
+                    let key = org_subspace.pack(&org_id);
+
+                    // Check for existing organization
+                    if trx.get(&key, false).await?.is_some() {
+                        return Err(FdbBindingError::new_custom_error(Box::new(
+                            std::io::Error::new(
+                                std::io::ErrorKind::AlreadyExists,
+                                "Organization already exists",
+                            ),
+                        )));
+                    }
+
+                    trx.set(&key, &org_json);
+                    Ok(())
+                }
+            }
+        })
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("AlreadyExists") {
+                StoreError::Conflict
+            } else {
+                StoreError::Database(format!("Failed to create organization: {}", e))
+            }
+        })?;
+
+        Ok(organization)
+    }
+
+    async fn get_organization(&self, id: i64) -> Result<Option<Organization>> {
+        let db = Arc::clone(&self.db);
+        let org_subspace = Subspace::from_bytes(b"organizations");
+
+        db.run({
+            let org_subspace = org_subspace.clone();
+            move |trx, _maybe_committed| {
+                let org_subspace = org_subspace.clone();
+                async move {
+                    let key = org_subspace.pack(&id);
+                    match trx.get(&key, false).await? {
+                        Some(bytes) => {
+                            let org: Organization =
+                                serde_json::from_slice(&bytes).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize organization: {}", e),
+                                        ),
+                                    ))
+                                })?;
+                            Ok(Some(org))
+                        },
+                        None => Ok(None),
+                    }
+                }
+            }
+        })
+        .await
+        .map_err(|e| StoreError::Database(format!("Failed to get organization: {}", e)))
+    }
+
+    async fn list_organizations(&self, limit: Option<usize>) -> Result<Vec<Organization>> {
+        let db = Arc::clone(&self.db);
+        let org_subspace = Subspace::from_bytes(b"organizations");
+        let limit = limit.unwrap_or(1000);
+
+        db.run({
+            let org_subspace = org_subspace.clone();
+            move |trx, _maybe_committed| {
+                let org_subspace = org_subspace.clone();
+                async move {
+                    let start_key = org_subspace.pack(&i64::MIN);
+                    let end_key = org_subspace.pack(&i64::MAX);
+
+                    let range = trx
+                        .get_range(
+                            &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                            1,
+                            false,
+                        )
+                        .await?;
+
+                    let mut organizations = Vec::new();
+                    for kv in range.iter().take(limit) {
+                        let org: Organization =
+                            serde_json::from_slice(kv.value()).map_err(|e| {
+                                FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("Failed to deserialize organization: {}", e),
+                                )))
+                            })?;
+                        organizations.push(org);
+                    }
+
+                    Ok(organizations)
+                }
+            }
+        })
+        .await
+        .map_err(|e| StoreError::Database(format!("Failed to list organizations: {}", e)))
+    }
+
+    async fn delete_organization(&self, id: i64) -> Result<()> {
+        let db = Arc::clone(&self.db);
+        let org_subspace = Subspace::from_bytes(b"organizations");
+        let vault_subspace = Subspace::from_bytes(b"vaults");
+
+        db.run({
+            let org_subspace = org_subspace.clone();
+            let vault_subspace = vault_subspace.clone();
+            move |trx, _maybe_committed| {
+                let org_subspace = org_subspace.clone();
+                let vault_subspace = vault_subspace.clone();
+                async move {
+                    let key = org_subspace.pack(&id);
+
+                    // Check if organization exists
+                    if trx.get(&key, false).await?.is_none() {
+                        return Err(FdbBindingError::new_custom_error(Box::new(
+                            std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "Organization not found",
+                            ),
+                        )));
+                    }
+
+                    // Delete all vaults for this organization
+                    // Note: This is a simplified implementation. In production, you'd want to
+                    // cascade delete vault data (relationships, etc.) as well.
+                    let start_key = vault_subspace.pack(&(id, i64::MIN));
+                    let end_key = vault_subspace.pack(&(id, i64::MAX));
+                    trx.clear_range(start_key.as_slice(), end_key.as_slice());
+
+                    // Delete the organization
+                    trx.clear(&key);
+
+                    Ok(())
+                }
+            }
+        })
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("NotFound") {
+                StoreError::NotFound
+            } else {
+                StoreError::Database(format!("Failed to delete organization: {}", e))
+            }
+        })
+    }
+
+    async fn update_organization(&self, organization: Organization) -> Result<Organization> {
+        let db = Arc::clone(&self.db);
+        let org_subspace = Subspace::from_bytes(b"organizations");
+        let org_id = organization.id;
+        let org_json = serde_json::to_vec(&organization).map_err(|e| {
+            StoreError::Internal(format!("Failed to serialize organization: {}", e))
+        })?;
+
+        db.run({
+            let org_subspace = org_subspace.clone();
+            let org_json = org_json.clone();
+            move |trx, _maybe_committed| {
+                let org_subspace = org_subspace.clone();
+                let org_json = org_json.clone();
+                async move {
+                    let key = org_subspace.pack(&org_id);
+
+                    // Check if organization exists
+                    if trx.get(&key, false).await?.is_none() {
+                        return Err(FdbBindingError::new_custom_error(Box::new(
+                            std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "Organization not found",
+                            ),
+                        )));
+                    }
+
+                    trx.set(&key, &org_json);
+                    Ok(())
+                }
+            }
+        })
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("NotFound") {
+                StoreError::NotFound
+            } else {
+                StoreError::Database(format!("Failed to update organization: {}", e))
+            }
+        })?;
+
+        Ok(organization)
+    }
+}
+
+// ============================================================================
+// VaultStore Implementation
+// ============================================================================
+
+#[async_trait]
+impl crate::VaultStore for FoundationDBBackend {
+    async fn create_vault(&self, vault: Vault) -> Result<Vault> {
+        let db = Arc::clone(&self.db);
+        let vault_subspace = Subspace::from_bytes(b"vaults");
+        let org_subspace = Subspace::from_bytes(b"organizations");
+        let vault_id = vault.id;
+        let org_id = vault.organization;
+        let vault_json = serde_json::to_vec(&vault)
+            .map_err(|e| StoreError::Internal(format!("Failed to serialize vault: {}", e)))?;
+
+        db.run({
+            let vault_subspace = vault_subspace.clone();
+            let org_subspace = org_subspace.clone();
+            let vault_json = vault_json.clone();
+            move |trx, _maybe_committed| {
+                let vault_subspace = vault_subspace.clone();
+                let org_subspace = org_subspace.clone();
+                let vault_json = vault_json.clone();
+                async move {
+                    // Verify organization exists
+                    let org_key = org_subspace.pack(&org_id);
+                    if trx.get(&org_key, false).await?.is_none() {
+                        return Err(FdbBindingError::new_custom_error(Box::new(
+                            std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "Organization does not exist",
+                            ),
+                        )));
+                    }
+
+                    // Store vault with composite key (org_id, vault_id) for efficient org lookups
+                    let key = vault_subspace.pack(&(org_id, vault_id));
+
+                    // Check for existing vault
+                    if trx.get(&key, false).await?.is_some() {
+                        return Err(FdbBindingError::new_custom_error(Box::new(
+                            std::io::Error::new(
+                                std::io::ErrorKind::AlreadyExists,
+                                "Vault already exists",
+                            ),
+                        )));
+                    }
+
+                    trx.set(&key, &vault_json);
+                    Ok(())
+                }
+            }
+        })
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("AlreadyExists") {
+                StoreError::Conflict
+            } else if msg.contains("Organization does not exist") {
+                StoreError::Internal("Organization does not exist".to_string())
+            } else {
+                StoreError::Database(format!("Failed to create vault: {}", e))
+            }
+        })?;
+
+        Ok(vault)
+    }
+
+    async fn get_vault(&self, id: i64) -> Result<Option<Vault>> {
+        let db = Arc::clone(&self.db);
+        let vault_subspace = Subspace::from_bytes(b"vaults");
+
+        // We need to scan all organizations to find the vault since we don't know the org_id
+        // In a production system, you might want a secondary index: vault_id -> (org_id, vault_id)
+        db.run({
+            let vault_subspace = vault_subspace.clone();
+            move |trx, _maybe_committed| {
+                let vault_subspace = vault_subspace.clone();
+                async move {
+                    let start_key = vault_subspace.pack(&(i64::MIN, i64::MIN));
+                    let end_key = vault_subspace.pack(&(i64::MAX, i64::MAX));
+
+                    let range = trx
+                        .get_range(
+                            &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                            1,
+                            false,
+                        )
+                        .await?;
+
+                    for kv in range.iter() {
+                        let vault: Vault = serde_json::from_slice(kv.value()).map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to deserialize vault: {}", e),
+                            )))
+                        })?;
+
+                        if vault.id == id {
+                            return Ok(Some(vault));
+                        }
+                    }
+
+                    Ok(None)
+                }
+            }
+        })
+        .await
+        .map_err(|e| StoreError::Database(format!("Failed to get vault: {}", e)))
+    }
+
+    async fn list_vaults_for_organization(&self, organization_id: i64) -> Result<Vec<Vault>> {
+        let db = Arc::clone(&self.db);
+        let vault_subspace = Subspace::from_bytes(b"vaults");
+
+        db.run({
+            let vault_subspace = vault_subspace.clone();
+            move |trx, _maybe_committed| {
+                let vault_subspace = vault_subspace.clone();
+                async move {
+                    // Scan only vaults for this organization
+                    let start_key = vault_subspace.pack(&(organization_id, i64::MIN));
+                    let end_key = vault_subspace.pack(&(organization_id, i64::MAX));
+
+                    let range = trx
+                        .get_range(
+                            &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                            1,
+                            false,
+                        )
+                        .await?;
+
+                    let mut vaults = Vec::new();
+                    for kv in range.iter() {
+                        let vault: Vault = serde_json::from_slice(kv.value()).map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to deserialize vault: {}", e),
+                            )))
+                        })?;
+                        vaults.push(vault);
+                    }
+
+                    Ok(vaults)
+                }
+            }
+        })
+        .await
+        .map_err(|e| StoreError::Database(format!("Failed to list vaults: {}", e)))
+    }
+
+    async fn delete_vault(&self, id: i64) -> Result<()> {
+        let db = Arc::clone(&self.db);
+        let vault_subspace = Subspace::from_bytes(b"vaults");
+
+        db.run({
+            let vault_subspace = vault_subspace.clone();
+            move |trx, _maybe_committed| {
+                let vault_subspace = vault_subspace.clone();
+                async move {
+                    // Find the vault first to get its org_id
+                    let start_key = vault_subspace.pack(&(i64::MIN, i64::MIN));
+                    let end_key = vault_subspace.pack(&(i64::MAX, i64::MAX));
+
+                    let range = trx
+                        .get_range(
+                            &RangeOption::from((start_key.as_slice(), end_key.as_slice())),
+                            1,
+                            false,
+                        )
+                        .await?;
+
+                    for kv in range.iter() {
+                        let vault: Vault = serde_json::from_slice(kv.value()).map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to deserialize vault: {}", e),
+                            )))
+                        })?;
+
+                        if vault.id == id {
+                            let key = vault_subspace.pack(&(vault.organization, id));
+                            trx.clear(&key);
+                            return Ok(());
+                        }
+                    }
+
+                    Err(FdbBindingError::new_custom_error(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "Vault not found",
+                    ))))
+                }
+            }
+        })
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("NotFound") {
+                StoreError::NotFound
+            } else {
+                StoreError::Database(format!("Failed to delete vault: {}", e))
+            }
+        })
+    }
+
+    async fn update_vault(&self, vault: Vault) -> Result<Vault> {
+        let db = Arc::clone(&self.db);
+        let vault_subspace = Subspace::from_bytes(b"vaults");
+        let vault_id = vault.id;
+        let org_id = vault.organization;
+        let vault_json = serde_json::to_vec(&vault)
+            .map_err(|e| StoreError::Internal(format!("Failed to serialize vault: {}", e)))?;
+
+        db.run({
+            let vault_subspace = vault_subspace.clone();
+            let vault_json = vault_json.clone();
+            move |trx, _maybe_committed| {
+                let vault_subspace = vault_subspace.clone();
+                let vault_json = vault_json.clone();
+                async move {
+                    let key = vault_subspace.pack(&(org_id, vault_id));
+
+                    // Check if vault exists
+                    if trx.get(&key, false).await?.is_none() {
+                        return Err(FdbBindingError::new_custom_error(Box::new(
+                            std::io::Error::new(std::io::ErrorKind::NotFound, "Vault not found"),
+                        )));
+                    }
+
+                    trx.set(&key, &vault_json);
+                    Ok(())
+                }
+            }
+        })
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("NotFound") {
+                StoreError::NotFound
+            } else {
+                StoreError::Database(format!("Failed to update vault: {}", e))
+            }
+        })?;
+
+        Ok(vault)
+    }
+
+    async fn get_system_config(&self) -> Result<Option<SystemConfig>> {
+        let db = Arc::clone(&self.db);
+        let config_subspace = Subspace::from_bytes(b"system_config");
+
+        db.run({
+            let config_subspace = config_subspace.clone();
+            move |trx, _maybe_committed| {
+                let config_subspace = config_subspace.clone();
+                async move {
+                    let key = config_subspace.pack(&"default");
+                    match trx.get(&key, false).await? {
+                        Some(bytes) => {
+                            let config: SystemConfig =
+                                serde_json::from_slice(&bytes).map_err(|e| {
+                                    FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!("Failed to deserialize system config: {}", e),
+                                        ),
+                                    ))
+                                })?;
+                            Ok(Some(config))
+                        },
+                        None => Ok(None),
+                    }
+                }
+            }
+        })
+        .await
+        .map_err(|e| StoreError::Database(format!("Failed to get system config: {}", e)))
+    }
+
+    async fn set_system_config(&self, config: SystemConfig) -> Result<()> {
+        let db = Arc::clone(&self.db);
+        let config_subspace = Subspace::from_bytes(b"system_config");
+        let config_json = serde_json::to_vec(&config).map_err(|e| {
+            StoreError::Internal(format!("Failed to serialize system config: {}", e))
+        })?;
+
+        db.run({
+            let config_subspace = config_subspace.clone();
+            let config_json = config_json.clone();
+            move |trx, _maybe_committed| {
+                let config_subspace = config_subspace.clone();
+                let config_json = config_json.clone();
+                async move {
+                    let key = config_subspace.pack(&"default");
+                    trx.set(&key, &config_json);
+                    Ok(())
+                }
+            }
+        })
+        .await
+        .map_err(|e| StoreError::Database(format!("Failed to set system config: {}", e)))
+    }
+}
+
+// ============================================================================
+// InferaStore Implementation
+// ============================================================================
+
+// Blanket implementation of InferaStore for FoundationDBBackend
+impl crate::InferaStore for FoundationDBBackend {}
+
 #[cfg(all(test, feature = "fdb-integration-tests"))]
 mod tests {
     use super::*;

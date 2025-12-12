@@ -442,10 +442,27 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                                 ))
                             })?,
                     ),
-                    inferadb_engine_config::DiscoveryMode::Tailscale { .. } => {
-                        return Err(ApiError::Internal(
-                            "Tailscale discovery not yet implemented".into(),
-                        ));
+                    inferadb_engine_config::DiscoveryMode::Tailscale {
+                        ref local_cluster,
+                        ref remote_clusters,
+                    } => {
+                        // Convert config RemoteCluster to discovery RemoteClusterConfig
+                        let remote_configs: Vec<
+                            inferadb_engine_discovery::tailscale::RemoteClusterConfig,
+                        > = remote_clusters
+                            .iter()
+                            .map(|rc| inferadb_engine_discovery::tailscale::RemoteClusterConfig {
+                                name: rc.name.clone(),
+                                tailscale_domain: rc.tailscale_domain.clone(),
+                                service_name: rc.service_name.clone(),
+                                port: rc.port,
+                            })
+                            .collect();
+
+                        Arc::new(inferadb_engine_discovery::TailscaleServiceDiscovery::new(
+                            local_cluster.clone(),
+                            remote_configs,
+                        ))
                     },
                     inferadb_engine_config::DiscoveryMode::None => unreachable!(),
                 };

@@ -9,8 +9,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     Node, NodeId, NodeStatus, RegionId, ReplicationStrategy, Result, Topology, TopologyBuilder,
-    ZoneId,
-    topology::TopologyManager,
+    ZoneId, topology::TopologyManager,
 };
 
 /// Configuration for building topology from discovery
@@ -92,10 +91,8 @@ impl TopologyFromDiscovery {
 
     /// Build the topology from discovered endpoints
     pub fn build(self) -> Result<Topology> {
-        let mut builder = TopologyBuilder::new(
-            self.config.strategy,
-            RegionId::new(&self.config.local_region),
-        );
+        let mut builder =
+            TopologyBuilder::new(self.config.strategy, RegionId::new(&self.config.local_region));
 
         // Group endpoints by region
         let mut regions: std::collections::HashMap<String, Vec<DiscoveredEndpoint>> =
@@ -131,8 +128,7 @@ impl TopologyFromDiscovery {
                 std::collections::HashMap::new();
 
             for endpoint in endpoints {
-                let zone_name =
-                    endpoint.zone.as_ref().unwrap_or(&self.config.default_zone).clone();
+                let zone_name = endpoint.zone.as_ref().unwrap_or(&self.config.default_zone).clone();
                 zones.entry(zone_name).or_default().push(endpoint);
             }
 
@@ -140,8 +136,7 @@ impl TopologyFromDiscovery {
             for (zone_name, zone_endpoints) in zones {
                 let zone_id = ZoneId::new(&zone_name);
 
-                builder =
-                    builder.add_zone(region_id.clone(), zone_id.clone(), zone_name.clone());
+                builder = builder.add_zone(region_id.clone(), zone_id.clone(), zone_name.clone());
 
                 for endpoint in zone_endpoints {
                     let node_id = NodeId::new(&endpoint.node_id);
@@ -183,8 +178,7 @@ impl TopologyFromDiscovery {
                 let replica_ids: Vec<RegionId> =
                     region_ids.iter().filter(|r| *r != &local_region_id).cloned().collect();
                 if !replica_ids.is_empty() {
-                    builder =
-                        builder.set_replication_targets(local_region_id.clone(), replica_ids);
+                    builder = builder.set_replication_targets(local_region_id.clone(), replica_ids);
                 }
             },
             ReplicationStrategy::MultiMaster => {
@@ -275,10 +269,7 @@ pub async fn update_topology_from_discovery(
         }
     }
 
-    debug!(
-        nodes_processed = seen_nodes.len(),
-        "Processed discovered endpoints"
-    );
+    debug!(nodes_processed = seen_nodes.len(), "Processed discovered endpoints");
 }
 
 #[cfg(test)]
@@ -428,30 +419,30 @@ mod tests {
     #[tokio::test]
     async fn test_update_topology_from_discovery() {
         // Create initial topology
-        let topology = TopologyBuilder::new(
-            ReplicationStrategy::ActiveActive,
-            RegionId::new("us-west-1"),
-        )
-        .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
-        .add_zone(RegionId::new("us-west-1"), ZoneId::new("default"), "Default".to_string())
-        .add_node(
-            RegionId::new("us-west-1"),
-            ZoneId::new("default"),
-            NodeId::new("node1"),
-            "http://10.0.0.1:8080".to_string(),
-        )
-        .build()
-        .unwrap();
+        let topology =
+            TopologyBuilder::new(ReplicationStrategy::ActiveActive, RegionId::new("us-west-1"))
+                .add_region(RegionId::new("us-west-1"), "US West".to_string(), false)
+                .add_zone(RegionId::new("us-west-1"), ZoneId::new("default"), "Default".to_string())
+                .add_node(
+                    RegionId::new("us-west-1"),
+                    ZoneId::new("default"),
+                    NodeId::new("node1"),
+                    "http://10.0.0.1:8080".to_string(),
+                )
+                .build()
+                .unwrap();
 
         let manager = TopologyManager::new(topology);
 
         // Update with discovered endpoints
-        let endpoints = vec![DiscoveredEndpoint::new(
-            "http://10.0.0.1:8080".to_string(),
-            "us-west-1".to_string(),
-            "node1".to_string(),
-        )
-        .with_health(false)];
+        let endpoints = vec![
+            DiscoveredEndpoint::new(
+                "http://10.0.0.1:8080".to_string(),
+                "us-west-1".to_string(),
+                "node1".to_string(),
+            )
+            .with_health(false),
+        ];
 
         update_topology_from_discovery(&manager, endpoints, "default").await;
 

@@ -420,10 +420,9 @@ impl TopologyManager {
             TopologyError::InvalidReplicationSource(RegionId::new(zone_id.as_str()))
         })?;
 
-        let node =
-            zone.nodes.iter_mut().find(|n| &n.id == node_id).ok_or_else(|| {
-                TopologyError::InvalidReplicationTarget(RegionId::new(node_id.as_str()))
-            })?;
+        let node = zone.nodes.iter_mut().find(|n| &n.id == node_id).ok_or_else(|| {
+            TopologyError::InvalidReplicationTarget(RegionId::new(node_id.as_str()))
+        })?;
 
         let old_status = node.status;
         node.status = status;
@@ -892,11 +891,13 @@ mod tests {
         let mut rx = manager.subscribe();
 
         // Create a new topology
-        let new_topology =
-            TopologyBuilder::new(ReplicationStrategy::PrimaryReplica, RegionId::new("eu-central-1"))
-                .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), true)
-                .build()
-                .unwrap();
+        let new_topology = TopologyBuilder::new(
+            ReplicationStrategy::PrimaryReplica,
+            RegionId::new("eu-central-1"),
+        )
+        .add_region(RegionId::new("eu-central-1"), "EU Central 1".to_string(), true)
+        .build()
+        .unwrap();
 
         // Replace the topology
         manager.replace_topology(new_topology).await.unwrap();

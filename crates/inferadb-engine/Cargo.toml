@@ -33,5 +33,10 @@ inferadb-engine-types = { path = "../inferadb-engine-types" }
 inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
 inferadb-engine-repl = { path = "../inferadb-engine-repl" }
 
+[features]
+default = []
+# Enable FoundationDB storage backend
+fdb = ["inferadb-engine-store/fdb"]
+
 [dev-dependencies]
 futures = { workspace = true }

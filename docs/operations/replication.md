@@ -166,45 +166,6 @@ let resolver = ConflictResolver::new(ConflictResolutionStrategy::InsertWins);
 
 **Best for:** Systems where data preservation is critical
 
-#### Custom
-
-Application-defined resolution logic via a resolver hook.
-
-```rust
-use inferadb_engine_repl::{ConflictResolver, ConflictResolutionStrategy, Conflict, Resolution};
-
-// Create resolver with custom hook
-let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom)
-    .with_custom_resolver(|conflict: &Conflict| {
-        // Example: Critical resources always keep remote (authoritative source)
-        if conflict.local.resource.starts_with("critical:") {
-            return Ok(Resolution::KeepRemote);
-        }
-
-        // Example: Admin changes always win
-        if conflict.remote.subject.starts_with("user:admin") {
-            return Ok(Resolution::KeepRemote);
-        }
-
-        // Default: keep local
-        Ok(Resolution::KeepLocal)
-    });
-
-// Resolve a conflict
-let resolution = resolver.resolve(&conflict)?;
-```
-
-**Resolution Options:**
-
-| Resolution | Description |
-|------------|-------------|
-| `KeepLocal` | Keep the local change, discard remote |
-| `KeepRemote` | Keep the remote change, discard local |
-| `KeepBoth` | Keep both changes (creates duplicate) |
-| `Merge` | Merge changes (application-specific) |
-
-**Best for:** Complex business rules, resource-specific policies, compliance requirements
-
 ### 3. Replication Agent (`inferadb-engine-repl/agent.rs`)
 
 Subscribes to local changes and replicates them to remote regions.
@@ -683,7 +644,7 @@ engine:
     # Local region identifier
     local_region: "us-west-1"
 
-    # Conflict resolution: lww, source_priority, insert_wins, or custom
+    # Conflict resolution: lww, source_priority, insert_wins
     conflict_resolution: "lww"
 
     # Region priorities (for source_priority strategy)

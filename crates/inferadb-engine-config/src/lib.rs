@@ -224,26 +224,18 @@ impl TokenConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveryConfig {
-    /// Discovery mode (none or kubernetes)
+    /// Discovery mode (none, kubernetes, or tailscale)
     #[serde(default)]
     pub mode: DiscoveryMode,
 
     /// Cache TTL for discovered endpoints (in seconds)
     #[serde(default = "default_discovery_cache_ttl")]
     pub cache_ttl: u64,
-
-    /// Health check interval (in seconds)
-    #[serde(default = "default_discovery_health_check_interval")]
-    pub health_check_interval: u64,
 }
 
 impl Default for DiscoveryConfig {
     fn default() -> Self {
-        Self {
-            mode: DiscoveryMode::None,
-            cache_ttl: default_discovery_cache_ttl(),
-            health_check_interval: default_discovery_health_check_interval(),
-        }
+        Self { mode: DiscoveryMode::None, cache_ttl: default_discovery_cache_ttl() }
     }
 }
 
@@ -568,10 +560,6 @@ fn default_token_max_age() -> Option<u64> {
 
 fn default_discovery_cache_ttl() -> u64 {
     300 // 5 minutes
-}
-
-fn default_discovery_health_check_interval() -> u64 {
-    30 // 30 seconds
 }
 
 impl Config {

@@ -106,9 +106,7 @@ impl Router {
     async fn get_and_increment_counter(&self, region_id: &RegionId) -> usize {
         let mut counters = self.round_robin_counters.write().await;
 
-        let counter = counters
-            .entry(region_id.clone())
-            .or_insert_with(|| AtomicUsize::new(0));
+        let counter = counters.entry(region_id.clone()).or_insert_with(|| AtomicUsize::new(0));
 
         counter.fetch_add(1, Ordering::Relaxed)
     }
@@ -511,10 +509,7 @@ mod tests {
         // Verify that requests are distributed (not all to the same node)
         // With 3 nodes, 4 requests should cycle through and hit at least 2 different nodes
         let unique_nodes: std::collections::HashSet<_> = nodes.iter().collect();
-        assert!(
-            unique_nodes.len() >= 2,
-            "Round-robin should distribute across multiple nodes"
-        );
+        assert!(unique_nodes.len() >= 2, "Round-robin should distribute across multiple nodes");
 
         // Verify the round-robin pattern: node1, node2, node3, node1
         assert_eq!(nodes[0], NodeId::new("node1"));

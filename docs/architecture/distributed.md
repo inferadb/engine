@@ -187,18 +187,6 @@ When concurrent writes conflict:
 | `LastWriteWins`  | Latest timestamp wins      |
 | `SourcePriority` | Configured region priority |
 | `InsertWins`     | Inserts beat deletes       |
-| `Custom`         | Application-defined hook   |
-
-```rust
-let resolver = ConflictResolver::new(ConflictResolutionStrategy::Custom)
-    .with_custom_resolver(|conflict| {
-        if conflict.local.resource.starts_with("critical:") {
-            Ok(Resolution::KeepRemote)
-        } else {
-            Ok(Resolution::KeepLocal)
-        }
-    });
-```
 
 ## Failover
 

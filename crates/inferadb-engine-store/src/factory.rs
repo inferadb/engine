@@ -7,7 +7,7 @@ use std::{str::FromStr, sync::Arc};
 
 #[cfg(feature = "fdb")]
 use crate::foundationdb::FoundationDBBackend;
-use crate::{RelationshipStore, Result, StoreError, memory::MemoryBackend};
+use crate::{InferaStore, Result, StoreError, memory::MemoryBackend};
 
 /// Storage backend type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,9 +76,9 @@ pub struct StorageFactory;
 
 impl StorageFactory {
     /// Create a storage backend from configuration
-    pub async fn create(config: StorageConfig) -> Result<Arc<dyn RelationshipStore>> {
+    pub async fn create(config: StorageConfig) -> Result<Arc<dyn InferaStore>> {
         match config.backend {
-            BackendType::Memory => Ok(Arc::new(MemoryBackend::new()) as Arc<dyn RelationshipStore>),
+            BackendType::Memory => Ok(Arc::new(MemoryBackend::new()) as Arc<dyn InferaStore>),
             #[cfg(feature = "fdb")]
             BackendType::FoundationDB => {
                 let backend = if let Some(cluster_file) = config.connection_string.as_deref() {
@@ -86,7 +86,7 @@ impl StorageFactory {
                 } else {
                     FoundationDBBackend::new().await?
                 };
-                Ok(Arc::new(backend) as Arc<dyn RelationshipStore>)
+                Ok(Arc::new(backend) as Arc<dyn InferaStore>)
             },
         }
     }
@@ -95,15 +95,15 @@ impl StorageFactory {
     pub async fn from_str(
         backend_str: &str,
         connection_string: Option<String>,
-    ) -> Result<Arc<dyn RelationshipStore>> {
+    ) -> Result<Arc<dyn InferaStore>> {
         let backend_type = BackendType::from_str(backend_str)?;
         let config = StorageConfig { backend: backend_type, connection_string };
         Self::create(config).await
     }
 
     /// Create default memory backend
-    pub fn memory() -> Arc<dyn RelationshipStore> {
-        Arc::new(MemoryBackend::new()) as Arc<dyn RelationshipStore>
+    pub fn memory() -> Arc<dyn InferaStore> {
+        Arc::new(MemoryBackend::new()) as Arc<dyn InferaStore>
     }
 }
 
