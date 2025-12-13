@@ -63,7 +63,6 @@ server/
 │   ├── inferadb-engine-config/    # Configuration management
 │   ├── inferadb-engine-core/      # Policy evaluation engine (the heart)
 │   ├── inferadb-engine-observe/   # Metrics, tracing, logging
-│   ├── inferadb-engine-repl/      # Replication & consistency
 │   ├── inferadb-engine-store/     # Storage abstraction
 │   ├── inferadb-engine-wasm/      # WASM policy modules
 │   └── inferadb-engine/           # Binary entry point
@@ -90,9 +89,6 @@ inferadb-engine
     │   ├── inferadb-engine-cache
     │   ├── inferadb-engine-store
     │   ├── inferadb-engine-wasm
-    │   └── inferadb-engine-observe
-    ├── inferadb-engine-repl
-    │   ├── inferadb-engine-store
     │   └── inferadb-engine-observe
     └── inferadb-engine-config
 ```

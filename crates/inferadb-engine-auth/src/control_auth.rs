@@ -355,49 +355,6 @@ impl AggregatedControlJwksCache {
 
                 Ok(healthy)
             },
-            DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
-                // Tailscale discovery
-                let remote_configs: Vec<_> = remote_clusters
-                    .iter()
-                    .map(|rc| inferadb_engine_discovery::RemoteClusterConfig {
-                        name: rc.name.clone(),
-                        tailscale_domain: rc.tailscale_domain.clone(),
-                        service_name: rc.service_name.clone(),
-                        port: rc.port,
-                    })
-                    .collect();
-
-                let discovery = inferadb_engine_discovery::TailscaleServiceDiscovery::new(
-                    local_cluster.clone(),
-                    remote_configs,
-                );
-
-                let endpoints = discovery.discover(&self.fallback_url).await.map_err(|e| {
-                    tracing::warn!(
-                        error = %e,
-                        fallback_url = %self.fallback_url,
-                        "Failed to discover Control endpoints via Tailscale, using fallback"
-                    );
-                    AuthError::JwksError(format!("Tailscale discovery failed: {}", e))
-                })?;
-
-                let healthy: Vec<_> =
-                    endpoints.into_iter().filter(|e| e.health == EndpointHealth::Healthy).collect();
-
-                if healthy.is_empty() {
-                    return Err(AuthError::JwksError(
-                        "No healthy Control endpoints found via Tailscale".into(),
-                    ));
-                }
-
-                tracing::info!(
-                    endpoint_count = healthy.len(),
-                    local_cluster = %local_cluster,
-                    "Discovered Control service endpoints via Tailscale"
-                );
-
-                Ok(healthy)
-            },
         }
     }
 
@@ -590,7 +547,7 @@ pub struct ControlJwtClaims {
 }
 
 /// Validate Control JWT claims
-fn validate_control_claims(claims: &ControlJwtClaims) -> Result<(), AuthError> {
+pub fn validate_control_claims(claims: &ControlJwtClaims) -> Result<(), AuthError> {
     let now = chrono::Utc::now().timestamp() as u64;
 
     // Check expiration
@@ -607,10 +564,10 @@ fn validate_control_claims(claims: &ControlJwtClaims) -> Result<(), AuthError> {
         return Err(AuthError::InvalidTokenFormat("iat claim is too old (> 24 hours)".into()));
     }
 
-    // Validate subject format: "management:{control_id}"
-    if !claims.sub.starts_with("management:") {
+    // Validate subject format: "control:{control_id}" (from Control identity)
+    if !claims.sub.starts_with("control:") {
         return Err(AuthError::InvalidTokenFormat(
-            "Control JWT subject must start with 'management:'".into(),
+            "Control JWT subject must start with 'control:'".into(),
         ));
     }
 
@@ -619,14 +576,12 @@ fn validate_control_claims(claims: &ControlJwtClaims) -> Result<(), AuthError> {
 
 /// Extract Control ID from JWT claims
 fn extract_control_id(claims: &ControlJwtClaims) -> Result<String, AuthError> {
-    // Subject format: "management:{control_id}" (protocol value)
+    // Subject format: "control:{control_id}" (from Control identity)
     claims
         .sub
-        .strip_prefix("management:")
+        .strip_prefix("control:")
         .ok_or_else(|| {
-            AuthError::InvalidTokenFormat(
-                "Control JWT subject must start with 'management:'".into(),
-            )
+            AuthError::InvalidTokenFormat("Control JWT subject must start with 'control:'".into())
         })
         .map(|s| s.to_string())
 }
@@ -781,8 +736,8 @@ mod tests {
     fn test_validate_control_claims_valid() {
         let now = chrono::Utc::now().timestamp() as u64;
         let claims = ControlJwtClaims {
-            iss: "inferadb-management".to_string(),
-            sub: "management:prod-instance-1".to_string(),
+            iss: "inferadb-control:ctrl-test".to_string(),
+            sub: "control:ctrl-test".to_string(),
             aud: "inferadb-engine".to_string(),
             exp: now + 300,
             iat: now,
@@ -796,8 +751,8 @@ mod tests {
     fn test_validate_control_claims_expired() {
         let now = chrono::Utc::now().timestamp() as u64;
         let claims = ControlJwtClaims {
-            iss: "inferadb-management".to_string(),
-            sub: "management:prod-instance-1".to_string(),
+            iss: "inferadb-control:ctrl-test".to_string(),
+            sub: "control:ctrl-test".to_string(),
             aud: "inferadb-engine".to_string(),
             exp: now - 100, // Expired
             iat: now - 400,
@@ -811,8 +766,8 @@ mod tests {
     fn test_validate_control_claims_invalid_subject() {
         let now = chrono::Utc::now().timestamp() as u64;
         let claims = ControlJwtClaims {
-            iss: "inferadb-management".to_string(),
-            sub: "invalid-subject".to_string(), // Should start with "management:"
+            iss: "inferadb-control:ctrl-test".to_string(),
+            sub: "invalid-subject".to_string(), // Should start with "control:"
             aud: "inferadb-engine".to_string(),
             exp: now + 300,
             iat: now,
@@ -825,8 +780,8 @@ mod tests {
     #[test]
     fn test_extract_control_id() {
         let claims = ControlJwtClaims {
-            iss: "inferadb-management".to_string(),
-            sub: "management:prod-instance-1".to_string(),
+            iss: "inferadb-control:ctrl-prod-instance-1".to_string(),
+            sub: "control:ctrl-prod-instance-1".to_string(),
             aud: "inferadb-engine".to_string(),
             exp: 0,
             iat: 0,
@@ -834,13 +789,13 @@ mod tests {
         };
 
         let id = extract_control_id(&claims).unwrap();
-        assert_eq!(id, "prod-instance-1");
+        assert_eq!(id, "ctrl-prod-instance-1");
     }
 
     #[test]
     fn test_extract_control_id_invalid() {
         let claims = ControlJwtClaims {
-            iss: "inferadb-management".to_string(),
+            iss: "inferadb-control:ctrl-test".to_string(),
             sub: "invalid:format".to_string(),
             aud: "inferadb-engine".to_string(),
             exp: 0,

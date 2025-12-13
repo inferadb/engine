@@ -88,14 +88,6 @@ async fn main() -> Result<()> {
         DiscoveryMode::Kubernetes => {
             (ConfigEntry::new("Network", "Service Discovery", "Kubernetes"), "kubernetes")
         },
-        DiscoveryMode::Tailscale { local_cluster, .. } => (
-            ConfigEntry::new(
-                "Network",
-                "Service Discovery",
-                format!("Tailscale ({})", local_cluster),
-            ),
-            "tailscale",
-        ),
     };
 
     // Create mesh service entry with discovery context
@@ -207,68 +199,8 @@ async fn main() -> Result<()> {
         None
     };
 
-    // Initialize replication components if enabled
-    let change_publisher: Option<Arc<dyn inferadb_engine_types::ChangePublisher>> =
-        if config.replication.enabled {
-            use inferadb_engine_repl::{ChangeFeed, ChangeFeedConfig, ConflictResolutionStrategy};
-
-            // Convert config to change feed configuration using agent buffer_size
-            let feed_config =
-                ChangeFeedConfig { channel_capacity: config.replication.agent.buffer_size };
-
-            let change_feed = Arc::new(ChangeFeed::with_config(feed_config));
-
-            // Convert conflict resolution strategy from config to repl crate type
-            let conflict_strategy = match config.replication.conflict_resolution {
-                inferadb_engine_config::ConflictResolutionConfig::LastWriteWins => {
-                    ConflictResolutionStrategy::LastWriteWins
-                },
-                inferadb_engine_config::ConflictResolutionConfig::SourcePriority => {
-                    ConflictResolutionStrategy::SourcePriority
-                },
-                inferadb_engine_config::ConflictResolutionConfig::InsertWins => {
-                    ConflictResolutionStrategy::InsertWins
-                },
-            };
-
-            log_initialized(&format!(
-                "Replication ({:?}, local_region={}, conflict_resolution={:?})",
-                config.replication.strategy, config.replication.local_region, conflict_strategy
-            ));
-
-            // Log agent configuration at debug level
-            tracing::debug!(
-                max_retries = config.replication.agent.max_retries,
-                retry_delay_ms = config.replication.agent.retry_delay_ms,
-                batch_size = config.replication.agent.batch_size,
-                request_timeout_secs = config.replication.agent.request_timeout_secs,
-                buffer_size = config.replication.agent.buffer_size,
-                "Replication agent configuration"
-            );
-
-            // TODO: When topology configuration (replication.regions and
-            // replication.replication_targets) is implemented, create and start the
-            // full ReplicationAgent here:
-            //
-            // 1. Build Topology from config.replication.regions
-            // 2. Create ConflictResolver with conflict_strategy and region priorities
-            // 3. Convert agent config to repl crate ReplicationConfig:
-            //    - max_retries: config.replication.agent.max_retries
-            //    - retry_delay: Duration::from_millis(config.replication.agent.retry_delay_ms)
-            //    - batch_size: config.replication.agent.batch_size
-            //    - request_timeout:
-            //      Duration::from_secs(config.replication.agent.request_timeout_secs)
-            //    - buffer_size: config.replication.agent.buffer_size
-            // 4. Create ReplicationAgent::new(topology, change_feed, store, resolver, agent_config)
-            // 5. Call agent.start().await
-
-            Some(change_feed)
-        } else {
-            log_skipped("Replication", "disabled in config");
-            None
-        };
-
     // Clone components for each server
+    // See docs/deployment/foundationdb-multi-region.md for deployment guidance.
     let public_components = inferadb_engine_api::ServerComponents {
         store: Arc::clone(&store),
         schema: Arc::clone(&schema),
@@ -276,7 +208,6 @@ async fn main() -> Result<()> {
         config: Arc::clone(&config),
         jwks_cache: jwks_cache.clone(),
         server_identity: server_identity.clone(),
-        change_publisher: change_publisher.clone(),
     };
 
     let internal_components = inferadb_engine_api::ServerComponents {
@@ -286,7 +217,6 @@ async fn main() -> Result<()> {
         config: Arc::clone(&config),
         jwks_cache: jwks_cache.clone(),
         server_identity: server_identity.clone(),
-        change_publisher: change_publisher.clone(),
     };
 
     // Bind listeners (addresses are already validated at config.validate())

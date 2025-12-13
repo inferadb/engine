@@ -101,6 +101,42 @@ impl StorageFactory {
         Self::create(config).await
     }
 
+    /// Create a storage backend from string configuration, returning the FDB database handle if available.
+    ///
+    /// Returns `(store, Some(fdb_database))` for FDB backends, `(store, None)` for other backends.
+    /// This is used for FDB-based cross-service communication like cache invalidation.
+    #[cfg(feature = "fdb")]
+    pub async fn from_str_with_fdb(
+        backend_str: &str,
+        connection_string: Option<String>,
+    ) -> Result<(Arc<dyn InferaStore>, Option<std::sync::Arc<foundationdb::Database>>)> {
+        let backend_type = BackendType::from_str(backend_str)?;
+        match backend_type {
+            BackendType::Memory => {
+                Ok((Arc::new(MemoryBackend::new()) as Arc<dyn InferaStore>, None))
+            }
+            BackendType::FoundationDB => {
+                let backend = if let Some(cluster_file) = connection_string.as_deref() {
+                    FoundationDBBackend::with_cluster_file(Some(cluster_file)).await?
+                } else {
+                    FoundationDBBackend::new().await?
+                };
+                let db = backend.database();
+                Ok((Arc::new(backend) as Arc<dyn InferaStore>, Some(db)))
+            }
+        }
+    }
+
+    /// Create a storage backend from string configuration, returning the FDB database handle if available.
+    #[cfg(not(feature = "fdb"))]
+    pub async fn from_str_with_fdb(
+        backend_str: &str,
+        connection_string: Option<String>,
+    ) -> Result<(Arc<dyn InferaStore>, Option<std::sync::Arc<()>>)> {
+        let store = Self::from_str(backend_str, connection_string).await?;
+        Ok((store, None))
+    }
+
     /// Create default memory backend
     pub fn memory() -> Arc<dyn InferaStore> {
         Arc::new(MemoryBackend::new()) as Arc<dyn InferaStore>

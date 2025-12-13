@@ -42,6 +42,9 @@ tonic = "0.14.2"
 tonic-prost = "0.14"
 tonic-reflection = "0.14.2"
 
+# Storage
+foundationdb = { workspace = true }
+
 # Internal dependencies
 inferadb-engine-auth = { path = "../inferadb-engine-auth" }
 inferadb-engine-cache = { path = "../inferadb-engine-cache" }
@@ -50,6 +53,7 @@ inferadb-engine-const = { path = "../inferadb-engine-const" }
 inferadb-engine-control-client = { path = "../inferadb-engine-control-client" }
 inferadb-engine-core = { path = "../inferadb-engine-core" }
 inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
+inferadb-engine-fdb-shared = { path = "../inferadb-engine-fdb-shared" }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }
 inferadb-engine-store = { path = "../inferadb-engine-store" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }

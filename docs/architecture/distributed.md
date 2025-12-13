@@ -12,49 +12,62 @@ InferaDB Engine operates as a distributed authorization system with multi-region
 
 ## System Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Region: us-west-1                         │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐        │
-│  │   Node 0     │   │   Node 1     │   │   Node 2     │        │
-│  │  ┌────────┐  │   │  ┌────────┐  │   │  ┌────────┐  │        │
-│  │  │ Engine │◄─┼───┼──┤ Engine │◄─┼───┼──┤ Engine │  │        │
-│  │  └────────┘  │   │  └────────┘  │   │  └────────┘  │        │
-│  │      │       │   │      │       │   │      │       │        │
-│  │  ┌────────┐  │   │  ┌────────┐  │   │  ┌────────┐  │        │
-│  │  │ Change │  │   │  │ Change │  │   │  │ Change │  │        │
-│  │  │  Feed  │  │   │  │  Feed  │  │   │  │  Feed  │  │        │
-│  │  └────────┘  │   │  └────────┘  │   │  └────────┘  │        │
-│  └──────────────┘   └──────────────┘   └──────────────┘        │
-│          │                  │                  │                │
-│          └──────────────────┼──────────────────┘                │
-│                             │                                   │
-│                    ┌────────▼────────┐                         │
-│                    │  Replication    │                         │
-│                    │     Agent       │                         │
-│                    └────────┬────────┘                         │
-└─────────────────────────────┼───────────────────────────────────┘
-                              │ gRPC (8081)
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        Region: eu-central-1                      │
-│                    (Similar architecture)                        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph us-west-1["Region: us-west-1"]
+        subgraph node0["Node 0"]
+            engine0[Engine]
+            feed0[Change Feed]
+            engine0 --> feed0
+        end
+        subgraph node1["Node 1"]
+            engine1[Engine]
+            feed1[Change Feed]
+            engine1 --> feed1
+        end
+        subgraph node2["Node 2"]
+            engine2[Engine]
+            feed2[Change Feed]
+            engine2 --> feed2
+        end
+
+        engine0 <--> engine1
+        engine1 <--> engine2
+
+        feed0 --> agent[Replication Agent]
+        feed1 --> agent
+        feed2 --> agent
+    end
+
+    subgraph eu-central-1["Region: eu-central-1"]
+        eu_agent[Replication Agent]
+        eu_nodes["Nodes 0-2<br/>(Similar architecture)"]
+        eu_agent --> eu_nodes
+    end
+
+    agent -->|"gRPC (8081)"| eu_agent
+    eu_agent -->|"gRPC (8081)"| agent
 ```
 
 ## Core Components
 
 ### 1. Replication System
 
-The `inferadb-engine-repl` crate provides multi-region data synchronization.
+Multi-region data synchronization is handled by FoundationDB's native Fearless DR.
+See [Multi-Region Deployment](../deployment/foundationdb-multi-region.md) for details.
 
 **Topology Hierarchy:**
 
-```
-Region (us-west-1)
-  └─ Zone (us-west-1a)
-      └─ Node (engine-0)
-          └─ endpoint: "engine-0.engine-headless:8081"
+```mermaid
+graph TD
+    region["Region (us-west-1)"]
+    zone["Zone (us-west-1a)"]
+    node["Node (engine-0)"]
+    endpoint["endpoint: engine-0.engine-headless:8081"]
+
+    region --> zone
+    zone --> node
+    node --> endpoint
 ```
 
 **Replication Strategies:**
@@ -155,12 +168,25 @@ service InferadbService {
 
 ### Request Flow
 
-1. Client sends write to local node (HTTP/gRPC)
-2. Node validates JWT, extracts vault from AuthContext
-3. Node writes to local storage
-4. Change published to local change feed
-5. Replication agent batches and forwards to remote regions
-6. Remote nodes apply changes, resolve conflicts if needed
+```mermaid
+sequenceDiagram
+    participant Client
+    participant LocalNode as Local Node
+    participant Storage as Local Storage
+    participant Feed as Change Feed
+    participant Agent as Replication Agent
+    participant Remote as Remote Region
+
+    Client->>LocalNode: 1. Write request (HTTP/gRPC)
+    LocalNode->>LocalNode: 2. Validate JWT, extract vault
+    LocalNode->>Storage: 3. Write to local storage
+    Storage-->>LocalNode: OK
+    LocalNode->>Feed: 4. Publish change
+    LocalNode-->>Client: Response
+    Feed->>Agent: 5. Batch changes
+    Agent->>Remote: Forward via gRPC
+    Remote->>Remote: 6. Apply & resolve conflicts
+```
 
 ## Consistency Model
 
@@ -208,6 +234,24 @@ manager.check_stale_nodes(30_000).await;
 ### Region-Level
 
 Router automatically fails over when local region unavailable:
+
+```mermaid
+flowchart LR
+    client[Client]
+    router[Router]
+
+    subgraph us-west-1["us-west-1 ❌"]
+        node_us[Engine Node]
+    end
+
+    subgraph eu-central-1["eu-central-1 ✓"]
+        node_eu[Engine Node]
+    end
+
+    client --> router
+    router -.->|"DOWN"| node_us
+    router -->|"Failover"| node_eu
+```
 
 ```rust
 // If us-west-1 is down, routes to eu-central-1
@@ -271,6 +315,32 @@ INFERADB__REPLICATION__AGENT__BATCH_SIZE=100
 ```
 
 ## Kubernetes Deployment
+
+```mermaid
+flowchart TB
+    subgraph k8s["Kubernetes Cluster"]
+        subgraph sts["StatefulSet: inferadb-engine"]
+            pod0["engine-0"]
+            pod1["engine-1"]
+            pod2["engine-2"]
+        end
+
+        svc_headless["Headless Service<br/>inferadb-engine-headless"]
+        svc_lb["LoadBalancer Service<br/>inferadb-engine"]
+
+        svc_headless --> pod0
+        svc_headless --> pod1
+        svc_headless --> pod2
+
+        svc_lb --> pod0
+        svc_lb --> pod1
+        svc_lb --> pod2
+    end
+
+    client[Client] --> svc_lb
+    pod0 <-->|"gRPC :8081"| pod1
+    pod1 <-->|"gRPC :8081"| pod2
+```
 
 ### StatefulSet for Stable Node IDs
 
@@ -368,8 +438,70 @@ GET /healthz
   for: 2m
 ```
 
+## Control Plane Communication
+
+Engine instances communicate with the Control plane via FDB, eliminating HTTP dependencies and enabling true multi-region support.
+
+### FDB Keyspace
+
+```text
+inferadb/
+├── control-jwks/{control_id}     # Control JWKS (public keys)
+├── invalidation/version          # Atomic version counter (watch trigger)
+└── invalidation-log/{ts}:{id}    # Invalidation event log
+```
+
+### JWKS Discovery
+
+Control instances publish their JWKS to FDB on startup. Engine reads JWKS directly from FDB instead of HTTP:
+
+```mermaid
+sequenceDiagram
+    participant Control
+    participant FDB
+    participant Engine
+
+    Control->>FDB: Write JWKS to inferadb/control-jwks/{id}
+    Engine->>FDB: Read all JWKS from inferadb/control-jwks/*
+    Engine->>Engine: Cache keys, verify Control JWTs
+```
+
+### Cache Invalidation
+
+Control writes invalidation events to FDB when data changes. Engine watches for version changes:
+
+```mermaid
+sequenceDiagram
+    participant Control
+    participant FDB
+    participant Engine
+
+    Engine->>FDB: Watch inferadb/invalidation/version
+    Control->>FDB: Atomic increment version + write event
+    FDB-->>Engine: Watch triggers
+    Engine->>FDB: Read new events from log
+    Engine->>Engine: Invalidate caches (vault, org, cert)
+```
+
+**Event Types:**
+
+| Event | Description |
+|-------|-------------|
+| `Vault` | Invalidate caches for specific vault |
+| `Organization` | Invalidate organization lookup cache |
+| `Certificate` | Invalidate specific client certificate |
+| `All` | Nuclear option - clear all caches |
+
+### Benefits
+
+- **Multi-region**: FDB Fearless DR replicates JWKS and events automatically
+- **No HTTP between services**: Control and Engine only need FDB connectivity
+- **Near-instant invalidation**: FDB watch is faster than HTTP webhooks
+- **Atomic operations**: Events and version counter updated in single transaction
+
 ## Related Documentation
 
 - [Replication Operations](../operations/replication.md) - Detailed replication guide
 - [Multi-Tenancy](multi-tenancy.md) - Vault isolation
 - [Authentication](../authentication.md) - JWT and vault extraction
+- [Multi-Region FDB](../deployment/foundationdb-multi-region.md) - FDB deployment for multi-region

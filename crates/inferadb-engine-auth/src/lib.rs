@@ -35,6 +35,8 @@ pub mod certificate_cache;
 pub mod control_auth;
 /// Authentication errors
 pub mod error;
+/// FDB-based Control JWT authentication
+pub mod fdb_control_auth;
 /// Axum extractors for authentication
 pub mod extractor;
 /// Internal service JWT authentication
@@ -65,6 +67,7 @@ pub use control_auth::{
     AggregatedControlJwksCache, ControlContext, ControlJwk, ControlJwks, ControlJwksCache,
     aggregated_control_auth_middleware, control_auth_middleware,
 };
+pub use fdb_control_auth::FdbControlJwksCache;
 pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
 pub use internal::{InternalJwks, InternalJwksLoader};

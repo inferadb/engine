@@ -20,6 +20,7 @@ use tracing::{info, warn};
 
 pub mod adapters;
 pub mod content_negotiation;
+pub mod fdb_invalidation_watcher;
 pub mod formatters;
 pub mod grpc;
 pub mod grpc_interceptor;
@@ -161,8 +162,6 @@ pub struct AppState {
     pub expansion_service: Arc<services::ExpansionService>,
     pub watch_service: Arc<services::WatchService>,
 
-    /// Change publisher for replication (None if replication is disabled)
-    pub change_publisher: Option<Arc<dyn inferadb_engine_types::ChangePublisher>>,
 }
 
 /// Builder for AppState to avoid too many function arguments
@@ -173,7 +172,6 @@ pub struct AppStateBuilder {
     wasm_host: Option<Arc<inferadb_engine_wasm::WasmHost>>,
     jwks_cache: Option<Arc<JwksCache>>,
     server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
-    change_publisher: Option<Arc<dyn inferadb_engine_types::ChangePublisher>>,
 }
 
 impl AppStateBuilder {
@@ -190,7 +188,6 @@ impl AppStateBuilder {
             wasm_host: None,
             jwks_cache: None,
             server_identity: None,
-            change_publisher: None,
         }
     }
 
@@ -212,15 +209,6 @@ impl AppStateBuilder {
         server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
     ) -> Self {
         self.server_identity = server_identity;
-        self
-    }
-
-    /// Set the change publisher for replication
-    pub fn change_publisher(
-        mut self,
-        change_publisher: Option<Arc<dyn inferadb_engine_types::ChangePublisher>>,
-    ) -> Self {
-        self.change_publisher = change_publisher;
         self
     }
 
@@ -312,7 +300,6 @@ impl AppState {
             relationship_service,
             expansion_service,
             watch_service,
-            change_publisher: builder.change_publisher,
         }
     }
 }
@@ -424,12 +411,11 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
         let control_client = if matches!(
             state.config.discovery.mode,
             inferadb_engine_config::DiscoveryMode::Kubernetes
-                | inferadb_engine_config::DiscoveryMode::Tailscale { .. }
         ) {
             // Discovery enabled - create discovery service and load balancing client
             info!("Control discovery ENABLED - mode: {:?}", state.config.discovery.mode);
 
-            // Create discovery service based on mode
+            // Create discovery service based on mode (Kubernetes only)
             let discovery: Arc<dyn inferadb_engine_discovery::EndpointDiscovery> =
                 match &state.config.discovery.mode {
                     inferadb_engine_config::DiscoveryMode::Kubernetes => Arc::new(
@@ -442,28 +428,6 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
                                 ))
                             })?,
                     ),
-                    inferadb_engine_config::DiscoveryMode::Tailscale {
-                        ref local_cluster,
-                        ref remote_clusters,
-                    } => {
-                        // Convert config RemoteCluster to discovery RemoteClusterConfig
-                        let remote_configs: Vec<
-                            inferadb_engine_discovery::tailscale::RemoteClusterConfig,
-                        > = remote_clusters
-                            .iter()
-                            .map(|rc| inferadb_engine_discovery::tailscale::RemoteClusterConfig {
-                                name: rc.name.clone(),
-                                tailscale_domain: rc.tailscale_domain.clone(),
-                                service_name: rc.service_name.clone(),
-                                port: rc.port,
-                            })
-                            .collect();
-
-                        Arc::new(inferadb_engine_discovery::TailscaleServiceDiscovery::new(
-                            local_cluster.clone(),
-                            remote_configs,
-                        ))
-                    },
                     inferadb_engine_config::DiscoveryMode::None => unreachable!(),
                 };
 
@@ -779,7 +743,6 @@ pub struct ServerComponents {
     pub config: Arc<Config>,
     pub jwks_cache: Option<Arc<JwksCache>>,
     pub server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
-    pub change_publisher: Option<Arc<dyn inferadb_engine_types::ChangePublisher>>,
 }
 
 impl ServerComponents {
@@ -793,7 +756,6 @@ impl ServerComponents {
         .wasm_host(self.wasm_host.clone())
         .jwks_cache(self.jwks_cache.clone())
         .server_identity(self.server_identity.clone())
-        .change_publisher(self.change_publisher.clone())
         .build()
     }
 }

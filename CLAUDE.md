@@ -31,7 +31,7 @@ make dev                                     # Or use make
 | 1     | `inferadb-engine-config`, `inferadb-engine-observe`, `inferadb-engine-discovery`   | Configuration, telemetry, discovery   |
 | 2     | `inferadb-engine-store`, `inferadb-engine-cache`, `inferadb-engine-control-client` | Storage, caching, Control client      |
 | 3     | `inferadb-engine-wasm`, `inferadb-engine-core`, `inferadb-engine-auth`             | Runtime, policy evaluation, auth      |
-| 4     | `inferadb-engine-repl`, `inferadb-engine-api`                                      | REPL, API servers                     |
+| 4     | `inferadb-engine-api`                                                              | API servers                           |
 | 5     | `inferadb-engine`                                                                  | Binary entry point                    |
 
 ### Key Crates

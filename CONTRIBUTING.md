@@ -363,7 +363,6 @@ server/
 │   ├── inferadb-engine-config/   # Configuration
 │   ├── inferadb-engine-core/     # Evaluation engine
 │   ├── inferadb-engine-observe/  # Observability
-│   ├── inferadb-engine-repl/     # Replication
 │   ├── inferadb-engine-store/    # Storage backends
 │   └── inferadb-engine-wasm/     # WASM integration
 ├── docs/                # Documentation

@@ -86,6 +86,14 @@ impl FoundationDBBackend {
         })
     }
 
+    /// Get a reference to the FDB database handle.
+    ///
+    /// This allows sharing the database connection with other FDB-based services
+    /// like JWKS storage and cache invalidation.
+    pub fn database(&self) -> Arc<Database> {
+        Arc::clone(&self.db)
+    }
+
     /// Get the current revision for a vault
     async fn get_current_revision(&self, vault: i64) -> Result<Revision> {
         let db = Arc::clone(&self.db);

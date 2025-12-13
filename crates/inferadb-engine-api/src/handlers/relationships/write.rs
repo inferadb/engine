@@ -80,13 +80,6 @@ pub async fn write_relationships_handler(
         relationships.iter().map(|r| r.resource.clone()).collect();
     state.relationship_service.invalidate_cache_for_resources(&affected_resources).await;
 
-    // Publish changes to change feed for replication
-    if let Some(ref change_publisher) = state.change_publisher {
-        for relationship in &relationships {
-            change_publisher.publish_insert(revision, relationship.clone()).await;
-        }
-    }
-
     Ok(ResponseData::new(
         WriteResponse {
             revision: revision.0.to_string(), // Extract the u64 value

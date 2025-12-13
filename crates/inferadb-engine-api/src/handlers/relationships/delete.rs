@@ -265,15 +265,8 @@ pub async fn delete_relationships_handler(
     }
 
     // Call internal deletion function
-    let (revision, total_deleted, deleted_relationships) =
+    let (revision, total_deleted, _deleted_relationships) =
         delete_relationships_internal(vault, &state, request).await?;
-
-    // Publish changes to change feed for replication
-    if let Some(ref change_publisher) = state.change_publisher {
-        for relationship in &deleted_relationships {
-            change_publisher.publish_delete(revision, relationship.clone()).await;
-        }
-    }
 
     Ok(ResponseData::new(
         DeleteResponse { revision: revision.0.to_string(), relationships_deleted: total_deleted },
@@ -364,15 +357,8 @@ pub async fn delete_relationship(
     };
 
     // Call internal deletion logic (validates, deletes, and invalidates cache)
-    let (revision, deleted_count, deleted_relationships) =
+    let (revision, deleted_count, _deleted_relationships) =
         delete_relationships_internal(vault, &state, delete_request).await?;
-
-    // Publish changes to change feed for replication
-    if let Some(ref change_publisher) = state.change_publisher {
-        for relationship in &deleted_relationships {
-            change_publisher.publish_delete(revision, relationship.clone()).await;
-        }
-    }
 
     // Record metrics
     let duration = start.elapsed();

@@ -38,8 +38,12 @@ zeroize = { workspace = true }
 inferadb-engine-config = { path = "../inferadb-engine-config" }
 inferadb-engine-control-client = { path = "../inferadb-engine-control-client" }
 inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
+inferadb-engine-fdb-shared = { path = "../inferadb-engine-fdb-shared" }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
+
+# FoundationDB
+foundationdb = { workspace = true }
 
 [dev-dependencies]
 axum = { workspace = true }

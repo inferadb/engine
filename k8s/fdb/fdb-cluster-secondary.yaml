@@ -1,0 +1,179 @@
+# FoundationDB Cluster - Secondary/DR Region
+# ===========================================
+# This manifest defines a FoundationDB cluster for a secondary (DR) region
+# in a multi-region Fearless DR deployment.
+#
+# Prerequisites:
+# - FDB Kubernetes Operator must be installed
+# - Tailscale auth secret must exist
+# - Primary region cluster must be deployed and reachable
+#
+# Usage:
+# 1. Update the region/datacenter IDs to match your deployment
+# 2. Ensure the multi-region configuration matches the primary exactly
+# 3. Deploy after the primary region is established
+#
+# kubectl apply -f fdb-cluster-secondary.yaml
+
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: inferadb-fdb
+  namespace: inferadb
+  labels:
+    app.kubernetes.io/name: foundationdb
+    app.kubernetes.io/instance: inferadb-fdb
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: inferadb
+    topology.kubernetes.io/region: eu-central-1
+    inferadb.io/is-primary: "false"
+  annotations:
+    inferadb.io/region: eu-central-1
+    inferadb.io/priority: "2"
+spec:
+  version: 7.3.43
+
+  # Process counts - should match or be similar to primary
+  processCounts:
+    storage: 3
+    log: 3
+    stateless: 3
+    clusterController: 1
+
+  # Database configuration
+  # IMPORTANT: Multi-region configuration MUST match primary exactly
+  databaseConfiguration:
+    redundancy_mode: double
+    storage_engine: ssd-2
+
+    # Multi-region configuration - must match primary
+    usable_regions: 1
+    regions:
+      - datacenters:
+          - id: us-west-1
+            priority: 1  # Primary region
+          - id: us-west-1a
+            priority: 1
+            satellite: 0
+      - datacenters:
+          - id: eu-central-1
+            priority: 2  # This region (secondary)
+          - id: eu-central-1a
+            priority: 2
+            satellite: 0
+
+  # Fault domain for this region
+  faultDomain:
+    key: foundationdb.org/fdb-zone-id
+    value: eu-central-1
+
+  # Routing configuration
+  routing:
+    publicIPSource: pod
+
+  # Pod template
+  processes:
+    general:
+      podTemplate:
+        spec:
+          securityContext:
+            fsGroup: 4059
+
+          containers:
+            - name: foundationdb
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 4Gi
+                limits:
+                  cpu: "2"
+                  memory: 8Gi
+              securityContext:
+                runAsUser: 4059
+                runAsGroup: 4059
+
+            # Tailscale sidecar for cross-region networking
+            - name: tailscale
+              image: tailscale/tailscale:v1.56.1
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: TS_AUTHKEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: tailscale-auth
+                      key: authkey
+                - name: TS_KUBE_SECRET
+                  value: ""
+                - name: TS_USERSPACE
+                  value: "true"
+                - name: TS_ACCEPT_DNS
+                  value: "false"
+                - name: TS_HOSTNAME
+                  value: "fdb-eu-central-1"
+              args:
+                - "--accept-routes"
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              securityContext:
+                runAsUser: 0
+                capabilities:
+                  add:
+                    - NET_ADMIN
+
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        foundationdb.org/fdb-cluster-name: inferadb-fdb
+                    topologyKey: kubernetes.io/hostname
+
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: topology.kubernetes.io/zone
+              whenUnsatisfiable: ScheduleAnyway
+              labelSelector:
+                matchLabels:
+                  foundationdb.org/fdb-cluster-name: inferadb-fdb
+
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 128Gi
+
+  sidecarContainer:
+    enableLivenessProbe: true
+    enableReadinessProbe: true
+
+  automationOptions:
+    deletionMode: All
+    removalMode: PodUpdateModeAll
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inferadb-fdb
+  namespace: inferadb
+  labels:
+    app.kubernetes.io/name: foundationdb
+    app.kubernetes.io/instance: inferadb-fdb
+spec:
+  selector:
+    foundationdb.org/fdb-cluster-name: inferadb-fdb
+  ports:
+    - name: fdb
+      port: 4500
+      targetPort: 4500
+      protocol: TCP
+  type: ClusterIP

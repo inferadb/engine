@@ -1,11 +1,5 @@
 # Multi-Tenancy Architecture
 
-**Last Updated**: 2025-11-02
-
----
-
-## Table of Contents
-
 1. [Overview](#overview)
 2. [Core Concepts](#core-concepts)
 3. [Architecture](#architecture)
@@ -16,8 +10,6 @@
 8. [API Integration](#api-integration)
 9. [Best Practices](#best-practices)
 10. [Troubleshooting](#troubleshooting)
-
----
 
 ## Overview
 
