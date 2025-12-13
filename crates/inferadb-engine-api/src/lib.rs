@@ -161,7 +161,6 @@ pub struct AppState {
     pub relationship_service: Arc<services::RelationshipService>,
     pub expansion_service: Arc<services::ExpansionService>,
     pub watch_service: Arc<services::WatchService>,
-
 }
 
 /// Builder for AppState to avoid too many function arguments
@@ -181,14 +180,7 @@ impl AppStateBuilder {
         schema: Arc<inferadb_engine_core::ipl::Schema>,
         config: Arc<Config>,
     ) -> Self {
-        Self {
-            store,
-            schema,
-            config,
-            wasm_host: None,
-            jwks_cache: None,
-            server_identity: None,
-        }
+        Self { store, schema, config, wasm_host: None, jwks_cache: None, server_identity: None }
     }
 
     /// Set the WASM host

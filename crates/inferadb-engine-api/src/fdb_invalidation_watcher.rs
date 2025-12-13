@@ -25,8 +25,7 @@ use inferadb_engine_control_client::ControlVaultVerifier;
 use inferadb_engine_fdb_shared::{
     INVALIDATION_LOG_PREFIX, INVALIDATION_VERSION_KEY, InvalidationEvent, InvalidationLogEntry,
 };
-use tokio::sync::RwLock;
-use tokio::task::JoinHandle;
+use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{debug, error, info, warn};
 
 /// FDB-based cache invalidation watcher.
@@ -76,12 +75,12 @@ impl FdbInvalidationWatcher {
                 Ok(()) => {
                     // Watch completed normally (version changed), continue looping
                     debug!("Invalidation watch triggered, processing events");
-                }
+                },
                 Err(e) => {
                     // Log error and retry after a delay
                     error!(error = %e, "FDB invalidation watch error, retrying in 5s");
                     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                }
+                },
             }
         }
     }
@@ -126,20 +125,28 @@ impl FdbInvalidationWatcher {
                     let start_key = start_key.clone();
                     let end_key = end_key.clone();
                     async move {
-                        let range = trx.get_range(
-                            &foundationdb::RangeOption {
-                                begin: foundationdb::KeySelector::first_greater_or_equal(&start_key),
-                                end: foundationdb::KeySelector::first_greater_or_equal(&end_key),
-                                limit: Some(1000), // Process up to 1000 events at a time
-                                ..Default::default()
-                            },
-                            1,   // iteration
-                            true, // snapshot
-                        ).await?;
+                        let range = trx
+                            .get_range(
+                                &foundationdb::RangeOption {
+                                    begin: foundationdb::KeySelector::first_greater_or_equal(
+                                        &start_key,
+                                    ),
+                                    end: foundationdb::KeySelector::first_greater_or_equal(
+                                        &end_key,
+                                    ),
+                                    limit: Some(1000), // Process up to 1000 events at a time
+                                    ..Default::default()
+                                },
+                                1,    // iteration
+                                true, // snapshot
+                            )
+                            .await?;
 
                         let mut entries = Vec::new();
                         for kv in range.iter() {
-                            if let Ok(entry) = serde_json::from_slice::<InvalidationLogEntry>(kv.value()) {
+                            if let Ok(entry) =
+                                serde_json::from_slice::<InvalidationLogEntry>(kv.value())
+                            {
                                 entries.push(entry);
                             }
                         }
@@ -187,7 +194,7 @@ impl FdbInvalidationWatcher {
                 if let Some(verifier) = &self.vault_verifier {
                     verifier.invalidate_vault(*vault_id).await;
                 }
-            }
+            },
 
             InvalidationEvent::Organization { org_id } => {
                 info!(org_id = %org_id, "Invalidating organization cache");
@@ -199,7 +206,7 @@ impl FdbInvalidationWatcher {
 
                 // Note: We don't invalidate auth_cache here because it's keyed by vault_id,
                 // not org_id. Organization invalidation affects vault lookup, not authz decisions.
-            }
+            },
 
             InvalidationEvent::Certificate { org_id, client_id, cert_id } => {
                 info!(
@@ -213,7 +220,7 @@ impl FdbInvalidationWatcher {
                 if let Some(cert_cache) = &self.cert_cache {
                     cert_cache.invalidate(*org_id, *client_id, *cert_id).await;
                 }
-            }
+            },
 
             InvalidationEvent::All => {
                 warn!("Received invalidate-all event, clearing all caches");
@@ -230,7 +237,7 @@ impl FdbInvalidationWatcher {
                 if let Some(cert_cache) = &self.cert_cache {
                     cert_cache.clear_all().await;
                 }
-            }
+            },
         }
     }
 }
@@ -246,8 +253,9 @@ fn build_log_key(timestamp_ms: i64, event_id: &str) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use inferadb_engine_fdb_shared::parse_invalidation_log_key;
+
+    use super::*;
 
     #[test]
     fn test_build_log_key() {

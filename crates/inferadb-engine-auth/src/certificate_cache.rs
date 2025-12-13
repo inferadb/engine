@@ -149,10 +149,7 @@ impl CertificateCache {
     pub async fn clear_all(&self) {
         let count = self.cache.entry_count();
         self.cache.invalidate_all();
-        tracing::warn!(
-            cached_certificates = count,
-            "Cleared all certificates from cache"
-        );
+        tracing::warn!(cached_certificates = count, "Cleared all certificates from cache");
     }
 
     /// Get decoding key for the given kid, fetching from JWKS if not cached

@@ -76,7 +76,8 @@ impl FdbControlJwksCache {
                     let start_key = start_key.clone();
                     let end_key = end_key.clone();
                     async move {
-                        let range_opt = RangeOption::from((start_key.as_slice(), end_key.as_slice()));
+                        let range_opt =
+                            RangeOption::from((start_key.as_slice(), end_key.as_slice()));
                         let mut range_stream = trx.get_ranges(range_opt, false);
                         let mut results = Vec::new();
 
@@ -138,7 +139,8 @@ impl FdbControlJwksCache {
         let mut aggregated_keys = 0;
         for (control_id, jwks) in all_jwks {
             for key in jwks.keys {
-                let cached_key = CachedControlKey { jwk: key.clone(), control_id: control_id.clone() };
+                let cached_key =
+                    CachedControlKey { jwk: key.clone(), control_id: control_id.clone() };
                 self.keys_cache.insert(key.kid.clone(), Arc::new(cached_key)).await;
                 aggregated_keys += 1;
             }
@@ -148,10 +150,7 @@ impl FdbControlJwksCache {
             return Err(AuthError::JwksError("No Control JWKS found in FDB".into()));
         }
 
-        info!(
-            aggregated_keys = aggregated_keys,
-            "Refreshed Control JWKS from FDB"
-        );
+        info!(aggregated_keys = aggregated_keys, "Refreshed Control JWKS from FDB");
 
         Ok(())
     }
@@ -182,10 +181,7 @@ impl FdbControlJwksCache {
             "OKP" => {
                 // EdDSA key
                 if jwk.crv != "Ed25519" {
-                    return Err(AuthError::JwksError(format!(
-                        "Unsupported curve: {}",
-                        jwk.crv
-                    )));
+                    return Err(AuthError::JwksError(format!("Unsupported curve: {}", jwk.crv)));
                 }
 
                 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -230,8 +226,9 @@ impl FdbControlJwksCache {
         validation.validate_nbf = false;
         validation.validate_aud = false;
 
-        let token_data = jsonwebtoken::decode::<ControlJwtClaims>(token, &decoding_key, &validation)
-            .map_err(|e| AuthError::InvalidTokenFormat(format!("JWT error: {}", e)))?;
+        let token_data =
+            jsonwebtoken::decode::<ControlJwtClaims>(token, &decoding_key, &validation)
+                .map_err(|e| AuthError::InvalidTokenFormat(format!("JWT error: {}", e)))?;
 
         let claims = token_data.claims;
 

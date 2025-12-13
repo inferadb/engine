@@ -101,7 +101,8 @@ impl StorageFactory {
         Self::create(config).await
     }
 
-    /// Create a storage backend from string configuration, returning the FDB database handle if available.
+    /// Create a storage backend from string configuration, returning the FDB database handle if
+    /// available.
     ///
     /// Returns `(store, Some(fdb_database))` for FDB backends, `(store, None)` for other backends.
     /// This is used for FDB-based cross-service communication like cache invalidation.
@@ -114,7 +115,7 @@ impl StorageFactory {
         match backend_type {
             BackendType::Memory => {
                 Ok((Arc::new(MemoryBackend::new()) as Arc<dyn InferaStore>, None))
-            }
+            },
             BackendType::FoundationDB => {
                 let backend = if let Some(cluster_file) = connection_string.as_deref() {
                     FoundationDBBackend::with_cluster_file(Some(cluster_file)).await?
@@ -123,11 +124,12 @@ impl StorageFactory {
                 };
                 let db = backend.database();
                 Ok((Arc::new(backend) as Arc<dyn InferaStore>, Some(db)))
-            }
+            },
         }
     }
 
-    /// Create a storage backend from string configuration, returning the FDB database handle if available.
+    /// Create a storage backend from string configuration, returning the FDB database handle if
+    /// available.
     #[cfg(not(feature = "fdb"))]
     pub async fn from_str_with_fdb(
         backend_str: &str,
