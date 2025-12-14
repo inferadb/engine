@@ -10,6 +10,8 @@ version.workspace = true
 [features]
 default = []
 test-utils = []
+# Enable FoundationDB-based features (invalidation watcher)
+fdb = ["foundationdb", "inferadb-engine-fdb-shared"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -42,8 +44,8 @@ tonic = "0.14.2"
 tonic-prost = "0.14"
 tonic-reflection = "0.14.2"
 
-# Storage
-foundationdb = { workspace = true }
+# Storage (optional - only needed for FDB invalidation watcher)
+foundationdb = { workspace = true, optional = true }
 
 # Internal dependencies
 inferadb-engine-auth = { path = "../inferadb-engine-auth" }
@@ -53,7 +55,7 @@ inferadb-engine-const = { path = "../inferadb-engine-const" }
 inferadb-engine-control-client = { path = "../inferadb-engine-control-client" }
 inferadb-engine-core = { path = "../inferadb-engine-core" }
 inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
-inferadb-engine-fdb-shared = { path = "../inferadb-engine-fdb-shared" }
+inferadb-engine-fdb-shared = { path = "../inferadb-engine-fdb-shared", optional = true }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }
 inferadb-engine-store = { path = "../inferadb-engine-store" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }

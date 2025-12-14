@@ -5,7 +5,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
-    Extension, Json, Router,
+    Json, Router,
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -20,6 +20,7 @@ use tracing::{info, warn};
 
 pub mod adapters;
 pub mod content_negotiation;
+#[cfg(feature = "fdb")]
 pub mod fdb_invalidation_watcher;
 pub mod formatters;
 pub mod grpc;
@@ -604,97 +605,12 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         .route("/metrics", get(handlers::internal::metrics_handler))
         .with_state(state.clone());
 
-    // Get effective mesh URL
-    let effective_mesh_url = state.config.effective_mesh_url();
+    // Note: HTTP cache invalidation endpoints have been removed.
+    // Cache invalidation is now handled via FDB-based invalidation.
+    // The FdbInvalidationWatcher watches FDB for invalidation events from Control.
+    // See fdb_invalidation_watcher.rs for the implementation.
 
-    // Privileged cache invalidation routes (require Control JWT authentication)
-    // These are only enabled when management API is configured
-    let privileged_routes = if !effective_mesh_url.is_empty() {
-        // Create aggregated Control JWKS cache for verifying Control JWTs
-        // This cache supports discovery and aggregates keys from all Control instances
-        let control_jwks_cache = Arc::new(inferadb_engine_auth::AggregatedControlJwksCache::new(
-            state.config.discovery.mode.clone(),
-            effective_mesh_url.clone(),
-            std::time::Duration::from_secs(900), // 15 minutes TTL
-        ));
-
-        // Create ControlVaultVerifier for cache invalidation handlers
-        // This requires creating a ControlClient first
-        let control_client = Arc::new(
-            inferadb_engine_control_client::ControlClient::new(
-                effective_mesh_url.clone(),
-                None, // Internal URL same as url
-                state.config.mesh.timeout,
-                None,
-                state.server_identity.clone(),
-            )
-            .map_err(|e| ApiError::Internal(format!("Failed to create Control client: {}", e)))?,
-        );
-
-        let ctrl_verifier = Arc::new(inferadb_engine_control_client::ControlVaultVerifier::new(
-            Arc::clone(&control_client),
-            std::time::Duration::from_secs(300), // 5 min vault cache TTL
-            std::time::Duration::from_secs(600), // 10 min org cache TTL
-        ));
-
-        // Create certificate cache for internal routes
-        let cert_cache = Arc::new(
-            inferadb_engine_auth::CertificateCache::new(
-                effective_mesh_url.clone(),
-                std::time::Duration::from_secs(300), // 5 min cert cache TTL
-                1000,                                // Max 1000 cached certificates
-            )
-            .map_err(|e| {
-                ApiError::Internal(format!("Failed to create certificate cache: {}", e))
-            })?,
-        );
-
-        // Create internal router with Control JWT auth middleware and vault verifier extension
-        let ctrl_cache_clone = Arc::clone(&control_jwks_cache);
-        let verifier_clone = Arc::clone(&ctrl_verifier);
-        let cert_cache_clone = Arc::clone(&cert_cache);
-        Some(
-            Router::new()
-                .route(
-                    "/internal/cache/invalidate/vault/{vault_id}",
-                    post(handlers::internal::invalidate_vault_cache),
-                )
-                .route(
-                    "/internal/cache/invalidate/organization/{org_id}",
-                    post(handlers::internal::invalidate_organization_cache),
-                )
-                .route("/internal/cache/invalidate/all", post(handlers::internal::clear_all_caches))
-                .route(
-                    "/internal/cache/invalidate/certificate/{org_id}/{client_id}/{cert_id}",
-                    post(handlers::internal::invalidate_certificate_cache),
-                )
-                // Add vault verifier and cert cache as Extensions for handlers
-                .layer(Extension(verifier_clone))
-                .layer(Extension(cert_cache_clone))
-                // Apply Control JWT auth middleware (discovery-aware)
-                .layer(axum::middleware::from_fn(move |req, next| {
-                    let cache = Arc::clone(&ctrl_cache_clone);
-                    async move {
-                        inferadb_engine_auth::aggregated_control_auth_middleware(cache, req, next)
-                            .await
-                    }
-                }))
-                .with_state(state.clone()),
-        )
-    } else {
-        warn!("○ Cache invalidation endpoints disabled");
-        warn!("  For more information, see https://inferadb.com/docs/?search=auth.control_url");
-        None
-    };
-
-    // Combine public (no auth) and privileged routes (Control JWT auth)
-    let router = if let Some(privileged) = privileged_routes {
-        public_internal_routes.merge(privileged)
-    } else {
-        public_internal_routes
-    };
-
-    Ok(router)
+    Ok(public_internal_routes)
 }
 
 /// Serve the public router on the configured address

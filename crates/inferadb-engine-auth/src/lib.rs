@@ -38,6 +38,7 @@ pub mod error;
 /// Axum extractors for authentication
 pub mod extractor;
 /// FDB-based Control JWT authentication
+#[cfg(feature = "fdb")]
 pub mod fdb_control_auth;
 /// Internal service JWT authentication
 pub mod internal;
@@ -69,6 +70,7 @@ pub use control_auth::{
 };
 pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
+#[cfg(feature = "fdb")]
 pub use fdb_control_auth::FdbControlJwksCache;
 pub use internal::{InternalJwks, InternalJwksLoader};
 pub use jwks_cache::{Jwk, JwksCache};

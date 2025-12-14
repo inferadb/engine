@@ -34,8 +34,8 @@ inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
 
 [features]
 default = []
-# Enable FoundationDB storage backend
-fdb = ["inferadb-engine-store/fdb"]
+# Enable FoundationDB storage backend and FDB-based features
+fdb = ["inferadb-engine-store/fdb", "inferadb-engine-api/fdb", "inferadb-engine-auth/fdb"]
 
 [dev-dependencies]
 futures = { workspace = true }
