@@ -126,8 +126,6 @@ pub struct ControlJwksCache {
     control_url: String,
     http_client: reqwest::Client,
     cache: Cache<String, Arc<ControlJwks>>,
-    #[allow(dead_code)] // Used for documentation purposes
-    cache_ttl: std::time::Duration,
 }
 
 impl ControlJwksCache {
@@ -148,7 +146,7 @@ impl ControlJwksCache {
             .max_capacity(10) // Small cache, only one entry needed
             .build();
 
-        Self { control_url, http_client, cache, cache_ttl }
+        Self { control_url, http_client, cache }
     }
 
     /// Fetch JWKS from Control
@@ -278,9 +276,6 @@ pub struct AggregatedControlJwksCache {
     keys_cache: Cache<String, Arc<ControlJwk>>,
     /// Discovered endpoints (cached for refresh)
     endpoints: RwLock<Vec<Endpoint>>,
-    /// Cache TTL (used for documentation/configuration purposes)
-    #[allow(dead_code)]
-    cache_ttl: std::time::Duration,
 }
 
 impl AggregatedControlJwksCache {
@@ -313,7 +308,6 @@ impl AggregatedControlJwksCache {
             http_client,
             keys_cache,
             endpoints: RwLock::new(Vec::new()),
-            cache_ttl,
         }
     }
 

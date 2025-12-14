@@ -40,9 +40,6 @@ pub struct FdbControlJwksCache {
 struct CachedControlKey {
     /// The JWK
     jwk: StoredJwk,
-    /// Control instance that owns this key
-    #[allow(dead_code)]
-    control_id: String,
 }
 
 impl FdbControlJwksCache {
@@ -137,10 +134,9 @@ impl FdbControlJwksCache {
         let all_jwks = self.fetch_all_jwks().await?;
 
         let mut aggregated_keys = 0;
-        for (control_id, jwks) in all_jwks {
+        for (_control_id, jwks) in all_jwks {
             for key in jwks.keys {
-                let cached_key =
-                    CachedControlKey { jwk: key.clone(), control_id: control_id.clone() };
+                let cached_key = CachedControlKey { jwk: key.clone() };
                 self.keys_cache.insert(key.kid.clone(), Arc::new(cached_key)).await;
                 aggregated_keys += 1;
             }

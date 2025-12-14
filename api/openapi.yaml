@@ -315,9 +315,11 @@ paths:
                   value:
                     resources:
                       - type: document
-                        id: readme
+                        properties:
+                          id: readme
                       - type: document
-                        id: guide
+                        properties:
+                          id: guide
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -365,9 +367,11 @@ paths:
                   value:
                     subjects:
                       - type: user
-                        id: alice
+                        properties:
+                          id: alice
                       - type: user
-                        id: bob
+                        properties:
+                          id: bob
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -904,7 +908,9 @@ components:
             inferadb_simulation: true
             inferadb_realtime_streaming: true
 
-    AuthZENEntity:
+    # AuthZEN Request Entity (for Subject and Resource in requests)
+    # Per AuthZEN Authorization API 1.0 spec: type (REQUIRED), id (REQUIRED), properties (OPTIONAL)
+    AuthZENRequestEntity:
       type: object
       required:
         - type
@@ -924,6 +930,32 @@ components:
           type: object
           additionalProperties: true
           description: Optional additional properties
+
+    # AuthZEN Response Entity (for search results)
+    # Entity format in responses uses properties.id per AuthZEN Phase 2
+    AuthZENResponseEntity:
+      type: object
+      required:
+        - type
+        - properties
+      properties:
+        type:
+          type: string
+          description: Entity type (e.g., "user", "group", "document")
+          example: user
+          pattern: "^[a-z_][a-z0-9_]*$"
+        properties:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              description: Entity identifier
+              example: alice
+              pattern: "^[a-z0-9_-]+$"
+          additionalProperties: true
+          description: Entity properties containing the identifier
 
     AuthZENAction:
       type: object
@@ -948,9 +980,9 @@ components:
         - action
       properties:
         subject:
-          $ref: "#/components/schemas/AuthZENEntity"
+          $ref: "#/components/schemas/AuthZENRequestEntity"
         resource:
-          $ref: "#/components/schemas/AuthZENEntity"
+          $ref: "#/components/schemas/AuthZENRequestEntity"
         action:
           $ref: "#/components/schemas/AuthZENAction"
         context:
@@ -991,7 +1023,7 @@ components:
         - action
       properties:
         subject:
-          $ref: "#/components/schemas/AuthZENEntity"
+          $ref: "#/components/schemas/AuthZENRequestEntity"
         action:
           $ref: "#/components/schemas/AuthZENAction"
         resource_type:
@@ -1018,7 +1050,7 @@ components:
         resources:
           type: array
           items:
-            $ref: "#/components/schemas/AuthZENEntity"
+            $ref: "#/components/schemas/AuthZENResponseEntity"
           description: List of resources the subject can access
         page:
           type: object
@@ -1037,7 +1069,7 @@ components:
         - action
       properties:
         resource:
-          $ref: "#/components/schemas/AuthZENEntity"
+          $ref: "#/components/schemas/AuthZENRequestEntity"
         action:
           $ref: "#/components/schemas/AuthZENAction"
         subject_type:
@@ -1064,7 +1096,7 @@ components:
         subjects:
           type: array
           items:
-            $ref: "#/components/schemas/AuthZENEntity"
+            $ref: "#/components/schemas/AuthZENResponseEntity"
           description: List of subjects with access
         page:
           type: object

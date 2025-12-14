@@ -129,20 +129,27 @@ pub const SCOPE_SIMULATE: &str = "inferadb.simulate";
 /// Note: Admin scope grants access to cross-account operations
 pub const SCOPE_ADMIN: &str = "inferadb.admin";
 
-/// Scope for account management (Phase 2 - Reserved for future use)
+/// Scope for account/organization management
 ///
-/// Reserved for:
-/// - Account-scoped administrative operations
-/// - Managing accounts user owns
-#[allow(dead_code)]
+/// Required for organization-level operations when not using admin scope:
+/// - `GET /v1/organizations/:id` - View organization details (own organization)
+/// - `PATCH /v1/organizations/:id` - Update organization (own organization)
+/// - `DELETE /v1/organizations/:id` - Delete organization (own organization)
+///
+/// This scope provides the same capabilities as admin for resources the caller owns,
+/// without granting cross-organization access.
 pub const SCOPE_ACCOUNT_MANAGE: &str = "inferadb.account.manage";
 
-/// Scope for vault management (Phase 2 - Reserved for future use)
+/// Scope for vault management
 ///
-/// Reserved for:
-/// - Vault-scoped administrative operations
-/// - Managing vaults user owns
-#[allow(dead_code)]
+/// Required for vault-level operations when not using admin scope:
+/// - `POST /v1/organizations/:org/vaults` - Create vault (own organization)
+/// - `GET /v1/vaults/:id` - View vault details (own organization's vaults)
+/// - `PATCH /v1/vaults/:id` - Update vault (own organization's vaults)
+/// - `DELETE /v1/vaults/:id` - Delete vault (own organization's vaults)
+///
+/// This scope provides vault management capabilities within the caller's organization,
+/// without granting cross-organization access.
 pub const SCOPE_VAULT_MANAGE: &str = "inferadb.vault.manage";
 
 // ============================================================================

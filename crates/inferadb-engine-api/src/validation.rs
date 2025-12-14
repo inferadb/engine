@@ -20,18 +20,18 @@ use crate::{
 ///
 /// # Example
 /// ```
-/// use inferadb_engine_api::adapters::authzen::AuthZENEntity;
+/// use inferadb_engine_api::adapters::authzen::{AuthZENEntity, AuthZENProperties};
 /// use inferadb_engine_api::validation::validate_authzen_entity;
 ///
 /// let entity = AuthZENEntity {
 ///     entity_type: "user".to_string(),
-///     id: "alice".to_string(),
+///     properties: AuthZENProperties { id: "alice".to_string() },
 /// };
 /// assert!(validate_authzen_entity(&entity, "subject").is_ok());
 ///
 /// let invalid = AuthZENEntity {
 ///     entity_type: "".to_string(),
-///     id: "alice".to_string(),
+///     properties: AuthZENProperties { id: "alice".to_string() },
 /// };
 /// assert!(validate_authzen_entity(&invalid, "subject").is_err());
 /// ```
@@ -39,7 +39,7 @@ pub fn validate_authzen_entity(entity: &AuthZENEntity, entity_kind: &str) -> Res
     if entity.entity_type.is_empty() {
         return Err(ApiError::InvalidRequest(format!("{} type cannot be empty", entity_kind)));
     }
-    if entity.id.is_empty() {
+    if entity.properties.id.is_empty() {
         return Err(ApiError::InvalidRequest(format!("{} id cannot be empty", entity_kind)));
     }
     Ok(())
@@ -104,10 +104,12 @@ pub fn validate_authzen_action(action: &AuthZENAction) -> Result<(), ApiError> {
 ///     subject: AuthZENSubject {
 ///         subject_type: "user".to_string(),
 ///         id: "alice".to_string(),
+///         properties: None,
 ///     },
 ///     resource: AuthZENResource {
 ///         resource_type: "document".to_string(),
 ///         id: "readme".to_string(),
+///         properties: None,
 ///     },
 ///     action: AuthZENAction {
 ///         name: "view".to_string(),
@@ -142,6 +144,7 @@ pub fn validate_authzen_evaluation_request(
 ///     subject: AuthZENSubject {
 ///         subject_type: "user".to_string(),
 ///         id: "alice".to_string(),
+///         properties: None,
 ///     },
 ///     action: AuthZENAction {
 ///         name: "view".to_string(),
@@ -181,6 +184,7 @@ pub fn validate_authzen_resource_search_request(
 ///     resource: AuthZENResource {
 ///         resource_type: "document".to_string(),
 ///         id: "readme".to_string(),
+///         properties: None,
 ///     },
 ///     action: AuthZENAction {
 ///         name: "view".to_string(),
@@ -240,18 +244,25 @@ pub fn validate_vault_name(name: &str) -> Result<(), ApiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::adapters::authzen::AuthZENProperties;
 
     // Entity validation tests
 
     #[test]
     fn test_validate_entity_valid() {
-        let entity = AuthZENEntity { entity_type: "user".to_string(), id: "alice".to_string() };
+        let entity = AuthZENEntity {
+            entity_type: "user".to_string(),
+            properties: AuthZENProperties { id: "alice".to_string() },
+        };
         assert!(validate_authzen_entity(&entity, "subject").is_ok());
     }
 
     #[test]
     fn test_validate_entity_empty_type() {
-        let entity = AuthZENEntity { entity_type: "".to_string(), id: "alice".to_string() };
+        let entity = AuthZENEntity {
+            entity_type: "".to_string(),
+            properties: AuthZENProperties { id: "alice".to_string() },
+        };
         let result = validate_authzen_entity(&entity, "subject");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("subject type cannot be empty"));
@@ -259,7 +270,10 @@ mod tests {
 
     #[test]
     fn test_validate_entity_empty_id() {
-        let entity = AuthZENEntity { entity_type: "user".to_string(), id: "".to_string() };
+        let entity = AuthZENEntity {
+            entity_type: "user".to_string(),
+            properties: AuthZENProperties { id: "".to_string() },
+        };
         let result = validate_authzen_entity(&entity, "resource");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("resource id cannot be empty"));
@@ -269,13 +283,21 @@ mod tests {
 
     #[test]
     fn test_validate_subject_valid() {
-        let subject = AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() };
+        let subject = AuthZENSubject {
+            subject_type: "user".to_string(),
+            id: "alice".to_string(),
+            properties: None,
+        };
         assert!(validate_authzen_subject(&subject).is_ok());
     }
 
     #[test]
     fn test_validate_subject_empty_type() {
-        let subject = AuthZENSubject { subject_type: "".to_string(), id: "alice".to_string() };
+        let subject = AuthZENSubject {
+            subject_type: "".to_string(),
+            id: "alice".to_string(),
+            properties: None,
+        };
         let result = validate_authzen_subject(&subject);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Subject type cannot be empty"));
@@ -283,7 +305,11 @@ mod tests {
 
     #[test]
     fn test_validate_subject_empty_id() {
-        let subject = AuthZENSubject { subject_type: "user".to_string(), id: "".to_string() };
+        let subject = AuthZENSubject {
+            subject_type: "user".to_string(),
+            id: "".to_string(),
+            properties: None,
+        };
         let result = validate_authzen_subject(&subject);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Subject id cannot be empty"));
@@ -293,14 +319,21 @@ mod tests {
 
     #[test]
     fn test_validate_resource_valid() {
-        let resource =
-            AuthZENResource { resource_type: "document".to_string(), id: "readme".to_string() };
+        let resource = AuthZENResource {
+            resource_type: "document".to_string(),
+            id: "readme".to_string(),
+            properties: None,
+        };
         assert!(validate_authzen_resource(&resource).is_ok());
     }
 
     #[test]
     fn test_validate_resource_empty_type() {
-        let resource = AuthZENResource { resource_type: "".to_string(), id: "readme".to_string() };
+        let resource = AuthZENResource {
+            resource_type: "".to_string(),
+            id: "readme".to_string(),
+            properties: None,
+        };
         let result = validate_authzen_resource(&resource);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Resource type cannot be empty"));
@@ -308,8 +341,11 @@ mod tests {
 
     #[test]
     fn test_validate_resource_empty_id() {
-        let resource =
-            AuthZENResource { resource_type: "document".to_string(), id: "".to_string() };
+        let resource = AuthZENResource {
+            resource_type: "document".to_string(),
+            id: "".to_string(),
+            properties: None,
+        };
         let result = validate_authzen_resource(&resource);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Resource id cannot be empty"));
@@ -336,10 +372,15 @@ mod tests {
     #[test]
     fn test_validate_evaluation_request_valid() {
         let request = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             context: None,
@@ -350,10 +391,15 @@ mod tests {
     #[test]
     fn test_validate_evaluation_request_invalid_subject() {
         let request = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             context: None,
@@ -364,8 +410,16 @@ mod tests {
     #[test]
     fn test_validate_evaluation_request_invalid_resource() {
         let request = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
-            resource: AuthZENResource { resource_type: "document".to_string(), id: "".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             context: None,
         };
@@ -375,10 +429,15 @@ mod tests {
     #[test]
     fn test_validate_evaluation_request_invalid_action() {
         let request = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "".to_string() },
             context: None,
@@ -391,7 +450,11 @@ mod tests {
     #[test]
     fn test_validate_resource_search_request_valid() {
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
@@ -403,7 +466,11 @@ mod tests {
     #[test]
     fn test_validate_resource_search_request_invalid_subject() {
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
@@ -415,7 +482,11 @@ mod tests {
     #[test]
     fn test_validate_resource_search_request_invalid_action() {
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "".to_string() },
             resource_type: "document".to_string(),
             limit: None,
@@ -427,7 +498,11 @@ mod tests {
     #[test]
     fn test_validate_resource_search_request_empty_resource_type() {
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "".to_string(),
             limit: None,
@@ -446,6 +521,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
@@ -458,7 +534,11 @@ mod tests {
     #[test]
     fn test_validate_subject_search_request_invalid_resource() {
         let request = AuthZENSubjectSearchRequest {
-            resource: AuthZENResource { resource_type: "".to_string(), id: "readme".to_string() },
+            resource: AuthZENResource {
+                resource_type: "".to_string(),
+                id: "readme".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: None,
@@ -473,6 +553,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "".to_string() },
             subject_type: None,
@@ -488,6 +569,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: Some("user".to_string()),

@@ -457,7 +457,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
@@ -484,7 +488,8 @@ mod tests {
         // Alice should have access to readme and guide
         assert_eq!(json.resources.len(), 2);
 
-        let resource_ids: Vec<String> = json.resources.iter().map(|r| r.id.clone()).collect();
+        let resource_ids: Vec<String> =
+            json.resources.iter().map(|r| r.properties.id.clone()).collect();
         assert!(resource_ids.contains(&"readme".to_string()));
         assert!(resource_ids.contains(&"guide".to_string()));
 
@@ -504,7 +509,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "charlie".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "charlie".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
@@ -543,7 +552,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: Some(1),
@@ -581,7 +594,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
@@ -613,7 +630,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
             limit: None,
@@ -645,7 +666,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "".to_string() },
             resource_type: "document".to_string(),
             limit: None,
@@ -677,7 +702,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENResourceSearchRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "".to_string(),
             limit: None,
@@ -712,6 +741,7 @@ mod tests {
             subject: AuthZENSubject {
                 subject_type: "User".to_string(), // Invalid: uppercase
                 id: "alice".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             resource_type: "document".to_string(),
@@ -749,6 +779,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
@@ -776,7 +807,7 @@ mod tests {
         // Alice has view access to readme
         assert_eq!(json.subjects.len(), 1);
         assert_eq!(json.subjects[0].entity_type, "user");
-        assert_eq!(json.subjects[0].id, "alice");
+        assert_eq!(json.subjects[0].properties.id, "alice");
     }
 
     #[tokio::test]
@@ -792,6 +823,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "nonexistent".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
@@ -834,6 +866,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
@@ -872,7 +905,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENSubjectSearchRequest {
-            resource: AuthZENResource { resource_type: "".to_string(), id: "readme".to_string() },
+            resource: AuthZENResource {
+                resource_type: "".to_string(),
+                id: "readme".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: None,
@@ -904,7 +941,11 @@ mod tests {
         let app = with_test_auth(app);
 
         let request = AuthZENSubjectSearchRequest {
-            resource: AuthZENResource { resource_type: "document".to_string(), id: "".to_string() },
+            resource: AuthZENResource {
+                resource_type: "document".to_string(),
+                id: "".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
             limit: None,
@@ -939,6 +980,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "".to_string() },
             subject_type: None,
@@ -974,6 +1016,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "Document".to_string(), // Invalid: uppercase
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: None,
@@ -1009,6 +1052,7 @@ mod tests {
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             subject_type: Some("user".to_string()),

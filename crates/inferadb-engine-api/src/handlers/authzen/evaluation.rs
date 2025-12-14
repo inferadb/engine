@@ -418,11 +418,16 @@ mod tests {
         let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -465,11 +470,16 @@ mod tests {
         let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "bob".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "bob".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "delete".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -519,11 +529,16 @@ mod tests {
         let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -553,11 +568,16 @@ mod tests {
         let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -590,11 +610,13 @@ mod tests {
             subject: AuthZENSubject {
                 subject_type: "User".to_string(), // Invalid: uppercase not allowed
                 id: "alice".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -624,11 +646,16 @@ mod tests {
         let app = with_test_auth(app);
 
         let request_body = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -672,11 +699,13 @@ mod tests {
                 subject: AuthZENSubject {
                     subject_type: "user".to_string(),
                     id: "alice".to_string(),
+                    properties: None,
                 },
                 action: AuthZENAction { name: "view".to_string() },
                 resource: AuthZENResource {
                     resource_type: "document".to_string(),
                     id: "readme".to_string(),
+                    properties: None,
                 },
                 context: None,
             }],
@@ -718,11 +747,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },
@@ -730,11 +761,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "user".to_string(),
                         id: "bob".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "delete".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },
@@ -742,11 +775,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "delete".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },
@@ -818,11 +853,13 @@ mod tests {
                 subject: AuthZENSubject {
                     subject_type: "user".to_string(),
                     id: format!("user{}", i),
+                    properties: None,
                 },
                 action: AuthZENAction { name: "view".to_string() },
                 resource: AuthZENResource {
                     resource_type: "document".to_string(),
                     id: "readme".to_string(),
+                    properties: None,
                 },
                 context: None,
             });
@@ -860,11 +897,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },
@@ -872,11 +911,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "".to_string(), // Invalid: empty type
                         id: "bob".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },
@@ -884,11 +925,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "User".to_string(), // Invalid: uppercase
                         id: "charlie".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },
@@ -940,11 +983,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },
@@ -952,11 +997,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "user".to_string(),
                         id: "bob".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "view".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },
@@ -964,11 +1011,13 @@ mod tests {
                     subject: AuthZENSubject {
                         subject_type: "user".to_string(),
                         id: "alice".to_string(),
+                        properties: None,
                     },
                     action: AuthZENAction { name: "delete".to_string() },
                     resource: AuthZENResource {
                         resource_type: "document".to_string(),
                         id: "readme".to_string(),
+                        properties: None,
                     },
                     context: None,
                 },

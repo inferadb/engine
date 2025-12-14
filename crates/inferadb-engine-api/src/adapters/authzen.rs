@@ -1,13 +1,13 @@
 //! AuthZEN protocol adapter
 //!
-//! Provides bidirectional translation between AuthZEN's structured entity format
+//! Provides bidirectional translation between AuthZEN Phase 2's structured entity format
 //! and InferaDB's native type:id string format.
 //!
 //! # Format
 //!
-//! AuthZEN uses structured entities:
+//! AuthZEN Phase 2 uses structured entities with properties:
 //! ```json
-//! {"type": "user", "id": "alice"}
+//! {"type": "user", "properties": {"id": "alice"}}
 //! ```
 //!
 //! InferaDB uses type:id strings:
@@ -54,13 +54,25 @@ pub enum EntityError {
 /// Result type alias for AuthZEN entity operations
 pub type Result<T> = std::result::Result<T, EntityError>;
 
-/// AuthZEN entity representation with separate type and id fields
+/// AuthZEN Phase 2 properties containing entity identifier
 ///
-/// This matches the AuthZEN specification's entity format:
+/// This is the inner properties object in the Phase 2 format:
+/// ```json
+/// {"id": "alice"}
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuthZENProperties {
+    /// Entity identifier (e.g., "alice", "doc-123")
+    pub id: String,
+}
+
+/// AuthZEN Phase 2 entity representation with type and properties fields
+///
+/// This matches the AuthZEN Phase 2 specification's entity format:
 /// ```json
 /// {
 ///   "type": "user",
-///   "id": "alice"
+///   "properties": {"id": "alice"}
 /// }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,8 +81,8 @@ pub struct AuthZENEntity {
     #[serde(rename = "type")]
     pub entity_type: String,
 
-    /// Entity identifier (e.g., "alice", "doc-123")
-    pub id: String,
+    /// Entity properties containing the identifier
+    pub properties: AuthZENProperties,
 }
 
 impl AuthZENEntity {
@@ -78,7 +90,7 @@ impl AuthZENEntity {
     pub fn new(entity_type: String, id: String) -> Result<Self> {
         validate_type(&entity_type)?;
         validate_id(&id)?;
-        Ok(Self { entity_type, id })
+        Ok(Self { entity_type, properties: AuthZENProperties { id } })
     }
 }
 
@@ -122,7 +134,7 @@ fn validate_id(id_str: &str) -> Result<()> {
     Ok(())
 }
 
-/// Parses an InferaDB type:id string into an AuthZEN entity
+/// Parses an InferaDB type:id string into an AuthZEN Phase 2 entity
 ///
 /// # Examples
 ///
@@ -130,11 +142,11 @@ fn validate_id(id_str: &str) -> Result<()> {
 /// # use inferadb_engine_api::adapters::authzen::{parse_entity, AuthZENEntity};
 /// let entity = parse_entity("user:alice").unwrap();
 /// assert_eq!(entity.entity_type, "user");
-/// assert_eq!(entity.id, "alice");
+/// assert_eq!(entity.properties.id, "alice");
 ///
 /// let entity = parse_entity("team:engineering").unwrap();
 /// assert_eq!(entity.entity_type, "team");
-/// assert_eq!(entity.id, "engineering");
+/// assert_eq!(entity.properties.id, "engineering");
 /// ```
 ///
 /// # Errors
@@ -156,14 +168,14 @@ pub fn parse_entity(s: &str) -> Result<AuthZENEntity> {
     AuthZENEntity::new(entity_type, id)
 }
 
-/// Formats an AuthZEN entity into an InferaDB type:id string with validation
+/// Formats an AuthZEN Phase 2 entity into an InferaDB type:id string with validation
 ///
 /// This function validates that neither the type nor the ID contains a colon
 /// character before formatting, preventing injection attacks.
 ///
 /// # Arguments
 ///
-/// * `entity` - The AuthZEN entity to format
+/// * `entity` - The AuthZEN Phase 2 entity to format
 ///
 /// # Returns
 ///
@@ -179,17 +191,17 @@ pub fn parse_entity(s: &str) -> Result<AuthZENEntity> {
 /// # Examples
 ///
 /// ```
-/// # use inferadb_engine_api::adapters::authzen::{format_entity, AuthZENEntity};
+/// # use inferadb_engine_api::adapters::authzen::{format_entity, AuthZENEntity, AuthZENProperties};
 /// let entity = AuthZENEntity {
 ///     entity_type: "user".to_string(),
-///     id: "alice".to_string(),
+///     properties: AuthZENProperties { id: "alice".to_string() },
 /// };
 /// assert_eq!(format_entity(&entity).unwrap(), "user:alice");
 ///
 /// // Injection attempt should fail
 /// let malicious = AuthZENEntity {
 ///     entity_type: "user:admin".to_string(),
-///     id: "alice".to_string(),
+///     properties: AuthZENProperties { id: "alice".to_string() },
 /// };
 /// assert!(format_entity(&malicious).is_err());
 /// ```
@@ -198,7 +210,7 @@ pub fn format_entity(entity: &AuthZENEntity) -> Result<String> {
     if entity.entity_type.is_empty() {
         return Err(EntityError::EmptyType);
     }
-    if entity.id.is_empty() {
+    if entity.properties.id.is_empty() {
         return Err(EntityError::EmptyId);
     }
 
@@ -206,27 +218,51 @@ pub fn format_entity(entity: &AuthZENEntity) -> Result<String> {
     if entity.entity_type.contains(':') {
         return Err(EntityError::TypeContainsColon(entity.entity_type.clone()));
     }
-    if entity.id.contains(':') {
-        return Err(EntityError::IdContainsColon(entity.id.clone()));
+    if entity.properties.id.contains(':') {
+        return Err(EntityError::IdContainsColon(entity.properties.id.clone()));
     }
 
-    Ok(format!("{}:{}", entity.entity_type, entity.id))
+    Ok(format!("{}:{}", entity.entity_type, entity.properties.id))
 }
 
 /// AuthZEN subject representation
+///
+/// Per the AuthZEN Authorization API 1.0 spec, Subject has:
+/// - `type` (REQUIRED): Subject type
+/// - `id` (REQUIRED): Subject identifier
+/// - `properties` (OPTIONAL): Additional attributes
+///
+/// Example:
+/// ```json
+/// {"type": "user", "id": "alice"}
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthZENSubject {
     #[serde(rename = "type")]
     pub subject_type: String,
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<serde_json::Value>,
 }
 
 /// AuthZEN resource representation
+///
+/// Per the AuthZEN Authorization API 1.0 spec, Resource has:
+/// - `type` (REQUIRED): Resource type
+/// - `id` (REQUIRED): Resource identifier
+/// - `properties` (OPTIONAL): Additional attributes
+///
+/// Example:
+/// ```json
+/// {"type": "document", "id": "readme"}
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthZENResource {
     #[serde(rename = "type")]
     pub resource_type: String,
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<serde_json::Value>,
 }
 
 /// AuthZEN action representation
@@ -235,7 +271,7 @@ pub struct AuthZENAction {
     pub name: String,
 }
 
-/// AuthZEN evaluation request matching the AuthZEN specification
+/// AuthZEN evaluation request per Authorization API 1.0 specification
 ///
 /// Example:
 /// ```json
@@ -317,19 +353,19 @@ mod tests {
     fn test_parse_entity_valid() {
         let entity = parse_entity("user:alice").unwrap();
         assert_eq!(entity.entity_type, "user");
-        assert_eq!(entity.id, "alice");
+        assert_eq!(entity.properties.id, "alice");
 
         let entity = parse_entity("team:engineering").unwrap();
         assert_eq!(entity.entity_type, "team");
-        assert_eq!(entity.id, "engineering");
+        assert_eq!(entity.properties.id, "engineering");
 
         let entity = parse_entity("doc:design-doc").unwrap();
         assert_eq!(entity.entity_type, "doc");
-        assert_eq!(entity.id, "design-doc");
+        assert_eq!(entity.properties.id, "design-doc");
 
         let entity = parse_entity("_private:test_123").unwrap();
         assert_eq!(entity.entity_type, "_private");
-        assert_eq!(entity.id, "test_123");
+        assert_eq!(entity.properties.id, "test_123");
     }
 
     #[test]
@@ -387,14 +423,22 @@ mod tests {
 
     #[test]
     fn test_format_entity() {
-        let entity = AuthZENEntity { entity_type: "user".to_string(), id: "alice".to_string() };
+        let entity = AuthZENEntity {
+            entity_type: "user".to_string(),
+            properties: AuthZENProperties { id: "alice".to_string() },
+        };
         assert_eq!(format_entity(&entity).unwrap(), "user:alice");
 
-        let entity =
-            AuthZENEntity { entity_type: "team".to_string(), id: "engineering".to_string() };
+        let entity = AuthZENEntity {
+            entity_type: "team".to_string(),
+            properties: AuthZENProperties { id: "engineering".to_string() },
+        };
         assert_eq!(format_entity(&entity).unwrap(), "team:engineering");
 
-        let entity = AuthZENEntity { entity_type: "doc".to_string(), id: "design-doc".to_string() };
+        let entity = AuthZENEntity {
+            entity_type: "doc".to_string(),
+            properties: AuthZENProperties { id: "design-doc".to_string() },
+        };
         assert_eq!(format_entity(&entity).unwrap(), "doc:design-doc");
     }
 
@@ -419,7 +463,7 @@ mod tests {
     fn test_authzen_entity_new_valid() {
         let entity = AuthZENEntity::new("user".to_string(), "alice".to_string()).unwrap();
         assert_eq!(entity.entity_type, "user");
-        assert_eq!(entity.id, "alice");
+        assert_eq!(entity.properties.id, "alice");
     }
 
     #[test]
@@ -448,11 +492,16 @@ mod tests {
     #[test]
     fn test_convert_authzen_request_to_native() {
         let req = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -469,11 +518,13 @@ mod tests {
             subject: AuthZENSubject {
                 subject_type: "User".to_string(), // Invalid: uppercase
                 id: "alice".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -528,10 +579,13 @@ mod tests {
 
     #[test]
     fn test_authzen_entity_serialization() {
-        let entity = AuthZENEntity { entity_type: "user".to_string(), id: "alice".to_string() };
+        let entity = AuthZENEntity {
+            entity_type: "user".to_string(),
+            properties: AuthZENProperties { id: "alice".to_string() },
+        };
 
         let json = serde_json::to_string(&entity).unwrap();
-        assert_eq!(json, r#"{"type":"user","id":"alice"}"#);
+        assert_eq!(json, r#"{"type":"user","properties":{"id":"alice"}}"#);
 
         let deserialized: AuthZENEntity = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, entity);
@@ -540,11 +594,16 @@ mod tests {
     #[test]
     fn test_authzen_evaluation_request_serialization() {
         let req = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "readme".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -575,8 +634,10 @@ mod tests {
 
     #[test]
     fn test_format_entity_rejects_colon_in_type() {
-        let malicious =
-            AuthZENEntity { entity_type: "user:admin".to_string(), id: "alice".to_string() };
+        let malicious = AuthZENEntity {
+            entity_type: "user:admin".to_string(),
+            properties: AuthZENProperties { id: "alice".to_string() },
+        };
 
         let result = format_entity(&malicious);
         assert!(result.is_err());
@@ -585,8 +646,10 @@ mod tests {
 
     #[test]
     fn test_format_entity_rejects_colon_in_id() {
-        let malicious =
-            AuthZENEntity { entity_type: "user".to_string(), id: "alice:admin".to_string() };
+        let malicious = AuthZENEntity {
+            entity_type: "user".to_string(),
+            properties: AuthZENProperties { id: "alice:admin".to_string() },
+        };
 
         let result = format_entity(&malicious);
         assert!(result.is_err());
@@ -597,7 +660,7 @@ mod tests {
     fn test_format_entity_rejects_multiple_colons() {
         let malicious = AuthZENEntity {
             entity_type: "user:group:admin".to_string(),
-            id: "alice:bob:charlie".to_string(),
+            properties: AuthZENProperties { id: "alice:bob:charlie".to_string() },
         };
 
         let result = format_entity(&malicious);
@@ -606,7 +669,10 @@ mod tests {
 
     #[test]
     fn test_format_entity_rejects_empty_type() {
-        let invalid = AuthZENEntity { entity_type: "".to_string(), id: "alice".to_string() };
+        let invalid = AuthZENEntity {
+            entity_type: "".to_string(),
+            properties: AuthZENProperties { id: "alice".to_string() },
+        };
 
         let result = format_entity(&invalid);
         assert!(result.is_err());
@@ -615,7 +681,10 @@ mod tests {
 
     #[test]
     fn test_format_entity_rejects_empty_id() {
-        let invalid = AuthZENEntity { entity_type: "user".to_string(), id: "".to_string() };
+        let invalid = AuthZENEntity {
+            entity_type: "user".to_string(),
+            properties: AuthZENProperties { id: "".to_string() },
+        };
 
         let result = format_entity(&invalid);
         assert!(result.is_err());
@@ -628,11 +697,13 @@ mod tests {
             subject: AuthZENSubject {
                 subject_type: "user:admin".to_string(),
                 id: "alice".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "doc-1".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -648,11 +719,13 @@ mod tests {
             subject: AuthZENSubject {
                 subject_type: "user".to_string(),
                 id: "alice:admin".to_string(),
+                properties: None,
             },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "doc-1".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -665,11 +738,16 @@ mod tests {
     #[test]
     fn test_convert_authzen_rejects_colon_in_resource_type() {
         let request = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document:secret".to_string(),
                 id: "doc-1".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -685,11 +763,16 @@ mod tests {
     #[test]
     fn test_convert_authzen_rejects_colon_in_resource_id() {
         let request = AuthZENEvaluationRequest {
-            subject: AuthZENSubject { subject_type: "user".to_string(), id: "alice".to_string() },
+            subject: AuthZENSubject {
+                subject_type: "user".to_string(),
+                id: "alice".to_string(),
+                properties: None,
+            },
             action: AuthZENAction { name: "view".to_string() },
             resource: AuthZENResource {
                 resource_type: "document".to_string(),
                 id: "doc:secret".to_string(),
+                properties: None,
             },
             context: None,
         };
@@ -704,7 +787,7 @@ mod tests {
         // Attacker tries to escalate privileges by injecting admin role
         let attack = AuthZENEntity {
             entity_type: "user".to_string(),
-            id: "alice:group:admin".to_string(), // Trying to add admin group
+            properties: AuthZENProperties { id: "alice:group:admin".to_string() }, /* Trying to add admin group */
         };
 
         let result = format_entity(&attack);
@@ -716,7 +799,10 @@ mod tests {
         // Attacker tries to access a different resource by injection
         let attack = AuthZENEntity {
             entity_type: "document".to_string(),
-            id: "public:document:secret".to_string(), // Trying to access secret doc
+            properties: AuthZENProperties { id: "public:document:secret".to_string() }, /* Trying
+                                                                                         * to access
+                                                                                         * secret
+                                                                                         * doc */
         };
 
         let result = format_entity(&attack);
