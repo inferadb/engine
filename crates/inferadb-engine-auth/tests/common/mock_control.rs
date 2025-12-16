@@ -215,7 +215,7 @@ pub async fn start_mock_control_server(state: MockControlState) -> (String, Join
         .route("/internal/organizations/{org_id}", get(get_organization))
         .route("/internal/vaults/{vault_id}", get(get_vault))
         // Public JWKS endpoint (used by certificate cache)
-        .route("/v1/organizations/{org_id}/jwks.json", get(get_org_jwks))
+        .route("/control/v1/organizations/{org_id}/jwks.json", get(get_org_jwks))
         .with_state(state);
 
     // Bind to random port
@@ -395,7 +395,7 @@ mod tests {
 
         let client = reqwest::Client::new();
         let response = client
-            .get(format!("{}/v1/organizations/{}/jwks.json", base_url, org_id))
+            .get(format!("{}/control/v1/organizations/{}/jwks.json", base_url, org_id))
             .send()
             .await
             .expect("Failed to send request");

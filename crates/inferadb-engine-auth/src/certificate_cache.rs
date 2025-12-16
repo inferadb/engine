@@ -173,13 +173,15 @@ impl CertificateCache {
         }
 
         // Fetch from JWKS endpoint
-        let jwks_url =
-            format!("{}/v1/organizations/{}/jwks.json", self.control_url, parsed_kid.org_id);
+        let jwks_url = format!(
+            "{}/control/v1/organizations/{}/jwks.json",
+            self.control_url, parsed_kid.org_id
+        );
 
         tracing::debug!(
             jwks_url = %jwks_url,
             kid = %kid,
-            "Fetching JWKS from Management API"
+            "Fetching JWKS from Control Plane API"
         );
 
         let response = self.http_client.get(&jwks_url).send().await.map_err(|e| {

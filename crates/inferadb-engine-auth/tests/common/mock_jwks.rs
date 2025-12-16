@@ -68,7 +68,8 @@ async fn jwks_handler(Path(tenant_json): Path<String>) -> Json<serde_json::Value
 
 /// Start a mock JWKS server on a random port
 pub async fn start_mock_jwks_server() -> (String, JoinHandle<()>) {
-    let app = Router::new().route("/v1/organizations/{tenant}/jwks.json", get(jwks_handler));
+    let app =
+        Router::new().route("/control/v1/organizations/{tenant}/jwks.json", get(jwks_handler));
 
     // Bind to random port
     let addr = SocketAddr::from(([127, 0, 0, 1], 0));
@@ -144,7 +145,7 @@ mod tests {
 
         let client = reqwest::Client::new();
         let response = client
-            .get(format!("{}/v1/organizations/test-tenant/jwks.json", base_url))
+            .get(format!("{}/control/v1/organizations/test-tenant/jwks.json", base_url))
             .send()
             .await
             .expect("Failed to send request");

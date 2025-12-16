@@ -366,7 +366,8 @@ async fn test_jwks_malformed_response() {
         "{ invalid json"
     }
 
-    let app = Router::new().route("/v1/organizations/{tenant}/jwks.json", get(malformed_handler));
+    let app =
+        Router::new().route("/control/v1/organizations/{tenant}/jwks.json", get(malformed_handler));
 
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -409,7 +410,8 @@ async fn test_jwks_empty_keys_array() {
         }))
     }
 
-    let app = Router::new().route("/v1/organizations/{tenant}/jwks.json", get(empty_keys_handler));
+    let app = Router::new()
+        .route("/control/v1/organizations/{tenant}/jwks.json", get(empty_keys_handler));
 
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

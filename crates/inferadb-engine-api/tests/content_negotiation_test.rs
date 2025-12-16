@@ -40,12 +40,12 @@ async fn create_test_app() -> (inferadb_engine_api::AppState, Router) {
     // We create the router manually here since create_test_router is only available in tests
     let router = Router::new()
         .route(
-            "/v1/evaluate",
+            "/access/v1/evaluate",
             post(inferadb_engine_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
-        .route("/v1/vaults/{id}", get(inferadb_engine_api::handlers::vaults::get::get_vault))
+        .route("/access/v1/vaults/{id}", get(inferadb_engine_api::handlers::vaults::get::get_vault))
         .route(
-            "/v1/organizations/{id}",
+            "/access/v1/organizations/{id}",
             get(inferadb_engine_api::handlers::organizations::get::get_organization),
         )
         .route("/healthz", get(inferadb_engine_api::health::healthz_handler))
@@ -67,7 +67,7 @@ async fn test_json_format_explicit() {
     // Request with explicit JSON Accept header
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/vaults/{}", vault_id))
+        .uri(format!("/access/v1/vaults/{}", vault_id))
         .header(header::ACCEPT, "application/json")
         .body(Body::empty())
         .unwrap();
@@ -96,7 +96,7 @@ async fn test_toon_format_explicit() {
     // Request with TOON Accept header
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/vaults/{}", vault_id))
+        .uri(format!("/access/v1/vaults/{}", vault_id))
         .header(header::ACCEPT, "text/toon")
         .body(Body::empty())
         .unwrap();
@@ -129,7 +129,7 @@ async fn test_default_format_is_json() {
     // Request with NO Accept header (should default to JSON)
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/vaults/{}", vault_id))
+        .uri(format!("/access/v1/vaults/{}", vault_id))
         .body(Body::empty())
         .unwrap();
 
@@ -152,7 +152,7 @@ async fn test_wildcard_accept_defaults_to_json() {
     // Request with wildcard Accept header
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/vaults/{}", vault_id))
+        .uri(format!("/access/v1/vaults/{}", vault_id))
         .header(header::ACCEPT, "*/*")
         .body(Body::empty())
         .unwrap();
@@ -176,7 +176,7 @@ async fn test_quality_value_priority_json_higher() {
     // Request with JSON having higher priority
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/vaults/{}", vault_id))
+        .uri(format!("/access/v1/vaults/{}", vault_id))
         .header(header::ACCEPT, "application/json;q=1.0, text/toon;q=0.5")
         .body(Body::empty())
         .unwrap();
@@ -200,7 +200,7 @@ async fn test_quality_value_priority_toon_higher() {
     // Request with TOON having higher priority
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/vaults/{}", vault_id))
+        .uri(format!("/access/v1/vaults/{}", vault_id))
         .header(header::ACCEPT, "text/toon;q=1.0, application/json;q=0.5")
         .body(Body::empty())
         .unwrap();
@@ -219,7 +219,7 @@ async fn test_streaming_endpoint_rejects_toon() {
     // Request streaming endpoint with TOON format
     let request = Request::builder()
         .method("POST")
-        .uri("/v1/evaluate")
+        .uri("/access/v1/evaluate")
         .header(header::ACCEPT, "text/toon")
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(
@@ -252,7 +252,7 @@ async fn test_streaming_endpoint_accepts_json() {
     // Request streaming endpoint with JSON format
     let request = Request::builder()
         .method("POST")
-        .uri("/v1/evaluate")
+        .uri("/access/v1/evaluate")
         .header(header::ACCEPT, "application/json")
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(
@@ -282,7 +282,7 @@ async fn test_error_responses_always_json() {
     let non_existent_vault = generate_test_id();
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/vaults/{}", non_existent_vault))
+        .uri(format!("/access/v1/vaults/{}", non_existent_vault))
         .header(header::ACCEPT, "text/toon")
         .body(Body::empty())
         .unwrap();
@@ -314,7 +314,7 @@ async fn test_multiple_endpoints_support_toon() {
     // Test vault endpoint
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/vaults/{}", vault_id))
+        .uri(format!("/access/v1/vaults/{}", vault_id))
         .header(header::ACCEPT, "text/toon")
         .body(Body::empty())
         .unwrap();
@@ -324,7 +324,7 @@ async fn test_multiple_endpoints_support_toon() {
     // Test organization endpoint
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/v1/organizations/{}", organization_id))
+        .uri(format!("/access/v1/organizations/{}", organization_id))
         .header(header::ACCEPT, "text/toon")
         .body(Body::empty())
         .unwrap();

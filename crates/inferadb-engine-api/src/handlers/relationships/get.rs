@@ -45,7 +45,7 @@ pub struct RelationshipDetails {
     pub subject: String,
 }
 
-/// Handler for `GET /v1/relationships/{resource}/{relation}/{subject}`
+/// Handler for `GET /access/v1/relationships/{resource}/{relation}/{subject}`
 ///
 /// This is a convenience endpoint that checks if a specific relationship exists.
 /// It returns 200 OK if the relationship exists, or 404 Not Found if it doesn't.
@@ -71,7 +71,7 @@ pub struct RelationshipDetails {
 /// # Example
 ///
 /// ```text
-/// GET /v1/relationships/document:readme/view/user:alice
+/// GET /access/v1/relationships/document:readme/view/user:alice
 ///
 /// Response:
 /// 200 OK
@@ -144,7 +144,7 @@ pub async fn get_relationship(
     // Record metrics
     let duration = start.elapsed();
     inferadb_engine_observe::metrics::record_api_request(
-        "/v1/relationships/{resource}/{relation}/{subject}",
+        "/access/v1/relationships/{resource}/{relation}/{subject}",
         "GET",
         if response.relationships.is_empty() { 404 } else { 200 },
         duration.as_secs_f64(),
@@ -289,7 +289,10 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                get(get_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -297,7 +300,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri("/v1/relationships/document:readme/view/user:alice")
+                    .uri("/access/v1/relationships/document:readme/view/user:alice")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -327,7 +330,10 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                get(get_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -335,7 +341,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri("/v1/relationships/document:secret/view/user:alice")
+                    .uri("/access/v1/relationships/document:secret/view/user:alice")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -350,7 +356,10 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                get(get_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -359,7 +368,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri("/v1/relationships/document%3Areadme/view/user%3Aalice")
+                    .uri("/access/v1/relationships/document%3Areadme/view/user%3Aalice")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -389,7 +398,10 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                get(get_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -401,7 +413,10 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri(format!("/v1/relationships/{}/view/{}", encoded_resource, encoded_subject))
+                    .uri(format!(
+                        "/access/v1/relationships/{}/view/{}",
+                        encoded_resource, encoded_subject
+                    ))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -432,7 +447,10 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", get(get_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                get(get_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -440,7 +458,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri("/v1/relationships/document:readme/view/user:alice")
+                    .uri("/access/v1/relationships/document:readme/view/user:alice")
                     .body(Body::empty())
                     .unwrap(),
             )

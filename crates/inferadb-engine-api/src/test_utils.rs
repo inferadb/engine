@@ -58,7 +58,7 @@ pub async fn test_auth_middleware(
 ///
 /// ```ignore
 /// let app = Router::new()
-///     .route("/v1/check", post(check_handler))
+///     .route("/access/v1/check", post(check_handler))
 ///     .with_state(state.clone());
 /// let app = with_test_auth(app);
 /// ```

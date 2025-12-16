@@ -1,8 +1,9 @@
 //! Delete relationships handlers
 //!
 //! This module contains handlers for deleting relationships via two API styles:
-//! - REST DELETE: `DELETE /v1/relationships/{resource}/{relation}/{subject}` - Single exact match
-//! - JSON POST: `POST /v1/relationships/delete` - Bulk deletion with filters/lists
+//! - REST DELETE: `DELETE /access/v1/relationships/{resource}/{relation}/{subject}` - Single exact
+//!   match
+//! - JSON POST: `POST /access/v1/relationships/delete` - Bulk deletion with filters/lists
 //!
 //! Both handlers share the same core deletion logic to ensure consistent behavior,
 //! validation, and cache invalidation.
@@ -202,7 +203,7 @@ async fn delete_relationships_internal(
     Ok((revision, total_deleted, deleted_relationships))
 }
 
-/// Delete relationships endpoint (POST /v1/relationships/delete)
+/// Delete relationships endpoint (POST /access/v1/relationships/delete)
 ///
 /// This endpoint supports bulk deletion operations via JSON POST body.
 /// It supports both filter-based deletion and exact relationship lists.
@@ -274,7 +275,7 @@ pub async fn delete_relationships_handler(
     ))
 }
 
-/// Handler for `DELETE /v1/relationships/{resource}/{relation}/{subject}`
+/// Handler for `DELETE /access/v1/relationships/{resource}/{relation}/{subject}`
 ///
 /// This is a convenience endpoint that deletes a specific relationship.
 /// It always returns 204 No Content, regardless of whether the relationship existed.
@@ -305,7 +306,7 @@ pub async fn delete_relationships_handler(
 /// # Example
 ///
 /// ```text
-/// DELETE /v1/relationships/document:readme/view/user:alice
+/// DELETE /access/v1/relationships/document:readme/view/user:alice
 ///
 /// Response:
 /// 204 No Content
@@ -363,7 +364,7 @@ pub async fn delete_relationship(
     // Record metrics
     let duration = start.elapsed();
     inferadb_engine_observe::metrics::record_api_request(
-        "/v1/relationships/{resource}/{relation}/{subject}",
+        "/access/v1/relationships/{resource}/{relation}/{subject}",
         "DELETE",
         204,
         duration.as_secs_f64(),
@@ -467,7 +468,10 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                delete(delete_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -475,7 +479,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/v1/relationships/document:readme/view/user:alice")
+                    .uri("/access/v1/relationships/document:readme/view/user:alice")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -493,7 +497,10 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                delete(delete_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -501,7 +508,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/v1/relationships/document:secret/view/user:charlie")
+                    .uri("/access/v1/relationships/document:secret/view/user:charlie")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -521,7 +528,10 @@ mod tests {
 
         // First deletion
         let app1 = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                delete(delete_relationship),
+            )
             .with_state(state.clone());
         let app1 = with_test_auth(app1);
 
@@ -529,7 +539,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/v1/relationships/document:readme/view/user:alice")
+                    .uri("/access/v1/relationships/document:readme/view/user:alice")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -540,7 +550,10 @@ mod tests {
 
         // Second deletion of the same relationship
         let app2 = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                delete(delete_relationship),
+            )
             .with_state(state.clone());
         let app2 = with_test_auth(app2);
 
@@ -548,7 +561,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/v1/relationships/document:readme/view/user:alice")
+                    .uri("/access/v1/relationships/document:readme/view/user:alice")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -579,7 +592,10 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                delete(delete_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -588,7 +604,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/v1/relationships/document%3Afile%20name/view/user%3Aalice%40example.com")
+                    .uri("/access/v1/relationships/document%3Afile%20name/view/user%3Aalice%40example.com")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -618,7 +634,10 @@ mod tests {
             .unwrap();
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                delete(delete_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -630,7 +649,10 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri(format!("/v1/relationships/{}/view/{}", encoded_resource, encoded_subject))
+                    .uri(format!(
+                        "/access/v1/relationships/{}/view/{}",
+                        encoded_resource, encoded_subject
+                    ))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -645,7 +667,10 @@ mod tests {
         let state = create_test_state().await;
 
         let app = Router::new()
-            .route("/v1/relationships/{resource}/{relation}/{subject}", delete(delete_relationship))
+            .route(
+                "/access/v1/relationships/{resource}/{relation}/{subject}",
+                delete(delete_relationship),
+            )
             .with_state(state.clone());
         let app = with_test_auth(app);
 
@@ -653,7 +678,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/v1/relationships/document:readme/view/user:alice")
+                    .uri("/access/v1/relationships/document:readme/view/user:alice")
                     .body(Body::empty())
                     .unwrap(),
             )

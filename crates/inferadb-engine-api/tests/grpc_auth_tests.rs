@@ -108,8 +108,8 @@ mod common {
 
     impl MockJwksServer {
         pub async fn start() -> Self {
-            let app =
-                Router::new().route("/v1/organizations/{tenant}/jwks.json", get(jwks_handler));
+            let app = Router::new()
+                .route("/control/v1/organizations/{tenant}/jwks.json", get(jwks_handler));
 
             // Bind to random port
             let addr = SocketAddr::from(([127, 0, 0, 1], 0));

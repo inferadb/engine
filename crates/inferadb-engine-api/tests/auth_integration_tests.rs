@@ -195,7 +195,7 @@ async fn test_missing_authorization_header() {
     // Create a router directly without test auth middleware to test auth failure
     let router = Router::new()
         .route(
-            "/v1/evaluate",
+            "/access/v1/evaluate",
             post(inferadb_engine_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
         .route("/healthz", get(inferadb_engine_api::health::healthz_handler))
@@ -214,7 +214,7 @@ async fn test_missing_authorization_header() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/evaluate")
+                .uri("/access/v1/evaluate")
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::to_string(&check_request).unwrap()))
                 .unwrap(),
@@ -252,7 +252,7 @@ async fn test_malformed_authorization_header() {
     // Create a router directly without test auth middleware to test auth failure
     let router = Router::new()
         .route(
-            "/v1/evaluate",
+            "/access/v1/evaluate",
             post(inferadb_engine_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
         .with_state(state);
@@ -275,7 +275,7 @@ async fn test_malformed_authorization_header() {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/v1/evaluate")
+                    .uri("/access/v1/evaluate")
                     .header("content-type", "application/json")
                     .header("authorization", auth_value)
                     .body(Body::from(serde_json::to_string(&check_request).unwrap()))
@@ -354,7 +354,7 @@ async fn test_invalid_jwt_format() {
     // Create a router directly without test auth middleware to test auth failure
     let router = Router::new()
         .route(
-            "/v1/evaluate",
+            "/access/v1/evaluate",
             post(inferadb_engine_api::handlers::evaluate::stream::evaluate_stream_handler),
         )
         .with_state(state);
@@ -373,7 +373,7 @@ async fn test_invalid_jwt_format() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/evaluate")
+                .uri("/access/v1/evaluate")
                 .header("content-type", "application/json")
                 .header("authorization", "Bearer not-a-valid-jwt")
                 .body(Body::from(serde_json::to_string(&check_request).unwrap()))
