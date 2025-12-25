@@ -5,12 +5,12 @@ use inferadb_engine_types::{AuthContext, EvaluateRequest as CoreEvaluateRequest,
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferadbServiceImpl,
+    AuthorizationServiceImpl,
     proto::{SimulateRequest, SimulateResponse},
 };
 
 pub async fn simulate(
-    _service: &InferadbServiceImpl,
+    _service: &AuthorizationServiceImpl,
     request: Request<SimulateRequest>,
 ) -> Result<Response<SimulateResponse>, Status> {
     // Extract vault from request extensions (set by auth middleware)

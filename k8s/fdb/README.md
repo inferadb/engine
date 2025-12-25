@@ -5,6 +5,7 @@ This directory contains Kubernetes manifests for deploying FoundationDB clusters
 ## Overview
 
 These manifests deploy FoundationDB clusters that:
+
 - Use the FDB Kubernetes Operator for management
 - Configure Fearless DR for cross-region replication
 - Include Tailscale sidecars for cross-region networking
@@ -13,6 +14,7 @@ These manifests deploy FoundationDB clusters that:
 ## Prerequisites
 
 1. **FDB Kubernetes Operator**: Install the operator in each region:
+
    ```bash
    # Using Helm
    helm repo add fdb https://foundationdb.github.io/fdb-kubernetes-operator/
@@ -20,6 +22,7 @@ These manifests deploy FoundationDB clusters that:
    ```
 
 2. **Tailscale**: Create a reusable, tagged auth key:
+
    ```bash
    # Create secret in each region
    kubectl create secret generic tailscale-auth \
@@ -28,6 +31,7 @@ These manifests deploy FoundationDB clusters that:
    ```
 
 3. **Network Connectivity**: Ensure Tailscale ACLs allow FDB traffic:
+
    ```json
    {
      "acls": [
@@ -101,21 +105,21 @@ kubectl exec -it inferadb-fdb-storage-0 -n inferadb -c foundationdb -- fdbcli --
 Adjust `processCounts` in the manifests based on your workload:
 
 | Workload | Storage | Log | Stateless |
-|----------|---------|-----|-----------|
-| Dev/Test | 1 | 1 | 1 |
-| Small | 3 | 3 | 3 |
-| Medium | 5 | 5 | 5 |
-| Large | 9+ | 9+ | 9+ |
+| -------- | ------- | --- | --------- |
+| Dev/Test | 1       | 1   | 1         |
+| Small    | 3       | 3   | 3         |
+| Medium   | 5       | 5   | 5         |
+| Large    | 9+      | 9+  | 9+        |
 
 ### Redundancy Mode
 
 Choose based on your fault tolerance requirements:
 
-| Mode | Copies | Tolerates | Use Case |
-|------|--------|-----------|----------|
-| `single` | 1 | 0 failures | Dev only |
-| `double` | 2 | 1 machine | Production |
-| `triple` | 3 | 2 machines | High availability |
+| Mode     | Copies | Tolerates  | Use Case          |
+| -------- | ------ | ---------- | ----------------- |
+| `single` | 1      | 0 failures | Dev only          |
+| `double` | 2      | 1 machine  | Production        |
+| `triple` | 3      | 2 machines | High availability |
 
 ### Multi-Region Configuration
 
@@ -124,21 +128,21 @@ The `regions` configuration must be **identical** in both primary and secondary:
 ```yaml
 regions:
   - datacenters:
-      - id: us-west-1       # Primary region
-        priority: 1         # Lower = higher priority
+      - id: us-west-1 # Primary region
+        priority: 1 # Lower = higher priority
   - datacenters:
-      - id: eu-central-1    # Secondary region
+      - id: eu-central-1 # Secondary region
         priority: 2
 ```
 
 ## Files
 
-| File | Description |
-|------|-------------|
-| `fdb-cluster-primary.yaml` | Primary region FDB cluster |
-| `fdb-cluster-secondary.yaml` | Secondary (DR) region FDB cluster |
-| `fdb-configmap.yaml` | Configuration reference and templates |
-| `README.md` | This file |
+| File                         | Description                           |
+| ---------------------------- | ------------------------------------- |
+| `fdb-cluster-primary.yaml`   | Primary region FDB cluster            |
+| `fdb-cluster-secondary.yaml` | Secondary (DR) region FDB cluster     |
+| `fdb-configmap.yaml`         | Configuration reference and templates |
+| `README.md`                  | This file                             |
 
 ## Monitoring
 
@@ -198,6 +202,7 @@ groups:
 ### Automatic Failover
 
 FDB Fearless DR handles most failover scenarios automatically:
+
 1. Primary region becomes unavailable
 2. FDB detects loss of quorum in primary
 3. Secondary region is promoted to primary
@@ -218,6 +223,7 @@ kubectl exec -it inferadb-fdb-storage-0 -n inferadb -c foundationdb -- fdbcli --
 ### Failback
 
 After the original primary recovers:
+
 1. It automatically re-syncs data from the current primary
 2. Optionally, manually failback by running `force_recovery_with_data_loss` in the original primary
 
@@ -226,16 +232,19 @@ After the original primary recovers:
 ### Common Issues
 
 **Cluster not forming:**
+
 - Check FDB operator logs: `kubectl logs -n fdb-system deploy/fdb-operator`
 - Verify coordinator connectivity
 - Check network policies allow FDB ports (4500, 4501)
 
 **Replication not working:**
+
 - Verify Tailscale connectivity between regions
 - Check both clusters have identical multi-region configuration
 - Verify coordinators can reach each other
 
 **High replication lag:**
+
 - Check cross-region network latency
 - Verify `satellite_logs` is appropriately configured
 - Consider increasing log processes

@@ -7,7 +7,7 @@ use inferadb_engine_types::{AuthContext, Decision, EvaluateRequest as CoreEvalua
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferadbServiceImpl,
+    AuthorizationServiceImpl,
     proto::{Decision as ProtoDecision, EvaluateRequest, EvaluateResponse},
 };
 
@@ -16,7 +16,7 @@ use super::{
 /// This is a thin protocol adapter that converts between gRPC proto format
 /// and calls the EvaluationService for business logic.
 pub async fn evaluate(
-    service: &InferadbServiceImpl,
+    service: &AuthorizationServiceImpl,
     request: Request<tonic::Streaming<EvaluateRequest>>,
 ) -> Result<
     Response<

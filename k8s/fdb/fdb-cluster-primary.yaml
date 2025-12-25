@@ -58,17 +58,17 @@ spec:
 
     # Multi-region configuration for Fearless DR
     # This defines the topology for cross-region replication
-    usable_regions: 1  # Number of regions that must be available
+    usable_regions: 1 # Number of regions that must be available
     regions:
       - datacenters:
           - id: us-west-1
-            priority: 1  # Primary region (highest priority)
+            priority: 1 # Primary region (highest priority)
           - id: us-west-1a
             priority: 1
             satellite: 0
       - datacenters:
           - id: eu-central-1
-            priority: 2  # DR region (lower priority)
+            priority: 2 # DR region (lower priority)
           - id: eu-central-1a
             priority: 2
             satellite: 0
@@ -81,7 +81,7 @@ spec:
 
   # Routing configuration for client connections
   routing:
-    publicIPSource: pod  # Use pod IP for client connections
+    publicIPSource: pod # Use pod IP for client connections
 
   # Pod template for all FDB processes
   processes:

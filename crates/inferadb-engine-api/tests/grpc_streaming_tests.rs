@@ -12,11 +12,11 @@ use futures::StreamExt;
 use inferadb_engine_api::{
     AppState,
     grpc::{
-        InferadbServiceImpl,
+        AuthorizationServiceImpl,
         proto::{
-            ExpandRequest, Relationship as ProtoRelationship, WriteRequest, expand_response,
-            inferadb_service_client::InferadbServiceClient,
-            inferadb_service_server::InferadbServiceServer,
+            ExpandRequest, Relationship as ProtoRelationship, WriteRequest,
+            authorization_service_client::AuthorizationServiceClient,
+            authorization_service_server::AuthorizationServiceServer, expand_response,
         },
     },
 };
@@ -63,7 +63,7 @@ impl tonic::service::Interceptor for TestAuthInterceptor {
     }
 }
 
-async fn setup_test_server() -> (InferadbServiceClient<tonic::transport::Channel>, String) {
+async fn setup_test_server() -> (AuthorizationServiceClient<tonic::transport::Channel>, String) {
     let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
@@ -81,7 +81,7 @@ async fn setup_test_server() -> (InferadbServiceClient<tonic::transport::Channel
     health_tracker.set_ready(true);
     health_tracker.set_startup_complete(true);
 
-    let service = InferadbServiceImpl::new(state);
+    let service = AuthorizationServiceImpl::new(state);
     let interceptor = TestAuthInterceptor::new();
 
     // Find available port
@@ -92,7 +92,7 @@ async fn setup_test_server() -> (InferadbServiceClient<tonic::transport::Channel
     // Start gRPC server in background with auth interceptor
     tokio::spawn(async move {
         Server::builder()
-            .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
+            .add_service(AuthorizationServiceServer::with_interceptor(service, interceptor))
             .serve(addr_clone.parse().unwrap())
             .await
             .unwrap();
@@ -101,7 +101,7 @@ async fn setup_test_server() -> (InferadbServiceClient<tonic::transport::Channel
     // Wait for server to start
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    let client = InferadbServiceClient::connect(format!("http://{}", addr)).await.unwrap();
+    let client = AuthorizationServiceClient::connect(format!("http://{}", addr)).await.unwrap();
 
     (client, addr)
 }

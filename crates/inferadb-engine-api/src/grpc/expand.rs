@@ -8,10 +8,10 @@ use inferadb_engine_types::{
 };
 use tonic::{Request, Response, Status};
 
-use super::{InferadbServiceImpl, proto::ExpandRequest};
+use super::{AuthorizationServiceImpl, proto::ExpandRequest};
 
 pub async fn expand(
-    service: &InferadbServiceImpl,
+    service: &AuthorizationServiceImpl,
     request: Request<ExpandRequest>,
 ) -> Result<
     Response<

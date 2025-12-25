@@ -8,7 +8,7 @@ use inferadb_engine_types::{
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferadbServiceImpl,
+    AuthorizationServiceImpl,
     proto::{DeleteRequest, DeleteResponse, WriteRequest, WriteResponse},
 };
 
@@ -17,7 +17,7 @@ use super::{
 /// This is a thin protocol adapter that converts between gRPC proto format
 /// and calls the RelationshipService for business logic.
 pub async fn write_relationships(
-    service: &InferadbServiceImpl,
+    service: &AuthorizationServiceImpl,
     request: Request<tonic::Streaming<WriteRequest>>,
 ) -> Result<Response<WriteResponse>, Status> {
     use futures::StreamExt;
@@ -65,7 +65,7 @@ pub async fn write_relationships(
 /// This is a thin protocol adapter that converts between gRPC proto format
 /// and calls the RelationshipService for business logic.
 pub async fn delete_relationships(
-    service: &InferadbServiceImpl,
+    service: &AuthorizationServiceImpl,
     request: Request<tonic::Streaming<DeleteRequest>>,
 ) -> Result<Response<DeleteResponse>, Status> {
     use futures::StreamExt;

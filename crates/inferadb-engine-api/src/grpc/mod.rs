@@ -6,12 +6,12 @@
 //!
 //! ```no_run
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! use inferadb_engine_api::grpc::InferadbServiceClient;
+//! use inferadb_engine_api::grpc::AuthorizationServiceClient;
 //! use inferadb_engine_api::grpc::proto::{EvaluateRequest};
 //! use futures::StreamExt;
 //!
 //! // Connect to server
-//! let mut client = InferadbServiceClient::connect("http://localhost:8080").await?;
+//! let mut client = AuthorizationServiceClient::connect("http://localhost:8080").await?;
 //!
 //! // Make an evaluate request (evaluate is a bidirectional streaming RPC)
 //! let request = EvaluateRequest {
@@ -44,24 +44,24 @@ use crate::AppState;
 
 // Include generated proto code
 pub mod proto {
-    tonic::include_proto!("inferadb.v1");
+    tonic::include_proto!("inferadb.authorization.v1");
 }
 
 // Re-export client for external use
-pub use proto::inferadb_service_client::InferadbServiceClient;
+pub use proto::authorization_service_client::AuthorizationServiceClient;
 use proto::{
     DeleteRequest, DeleteResponse, EvaluateRequest, EvaluateResponse, ExpandRequest, HealthRequest,
     HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
     ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse, SimulateRequest,
     SimulateResponse, WatchRequest, WatchResponse, WriteRequest, WriteResponse,
-    inferadb_service_server::InferadbService,
+    authorization_service_server::AuthorizationService,
 };
 
-pub struct InferadbServiceImpl {
+pub struct AuthorizationServiceImpl {
     state: AppState,
 }
 
-impl InferadbServiceImpl {
+impl AuthorizationServiceImpl {
     pub fn new(state: AppState) -> Self {
         Self { state }
     }
@@ -77,7 +77,7 @@ mod simulate;
 mod watch;
 
 #[tonic::async_trait]
-impl InferadbService for InferadbServiceImpl {
+impl AuthorizationService for AuthorizationServiceImpl {
     type EvaluateStream = std::pin::Pin<
         Box<dyn futures::Stream<Item = Result<EvaluateResponse, Status>> + Send + 'static>,
     >;
@@ -215,7 +215,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_grpc_health() {
-        let service = InferadbServiceImpl::new(create_test_state());
+        let service = AuthorizationServiceImpl::new(create_test_state());
         let request = Request::new(HealthRequest {});
 
         let response = service.health(request).await.unwrap();

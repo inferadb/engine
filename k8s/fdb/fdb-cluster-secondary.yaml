@@ -51,13 +51,13 @@ spec:
     regions:
       - datacenters:
           - id: us-west-1
-            priority: 1  # Primary region
+            priority: 1 # Primary region
           - id: us-west-1a
             priority: 1
             satellite: 0
       - datacenters:
           - id: eu-central-1
-            priority: 2  # This region (secondary)
+            priority: 2 # This region (secondary)
           - id: eu-central-1a
             priority: 2
             satellite: 0

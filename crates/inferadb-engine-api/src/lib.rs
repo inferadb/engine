@@ -670,7 +670,7 @@ impl ServerComponents {
 
 /// Start the gRPC server
 pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
-    use grpc::proto::inferadb_service_server::InferadbServiceServer;
+    use grpc::proto::authorization_service_server::AuthorizationServiceServer;
     use tonic::transport::Server;
 
     // Create AppState with services
@@ -680,7 +680,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     state.health_tracker.set_ready(true);
     state.health_tracker.set_startup_complete(true);
 
-    let service = grpc::InferadbServiceImpl::new(state.clone());
+    let service = grpc::AuthorizationServiceImpl::new(state.clone());
 
     let addr = components.config.listen.grpc.parse()?;
 
@@ -722,7 +722,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
 
     // Add service with interceptor and reflection
     Server::builder()
-        .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
+        .add_service(AuthorizationServiceServer::with_interceptor(service, interceptor))
         .add_service(reflection_service)
         .serve(addr)
         .await?;

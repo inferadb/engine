@@ -485,12 +485,12 @@ sequenceDiagram
 
 **Event Types:**
 
-| Event | Description |
-|-------|-------------|
-| `Vault` | Invalidate caches for specific vault |
-| `Organization` | Invalidate organization lookup cache |
-| `Certificate` | Invalidate specific client certificate |
-| `All` | Nuclear option - clear all caches |
+| Event          | Description                            |
+| -------------- | -------------------------------------- |
+| `Vault`        | Invalidate caches for specific vault   |
+| `Organization` | Invalidate organization lookup cache   |
+| `Certificate`  | Invalidate specific client certificate |
+| `All`          | Nuclear option - clear all caches      |
 
 ### Benefits
 

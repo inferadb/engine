@@ -5,6 +5,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(true)
         .build_client(true) // Enable client for integration tests
         .file_descriptor_set_path(out_dir.join("inferadb_descriptor.bin"))
-        .compile_protos(&["proto/inferadb.proto"], &["proto"])?;
+        .compile_protos(
+            &["../../proto/inferadb/authorization/v1/authorization.proto"],
+            &["../../proto"],
+        )?;
     Ok(())
 }

@@ -1,12 +1,12 @@
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferadbServiceImpl,
+    AuthorizationServiceImpl,
     proto::{HealthRequest, HealthResponse},
 };
 
 pub async fn health(
-    _service: &InferadbServiceImpl,
+    _service: &AuthorizationServiceImpl,
     _request: Request<HealthRequest>,
 ) -> Result<Response<HealthResponse>, Status> {
     Ok(Response::new(HealthResponse {

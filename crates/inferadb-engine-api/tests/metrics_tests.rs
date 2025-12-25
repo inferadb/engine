@@ -8,7 +8,8 @@ use std::{sync::Arc, time::Duration};
 use inferadb_engine_api::{
     AppState,
     grpc::proto::{
-        EvaluateRequest as ProtoEvaluateRequest, inferadb_service_client::InferadbServiceClient,
+        EvaluateRequest as ProtoEvaluateRequest,
+        authorization_service_client::AuthorizationServiceClient,
     },
 };
 use inferadb_engine_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
@@ -56,14 +57,17 @@ async fn start_grpc_server_with_auth(
     internal_loader: Option<Arc<InternalJwksLoader>>,
 ) -> (tokio::task::JoinHandle<()>, u16) {
     use inferadb_engine_api::{
-        grpc::{InferadbServiceImpl, proto::inferadb_service_server::InferadbServiceServer},
+        grpc::{
+            AuthorizationServiceImpl,
+            proto::authorization_service_server::AuthorizationServiceServer,
+        },
         grpc_interceptor::AuthInterceptor,
     };
 
     let port = portpicker::pick_unused_port().expect("No free ports");
     let addr = format!("127.0.0.1:{}", port).parse().unwrap();
 
-    let service = InferadbServiceImpl::new(state.clone());
+    let service = AuthorizationServiceImpl::new(state.clone());
 
     let handle = tokio::spawn(async move {
         if let Some(cache) = state.jwks_cache {
@@ -71,13 +75,13 @@ async fn start_grpc_server_with_auth(
                 AuthInterceptor::new(cache, internal_loader, Arc::new(state.config.token.clone()));
 
             Server::builder()
-                .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
+                .add_service(AuthorizationServiceServer::with_interceptor(service, interceptor))
                 .serve(addr)
                 .await
                 .expect("gRPC server failed");
         } else {
             Server::builder()
-                .add_service(InferadbServiceServer::new(service))
+                .add_service(AuthorizationServiceServer::new(service))
                 .serve(addr)
                 .await
                 .expect("gRPC server failed");
@@ -139,7 +143,7 @@ async fn test_metrics_after_successful_auth() {
         .await
         .unwrap();
 
-    let mut client = InferadbServiceClient::new(channel);
+    let mut client = AuthorizationServiceClient::new(channel);
 
     // Generate valid internal JWT
     let claims = InternalClaims::default();
@@ -205,7 +209,7 @@ async fn test_metrics_after_failed_auth() {
         .await
         .unwrap();
 
-    let mut client = InferadbServiceClient::new(channel);
+    let mut client = AuthorizationServiceClient::new(channel);
 
     let req = ProtoEvaluateRequest {
         subject: "user:alice".to_string(),
@@ -278,7 +282,7 @@ async fn test_metrics_cardinality() {
         .await
         .unwrap();
 
-    let mut client = InferadbServiceClient::new(channel);
+    let mut client = AuthorizationServiceClient::new(channel);
 
     // Make multiple requests with the same tenant
     for _ in 0..5 {

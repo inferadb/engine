@@ -255,7 +255,7 @@ replication:
   strategy: "ActiveActive"
 
   # Local region identifier (must match discovery.tailscale.localCluster for Tailscale mode)
-  localRegion: ""  # Defaults to discovery.tailscale.localCluster
+  localRegion: "" # Defaults to discovery.tailscale.localCluster
 
   # Conflict resolution strategy: "LastWriteWins", "SourcePriority", "InsertWins"
   conflictResolution: "LastWriteWins"

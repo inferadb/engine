@@ -15,7 +15,7 @@
 //! let interceptor = AuthInterceptor::new(jwks_cache, internal_loader, config);
 //!
 //! Server::builder()
-//!     .add_service(InferadbServiceServer::with_interceptor(service, interceptor))
+//!     .add_service(AuthorizationServiceServer::with_interceptor(service, interceptor))
 //!     .serve(addr)
 //!     .await?;
 //! ```

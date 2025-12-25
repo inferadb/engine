@@ -10,12 +10,12 @@ use inferadb_engine_types::{AuthContext, Revision};
 use tonic::{Request, Response, Status};
 
 use super::{
-    InferadbServiceImpl,
+    AuthorizationServiceImpl,
     proto::{ChangeOperation, WatchRequest, WatchResponse},
 };
 
 pub async fn watch(
-    service: &InferadbServiceImpl,
+    service: &AuthorizationServiceImpl,
     request: Request<WatchRequest>,
 ) -> Result<
     Response<
