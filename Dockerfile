@@ -42,6 +42,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
 # Copy source code
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
+COPY proto ./proto
 
 # Build the application in release mode with FoundationDB support
 RUN cargo build --release --bin inferadb-engine --features fdb
