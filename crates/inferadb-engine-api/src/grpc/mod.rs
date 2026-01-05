@@ -50,10 +50,11 @@ pub mod proto {
 // Re-export client for external use
 pub use proto::authorization_service_client::AuthorizationServiceClient;
 use proto::{
-    DeleteRequest, DeleteResponse, EvaluateRequest, EvaluateResponse, ExpandRequest, HealthRequest,
-    HealthResponse, ListRelationshipsRequest, ListRelationshipsResponse, ListResourcesRequest,
-    ListResourcesResponse, ListSubjectsRequest, ListSubjectsResponse, SimulateRequest,
-    SimulateResponse, WatchRequest, WatchResponse, WriteRequest, WriteResponse,
+    DeleteRelationshipsRequest, DeleteRelationshipsResponse, EvaluateRequest, EvaluateResponse,
+    ExpandRequest, HealthRequest, HealthResponse, ListRelationshipsRequest,
+    ListRelationshipsResponse, ListResourcesRequest, ListResourcesResponse, ListSubjectsRequest,
+    ListSubjectsResponse, SimulateRequest, SimulateResponse, WatchRequest, WatchResponse,
+    WriteRelationshipsRequest, WriteRelationshipsResponse,
     authorization_service_server::AuthorizationService,
 };
 
@@ -102,15 +103,15 @@ impl AuthorizationService for AuthorizationServiceImpl {
 
     async fn delete_relationships(
         &self,
-        request: Request<tonic::Streaming<DeleteRequest>>,
-    ) -> Result<Response<DeleteResponse>, Status> {
+        request: Request<tonic::Streaming<DeleteRelationshipsRequest>>,
+    ) -> Result<Response<DeleteRelationshipsResponse>, Status> {
         relationships::delete_relationships(self, request).await
     }
 
     async fn write_relationships(
         &self,
-        request: Request<tonic::Streaming<WriteRequest>>,
-    ) -> Result<Response<WriteResponse>, Status> {
+        request: Request<tonic::Streaming<WriteRelationshipsRequest>>,
+    ) -> Result<Response<WriteRelationshipsResponse>, Status> {
         relationships::write_relationships(self, request).await
     }
 

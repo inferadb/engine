@@ -4,8 +4,8 @@
 //! ensuring robustness against malformed requests, edge cases, and potential security issues.
 
 use inferadb_engine_api::grpc::proto::{
-    DeleteRequest, EvaluateRequest as ProtoEvaluateRequest, Relationship as ProtoRelationship,
-    WriteRequest,
+    DeleteRelationshipsRequest, EvaluateRequest as ProtoEvaluateRequest,
+    Relationship as ProtoRelationship, WriteRelationshipsRequest,
 };
 use proptest::prelude::*;
 
@@ -68,11 +68,11 @@ proptest! {
         assert!(request.permission.len() <= 10000);
     }
 
-    /// Fuzz WriteRequest with arbitrary relationships
+    /// Fuzz WriteRelationshipsRequest with arbitrary relationships
     #[test]
     fn fuzz_write_request(relationships in prop::collection::vec(arb_relationship(), 0..100)) {
         // Create a write request with fuzzed relationships
-        let request = WriteRequest {
+        let request = WriteRelationshipsRequest {
             relationships: relationships.clone(),
         };
 
@@ -87,11 +87,11 @@ proptest! {
         }
     }
 
-    /// Fuzz DeleteRequest with arbitrary relationships
+    /// Fuzz DeleteRelationshipsRequest with arbitrary relationships
     #[test]
     fn fuzz_delete_request(relationships in prop::collection::vec(arb_relationship(), 0..100)) {
         // Create a delete request with fuzzed relationships
-        let request = DeleteRequest {
+        let request = DeleteRelationshipsRequest {
             filter: None,
             relationships: relationships.clone(),
             limit: None,
@@ -171,7 +171,7 @@ proptest! {
             })
             .collect();
 
-        let request = WriteRequest {
+        let request = WriteRelationshipsRequest {
             relationships: relationships.clone(),
         };
 
@@ -266,7 +266,7 @@ proptest! {
             });
         }
 
-        let request = WriteRequest {
+        let request = WriteRelationshipsRequest {
             relationships,
         };
 
@@ -364,7 +364,7 @@ mod integration_tests {
             })
             .collect();
 
-        let request = WriteRequest { relationships: large_batch };
+        let request = WriteRelationshipsRequest { relationships: large_batch };
 
         // Should construct without panicking
         assert_eq!(request.relationships.len(), 10000);

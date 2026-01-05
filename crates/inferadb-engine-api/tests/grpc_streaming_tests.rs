@@ -14,8 +14,8 @@ use inferadb_engine_api::{
     grpc::{
         AuthorizationServiceImpl,
         proto::{
-            ExpandRequest, Relationship as ProtoRelationship, WriteRequest,
-            authorization_service_client::AuthorizationServiceClient,
+            DeleteRelationshipsRequest, ExpandRequest, Relationship as ProtoRelationship,
+            WriteRelationshipsRequest, authorization_service_client::AuthorizationServiceClient,
             authorization_service_server::AuthorizationServiceServer, expand_response,
         },
     },
@@ -111,7 +111,7 @@ async fn test_expand_stream() {
     let (mut client, _addr) = setup_test_server().await;
 
     // First write some tuples
-    let write_req = WriteRequest {
+    let write_req = WriteRelationshipsRequest {
         relationships: vec![
             ProtoRelationship {
                 resource: "doc:test".to_string(),
@@ -173,21 +173,21 @@ async fn test_write_stream() {
 
     // Create a stream of write requests
     let requests = vec![
-        WriteRequest {
+        WriteRelationshipsRequest {
             relationships: vec![ProtoRelationship {
                 resource: "doc:stream1".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:alice".to_string(),
             }],
         },
-        WriteRequest {
+        WriteRelationshipsRequest {
             relationships: vec![ProtoRelationship {
                 resource: "doc:stream2".to_string(),
                 relation: "reader".to_string(),
                 subject: "user:bob".to_string(),
             }],
         },
-        WriteRequest {
+        WriteRelationshipsRequest {
             relationships: vec![
                 ProtoRelationship {
                     resource: "doc:stream3".to_string(),
@@ -257,7 +257,7 @@ async fn test_watch_captures_write_events() {
     let mut watch_stream = client.watch(watch_req).await.unwrap().into_inner();
 
     // Write some relationships
-    let write_req = WriteRequest {
+    let write_req = WriteRelationshipsRequest {
         relationships: vec![
             ProtoRelationship {
                 resource: "doc:test1".to_string(),
@@ -320,7 +320,7 @@ async fn test_watch_with_resource_type_filter() {
     let mut watch_stream = client.watch(watch_req).await.unwrap().into_inner();
 
     // Write relationships for different resource types
-    let write_req = WriteRequest {
+    let write_req = WriteRelationshipsRequest {
         relationships: vec![
             ProtoRelationship {
                 resource: "doc:test1".to_string(),
@@ -372,7 +372,7 @@ async fn test_watch_captures_delete_events() {
     let (mut client, _addr) = setup_test_server().await;
 
     // Write a relationship first
-    let write_req = WriteRequest {
+    let write_req = WriteRelationshipsRequest {
         relationships: vec![ProtoRelationship {
             resource: "doc:test".to_string(),
             relation: "reader".to_string(),
@@ -393,7 +393,7 @@ async fn test_watch_captures_delete_events() {
     let mut watch_stream = client.watch(watch_req).await.unwrap().into_inner();
 
     // Delete the relationship
-    let delete_req = inferadb_engine_api::grpc::proto::DeleteRequest {
+    let delete_req = DeleteRelationshipsRequest {
         filter: Some(inferadb_engine_api::grpc::proto::DeleteFilter {
             resource: Some("doc:test".to_string()),
             relation: None,

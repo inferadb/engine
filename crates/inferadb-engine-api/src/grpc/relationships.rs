@@ -9,7 +9,10 @@ use tonic::{Request, Response, Status};
 
 use super::{
     AuthorizationServiceImpl,
-    proto::{DeleteRequest, DeleteResponse, WriteRequest, WriteResponse},
+    proto::{
+        DeleteRelationshipsRequest, DeleteRelationshipsResponse, WriteRelationshipsRequest,
+        WriteRelationshipsResponse,
+    },
 };
 
 /// Handles client streaming write requests for relationships
@@ -18,8 +21,8 @@ use super::{
 /// and calls the RelationshipService for business logic.
 pub async fn write_relationships(
     service: &AuthorizationServiceImpl,
-    request: Request<tonic::Streaming<WriteRequest>>,
-) -> Result<Response<WriteResponse>, Status> {
+    request: Request<tonic::Streaming<WriteRelationshipsRequest>>,
+) -> Result<Response<WriteRelationshipsResponse>, Status> {
     use futures::StreamExt;
 
     // Extract vault from request extensions (set by auth middleware)
@@ -54,7 +57,7 @@ pub async fn write_relationships(
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
-    Ok(Response::new(WriteResponse {
+    Ok(Response::new(WriteRelationshipsResponse {
         revision: revision.0.to_string(),
         relationships_written: all_relationships.len() as u64,
     }))
@@ -66,8 +69,8 @@ pub async fn write_relationships(
 /// and calls the RelationshipService for business logic.
 pub async fn delete_relationships(
     service: &AuthorizationServiceImpl,
-    request: Request<tonic::Streaming<DeleteRequest>>,
-) -> Result<Response<DeleteResponse>, Status> {
+    request: Request<tonic::Streaming<DeleteRelationshipsRequest>>,
+) -> Result<Response<DeleteRelationshipsResponse>, Status> {
     use futures::StreamExt;
 
     // Extract vault from request extensions (set by auth middleware)
@@ -162,7 +165,7 @@ pub async fn delete_relationships(
         total_deleted += response.relationships_deleted;
     }
 
-    Ok(Response::new(DeleteResponse {
+    Ok(Response::new(DeleteRelationshipsResponse {
         revision: last_revision.0.to_string(),
         relationships_deleted: total_deleted as u64,
     }))
