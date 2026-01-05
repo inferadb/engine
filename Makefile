@@ -13,9 +13,6 @@
 
 # Use mise exec if available, otherwise use system cargo
 CARGO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- cargo" || echo "cargo")
-PRETTIER := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- prettier" || echo "prettier")
-TAPLO := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- taplo" || echo "taplo")
-MARKDOWNLINT := $(shell command -v mise > /dev/null 2>&1 && echo "mise exec -- markdownlint-cli2" || echo "markdownlint-cli2")
 
 # Default target - show help
 .DEFAULT_GOAL := help
@@ -93,17 +90,13 @@ check: ## Run code quality checks (format, lint, audit)
 	@$(MAKE) audit
 	@echo "✅ All checks passed!"
 
-format: ## Format code (Prettier, Taplo, markdownlint, rustfmt)
+format: ## Format code (rustfmt)
 	@echo "📝 Formatting code..."
-	@$(PRETTIER) --write "**/*.{md,yml,yaml,json}" --log-level warn || true
-	@$(MARKDOWNLINT) --fix "**/*.md" || true
-	@$(TAPLO) fmt
 	@$(CARGO) +nightly fmt --all
 	@echo "✅ Formatting complete!"
 
-lint: ## Run linters (clippy, markdownlint)
+lint: ## Run linters (clippy)
 	@echo "🔍 Running linters..."
-	@$(MARKDOWNLINT) "**/*.md"
 	@$(CARGO) clippy --workspace --all-targets -- -D warnings
 
 audit: ## Run security audit
@@ -134,13 +127,13 @@ reset: ## Reset the dev environment
 	@echo "🧹 Stopping and removing Docker containers..."
 	-@docker ps -aq | xargs -r docker stop 2>/dev/null || true
 	-@docker ps -aq | xargs -r docker rm 2>/dev/null || true
-	
+
 	@echo "🧹 Removing Docker volumes..."
 	-@docker volume ls -q | grep -E 'inferadb|fdb' | xargs -r docker volume rm 2>/dev/null || true
-	
+
 	@echo "🧹 Removing Docker networks..."
 	-@docker network ls -q | grep -E 'inferadb|fdb' | xargs -r docker network rm 2>/dev/null || true
-	
+
 	@echo "🧹 Cleaning FDB test environment..."
 	-@./docker/fdb-integration-tests/cleanup.sh 2>/dev/null || true
 
@@ -155,24 +148,24 @@ reset: ## Reset the dev environment
 
 	@echo "🧹 Cleaning cargo build artifacts..."
 	@$(CARGO) clean
-	
+
 	@echo "🧹 Clearing cargo registry cache..."
 	-@rm -rf ~/.cargo/registry/cache/* 2>/dev/null || true
 	-@rm -rf ~/.cargo/git/db/* 2>/dev/null || true
-	
+
 	@echo "🧹 Clearing target directory..."
 	-@rm -rf target/ 2>/dev/null || true
-	
+
 	@echo "🧹 Clearing mise cache..."
 	-@rm -rf ~/.local/share/mise/installs/* 2>/dev/null || true
-	
+
 	@echo "🧹 Removing node_modules..."
 	-@find . -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
-	
+
 	@echo "🧹 Removing temporary files..."
 	-@find . -type f -name "*.tmp" -delete 2>/dev/null || true
 	-@find . -type f -name "*.log" -delete 2>/dev/null || true
-	
+
 	@echo ""
 	@echo "✅ Reset complete! Run 'make setup' to reinitialize."
 

@@ -1,3 +1,7 @@
+# Labeler configuration
+# See: https://github.com/actions/labeler
+# Labels must match those defined in repos.json
+
 # Documentation
 area/docs:
   - changed-files:
@@ -10,15 +14,6 @@ area/ci:
   - changed-files:
       - any-glob-to-any-file:
           - ".github/**/*"
-
-# Docker
-area/docker:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "**/Dockerfile*"
-          - "**/.dockerignore"
-          - "**/docker-compose*.yml"
-          - "**/docker-compose*.yaml"
 
 # Configuration
 area/config:
@@ -96,17 +91,18 @@ area/repl:
       - any-glob-to-any-file:
           - "**/repl/**/*"
 
-# Observability
-area/observability:
+# API
+area/api:
   - changed-files:
       - any-glob-to-any-file:
-          - "**/telemetry/**/*"
-          - "**/metrics/**/*"
-          - "**/tracing/**/*"
-          - "**/logging/**/*"
+          - "**/api/**/*"
+          - "**/grpc/**/*"
+          - "**/rest/**/*"
 
-# Repository label
-repo/server:
+# Authentication
+area/auth:
   - changed-files:
       - any-glob-to-any-file:
-          - "**/*"
+          - "**/auth/**/*"
+          - "**/authentication/**/*"
+          - "**/authorization/**/*"
