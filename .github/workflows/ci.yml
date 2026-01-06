@@ -404,11 +404,13 @@ jobs:
         continue-on-error: true
 
   # Test code coverage (builds from scratch with instrumentation)
+  # Note: Cannot reuse build artifacts - coverage requires specially instrumented binaries
   coverage:
     name: Code Coverage
-    needs: build
+    needs: changes
     runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
+    # Only run on merges to main - coverage is informational and expensive
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     continue-on-error: true
     permissions:
       contents: read
@@ -551,7 +553,7 @@ jobs:
             echo "Tests failed"
             exit 1
           fi
-          # Coverage and dependencies can be skipped for Dependabot PRs
+          # Coverage only runs on main branch merges (skipped on PRs)
           if [[ "${{ needs.coverage.result }}" != "success" && "${{ needs.coverage.result }}" != "skipped" ]]; then
             echo "Coverage check failed"
             exit 1
