@@ -562,8 +562,8 @@ impl AzureSecretsProvider {
             }
         })?;
 
-        // Extract the secret from the response body
-        let secret = response.into_body().map_err(|e| {
+        // Extract the secret from the response model
+        let secret = response.into_model().map_err(|e| {
             SecretError::InvalidFormat(format!("Failed to parse Azure secret '{}': {}", key, e))
         })?;
 

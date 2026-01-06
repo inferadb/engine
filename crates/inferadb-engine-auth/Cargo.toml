@@ -20,7 +20,7 @@ hostname = "0.4"
 jsonwebtoken = { workspace = true }
 moka = { workspace = true }
 pem = "3.0"
-prometheus = { version = "0.13", default-features = false }
+prometheus = { version = "0.14", default-features = false }
 rand = { workspace = true }
 reqwest = { workspace = true }
 secrecy = { workspace = true }

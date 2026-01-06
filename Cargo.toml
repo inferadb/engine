@@ -96,9 +96,10 @@ jsonwebtoken = { version = "10.2", default-features = false, features = [
   "ed25519-dalek",
   "use_pem",
 ] }
-reqwest = { version = "0.12", default-features = false, features = [
+reqwest = { version = "0.13", default-features = false, features = [
+  "form",
   "json",
-  "rustls-tls",
+  "rustls",
 ] }
 rustls = { version = "0.23", default-features = false, features = [
   "aws-lc-rs",
