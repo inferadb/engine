@@ -33,7 +33,7 @@ version = "0.1.0"
 async-recursion = "1.0"
 async-trait = "0.1"
 futures = "0.3"
-tokio = { version = "1.41", features = ["full"] }
+tokio = { version = "1.49", features = ["full"] }
 
 # Error handling
 anyhow = "1.0"
@@ -61,7 +61,7 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 tower_governor = "0.8.0"
 
 # WASM runtime
-wasmtime = { version = "38.0.4", default-features = false, features = [
+wasmtime = { version = "40.0", default-features = false, features = [
   "cache",
   "cranelift",
   "parallel-compilation",
@@ -82,7 +82,7 @@ config = "0.15.18"
 
 # Testing
 criterion = { version = "0.8.0", features = ["async_tokio"] }
-proptest = "1.6"
+proptest = "1.9"
 
 # Random number generation
 rand = "0.9.2"
@@ -91,7 +91,7 @@ rand = "0.9.2"
 base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
 ed25519-dalek = { version = "2.2", features = ["rand_core"] }
-jsonwebtoken = { version = "10.1", default-features = false, features = [
+jsonwebtoken = { version = "10.2", default-features = false, features = [
   "aws_lc_rs",
   "ed25519-dalek",
   "use_pem",
@@ -106,12 +106,12 @@ rustls = { version = "0.23", default-features = false, features = [
 ] }
 secrecy = "0.10"
 sha2 = "0.10"
-uuid = { version = "1.0", features = ["serde", "v4"] }
+uuid = { version = "1.19", features = ["serde", "v4"] }
 zeroize = "1.8"
 
 # Kubernetes client
-k8s-openapi = { version = "0.23", features = ["v1_31"] }
-kube = { version = "0.97", features = ["client", "derive", "runtime"] }
+k8s-openapi = { version = "0.26", features = ["v1_34"] }
+kube = { version = "2.0", features = ["client", "derive", "runtime"] }
 
 # Terminal utilities
 terminal_size = "0.4"
