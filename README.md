@@ -3,7 +3,7 @@
     <h1>InferaDB Authorization Engine</h1>
     <p>
         <a href="https://codecov.io/github/inferadb/engine"><img src="https://codecov.io/github/inferadb/engine/graph/badge.svg?token=S4493HEHYQ" alt="Code Coverage" /></a>
-        <a href="./LICENSE"><img src="https://img.shields.io/crates/l/inferadb.svg"></a>
+        <a href="#license"><img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg"></a>
     </p>
     <p>High-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency</p>
 </div>
@@ -144,4 +144,9 @@ See [docs/guides/deployment.md](docs/guides/deployment.md).
 
 ## License
 
-[InferaDB Non‑Commercial Source License](LICENSE.md)
+Licensed under either of:
+
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
+
+at your option.
