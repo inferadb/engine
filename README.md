@@ -1,11 +1,17 @@
-# InferaDB Authorization Engine
-
-High-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency.
-
-Inspired by [Google Zanzibar](https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/). [AuthZEN](https://openid.net/wg/authzen/) compliant.
+<div align="center">
+    <p><a href="https://inferadb.com"><img src=".github/inferadb.png" width="100" alt="InferaDB Logo" /></a></p>
+    <h1>InferaDB Authorization Engine</h1>
+    <p>
+        <a href="https://codecov.io/github/inferadb/engine"><img src="https://codecov.io/github/inferadb/engine/graph/badge.svg?token=S4493HEHYQ" alt="Code Coverage" /></a>
+        <a href="./LICENSE"><img src="https://img.shields.io/crates/l/inferadb.svg"></a>
+    </p>
+    <p>High-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency</p>
+</div>
 
 > [!IMPORTANT]
 > Under active development. Not production-ready.
+
+Inspired by [Google Zanzibar](https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/). [AuthZEN](https://openid.net/wg/authzen/) compliant.
 
 ## Quick Start
 
