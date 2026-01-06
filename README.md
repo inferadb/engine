@@ -2,8 +2,9 @@
     <p><a href="https://inferadb.com"><img src=".github/inferadb.png" width="100" alt="InferaDB Logo" /></a></p>
     <h1>InferaDB Authorization Engine</h1>
     <p>
+        <a href="https://discord.gg/inferadb"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
         <a href="https://codecov.io/github/inferadb/engine"><img src="https://codecov.io/github/inferadb/engine/graph/badge.svg?token=S4493HEHYQ" alt="Code Coverage" /></a>
-        <a href="#license"><img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg"></a>
+        <a href="#license"><img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg" alt="License" /></a>
     </p>
     <p>High-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency</p>
 </div>
@@ -141,6 +142,10 @@ See [docs/guides/deployment.md](docs/guides/deployment.md).
 | IPL Language   | [docs/core/ipl.md](docs/core/ipl.md)                               |
 | Authentication | [docs/security/authentication.md](docs/security/authentication.md) |
 | API Reference  | [api/openapi.yaml](api/openapi.yaml)                               |
+
+## Community
+
+Join us on [Discord](https://discord.gg/inferadb) to discuss InferaDB, get help with your projects, and connect with other developers. Whether you have questions, want to share what you're building, or are interested in contributing, we'd love to have you!
 
 ## License
 
