@@ -116,7 +116,7 @@ jobs:
           sudo dpkg -i foundationdb-clients_7.3.69-1_amd64.deb
 
       - name: Cache Rust dependencies
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -176,7 +176,7 @@ jobs:
         uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
       - name: Cache Rust dependencies
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -228,7 +228,7 @@ jobs:
           tool: cargo-nextest
 
       - name: Restore build cache
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -314,7 +314,7 @@ jobs:
 
       - name: Restore build cache
         if: steps.check-core.outputs.core == 'true'
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -383,7 +383,7 @@ jobs:
 
       - name: Restore build cache
         if: steps.check-wasm.outputs.wasm == 'true'
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -432,7 +432,7 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Restore build cache
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false # Don't save, only restore from build job
@@ -469,7 +469,7 @@ jobs:
           toolchain: stable
 
       - name: Cache Rust dependencies
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
 
       - name: Check outdated dependencies
         run: |

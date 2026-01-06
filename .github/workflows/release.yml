@@ -93,7 +93,7 @@ jobs:
           mold --version
 
       - name: Cache Rust dependencies
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: docs-4-core
 
@@ -210,7 +210,7 @@ jobs:
           fi
 
       - name: Cache Rust dependencies
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: release-${{ matrix.os }}-${{ matrix.target }}
 
