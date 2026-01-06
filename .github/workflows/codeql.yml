@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
+  actions: read
   contents: read
   security-events: write
 
@@ -55,6 +56,7 @@ jobs:
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write
 
@@ -83,6 +85,7 @@ jobs:
     if: needs.changes.outputs.actions == 'true'
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write
 
