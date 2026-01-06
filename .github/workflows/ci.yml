@@ -403,7 +403,7 @@ jobs:
         run: cargo nextest run --package inferadb-engine-wasm --test sandbox_security
         continue-on-error: true
 
-  # Test code coverage (reuses build cache)
+  # Test code coverage (builds from scratch with instrumentation)
   coverage:
     name: Code Coverage
     needs: build
@@ -420,6 +420,14 @@ jobs:
         uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
         with:
           egress-policy: audit
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          df -h
 
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -448,11 +456,13 @@ jobs:
         with:
           tool: cargo-llvm-cov
 
-      - name: Restore build cache
+      - name: Restore registry cache
         uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
-          save-if: false # Don't save, only restore from build job
+          # Only restore registry cache - llvm-cov uses its own target directory
+          # so compiled artifacts from the build job won't be reused
+          save-if: false
 
       - name: Generate coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
