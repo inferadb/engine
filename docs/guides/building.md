@@ -97,18 +97,6 @@ cargo bench                             # All benchmarks
 cargo bench --package inferadb-engine-core       # Specific package
 ```
 
-### Make Shortcuts (Optional)
-
-For convenience, use Make for common tasks:
-
-```bash
-make help        # Show all available commands
-make test        # Run all tests
-make check       # Run fmt + clippy + test + audit
-make dev         # Start dev server with watch
-make ci          # Simulate CI checks locally
-```
-
 ## Project Structure
 
 ```text

@@ -18,7 +18,8 @@ Inspired by [Google Zanzibar](https://research.google/pubs/zanzibar-googles-cons
 
 ```bash
 git clone https://github.com/inferadb/engine && cd engine
-make setup && make dev
+mise trust && mise install
+cargo run --bin inferadb-engine
 ```
 
 Check a permission:
@@ -116,11 +117,21 @@ See [docs/guides/configuration.md](docs/guides/configuration.md).
 ## Development
 
 ```bash
-make setup                    # One-time setup
-make dev                      # Dev server with auto-reload
-make test                     # Run tests
-make check                    # Format, lint, audit
-cargo build --release         # Release build
+# Setup (one-time)
+mise trust && mise install
+
+# Run the engine
+cargo run --bin inferadb-engine
+
+# Run tests
+cargo nextest run --lib --workspace
+
+# Format and lint
+cargo +nightly fmt --all
+cargo clippy --workspace --all-targets -- -D warnings
+
+# Build release
+cargo build --release
 ```
 
 ## Deployment

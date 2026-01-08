@@ -137,30 +137,32 @@ API layer with REST and gRPC:
 ### Daily Development
 
 ```bash
-# Use standard cargo commands
-cargo test                              # Run tests
-cargo build                             # Build debug
-cargo build --release                   # Build release
-cargo clippy --workspace -- -D warnings # Lint
-cargo fmt                               # Format
+# Run the engine
+cargo run --bin inferadb-engine
 
-# Or use Make shortcuts
-make test        # Run all tests
-make check       # Run all checks
-make dev         # Start dev server with watch
-make help        # Show all commands
+# Run tests
+cargo nextest run --lib --workspace
+
+# Build
+cargo build                             # Debug
+cargo build --release                   # Release
+
+# Code quality
+cargo +nightly fmt --all                # Format
+cargo clippy --workspace -- -D warnings # Lint
 ```
 
 ### Before Committing
 
 ```bash
-# Ensure everything passes
-make check       # fmt + clippy + test + audit
+# Format and lint
+cargo +nightly fmt --all
+cargo clippy --workspace --all-targets -- -D warnings
 
-# Or individually
-cargo fmt --check
-cargo clippy --workspace -- -D warnings
-cargo test --workspace
+# Run tests
+cargo nextest run --lib --workspace
+
+# Security checks
 cargo audit
 cargo deny check
 
