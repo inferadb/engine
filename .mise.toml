@@ -19,8 +19,9 @@ node = "24"
 "cargo:cargo-llvm-cov" = "latest" # Code coverage
 
 # Optional analysis tools
-"cargo:cargo-expand" = "latest" # Macro expansion (for `make expand`)
-"cargo:cargo-bloat" = "latest"  # Binary size analysis (for `make bloat`)
+"cargo:cargo-expand" = "latest"   # Macro expansion (for `make expand`)
+"cargo:cargo-bloat" = "latest"    # Binary size analysis (for `make bloat`)
+"cargo:cargo-outdated" = "latest" # Dependency freshness check (for CI)
 
 # Protobuf compiler for gRPC
 protobuf = "latest"
