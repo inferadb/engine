@@ -474,17 +474,20 @@ async fn test_with_fixture() {
 
 ## Test Coverage
 
-Check test coverage with tarpaulin:
+Check test coverage with llvm-cov:
 
 ```bash
-# Install tarpaulin
-cargo install cargo-tarpaulin
+# Install llvm-cov
+cargo install cargo-llvm-cov
 
-# Run coverage
-cargo tarpaulin --workspace --out Html
+# Run coverage with HTML report
+cargo llvm-cov --workspace --html
 
 # View report
-open tarpaulin-report.html
+open target/llvm-cov/html/index.html
+
+# Generate LCOV report (for CI/Codecov)
+cargo llvm-cov --workspace --lcov --output-path lcov.info
 ```
 
 **Current Coverage**: >80% across all crates

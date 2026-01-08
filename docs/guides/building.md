@@ -196,14 +196,18 @@ cargo test -- --ignored
 
 ### Test Coverage
 
-Using tarpaulin:
+Using llvm-cov:
 
 ```bash
-# Install tarpaulin
-cargo install cargo-tarpaulin
+# Install llvm-cov
+cargo install cargo-llvm-cov
 
-# Generate coverage report
-cargo tarpaulin --out Html --output-dir coverage
+# Generate HTML coverage report
+cargo llvm-cov --workspace --html
+# Report: target/llvm-cov/html/index.html
+
+# Generate LCOV report (for CI/Codecov)
+cargo llvm-cov --workspace --lcov --output-path lcov.info
 ```
 
 ### Integration Tests
