@@ -6,7 +6,7 @@
         <a href="https://codecov.io/github/inferadb/engine"><img src="https://codecov.io/github/inferadb/engine/graph/badge.svg?token=S4493HEHYQ" alt="Code Coverage" /></a>
         <a href="#license"><img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg" alt="License" /></a>
     </p>
-    <p>High-performance ReBAC with declarative policies, graph evaluation, and sub-millisecond latency</p>
+    <p>ReBAC engine with declarative policies, graph evaluation, and sub-millisecond latency</p>
 </div>
 
 > [!IMPORTANT]
@@ -82,7 +82,7 @@ graph TD
 | ------------------------- | ---------------------------------- |
 | inferadb-engine           | Binary entrypoint                  |
 | inferadb-engine-api       | REST and gRPC endpoints            |
-| inferadb-engine-core      | Policy evaluation, IPL interpreter |
+| inferadb-engine-core      | Permission evaluation, IPL interpreter |
 | inferadb-engine-auth      | JWT validation, JWKS               |
 | inferadb-engine-store     | Storage abstraction                |
 | inferadb-engine-cache     | Result caching                     |
@@ -93,6 +93,8 @@ graph TD
 | inferadb-engine-discovery | Service mesh discovery             |
 
 ## Configuration
+
+Configure via YAML or environment variables:
 
 ```yaml
 engine:
@@ -117,21 +119,12 @@ See [docs/guides/configuration.md](docs/guides/configuration.md).
 ## Development
 
 ```bash
-# Setup (one-time)
-mise trust && mise install
-
-# Run the engine
-cargo run --bin inferadb-engine
-
-# Run tests
-cargo nextest run --lib --workspace
-
-# Format and lint
-cargo +nightly fmt --all
+mise trust && mise install              # Setup
+cargo run --bin inferadb-engine         # Run
+cargo nextest run --lib --workspace     # Test
+cargo +nightly fmt --all                # Format
 cargo clippy --workspace --all-targets -- -D warnings
-
-# Build release
-cargo build --release
+cargo build --release                   # Release build
 ```
 
 ## Deployment
@@ -156,13 +149,8 @@ See [docs/guides/deployment.md](docs/guides/deployment.md).
 
 ## Community
 
-Join us on [Discord](https://discord.gg/inferadb) to discuss InferaDB, get help with your projects, and connect with other developers. Whether you have questions, want to share what you're building, or are interested in contributing, we'd love to have you!
+Join us on [Discord](https://discord.gg/inferadb) to discuss InferaDB, get help, and connect with contributors.
 
 ## License
 
-Licensed under either of:
-
-- [Apache License, Version 2.0](LICENSE-APACHE)
-- [MIT License](LICENSE-MIT)
-
-at your option.
+Dual-licensed under [Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT).
