@@ -7,6 +7,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Nightly at midnight UTC (for coverage)
+    - cron: "0 0 * * *"
 
 # Cancel in-progress runs when new commits are pushed
 # We only care about the latest commit on any branch/PR
@@ -417,8 +420,8 @@ jobs:
     name: Code Coverage
     needs: changes
     runs-on: ubuntu-latest
-    # Only run on merges to main - coverage is informational and expensive
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Only run nightly to reduce CI costs - coverage is informational and expensive
+    if: github.event_name == 'schedule'
     continue-on-error: true
     permissions:
       contents: read
