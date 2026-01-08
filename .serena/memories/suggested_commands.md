@@ -4,71 +4,62 @@
 
 ## Setup & Environment
 ```bash
-make setup                    # One-time development environment setup (installs tools, fetches deps)
-mise trust && mise install    # Alternative: manual tool installation via mise
+mise trust && mise install    # One-time tool installation via mise
+cargo fetch                   # Fetch dependencies
 ```
 
 ## Running the Engine
 ```bash
-make dev                      # Start dev server with auto-reload (cargo watch)
-make run                      # Run engine in debug mode
-cargo run --bin inferadb-engine  # Direct cargo command
+cargo run --bin inferadb-engine              # Run engine in debug mode
+cargo watch -x 'run --bin inferadb-engine'   # Dev server with auto-reload
 ```
 
 ## Building
 ```bash
-make build                    # Debug build
-make release                  # Release build (optimized)
-cargo build --release --workspace  # Direct cargo command
+cargo build                   # Debug build
+cargo build --release         # Release build (optimized)
 ```
 
 ## Testing
 ```bash
-make test                     # Run unit tests (cargo nextest)
-make test-integration         # Run integration tests
-make test-fdb                 # Run FoundationDB integration tests (requires Docker)
-make test-aws                 # Run AWS Secrets Manager tests (requires Docker)
-make test-gcp                 # Run GCP Secret Manager tests (requires Docker)
-make test-azure               # Run Azure Key Vault tests (requires Docker)
-make coverage                 # Generate code coverage report
+cargo nextest run --lib --workspace          # Run unit tests
+cargo nextest run --test '*' --workspace     # Run integration tests
+cargo test --doc --all-features              # Run doc tests
+./docker/fdb-integration-tests/test.sh       # FoundationDB integration tests
+./docker/aws-integration-tests/test.sh       # AWS Secrets Manager tests
+./docker/gcp-integration-tests/test.sh       # GCP Secret Manager tests
+./docker/azure-integration-tests/test.sh     # Azure Key Vault tests
+cargo llvm-cov --workspace --html            # Generate code coverage report
 ```
 
 ## Code Quality
 ```bash
-make check                    # Run all quality checks (format, lint, audit)
-make format                   # Format code (cargo +nightly fmt)
-make lint                     # Run clippy linter
-make audit                    # Run security audit
-make deny                     # Check dependencies with cargo-deny
-make fix                      # Auto-fix clippy warnings
+cargo +nightly fmt --all                                # Format code
+cargo clippy --workspace --all-targets -- -D warnings   # Lint
+cargo audit                                             # Security audit
+cargo deny check                                        # Dependency checks
+cargo clippy --fix --allow-dirty --allow-staged         # Auto-fix warnings
 ```
 
 ## Benchmarks & Analysis
 ```bash
-make bench                    # Run benchmarks
-make doc                      # Generate documentation
-make tree                     # Show dependency tree
-make outdated                 # Check for outdated dependencies
-make bloat                    # Analyze binary size (requires cargo-bloat)
+cargo bench --workspace                      # Run benchmarks
+cargo doc --workspace --no-deps              # Generate documentation
+cargo tree --workspace                       # Show dependency tree
+cargo update --workspace --dry-run           # Check for outdated deps
 ```
 
 ## Docker & Kubernetes
 ```bash
-make docker-build             # Build Docker image
-make docker-run               # Run Docker container
-make k8s-deploy               # Deploy to local Kubernetes
-make k8s-delete               # Delete from Kubernetes
+docker build -t inferadb-engine:dev .        # Build Docker image
+docker run -p 8080:8080 -p 8081:8081 inferadb-engine:dev  # Run container
+kubectl apply -k k8s/                        # Deploy to Kubernetes
+kubectl delete -k k8s/                       # Delete from Kubernetes
 ```
 
 ## Cleanup
 ```bash
-make clean                    # Clean build artifacts
-make reset                    # Full reset of dev environment (Docker, cargo, etc.)
-```
-
-## CI Simulation
-```bash
-make ci                       # Simulate full CI pipeline locally
+cargo clean                   # Clean build artifacts
 ```
 
 ## Unix Utilities (Darwin/macOS)

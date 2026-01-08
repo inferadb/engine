@@ -4,37 +4,38 @@ When completing a task, run these commands to verify quality:
 
 ## Minimum Required Checks
 ```bash
-make check
+cargo +nightly fmt --all                                # Format code
+cargo clippy --workspace --all-targets -- -D warnings   # Lint
+cargo audit                                             # Security audit
 ```
-This runs:
-1. `make format` - Format code with `cargo +nightly fmt --all`
-2. `make lint` - Run `cargo clippy --workspace --all-targets -- -D warnings`
-3. `make audit` - Run `cargo audit` for security vulnerabilities
 
 ## For Code Changes
 ```bash
-make test                     # Run unit tests
-make test-integration         # Run integration tests (if applicable)
+cargo nextest run --lib --workspace          # Run unit tests
+cargo nextest run --test '*' --workspace     # Run integration tests (if applicable)
 ```
 
 ## Full CI Simulation (Before Push)
 ```bash
-make ci
+cargo +nightly fmt --all
+cargo clippy --workspace --all-targets -- -D warnings
+cargo nextest run --lib --workspace
+cargo audit
+cargo deny check
 ```
-This runs: `check`, `test`, and `deny` in sequence.
 
 ## Additional Checks (As Needed)
-- `make test-fdb` - If changes affect FoundationDB storage
-- `make coverage` - If adding new code paths
-- `make bench` - If performance-sensitive changes
-- `make deny` - Check for dependency issues
+- `./docker/fdb-integration-tests/test.sh` - If changes affect FoundationDB storage
+- `cargo llvm-cov --workspace --html` - If adding new code paths
+- `cargo bench` - If performance-sensitive changes
+- `cargo deny check` - Check for dependency issues
 
 ## Documentation Updates
 - Update relevant docs in `docs/` if behavior changes
 - Update doc comments for API changes
-- Run `make doc` to verify documentation builds
+- Run `cargo doc --workspace --no-deps` to verify documentation builds
 
 ## Commit Guidelines
-- Run `make check` before committing
+- Run format and lint before committing
 - Use conventional commit format: `type: subject`
 - Keep commits focused and atomic
