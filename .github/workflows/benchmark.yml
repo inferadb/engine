@@ -44,12 +44,16 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install system dependencies
+      - name: Install mold linker
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq protobuf-compiler mold
-          protoc --version
-          mold --version
+          sudo apt-get install -y -qq mold
+
+      - name: Install development tools via Mise
+        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        with:
+          install_args: protobuf
+          cache: true
 
       - name: Cache Rust dependencies
         uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
