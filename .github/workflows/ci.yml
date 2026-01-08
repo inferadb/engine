@@ -37,7 +37,7 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
@@ -46,7 +46,7 @@ jobs:
 
       - name: Check for code changes
         id: filter
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
         with:
           filters: |
             code:
@@ -66,7 +66,7 @@ jobs:
       contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
@@ -94,7 +94,7 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
@@ -126,7 +126,7 @@ jobs:
           sudo dpkg -i foundationdb-clients_7.3.69-1_amd64.deb
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -150,7 +150,7 @@ jobs:
       RUSTC_WRAPPER: "sccache"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
@@ -192,7 +192,7 @@ jobs:
         uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -223,7 +223,7 @@ jobs:
       checks: write # For test result publishing
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
@@ -288,13 +288,13 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
       - name: Check if inferadb-engine-core was modified
         id: check-core
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
         with:
           filters: |
             core:
@@ -334,7 +334,7 @@ jobs:
 
       - name: Restore build cache
         if: steps.check-core.outputs.core == 'true'
-        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -359,13 +359,13 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
       - name: Check if inferadb-engine-wasm was modified
         id: check-wasm
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
         with:
           filters: |
             wasm:
@@ -405,7 +405,7 @@ jobs:
 
       - name: Restore build cache
         if: steps.check-wasm.outputs.wasm == 'true'
-        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           save-if: false
@@ -431,7 +431,7 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
@@ -470,7 +470,7 @@ jobs:
           sudo dpkg -i foundationdb-clients_7.3.69-1_amd64.deb
 
       - name: Restore registry cache
-        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
         with:
           shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
           # Only restore registry cache - llvm-cov uses its own target directory
@@ -497,7 +497,7 @@ jobs:
       contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
@@ -516,7 +516,7 @@ jobs:
           cache: true
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
 
       - name: Check outdated dependencies
         run: cargo outdated --exit-code 1 || echo "::warning::Some dependencies are outdated"
@@ -545,7 +545,7 @@ jobs:
     if: always()
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
