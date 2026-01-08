@@ -5,10 +5,10 @@ name: Benchmark
 on:
   workflow_dispatch:
 
-# Cancel in-progress runs for PRs, queue for main
+# Cancel in-progress runs when new commits are pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 # Write permissions for pushing benchmark results
 permissions:
