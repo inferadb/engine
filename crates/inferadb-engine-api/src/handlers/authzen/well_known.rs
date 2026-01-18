@@ -129,14 +129,16 @@ mod tests {
         http::{Request, StatusCode},
     };
     use inferadb_engine_config::Config;
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
+    use inferadb_storage::MemoryBackend;
     use tower::ServiceExt;
 
     use super::*;
     use crate::AppState;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_engine_store::InferaStore> =
+            Arc::new(EngineStorage::new(MemoryBackend::new()));
         let schema = Arc::new(inferadb_engine_core::ipl::Schema::new(vec![]));
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());

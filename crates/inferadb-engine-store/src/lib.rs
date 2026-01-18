@@ -1,6 +1,17 @@
 //! # Infera Store - Storage Abstraction Layer
 //!
 //! Provides abstract database operations and revision consistency management.
+//!
+//! ## Architecture
+//!
+//! This crate provides trait definitions for the storage layer. Actual
+//! implementations are in:
+//! - `inferadb-engine-repository` - Repository-based storage using `StorageBackend`
+//! - `inferadb-storage` - Generic `StorageBackend` trait and `MemoryBackend`
+//!
+//! The old monolithic backends (`MemoryBackend`, `FoundationDBBackend`) have been
+//! replaced by the repository pattern. Use `EngineStorage<S>` from
+//! `inferadb-engine-repository` with a `StorageBackend` implementation.
 
 use async_trait::async_trait;
 use inferadb_engine_types::{
@@ -10,7 +21,6 @@ use inferadb_engine_types::{
 pub mod factory;
 #[cfg(feature = "fdb")]
 pub mod foundationdb;
-pub mod memory;
 pub mod metrics;
 pub mod organization_store;
 pub mod vault_store;
@@ -18,7 +28,6 @@ pub mod vault_store;
 pub use factory::{BackendType, StorageConfig, StorageFactory};
 #[cfg(feature = "fdb")]
 pub use foundationdb::FoundationDBBackend;
-pub use memory::MemoryBackend;
 pub use metrics::{MetricsSnapshot, OpTimer, StoreMetrics};
 pub use organization_store::OrganizationStore;
 pub use vault_store::VaultStore;

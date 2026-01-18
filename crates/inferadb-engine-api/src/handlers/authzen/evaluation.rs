@@ -356,8 +356,9 @@ mod tests {
         routing::post,
     };
     use inferadb_engine_config::Config;
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
     use inferadb_engine_types::Relationship;
+    use inferadb_storage::MemoryBackend;
     use tower::ServiceExt;
 
     use super::*;
@@ -368,7 +369,8 @@ mod tests {
     };
 
     async fn create_test_state() -> AppState {
-        let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_engine_store::InferaStore> =
+            Arc::new(EngineStorage::new(MemoryBackend::new()));
 
         // Create a schema with document type and view/delete relations
         use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};

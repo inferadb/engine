@@ -805,15 +805,17 @@ mod tests {
     };
     use handlers::relationships::{delete::DeleteResponse, write::WriteResponse};
     use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
     use inferadb_engine_types::{AuthContext, AuthMethod, UsersetNodeType, UsersetTree};
+    use inferadb_storage::MemoryBackend;
     use serde_json::json;
     use tower::ServiceExt;
 
     use super::*;
 
     fn create_test_state() -> (AppState, Arc<Schema>) {
-        let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_engine_store::InferaStore> =
+            Arc::new(EngineStorage::new(MemoryBackend::new()));
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![

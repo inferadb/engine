@@ -2,17 +2,44 @@
 //!
 //! Provides a flexible way to instantiate different storage backends
 //! without exposing implementation details to consumers.
+//!
+//! ## Migration to Repository Pattern
+//!
+//! For the memory backend and Ledger backend, use `EngineStorage<S>` from
+//! `inferadb-engine-repository` directly:
+//!
+//! ```ignore
+//! use inferadb_engine_repository::EngineStorage;
+//! use inferadb_storage::MemoryBackend;
+//!
+//! // Memory backend
+//! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+//!
+//! // Ledger backend
+//! use inferadb_storage_ledger::{LedgerBackend, LedgerBackendConfig};
+//!
+//! let config = LedgerBackendConfig::builder()
+//!     .with_endpoint("http://localhost:50051")
+//!     .with_client_id("my-service")
+//!     .with_namespace_id(1)
+//!     .build()?;
+//! let backend = LedgerBackend::new(config).await?;
+//! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(backend));
+//! ```
+//!
+//! The factory still supports FoundationDB which uses a monolithic implementation.
 
 use std::{str::FromStr, sync::Arc};
 
 #[cfg(feature = "fdb")]
 use crate::foundationdb::FoundationDBBackend;
-use crate::{InferaStore, Result, StoreError, memory::MemoryBackend};
+use crate::{InferaStore, Result, StoreError};
 
 /// Storage backend type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackendType {
     /// In-memory storage (for testing and development)
+    /// Use `EngineStorage<MemoryBackend>` from `inferadb-engine-repository`
     Memory,
     /// FoundationDB storage (for production)
     #[cfg(feature = "fdb")]
@@ -48,7 +75,7 @@ impl BackendType {
 pub struct StorageConfig {
     /// Backend type to use
     pub backend: BackendType,
-    /// Optional connection string (for database backends)
+    /// Optional connection string (for database backends like FDB)
     pub connection_string: Option<String>,
 }
 
@@ -72,14 +99,23 @@ impl StorageConfig {
 }
 
 /// Storage factory for creating backend instances
+///
+/// Note: For memory backend, use `EngineStorage<MemoryBackend>` directly.
+/// This factory still supports FoundationDB backend creation.
 pub struct StorageFactory;
 
 impl StorageFactory {
     /// Create a storage backend from configuration
+    ///
+    /// For memory backend and Ledger backend, use `EngineStorage<S>` directly instead.
+    #[cfg(feature = "fdb")]
     pub async fn create(config: StorageConfig) -> Result<Arc<dyn InferaStore>> {
         match config.backend {
-            BackendType::Memory => Ok(Arc::new(MemoryBackend::new()) as Arc<dyn InferaStore>),
-            #[cfg(feature = "fdb")]
+            BackendType::Memory => {
+                Err(StoreError::Internal(
+                    "Memory backend not available via factory. Use EngineStorage<MemoryBackend> from inferadb-engine-repository instead.".to_string()
+                ))
+            },
             BackendType::FoundationDB => {
                 let backend = if let Some(cluster_file) = config.connection_string.as_deref() {
                     FoundationDBBackend::with_cluster_file(Some(cluster_file)).await?
@@ -91,7 +127,24 @@ impl StorageFactory {
         }
     }
 
+    /// Create a storage backend from configuration (non-FDB version)
+    ///
+    /// Note: For Memory and Ledger backends, use `EngineStorage<S>` from
+    /// `inferadb-engine-repository` directly. See module documentation for examples.
+    #[cfg(not(feature = "fdb"))]
+    pub async fn create(config: StorageConfig) -> Result<Arc<dyn InferaStore>> {
+        match config.backend {
+            BackendType::Memory => {
+                Err(StoreError::Internal(
+                    "Memory backend not available via factory. Use EngineStorage<MemoryBackend> from inferadb-engine-repository instead.".to_string()
+                ))
+            },
+        }
+    }
+
     /// Create a storage backend from string configuration
+    ///
+    /// For memory backend, use `EngineStorage<MemoryBackend>` directly instead.
     pub async fn from_str(
         backend_str: &str,
         connection_string: Option<String>,
@@ -104,8 +157,10 @@ impl StorageFactory {
     /// Create a storage backend from string configuration, returning the FDB database handle if
     /// available.
     ///
-    /// Returns `(store, Some(fdb_database))` for FDB backends, `(store, None)` for other backends.
+    /// Returns `(store, Some(fdb_database))` for FDB backends.
     /// This is used for FDB-based cross-service communication like cache invalidation.
+    ///
+    /// For memory backend, use `EngineStorage<MemoryBackend>` directly instead.
     #[cfg(feature = "fdb")]
     pub async fn from_str_with_fdb(
         backend_str: &str,
@@ -114,7 +169,9 @@ impl StorageFactory {
         let backend_type = BackendType::from_str(backend_str)?;
         match backend_type {
             BackendType::Memory => {
-                Ok((Arc::new(MemoryBackend::new()) as Arc<dyn InferaStore>, None))
+                Err(StoreError::Internal(
+                    "Memory backend not available via factory. Use EngineStorage<MemoryBackend> from inferadb-engine-repository instead.".to_string()
+                ))
             },
             BackendType::FoundationDB => {
                 let backend = if let Some(cluster_file) = connection_string.as_deref() {
@@ -128,20 +185,20 @@ impl StorageFactory {
         }
     }
 
-    /// Create a storage backend from string configuration, returning the FDB database handle if
-    /// available.
+    /// Create a storage backend from string configuration (non-FDB version)
     #[cfg(not(feature = "fdb"))]
     pub async fn from_str_with_fdb(
         backend_str: &str,
-        connection_string: Option<String>,
+        _connection_string: Option<String>,
     ) -> Result<(Arc<dyn InferaStore>, Option<std::sync::Arc<()>>)> {
-        let store = Self::from_str(backend_str, connection_string).await?;
-        Ok((store, None))
-    }
-
-    /// Create default memory backend
-    pub fn memory() -> Arc<dyn InferaStore> {
-        Arc::new(MemoryBackend::new()) as Arc<dyn InferaStore>
+        let backend_type = BackendType::from_str(backend_str)?;
+        match backend_type {
+            BackendType::Memory => {
+                Err(StoreError::Internal(
+                    "Memory backend not available via factory. Use EngineStorage<MemoryBackend> from inferadb-engine-repository instead.".to_string()
+                ))
+            },
+        }
     }
 }
 
@@ -171,37 +228,6 @@ mod tests {
 
         #[cfg(feature = "fdb")]
         assert_eq!(BackendType::FoundationDB.as_str(), "foundationdb");
-    }
-
-    #[tokio::test]
-    async fn test_factory_create_memory() {
-        let config = StorageConfig::memory();
-        let store = StorageFactory::create(config).await.unwrap();
-
-        // Verify it works
-        let test_vault = 11111111111111i64;
-        let rev = store.get_revision(test_vault).await.unwrap();
-        assert_eq!(rev, crate::Revision::zero());
-    }
-
-    #[tokio::test]
-    async fn test_factory_from_str_memory() {
-        let store = StorageFactory::from_str("memory", None).await.unwrap();
-
-        // Verify it works
-        let test_vault = 11111111111111i64;
-        let rev = store.get_revision(test_vault).await.unwrap();
-        assert_eq!(rev, crate::Revision::zero());
-    }
-
-    #[tokio::test]
-    async fn test_factory_memory_shorthand() {
-        let store = StorageFactory::memory();
-
-        // Verify it works
-        let test_vault = 11111111111111i64;
-        let rev = store.get_revision(test_vault).await.unwrap();
-        assert_eq!(rev, crate::Revision::zero());
     }
 
     #[tokio::test]

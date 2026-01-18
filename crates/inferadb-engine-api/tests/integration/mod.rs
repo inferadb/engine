@@ -28,8 +28,9 @@ use axum::{
 use inferadb_engine_api::AppState;
 use inferadb_engine_config::Config;
 use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use inferadb_engine_store::MemoryBackend;
+use inferadb_engine_repository::EngineStorage;
 use inferadb_engine_types::{AuthContext, AuthMethod, Relationship};
+use inferadb_storage::MemoryBackend;
 
 static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(10000000000000);
 
@@ -150,7 +151,8 @@ pub fn create_test_state() -> AppState {
 
 /// Create test AppState with custom configuration
 pub fn create_test_state_with_config(config: Config) -> AppState {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let schema = create_test_schema();
 
     AppState::builder(store, schema, Arc::new(config))
@@ -165,7 +167,8 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
 /// Returns the AppState and IDs for two vaults with their organizations.
 /// Use `with_test_auth` to authenticate requests to specific vaults.
 pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let schema = create_test_schema();
 
     let vault_a = generate_test_id();
@@ -256,8 +259,8 @@ mod tests {
         let _config = create_test_config_with_rate_limiting();
     }
 
-    #[test]
-    fn test_create_test_state() {
+    #[tokio::test]
+    async fn test_create_test_state() {
         let _state = create_test_state();
         // Test state is created successfully
     }
@@ -274,8 +277,8 @@ mod tests {
         assert!(auth.scopes.contains(&"inferadb.check".to_string()));
     }
 
-    #[test]
-    fn test_create_multi_vault_test_state() {
+    #[tokio::test]
+    async fn test_create_multi_vault_test_state() {
         let (_state, vault_a, organization_a, vault_b, organization_b) =
             create_multi_vault_test_state();
         assert_ne!(vault_a, vault_b);

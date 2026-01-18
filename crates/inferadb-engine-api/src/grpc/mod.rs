@@ -180,12 +180,14 @@ mod tests {
 
     use inferadb_engine_config::Config;
     use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
+    use inferadb_storage::MemoryBackend;
 
     use super::*;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_engine_store::InferaStore> =
+            Arc::new(EngineStorage::new(MemoryBackend::new()));
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![

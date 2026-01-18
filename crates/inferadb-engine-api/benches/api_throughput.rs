@@ -15,10 +15,11 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use inferadb_engine_api::AppState;
 use inferadb_engine_config::Config;
 use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use inferadb_engine_store::MemoryBackend;
+use inferadb_engine_repository::EngineStorage;
 use inferadb_engine_types::{
     EvaluateRequest, ExpandRequest, ListRelationshipsRequest, Relationship,
 };
+use inferadb_storage::MemoryBackend;
 
 /// Create a test schema with realistic complexity
 fn create_test_schema() -> Arc<Schema> {
@@ -62,7 +63,8 @@ fn create_test_schema() -> Arc<Schema> {
 /// Create test AppState with pre-populated data
 /// Returns (AppState, vault_id) tuple
 async fn create_test_state_with_data(num_relationships: usize) -> (AppState, i64) {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let schema = create_test_schema();
     let vault: i64 = 1;
 

@@ -9,8 +9,11 @@ use clap::Parser;
 use inferadb_engine_auth::jwks_cache::JwksCache;
 use inferadb_engine_config::load_or_default;
 use inferadb_engine_core::ipl::Schema;
-use inferadb_engine_store::StorageFactory;
+use inferadb_engine_repository::EngineStorage;
 use inferadb_engine_wasm::WasmHost;
+use inferadb_storage::MemoryBackend;
+#[cfg(feature = "ledger")]
+use inferadb_storage_ledger::{LedgerBackend, LedgerBackendConfig};
 
 #[derive(Parser, Debug)]
 #[command(name = "inferadb-engine")]
@@ -131,12 +134,55 @@ async fn main() -> Result<()> {
     use inferadb_engine_observe::startup::{log_initialized, log_ready, log_skipped};
 
     // Initialize storage backend based on configuration
-    let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        StorageFactory::from_str(&config.storage, config.foundationdb.cluster_file.clone())
-            .await
-            .map_err(|e| {
+    // Memory backend uses EngineStorage<MemoryBackend> from the repository pattern
+    // Ledger uses EngineStorage<LedgerBackend> (target production)
+    // FoundationDB uses the legacy backend (to be migrated)
+    let store: Arc<dyn inferadb_engine_store::InferaStore> = match config.storage.as_str() {
+        "memory" => Arc::new(EngineStorage::new(MemoryBackend::new())),
+        #[cfg(feature = "ledger")]
+        "ledger" => {
+            let ledger_config = LedgerBackendConfig::builder()
+                .with_endpoint(config.ledger.endpoint.as_ref().expect("validated"))
+                .with_client_id(config.ledger.client_id.as_ref().expect("validated"))
+                .with_namespace_id(config.ledger.namespace_id.expect("validated"));
+            let ledger_config = if let Some(vault_id) = config.ledger.vault_id {
+                ledger_config.with_vault_id(vault_id)
+            } else {
+                ledger_config
+            };
+            let ledger_config = ledger_config
+                .build()
+                .map_err(|e| anyhow::anyhow!("Failed to build Ledger config: {}", e))?;
+            let ledger_backend = LedgerBackend::new(ledger_config)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to connect to Ledger: {}", e))?;
+            Arc::new(EngineStorage::new(ledger_backend))
+        },
+        #[cfg(not(feature = "ledger"))]
+        "ledger" => {
+            return Err(anyhow::anyhow!(
+                "Ledger storage backend not compiled. Enable the 'ledger' feature."
+            ));
+        },
+        #[cfg(feature = "fdb")]
+        "foundationdb" | "fdb" => inferadb_engine_store::StorageFactory::from_str(
+            &config.storage,
+            config.foundationdb.cluster_file.clone(),
+        )
+        .await
+        .map_err(|e| {
             anyhow::anyhow!("Failed to initialize storage backend '{}': {}", config.storage, e)
-        })?;
+        })?,
+        #[cfg(not(feature = "fdb"))]
+        "foundationdb" | "fdb" => {
+            return Err(anyhow::anyhow!(
+                "FoundationDB storage backend not compiled. Enable the 'fdb' feature."
+            ));
+        },
+        _ => {
+            return Err(anyhow::anyhow!("Unknown storage backend: {}", config.storage));
+        },
+    };
     log_initialized(&format!("Storage ({})", config.storage));
 
     // Initialize WASM host

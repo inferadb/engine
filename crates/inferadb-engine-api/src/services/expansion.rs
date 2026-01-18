@@ -103,13 +103,14 @@ impl ExpansionService {
 #[cfg(test)]
 mod tests {
     use inferadb_engine_core::ipl::{RelationDef, RelationExpr, TypeDef};
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
     use inferadb_engine_types::Relationship;
+    use inferadb_storage::MemoryBackend;
 
     use super::*;
 
     async fn create_test_service() -> (ExpansionService, i64) {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
         // Create a schema with document type and viewer relation
         let schema = Arc::new(Schema::new(vec![TypeDef {
@@ -235,7 +236,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_vault_isolation() {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
         let schema = Arc::new(Schema::new(vec![TypeDef {
             name: "document".to_string(),
             relations: vec![RelationDef {

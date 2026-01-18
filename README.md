@@ -63,7 +63,7 @@ curl -X POST http://localhost:8080/v1/relationships/write \
 | **Multi-Tenant** | Data isolation via Accounts and Vaults            |
 | **Wildcards**    | Model public resources with `user:*`              |
 | **Observable**   | Prometheus, OpenTelemetry, structured logs        |
-| **Storage**      | Memory (dev) or FoundationDB (prod)               |
+| **Storage**      | Memory (dev), FoundationDB, or Ledger (prod)      |
 | **Extensible**   | WASM modules for custom logic                     |
 
 ## Architecture
@@ -73,24 +73,35 @@ graph TD
     Bin[inferadb-engine] --> API[inferadb-engine-api]
     API --> Core[inferadb-engine-core]
     API --> Auth[inferadb-engine-auth]
-    Core --> Store[inferadb-engine-store]
+    Core --> Repo[inferadb-engine-repository]
     Core --> Cache[inferadb-engine-cache]
-    Store --> FDB[(FoundationDB)]
+    Repo --> Storage[inferadb-storage]
+    Storage --> Memory[(Memory)]
+    Storage --> StorageLedger[inferadb-storage-ledger]
+    StorageLedger --> Ledger[(InferaDB Ledger)]
 ```
 
-| Crate                     | Purpose                            |
-| ------------------------- | ---------------------------------- |
-| inferadb-engine           | Binary entrypoint                  |
-| inferadb-engine-api       | REST and gRPC endpoints            |
-| inferadb-engine-core      | Permission evaluation, IPL interpreter |
-| inferadb-engine-auth      | JWT validation, JWKS               |
-| inferadb-engine-store     | Storage abstraction                |
-| inferadb-engine-cache     | Result caching                     |
-| inferadb-engine-config    | Configuration loading              |
-| inferadb-engine-types     | Shared type definitions            |
-| inferadb-engine-observe   | Metrics and tracing                |
-| inferadb-engine-wasm      | WebAssembly modules                |
-| inferadb-engine-discovery | Service mesh discovery             |
+| Crate                      | Purpose                                     |
+| -------------------------- | ------------------------------------------- |
+| inferadb-engine            | Binary entrypoint                           |
+| inferadb-engine-api        | REST and gRPC endpoints                     |
+| inferadb-engine-core       | Permission evaluation, IPL interpreter      |
+| inferadb-engine-auth       | JWT validation, JWKS                        |
+| inferadb-engine-repository | Domain repositories (relationships, vaults) |
+| inferadb-engine-store      | Store trait definitions                     |
+| inferadb-engine-cache      | Result caching                              |
+| inferadb-engine-config     | Configuration loading                       |
+| inferadb-engine-types      | Shared type definitions                     |
+| inferadb-engine-observe    | Metrics and tracing                         |
+| inferadb-engine-wasm       | WebAssembly modules                         |
+| inferadb-engine-discovery  | Service mesh discovery                      |
+
+### Shared Storage Crates
+
+| Crate                   | Purpose                                      |
+| ----------------------- | -------------------------------------------- |
+| inferadb-storage        | Generic StorageBackend trait + MemoryBackend |
+| inferadb-storage-ledger | Ledger-backed StorageBackend implementation  |
 
 ## Configuration
 
@@ -103,6 +114,16 @@ engine:
     grpc: "0.0.0.0:8081"
     mesh: "0.0.0.0:8082"
 
+  # Storage: "memory" (dev), "foundationdb", or "ledger" (production)
+  storage: "ledger"
+
+  # Ledger configuration (requires --features ledger)
+  ledger:
+    endpoint: "http://ledger.inferadb:50051"
+    client_id: "engine-prod-001"
+    namespace_id: 1
+    vault_id: 1 # optional
+
   cache:
     enabled: true
     capacity: 100000
@@ -112,7 +133,18 @@ engine:
     url: "http://localhost:9092"
 ```
 
-Environment variables use `INFERADB__` prefix (e.g., `INFERADB__ENGINE__LISTEN__HTTP`).
+### Environment Variables
+
+Environment variables use `INFERADB__ENGINE__` prefix with double underscores for nesting:
+
+| Variable                                 | Description                | Example               |
+| ---------------------------------------- | -------------------------- | --------------------- |
+| `INFERADB__ENGINE__LISTEN__HTTP`         | HTTP listen address        | `0.0.0.0:8080`        |
+| `INFERADB__ENGINE__STORAGE`              | Storage backend            | `ledger`              |
+| `INFERADB__ENGINE__LEDGER__ENDPOINT`     | Ledger server URL          | `http://ledger:50051` |
+| `INFERADB__ENGINE__LEDGER__CLIENT_ID`    | Client ID for idempotency  | `engine-001`          |
+| `INFERADB__ENGINE__LEDGER__NAMESPACE_ID` | Namespace for data scoping | `1`                   |
+| `INFERADB__ENGINE__LEDGER__VAULT_ID`     | Vault for finer scoping    | `1`                   |
 
 See [docs/guides/configuration.md](docs/guides/configuration.md).
 

@@ -5,8 +5,10 @@ use inferadb_engine_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use inferadb_engine_store::{MemoryBackend, RelationshipStore};
+use inferadb_engine_repository::EngineStorage;
+use inferadb_engine_store::RelationshipStore;
 use inferadb_engine_types::{EvaluateRequest, ExpandRequest, Relationship};
+use inferadb_storage::MemoryBackend;
 
 fn create_complex_schema() -> Schema {
     Schema::new(vec![
@@ -52,7 +54,7 @@ fn create_complex_schema() -> Schema {
 }
 
 async fn setup_evaluator_with_data(num_relationships: usize) -> Evaluator {
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
     let schema = Arc::new(create_complex_schema());
     let vault: i64 = 1;
 
@@ -132,7 +134,7 @@ fn bench_complex_check(c: &mut Criterion) {
 
     c.bench_function("complex_check_with_trace", |b| {
         let evaluator = rt.block_on(async {
-            let store = Arc::new(MemoryBackend::new());
+            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
             let schema = Arc::new(create_complex_schema());
             let vault: i64 = 1;
 
@@ -210,7 +212,7 @@ fn bench_parallel_expand(c: &mut Criterion) {
     // Benchmark parallel expansion with multiple branches
     c.bench_function("expand_parallel_4_branches", |b| {
         let evaluator = rt.block_on(async {
-            let store = Arc::new(MemoryBackend::new());
+            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
             let vault: i64 = 1;
 
             // Create schema with 4 independent branches
@@ -269,7 +271,7 @@ fn bench_parallel_expand(c: &mut Criterion) {
     // Benchmark parallel expansion with nested intersections
     c.bench_function("expand_parallel_intersection", |b| {
         let evaluator = rt.block_on(async {
-            let store = Arc::new(MemoryBackend::new());
+            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
             let vault: i64 = 1;
 
             let schema = Arc::new(Schema::new(vec![TypeDef::new(
@@ -362,7 +364,7 @@ fn bench_expand_cache(c: &mut Criterion) {
     // Benchmark expand with cache enabled (repeated queries)
     c.bench_function("expand_with_cache_hit", |b| {
         let evaluator = rt.block_on(async {
-            let store = Arc::new(MemoryBackend::new());
+            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
             let vault: i64 = 1;
 
             let schema = Arc::new(Schema::new(vec![TypeDef::new(

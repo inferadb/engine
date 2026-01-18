@@ -73,8 +73,9 @@ pub async fn simulate_handler(
 
     // Create an ephemeral in-memory store with ONLY the context relationships
     // This simulates authorization decisions with temporary/what-if data
-    use inferadb_engine_store::MemoryBackend;
-    let ephemeral_store = Arc::new(MemoryBackend::new());
+    use inferadb_engine_repository::EngineStorage;
+    use inferadb_storage::MemoryBackend;
+    let ephemeral_store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Write context relationships to ephemeral store
     ephemeral_store

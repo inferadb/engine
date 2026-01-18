@@ -251,6 +251,7 @@ mod tests {
             },
             storage: "invalid".to_string(),
             foundationdb: FoundationDbConfig::default(),
+            ledger: crate::LedgerConfig::default(),
             cache: CacheConfig { enabled: true, capacity: 0, ttl: 0 },
             token: crate::TokenConfig::default(),
             pem: None,

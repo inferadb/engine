@@ -94,14 +94,16 @@ mod tests {
     use inferadb_engine_config::Config;
     use inferadb_engine_const::scopes::SCOPE_ADMIN;
     use inferadb_engine_core::ipl::Schema;
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
     use inferadb_engine_types::Organization;
+    use inferadb_storage::MemoryBackend;
 
     use super::*;
     use crate::content_negotiation::ResponseFormat;
 
     fn create_test_state() -> AppState {
-        let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn inferadb_engine_store::InferaStore> =
+            Arc::new(EngineStorage::new(MemoryBackend::new()));
         let schema = Arc::new(Schema::new(vec![]));
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());

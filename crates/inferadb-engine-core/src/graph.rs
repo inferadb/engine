@@ -482,15 +482,16 @@ async fn evaluate_relation_expr(
 
 #[cfg(test)]
 mod tests {
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
     use inferadb_engine_types::Relationship;
+    use inferadb_storage::MemoryBackend;
 
     use super::*;
     use crate::ipl::{RelationDef, Schema, TypeDef};
 
     #[tokio::test]
     async fn test_has_direct_relationship() {
-        let store = MemoryBackend::new();
+        let store = EngineStorage::new(MemoryBackend::new());
 
         let relationship = Relationship {
             resource: "doc:readme".to_string(),
@@ -518,7 +519,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_users_with_relation() {
-        let store = MemoryBackend::new();
+        let store = EngineStorage::new(MemoryBackend::new());
 
         let relationships = vec![
             Relationship {
@@ -552,7 +553,7 @@ mod tests {
             vec![RelationDef::new("reader".to_string(), None)],
         )]);
 
-        let store = Arc::new(MemoryBackend::new());
+        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
         let rev = store.get_revision(0i64).await.unwrap();
 
         let mut ctx = GraphContext::new(Arc::new(schema), store, rev, 0i64);

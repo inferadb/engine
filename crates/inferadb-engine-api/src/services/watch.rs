@@ -68,17 +68,10 @@ impl WatchService {
         let stream = async_stream::stream! {
             let mut current_revision = start_revision;
 
-            // Clippy suggests while let, but the pattern doesn't fit because we need to check
-            // the downcast result inside the loop and break on None
-            #[allow(clippy::while_let_loop)]
             loop {
                 // Check for new changes since last revision
-                let changes_result = if let Some(infra_store) = store.as_any().downcast_ref::<inferadb_engine_store::MemoryBackend>() {
-                    infra_store.read_changes(vault, current_revision, &resource_types, Some(100)).await
-                } else {
-                    // For other store types, we can't implement watch yet
-                    break;
-                };
+                // Now uses the trait method directly since RelationshipStore has read_changes
+                let changes_result = store.read_changes(vault, current_revision, &resource_types, Some(100)).await;
 
                 match changes_result {
                     Ok(changes) if !changes.is_empty() => {
@@ -106,14 +99,15 @@ impl WatchService {
 #[cfg(test)]
 mod tests {
     use futures::StreamExt;
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
     use inferadb_engine_types::Relationship;
+    use inferadb_storage::MemoryBackend;
 
     use super::*;
 
     #[tokio::test]
     async fn test_watch_changes() {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
         let vault = 12345678901234i64;
 
         let service = WatchService::new(Arc::clone(&store));
@@ -148,7 +142,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_watch_with_resource_type_filter() {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
         let vault = 12345678901234i64;
 
         let service = WatchService::new(store);
@@ -162,7 +156,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_vault_isolation() {
-        let store: Arc<dyn RelationshipStore> = Arc::new(MemoryBackend::new());
+        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
         let vault_a = 11111111111111i64;
         let vault_b = 22222222222222i64;
 

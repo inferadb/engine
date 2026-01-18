@@ -5,22 +5,24 @@
 use std::sync::Arc;
 
 use inferadb_engine_core::{Evaluator, ipl::Schema};
-use inferadb_engine_store::{MemoryBackend, RelationshipStore};
+use inferadb_engine_repository::EngineStorage;
+use inferadb_engine_store::RelationshipStore;
 // Re-export for use in tests
 pub use inferadb_engine_types::Relationship;
 use inferadb_engine_types::{Decision, EvaluateRequest};
 use inferadb_engine_wasm::WasmHost;
+use inferadb_storage::MemoryBackend;
 
 /// Test fixture for setting up a complete evaluation environment
 pub struct TestFixture {
-    pub store: Arc<MemoryBackend>,
+    pub store: Arc<EngineStorage<MemoryBackend>>,
     pub evaluator: Evaluator,
 }
 
 impl TestFixture {
     /// Create a new test fixture with the given schema
     pub fn new(schema: Schema) -> Self {
-        let store = Arc::new(MemoryBackend::new());
+        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
         let evaluator = Evaluator::new(
             store.clone() as Arc<dyn RelationshipStore>,
             Arc::new(schema),
@@ -33,7 +35,7 @@ impl TestFixture {
 
     /// Create a new test fixture with the given schema and WASM host
     pub fn new_with_wasm(schema: Schema, wasm_host: Arc<WasmHost>) -> Self {
-        let store = Arc::new(MemoryBackend::new());
+        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
         let evaluator = Evaluator::new(
             store.clone() as Arc<dyn RelationshipStore>,
             Arc::new(schema),

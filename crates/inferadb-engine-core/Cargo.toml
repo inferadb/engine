@@ -29,9 +29,11 @@ pest_derive = "2.7"
 inferadb-engine-cache = { path = "../inferadb-engine-cache" }
 inferadb-engine-const = { path = "../inferadb-engine-const" }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }
+inferadb-engine-repository = { path = "../inferadb-engine-repository" }
 inferadb-engine-store = { path = "../inferadb-engine-store" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
 inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
+inferadb-storage = { path = "../../../crates/inferadb-storage" }
 
 [dev-dependencies]
 criterion = { workspace = true }

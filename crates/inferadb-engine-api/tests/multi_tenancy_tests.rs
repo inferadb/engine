@@ -11,8 +11,10 @@ use std::sync::Arc;
 use inferadb_engine_api::AppState;
 use inferadb_engine_config::Config;
 use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
-use inferadb_engine_store::{MemoryBackend, RelationshipStore};
+use inferadb_engine_repository::EngineStorage;
+use inferadb_engine_store::RelationshipStore;
 use inferadb_engine_types::Relationship;
+use inferadb_storage::MemoryBackend;
 
 /// Create a test schema for multi-tenant testing
 fn create_test_schema() -> Arc<Schema> {
@@ -28,7 +30,8 @@ fn create_test_schema() -> Arc<Schema> {
 
 /// Create test state with multiple vaults
 fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let schema = create_test_schema();
 
     // Create two separate vault/organization pairs for testing
@@ -358,7 +361,8 @@ async fn test_default_vault_fallback_when_auth_disabled() {
 
 #[tokio::test]
 async fn test_organization_can_own_multiple_vaults() {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let organization = 55555555555555i64;
     let vault1 = 66666666666666i64;
     let vault2 = 77777777777777i64;
@@ -414,7 +418,8 @@ async fn test_organization_can_own_multiple_vaults() {
 
 #[tokio::test]
 async fn test_vault_belongs_to_one_organization() {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let organization_a = 99999999999991i64;
     let organization_b = 99999999999992i64;
     let vault_id = 99999999999993i64;
@@ -462,7 +467,8 @@ async fn test_vault_belongs_to_one_organization() {
 
 #[tokio::test]
 async fn test_organization_cannot_access_other_organizations_vaults() {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let organization_a = 99999999999994i64;
     let organization_b = 99999999999995i64;
     let vault_a = 99999999999996i64;

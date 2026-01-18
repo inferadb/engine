@@ -6,9 +6,11 @@ use inferadb_engine_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use inferadb_engine_store::{MemoryBackend, RelationshipStore};
+use inferadb_engine_repository::EngineStorage;
+use inferadb_engine_store::RelationshipStore;
 use inferadb_engine_types::{Decision, EvaluateRequest, Relationship};
 use inferadb_engine_wasm::WasmHost;
+use inferadb_storage::MemoryBackend;
 
 /// Helper to create a simple schema with WASM module
 fn create_wasm_schema(module_name: &str) -> Schema {
@@ -67,7 +69,7 @@ async fn test_wasm_allow_policy() {
     wasm_host.load_module("allow_all".to_string(), &wasm).unwrap();
 
     let schema = create_wasm_schema("allow_all");
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
     let evaluator = Evaluator::new(
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
@@ -106,7 +108,7 @@ async fn test_wasm_deny_policy() {
     wasm_host.load_module("deny_all".to_string(), &wasm).unwrap();
 
     let schema = create_wasm_schema("deny_all");
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
     let evaluator = Evaluator::new(
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
@@ -145,7 +147,7 @@ async fn test_wasm_with_union() {
     wasm_host.load_module("business_hours".to_string(), &wasm).unwrap();
 
     let schema = create_union_schema("business_hours");
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
     let evaluator = Evaluator::new(
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
@@ -210,7 +212,7 @@ async fn test_wasm_with_intersection() {
     wasm_host.load_module("is_verified".to_string(), &wasm).unwrap();
 
     let schema = create_intersection_schema("is_verified");
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
     let evaluator = Evaluator::new(
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
@@ -260,7 +262,7 @@ async fn test_wasm_with_intersection() {
 #[tokio::test]
 async fn test_wasm_missing_host() {
     let schema = create_wasm_schema("some_module");
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
     let evaluator = Evaluator::new(
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
@@ -286,7 +288,7 @@ async fn test_wasm_missing_host() {
 async fn test_wasm_module_not_loaded() {
     let wasm_host = Arc::new(WasmHost::new().unwrap());
     let schema = create_wasm_schema("nonexistent");
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
     let evaluator = Evaluator::new(
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),
@@ -326,7 +328,7 @@ async fn test_wasm_with_trace() {
     wasm_host.load_module("test_module".to_string(), &wasm).unwrap();
 
     let schema = create_wasm_schema("test_module");
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
     let evaluator = Evaluator::new(
         store.clone() as Arc<dyn RelationshipStore>,
         Arc::new(schema),

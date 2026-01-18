@@ -22,8 +22,9 @@ use inferadb_engine_api::{
 };
 use inferadb_engine_config::Config;
 use inferadb_engine_core::ipl::{RelationDef, Schema, TypeDef};
-use inferadb_engine_store::MemoryBackend;
+use inferadb_engine_repository::EngineStorage;
 use inferadb_engine_types::{AuthContext, AuthMethod};
+use inferadb_storage::MemoryBackend;
 use tonic::{Request, Status, transport::Server};
 
 /// Test interceptor that injects a mock AuthContext for all requests
@@ -64,7 +65,8 @@ impl tonic::service::Interceptor for TestAuthInterceptor {
 }
 
 async fn setup_test_server() -> (AuthorizationServiceClient<tonic::transport::Channel>, String) {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],

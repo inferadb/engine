@@ -201,13 +201,14 @@ impl ParallelEvaluator {
 
 #[cfg(test)]
 mod tests {
-    use inferadb_engine_store::MemoryBackend;
+    use inferadb_engine_repository::EngineStorage;
+    use inferadb_storage::MemoryBackend;
 
     use super::*;
     use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
     async fn create_test_evaluator() -> Arc<Evaluator> {
-        let store = Arc::new(MemoryBackend::new());
+        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
         let types = vec![TypeDef::new(
             "document".to_string(),

@@ -71,6 +71,8 @@ pub struct Config {
     #[serde(default)]
     pub foundationdb: FoundationDbConfig,
     #[serde(default)]
+    pub ledger: LedgerConfig,
+    #[serde(default)]
     pub cache: CacheConfig,
     #[serde(default)]
     pub token: TokenConfig,
@@ -138,6 +140,30 @@ pub struct FoundationDbConfig {
     /// FoundationDB cluster file path
     /// e.g., "/etc/foundationdb/fdb.cluster"
     pub cluster_file: Option<String>,
+}
+
+/// Ledger storage configuration (only used when storage = "ledger")
+///
+/// The Ledger backend provides cryptographically verifiable storage using
+/// InferaDB Ledger. This is the target production storage backend.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LedgerConfig {
+    /// Ledger server endpoint URL
+    /// e.g., "http://localhost:50051" or "https://ledger.inferadb.com:50051"
+    pub endpoint: Option<String>,
+
+    /// Client ID for idempotency tracking
+    /// Should be unique per engine instance to ensure correct duplicate detection
+    /// e.g., "engine-prod-us-west-1a-001"
+    pub client_id: Option<String>,
+
+    /// Namespace ID for data scoping
+    /// All keys will be stored within this namespace
+    pub namespace_id: Option<i64>,
+
+    /// Optional vault ID for finer-grained key scoping
+    /// If set, keys are scoped to this specific vault within the namespace
+    pub vault_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -583,9 +609,9 @@ impl Config {
         })?;
 
         // Validate storage backend
-        if self.storage != "memory" && self.storage != "foundationdb" {
+        if self.storage != "memory" && self.storage != "foundationdb" && self.storage != "ledger" {
             anyhow::bail!(
-                "Invalid storage: '{}'. Must be 'memory' or 'foundationdb'",
+                "Invalid storage: '{}'. Must be 'memory', 'foundationdb', or 'ledger'",
                 self.storage
             );
         }
@@ -593,6 +619,27 @@ impl Config {
         // Validate FoundationDB configuration
         if self.storage == "foundationdb" && self.foundationdb.cluster_file.is_none() {
             anyhow::bail!("foundationdb.cluster_file is required when using FoundationDB backend");
+        }
+
+        // Validate Ledger configuration
+        if self.storage == "ledger" {
+            if self.ledger.endpoint.is_none() {
+                anyhow::bail!("ledger.endpoint is required when using Ledger backend");
+            }
+            if self.ledger.client_id.is_none() {
+                anyhow::bail!("ledger.client_id is required when using Ledger backend");
+            }
+            if self.ledger.namespace_id.is_none() {
+                anyhow::bail!("ledger.namespace_id is required when using Ledger backend");
+            }
+            // Validate endpoint URL format
+            let endpoint = self.ledger.endpoint.as_ref().unwrap();
+            if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
+                anyhow::bail!(
+                    "ledger.endpoint must start with http:// or https://, got: {}",
+                    endpoint
+                );
+            }
         }
 
         // Validate token config
@@ -643,6 +690,7 @@ impl Default for Config {
             },
             storage: default_storage(),
             foundationdb: FoundationDbConfig::default(),
+            ledger: LedgerConfig::default(),
             cache: CacheConfig {
                 enabled: default_cache_enabled(),
                 capacity: default_cache_capacity(),

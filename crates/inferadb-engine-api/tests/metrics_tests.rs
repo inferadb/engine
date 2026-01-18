@@ -15,10 +15,11 @@ use inferadb_engine_api::{
 use inferadb_engine_auth::{internal::InternalJwksLoader, jwks_cache::JwksCache};
 use inferadb_engine_config::Config;
 use inferadb_engine_core::ipl::{RelationDef, Schema, TypeDef};
-use inferadb_engine_store::MemoryBackend;
+use inferadb_engine_repository::EngineStorage;
 use inferadb_engine_test_fixtures::{
     InternalClaims, create_internal_jwks, generate_internal_jwt, generate_internal_keypair,
 };
+use inferadb_storage::MemoryBackend;
 use tonic::{
     Request,
     metadata::MetadataValue,
@@ -33,7 +34,8 @@ fn create_test_schema() -> Arc<Schema> {
 }
 
 fn create_test_state(jwks_cache: Option<Arc<JwksCache>>) -> AppState {
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = Arc::new(MemoryBackend::new());
+    let store: Arc<dyn inferadb_engine_store::InferaStore> =
+        Arc::new(EngineStorage::new(MemoryBackend::new()));
     let schema = create_test_schema();
 
     let config = Config::default();

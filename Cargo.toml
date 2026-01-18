@@ -11,6 +11,7 @@ members = [
   "crates/inferadb-engine-discovery",
   "crates/inferadb-engine-fdb-shared",
   "crates/inferadb-engine-observe",
+  "crates/inferadb-engine-repository",
   "crates/inferadb-engine-store",
   "crates/inferadb-engine-test-fixtures",
   "crates/inferadb-engine-types",

@@ -9,8 +9,10 @@ use inferadb_engine_core::{
     Evaluator,
     ipl::{RelationDef, RelationExpr, Schema, TypeDef},
 };
-use inferadb_engine_store::{MemoryBackend, RelationshipStore};
+use inferadb_engine_repository::EngineStorage;
+use inferadb_engine_store::RelationshipStore;
 use inferadb_engine_types::{Decision, EvaluateRequest, Relationship, RelationshipKey};
+use inferadb_storage::MemoryBackend;
 use tokio::task::JoinSet;
 
 mod common;
@@ -47,7 +49,7 @@ async fn test_write_then_read_same_client() {
 #[tokio::test]
 async fn test_write_then_read_different_evaluators() {
     let schema = create_simple_schema();
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Create two evaluators sharing the same store
     let _evaluator1 = Evaluator::new(
@@ -118,7 +120,7 @@ async fn test_delete_then_read() {
 
 #[tokio::test]
 async fn test_revision_monotonicity() {
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Write and get revision
     let rev1 = store
@@ -154,7 +156,7 @@ async fn test_revision_monotonicity() {
 
 #[tokio::test]
 async fn test_write_returns_new_revision() {
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Each write should return a new revision
     let rev1 = store
@@ -207,7 +209,7 @@ async fn test_write_returns_new_revision() {
 #[tokio::test]
 async fn test_evaluator_concurrent_reads() {
     let schema = create_simple_schema();
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Write initial data
     store
@@ -265,7 +267,7 @@ async fn test_evaluator_concurrent_reads() {
 
 #[tokio::test]
 async fn test_evaluator_concurrent_writes() {
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Spawn multiple concurrent writes
     let mut set = JoinSet::new();
@@ -302,7 +304,7 @@ async fn test_evaluator_concurrent_writes() {
 #[tokio::test]
 async fn test_concurrent_write_and_read() {
     let schema = create_simple_schema();
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Start concurrent writes
     let mut write_set = JoinSet::new();
@@ -359,7 +361,7 @@ async fn test_concurrent_write_and_read() {
 
 #[tokio::test]
 async fn test_concurrent_write_delete() {
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Write initial data
     for i in 0..5 {
@@ -420,7 +422,7 @@ async fn test_concurrent_write_delete() {
 #[tokio::test]
 async fn test_read_your_own_writes() {
     let schema = create_simple_schema();
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Each task writes and immediately reads its own data
     let mut set = JoinSet::new();
@@ -475,8 +477,8 @@ async fn test_read_your_own_writes() {
 async fn test_eventual_consistency_simulation() {
     // Simulate eventual consistency by having multiple stores
     // that eventually converge
-    let store1 = Arc::new(MemoryBackend::new());
-    let store2 = Arc::new(MemoryBackend::new());
+    let store1 = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store2 = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Write to store1
     let relationships = vec![
@@ -509,7 +511,7 @@ async fn test_eventual_consistency_simulation() {
 
 #[tokio::test]
 async fn test_conflicting_writes_both_preserved() {
-    let store = Arc::new(MemoryBackend::new());
+    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Two separate writes for the same document but different users
     store
@@ -565,8 +567,8 @@ async fn test_conflicting_writes_both_preserved() {
 #[tokio::test]
 async fn test_cross_region_consistency() {
     // Simulate cross-region consistency by using multiple stores
-    let region_a = Arc::new(MemoryBackend::new());
-    let region_b = Arc::new(MemoryBackend::new());
+    let region_a = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let region_b = Arc::new(EngineStorage::new(MemoryBackend::new()));
 
     // Write in region A
     let relationship = Relationship {

@@ -12,6 +12,8 @@ default = []
 test-utils = []
 # Enable FoundationDB-based features (invalidation watcher)
 fdb = ["foundationdb", "inferadb-engine-fdb-shared"]
+# Enable Ledger-based integration tests
+ledger = ["inferadb-storage-ledger"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -57,9 +59,16 @@ inferadb-engine-core = { path = "../inferadb-engine-core" }
 inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
 inferadb-engine-fdb-shared = { path = "../inferadb-engine-fdb-shared", optional = true }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }
+inferadb-engine-repository = { path = "../inferadb-engine-repository" }
 inferadb-engine-store = { path = "../inferadb-engine-store" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
 inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
+
+# Shared storage abstraction
+inferadb-storage = { path = "../../../crates/inferadb-storage" }
+
+# Ledger backend (optional, for integration tests)
+inferadb-storage-ledger = { path = "../../../crates/inferadb-storage-ledger", optional = true }
 
 [build-dependencies]
 tonic-build = "0.14.2"
@@ -85,3 +94,8 @@ warp = { version = "0.4.2", features = ["server"] }
 [[bench]]
 harness = false
 name = "api_throughput"
+
+[[test]]
+name = "ledger_integration"
+path = "tests/ledger_integration.rs"
+required-features = ["ledger"]
