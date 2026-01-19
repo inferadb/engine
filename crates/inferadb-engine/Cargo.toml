@@ -34,8 +34,8 @@ inferadb-engine-types = { path = "../inferadb-engine-types" }
 inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
 
 # Shared storage abstraction
-inferadb-storage = { path = "../../../crates/inferadb-storage" }
-inferadb-storage-ledger = { path = "../../../crates/inferadb-storage-ledger", optional = true }
+inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
+inferadb-storage-ledger = { path = "../../../common/crates/inferadb-storage-ledger", optional = true }
 
 [features]
 default = []

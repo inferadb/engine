@@ -33,7 +33,7 @@ inferadb-engine-repository = { path = "../inferadb-engine-repository" }
 inferadb-engine-store = { path = "../inferadb-engine-store" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
 inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
-inferadb-storage = { path = "../../../crates/inferadb-storage" }
+inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
 
 [dev-dependencies]
 criterion = { workspace = true }

@@ -10,7 +10,7 @@ description = "Repository layer for Engine storage operations"
 
 [dependencies]
 # Shared storage abstraction
-inferadb-storage = { path = "../../../crates/inferadb-storage" }
+inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
 
 # Engine types
 inferadb-engine-types = { path = "../inferadb-engine-types" }
