@@ -6,7 +6,7 @@ Kubernetes manifests for deploying InferaDB Engine.
 
 - Kubernetes 1.24+
 - kubectl configured to access your cluster
-- FoundationDB operator (optional, for FDB storage backend)
+- Ledger cluster (for Ledger storage backend)
 - Metrics server (for HPA)
 - Prometheus (for monitoring)
 
@@ -120,16 +120,17 @@ spec:
 INFERADB__ENGINE__STORAGE: "memory"
 ```
 
-### FoundationDB (Production)
+### Ledger (Production)
 
-1. Install FoundationDB Operator
-2. Create FDB cluster
-3. Configure:
+1. Deploy Ledger StatefulSet (see [deploy/flux/apps/base/ledger/](../../../deploy/flux/apps/base/ledger/))
+2. Configure:
 
 ```yaml
 # In configmap.yaml
-INFERADB__ENGINE__STORAGE: "foundationdb"
-INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
+INFERADB__ENGINE__STORAGE: "ledger"
+INFERADB__ENGINE__LEDGER__ENDPOINT: "http://inferadb-ledger-client.inferadb:50051"
+INFERADB__ENGINE__LEDGER__CLIENT_ID: "engine-001"
+INFERADB__ENGINE__LEDGER__NAMESPACE_ID: "1"
 ```
 
 ## Scaling

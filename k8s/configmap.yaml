@@ -16,8 +16,10 @@ data:
   INFERADB__ENGINE__LISTEN__MESH: "0.0.0.0:8082"
 
   # Storage configuration
-  INFERADB__ENGINE__STORAGE: "foundationdb"
-  INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
+  INFERADB__ENGINE__STORAGE: "ledger"
+  INFERADB__ENGINE__LEDGER__ENDPOINT: "http://inferadb-ledger-client.inferadb:50051"
+  INFERADB__ENGINE__LEDGER__CLIENT_ID: "engine-001"
+  INFERADB__ENGINE__LEDGER__NAMESPACE_ID: "1"
 
   # Cache configuration
   INFERADB__ENGINE__CACHE__ENABLED: "true"
@@ -51,9 +53,11 @@ data:
         grpc: "0.0.0.0:8081"
         mesh: "0.0.0.0:8082"
 
-      storage: "foundationdb"
-      foundationdb:
-        cluster_file: "/etc/foundationdb/fdb.cluster"
+      storage: "ledger"
+      ledger:
+        endpoint: "http://inferadb-ledger-client.inferadb:50051"
+        client_id: "engine-001"
+        namespace_id: 1
 
       cache:
         enabled: true

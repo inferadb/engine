@@ -35,18 +35,10 @@ inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
 
 # Shared storage abstraction
 inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
-inferadb-storage-ledger = { path = "../../../common/crates/inferadb-storage-ledger", optional = true }
+inferadb-storage-ledger = { path = "../../../common/crates/inferadb-storage-ledger" }
 
 [features]
 default = []
-# Enable FoundationDB storage backend and FDB-based features
-fdb = [
-  "inferadb-engine-api/fdb",
-  "inferadb-engine-auth/fdb",
-  "inferadb-engine-store/fdb",
-]
-# Enable Ledger storage backend (target production)
-ledger = ["inferadb-storage-ledger"]
 
 [dev-dependencies]
 futures = { workspace = true }

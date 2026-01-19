@@ -121,7 +121,7 @@ Monitor authorization patterns and anomalies
 **Actions**:
 
 1. Check error logs for specific error types
-2. Verify database connectivity (FoundationDB)
+2. Verify storage connectivity (Ledger cluster)
 3. Check for OOM or resource exhaustion
 4. Review recent deployments or configuration changes
 5. Consider rolling back if caused by recent change
@@ -153,7 +153,7 @@ Monitor authorization patterns and anomalies
 
 **Actions**:
 
-1. Check database latency (FoundationDB performance)
+1. Check storage latency (Ledger performance)
 2. Review evaluation complexity (depth, branches)
 3. Check cache hit rate
 4. Look for expensive WASM modules
@@ -544,15 +544,15 @@ Critical - Page immediately
    topk(10, sum by (error_type) (rate(inferadb_api_errors_total[5m])))
    ```
 
-2. Verify database connectivity:
+2. Verify storage connectivity:
 
    ```bash
-   fdbcli --exec "status"
+   grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
    ```
 
 ## Resolution
 
-1. If database issue: Contact DBA, check FoundationDB cluster
+1. If storage issue: Contact DBA, check Ledger cluster
 2. If resource exhaustion: Scale up InferaDB pods
 3. If bad deployment: Rollback to previous version
 4. If WASM errors: Disable problematic WASM modules

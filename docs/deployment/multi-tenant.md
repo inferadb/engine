@@ -32,15 +32,15 @@ graph TD
     LB --> API2["InferaDB API Server<br/>(Stateless)"]
     LB --> API3["InferaDB API Server<br/>(Stateless)"]
 
-    API1 --> FDB["FoundationDB<br/>(Distributed)"]
-    API2 --> FDB
-    API3 --> FDB
+    API1 --> Ledger["Ledger<br/>(Distributed)"]
+    API2 --> Ledger
+    API3 --> Ledger
 
     style LB fill:#1E88E5,stroke:#1565C0,color:#fff
     style API1 fill:#4CAF50,stroke:#2E7D32,color:#fff
     style API2 fill:#4CAF50,stroke:#2E7D32,color:#fff
     style API3 fill:#4CAF50,stroke:#2E7D32,color:#fff
-    style FDB fill:#FF9800,stroke:#F57C00,color:#fff
+    style Ledger fill:#FF9800,stroke:#F57C00,color:#fff
 ```
 
 ---
@@ -105,8 +105,8 @@ server:
   worker_threads: 8
 
 storage:
-  backend: "foundationdb"
-  cluster_file: "/etc/foundationdb/fdb.cluster"
+  backend: "ledger"
+  endpoint: "http://ledger:50051"
 
 cache:
   enabled: true
@@ -131,7 +131,6 @@ docker run -d \
   -p 8080:8080 \
   -p 9090:9090 \
   -v $(pwd)/config.yaml:/etc/inferadb/config.yaml \
-  -v /etc/foundationdb:/etc/foundationdb:ro \
   inferadb/inferadb-engine:latest
 
 # Using systemd
@@ -469,15 +468,14 @@ curl -X POST \
   "http://localhost:8080/v1/vaults/$VAULT_ID/import"
 ```
 
-**Full System Backup** (FoundationDB):
+**Full System Backup** (Ledger):
 
 ```bash
-# FDB backup
-fdbbackup start -d file:///backups/inferadb \
-  -C /etc/foundationdb/fdb.cluster
+# Ledger backup via gRPC
+grpcurl -plaintext ledger:50051 ledger.v1.Admin/CreateSnapshot
 
 # Schedule daily backups
-0 2 * * * /usr/local/bin/fdbbackup start -d file:///backups/inferadb-$(date +\%Y\%m\%d)
+0 2 * * * grpcurl -plaintext ledger:50051 ledger.v1.Admin/CreateSnapshot
 ```
 
 ### 6. Compliance and Data Residency

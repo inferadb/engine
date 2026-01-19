@@ -36,8 +36,6 @@ engine/
 - `inferadb-engine-config` - YAML configuration loading
 - `inferadb-engine-observe` - Metrics, tracing, OpenTelemetry
 - `inferadb-engine-discovery` - Service mesh/discovery integration
-- `inferadb-engine-fdb-shared` - FoundationDB shared utilities
-
 ### Security
 - `inferadb-engine-auth` - JWT validation, JWKS, authentication
 

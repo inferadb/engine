@@ -25,7 +25,7 @@ cargo build --release         # Release build (optimized)
 cargo nextest run --lib --workspace          # Run unit tests
 cargo nextest run --test '*' --workspace     # Run integration tests
 cargo test --doc --all-features              # Run doc tests
-./docker/fdb-integration-tests/test.sh       # FoundationDB integration tests
+./docker/ledger-integration-tests/test.sh    # Ledger integration tests
 ./docker/aws-integration-tests/test.sh       # AWS Secrets Manager tests
 ./docker/gcp-integration-tests/test.sh       # GCP Secret Manager tests
 ./docker/azure-integration-tests/test.sh     # Azure Key Vault tests

@@ -8,7 +8,7 @@ This Terraform module creates an AWS EKS cluster optimized for running InferaDB 
 - **Multi-AZ Deployment**: High availability across 3 availability zones
 - **Private Networking**: Worker nodes in private subnets with NAT gateways
 - **IRSA Support**: IAM Roles for Service Accounts via OIDC provider
-- **EBS CSI Driver**: Persistent volumes for FoundationDB and Redis
+- **EBS CSI Driver**: Persistent volumes for stateful workloads
 - **Security**: Encrypted secrets, VPC isolation, security groups
 - **Observability**: Control plane logging enabled
 

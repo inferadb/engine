@@ -3,6 +3,7 @@
     <h1>InferaDB Authorization Engine</h1>
     <p>
         <a href="https://discord.gg/inferadb"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
+        <a href="https://github.com/inferadb/engine/actions/workflows/ci.yml"><img src="https://github.com/inferadb/engine/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
         <a href="https://codecov.io/github/inferadb/engine"><img src="https://codecov.io/github/inferadb/engine/graph/badge.svg?token=S4493HEHYQ" alt="Code Coverage" /></a>
         <a href="#license"><img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg" alt="License" /></a>
     </p>
@@ -63,7 +64,7 @@ curl -X POST http://localhost:8080/v1/relationships/write \
 | **Multi-Tenant** | Data isolation via Accounts and Vaults            |
 | **Wildcards**    | Model public resources with `user:*`              |
 | **Observable**   | Prometheus, OpenTelemetry, structured logs        |
-| **Storage**      | Memory (dev), FoundationDB, or Ledger (prod)      |
+| **Storage**      | Memory (dev) or Ledger (prod)                     |
 | **Extensible**   | WASM modules for custom logic                     |
 
 ## Architecture
@@ -114,7 +115,7 @@ engine:
     grpc: "0.0.0.0:8081"
     mesh: "0.0.0.0:8082"
 
-  # Storage: "memory" (dev), "foundationdb", or "ledger" (production)
+  # Storage: "memory" (dev) or "ledger" (production)
   storage: "ledger"
 
   # Ledger configuration (requires --features ledger)

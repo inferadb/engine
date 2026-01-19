@@ -25,7 +25,7 @@ cargo deny check
 ```
 
 ## Additional Checks (As Needed)
-- `./docker/fdb-integration-tests/test.sh` - If changes affect FoundationDB storage
+- `./docker/ledger-integration-tests/test.sh` - If changes affect Ledger storage
 - `cargo llvm-cov --workspace --html` - If adding new code paths
 - `cargo bench` - If performance-sensitive changes
 - `cargo deny check` - Check for dependency issues

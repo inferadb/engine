@@ -141,7 +141,7 @@ histogram_quantile(0.99, rate(inferadb_storage_write_duration_seconds_bucket[5m]
 
 **Measurement Window**: 5-minute rolling window
 
-**Rationale**: Fast storage operations are essential for low authorization latency. 5ms target accounts for disk I/O (memory backend: <1ms, FoundationDB: 2-5ms).
+**Rationale**: Fast storage operations are essential for low authorization latency. 5ms target accounts for disk I/O (memory backend: <1ms, Ledger: 2-5ms).
 
 ---
 

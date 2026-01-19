@@ -80,7 +80,7 @@ With the unified format, environment variables use the `INFERADB__ENGINE__` pref
 export INFERADB__ENGINE__THREADS=4
 export INFERADB__ENGINE__LOGGING="info"
 export INFERADB__ENGINE__LISTEN__HTTP="0.0.0.0:8080"
-export INFERADB__ENGINE__STORAGE="foundationdb"
+export INFERADB__ENGINE__STORAGE="ledger"
 
 # Control configuration (uses INFERADB__CONTROL__ prefix)
 export INFERADB__CONTROL__THREADS=4
@@ -106,8 +106,8 @@ engine:
     mesh: "0.0.0.0:8082"
 
   storage: "memory"
-  foundationdb:
-    cluster_file: null
+  ledger:
+    endpoint: null
 
   cache:
     enabled: true
@@ -154,8 +154,8 @@ export INFERADB__ENGINE__LISTEN__GRPC="0.0.0.0:8081"
 export INFERADB__ENGINE__LISTEN__MESH="0.0.0.0:8082"
 
 # Storage configuration
-export INFERADB__ENGINE__STORAGE="foundationdb"
-export INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
+export INFERADB__ENGINE__STORAGE="ledger"
+export INFERADB__ENGINE__LEDGER__ENDPOINT="http://ledger:50051"
 
 # Cache configuration
 export INFERADB__ENGINE__CACHE__ENABLED=true
@@ -253,13 +253,13 @@ Controls the tuple storage backend.
 
 | Option    | Type   | Default    | Description                                     |
 | --------- | ------ | ---------- | ----------------------------------------------- |
-| `storage` | string | `"memory"` | Storage backend: `"memory"` or `"foundationdb"` |
+| `storage` | string | `"memory"` | Storage backend: `"memory"` or `"ledger"` |
 
-### FoundationDB Options
+### Ledger Options
 
-| Option                      | Type              | Default | Description                       |
-| --------------------------- | ----------------- | ------- | --------------------------------- |
-| `foundationdb.cluster_file` | string (optional) | `null`  | Path to FoundationDB cluster file |
+| Option            | Type              | Default | Description            |
+| ----------------- | ----------------- | ------- | ---------------------- |
+| `ledger.endpoint` | string (optional) | `null`  | Ledger gRPC endpoint   |
 
 ### Backend Options
 
@@ -275,31 +275,31 @@ engine:
   storage: "memory"
 ```
 
-#### FoundationDB Backend (Production)
+#### Ledger Backend (Production)
 
 - **Use case**: Production deployments
-- **Persistence**: ACID transactions, replication
+- **Persistence**: ACID transactions, Raft-based replication
 - **Performance**: High throughput, low latency
-- **Configuration**: Requires FDB cluster file path
+- **Configuration**: Requires Ledger gRPC endpoint
 
 ```yaml
 engine:
-  storage: "foundationdb"
-  foundationdb:
-    cluster_file: "/etc/foundationdb/fdb.cluster"
+  storage: "ledger"
+  ledger:
+    endpoint: "http://ledger:50051"
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB__ENGINE__STORAGE="foundationdb"
-export INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE="/etc/foundationdb/fdb.cluster"
+export INFERADB__ENGINE__STORAGE="ledger"
+export INFERADB__ENGINE__LEDGER__ENDPOINT="http://ledger:50051"
 ```
 
 ### Recommendations
 
 - **Development/Testing**: Use `memory` backend
-- **Staging/Production**: Use `foundationdb` backend
+- **Staging/Production**: Use `ledger` backend
 
 ## Cache Configuration
 
@@ -679,9 +679,9 @@ engine:
     grpc: "0.0.0.0:8081"
     mesh: "0.0.0.0:8082"
 
-  storage: "foundationdb"
-  foundationdb:
-    cluster_file: "/etc/foundationdb/fdb.cluster"
+  storage: "ledger"
+  ledger:
+    endpoint: "http://ledger:50051"
 
   cache:
     enabled: true
@@ -810,8 +810,8 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 
 **Storage**:
 
-- `storage` must be `"memory"` or `"foundationdb"`
-- `foundationdb.cluster_file` required when `storage = "foundationdb"`
+- `storage` must be `"memory"` or `"ledger"`
+- `ledger.endpoint` required when `storage = "ledger"`
 
 **Cache**:
 
@@ -836,11 +836,11 @@ InferaDB validates configuration at startup. Invalid configurations fail fast wi
 ### Example Validation Errors
 
 ```text
-Error: Invalid storage: 'postgres'. Must be 'memory' or 'foundationdb'
+Error: Invalid storage: 'postgres'. Must be 'memory' or 'ledger'
 ```
 
 ```text
-Error: foundationdb.cluster_file is required when using FoundationDB backend
+Error: ledger.endpoint is required when using Ledger backend
 ```
 
 ```text
@@ -880,9 +880,9 @@ Error: Invalid logging level: 'verbose'. Must be one of: trace, debug, info, war
    - Adjust `ttl` based on update frequency
    - Monitor cache hit rate (target >80%)
 
-3. **Use FoundationDB in production**
+3. **Use Ledger in production**
    - Memory backend doesn't persist
-   - FoundationDB provides ACID + replication
+   - Ledger provides ACID + Raft replication
 
 ### Observability
 
@@ -935,11 +935,9 @@ services:
       INFERADB__ENGINE__LISTEN__HTTP: "0.0.0.0:8080"
       INFERADB__ENGINE__LISTEN__GRPC: "0.0.0.0:8081"
       INFERADB__ENGINE__LISTEN__MESH: "0.0.0.0:8082"
-      INFERADB__ENGINE__STORAGE: "foundationdb"
-      INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE: "/etc/foundationdb/fdb.cluster"
+      INFERADB__ENGINE__STORAGE: "ledger"
+      INFERADB__ENGINE__LEDGER__ENDPOINT: "http://ledger:50051"
       INFERADB__ENGINE__MESH__URL: "http://control:9092"
-    volumes:
-      - /etc/foundationdb:/etc/foundationdb:ro
 ```
 
 ### Kubernetes

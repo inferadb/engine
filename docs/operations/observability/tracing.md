@@ -76,7 +76,7 @@ InferaDB enriches traces with contextual attributes:
 
 **Storage Attributes**:
 
-- `inferadb.storage.backend`: Storage backend type ("memory", "foundationdb")
+- `inferadb.storage.backend`: Storage backend type ("memory", "ledger")
 - `inferadb.storage.revision`: Storage revision used for the check
 
 **Authentication Attributes**:

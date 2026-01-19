@@ -76,7 +76,7 @@ curl http://localhost:8080/health
 
 ```bash
 # From repository root
-docker-compose up -d foundationdb control engine
+docker-compose up -d ledger control engine
 docker-compose ps
 # All services should be "healthy"
 ```

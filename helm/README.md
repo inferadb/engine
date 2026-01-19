@@ -42,7 +42,7 @@ See [values.yaml](values.yaml) for all configuration options.
 
 ### Common Configurations
 
-#### Production with FoundationDB
+#### Production with Ledger
 
 ```yaml
 replicaCount: 5
@@ -56,9 +56,9 @@ resources:
     memory: 8Gi
 
 config:
-  storage: "foundationdb"
-  foundationdb:
-    clusterFile: "/etc/foundationdb/fdb.cluster"
+  storage: "ledger"
+  ledger:
+    endpoint: "http://inferadb-ledger-client:50051"
 
   token:
     cacheTtl: 900 # 15 min JWKS cache for production
@@ -75,9 +75,9 @@ autoscaling:
   minReplicas: 5
   maxReplicas: 50
 
-foundationdb:
+ledger:
   enabled: true
-  clusterName: "foundationdb-cluster"
+  serviceName: "inferadb-ledger-client"
 ```
 
 #### Development with In-Memory Storage
@@ -244,9 +244,9 @@ helm install inferadb-engine ./helm \
 cat > production-values.yaml <<EOF
 replicaCount: 5
 config:
-  storage: foundationdb
-  foundationdb:
-    clusterFile: "/etc/foundationdb/fdb.cluster"
+  storage: ledger
+  ledger:
+    endpoint: "http://inferadb-ledger-client:50051"
   token:
     cacheTtl: 900
   mesh:

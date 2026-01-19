@@ -508,7 +508,7 @@ document:readme#reader@user:*
 ### 6. Deployment
 
 - [ ] Set up InferaDB server (Docker/K8s)
-- [ ] Configure storage backend (Memory/FoundationDB)
+- [ ] Configure storage backend (Memory/Ledger)
 - [ ] Set up monitoring (Prometheus/Grafana)
 - [ ] Configure multi-region replication (if needed)
 

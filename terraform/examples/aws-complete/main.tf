@@ -233,8 +233,8 @@ resource "helm_release" "inferadb" {
       }
 
       config = {
-        # Storage backend: "memory" or "foundationdb"
-        storage = "memory"  # Change to "foundationdb" for production
+        # Storage backend: "memory" or "ledger"
+        storage = "memory"  # Change to "ledger" for production
         logging = "info"
 
         # Cache configuration

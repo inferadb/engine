@@ -23,7 +23,7 @@ pub struct StoreMetrics {
     delete_latency_us: AtomicU64,
     delete_errors: AtomicU64,
 
-    // Retry metrics (for FoundationDB)
+    // Retry metrics (for transactional backends)
     retry_count: AtomicU64,
 
     // Key space metrics

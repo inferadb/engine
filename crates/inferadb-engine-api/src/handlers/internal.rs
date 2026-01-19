@@ -3,8 +3,8 @@
 //! The metrics endpoint is publicly accessible for Prometheus scraping.
 //!
 //! Note: HTTP cache invalidation endpoints have been removed.
-//! Cache invalidation is now handled via FDB-based invalidation.
-//! See fdb_invalidation_watcher.rs for the implementation.
+//! Cache invalidation is now handled via Ledger-based WatchBlocks streaming.
+//! See ledger_invalidation_watcher.rs for the implementation.
 
 use axum::{http::StatusCode, response::IntoResponse};
 

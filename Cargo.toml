@@ -9,7 +9,6 @@ members = [
   "crates/inferadb-engine-control-client",
   "crates/inferadb-engine-core",
   "crates/inferadb-engine-discovery",
-  "crates/inferadb-engine-fdb-shared",
   "crates/inferadb-engine-observe",
   "crates/inferadb-engine-repository",
   "crates/inferadb-engine-store",
@@ -71,8 +70,6 @@ wasmtime = { version = "40.0", default-features = false, features = [
   "wat",
 ] }
 
-# Storage
-foundationdb = { version = "0.10", features = ["fdb-7_3"] }
 
 # Caching
 moka = { version = "0.12", features = ["future"] }

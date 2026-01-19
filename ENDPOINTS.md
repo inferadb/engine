@@ -1827,7 +1827,7 @@ data: {"error":"Failed to read changes: database error"}
 **Change Log Storage:**
 
 - **Memory Backend**: BTreeMap ordered by revision for efficient range queries
-- **FoundationDB Backend**: Subspace with revision-based keys for durability
+- **Ledger Backend**: Cryptographically signed blocks with revision-based keys for durability
 - **Automatic Capture**: Write/Delete operations automatically append to change log
 
 **Use cases enabled:**
@@ -2258,7 +2258,7 @@ These endpoints are present in **ALL or MOST** alternatives but missing in Infer
 - **gRPC**: `ListResources` RPC (infera.proto:32, grpc.rs:352-409)
 - **REST**: `POST /list-resources` (SSE streaming-only) (lib.rs:756-912)
 - **Core logic**: evaluator.rs:953-1048
-- **Storage**: list_objects_by_type trait method (lib.rs:89, memory.rs:265-297, foundationdb.rs:390-449)
+- **Storage**: list_objects_by_type trait method (lib.rs:89, memory.rs:265-297)
 - **OpenAPI**: openapi.yaml:258-410
 - **Tests**: 6 unit tests in evaluator.rs:2284-2534, 4 REST tests in lib.rs:1585-1868
 

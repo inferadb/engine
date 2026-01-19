@@ -285,7 +285,7 @@ Each alert includes a `runbook_url` annotation pointing to troubleshooting steps
 
 **Steps**:
 
-1. Check storage backend metrics (FoundationDB, etc.)
+1. Check Ledger storage backend metrics
 2. Review slow query logs
 3. Check for storage capacity issues
 4. Look for network latency to storage

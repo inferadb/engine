@@ -328,7 +328,7 @@ proptest! {
 
 **Workaround:**
 
-- Use FoundationDB backend for production
+- Use Ledger backend for production
 - Implement export/import if needed
 - Use for development/testing only
 
@@ -345,7 +345,7 @@ proptest! {
 **Workaround:**
 
 - Aggressive GC policy
-- Migrate to FoundationDB for large datasets
+- Migrate to Ledger for large datasets
 
 ### 3. Single Node
 
@@ -353,7 +353,7 @@ proptest! {
 
 **Workaround:**
 
-- Use FoundationDB for multi-node setups
+- Use Ledger for multi-node setups
 - Memory backend is development/testing only
 
 ### 4. No Durable Transactions
@@ -362,7 +362,7 @@ proptest! {
 
 **Workaround:**
 
-- Use FoundationDB for durability
+- Use Ledger for durability
 - Memory backend has atomic in-memory operations
 
 ## Best Practices
@@ -409,9 +409,9 @@ println!("Total versions: {}", stats.total_versions);
 println!("Memory estimate: {}MB", stats.memory_estimate_mb());
 ```
 
-## Comparison with FoundationDB
+## Comparison with Ledger
 
-| Feature      | Memory            | FoundationDB     |
+| Feature      | Memory            | Ledger     |
 | ------------ | ----------------- | ---------------- |
 | Setup        | Zero config       | Requires cluster |
 | Latency      | < 1μs             | < 5ms            |
@@ -426,6 +426,6 @@ println!("Memory estimate: {}MB", stats.memory_estimate_mb());
 ## See Also
 
 - [Storage Backends Overview](./storage-backends.md)
-- [FoundationDB Backend](./storage-foundationdb.md)
+- [Ledger Backend](./storage-ledger.md)
 - [Revision Tokens](./revision-tokens.md)
 - [Caching Layer](./caching.md)

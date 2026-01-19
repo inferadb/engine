@@ -91,7 +91,7 @@ initial_prompt: |
 
   Key directories:
   - crates/engine/ - Core authorization engine
-  - crates/storage/ - Storage backends (Memory, FoundationDB)
+  - crates/storage/ - Storage backends (Memory, Ledger)
   - crates/policy/ - IPL parser and evaluator
   - crates/types/ - Shared types and models
 

@@ -217,7 +217,7 @@ pub trait RelationshipStore {
 }
 ```
 
-**Database Schema** (FoundationDB):
+**Database Schema** (Ledger):
 
 ```text
 Key Pattern:
@@ -461,7 +461,7 @@ Every access token **must** include vault and account claims:
 
 ### Query Performance with Vault Filtering
 
-**FoundationDB Storage**:
+**Ledger Storage**:
 
 - Vault filtering adds minimal overhead (~1-2%)
 - Indexes are vault-prefixed for optimal performance
@@ -478,7 +478,7 @@ Every access token **must** include vault and account claims:
 **Horizontal Scaling**:
 
 - Stateless API servers can handle any vault
-- FoundationDB provides distributed storage
+- Ledger provides distributed storage
 - Cache isolation prevents cross-tenant interference
 
 **Vertical Scaling**:

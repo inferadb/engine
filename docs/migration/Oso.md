@@ -671,7 +671,7 @@ flowchart LR
         CACHE["Caching"]
     end
 
-    subgraph Backend["Storage (FDB/Memory)"]
+    subgraph Backend["Storage (Ledger/Memory)"]
         IDX["Automatic indexes"]
         DIST["Distributed"]
         HA["High availability"]

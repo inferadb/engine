@@ -212,7 +212,7 @@ InferaDB uses specific log targets for different subsystems:
 | `inferadb_engine_core::parallel`   | Parallel evaluation                 | DEBUG         |
 | `inferadb_engine_replication`      | Multi-region replication            | INFO          |
 | `h2`, `hyper`, `tower`             | HTTP/gRPC framework logs (external) | WARN          |
-| `foundationdb`                     | FoundationDB client logs (external) | WARN          |
+| `ledger`                           | Ledger client logs (external)       | WARN          |
 
 ## Common Logging Patterns
 

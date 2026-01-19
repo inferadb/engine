@@ -22,9 +22,6 @@ updates:
       - dependency-name: "wasmtime*"
         update-types:
           - "version-update:semver-major"
-      - dependency-name: "foundationdb"
-        update-types:
-          - "version-update:semver-major"
       - dependency-name: "tonic"
         update-types:
           - "version-update:semver-major"

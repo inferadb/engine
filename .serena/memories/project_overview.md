@@ -9,14 +9,14 @@ InferaDB Authorization Engine is a high-performance Relationship-Based Access Co
 - **Multi-Tenant**: Data isolation via Accounts and Vaults
 - **Wildcards**: Support for public resources with `user:*`
 - **Observable**: Prometheus, OpenTelemetry, structured logs
-- **Storage**: Memory (dev) or FoundationDB (prod)
+- **Storage**: Memory (dev) or Ledger (prod)
 - **Extensible**: WASM modules for custom logic
 
 ## Tech Stack
 - **Language**: Rust (edition 2021, MSRV 1.85)
 - **Async Runtime**: Tokio
 - **Web Frameworks**: Axum (REST), Tonic (gRPC)
-- **Storage Backend**: FoundationDB (production), In-memory (development)
+- **Storage Backend**: Ledger (production), In-memory (development)
 - **Caching**: Moka
 - **Observability**: OpenTelemetry, Prometheus metrics, tracing
 - **Authentication**: JWT with JWKS support (jsonwebtoken, ed25519-dalek)

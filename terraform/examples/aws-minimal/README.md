@@ -6,7 +6,7 @@ This example deploys InferaDB with minimal resources for development and testing
 
 - Single-AZ EKS cluster
 - 1 small node (t3.medium)
-- Memory-only storage (no FoundationDB)
+- Memory-only storage (no Ledger)
 - No Redis (no replay protection)
 - No authentication
 - NodePort service

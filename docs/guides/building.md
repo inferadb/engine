@@ -367,10 +367,10 @@ See [SECURITY.md](../SECURITY.md) for the complete security audit checklist and 
 
 ## Building Specific Features
 
-### With FoundationDB Support
+### With Ledger Support
 
 ```bash
-cargo build --features foundationdb
+cargo build --features ledger
 ```
 
 ### Without Default Features

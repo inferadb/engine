@@ -36,7 +36,7 @@ Welcome to the InferaDB developer documentation. This documentation covers the a
 
 - [Storage Overview](storage/overview.md) - Backend comparison and selection
 - [Memory Backend](storage/memory.md) - In-memory storage for development
-- [FoundationDB Backend](storage/foundationdb.md) - Production distributed storage
+- [Ledger Backend](storage/ledger.md) - Production distributed storage
 
 ## Operations & Monitoring
 

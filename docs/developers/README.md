@@ -111,7 +111,7 @@ Storage abstraction with multiple backends:
 
 - `lib.rs` - TupleStore trait definition
 - `memory.rs` - In-memory backend (development)
-- `foundationdb.rs` - FoundationDB backend (production)
+- `ledger.rs` - Ledger backend (production)
 - `factory.rs` - Backend selection and initialization
 
 #### inferadb-engine-auth
@@ -563,8 +563,8 @@ cargo bench
 **Issue**: Tests fail with "address already in use"
 **Solution**: Kill existing server instances or use different ports
 
-**Issue**: FoundationDB tests fail
-**Solution**: Tests require FDB cluster. Run with `--features fdb` only if FDB is available
+**Issue**: Ledger tests fail
+**Solution**: Tests require Ledger cluster. Run with `--features ledger` only if Ledger is available
 
 **Issue**: WASM tests fail
 **Solution**: Ensure `wat` crate is available (dev-dependency)

@@ -41,9 +41,6 @@ inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
 
-# FoundationDB (optional)
-foundationdb = { workspace = true, optional = true }
-inferadb-engine-fdb-shared = { path = "../inferadb-engine-fdb-shared", optional = true }
 
 [dev-dependencies]
 axum = { workspace = true }
@@ -57,5 +54,3 @@ tokio-test = "0.4"
 
 [features]
 default = []
-# Enable FoundationDB-based Control JWT authentication
-fdb = ["foundationdb", "inferadb-engine-fdb-shared"]

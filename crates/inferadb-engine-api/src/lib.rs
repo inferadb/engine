@@ -20,13 +20,12 @@ use tracing::{info, warn};
 
 pub mod adapters;
 pub mod content_negotiation;
-#[cfg(feature = "fdb")]
-pub mod fdb_invalidation_watcher;
 pub mod formatters;
 pub mod grpc;
 pub mod grpc_interceptor;
 pub mod handlers;
 pub mod health;
+pub mod ledger_invalidation_watcher;
 pub mod routes;
 pub mod services;
 #[cfg(any(test, feature = "test-utils"))]
@@ -606,9 +605,9 @@ pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
         .with_state(state.clone());
 
     // Note: HTTP cache invalidation endpoints have been removed.
-    // Cache invalidation is now handled via FDB-based invalidation.
-    // The FdbInvalidationWatcher watches FDB for invalidation events from Control.
-    // See fdb_invalidation_watcher.rs for the implementation.
+    // Cache invalidation is now handled via Ledger-based WatchBlocks streaming.
+    // The LedgerInvalidationWatcher subscribes to block commits and invalidates caches.
+    // See ledger_invalidation_watcher.rs for the implementation.
 
     Ok(public_internal_routes)
 }

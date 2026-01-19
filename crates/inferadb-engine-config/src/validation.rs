@@ -4,7 +4,7 @@
 
 use thiserror::Error;
 
-use crate::{CacheConfig, Config, FoundationDbConfig, ListenConfig};
+use crate::{CacheConfig, Config, ListenConfig};
 
 #[derive(Debug, Error)]
 pub enum ValidationError {
@@ -23,11 +23,8 @@ pub enum ValidationError {
     #[error("Invalid log level: {0} (must be one of: trace, debug, info, warn, error)")]
     InvalidLogLevel(String),
 
-    #[error("Invalid backend: {0} (must be one of: memory, foundationdb)")]
+    #[error("Invalid backend: {0} (must be one of: memory, ledger)")]
     InvalidBackend(String),
-
-    #[error("Missing connection string for backend: {0}")]
-    MissingConnectionString(String),
 
     #[error("Multiple validation errors: {0:?}")]
     Multiple(Vec<ValidationError>),
@@ -52,7 +49,7 @@ pub fn validate(config: &Config) -> Result<()> {
         errors.push(e);
     }
 
-    if let Err(e) = validate_storage(&config.storage, &config.foundationdb) {
+    if let Err(e) = validate_storage(&config.storage) {
         errors.push(e);
     }
 
@@ -105,19 +102,19 @@ pub fn validate_listen(config: &ListenConfig) -> Result<()> {
 }
 
 /// Validate storage configuration
-pub fn validate_storage(storage: &str, foundationdb: &FoundationDbConfig) -> Result<()> {
+pub fn validate_storage(storage: &str) -> Result<()> {
     // Validate backend type
     match storage {
-        "memory" => {
-            // Memory backend doesn't need cluster file
+        "memory" | "ledger" => {
+            // Valid backends
             Ok(())
         },
-        "foundationdb" => {
-            // FoundationDB requires cluster file
-            if foundationdb.cluster_file.is_none() {
-                return Err(ValidationError::MissingConnectionString(storage.to_string()));
-            }
-            Ok(())
+        "foundationdb" | "fdb" => {
+            // FoundationDB has been removed - provide helpful error
+            Err(ValidationError::InvalidBackend(format!(
+                "{} (FoundationDB has been removed, migrate to 'ledger')",
+                storage
+            )))
         },
         _ => Err(ValidationError::InvalidBackend(storage.to_string())),
     }
@@ -194,30 +191,32 @@ mod tests {
 
     #[test]
     fn test_validate_storage_memory_backend() {
-        let fdb = FoundationDbConfig { cluster_file: None };
-        assert!(validate_storage("memory", &fdb).is_ok());
+        assert!(validate_storage("memory").is_ok());
     }
 
     #[test]
-    fn test_validate_storage_foundationdb_without_cluster_file() {
-        let fdb = FoundationDbConfig { cluster_file: None };
+    fn test_validate_storage_ledger_backend() {
+        assert!(validate_storage("ledger").is_ok());
+    }
+
+    #[test]
+    fn test_validate_storage_foundationdb_rejected() {
+        // FoundationDB has been removed - should return InvalidBackend with migration hint
         assert!(matches!(
-            validate_storage("foundationdb", &fdb),
-            Err(ValidationError::MissingConnectionString(_))
+            validate_storage("foundationdb"),
+            Err(ValidationError::InvalidBackend(_))
         ));
     }
 
     #[test]
-    fn test_validate_storage_foundationdb_with_cluster_file() {
-        let fdb =
-            FoundationDbConfig { cluster_file: Some("/etc/foundationdb/fdb.cluster".to_string()) };
-        assert!(validate_storage("foundationdb", &fdb).is_ok());
+    fn test_validate_storage_fdb_rejected() {
+        // FDB alias has been removed - should return InvalidBackend with migration hint
+        assert!(matches!(validate_storage("fdb"), Err(ValidationError::InvalidBackend(_))));
     }
 
     #[test]
     fn test_validate_storage_invalid_backend() {
-        let fdb = FoundationDbConfig { cluster_file: None };
-        assert!(matches!(validate_storage("redis", &fdb), Err(ValidationError::InvalidBackend(_))));
+        assert!(matches!(validate_storage("redis"), Err(ValidationError::InvalidBackend(_))));
     }
 
     #[test]
@@ -250,7 +249,6 @@ mod tests {
                 mesh: "0.0.0.0:8082".to_string(),
             },
             storage: "invalid".to_string(),
-            foundationdb: FoundationDbConfig::default(),
             ledger: crate::LedgerConfig::default(),
             cache: CacheConfig { enabled: true, capacity: 0, ttl: 0 },
             token: crate::TokenConfig::default(),

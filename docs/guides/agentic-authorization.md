@@ -963,7 +963,7 @@ flowchart TD
    - TOON format for token-efficient responses
 
 2. **InferaDB → Storage:**
-   - Relationships stored in FoundationDB (production)
+   - Relationships stored in Ledger (production)
    - Metadata attached to relationships
    - Multi-tenant vault isolation
 

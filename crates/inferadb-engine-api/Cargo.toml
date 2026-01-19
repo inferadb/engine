@@ -10,10 +10,6 @@ version.workspace = true
 [features]
 default = []
 test-utils = []
-# Enable FoundationDB-based features (invalidation watcher)
-fdb = ["foundationdb", "inferadb-engine-fdb-shared"]
-# Enable Ledger-based integration tests
-ledger = ["inferadb-storage-ledger"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -46,8 +42,6 @@ tonic = "0.14.2"
 tonic-prost = "0.14"
 tonic-reflection = "0.14.2"
 
-# Storage (optional - only needed for FDB invalidation watcher)
-foundationdb = { workspace = true, optional = true }
 
 # Internal dependencies
 inferadb-engine-auth = { path = "../inferadb-engine-auth" }
@@ -57,7 +51,6 @@ inferadb-engine-const = { path = "../inferadb-engine-const" }
 inferadb-engine-control-client = { path = "../inferadb-engine-control-client" }
 inferadb-engine-core = { path = "../inferadb-engine-core" }
 inferadb-engine-discovery = { path = "../inferadb-engine-discovery" }
-inferadb-engine-fdb-shared = { path = "../inferadb-engine-fdb-shared", optional = true }
 inferadb-engine-observe = { path = "../inferadb-engine-observe" }
 inferadb-engine-repository = { path = "../inferadb-engine-repository" }
 inferadb-engine-store = { path = "../inferadb-engine-store" }
@@ -67,8 +60,11 @@ inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
 # Shared storage abstraction
 inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
 
-# Ledger backend (optional, for integration tests)
-inferadb-storage-ledger = { path = "../../../common/crates/inferadb-storage-ledger", optional = true }
+# Ledger backend (for cache invalidation)
+inferadb-storage-ledger = { path = "../../../common/crates/inferadb-storage-ledger" }
+
+# Ledger SDK (for WatchBlocks cache invalidation)
+inferadb-ledger-sdk = { path = "../../../ledger/crates/sdk" }
 
 [build-dependencies]
 tonic-build = "0.14.2"
@@ -98,4 +94,3 @@ name = "api_throughput"
 [[test]]
 name = "ledger_integration"
 path = "tests/ledger_integration.rs"
-required-features = ["ledger"]

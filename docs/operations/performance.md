@@ -20,7 +20,7 @@ All baseline measurements are performed on the following test environment:
 - **Concurrency**: Tokio async runtime
 - **Build**: `cargo test --release` (optimized builds)
 
-**Note**: Production performance may differ based on hardware, storage backend (FoundationDB vs Memory), and network latency.
+**Note**: Production performance may differ based on hardware, storage backend (Ledger vs Memory), and network latency.
 
 ---
 
@@ -45,7 +45,7 @@ All baseline measurements are performed on the following test environment:
 **Interpretation**:
 
 - In-memory backend performs well under SLO targets
-- Real-world latency with FoundationDB will be higher (add 2-5ms per storage operation)
+- Real-world latency with Ledger will be higher (add 2-5ms per storage operation)
 - WASM policies add overhead (see WASM section below)
 
 ---
@@ -156,7 +156,7 @@ All baseline measurements are performed on the following test environment:
 
 - System handles large datasets (millions of tuples)
 - Check latency remains acceptable even with large graphs
-- FoundationDB backend scales beyond in-memory limits
+- Ledger backend scales beyond in-memory limits
 
 ---
 
@@ -232,14 +232,14 @@ All baseline measurements are performed on the following test environment:
 - **Persistence**: None (in-memory only)
 - **Use cases**: Testing, development, ephemeral deployments
 
-### FoundationDB Backend (Future)
+### Ledger Backend
 
-**Expected Characteristics**:
+**Characteristics**:
 
 - **Read latency**: 2-5ms (including network)
 - **Write latency**: 5-10ms (including network + commit)
 - **Throughput**: Network and disk-bound, 10k-50k ops/sec per node
-- **Persistence**: Durable, replicated
+- **Persistence**: Durable, replicated via Raft
 - **Use cases**: Production, multi-region deployments
 
 **Impact on Authorization Latency**:

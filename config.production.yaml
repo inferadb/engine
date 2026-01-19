@@ -6,10 +6,12 @@ engine:
     grpc: "0.0.0.0:8081"
     mesh: "0.0.0.0:8082"
 
-  storage: "foundationdb"
+  storage: "ledger"
 
-  foundationdb:
-    cluster_file: "/etc/foundationdb/fdb.cluster"
+  ledger:
+    endpoint: "http://inferadb-ledger-client.inferadb:50051"
+    client_id: "engine-prod-001"
+    namespace_id: 1
 
   cache:
     enabled: true

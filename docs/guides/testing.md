@@ -530,7 +530,7 @@ cargo test test_check_allow -- --nocapture
 # List ignored tests
 cargo test -- --ignored --list
 
-# Run ignored tests (e.g., FDB tests)
+# Run ignored tests (e.g., Ledger tests)
 cargo test -- --ignored
 ```
 

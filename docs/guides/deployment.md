@@ -23,7 +23,7 @@ InferaDB is a high-performance authorization database designed for cloud-native 
 
 - **Standalone**: Single instance for development/testing
 - **Replicated**: Multiple instances with load balancing
-- **Distributed**: FoundationDB backend for production scale
+- **Distributed**: Ledger backend for production scale
 
 ### Architecture
 
@@ -33,14 +33,14 @@ flowchart LR
     LB --> CLUSTER["InferaDB<br/>Cluster"]
 
     CLUSTER --> REDIS["Redis<br/>(Replay)"]
-    CLUSTER --> FDB["FDB<br/>(Storage)"]
+    CLUSTER --> Ledger["Ledger<br/>(Storage)"]
     CLUSTER --> CONTROL["Control<br/>(JWKS)"]
 
     style CLIENT fill:#E3F2FD,stroke:#42A5F5
     style LB fill:#1E88E5,stroke:#1565C0,color:#fff
     style CLUSTER fill:#4CAF50,stroke:#2E7D32,color:#fff
     style REDIS fill:#FF9800,stroke:#F57C00,color:#fff
-    style FDB fill:#FF9800,stroke:#F57C00,color:#fff
+    style Ledger fill:#FF9800,stroke:#F57C00,color:#fff
     style CONTROL fill:#9C27B0,stroke:#7B1FA2,color:#fff
 ```
 
@@ -61,11 +61,11 @@ flowchart LR
 - Data lost on restart
 - Fast performance for testing
 
-#### FoundationDB Backend (Production)
+#### Ledger Backend (Production)
 
-- FoundationDB 7.1+ cluster
-- Network access to FDB cluster
-- Cluster file (`fdb.cluster`)
+- Ledger 7.1+ cluster
+- Network access to Ledger cluster
+- Cluster file (`ledger.endpoint`)
 
 ### Authentication Requirements
 
@@ -106,8 +106,8 @@ mkdir -p /var/run/secrets/inferadb
 # Create environment file
 cat > inferadb.env <<EOF
 INFERADB__ENGINE__THREADS=4
-INFERADB__ENGINE__STORAGE=foundationdb
-INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE=/etc/foundationdb/fdb.cluster
+INFERADB__ENGINE__STORAGE=ledger
+INFERADB__ENGINE__LEDGER__ENDPOINT=http://ledger:50051
 INFERADB__ENGINE__CACHE__ENABLED=true
 INFERADB__ENGINE__CACHE__CAPACITY=100000
 INFERADB__ENGINE__TOKEN__CACHE_TTL=300
@@ -119,7 +119,7 @@ docker run -d \
   -p 8080:8080 \
   -p 8081:8081 \
   --env-file inferadb.env \
-  -v /etc/foundationdb:/etc/foundationdb:ro \
+  -v /etc/ledger:/etc/ledger:ro \
   -v /var/run/secrets/inferadb:/var/run/secrets:ro \
   --restart unless-stopped \
   inferadb-engine:latest
@@ -205,7 +205,7 @@ replicaCount: 5
 
 config:
   store:
-    backend: foundationdb
+    backend: ledger
   auth:
     enabled: true
     replayProtection: true
@@ -313,7 +313,7 @@ All configuration can be provided via environment variables using the `INFERADB_
 | `INFERADB__ENGINE__LISTEN__GRPC`   | Public gRPC API address (host:port)          | `0.0.0.0:8081` |
 | `INFERADB__ENGINE__LISTEN__MESH`   | Service mesh address (host:port)             | `0.0.0.0:8082` |
 | `INFERADB__ENGINE__THREADS`        | Tokio worker threads                         | CPU count      |
-| `INFERADB__ENGINE__STORAGE`        | Storage backend (`memory` or `foundationdb`) | `memory`       |
+| `INFERADB__ENGINE__STORAGE`        | Storage backend (`memory` or `ledger`) | `memory`       |
 | `INFERADB__ENGINE__CACHE__ENABLED` | Enable caching                               | `true`         |
 
 See [Configuration Guide](configuration.md) for complete list.
@@ -332,9 +332,9 @@ engine:
     grpc: "0.0.0.0:8081"
     mesh: "0.0.0.0:8082"
 
-  storage: foundationdb
-  foundationdb:
-    cluster_file: /etc/foundationdb/fdb.cluster
+  storage: ledger
+  ledger:
+    cluster_file: /etc/ledger/ledger.endpoint
 
   cache:
     enabled: true
@@ -634,7 +634,7 @@ kubectl logs -n inferadb -l app=inferadb --tail=100
 1. **Image pull errors**: Verify image name and credentials
 2. **Configuration errors**: Check ConfigMap and Secrets
 3. **Resource limits**: Increase CPU/memory requests
-4. **Dependencies**: Ensure FDB/Redis are accessible
+4. **Dependencies**: Ensure Ledger/Redis are accessible
 
 ### Connection Issues
 
@@ -677,7 +677,7 @@ curl http://localhost:8080/metrics | grep inferadb_request_duration
 2. **Increase resources**: More CPU/memory
 3. **Enable caching**: Ensure `INFERADB__ENGINE__CACHE__CAPACITY` is set appropriately
 4. **Optimize queries**: Review application logic
-5. **Check backend**: FDB performance, Redis latency
+5. **Check backend**: Ledger performance, Redis latency
 
 ### Authentication Failures
 
@@ -698,23 +698,23 @@ kubectl exec -it -n inferadb deployment/inferadb -- \
 
 ### Storage Issues
 
-**FoundationDB connectivity:**
+**Ledger connectivity:**
 
 ```bash
 # Check cluster file
 kubectl exec -it -n inferadb deployment/inferadb -- \
-  cat /etc/foundationdb/fdb.cluster
+  cat /etc/ledger/ledger.endpoint
 
-# Test FDB connection
-kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster status
+# Test Ledger connection
+kubectl run -it --rm ledger-test --image=fullstorydev/grpcurl:latest -- \
+  grpcurl -plaintext ledger:50051 grpc.health.v1.Health/Check
 ```
 
 ## Best Practices
 
 ### Production Checklist
 
-- [ ] Use FoundationDB backend (not memory)
+- [ ] Use Ledger backend (not memory)
 - [ ] Enable authentication
 - [ ] Enable replay protection
 - [ ] Use external secret manager
@@ -736,8 +736,8 @@ kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
 | ----------- | -------- | ----------- | -------------- | ------------ |
 | Development | 1        | 100m        | 128Mi          | Memory       |
 | Testing     | 1-3      | 250m        | 256Mi          | Memory       |
-| Staging     | 3-5      | 500m        | 512Mi          | FoundationDB |
-| Production  | 5-50     | 1000m       | 2Gi            | FoundationDB |
+| Staging     | 3-5      | 500m        | 512Mi          | Ledger |
+| Production  | 5-50     | 1000m       | 2Gi            | Ledger |
 
 ### Resource Allocation
 
@@ -755,7 +755,7 @@ kubectl run -it --rm fdb-test --image=foundationdb/foundationdb:7.1.38 -- \
 
 **Storage:**
 
-- FoundationDB for persistence
+- Ledger for persistence
 - Size based on tuple count
 - Plan for growth
 

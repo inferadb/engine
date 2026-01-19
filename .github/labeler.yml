@@ -55,8 +55,7 @@ area/storage:
   - changed-files:
       - any-glob-to-any-file:
           - "**/storage/**/*"
-          - "**/fdb/**/*"
-          - "**/foundationdb/**/*"
+          - "**/ledger/**/*"
 
 # Cache System
 area/cache:

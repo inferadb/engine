@@ -419,7 +419,7 @@ gcloud billing budgets create \
 
 1. **Configure Authentication**: See [Authentication Guide](../docs/security/authentication.md)
 2. **Set Up Monitoring**: See [Observability Guide](../docs/operations/observability.md)
-3. **Enable FoundationDB**: For production persistence
+3. **Enable Ledger**: For production persistence
 4. **Configure Backups**: For disaster recovery
 5. **Set Up CI/CD**: Automate deployments
 

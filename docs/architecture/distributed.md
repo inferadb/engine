@@ -53,8 +53,8 @@ flowchart TB
 
 ### 1. Replication System
 
-Multi-region data synchronization is handled by FoundationDB's native Fearless DR.
-See [Multi-Region Deployment](../deployment/foundationdb-multi-region.md) for details.
+Multi-region data synchronization is handled by Ledger's native Raft-based replication.
+See [Multi-Region Deployment](../deployment/ledger-multi-region.md) for details.
 
 **Topology Hierarchy:**
 
@@ -440,9 +440,9 @@ GET /healthz
 
 ## Control Plane Communication
 
-Engine instances communicate with the Control plane via FDB, eliminating HTTP dependencies and enabling true multi-region support.
+Engine instances communicate with the Control plane via Ledger, eliminating HTTP dependencies and enabling true multi-region support.
 
-### FDB Keyspace
+### Ledger Keyspace
 
 ```text
 inferadb/
@@ -453,33 +453,33 @@ inferadb/
 
 ### JWKS Discovery
 
-Control instances publish their JWKS to FDB on startup. Engine reads JWKS directly from FDB instead of HTTP:
+Control instances publish their JWKS to Ledger on startup. Engine reads JWKS directly from Ledger instead of HTTP:
 
 ```mermaid
 sequenceDiagram
     participant Control
-    participant FDB
+    participant Ledger
     participant Engine
 
-    Control->>FDB: Write JWKS to inferadb/control-jwks/{id}
-    Engine->>FDB: Read all JWKS from inferadb/control-jwks/*
+    Control->>Ledger: Write JWKS to inferadb/control-jwks/{id}
+    Engine->>Ledger: Read all JWKS from inferadb/control-jwks/*
     Engine->>Engine: Cache keys, verify Control JWTs
 ```
 
 ### Cache Invalidation
 
-Control writes invalidation events to FDB when data changes. Engine watches for version changes:
+Control writes invalidation events to Ledger when data changes. Engine watches for version changes:
 
 ```mermaid
 sequenceDiagram
     participant Control
-    participant FDB
+    participant Ledger
     participant Engine
 
-    Engine->>FDB: Watch inferadb/invalidation/version
-    Control->>FDB: Atomic increment version + write event
-    FDB-->>Engine: Watch triggers
-    Engine->>FDB: Read new events from log
+    Engine->>Ledger: Watch inferadb/invalidation/version
+    Control->>Ledger: Atomic increment version + write event
+    Ledger-->>Engine: Watch triggers
+    Engine->>Ledger: Read new events from log
     Engine->>Engine: Invalidate caches (vault, org, cert)
 ```
 
@@ -494,9 +494,9 @@ sequenceDiagram
 
 ### Benefits
 
-- **Multi-region**: FDB Fearless DR replicates JWKS and events automatically
-- **No HTTP between services**: Control and Engine only need FDB connectivity
-- **Near-instant invalidation**: FDB watch is faster than HTTP webhooks
+- **Multi-region**: Ledger's Raft replication synchronizes JWKS and events automatically
+- **No HTTP between services**: Control and Engine only need Ledger connectivity
+- **Near-instant invalidation**: Ledger watch is faster than HTTP webhooks
 - **Atomic operations**: Events and version counter updated in single transaction
 
 ## Related Documentation
@@ -504,4 +504,4 @@ sequenceDiagram
 - [Replication Operations](../operations/replication.md) - Detailed replication guide
 - [Multi-Tenancy](multi-tenancy.md) - Vault isolation
 - [Authentication](../authentication.md) - JWT and vault extraction
-- [Multi-Region FDB](../deployment/foundationdb-multi-region.md) - FDB deployment for multi-region
+- [Multi-Region Ledger](../deployment/ledger-multi-region.md) - Ledger deployment for multi-region

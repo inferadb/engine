@@ -1,6 +1,6 @@
 # Storage Backends
 
-InferaDB provides a flexible storage abstraction layer that allows you to choose different storage backends based on your needs. The storage layer is completely abstracted through the `TupleStore` trait, making it easy to switch between backends without changing application code.
+InferaDB provides a flexible storage abstraction layer that allows you to choose different storage backends based on your needs. The storage layer is completely abstracted through the `StorageBackend` trait, making it easy to switch between backends without changing application code.
 
 ## Overview
 
@@ -40,28 +40,28 @@ The in-memory backend stores all data in RAM using Rust's standard collections. 
 - Small-scale deployments
 - Proof-of-concept implementations
 
-See [Memory Backend Documentation](./storage-memory.md) for details.
+See [Memory Backend Documentation](./memory.md) for details.
 
-### FoundationDB Backend (Optional)
+### Ledger Backend (Production)
 
-**Status**: ✅ Production-ready (requires FDB cluster)
+**Status**: ✅ Production-ready
 
-The FoundationDB backend provides distributed, ACID transactions with horizontal scalability and high availability.
+The Ledger backend provides distributed, cryptographically verifiable storage with Raft consensus for strong consistency guarantees.
 
 **Features:**
 
 - Full ACID transactions across nodes
-- Horizontal scalability (petabyte scale)
+- Horizontal scalability
 - High availability with automatic failover
-- Point-in-time reads with MVCC
+- Cryptographic audit trails (blockchain-based)
 - Sub-5ms p99 latency
 - Automatic data replication
+- WatchBlocks API for real-time cache invalidation
 
 **Requirements:**
 
-- FoundationDB cluster (6.3+)
-- Compile with `--features fdb`
-- FoundationDB client library
+- Ledger cluster (StatefulSet in Kubernetes)
+- Compile with `--features ledger`
 
 **Best for:**
 
@@ -70,8 +70,7 @@ The FoundationDB backend provides distributed, ACID transactions with horizontal
 - Large datasets (millions+ tuples)
 - High availability requirements
 - Distributed systems
-
-See [FoundationDB Backend Documentation](./storage-foundationdb.md) for details.
+- Compliance scenarios requiring audit trails
 
 ## Backend Selection
 
@@ -90,25 +89,36 @@ let config = StorageConfig::memory();
 let store = StorageFactory::create(config).await?;
 
 // Method 3: Create from string (runtime selection)
-let backend = "memory"; // or "foundationdb"
+let backend = "memory"; // or "ledger"
 let store = StorageFactory::from_str(backend, None).await?;
 
-// Method 4: FoundationDB with cluster file
-#[cfg(feature = "fdb")]
+// Method 4: Ledger with endpoint configuration
+#[cfg(feature = "ledger")]
 {
-    let config = StorageConfig::foundationdb(Some("/etc/foundationdb/fdb.cluster".to_string()));
+    let config = StorageConfig::ledger(LedgerConfig {
+        endpoint: "http://ledger.inferadb:50051".to_string(),
+        client_id: "engine-001".to_string(),
+        namespace_id: 1,
+        vault_id: Some(1),
+    });
     let store = StorageFactory::create(config).await?;
 }
 ```
 
 ### Configuration File
 
-Configure the storage backend in your `config.toml`:
+Configure the storage backend in your `config.yaml`:
 
-```toml
-[store]
-backend = "memory"  # or "foundationdb"
-# connection_string = "/etc/foundationdb/fdb.cluster"  # Optional for FDB
+```yaml
+engine:
+  storage: "memory"  # or "ledger"
+
+  # Ledger configuration (when storage: "ledger")
+  ledger:
+    endpoint: "http://ledger.inferadb:50051"
+    client_id: "engine-prod-001"
+    namespace_id: 1
+    vault_id: 1  # optional
 ```
 
 Load configuration and create store:
@@ -117,11 +127,8 @@ Load configuration and create store:
 use inferadb_engine_config::Config;
 use inferadb_engine_store::StorageFactory;
 
-let config = Config::load("config.toml")?;
-let store = StorageFactory::from_str(
-    &config.store.backend,
-    config.store.connection_string
-).await?;
+let config = Config::load("config.yaml")?;
+let store = StorageFactory::from_config(&config).await?;
 ```
 
 ### Environment Variables
@@ -130,31 +137,39 @@ Override configuration with environment variables:
 
 ```bash
 # Use memory backend (default)
-INFERADB__STORE__BACKEND=memory
+INFERADB__ENGINE__STORAGE=memory
 
-# Use FoundationDB backend
-INFERADB__STORE__BACKEND=foundationdb
-INFERADB__STORE__CONNECTION_STRING=/etc/foundationdb/fdb.cluster
+# Use Ledger backend
+INFERADB__ENGINE__STORAGE=ledger
+INFERADB__ENGINE__LEDGER__ENDPOINT=http://ledger.inferadb:50051
+INFERADB__ENGINE__LEDGER__CLIENT_ID=engine-001
+INFERADB__ENGINE__LEDGER__NAMESPACE_ID=1
+INFERADB__ENGINE__LEDGER__VAULT_ID=1
 ```
 
 ## Storage Abstraction
 
-All backends implement the `TupleStore` trait, providing a consistent interface:
+All backends implement the `StorageBackend` trait, providing a consistent interface:
 
 ```rust
 #[async_trait]
-pub trait TupleStore: Send + Sync {
-    /// Read tuples matching the key at a specific revision
-    async fn read(&self, key: &TupleKey, revision: Revision) -> Result<Vec<Tuple>>;
+pub trait StorageBackend: Send + Sync {
+    /// Get a value by key
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>>;
 
-    /// Write tuples and return the new revision
-    async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision>;
+    /// Set a key-value pair
+    async fn set(&self, key: &[u8], value: &[u8]) -> Result<()>;
 
-    /// Get the current revision
-    async fn get_revision(&self) -> Result<Revision>;
+    /// Delete a key
+    async fn delete(&self, key: &[u8]) -> Result<()>;
 
-    /// Delete tuples matching the key
-    async fn delete(&self, key: &TupleKey) -> Result<Revision>;
+    /// Get a range of keys
+    async fn get_range(&self, start: &[u8], end: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
+
+    /// Execute a transaction
+    async fn transaction<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&mut dyn Transaction) -> Result<R> + Send;
 }
 ```
 
@@ -166,13 +181,14 @@ This abstraction ensures:
 
 ## Choosing a Backend
 
-| Criteria          | Memory             | FoundationDB            |
+| Criteria          | Memory             | Ledger                  |
 | ----------------- | ------------------ | ----------------------- |
-| Setup complexity  | ✅ None            | ⚠️ Requires FDB cluster |
+| Setup complexity  | ✅ None            | ⚠️ Requires cluster     |
 | Performance       | ✅ Sub-microsecond | ✅ Sub-5ms p99          |
 | Scalability       | ❌ Single node     | ✅ Horizontal scaling   |
 | Persistence       | ❌ RAM only        | ✅ Durable storage      |
 | High availability | ❌ No              | ✅ Yes                  |
+| Audit trails      | ❌ No              | ✅ Cryptographic        |
 | Production ready  | ⚠️ Small scale     | ✅ Yes                  |
 | Cost              | ✅ Free            | ⚠️ Infrastructure cost  |
 
@@ -180,64 +196,72 @@ This abstraction ensures:
 
 - **Development/Testing**: Use Memory backend
 - **Small production (<10k tuples)**: Memory backend is fine
-- **Production (>10k tuples)**: Use FoundationDB backend
-- **Multi-region**: Use FoundationDB backend
-- **High availability required**: Use FoundationDB backend
+- **Production (>10k tuples)**: Use Ledger backend
+- **Multi-region**: Use Ledger backend
+- **High availability required**: Use Ledger backend
+- **Compliance/Audit requirements**: Use Ledger backend
 
 ## Adding Custom Backends
 
 InferaDB's storage layer is designed to be extensible. To add a new backend:
 
-1. **Implement the `TupleStore` trait**:
+1. **Implement the `StorageBackend` trait**:
 
 ```rust
 use async_trait::async_trait;
-use inferadb_engine_store::{TupleStore, Tuple, TupleKey, Revision, Result};
+use inferadb_storage::{StorageBackend, Result};
 
 pub struct MyBackend {
     // Your backend implementation
 }
 
 #[async_trait]
-impl TupleStore for MyBackend {
-    async fn read(&self, key: &TupleKey, revision: Revision) -> Result<Vec<Tuple>> {
+impl StorageBackend for MyBackend {
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         // Implementation
     }
 
-    async fn write(&self, tuples: Vec<Tuple>) -> Result<Revision> {
+    async fn set(&self, key: &[u8], value: &[u8]) -> Result<()> {
         // Implementation
     }
 
-    async fn get_revision(&self) -> Result<Revision> {
+    async fn delete(&self, key: &[u8]) -> Result<()> {
         // Implementation
     }
 
-    async fn delete(&self, key: &TupleKey) -> Result<Revision> {
+    async fn get_range(&self, start: &[u8], end: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        // Implementation
+    }
+
+    async fn transaction<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&mut dyn Transaction) -> Result<R> + Send
+    {
         // Implementation
     }
 }
 ```
 
-1. **Add to `BackendType` enum** (in `factory.rs`):
+2. **Add to `BackendType` enum** (in `factory.rs`):
 
 ```rust
 pub enum BackendType {
     Memory,
-    FoundationDB,
+    Ledger,
     MyBackend,  // Add your backend
 }
 ```
 
-1. **Update `StorageFactory`**:
+3. **Update `StorageFactory`**:
 
 ```rust
 impl StorageFactory {
-    pub async fn create(config: StorageConfig) -> Result<Arc<dyn TupleStore>> {
+    pub async fn create(config: StorageConfig) -> Result<Arc<dyn StorageBackend>> {
         match config.backend {
             BackendType::Memory => { /* ... */ }
-            BackendType::FoundationDB => { /* ... */ }
+            BackendType::Ledger => { /* ... */ }
             BackendType::MyBackend => {
-                Ok(Arc::new(MyBackend::new()?) as Arc<dyn TupleStore>)
+                Ok(Arc::new(MyBackend::new()?) as Arc<dyn StorageBackend>)
             }
         }
     }
@@ -252,11 +276,11 @@ impl StorageFactory {
 - **Writes**: O(log n) for insertion + index updates
 - **Space**: O(n × revisions) - grows with data and history
 
-### FoundationDB Backend
+### Ledger Backend
 
-- **Reads**: Network latency + FDB key lookup (typically <5ms)
-- **Writes**: Network latency + FDB transaction commit (typically <10ms)
-- **Space**: Efficient storage with FDB's built-in compaction
+- **Reads**: Network latency + Ledger key lookup (typically <5ms)
+- **Writes**: Network latency + Ledger transaction commit (typically <10ms)
+- **Space**: Efficient storage with built-in compaction
 
 ### Optimization Tips
 
@@ -267,7 +291,7 @@ impl StorageFactory {
 
 ## Migration Between Backends
 
-To migrate from Memory to FoundationDB (or vice versa):
+To migrate from Memory to Ledger (or vice versa):
 
 1. **Export data** from source backend:
 
@@ -280,14 +304,14 @@ let mut all_tuples = Vec::new();
 // (enumerate objects/relations and read)
 ```
 
-1. **Import data** to target backend:
+2. **Import data** to target backend:
 
 ```rust
-let target = StorageFactory::from_str("foundationdb", cluster_file).await?;
+let target = StorageFactory::from_str("ledger", config).await?;
 target.write(all_tuples).await?;
 ```
 
-1. **Update configuration** to use new backend
+3. **Update configuration** to use new backend
 
 ## Troubleshooting
 
@@ -295,30 +319,29 @@ target.write(all_tuples).await?;
 
 **Problem**: Out of memory errors
 
-- **Solution**: Use FoundationDB backend or implement periodic GC
+- **Solution**: Use Ledger backend or implement periodic GC
 
 **Problem**: Data lost on restart
 
-- **Solution**: Memory backend is not persistent by design. Use FoundationDB for persistence.
+- **Solution**: Memory backend is not persistent by design. Use Ledger for persistence.
 
-### FoundationDB Backend Issues
+### Ledger Backend Issues
 
 **Problem**: Connection errors
 
-- **Solution**: Verify FDB cluster is running and cluster file path is correct
+- **Solution**: Verify Ledger cluster is running and endpoint is correct
 
 **Problem**: Transaction timeouts
 
-- **Solution**: Check FDB cluster health, increase transaction timeout if needed
+- **Solution**: Check Ledger cluster health, increase transaction timeout if needed
 
 **Problem**: Slow performance
 
-- **Solution**: Check FDB cluster capacity, optimize batch sizes, enable caching
+- **Solution**: Check Ledger cluster capacity, optimize batch sizes, enable caching
 
 ## See Also
 
-- [Memory Backend Details](./storage-memory.md)
-- [FoundationDB Backend Details](./storage-foundationdb.md)
-- [Architecture Overview](./architecture.md)
-- [Caching Layer](./caching.md)
-- [Revision Tokens](./revision-tokens.md)
+- [Memory Backend Details](./memory.md)
+- [Architecture Overview](../architecture.md)
+- [Caching Layer](../core/caching.md)
+- [Revision Tokens](../core/revision-tokens.md)

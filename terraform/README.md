@@ -63,11 +63,11 @@ terraform/
 │   ├── aws/                     # AWS-specific modules
 │   │   ├── eks/                 # Amazon EKS cluster
 │   │   ├── redis/               # ElastiCache Redis
-│   │   └── foundationdb/        # FDB on EKS
+│   │   └── ledger/              # Ledger on EKS
 │   ├── gcp/                     # GCP-specific modules
 │   │   ├── gke/                 # Google Kubernetes Engine
 │   │   ├── redis/               # Memorystore Redis
-│   │   └── foundationdb/        # FDB on GKE
+│   │   └── ledger/              # Ledger on GKE
 │   └── common/                  # Cloud-agnostic modules
 │       └── monitoring/          # Observability stack
 └── examples/                    # Complete deployment examples
@@ -415,7 +415,7 @@ Development deployment on GCP:
 
 3. **Regular backups**
    - Redis: Automatic snapshots enabled
-   - FoundationDB: Continuous backups
+   - Ledger: Continuous backups
    - State: Use remote state with locking
 
 ### Monitoring
@@ -505,8 +505,8 @@ To migrate from AWS to GCP (or vice versa):
    ```
 
 2. **Replicate data**
-   - Export from source FoundationDB
-   - Import to destination FoundationDB
+   - Export from source Ledger
+   - Import to destination Ledger
 
 3. **Update DNS**
    - Point to new load balancer

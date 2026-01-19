@@ -16,8 +16,14 @@ data:
 
   # Storage configuration
   INFERADB__ENGINE__STORAGE: "{{ .Values.config.storage }}"
-  {{- if eq .Values.config.storage "foundationdb" }}
-  INFERADB__ENGINE__FOUNDATIONDB__CLUSTER_FILE: "{{ .Values.config.foundationdb.clusterFile }}"
+  {{- if eq .Values.config.storage "ledger" }}
+  INFERADB__ENGINE__LEDGER__ENDPOINT: "{{ .Values.config.ledger.endpoint }}"
+  {{- if .Values.config.ledger.clientId }}
+  INFERADB__ENGINE__LEDGER__CLIENT_ID: "{{ .Values.config.ledger.clientId }}"
+  {{- end }}
+  {{- if .Values.config.ledger.namespaceId }}
+  INFERADB__ENGINE__LEDGER__NAMESPACE_ID: "{{ .Values.config.ledger.namespaceId }}"
+  {{- end }}
   {{- end }}
 
   # Cache configuration

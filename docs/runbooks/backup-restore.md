@@ -14,12 +14,12 @@ This runbook covers backup and restoration procedures for InferaDB data and conf
 - **Backup**: Not applicable
 - **Restore**: Reload from source of truth
 
-### FoundationDB Backend
+### Ledger Backend
 
-**Recommended**: Production deployments use FoundationDB for persistence.
+**Recommended**: Production deployments use Ledger for persistence.
 
 - **Use case**: Production
-- **Backup**: Automated backups via FDB tools
+- **Backup**: Automated backups via Ledger snapshot API
 - **Restore**: Point-in-time recovery available
 
 ## Configuration Backup
@@ -59,79 +59,62 @@ helm get values inferadb -n inferadb > backup-helm-values-$(date +%Y%m%d).yaml
 helm get all inferadb -n inferadb > backup-helm-full-$(date +%Y%m%d).yaml
 ```
 
-## Data Backup (FoundationDB)
+## Data Backup (Ledger)
 
 ### Prerequisites
 
-- FoundationDB cluster running
-- Backup agent configured
-- Blob storage available (S3, GCS, Azure Blob)
+- Ledger cluster running
+- Backup storage available (S3, GCS, Azure Blob)
+- gRPC connectivity to Ledger
 
-### Configure FDB Backup
+### Configure Ledger Backup
 
-#### 1. Start Backup Agent
+#### 1. Verify Ledger Health
 
 ```bash
-# Deploy FDB backup agent
-kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: fdb-backup-agent
-  namespace: inferadb
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: fdb-backup-agent
-  template:
-    metadata:
-      labels:
-        app: fdb-backup-agent
-    spec:
-      containers:
-      - name: backup-agent
-        image: foundationdb/foundationdb:7.1.38
-        command:
-        - /usr/bin/backup_agent
-        args:
-        - -C
-        - /etc/foundationdb/fdb.cluster
-        volumeMounts:
-        - name: fdb-cluster-file
-          mountPath: /etc/foundationdb
-          readOnly: true
-      volumes:
-      - name: fdb-cluster-file
-        secret:
-          secretName: fdb-cluster-file
-EOF
+# Check Ledger cluster health
+kubectl exec -it inferadb-ledger-0 -n inferadb -- grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
+
+# Check cluster status
+kubectl exec -it inferadb-ledger-0 -n inferadb -- grpcurl -plaintext localhost:50051 ledger.v1.Admin/ClusterStatus
 ```
 
 #### 2. Configure Backup Destination
 
-```bash
-# Connect to FDB
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- fdbcli -C /etc/foundationdb/fdb.cluster
-
-# Start continuous backup (in fdbcli)
-fdb> backup start -d blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups?bucket=YOUR_BUCKET_NAME&region=us-east-1
-
-# Check backup status
-fdb> backup status
+```yaml
+# backup-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ledger-backup-config
+  namespace: inferadb
+data:
+  backup.yaml: |
+    storage:
+      type: s3
+      bucket: YOUR_BUCKET_NAME
+      prefix: ledger-backups/
+      region: us-east-1
+    schedule:
+      full: "0 2 * * 0"    # Weekly full backup
+      incremental: "0 2 * * *"  # Daily incremental
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 12
 ```
 
 ### Manual Snapshot
 
 ```bash
-# Connect to fdbcli
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- fdbcli -C /etc/foundationdb/fdb.cluster
+# Create a manual snapshot
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext -d '{"name": "manual-'$(date +%Y%m%d-%H%M%S)'"}' \
+  localhost:50051 ledger.v1.Admin/CreateSnapshot
 
-# Take snapshot
-fdb> backup start -d blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/snapshots/$(date +%Y%m%d) -s
-
-# Wait for completion
-fdb> backup status
+# List available snapshots
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext localhost:50051 ledger.v1.Admin/ListSnapshots
 ```
 
 ### Automated Backups
@@ -142,7 +125,7 @@ fdb> backup status
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: fdb-backup
+  name: ledger-backup
   namespace: inferadb
 spec:
   schedule: "0 2 * * *" # Daily at 2 AM
@@ -152,30 +135,23 @@ spec:
         spec:
           containers:
             - name: backup
-              image: foundationdb/foundationdb:7.1.38
+              image: inferadb/ledger-tools:latest
               command:
                 - /bin/bash
                 - -c
                 - |
                   DATE=$(date +%Y%m%d-%H%M%S)
-                  DEST="blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/${DATE}"
+                  SNAPSHOT_NAME="backup-${DATE}"
 
-                  echo "Starting backup to ${DEST}"
-                  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup start -d ${DEST} -s"
+                  echo "Starting backup: ${SNAPSHOT_NAME}"
+                  grpcurl -plaintext -d "{\"name\": \"${SNAPSHOT_NAME}\"}" \
+                    inferadb-ledger:50051 ledger.v1.Admin/CreateSnapshot
 
-                  echo "Waiting for backup to complete"
-                  while true; do
-                    STATUS=$(fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup status")
-                    if echo "$STATUS" | grep -q "Backup complete"; then
-                      echo "Backup completed successfully"
-                      break
-                    fi
-                    sleep 30
-                  done
-              volumeMounts:
-                - name: fdb-cluster-file
-                  mountPath: /etc/foundationdb
-                  readOnly: true
+                  echo "Uploading to S3..."
+                  grpcurl -plaintext -d "{\"snapshot\": \"${SNAPSHOT_NAME}\", \"destination\": \"s3://YOUR_BUCKET_NAME/ledger-backups/${SNAPSHOT_NAME}\"}" \
+                    inferadb-ledger:50051 ledger.v1.Admin/ExportSnapshot
+
+                  echo "Backup completed: ${SNAPSHOT_NAME}"
               env:
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
@@ -187,10 +163,6 @@ spec:
                     secretKeyRef:
                       name: aws-credentials
                       key: secret_access_key
-          volumes:
-            - name: fdb-cluster-file
-              secret:
-                secretName: fdb-cluster-file
           restartPolicy: OnFailure
 ```
 
@@ -198,16 +170,13 @@ spec:
 
 ```bash
 # List backups
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup list"
-
-# Describe backup
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup describe -d blobstore://..."
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext localhost:50051 ledger.v1.Admin/ListSnapshots
 
 # Verify backup integrity
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster --exec "backup verify -d blobstore://..."
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext -d '{"snapshot": "backup-20251030"}' \
+  localhost:50051 ledger.v1.Admin/VerifySnapshot
 ```
 
 ## Restore Procedures
@@ -240,7 +209,7 @@ kubectl rollout restart deployment/inferadb -n inferadb
 shred -u backup-secrets-20251030.yaml
 ```
 
-### Restore Data (FoundationDB)
+### Restore Data (Ledger)
 
 **⚠️ WARNING**: Restoration overwrites existing data. Ensure you have current backups before proceeding.
 
@@ -250,26 +219,28 @@ shred -u backup-secrets-20251030.yaml
 # 1. Stop InferaDB to prevent writes
 kubectl scale deployment inferadb --replicas=0 -n inferadb
 
-# 2. Connect to FDB
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster
+# 2. Check Ledger cluster health
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 
-# 3. Start restore (in fdbcli)
-fdb> restore start -r blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/20251030-020000
+# 3. Import snapshot from S3
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext -d '{"source": "s3://YOUR_BUCKET_NAME/ledger-backups/backup-20251030", "name": "restore-20251030"}' \
+  localhost:50051 ledger.v1.Admin/ImportSnapshot
 
-# 4. Monitor restore progress
-fdb> restore status
+# 4. Restore from snapshot
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext -d '{"snapshot": "restore-20251030"}' \
+  localhost:50051 ledger.v1.Admin/RestoreSnapshot
 
-# 5. Wait for completion
-# This may take several hours for large databases
+# 5. Verify restore
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext localhost:50051 ledger.v1.Admin/ClusterStatus
 
-# 6. Verify restore
-fdb> status details
-
-# 7. Restart InferaDB
+# 6. Restart InferaDB
 kubectl scale deployment inferadb --replicas=5 -n inferadb
 
-# 8. Verify functionality
+# 7. Verify functionality
 kubectl exec -it -n inferadb deployment/inferadb -- \
   curl http://localhost:8080/health/ready
 ```
@@ -277,18 +248,14 @@ kubectl exec -it -n inferadb deployment/inferadb -- \
 #### Point-in-Time Restore
 
 ```bash
-# Restore to specific timestamp
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster
+# List available restore points
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext localhost:50051 ledger.v1.Admin/ListSnapshots
 
-# Find available timestamps
-fdb> backup describe -d blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/20251030-020000
-
-# Restore to specific time (e.g., 2025-10-30 12:00:00)
-fdb> restore start -r blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/20251030-020000 -t "2025-10-30 12:00:00"
-
-# Monitor
-fdb> restore status
+# Restore to specific revision
+kubectl exec -it inferadb-ledger-0 -n inferadb -- \
+  grpcurl -plaintext -d '{"snapshot": "backup-20251030", "target_revision": 12345}' \
+  localhost:50051 ledger.v1.Admin/RestoreSnapshot
 ```
 
 ### Emergency Restore
@@ -327,18 +294,24 @@ kubectl scale deployment inferadb --replicas=0 -n $NAMESPACE
 # Wait for pods to terminate
 kubectl wait --for=delete pod -l app=inferadb -n $NAMESPACE --timeout=60s
 
-# Start restore
-echo "2. Starting FDB restore..."
-kubectl exec -it -n $NAMESPACE deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster --exec "restore start -r $BACKUP_URL -w"
+# Import and restore
+echo "2. Importing snapshot from backup..."
+kubectl exec -it inferadb-ledger-0 -n $NAMESPACE -- \
+  grpcurl -plaintext -d "{\"source\": \"$BACKUP_URL\", \"name\": \"emergency-restore\"}" \
+  localhost:50051 ledger.v1.Admin/ImportSnapshot
+
+echo "3. Restoring from snapshot..."
+kubectl exec -it inferadb-ledger-0 -n $NAMESPACE -- \
+  grpcurl -plaintext -d '{"snapshot": "emergency-restore"}' \
+  localhost:50051 ledger.v1.Admin/RestoreSnapshot
 
 # Verify
-echo "3. Verifying restore..."
-kubectl exec -it -n $NAMESPACE deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster --exec "status details"
+echo "4. Verifying restore..."
+kubectl exec -it inferadb-ledger-0 -n $NAMESPACE -- \
+  grpcurl -plaintext localhost:50051 ledger.v1.Admin/ClusterStatus
 
 # Restart service
-echo "4. Restarting InferaDB..."
+echo "5. Restarting InferaDB..."
 kubectl scale deployment inferadb --replicas=5 -n $NAMESPACE
 
 # Wait for readiness
@@ -381,15 +354,14 @@ Before disaster strikes:
 #### Scenario 2: Cluster Failure
 
 **RTO**: 30 minutes
-**RPO**: Continuous backup
+**RPO**: Continuous Raft replication
 
 **Steps**:
 
-1. Provision new FDB cluster
-2. Configure backup agents
-3. Restore latest backup
-4. Update InferaDB connection strings
-5. Resume operations
+1. Provision new Ledger cluster
+2. Restore latest snapshot
+3. Update InferaDB connection strings
+4. Resume operations
 
 #### Scenario 3: Region Outage
 
@@ -420,9 +392,9 @@ Before disaster strikes:
 
 ```bash
 # List backups older than 30 days
-aws s3 ls s3://YOUR_BUCKET_NAME/fdb-backups/ --recursive | \
+aws s3 ls s3://YOUR_BUCKET_NAME/ledger-backups/ --recursive | \
   awk '{if (NR>30) print $4}' | \
-  xargs -I {} aws s3 rm s3://YOUR_BUCKET_NAME/fdb-backups/{}
+  xargs -I {} aws s3 rm s3://YOUR_BUCKET_NAME/ledger-backups/{}
 
 # Automated cleanup with lifecycle policy
 aws s3api put-bucket-lifecycle-configuration \
@@ -438,7 +410,7 @@ lifecycle.json:
     {
       "Id": "DeleteOldBackups",
       "Status": "Enabled",
-      "Prefix": "fdb-backups/daily/",
+      "Prefix": "ledger-backups/daily/",
       "Expiration": {
         "Days": 30
       }
@@ -446,7 +418,7 @@ lifecycle.json:
     {
       "Id": "DeleteOldSnapshots",
       "Status": "Enabled",
-      "Prefix": "fdb-backups/monthly/",
+      "Prefix": "ledger-backups/monthly/",
       "Expiration": {
         "Days": 365
       }
@@ -464,22 +436,27 @@ lifecycle.json:
 # monthly-restore-test.sh
 
 NAMESPACE="inferadb-test"
-BACKUP_URL="blobstore://s3.amazonaws.com/YOUR_BUCKET_NAME/fdb-backups/latest"
+BACKUP_URL="s3://YOUR_BUCKET_NAME/ledger-backups/latest"
 
 # Create test namespace
 kubectl create namespace $NAMESPACE
 
-# Deploy test FDB cluster
-kubectl apply -f test-fdb-cluster.yaml -n $NAMESPACE
+# Deploy test Ledger cluster
+kubectl apply -f test-ledger-cluster.yaml -n $NAMESPACE
 
-# Restore backup
-kubectl exec -it -n $NAMESPACE deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster --exec "restore start -r $BACKUP_URL -w"
+# Import and restore backup
+kubectl exec -it -n $NAMESPACE inferadb-ledger-0 -- \
+  grpcurl -plaintext -d "{\"source\": \"$BACKUP_URL\", \"name\": \"test-restore\"}" \
+  localhost:50051 ledger.v1.Admin/ImportSnapshot
+
+kubectl exec -it -n $NAMESPACE inferadb-ledger-0 -- \
+  grpcurl -plaintext -d '{"snapshot": "test-restore"}' \
+  localhost:50051 ledger.v1.Admin/RestoreSnapshot
 
 # Deploy InferaDB
 helm install inferadb-test ./helm \
   --namespace $NAMESPACE \
-  --set config.store.backend=foundationdb
+  --set config.store.backend=ledger
 
 # Run validation tests
 kubectl run -it --rm test --image=curlimages/curl --restart=Never -n $NAMESPACE -- \
@@ -496,24 +473,24 @@ kubectl delete namespace $NAMESPACE
 ```yaml
 # Alert on backup failures
 groups:
-  - name: fdb-backup
+  - name: ledger-backup
     rules:
-      - alert: FDBBackupFailed
-        expr: fdb_backup_status != 1
+      - alert: LedgerBackupFailed
+        expr: ledger_backup_status != 1
         for: 15m
         labels:
           severity: critical
         annotations:
-          summary: "FDB backup failed"
+          summary: "Ledger backup failed"
           description: "Backup has been failing for 15 minutes"
 
-      - alert: FDBBackupStale
-        expr: time() - fdb_backup_last_success_timestamp > 86400
+      - alert: LedgerBackupStale
+        expr: time() - ledger_backup_last_success_timestamp > 86400
         for: 1h
         labels:
           severity: warning
         annotations:
-          summary: "FDB backup is stale"
+          summary: "Ledger backup is stale"
           description: "No successful backup in 24 hours"
 ```
 
@@ -531,21 +508,21 @@ Track in monitoring dashboard:
 
 ### Backup Fails to Start
 
-**Problem**: Backup agent can't connect to FDB
+**Problem**: Backup agent can't connect to Ledger
 
 **Investigation**:
 
 ```bash
-kubectl logs -n inferadb deployment/fdb-backup-agent
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster --exec "status"
+kubectl logs -n inferadb statefulset/inferadb-ledger
+kubectl exec -it -n inferadb inferadb-ledger-0 -- \
+  grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 ```
 
 **Resolution**:
 
-- Verify cluster file is correct
+- Verify Ledger cluster is healthy
 - Check network connectivity
-- Ensure backup agent has proper permissions
+- Ensure backup service has proper permissions
 
 ### Restore Hangs
 
@@ -554,13 +531,13 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 **Investigation**:
 
 ```bash
-kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
-  fdbcli -C /etc/foundationdb/fdb.cluster --exec "restore status"
+kubectl exec -it -n inferadb inferadb-ledger-0 -- \
+  grpcurl -plaintext localhost:50051 ledger.v1.Admin/ClusterStatus
 ```
 
 **Resolution**:
 
-- Check FDB cluster health
+- Check Ledger cluster health
 - Verify backup files are accessible
 - Check storage credentials
 - Increase restore timeout
@@ -572,7 +549,7 @@ kubectl exec -it -n inferadb deployment/fdb-backup-agent -- \
 **Investigation**:
 
 ```bash
-aws s3 ls s3://YOUR_BUCKET_NAME/fdb-backups/ --recursive --summarize --human-readable
+aws s3 ls s3://YOUR_BUCKET_NAME/ledger-backups/ --recursive --summarize --human-readable
 ```
 
 **Resolution**:
@@ -585,5 +562,5 @@ aws s3 ls s3://YOUR_BUCKET_NAME/fdb-backups/ --recursive --summarize --human-rea
 ## Related Runbooks
 
 - [Service Outage](service-outage.md) - Recovery procedures
-- [Storage Backend](storage-backend.md) - FDB troubleshooting
+- [Storage Backend](storage-backend.md) - Ledger troubleshooting
 - [Upgrades](upgrades.md) - Backup before upgrades

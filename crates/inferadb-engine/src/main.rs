@@ -12,7 +12,6 @@ use inferadb_engine_core::ipl::Schema;
 use inferadb_engine_repository::EngineStorage;
 use inferadb_engine_wasm::WasmHost;
 use inferadb_storage::MemoryBackend;
-#[cfg(feature = "ledger")]
 use inferadb_storage_ledger::{LedgerBackend, LedgerBackendConfig};
 
 #[derive(Parser, Debug)]
@@ -135,11 +134,9 @@ async fn main() -> Result<()> {
 
     // Initialize storage backend based on configuration
     // Memory backend uses EngineStorage<MemoryBackend> from the repository pattern
-    // Ledger uses EngineStorage<LedgerBackend> (target production)
-    // FoundationDB uses the legacy backend (to be migrated)
+    // Ledger uses EngineStorage<LedgerBackend> (production)
     let store: Arc<dyn inferadb_engine_store::InferaStore> = match config.storage.as_str() {
         "memory" => Arc::new(EngineStorage::new(MemoryBackend::new())),
-        #[cfg(feature = "ledger")]
         "ledger" => {
             let ledger_config = LedgerBackendConfig::builder()
                 .with_endpoint(config.ledger.endpoint.as_ref().expect("validated"))
@@ -158,29 +155,14 @@ async fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("Failed to connect to Ledger: {}", e))?;
             Arc::new(EngineStorage::new(ledger_backend))
         },
-        #[cfg(not(feature = "ledger"))]
-        "ledger" => {
-            return Err(anyhow::anyhow!(
-                "Ledger storage backend not compiled. Enable the 'ledger' feature."
-            ));
-        },
-        #[cfg(feature = "fdb")]
-        "foundationdb" | "fdb" => inferadb_engine_store::StorageFactory::from_str(
-            &config.storage,
-            config.foundationdb.cluster_file.clone(),
-        )
-        .await
-        .map_err(|e| {
-            anyhow::anyhow!("Failed to initialize storage backend '{}': {}", config.storage, e)
-        })?,
-        #[cfg(not(feature = "fdb"))]
-        "foundationdb" | "fdb" => {
-            return Err(anyhow::anyhow!(
-                "FoundationDB storage backend not compiled. Enable the 'fdb' feature."
-            ));
-        },
+        // Note: "foundationdb" and "fdb" are rejected by config.validate() with a helpful error
+        // message directing users to migrate to the Ledger backend.
         _ => {
-            return Err(anyhow::anyhow!("Unknown storage backend: {}", config.storage));
+            // This should not be reachable if config.validate() passed, but we handle it anyway
+            return Err(anyhow::anyhow!(
+                "Unknown storage backend: '{}'. Valid options are 'memory' or 'ledger'.",
+                config.storage
+            ));
         },
     };
     log_initialized(&format!("Storage ({})", config.storage));
@@ -246,7 +228,6 @@ async fn main() -> Result<()> {
     };
 
     // Clone components for each server
-    // See docs/deployment/foundationdb-multi-region.md for deployment guidance.
     let public_components = inferadb_engine_api::ServerComponents {
         store: Arc::clone(&store),
         schema: Arc::clone(&schema),

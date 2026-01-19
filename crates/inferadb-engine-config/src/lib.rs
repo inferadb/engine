@@ -69,8 +69,6 @@ pub struct Config {
     #[serde(default = "default_storage")]
     pub storage: String,
     #[serde(default)]
-    pub foundationdb: FoundationDbConfig,
-    #[serde(default)]
     pub ledger: LedgerConfig,
     #[serde(default)]
     pub cache: CacheConfig,
@@ -132,14 +130,6 @@ fn default_logging() -> String {
 
 fn default_storage() -> String {
     "memory".to_string()
-}
-
-/// FoundationDB configuration (only used when storage = "foundationdb")
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct FoundationDbConfig {
-    /// FoundationDB cluster file path
-    /// e.g., "/etc/foundationdb/fdb.cluster"
-    pub cluster_file: Option<String>,
 }
 
 /// Ledger storage configuration (only used when storage = "ledger")
@@ -609,16 +599,23 @@ impl Config {
         })?;
 
         // Validate storage backend
-        if self.storage != "memory" && self.storage != "foundationdb" && self.storage != "ledger" {
-            anyhow::bail!(
-                "Invalid storage: '{}'. Must be 'memory', 'foundationdb', or 'ledger'",
-                self.storage
-            );
-        }
-
-        // Validate FoundationDB configuration
-        if self.storage == "foundationdb" && self.foundationdb.cluster_file.is_none() {
-            anyhow::bail!("foundationdb.cluster_file is required when using FoundationDB backend");
+        match self.storage.as_str() {
+            "memory" | "ledger" => {
+                // Valid backends
+            },
+            "foundationdb" | "fdb" => {
+                anyhow::bail!(
+                    "FoundationDB storage backend has been removed. \
+                     Please migrate to 'ledger' backend. \
+                     See the PRD for migration instructions."
+                );
+            },
+            _ => {
+                anyhow::bail!(
+                    "Unknown storage backend: '{}'. Valid options are 'memory' or 'ledger'.",
+                    self.storage
+                );
+            },
         }
 
         // Validate Ledger configuration
@@ -689,7 +686,6 @@ impl Default for Config {
                 mesh: default_mesh(),
             },
             storage: default_storage(),
-            foundationdb: FoundationDbConfig::default(),
             ledger: LedgerConfig::default(),
             cache: CacheConfig {
                 enabled: default_cache_enabled(),
@@ -733,7 +729,7 @@ impl Default for Config {
 /// - `INFERADB__ENGINE__THREADS=8`
 /// - `INFERADB__ENGINE__LOGGING=debug`
 /// - `INFERADB__ENGINE__LISTEN__HTTP=0.0.0.0:8080`
-/// - `INFERADB__ENGINE__STORAGE__BACKEND=foundationdb`
+/// - `INFERADB__ENGINE__STORAGE__BACKEND=ledger`
 pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
     // The config crate will use serde's #[serde(default)] annotations for defaults
     // Layer 1 (defaults) is handled by serde deserialization
