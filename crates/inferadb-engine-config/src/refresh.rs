@@ -294,6 +294,7 @@ engine:
     http: "127.0.0.1:8080"
     grpc: "127.0.0.1:8081"
     mesh: "127.0.0.1:8082"
+  storage: "memory"
 "#,
         )
         .unwrap();
@@ -314,6 +315,7 @@ engine:
     http: "127.0.0.1:9090"
     grpc: "127.0.0.1:9091"
     mesh: "127.0.0.1:9092"
+  storage: "memory"
 "#,
         )
         .unwrap();
@@ -400,6 +402,7 @@ engine:
     http: "127.0.0.1:8080"
     grpc: "127.0.0.1:8081"
     mesh: "127.0.0.1:8082"
+  storage: "memory"
 "#,
         )
         .unwrap();
@@ -426,6 +429,7 @@ engine:
     http: "127.0.0.1:9090"
     grpc: "127.0.0.1:9091"
     mesh: "127.0.0.1:9092"
+  storage: "memory"
 "#,
         )
         .unwrap();

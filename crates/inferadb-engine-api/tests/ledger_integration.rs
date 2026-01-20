@@ -22,8 +22,6 @@
 //! ```
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-// Only compile if the ledger feature is enabled (for real Ledger tests)
-#![cfg(feature = "ledger")]
 
 use std::{
     env,
@@ -114,7 +112,7 @@ async fn create_ledger_backend() -> LedgerBackend {
     let vault_id = unique_vault_id();
     let config = LedgerBackendConfig::builder()
         .with_endpoint(ledger_endpoint())
-        .with_client_id(&format!("engine-test-{}", vault_id))
+        .with_client_id(format!("engine-test-{}", vault_id))
         .with_namespace_id(ledger_namespace_id())
         .with_vault_id(vault_id)
         .build()
@@ -216,8 +214,8 @@ async fn test_ledger_engine_write_and_read_relationships() {
 
     // Read back
     let key = inferadb_engine_types::RelationshipKey {
-        resource: Some("document:readme".to_string()),
-        relation: Some("viewer".to_string()),
+        resource: "document:readme".to_string(),
+        relation: "viewer".to_string(),
         subject: Some("user:alice".to_string()),
     };
 
@@ -248,8 +246,8 @@ async fn test_ledger_engine_delete_relationships() {
 
     // Delete
     let key = inferadb_engine_types::RelationshipKey {
-        resource: Some("document:secret".to_string()),
-        relation: Some("viewer".to_string()),
+        resource: "document:secret".to_string(),
+        relation: "viewer".to_string(),
         subject: Some("user:charlie".to_string()),
     };
     state.store.delete(vault, &key).await.unwrap();
@@ -282,8 +280,8 @@ async fn test_ledger_engine_vault_isolation() {
 
     // Verify isolation
     let key = inferadb_engine_types::RelationshipKey {
-        resource: Some("document:shared".to_string()),
-        relation: Some("viewer".to_string()),
+        resource: "document:shared".to_string(),
+        relation: "viewer".to_string(),
         subject: None,
     };
 
@@ -483,7 +481,7 @@ async fn test_ledger_engine_vault_crud() {
     // Create vault
     let vault = inferadb_engine_types::Vault {
         id: unique_vault_id(),
-        organization_id: org.id,
+        organization: org.id,
         name: "Test Vault".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
@@ -545,15 +543,15 @@ async fn test_ledger_engine_concurrent_writes() {
     }
 
     // Verify all were written
-    let key = inferadb_engine_types::RelationshipKey {
-        resource: None,
-        relation: Some("viewer".to_string()),
-        subject: None,
-    };
-
     let results = state
         .store
-        .list_relationships(vault, &key, inferadb_engine_types::Revision::zero())
+        .list_relationships(
+            vault,
+            None,           // resource
+            Some("viewer"), // relation
+            None,           // subject
+            inferadb_engine_types::Revision::zero(),
+        )
         .await
         .unwrap();
 

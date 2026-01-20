@@ -29,6 +29,12 @@ struct Args {
     /// Environment (development, staging, production)
     #[arg(short, long, env = "ENVIRONMENT", default_value = "development")]
     environment: String,
+
+    /// Force development mode with in-memory storage.
+    /// Use this flag for local development and testing without Ledger.
+    /// In production, Ledger storage is the default and required.
+    #[arg(long)]
+    dev_mode: bool,
 }
 
 #[tokio::main]
@@ -56,6 +62,15 @@ async fn main() -> Result<()> {
     // Override with CLI args
     if let Some(ref addr) = args.http {
         config.listen.http = addr.clone();
+    }
+
+    // Apply environment-aware defaults (in development, auto-fallback to memory if no Ledger config)
+    config.apply_environment_defaults(&args.environment);
+
+    // Handle --dev-mode flag: force memory storage for development/testing
+    if args.dev_mode {
+        tracing::info!("Development mode enabled via --dev-mode flag: using memory storage");
+        config.storage = "memory".to_string();
     }
 
     // Validate configuration
