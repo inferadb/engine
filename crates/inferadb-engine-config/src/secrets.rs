@@ -610,7 +610,6 @@ pub fn resolve_secrets(input: &str, provider: &dyn SecretProvider) -> Result<Str
 }
 
 #[cfg(test)]
-#[allow(unsafe_code)] // Required for std::env::set_var/remove_var in Rust 2024 edition
 mod tests {
     use super::*;
 
@@ -698,23 +697,18 @@ mod tests {
 
     #[test]
     fn test_env_provider() {
-        // SAFETY: This test runs in isolation and no other threads are accessing this
-        // environment variable. set_var/remove_var are unsafe in Rust 2024 edition due to
-        // potential data races, but single-threaded test access is safe.
-        unsafe {
-            std::env::set_var("INFERADB_TEST_SECRET", "test_value");
-        }
-
         let provider = EnvSecretProvider;
-        assert!(provider.has("INFERADB_TEST_SECRET"));
-        assert_eq!(provider.get("INFERADB_TEST_SECRET").unwrap(), "test_value");
-        assert!(!provider.has("NONEXISTENT_VAR"));
 
-        // Clean up
-        // SAFETY: Same as above - single-threaded test cleanup.
-        unsafe {
-            std::env::remove_var("INFERADB_TEST_SECRET");
-        }
+        // Test against a commonly-available env var (PATH exists on all Unix/Windows systems)
+        // This avoids needing unsafe set_var/remove_var in Rust 2024 edition
+        assert!(provider.has("PATH"));
+        let path_value = provider.get("PATH");
+        assert!(path_value.is_ok());
+        assert!(!path_value.expect("PATH should exist").is_empty());
+
+        // Test non-existent variable
+        assert!(!provider.has("INFERADB_DEFINITELY_NONEXISTENT_VAR_12345"));
+        assert!(provider.get("INFERADB_DEFINITELY_NONEXISTENT_VAR_12345").is_err());
     }
 
     #[test]

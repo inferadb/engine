@@ -98,6 +98,21 @@ impl InternalJwks {
         Ok(())
     }
 
+    /// Parse and validate JWKS from a JSON string
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - String contains invalid JSON
+    /// - JWKS structure is invalid
+    pub fn parse(contents: &str) -> Result<Self, AuthError> {
+        let jwks: InternalJwks = serde_json::from_str(contents)
+            .map_err(|e| AuthError::JwksError(format!("Failed to parse JWKS JSON: {e}")))?;
+
+        jwks.validate()?;
+        Ok(jwks)
+    }
+
     /// Load JWKS from a file
     ///
     /// # Errors
@@ -108,12 +123,9 @@ impl InternalJwks {
     /// - JWKS structure is invalid
     pub fn from_file(path: &Path) -> Result<Self, AuthError> {
         let contents = std::fs::read_to_string(path)
-            .map_err(|e| AuthError::JwksError(format!("Failed to read JWKS file: {}", e)))?;
+            .map_err(|e| AuthError::JwksError(format!("Failed to read JWKS file: {e}")))?;
 
-        let jwks: InternalJwks = serde_json::from_str(&contents)
-            .map_err(|e| AuthError::JwksError(format!("Failed to parse JWKS JSON: {}", e)))?;
-
-        jwks.validate()?;
+        let jwks = Self::parse(&contents)?;
 
         // Check file permissions (warn if world-readable)
         #[cfg(unix)]
@@ -145,18 +157,12 @@ impl InternalJwks {
     /// - JWKS structure is invalid
     pub fn from_env(var_name: &str) -> Result<Self, AuthError> {
         let contents = std::env::var(var_name).map_err(|_| {
-            AuthError::JwksError(format!("Environment variable '{}' not set", var_name))
+            AuthError::JwksError(format!("Environment variable '{var_name}' not set"))
         })?;
 
-        let jwks: InternalJwks = serde_json::from_str(&contents).map_err(|e| {
-            AuthError::JwksError(format!(
-                "Failed to parse JWKS JSON from env var '{}': {}",
-                var_name, e
-            ))
-        })?;
-
-        jwks.validate()?;
-        Ok(jwks)
+        Self::parse(&contents).map_err(|e| {
+            AuthError::JwksError(format!("Failed to parse JWKS from env var '{var_name}': {e}"))
+        })
     }
 
     /// Get a key by its key ID (kid) using constant-time comparison
@@ -319,7 +325,6 @@ pub async fn validate_internal_jwt(
 }
 
 #[cfg(test)]
-#[allow(unsafe_code)] // Required for std::env::set_var/remove_var in Rust 2024 edition
 mod tests {
     use super::*;
 
@@ -472,18 +477,14 @@ mod tests {
     }
 
     #[test]
-    fn test_jwks_from_env_invalid_json() {
-        // SAFETY: Single-threaded test with unique env var name.
-        unsafe { std::env::set_var("TEST_JWKS_INVALID", "not valid json") };
-        let result = InternalJwks::from_env("TEST_JWKS_INVALID");
+    fn test_jwks_parse_invalid_json() {
+        let result = InternalJwks::parse("not valid json");
         assert!(result.is_err());
         assert!(result.expect_err("expected parse error").to_string().contains("parse"));
-        // SAFETY: Single-threaded test cleanup.
-        unsafe { std::env::remove_var("TEST_JWKS_INVALID") };
     }
 
     #[test]
-    fn test_jwks_from_env_valid() {
+    fn test_jwks_parse_valid() {
         let jwks_json = r#"{
             "issuer": "https://internal.inferadb.com",
             "audience": "https://api.inferadb.com/internal",
@@ -497,18 +498,13 @@ mod tests {
             }]
         }"#;
 
-        // SAFETY: Single-threaded test with unique env var name.
-        unsafe { std::env::set_var("TEST_JWKS_VALID", jwks_json) };
-        let result = InternalJwks::from_env("TEST_JWKS_VALID");
+        let result = InternalJwks::parse(jwks_json);
         assert!(result.is_ok());
 
         let jwks = result.expect("expected valid JWKS");
         assert_eq!(jwks.issuer, "https://internal.inferadb.com");
         assert_eq!(jwks.keys.len(), 1);
         assert_eq!(jwks.keys[0].kid, "test-key");
-
-        // SAFETY: Single-threaded test cleanup.
-        unsafe { std::env::remove_var("TEST_JWKS_VALID") };
     }
 
     #[test]
@@ -547,37 +543,35 @@ mod tests {
     }
 
     #[test]
-    fn test_loader_from_config_env() {
+    fn test_loader_direct_creation() {
+        // Test creating a loader directly from parsed JWKS (bypasses env/file)
         let jwks_json = r#"{
             "issuer": "https://internal.inferadb.com",
             "audience": "https://api.inferadb.com/internal",
             "keys": [{
                 "kty": "OKP",
                 "crv": "Ed25519",
-                "kid": "env-key",
+                "kid": "direct-key",
                 "alg": "EdDSA",
                 "x": "test_public_key",
                 "use": "sig"
             }]
         }"#;
 
-        // SAFETY: Single-threaded test with unique env var name.
-        unsafe { std::env::set_var("TEST_LOADER_ENV", jwks_json) };
+        let jwks = InternalJwks::parse(jwks_json).expect("valid JWKS");
+        let loader = InternalJwksLoader::new(jwks);
 
-        // Test loading from env
-        let result = InternalJwksLoader::from_config(None, Some("TEST_LOADER_ENV"));
-        assert!(result.is_ok());
+        assert_eq!(loader.issuer(), "https://internal.inferadb.com");
+        assert_eq!(loader.audience(), "https://api.inferadb.com/internal");
 
-        let loader = result.expect("expected loader from env");
-        let key = loader.get_key("env-key");
+        let key = loader.get_key("direct-key");
         assert!(key.is_some());
-
-        // SAFETY: Single-threaded test cleanup.
-        unsafe { std::env::remove_var("TEST_LOADER_ENV") };
     }
 
     #[test]
     fn test_loader_from_config_file_priority() {
+        // Test that file path takes priority over env var when both are provided.
+        // Since file is checked first, the env var is never read if file succeeds.
         use std::io::Write;
         let temp_dir = std::env::temp_dir();
         let jwks_path = temp_dir.join("test_internal_jwks_priority.json");
@@ -599,35 +593,15 @@ mod tests {
         let mut file = std::fs::File::create(&jwks_path).unwrap();
         file.write_all(file_jwks_json.as_bytes()).unwrap();
 
-        // Set env var with different key
-        let env_jwks_json = r#"{
-            "issuer": "https://internal.inferadb.com",
-            "audience": "https://api.inferadb.com/internal",
-            "keys": [{
-                "kty": "OKP",
-                "crv": "Ed25519",
-                "kid": "env-key",
-                "alg": "EdDSA",
-                "x": "test_public_key",
-                "use": "sig"
-            }]
-        }"#;
-        // SAFETY: Single-threaded test with unique env var name.
-        unsafe { std::env::set_var("TEST_LOADER_PRIORITY", env_jwks_json) };
-
-        // Test that file takes priority
-        let result =
-            InternalJwksLoader::from_config(Some(&jwks_path), Some("TEST_LOADER_PRIORITY"));
+        // Pass a non-existent env var name - if file takes priority, this won't matter
+        let result = InternalJwksLoader::from_config(Some(&jwks_path), Some("NONEXISTENT_ENV_VAR"));
         assert!(result.is_ok());
 
         let loader = result.expect("expected loader from config");
         assert!(loader.get_key("file-key").is_some());
-        assert!(loader.get_key("env-key").is_none());
 
         // Cleanup
         std::fs::remove_file(&jwks_path).ok();
-        // SAFETY: Single-threaded test cleanup.
-        unsafe { std::env::remove_var("TEST_LOADER_PRIORITY") };
     }
 
     #[test]
