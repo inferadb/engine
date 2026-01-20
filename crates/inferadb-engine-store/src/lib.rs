@@ -13,6 +13,8 @@
 //! Use `EngineStorage<S>` from `inferadb-engine-repository` with a
 //! `StorageBackend` implementation.
 
+#![deny(unsafe_code)]
+
 use async_trait::async_trait;
 use inferadb_engine_types::{
     ChangeEvent, DeleteFilter, Relationship, RelationshipKey, Revision, StoreError, StoreResult,

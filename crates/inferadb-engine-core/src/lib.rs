@@ -3,6 +3,8 @@
 //! Core reasoning and policy evaluation engine for InferaDB.
 //! Handles IPL parsing, relationship graph traversal, and decision evaluation.
 
+#![deny(unsafe_code)]
+
 use thiserror::Error;
 
 pub mod evaluator;

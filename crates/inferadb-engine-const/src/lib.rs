@@ -3,6 +3,8 @@
 //! Centralized constants used across the InferaDB codebase.
 //! This crate provides a single source of truth for magic numbers and strings.
 
+#![deny(unsafe_code)]
+
 // ============================================================================
 // Module Exports
 // ============================================================================

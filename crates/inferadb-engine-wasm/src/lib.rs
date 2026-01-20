@@ -2,6 +2,8 @@
 //!
 //! Hosts sandboxed WASM policy modules with deterministic execution.
 
+#![deny(unsafe_code)]
+
 use std::{collections::HashMap, sync::RwLock};
 
 use thiserror::Error;

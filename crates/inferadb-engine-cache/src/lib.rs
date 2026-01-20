@@ -2,6 +2,8 @@
 //!
 //! Optimizes common queries with deterministic caching.
 
+#![deny(unsafe_code)]
+
 use std::{
     collections::{HashMap, HashSet},
     sync::{

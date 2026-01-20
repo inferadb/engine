@@ -4,6 +4,8 @@
 //! enabling direct pod-to-pod communication and bypassing service proxies for improved
 //! performance and latency.
 
+#![deny(unsafe_code)]
+
 use std::fmt;
 
 use async_trait::async_trait;

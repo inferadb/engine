@@ -50,6 +50,8 @@
 //! let vaults = VaultRepository::new(backend);
 //! ```
 
+#![deny(unsafe_code)]
+
 pub mod error;
 pub mod keys;
 pub mod organization;

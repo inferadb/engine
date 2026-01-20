@@ -26,6 +26,8 @@
 //! The engine will read its configuration from the `engine:` section. Any `control:` section
 //! is ignored by the engine (and vice versa when control reads the same file).
 
+#![deny(unsafe_code)]
+
 pub mod hot_reload;
 pub mod refresh;
 pub mod secrets;

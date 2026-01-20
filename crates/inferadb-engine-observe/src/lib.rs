@@ -2,6 +2,8 @@
 //!
 //! Centralized observability with tracing, metrics, and structured logging.
 
+#![deny(unsafe_code)]
+
 use std::sync::OnceLock;
 
 use anyhow::Result;
