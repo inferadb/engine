@@ -13,7 +13,7 @@ InferaDB Authorization Engine is a high-performance Relationship-Based Access Co
 - **Extensible**: WASM modules for custom logic
 
 ## Tech Stack
-- **Language**: Rust (edition 2021, MSRV 1.85)
+- **Language**: Rust (edition 2021, MSRV 1.92)
 - **Async Runtime**: Tokio
 - **Web Frameworks**: Axum (REST), Tonic (gRPC)
 - **Storage Backend**: Ledger (production), In-memory (development)

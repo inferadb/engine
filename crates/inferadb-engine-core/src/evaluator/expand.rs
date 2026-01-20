@@ -306,15 +306,14 @@ impl Evaluator {
                 };
 
                 // Check cache
-                if let Some(ref key) = cache_key {
-                    if let Some(cache) = &self.cache {
-                        if let Some(cached_users) = cache.get_expand(key).await {
-                            return Ok(UsersetTree {
-                                node_type: UsersetNodeType::Leaf { users: cached_users },
-                                children: vec![],
-                            });
-                        }
-                    }
+                if let Some(ref key) = cache_key
+                    && let Some(cache) = &self.cache
+                    && let Some(cached_users) = cache.get_expand(key).await
+                {
+                    return Ok(UsersetTree {
+                        node_type: UsersetNodeType::Leaf { users: cached_users },
+                        children: vec![],
+                    });
                 }
 
                 // Get the type definition for the current object
@@ -357,15 +356,15 @@ impl Evaluator {
                 };
 
                 // Cache the result
-                if let Some(ref key) = cache_key {
-                    if let Some(cache) = &self.cache {
-                        if let UsersetNodeType::Leaf { ref users } = tree.node_type {
-                            cache.put_expand(key.clone(), users.clone()).await;
-                        } else {
-                            // Collect users from the tree and cache them
-                            let users = self.collect_users_from_tree(&tree);
-                            cache.put_expand(key.clone(), users).await;
-                        }
+                if let Some(ref key) = cache_key
+                    && let Some(cache) = &self.cache
+                {
+                    if let UsersetNodeType::Leaf { ref users } = tree.node_type {
+                        cache.put_expand(key.clone(), users.clone()).await;
+                    } else {
+                        // Collect users from the tree and cache them
+                        let users = self.collect_users_from_tree(&tree);
+                        cache.put_expand(key.clone(), users).await;
                     }
                 }
 

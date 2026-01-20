@@ -125,69 +125,69 @@ async fn delete_relationships_internal(
     }
 
     // Handle exact relationship deletion if relationships are provided
-    if let Some(relationships) = request.relationships {
-        if !relationships.is_empty() {
-            // Validate and convert relationships to RelationshipKeys
-            let mut keys = Vec::new();
-            for relationship in &relationships {
-                if relationship.resource.is_empty() {
-                    return Err(ApiError::InvalidRequest(
-                        "Relationship resource cannot be empty".to_string(),
-                    ));
-                }
-                if relationship.relation.is_empty() {
-                    return Err(ApiError::InvalidRequest(
-                        "Relationship relation cannot be empty".to_string(),
-                    ));
-                }
-                if relationship.subject.is_empty() {
-                    return Err(ApiError::InvalidRequest(
-                        "Relationship subject cannot be empty".to_string(),
-                    ));
-                }
-                // Validate format (should contain colon)
-                if !relationship.resource.contains(':') {
-                    return Err(ApiError::InvalidRequest(format!(
-                        "Invalid object format '{}': must be 'type:id'",
-                        relationship.resource
-                    )));
-                }
-                if !relationship.subject.contains(':') {
-                    return Err(ApiError::InvalidRequest(format!(
-                        "Invalid user format '{}': must be 'type:id'",
-                        relationship.subject
-                    )));
-                }
-
-                // Track resource for cache invalidation
-                affected_resources.insert(relationship.resource.clone());
-
-                keys.push(RelationshipKey {
-                    resource: relationship.resource.clone(),
-                    relation: relationship.relation.clone(),
-                    subject: Some(relationship.subject.clone()),
-                });
+    if let Some(relationships) = request.relationships
+        && !relationships.is_empty()
+    {
+        // Validate and convert relationships to RelationshipKeys
+        let mut keys = Vec::new();
+        for relationship in &relationships {
+            if relationship.resource.is_empty() {
+                return Err(ApiError::InvalidRequest(
+                    "Relationship resource cannot be empty".to_string(),
+                ));
+            }
+            if relationship.relation.is_empty() {
+                return Err(ApiError::InvalidRequest(
+                    "Relationship relation cannot be empty".to_string(),
+                ));
+            }
+            if relationship.subject.is_empty() {
+                return Err(ApiError::InvalidRequest(
+                    "Relationship subject cannot be empty".to_string(),
+                ));
+            }
+            // Validate format (should contain colon)
+            if !relationship.resource.contains(':') {
+                return Err(ApiError::InvalidRequest(format!(
+                    "Invalid object format '{}': must be 'type:id'",
+                    relationship.resource
+                )));
+            }
+            if !relationship.subject.contains(':') {
+                return Err(ApiError::InvalidRequest(format!(
+                    "Invalid user format '{}': must be 'type:id'",
+                    relationship.subject
+                )));
             }
 
-            // Delete relationships from store
-            for (key, relationship) in keys.into_iter().zip(relationships.into_iter()) {
-                match state.store.delete(vault, &key).await {
-                    Ok(revision) => {
-                        last_revision = Some(revision);
-                        total_deleted += 1;
-                        // Track deleted relationship for change feed
-                        deleted_relationships.push(Relationship {
-                            vault,
-                            resource: relationship.resource,
-                            relation: relationship.relation,
-                            subject: relationship.subject,
-                        });
-                    },
-                    Err(e) => {
-                        tracing::warn!("Failed to delete relationship {:?}: {}", key, e);
-                        // Continue deleting other relationships even if one fails
-                    },
-                }
+            // Track resource for cache invalidation
+            affected_resources.insert(relationship.resource.clone());
+
+            keys.push(RelationshipKey {
+                resource: relationship.resource.clone(),
+                relation: relationship.relation.clone(),
+                subject: Some(relationship.subject.clone()),
+            });
+        }
+
+        // Delete relationships from store
+        for (key, relationship) in keys.into_iter().zip(relationships.into_iter()) {
+            match state.store.delete(vault, &key).await {
+                Ok(revision) => {
+                    last_revision = Some(revision);
+                    total_deleted += 1;
+                    // Track deleted relationship for change feed
+                    deleted_relationships.push(Relationship {
+                        vault,
+                        resource: relationship.resource,
+                        relation: relationship.relation,
+                        subject: relationship.subject,
+                    });
+                },
+                Err(e) => {
+                    tracing::warn!("Failed to delete relationship {:?}: {}", key, e);
+                    // Continue deleting other relationships even if one fails
+                },
             }
         }
     }

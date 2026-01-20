@@ -610,6 +610,7 @@ pub fn resolve_secrets(input: &str, provider: &dyn SecretProvider) -> Result<Str
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Required for std::env::set_var/remove_var in Rust 2024 edition
 mod tests {
     use super::*;
 
@@ -697,8 +698,12 @@ mod tests {
 
     #[test]
     fn test_env_provider() {
-        // Set test environment variable
-        std::env::set_var("INFERADB_TEST_SECRET", "test_value");
+        // SAFETY: This test runs in isolation and no other threads are accessing this
+        // environment variable. set_var/remove_var are unsafe in Rust 2024 edition due to
+        // potential data races, but single-threaded test access is safe.
+        unsafe {
+            std::env::set_var("INFERADB_TEST_SECRET", "test_value");
+        }
 
         let provider = EnvSecretProvider;
         assert!(provider.has("INFERADB_TEST_SECRET"));
@@ -706,7 +711,10 @@ mod tests {
         assert!(!provider.has("NONEXISTENT_VAR"));
 
         // Clean up
-        std::env::remove_var("INFERADB_TEST_SECRET");
+        // SAFETY: Same as above - single-threaded test cleanup.
+        unsafe {
+            std::env::remove_var("INFERADB_TEST_SECRET");
+        }
     }
 
     #[test]

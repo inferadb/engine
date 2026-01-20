@@ -66,10 +66,10 @@ impl JwtClaims {
     pub fn extract_org_id(&self) -> Result<String, AuthError> {
         // Extract org_id claim (Management API client JWTs - per spec)
         // The org_id claim contains the organization ID (Snowflake ID as string)
-        if let Some(ref org_id) = self.org_id {
-            if !org_id.is_empty() {
-                return Ok(org_id.clone());
-            }
+        if let Some(ref org_id) = self.org_id
+            && !org_id.is_empty()
+        {
+            return Ok(org_id.clone());
         }
 
         Err(AuthError::MissingClaim("org_id".into()))
@@ -145,10 +145,10 @@ pub fn validate_claims(
     }
 
     // Check not-before if present
-    if let Some(nbf) = claims.nbf {
-        if nbf > now {
-            return Err(AuthError::TokenNotYetValid);
-        }
+    if let Some(nbf) = claims.nbf
+        && nbf > now
+    {
+        return Err(AuthError::TokenNotYetValid);
     }
 
     // Check issued-at is reasonable (not too far in past, max 24 hours)
@@ -161,13 +161,13 @@ pub fn validate_claims(
     }
 
     // Check audience if enforced
-    if let Some(expected) = expected_audience {
-        if claims.aud != expected {
-            return Err(AuthError::InvalidAudience(format!(
-                "expected '{}', got '{}'",
-                expected, claims.aud
-            )));
-        }
+    if let Some(expected) = expected_audience
+        && claims.aud != expected
+    {
+        return Err(AuthError::InvalidAudience(format!(
+            "expected '{}', got '{}'",
+            expected, claims.aud
+        )));
     }
 
     Ok(())

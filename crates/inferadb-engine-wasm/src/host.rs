@@ -27,19 +27,19 @@ impl HostFunctions {
             "host",
             "log",
             |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| {
-                if let Some(mem) = caller.get_export("memory") {
-                    if let Some(memory) = mem.into_memory() {
-                        let data = memory.data(&caller);
+                if let Some(mem) = caller.get_export("memory")
+                    && let Some(memory) = mem.into_memory()
+                {
+                    let data = memory.data(&caller);
 
-                        if ptr >= 0 && len >= 0 && (ptr as usize + len as usize) <= data.len() {
-                            let message_bytes = &data[ptr as usize..(ptr as usize + len as usize)];
-                            if let Ok(message) = std::str::from_utf8(message_bytes) {
-                                let message_string = message.to_string();
-                                tracing::debug!(target: "wasm", "WASM log: {}", message_string);
-                                // Drop the immutable borrow before calling data_mut()
-                                let _ = data;
-                                caller.data_mut().logs.push(message_string);
-                            }
+                    if ptr >= 0 && len >= 0 && (ptr as usize + len as usize) <= data.len() {
+                        let message_bytes = &data[ptr as usize..(ptr as usize + len as usize)];
+                        if let Ok(message) = std::str::from_utf8(message_bytes) {
+                            let message_string = message.to_string();
+                            tracing::debug!(target: "wasm", "WASM log: {}", message_string);
+                            // Drop the immutable borrow before calling data_mut()
+                            let _ = data;
+                            caller.data_mut().logs.push(message_string);
                         }
                     }
                 }

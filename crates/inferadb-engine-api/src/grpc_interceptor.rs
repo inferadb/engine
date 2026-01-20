@@ -181,16 +181,13 @@ impl AuthInterceptor {
         let unverified = jwt::decode_jwt_claims(token)?;
 
         // Check if this is an internal JWT
-        if let Some(ref internal_loader) = self.internal_loader {
-            if unverified.iss == internal_loader.issuer() {
-                tracing::debug!(issuer = %unverified.iss, "Detected internal service JWT");
-                metrics::record_jwt_signature_verification("EdDSA", true);
-                return inferadb_engine_auth::internal::validate_internal_jwt(
-                    token,
-                    internal_loader,
-                )
+        if let Some(ref internal_loader) = self.internal_loader
+            && unverified.iss == internal_loader.issuer()
+        {
+            tracing::debug!(issuer = %unverified.iss, "Detected internal service JWT");
+            metrics::record_jwt_signature_verification("EdDSA", true);
+            return inferadb_engine_auth::internal::validate_internal_jwt(token, internal_loader)
                 .await;
-            }
         }
 
         // Check if issuer matches expected tenant JWKS pattern

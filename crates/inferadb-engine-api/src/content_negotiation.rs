@@ -121,10 +121,10 @@ fn parse_accept_header(accept: &str) -> ResponseFormat {
         let mut quality = 1.0;
         for param in segments {
             let param = param.trim();
-            if let Some(q_value) = param.strip_prefix("q=") {
-                if let Ok(q) = q_value.parse::<f32>() {
-                    quality = q.clamp(0.0, 1.0);
-                }
+            if let Some(q_value) = param.strip_prefix("q=")
+                && let Ok(q) = q_value.parse::<f32>()
+            {
+                quality = q.clamp(0.0, 1.0);
             }
         }
 

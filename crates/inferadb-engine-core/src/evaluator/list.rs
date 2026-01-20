@@ -72,10 +72,10 @@ impl Evaluator {
             }
 
             // Apply limit if specified
-            if let Some(limit) = request.limit {
-                if accessible_resources.len() >= limit {
-                    break;
-                }
+            if let Some(limit) = request.limit
+                && accessible_resources.len() >= limit
+            {
+                break;
             }
         }
 
@@ -390,7 +390,7 @@ impl Evaluator {
 
                     // Computed userset: follow relationship then get subjects from computed
                     // relation
-                    RelationExpr::ComputedUserset { ref relationship, ref relation } => {
+                    RelationExpr::ComputedUserset { relationship, relation } => {
                         // First, find related objects via the relationship
                         let related_tuples = self
                             .store
@@ -411,29 +411,27 @@ impl Evaluator {
                             if related_parts.len() == 2 {
                                 let related_type = related_parts[0];
                                 if let Some(related_type_def) = self.schema.find_type(related_type)
-                                {
-                                    if let Some(computed_rel_def) = related_type_def
+                                    && let Some(computed_rel_def) = related_type_def
                                         .relations
                                         .iter()
                                         .find(|r| r.name == *relation)
-                                    {
-                                        let related_subjects = self
-                                            .collect_subjects_for_relation(
-                                                related_resource,
-                                                computed_rel_def,
-                                                related_type,
-                                                revision,
-                                            )
-                                            .await?;
-                                        subjects.extend(related_subjects);
-                                    }
+                                {
+                                    let related_subjects = self
+                                        .collect_subjects_for_relation(
+                                            related_resource,
+                                            computed_rel_def,
+                                            related_type,
+                                            revision,
+                                        )
+                                        .await?;
+                                    subjects.extend(related_subjects);
                                 }
                             }
                         }
                     },
 
                     // Union: collect subjects from all branches
-                    RelationExpr::Union(ref branches) => {
+                    RelationExpr::Union(branches) => {
                         for branch_expr in branches {
                             let branch_subjects = self
                                 .collect_subjects_from_expr(
@@ -449,7 +447,7 @@ impl Evaluator {
                     },
 
                     // Intersection: collect subjects that appear in all branches
-                    RelationExpr::Intersection(ref branches) => {
+                    RelationExpr::Intersection(branches) => {
                         if branches.is_empty() {
                             return Ok(Vec::new());
                         }
@@ -516,7 +514,7 @@ impl Evaluator {
                     },
 
                     // RelatedObjectUserset: find related objects, then their subjects
-                    RelationExpr::RelatedObjectUserset { ref relationship, ref computed } => {
+                    RelationExpr::RelatedObjectUserset { relationship, computed } => {
                         // First, find all related objects via the relationship
                         let related_tuples = self
                             .store
@@ -539,29 +537,27 @@ impl Evaluator {
                                 let related_type = related_parts[0];
 
                                 if let Some(related_type_def) = self.schema.find_type(related_type)
-                                {
-                                    if let Some(computed_rel_def) = related_type_def
+                                    && let Some(computed_rel_def) = related_type_def
                                         .relations
                                         .iter()
                                         .find(|r| r.name == *computed)
-                                    {
-                                        let related_subjects = self
-                                            .collect_subjects_for_relation(
-                                                related_resource,
-                                                computed_rel_def,
-                                                related_type,
-                                                revision,
-                                            )
-                                            .await?;
-                                        subjects.extend(related_subjects);
-                                    }
+                                {
+                                    let related_subjects = self
+                                        .collect_subjects_for_relation(
+                                            related_resource,
+                                            computed_rel_def,
+                                            related_type,
+                                            revision,
+                                        )
+                                        .await?;
+                                    subjects.extend(related_subjects);
                                 }
                             }
                         }
                     },
 
                     // Relation reference: recursively get subjects from referenced relation
-                    RelationExpr::RelationRef { ref relation } => {
+                    RelationExpr::RelationRef { relation } => {
                         let ref_rel_def = self
                             .schema
                             .find_type(resource_type)
@@ -645,7 +641,7 @@ impl Evaluator {
                     Ok(tuples.into_iter().map(|t| t.subject).collect())
                 },
 
-                RelationExpr::ComputedUserset { ref relationship, ref relation } => {
+                RelationExpr::ComputedUserset { relationship, relation } => {
                     let mut all_subjects = HashSet::new();
                     let related_tuples = self
                         .store
@@ -664,20 +660,19 @@ impl Evaluator {
 
                         if related_parts.len() == 2 {
                             let related_type = related_parts[0];
-                            if let Some(related_type_def) = self.schema.find_type(related_type) {
-                                if let Some(computed_rel_def) =
+                            if let Some(related_type_def) = self.schema.find_type(related_type)
+                                && let Some(computed_rel_def) =
                                     related_type_def.relations.iter().find(|r| r.name == *relation)
-                                {
-                                    let related_subjects = self
-                                        .collect_subjects_for_relation(
-                                            related_resource,
-                                            computed_rel_def,
-                                            related_type,
-                                            revision,
-                                        )
-                                        .await?;
-                                    all_subjects.extend(related_subjects);
-                                }
+                            {
+                                let related_subjects = self
+                                    .collect_subjects_for_relation(
+                                        related_resource,
+                                        computed_rel_def,
+                                        related_type,
+                                        revision,
+                                    )
+                                    .await?;
+                                all_subjects.extend(related_subjects);
                             }
                         }
                     }
@@ -685,7 +680,7 @@ impl Evaluator {
                     Ok(all_subjects.into_iter().collect())
                 },
 
-                RelationExpr::RelationRef { ref relation } => {
+                RelationExpr::RelationRef { relation } => {
                     let ref_rel_def = self
                         .schema
                         .find_type(resource_type)
@@ -706,7 +701,7 @@ impl Evaluator {
                     .await
                 },
 
-                RelationExpr::Union(ref branches) => {
+                RelationExpr::Union(branches) => {
                     let mut all_subjects = HashSet::new();
                     for branch in branches {
                         let branch_subjects = self
@@ -723,7 +718,7 @@ impl Evaluator {
                     Ok(all_subjects.into_iter().collect())
                 },
 
-                RelationExpr::Intersection(ref branches) => {
+                RelationExpr::Intersection(branches) => {
                     if branches.is_empty() {
                         return Ok(Vec::new());
                     }
@@ -786,7 +781,7 @@ impl Evaluator {
                     Ok(base_subjects.difference(&subtract_subjects).cloned().collect())
                 },
 
-                RelationExpr::RelatedObjectUserset { ref relationship, ref computed } => {
+                RelationExpr::RelatedObjectUserset { relationship, computed } => {
                     let mut all_subjects = HashSet::new();
                     let related_tuples = self
                         .store
@@ -805,20 +800,19 @@ impl Evaluator {
 
                         if related_parts.len() == 2 {
                             let related_type = related_parts[0];
-                            if let Some(related_type_def) = self.schema.find_type(related_type) {
-                                if let Some(computed_rel_def) =
+                            if let Some(related_type_def) = self.schema.find_type(related_type)
+                                && let Some(computed_rel_def) =
                                     related_type_def.relations.iter().find(|r| r.name == *computed)
-                                {
-                                    let related_subjects = self
-                                        .collect_subjects_for_relation(
-                                            related_resource,
-                                            computed_rel_def,
-                                            related_type,
-                                            revision,
-                                        )
-                                        .await?;
-                                    all_subjects.extend(related_subjects);
-                                }
+                            {
+                                let related_subjects = self
+                                    .collect_subjects_for_relation(
+                                        related_resource,
+                                        computed_rel_def,
+                                        related_type,
+                                        revision,
+                                    )
+                                    .await?;
+                                all_subjects.extend(related_subjects);
                             }
                         }
                     }

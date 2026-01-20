@@ -127,10 +127,10 @@ impl<S: StorageBackend> OrganizationRepository<S> {
                 orgs.push(org);
 
                 // Respect limit if provided
-                if let Some(max) = limit {
-                    if orgs.len() >= max {
-                        break;
-                    }
+                if let Some(max) = limit
+                    && orgs.len() >= max
+                {
+                    break;
                 }
             }
         }

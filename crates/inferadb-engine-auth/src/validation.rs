@@ -84,10 +84,10 @@ pub fn validate_timestamp_claims(
     }
 
     // Check not-before with clock skew tolerance
-    if let Some(nbf) = claims.nbf {
-        if nbf > now + clock_skew {
-            return Err(AuthError::TokenNotYetValid);
-        }
+    if let Some(nbf) = claims.nbf
+        && nbf > now + clock_skew
+    {
+        return Err(AuthError::TokenNotYetValid);
     }
 
     // Check issued-at is not in the future (with clock skew)

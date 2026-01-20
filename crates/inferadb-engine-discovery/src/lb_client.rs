@@ -204,11 +204,11 @@ impl LoadBalancingClient {
             let endpoint_url = self.get_next_healthy_endpoint()?;
 
             // Record failover if we switched endpoints
-            if let Some(prev) = previous_endpoint.as_ref() {
-                if prev != &endpoint_url {
-                    record_failover(prev, &endpoint_url);
-                    debug!(from = %prev, to = %endpoint_url, "Failover to next endpoint");
-                }
+            if let Some(prev) = previous_endpoint.as_ref()
+                && prev != &endpoint_url
+            {
+                record_failover(prev, &endpoint_url);
+                debug!(from = %prev, to = %endpoint_url, "Failover to next endpoint");
             }
 
             match request_fn(&endpoint_url) {

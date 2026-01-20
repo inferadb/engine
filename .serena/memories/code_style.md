@@ -3,7 +3,7 @@
 ## Rust Version & Toolchain
 - Channel: `stable`
 - Edition: 2021
-- MSRV: 1.85
+- MSRV: 1.92
 - Components: clippy, rust-analyzer, rust-src, rustfmt
 
 ## Formatting (rustfmt)

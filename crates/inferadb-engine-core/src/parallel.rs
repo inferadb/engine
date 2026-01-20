@@ -112,16 +112,16 @@ impl ParallelEvaluator {
             });
 
             // Limit concurrency
-            if join_set.len() >= self.max_concurrency {
-                if let Some(result) = join_set.join_next().await {
-                    let decision = result
-                        .map_err(|e| EvalError::Evaluation(format!("Task join error: {}", e)))??;
+            if join_set.len() >= self.max_concurrency
+                && let Some(result) = join_set.join_next().await
+            {
+                let decision = result
+                    .map_err(|e| EvalError::Evaluation(format!("Task join error: {}", e)))??;
 
-                    // For intersection, if any branch denies, we can return early
-                    if decision == Decision::Deny {
-                        join_set.shutdown().await;
-                        return Ok(Decision::Deny);
-                    }
+                // For intersection, if any branch denies, we can return early
+                if decision == Decision::Deny {
+                    join_set.shutdown().await;
+                    return Ok(Decision::Deny);
                 }
             }
         }

@@ -496,20 +496,20 @@ impl<S: StorageBackend> RelationshipRepository<S> {
             let rel = &versioned.relationship;
 
             // Apply filters
-            if let Some(res) = resource {
-                if rel.resource != res {
-                    continue;
-                }
+            if let Some(res) = resource
+                && rel.resource != res
+            {
+                continue;
             }
-            if let Some(rel_name) = relation {
-                if rel.relation != rel_name {
-                    continue;
-                }
+            if let Some(rel_name) = relation
+                && rel.relation != rel_name
+            {
+                continue;
             }
-            if let Some(sub) = subject {
-                if rel.subject != sub {
-                    continue;
-                }
+            if let Some(sub) = subject
+                && rel.subject != sub
+            {
+                continue;
             }
 
             results.push(rel.clone());
@@ -622,20 +622,19 @@ impl<S: StorageBackend> RelationshipRepository<S> {
             };
 
             // Filter by resource types if specified
-            if !resource_types.is_empty() {
-                if let Some(res_type) = event.resource_type() {
-                    if !resource_types.contains(&res_type.to_string()) {
-                        continue;
-                    }
-                }
+            if !resource_types.is_empty()
+                && let Some(res_type) = event.resource_type()
+                && !resource_types.contains(&res_type.to_string())
+            {
+                continue;
             }
 
             events.push(event);
 
-            if let Some(max) = limit {
-                if events.len() >= max {
-                    break;
-                }
+            if let Some(max) = limit
+                && events.len() >= max
+            {
+                break;
             }
         }
 
@@ -655,10 +654,10 @@ impl<S: StorageBackend> RelationshipRepository<S> {
 
         let mut max_revision = Revision::zero();
         for kv in entries {
-            if let Ok(event) = serde_json::from_slice::<ChangeEvent>(&kv.value) {
-                if event.revision > max_revision {
-                    max_revision = event.revision;
-                }
+            if let Ok(event) = serde_json::from_slice::<ChangeEvent>(&kv.value)
+                && event.revision > max_revision
+            {
+                max_revision = event.revision;
             }
         }
 

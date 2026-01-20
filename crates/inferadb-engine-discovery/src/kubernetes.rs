@@ -113,10 +113,10 @@ impl EndpointDiscovery for KubernetesServiceDiscovery {
                         let mut endpoint = Endpoint::healthy(endpoint_url);
 
                         // Add pod name if available
-                        if let Some(target_ref) = &address.target_ref {
-                            if let Some(pod_name) = &target_ref.name {
-                                endpoint = endpoint.with_pod_name(pod_name.clone());
-                            }
+                        if let Some(target_ref) = &address.target_ref
+                            && let Some(pod_name) = &target_ref.name
+                        {
+                            endpoint = endpoint.with_pod_name(pod_name.clone());
                         }
 
                         // Add namespace metadata
@@ -139,10 +139,10 @@ impl EndpointDiscovery for KubernetesServiceDiscovery {
                         endpoint.health = EndpointHealth::Unhealthy;
 
                         // Add pod name if available
-                        if let Some(target_ref) = &address.target_ref {
-                            if let Some(pod_name) = &target_ref.name {
-                                endpoint = endpoint.with_pod_name(pod_name.clone());
-                            }
+                        if let Some(target_ref) = &address.target_ref
+                            && let Some(pod_name) = &target_ref.name
+                        {
+                            endpoint = endpoint.with_pod_name(pod_name.clone());
                         }
 
                         // Add namespace metadata

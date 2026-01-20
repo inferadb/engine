@@ -319,6 +319,7 @@ pub async fn validate_internal_jwt(
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)] // Required for std::env::set_var/remove_var in Rust 2024 edition
 mod tests {
     use super::*;
 
@@ -467,16 +468,18 @@ mod tests {
     fn test_jwks_from_env_missing() {
         let result = InternalJwks::from_env("NONEXISTENT_VAR");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not set"));
+        assert!(result.expect_err("expected not set error").to_string().contains("not set"));
     }
 
     #[test]
     fn test_jwks_from_env_invalid_json() {
-        std::env::set_var("TEST_JWKS_INVALID", "not valid json");
+        // SAFETY: Single-threaded test with unique env var name.
+        unsafe { std::env::set_var("TEST_JWKS_INVALID", "not valid json") };
         let result = InternalJwks::from_env("TEST_JWKS_INVALID");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("parse"));
-        std::env::remove_var("TEST_JWKS_INVALID");
+        assert!(result.expect_err("expected parse error").to_string().contains("parse"));
+        // SAFETY: Single-threaded test cleanup.
+        unsafe { std::env::remove_var("TEST_JWKS_INVALID") };
     }
 
     #[test]
@@ -494,16 +497,18 @@ mod tests {
             }]
         }"#;
 
-        std::env::set_var("TEST_JWKS_VALID", jwks_json);
+        // SAFETY: Single-threaded test with unique env var name.
+        unsafe { std::env::set_var("TEST_JWKS_VALID", jwks_json) };
         let result = InternalJwks::from_env("TEST_JWKS_VALID");
         assert!(result.is_ok());
 
-        let jwks = result.unwrap();
+        let jwks = result.expect("expected valid JWKS");
         assert_eq!(jwks.issuer, "https://internal.inferadb.com");
         assert_eq!(jwks.keys.len(), 1);
         assert_eq!(jwks.keys[0].kid, "test-key");
 
-        std::env::remove_var("TEST_JWKS_VALID");
+        // SAFETY: Single-threaded test cleanup.
+        unsafe { std::env::remove_var("TEST_JWKS_VALID") };
     }
 
     #[test]
@@ -556,17 +561,19 @@ mod tests {
             }]
         }"#;
 
-        std::env::set_var("TEST_LOADER_ENV", jwks_json);
+        // SAFETY: Single-threaded test with unique env var name.
+        unsafe { std::env::set_var("TEST_LOADER_ENV", jwks_json) };
 
         // Test loading from env
         let result = InternalJwksLoader::from_config(None, Some("TEST_LOADER_ENV"));
         assert!(result.is_ok());
 
-        let loader = result.unwrap();
+        let loader = result.expect("expected loader from env");
         let key = loader.get_key("env-key");
         assert!(key.is_some());
 
-        std::env::remove_var("TEST_LOADER_ENV");
+        // SAFETY: Single-threaded test cleanup.
+        unsafe { std::env::remove_var("TEST_LOADER_ENV") };
     }
 
     #[test]
@@ -605,26 +612,33 @@ mod tests {
                 "use": "sig"
             }]
         }"#;
-        std::env::set_var("TEST_LOADER_PRIORITY", env_jwks_json);
+        // SAFETY: Single-threaded test with unique env var name.
+        unsafe { std::env::set_var("TEST_LOADER_PRIORITY", env_jwks_json) };
 
         // Test that file takes priority
         let result =
             InternalJwksLoader::from_config(Some(&jwks_path), Some("TEST_LOADER_PRIORITY"));
         assert!(result.is_ok());
 
-        let loader = result.unwrap();
+        let loader = result.expect("expected loader from config");
         assert!(loader.get_key("file-key").is_some());
         assert!(loader.get_key("env-key").is_none());
 
         // Cleanup
         std::fs::remove_file(&jwks_path).ok();
-        std::env::remove_var("TEST_LOADER_PRIORITY");
+        // SAFETY: Single-threaded test cleanup.
+        unsafe { std::env::remove_var("TEST_LOADER_PRIORITY") };
     }
 
     #[test]
     fn test_loader_from_config_no_source() {
         let result = InternalJwksLoader::from_config(None, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not configured"));
+        assert!(
+            result
+                .expect_err("expected not configured error")
+                .to_string()
+                .contains("not configured")
+        );
     }
 }

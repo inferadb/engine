@@ -207,12 +207,12 @@ impl<'a> TypeChecker<'a> {
                 path.push(relation.clone());
                 visited.insert(relation.clone());
 
-                if let Some(rel_def) = type_def.find_relation(relation) {
-                    if let Some(rel_expr) = &rel_def.expr {
-                        let cycle = Self::detect_cycle(type_def, rel_expr, visited, path);
-                        if cycle.is_some() {
-                            return cycle;
-                        }
+                if let Some(rel_def) = type_def.find_relation(relation)
+                    && let Some(rel_expr) = &rel_def.expr
+                {
+                    let cycle = Self::detect_cycle(type_def, rel_expr, visited, path);
+                    if cycle.is_some() {
+                        return cycle;
                     }
                 }
 

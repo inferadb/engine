@@ -223,15 +223,15 @@ impl TokenConfig {
     /// Validate token configuration
     pub fn validate(&self) -> Result<(), String> {
         // Warn if clock skew is too permissive (> 5 minutes)
-        if let Some(skew) = self.clock_skew {
-            if skew > 300 {
-                tracing::warn!(
-                    clock_skew = %skew,
-                    "Clock skew tolerance is very high (> 5 minutes). \
-                     This may allow expired tokens to be accepted. \
-                     Recommended: 60 seconds or less."
-                );
-            }
+        if let Some(skew) = self.clock_skew
+            && skew > 300
+        {
+            tracing::warn!(
+                clock_skew = %skew,
+                "Clock skew tolerance is very high (> 5 minutes). \
+                 This may allow expired tokens to be accepted. \
+                 Recommended: 60 seconds or less."
+            );
         }
 
         Ok(())

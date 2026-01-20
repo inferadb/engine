@@ -87,15 +87,15 @@ pub fn validate_list_relationships_request(
     request: &ListRelationshipsRequest,
 ) -> Result<(), ApiError> {
     // All filters are optional, but if provided must be valid
-    if let Some(ref resource) = request.resource {
-        if !resource.is_empty() {
-            validate_entity_format(resource, "resource")?;
-        }
+    if let Some(ref resource) = request.resource
+        && !resource.is_empty()
+    {
+        validate_entity_format(resource, "resource")?;
     }
-    if let Some(ref subject) = request.subject {
-        if !subject.is_empty() {
-            validate_entity_format(subject, "subject")?;
-        }
+    if let Some(ref subject) = request.subject
+        && !subject.is_empty()
+    {
+        validate_entity_format(subject, "subject")?;
     }
 
     Ok(())
@@ -147,15 +147,15 @@ pub fn validate_delete_filter(filter: &DeleteFilter) -> Result<(), ApiError> {
     }
 
     // Validate non-empty filters
-    if let Some(ref resource) = filter.resource {
-        if !resource.is_empty() {
-            validate_entity_format(resource, "resource")?;
-        }
+    if let Some(ref resource) = filter.resource
+        && !resource.is_empty()
+    {
+        validate_entity_format(resource, "resource")?;
     }
-    if let Some(ref subject) = filter.subject {
-        if !subject.is_empty() {
-            validate_entity_format(subject, "subject")?;
-        }
+    if let Some(ref subject) = filter.subject
+        && !subject.is_empty()
+    {
+        validate_entity_format(subject, "subject")?;
     }
 
     Ok(())
