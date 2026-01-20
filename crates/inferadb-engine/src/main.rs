@@ -64,7 +64,8 @@ async fn main() -> Result<()> {
         config.listen.http = addr.clone();
     }
 
-    // Apply environment-aware defaults (in development, auto-fallback to memory if no Ledger config)
+    // Apply environment-aware defaults (in development, auto-fallback to memory if no Ledger
+    // config)
     config.apply_environment_defaults(&args.environment);
 
     // Handle --dev-mode flag: force memory storage for development/testing
