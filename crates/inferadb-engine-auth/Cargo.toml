@@ -50,7 +50,6 @@ proptest = "1.4"
 rand = { workspace = true }
 rand_core = { version = "0.6", features = ["getrandom"] }
 tokio = { workspace = true, features = ["full", "test-util"] }
-tokio-test = "0.4"
 
 [features]
 default = []

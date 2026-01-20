@@ -73,4 +73,4 @@ pub use metrics::AuthMetrics;
 pub use middleware::{validate_vault_access, vault_validation_middleware};
 pub use oauth::OAuthJwksClient;
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
-pub use vault_middleware::vault_validation_middleware as enhanced_vault_validation_middleware;
+pub use vault_middleware::control_verified_vault_middleware;

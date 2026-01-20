@@ -10,12 +10,10 @@ use common::mock_oauth::{
     generate_oauth_jwt, generate_opaque_token, register_opaque_token, start_mock_oauth_server,
 };
 use inferadb_engine_auth::{
-    jwks_cache::JwksCache,
     oauth::{IntrospectionClient, IntrospectionResponse, OAuthJwksClient},
     oidc::OidcDiscoveryClient,
 };
 use inferadb_engine_types::AuthMethod;
-use moka::future::Cache;
 
 /// Test OAuth JWT validation end-to-end
 #[tokio::test]
@@ -28,14 +26,8 @@ async fn test_oauth_jwt_validation() {
     // Create OIDC discovery client
     let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
 
-    // Create JWKS cache
-    let jwks_cache = Arc::new(
-        JwksCache::new(base_url.clone(), Arc::new(Cache::new(100)), Duration::from_secs(300))
-            .unwrap(),
-    );
-
     // Create OAuth client
-    let client = OAuthJwksClient::new(oidc_client, jwks_cache);
+    let client = OAuthJwksClient::new(oidc_client);
 
     // Fetch JWKS from OAuth server (via OIDC discovery)
     let jwks = client.fetch_oauth_jwks(&base_url).await.expect("Failed to fetch OAuth JWKS");
@@ -70,11 +62,7 @@ async fn test_oauth_jwt_validation_expired() {
 
     // Create OAuth client
     let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
-    let jwks_cache = Arc::new(
-        JwksCache::new(base_url.clone(), Arc::new(Cache::new(100)), Duration::from_secs(300))
-            .unwrap(),
-    );
-    let client = OAuthJwksClient::new(oidc_client, jwks_cache);
+    let client = OAuthJwksClient::new(oidc_client);
 
     // Validate OAuth JWT - should fail with TokenExpired
     let result = inferadb_engine_auth::oauth::validate_oauth_jwt(
@@ -238,11 +226,7 @@ async fn test_oauth_jwt_with_org_id() {
 
     // Create OAuth client
     let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(300)).unwrap());
-    let jwks_cache = Arc::new(
-        JwksCache::new(base_url.clone(), Arc::new(Cache::new(100)), Duration::from_secs(300))
-            .unwrap(),
-    );
-    let client = OAuthJwksClient::new(oidc_client, jwks_cache);
+    let client = OAuthJwksClient::new(oidc_client);
 
     // Validate OAuth JWT
     let auth_ctx = inferadb_engine_auth::oauth::validate_oauth_jwt(

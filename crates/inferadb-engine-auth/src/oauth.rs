@@ -13,18 +13,11 @@ use jsonwebtoken::{
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use crate::{
-    error::AuthError,
-    jwks_cache::{Jwk, JwksCache},
-    jwt::JwtClaims,
-    oidc::OidcDiscoveryClient,
-};
+use crate::{error::AuthError, jwks_cache::Jwk, jwt::JwtClaims, oidc::OidcDiscoveryClient};
 
 /// OAuth JWKS fetcher that uses OIDC Discovery
 pub struct OAuthJwksClient {
     oidc_client: Arc<OidcDiscoveryClient>,
-    #[allow(dead_code)] // Will be used for OAuth token validation
-    jwks_cache: Arc<JwksCache>,
 }
 
 impl OAuthJwksClient {
@@ -33,9 +26,8 @@ impl OAuthJwksClient {
     /// # Arguments
     ///
     /// * `oidc_client` - OIDC Discovery client for finding JWKS endpoints
-    /// * `jwks_cache` - JWKS cache for storing fetched keys
-    pub fn new(oidc_client: Arc<OidcDiscoveryClient>, jwks_cache: Arc<JwksCache>) -> Self {
-        Self { oidc_client, jwks_cache }
+    pub fn new(oidc_client: Arc<OidcDiscoveryClient>) -> Self {
+        Self { oidc_client }
     }
 
     /// Fetch JWKS from an OAuth issuer using OIDC Discovery
@@ -64,19 +56,11 @@ impl OAuthJwksClient {
     /// ```no_run
     /// # use inferadb_engine_auth::oauth::OAuthJwksClient;
     /// # use inferadb_engine_auth::oidc::OidcDiscoveryClient;
-    /// # use inferadb_engine_auth::jwks_cache::JwksCache;
     /// # use std::sync::Arc;
     /// # use std::time::Duration;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let oidc_client = Arc::new(OidcDiscoveryClient::new(Duration::from_secs(86400))?);
-    /// let cache = Arc::new(moka::future::Cache::builder().build());
-    /// let jwks_cache = Arc::new(JwksCache::new(
-    ///     "https://control.example.com/tenants".to_string(),
-    ///     cache,
-    ///     Duration::from_secs(300),
-    /// )?);
-    ///
-    /// let oauth_client = OAuthJwksClient::new(oidc_client, jwks_cache);
+    /// let oauth_client = OAuthJwksClient::new(oidc_client);
     /// let keys = oauth_client.fetch_oauth_jwks("https://oauth.example.com").await?;
     /// # Ok(())
     /// # }

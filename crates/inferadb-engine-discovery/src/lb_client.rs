@@ -46,9 +46,6 @@ enum CircuitState {
     Closed,
     /// Too many failures - not routing traffic
     Open { since: Instant },
-    /// Testing if endpoint has recovered
-    #[allow(dead_code)]
-    HalfOpen,
 }
 
 impl LoadBalancingClient {
@@ -284,12 +281,10 @@ impl LoadBalancingClient {
 ///
 /// Returns true if:
 /// - Circuit is closed (normal operation)
-/// - Circuit is half-open (testing recovery)
-/// - Circuit has been open for >30 seconds (transition to half-open)
+/// - Circuit has been open for >30 seconds (auto-recovery)
 fn is_healthy(circuit: &CircuitState) -> bool {
     match circuit {
         CircuitState::Closed => true,
-        CircuitState::HalfOpen => true,
         CircuitState::Open { since } => {
             // Reopen after 30 seconds
             let elapsed = since.elapsed();
@@ -408,11 +403,6 @@ mod tests {
     #[test]
     fn test_is_healthy_closed() {
         assert!(is_healthy(&CircuitState::Closed));
-    }
-
-    #[test]
-    fn test_is_healthy_half_open() {
-        assert!(is_healthy(&CircuitState::HalfOpen));
     }
 
     #[test]

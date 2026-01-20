@@ -11,7 +11,10 @@ use inferadb_engine_types::auth::AuthContext;
 use tracing::{error, warn};
 
 /// Middleware that validates vault ownership using VaultVerifier
-pub async fn vault_validation_middleware(
+///
+/// This middleware verifies that the vault in the request belongs to the
+/// authenticated organization by calling the Control API.
+pub async fn control_verified_vault_middleware(
     vault_verifier: Arc<dyn VaultVerifier>,
 ) -> impl Fn(Request, Next) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>>
 + Clone {

@@ -528,7 +528,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             .layer(axum::middleware::from_fn(move |req, next| {
                 let verifier = Arc::clone(&vault_verifier_clone);
                 async move {
-                    inferadb_engine_auth::enhanced_vault_validation_middleware(verifier).await(
+                    inferadb_engine_auth::control_verified_vault_middleware(verifier).await(
                         req, next,
                     )
                     .await

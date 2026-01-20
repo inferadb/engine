@@ -371,8 +371,8 @@ if let Some(decision) = cache.get(&key) {
 // Store result
 cache.insert(key, decision);
 
-// Invalidate
-cache.invalidate_before(revision);
+// Invalidate entries for modified resources
+cache.invalidate_resources(&affected_resources).await;
 ```
 
 ## Extension Points

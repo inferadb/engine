@@ -151,13 +151,6 @@ impl AuthCache {
         self.invalidations.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Invalidate cache entries for a specific revision or older
-    pub async fn invalidate_before(&self, _revision: Revision) {
-        // For backward compatibility, invalidate all entries
-        // Use invalidate_resources for selective invalidation
-        self.invalidate_all().await;
-    }
-
     /// Invalidate cache entries for specific resources only
     /// This is more efficient than invalidating all entries
     pub async fn invalidate_resources(&self, resources: &[String]) {
@@ -452,8 +445,8 @@ mod tests {
         cache.put_check(key.clone(), Decision::Allow).await;
         assert_eq!(cache.get_check(&key).await, Some(Decision::Allow));
 
-        // Invalidate
-        cache.invalidate_before(Revision(2)).await;
+        // Invalidate all entries
+        cache.invalidate_all().await;
 
         let stats = cache.stats();
         assert_eq!(stats.invalidations, 1);

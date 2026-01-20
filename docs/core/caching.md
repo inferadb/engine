@@ -186,12 +186,6 @@ let resources = AuthCache::extract_affected_resources(&tuples);
 cache.invalidate_resources(&resources).await;
 ```
 
-Invalidate all entries before a specific revision (backward compatibility):
-
-```rust
-cache.invalidate_before(revision).await;
-```
-
 ### Invalidation Strategies
 
 **Revision-based (Default)**:

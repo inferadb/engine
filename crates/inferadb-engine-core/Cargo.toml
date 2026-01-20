@@ -39,7 +39,6 @@ inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
 criterion = { workspace = true }
 inferadb-engine-test-fixtures = { path = "../inferadb-engine-test-fixtures" }
 proptest = { workspace = true }
-tokio-test = "0.4"
 wat = "1.0"
 
 [[bench]]
