@@ -63,8 +63,7 @@ async fn create_test_state() -> AppState {
 
     AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
-        .jwks_cache(None)
-        .server_identity(None)
+        .signing_key_cache(None)
         .build()
 }
 

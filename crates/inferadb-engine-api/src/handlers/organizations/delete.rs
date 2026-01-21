@@ -93,11 +93,7 @@ mod tests {
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
-        AppState::builder(store, schema, config)
-            .wasm_host(None)
-            .jwks_cache(None)
-            .server_identity(None)
-            .build()
+        AppState::builder(store, schema, config).wasm_host(None).signing_key_cache(None).build()
     }
 
     fn create_admin_context() -> inferadb_engine_types::AuthContext {

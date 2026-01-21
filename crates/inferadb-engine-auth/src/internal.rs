@@ -28,7 +28,7 @@ use jsonwebtoken::{Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use crate::{error::AuthError, jwks_cache::Jwk, jwt::JwtClaims};
+use crate::{error::AuthError, jwt::JwtClaims, oauth::Jwk};
 
 /// Internal JWKS structure for local key storage
 ///

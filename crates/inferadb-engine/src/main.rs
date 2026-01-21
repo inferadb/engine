@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-use inferadb_engine_auth::jwks_cache::JwksCache;
+use inferadb_engine_auth::SigningKeyCache;
 use inferadb_engine_config::load_or_default;
 use inferadb_engine_core::ipl::Schema;
 use inferadb_engine_repository::EngineStorage;
@@ -147,12 +147,24 @@ async fn main() -> Result<()> {
 
     // Initialize components
     use inferadb_engine_observe::startup::{log_initialized, log_ready, log_skipped};
-
     // Initialize storage backend based on configuration
     // Memory backend uses EngineStorage<MemoryBackend> from the repository pattern
     // Ledger uses EngineStorage<LedgerBackend> (production)
-    let store: Arc<dyn inferadb_engine_store::InferaStore> = match config.storage.as_str() {
-        "memory" => Arc::new(EngineStorage::new(MemoryBackend::new())),
+    //
+    // We also create a PublicSigningKeyStore for the SigningKeyCache:
+    // - Memory: MemorySigningKeyStore (shared with storage)
+    // - Ledger: LedgerSigningKeyStore (uses same LedgerClient)
+    use inferadb_storage::auth::{MemorySigningKeyStore, PublicSigningKeyStore};
+    use inferadb_storage_ledger::auth::LedgerSigningKeyStore;
+
+    let (store, signing_key_store): (
+        Arc<dyn inferadb_engine_store::InferaStore>,
+        Arc<dyn PublicSigningKeyStore>,
+    ) = match config.storage.as_str() {
+        "memory" => {
+            let signing_key_store = Arc::new(MemorySigningKeyStore::new());
+            (Arc::new(EngineStorage::new(MemoryBackend::new())), signing_key_store)
+        },
         "ledger" => {
             let ledger_config = LedgerBackendConfig::builder()
                 .with_endpoint(config.ledger.endpoint.as_ref().expect("validated"))
@@ -169,7 +181,12 @@ async fn main() -> Result<()> {
             let ledger_backend = LedgerBackend::new(ledger_config)
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to connect to Ledger: {}", e))?;
-            Arc::new(EngineStorage::new(ledger_backend))
+
+            // Create signing key store using the same LedgerClient
+            let signing_key_store =
+                Arc::new(LedgerSigningKeyStore::new(ledger_backend.client_arc()));
+
+            (Arc::new(EngineStorage::new(ledger_backend)), signing_key_store)
         },
         // Note: "foundationdb" and "fdb" are rejected by config.validate() with a helpful error
         // message directing users to migrate to the Ledger backend.
@@ -195,53 +212,13 @@ async fn main() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![]));
     log_initialized("Schema");
 
-    // Create the moka cache with TTL and stale-while-revalidate support
+    // Create the SigningKeyCache for Ledger-backed token validation
     use std::time::Duration;
-    let cache = Arc::new(
-        moka::future::Cache::builder()
-            .max_capacity(1000) // Up to 1000 tenants
-            .time_to_live(Duration::from_secs(config.token.cache_ttl))
-            .time_to_idle(Duration::from_secs(config.token.cache_ttl * 2))
-            .build(),
-    );
-
-    // Create the JWKS cache
-    let jwks_cache = JwksCache::new(
-        config.mesh.url.clone(),
-        cache,
+    let signing_key_cache = Arc::new(SigningKeyCache::new(
+        signing_key_store,
         Duration::from_secs(config.token.cache_ttl),
-    )?;
-    log_initialized("JWKS cache");
-
-    let jwks_cache = Some(Arc::new(jwks_cache));
-
-    // Initialize server identity for server-to-control authentication
-    let server_identity = if !config.effective_mesh_url().is_empty() {
-        use inferadb_engine_control_client::ServerIdentity;
-
-        let identity = if let Some(ref pem) = config.pem {
-            ServerIdentity::from_pem(pem)
-                .map_err(|e| anyhow::anyhow!("Failed to load server identity from PEM: {}", e))?
-        } else {
-            // Generate new identity and display in formatted box
-            let identity = ServerIdentity::generate();
-            let pem = identity.to_pem();
-            inferadb_engine_observe::startup::print_generated_keypair(&pem, "pem");
-            identity
-        };
-
-        tracing::info!(
-            server_id = %identity.server_id,
-            kid = %identity.kid,
-            "Server identity initialized"
-        );
-
-        log_initialized("Identity");
-        Some(Arc::new(identity))
-    } else {
-        log_skipped("Identity", "mesh.url not configured");
-        None
-    };
+    ));
+    log_initialized("Signing key cache");
 
     // Clone components for each server
     let public_components = inferadb_engine_api::ServerComponents {
@@ -249,8 +226,7 @@ async fn main() -> Result<()> {
         schema: Arc::clone(&schema),
         wasm_host: wasm_host.clone(),
         config: Arc::clone(&config),
-        jwks_cache: jwks_cache.clone(),
-        server_identity: server_identity.clone(),
+        signing_key_cache: Some(Arc::clone(&signing_key_cache)),
     };
 
     let internal_components = inferadb_engine_api::ServerComponents {
@@ -258,8 +234,7 @@ async fn main() -> Result<()> {
         schema: Arc::clone(&schema),
         wasm_host: wasm_host.clone(),
         config: Arc::clone(&config),
-        jwks_cache: jwks_cache.clone(),
-        server_identity: server_identity.clone(),
+        signing_key_cache: Some(Arc::clone(&signing_key_cache)),
     };
 
     // Bind listeners (addresses are already validated at config.validate())

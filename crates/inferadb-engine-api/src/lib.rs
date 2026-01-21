@@ -12,13 +12,13 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use inferadb_engine_auth::jwks_cache::JwksCache;
+use inferadb_engine_auth::{LedgerVaultVerifier, SigningKeyCache, VaultVerifier};
 use inferadb_engine_config::Config;
 use serde::Serialize;
 use thiserror::Error;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder, key_extractor::KeyExtractor};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer};
-use tracing::{info, warn};
+use tracing::info;
 
 pub mod adapters;
 pub mod content_negotiation;
@@ -148,10 +148,9 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 pub struct AppState {
     pub store: Arc<dyn inferadb_engine_store::InferaStore>,
     pub config: Arc<Config>,
-    pub jwks_cache: Option<Arc<JwksCache>>,
+    /// Ledger-backed signing key cache for JWT validation
+    pub signing_key_cache: Option<Arc<SigningKeyCache>>,
     pub health_tracker: Arc<health::HealthTracker>,
-    /// Server identity for signing engine-to-control requests
-    pub server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
 
     // Shared cache for authorization decisions and expansions
     pub auth_cache: Arc<inferadb_engine_cache::AuthCache>,
@@ -171,8 +170,7 @@ pub struct AppStateBuilder {
     schema: Arc<inferadb_engine_core::ipl::Schema>,
     config: Arc<Config>,
     wasm_host: Option<Arc<inferadb_engine_wasm::WasmHost>>,
-    jwks_cache: Option<Arc<JwksCache>>,
-    server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
+    signing_key_cache: Option<Arc<SigningKeyCache>>,
 }
 
 impl AppStateBuilder {
@@ -182,7 +180,7 @@ impl AppStateBuilder {
         schema: Arc<inferadb_engine_core::ipl::Schema>,
         config: Arc<Config>,
     ) -> Self {
-        Self { store, schema, config, wasm_host: None, jwks_cache: None, server_identity: None }
+        Self { store, schema, config, wasm_host: None, signing_key_cache: None }
     }
 
     /// Set the WASM host
@@ -191,18 +189,9 @@ impl AppStateBuilder {
         self
     }
 
-    /// Set the JWKS cache
-    pub fn jwks_cache(mut self, jwks_cache: Option<Arc<JwksCache>>) -> Self {
-        self.jwks_cache = jwks_cache;
-        self
-    }
-
-    /// Set the server identity
-    pub fn server_identity(
-        mut self,
-        server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
-    ) -> Self {
-        self.server_identity = server_identity;
+    /// Set the Ledger-backed signing key cache
+    pub fn signing_key_cache(mut self, cache: Option<Arc<SigningKeyCache>>) -> Self {
+        self.signing_key_cache = cache;
         self
     }
 
@@ -284,9 +273,8 @@ impl AppState {
         Self {
             store: builder.store,
             config: builder.config,
-            jwks_cache: builder.jwks_cache,
+            signing_key_cache: builder.signing_key_cache,
             health_tracker,
-            server_identity: builder.server_identity,
             auth_cache,
             evaluation_service,
             resource_service,
@@ -387,116 +375,60 @@ fn build_health_routes() -> Router<AppState> {
         )
 }
 
-/// Create Control client with optional Kubernetes service discovery.
-async fn create_control_client(
-    state: &AppState,
-    mesh_url: &str,
-) -> Result<Arc<inferadb_engine_control_client::ControlClient>> {
-    let is_kubernetes_discovery =
-        matches!(state.config.discovery.mode, inferadb_engine_config::DiscoveryMode::Kubernetes);
+/// No-op vault verifier for testing scenarios.
+///
+/// This verifier always succeeds without actually checking the storage backend.
+/// Use this only in tests where Ledger isn't available.
+#[allow(dead_code)]
+struct NoOpVaultVerifier;
 
-    if is_kubernetes_discovery {
-        info!("Control discovery ENABLED - mode: {:?}", state.config.discovery.mode);
-
-        let discovery: Arc<dyn inferadb_engine_discovery::EndpointDiscovery> =
-            Arc::new(inferadb_engine_discovery::KubernetesServiceDiscovery::new().await.map_err(
-                |e| ApiError::Internal(format!("Failed to create Kubernetes discovery: {}", e)),
-            )?);
-
-        let initial_endpoints = discovery
-            .discover(mesh_url)
-            .await
-            .map_err(|e| ApiError::Internal(format!("Initial endpoint discovery failed: {}", e)))?;
-
-        info!("Discovered {} Control endpoints", initial_endpoints.len());
-
-        let lb_client =
-            Arc::new(inferadb_engine_discovery::LoadBalancingClient::new(initial_endpoints));
-
-        let refresher = Arc::new(inferadb_engine_discovery::DiscoveryRefresher::new(
-            Arc::clone(&discovery),
-            Arc::clone(&lb_client),
-            state.config.discovery.cache_ttl,
-            mesh_url.to_string(),
-        ));
-
-        Arc::clone(&refresher).spawn();
-        info!("Discovery refresh task spawned (interval: {}s)", state.config.discovery.cache_ttl);
-
-        Arc::new(
-            inferadb_engine_control_client::ControlClient::new(
-                mesh_url.to_string(),
-                None,
-                state.config.mesh.timeout,
-                Some(lb_client),
-                state.server_identity.clone(),
-            )
-            .map_err(|e| {
-                ApiError::Internal(format!("Failed to create load-balanced Control client: {}", e))
-            })?,
-        )
-    } else {
-        Arc::new(
-            inferadb_engine_control_client::ControlClient::new(
-                mesh_url.to_string(),
-                None,
-                state.config.mesh.timeout,
-                None,
-                state.server_identity.clone(),
-            )
-            .map_err(|e| ApiError::Internal(format!("Failed to create Control client: {}", e)))?,
-        )
+#[async_trait::async_trait]
+impl VaultVerifier for NoOpVaultVerifier {
+    async fn verify_vault(
+        &self,
+        vault_id: i64,
+        expected_org_id: i64,
+    ) -> std::result::Result<
+        inferadb_engine_auth::VaultInfo,
+        inferadb_engine_auth::VaultVerificationError,
+    > {
+        // No-op: return the expected values without verification
+        Ok(inferadb_engine_auth::VaultInfo { vault_id, organization_id: expected_org_id })
     }
-    .pipe(Ok)
+
+    async fn verify_organization(
+        &self,
+        _org_id: i64,
+    ) -> std::result::Result<(), inferadb_engine_auth::VaultVerificationError> {
+        // No-op: always succeed
+        Ok(())
+    }
 }
 
-/// Authentication components for vault verification and certificate caching.
+/// Authentication components for vault verification.
 struct AuthComponents {
-    vault_verifier: Arc<dyn inferadb_engine_control_client::VaultVerifier>,
-    cert_cache: Option<Arc<inferadb_engine_auth::CertificateCache>>,
+    vault_verifier: Arc<dyn VaultVerifier>,
 }
 
-/// Create authentication components (vault verifier and certificate cache).
+/// Create authentication components (vault verifier).
+///
+/// Uses the Ledger-backed vault verifier to verify vault ownership
+/// via the distributed ledger storage.
 async fn create_auth_components(state: &AppState) -> Result<AuthComponents> {
-    let mesh_url = state.config.effective_mesh_url();
-
-    if mesh_url.is_empty() {
-        warn!("○ Vault caching disabled");
-        warn!("  For more information, see https://inferadb.com/docs/?search=auth.control_url");
-        return Ok(AuthComponents {
-            vault_verifier: Arc::new(inferadb_engine_control_client::NoOpVaultVerifier),
-            cert_cache: None,
-        });
-    }
-
-    let control_client = create_control_client(state, &mesh_url).await?;
-
-    let vault_verifier = Arc::new(inferadb_engine_control_client::ControlVaultVerifier::new(
-        Arc::clone(&control_client),
-        std::time::Duration::from_secs(300), // 5 min vault cache TTL
-        std::time::Duration::from_secs(600), // 10 min org cache TTL
-    ));
-
-    let cert_cache = Arc::new(
-        inferadb_engine_auth::CertificateCache::new(
-            mesh_url,
-            std::time::Duration::from_secs(300), // 5 min cert cache TTL
-            1000,                                // Max 1000 cached certificates
-        )
-        .map_err(|e| ApiError::Internal(format!("Failed to create certificate cache: {}", e)))?,
-    );
-
-    Ok(AuthComponents { vault_verifier, cert_cache: Some(cert_cache) })
+    // Use Ledger-backed vault verifier through the InferaStore
+    info!("● Using Ledger-backed vault verifier");
+    Ok(AuthComponents {
+        vault_verifier: Arc::new(LedgerVaultVerifier::new(Arc::clone(&state.store))),
+    })
 }
 
 /// Apply authentication and vault verification middleware to routes.
 fn apply_auth_middleware(
     routes: Router<AppState>,
-    jwks_cache: Arc<JwksCache>,
+    signing_key_cache: Arc<SigningKeyCache>,
     auth: AuthComponents,
 ) -> Router<AppState> {
     let vault_verifier = auth.vault_verifier;
-    let cert_cache = auth.cert_cache;
 
     // Layers are applied in reverse order: vault validation runs after auth
     routes
@@ -508,10 +440,9 @@ fn apply_auth_middleware(
             }
         }))
         .layer(axum::middleware::from_fn(move |req, next| {
-            let jwks = Arc::clone(&jwks_cache);
-            let certs = cert_cache.clone();
+            let cache = Arc::clone(&signing_key_cache);
             async move {
-                inferadb_engine_auth::middleware::auth_middleware(jwks, certs, req, next).await
+                inferadb_engine_auth::middleware::ledger_auth_middleware(cache, req, next).await
             }
         }))
 }
@@ -520,32 +451,20 @@ fn apply_auth_middleware(
 // Public API
 // ============================================================================
 
-/// Pipe trait for method chaining (allows `value.pipe(Ok)` pattern).
-trait Pipe: Sized {
-    fn pipe<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(Self) -> R,
-    {
-        f(self)
-    }
-}
-
-impl<T> Pipe for T {}
-
 /// Create public routes (client-facing endpoints).
 /// These routes accept client JWTs and handle authorization requests.
 pub async fn public_routes(components: ServerComponents) -> Result<Router> {
     let state = components.create_app_state();
 
-    let jwks_cache = state.jwks_cache.clone().ok_or_else(|| {
+    let signing_key_cache = state.signing_key_cache.clone().ok_or_else(|| {
         ApiError::Internal(
-            "JWKS cache is required but not initialized. Authentication cannot be disabled."
+            "Signing key cache is required but not initialized. Authentication cannot be disabled."
                 .to_string(),
         )
     })?;
 
     let auth = create_auth_components(&state).await?;
-    let protected = apply_auth_middleware(build_protected_routes(), jwks_cache, auth);
+    let protected = apply_auth_middleware(build_protected_routes(), signing_key_cache, auth);
 
     // Rate limiting: 1000 req/min per IP with burst allowance
     let rate_limit_config = Arc::new(
@@ -578,17 +497,18 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 // Health check handlers moved to health.rs module
 
 /// Create internal routes (server-to-server communication)
-/// Exposes JWKS endpoint (no auth) and privileged cache invalidation endpoints (Control JWT
-/// auth)
+/// Exposes health and metrics endpoints for monitoring.
 pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
     // Create AppState
     let state = components.create_app_state();
 
     // Public routes (no authentication required):
-    // - JWKS endpoint: Control fetches server public keys from here
     // - Metrics endpoint: Prometheus scrapes metrics from here
+    //
+    // Note: JWKS endpoint has been removed. In the Ledger-based architecture,
+    // signing keys are stored in the distributed ledger and accessed via
+    // SigningKeyCache. Control no longer fetches public keys from Engine.
     let public_internal_routes = Router::new()
-        .route("/.well-known/jwks.json", get(handlers::jwks::get_server_jwks))
         .route("/metrics", get(handlers::internal::metrics_handler))
         .with_state(state.clone());
 
@@ -636,8 +556,8 @@ pub struct ServerComponents {
     pub schema: Arc<inferadb_engine_core::ipl::Schema>,
     pub wasm_host: Option<Arc<inferadb_engine_wasm::WasmHost>>,
     pub config: Arc<Config>,
-    pub jwks_cache: Option<Arc<JwksCache>>,
-    pub server_identity: Option<Arc<inferadb_engine_control_client::ServerIdentity>>,
+    /// Ledger-backed signing key cache for JWT validation
+    pub signing_key_cache: Option<Arc<SigningKeyCache>>,
 }
 
 impl ServerComponents {
@@ -649,8 +569,7 @@ impl ServerComponents {
             Arc::clone(&self.config),
         )
         .wasm_host(self.wasm_host.clone())
-        .jwks_cache(self.jwks_cache.clone())
-        .server_identity(self.server_identity.clone())
+        .signing_key_cache(self.signing_key_cache.clone())
         .build()
     }
 }
@@ -680,9 +599,9 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     info!("gRPC reflection enabled");
 
     // Authentication is always required
-    let cache = state.jwks_cache.as_ref().ok_or_else(|| {
+    let signing_key_cache = state.signing_key_cache.as_ref().ok_or_else(|| {
         anyhow::anyhow!(
-            "JWKS cache is required but not initialized. Authentication cannot be disabled."
+            "Signing key cache is required but not initialized. Authentication cannot be disabled."
         )
     })?;
 
@@ -700,9 +619,9 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
         info!("Internal JWT authentication enabled for gRPC");
     }
 
-    // Create auth interceptor
-    let interceptor = grpc_interceptor::AuthInterceptor::new(
-        Arc::clone(cache),
+    // Create auth interceptor (using Ledger-backed signing key cache)
+    let interceptor = grpc_interceptor::LedgerAuthInterceptor::new(
+        Arc::clone(signing_key_cache),
         internal_loader,
         Arc::new(components.config.token.clone()),
     );
@@ -821,8 +740,7 @@ mod tests {
 
         let state = AppState::builder(store, Arc::clone(&schema), config)
             .wasm_host(None)
-            .jwks_cache(None)
-            .server_identity(None)
+            .signing_key_cache(None)
             .build();
 
         (state, schema)

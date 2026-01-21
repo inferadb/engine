@@ -15,8 +15,16 @@ use std::{
 };
 
 use axum::{Json, Router, extract::Path, http::StatusCode, response::IntoResponse, routing::get};
-use inferadb_engine_control_client::OrgStatus;
 use serde::{Deserialize, Serialize};
+
+/// Organization status for testing (matches the deleted control-client enum)
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrgStatus {
+    Active,
+    Suspended,
+    Deleted,
+}
 use tokio::task::JoinHandle;
 
 /// Counter for generating unique Snowflake-like IDs

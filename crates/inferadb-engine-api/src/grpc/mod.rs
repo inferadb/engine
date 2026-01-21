@@ -205,8 +205,7 @@ mod tests {
 
         let state = AppState::builder(store, schema, config)
             .wasm_host(None)
-            .jwks_cache(None)
-            .server_identity(None)
+            .signing_key_cache(None)
             .build();
 
         // Set health tracker state for tests

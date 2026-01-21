@@ -66,6 +66,50 @@ pub enum AuthError {
     /// Token too old (issued at exceeds max age)
     #[error("Token too old")]
     TokenTooOld,
+
+    // ========== Ledger-backed key validation errors ==========
+    /// Signing key not found in Ledger
+    #[error("Signing key not found: {kid}")]
+    KeyNotFound {
+        /// Key ID that was not found
+        kid: String,
+    },
+
+    /// Signing key is inactive (soft-disabled)
+    #[error("Signing key is inactive: {kid}")]
+    KeyInactive {
+        /// Key ID that is inactive
+        kid: String,
+    },
+
+    /// Signing key has been permanently revoked
+    #[error("Signing key revoked: {kid}")]
+    KeyRevoked {
+        /// Key ID that was revoked
+        kid: String,
+    },
+
+    /// Signing key is not yet valid (valid_from in future)
+    #[error("Signing key not yet valid: {kid}")]
+    KeyNotYetValid {
+        /// Key ID that is not yet valid
+        kid: String,
+    },
+
+    /// Signing key has expired (valid_until in past)
+    #[error("Signing key expired: {kid}")]
+    KeyExpired {
+        /// Key ID that expired
+        kid: String,
+    },
+
+    /// Invalid public key format
+    #[error("Invalid public key: {0}")]
+    InvalidPublicKey(String),
+
+    /// Storage backend error during key lookup
+    #[error("Key storage error: {0}")]
+    KeyStorageError(String),
 }
 
 impl From<jsonwebtoken::errors::Error> for AuthError {

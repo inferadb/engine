@@ -2,7 +2,7 @@
 //!
 //! This module provides authentication middleware that:
 //! - Extracts bearer tokens from HTTP Authorization headers
-//! - Validates JWT signatures using JWKS
+//! - Validates JWT signatures using Ledger-backed signing keys
 //! - Creates authenticated request contexts
 //! - Enforces scope-based authorization
 
@@ -18,8 +18,8 @@ use axum::{
 use inferadb_engine_types::{AuthContext, AuthMethod};
 
 use crate::{
-    certificate_cache::CertificateCache, error::AuthError, jwks_cache::JwksCache,
-    jwt::verify_with_cert_cache_or_jwks, metrics::AuthMetrics,
+    error::AuthError, jwt::verify_with_signing_key_cache, metrics::AuthMetrics,
+    signing_key_cache::SigningKeyCache,
 };
 
 /// Helper to create unauthorized response with WWW-Authenticate header
@@ -129,52 +129,42 @@ pub fn require_any_scope(auth: &AuthContext, scopes: &[&str]) -> Result<(), Auth
     Err(AuthError::InvalidScope(format!("Required one of scopes: {}", scopes.join(", "))))
 }
 
-/// Axum middleware for JWT authentication
+/// Axum middleware for JWT authentication using Ledger-backed signing keys
+///
+/// This middleware uses `SigningKeyCache` to fetch signing keys directly from Ledger,
+/// eliminating the need for JWKS endpoints and Control connectivity.
 ///
 /// This middleware:
 /// 1. Extracts the bearer token from the Authorization header
-/// 2. Decodes and verifies the JWT using JWKS
+/// 2. Decodes and verifies the JWT using Ledger-backed signing keys
 /// 3. Creates an AuthContext from the validated claims
 /// 4. Injects the context into request extensions
 ///
 /// # Arguments
 ///
-/// * `jwks_cache` - The JWKS cache for verifying signatures
+/// * `signing_key_cache` - The Ledger-backed signing key cache
 /// * `request` - The incoming HTTP request
 /// * `next` - The next layer in the middleware stack
 ///
 /// # Returns
 ///
 /// Returns the response from the next layer, or an error response if authentication fails
-///
-/// # Errors
-///
-/// Returns appropriate HTTP status codes:
-/// - 401 Unauthorized: Missing or invalid token, expired token
-/// - 403 Forbidden: Invalid scope, audience mismatch
-/// - 500 Internal Server Error: JWKS fetch or verification errors
-pub async fn auth_middleware(
-    jwks_cache: Arc<JwksCache>,
-    cert_cache: Option<Arc<CertificateCache>>,
+pub async fn ledger_auth_middleware(
+    signing_key_cache: Arc<SigningKeyCache>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
-    auth_middleware_impl(jwks_cache, cert_cache, None, request, next).await
+    ledger_auth_middleware_impl(signing_key_cache, None, request, next).await
 }
 
-/// Axum middleware for JWT authentication with metrics
+/// Axum middleware for JWT authentication using Ledger-backed signing keys with metrics
 ///
-/// This middleware:
-/// 1. Extracts the bearer token from the Authorization header
-/// 2. Decodes and verifies the JWT using JWKS
-/// 3. Creates an AuthContext from the validated claims
-/// 4. Injects the context into request extensions
-/// 5. Records validation success/failure and duration metrics
+/// This middleware uses `SigningKeyCache` to fetch signing keys directly from Ledger,
+/// eliminating the need for JWKS endpoints and Control connectivity.
 ///
 /// # Arguments
 ///
-/// * `jwks_cache` - The JWKS cache for verifying signatures
-/// * `cert_cache` - Optional certificate cache for Management API client JWTs
+/// * `signing_key_cache` - The Ledger-backed signing key cache
 /// * `metrics` - Prometheus metrics collector
 /// * `request` - The incoming HTTP request
 /// * `next` - The next layer in the middleware stack
@@ -182,20 +172,21 @@ pub async fn auth_middleware(
 /// # Returns
 ///
 /// Returns the response from the next layer, or an error response if authentication fails
-pub async fn auth_middleware_with_metrics(
-    jwks_cache: Arc<JwksCache>,
-    cert_cache: Option<Arc<CertificateCache>>,
+pub async fn ledger_auth_middleware_with_metrics(
+    signing_key_cache: Arc<SigningKeyCache>,
     metrics: Arc<AuthMetrics>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
-    auth_middleware_impl(jwks_cache, cert_cache, Some(metrics), request, next).await
+    ledger_auth_middleware_impl(signing_key_cache, Some(metrics), request, next).await
 }
 
-/// Internal implementation of auth middleware with optional metrics
-async fn auth_middleware_impl(
-    jwks_cache: Arc<JwksCache>,
-    cert_cache: Option<Arc<CertificateCache>>,
+/// Internal implementation of Ledger-backed auth middleware with optional metrics
+///
+/// Security: Signing key errors return a generic message to prevent
+/// information leakage about key existence and state.
+async fn ledger_auth_middleware_impl(
+    signing_key_cache: Arc<SigningKeyCache>,
     metrics: Option<Arc<AuthMetrics>>,
     mut request: Request<Body>,
     next: Next,
@@ -211,14 +202,12 @@ async fn auth_middleware_impl(
         unauthorized_response(&e.to_string())
     })?;
 
-    // Verify JWT with certificate cache (if available) and JWKS fallback
-    let claims = verify_with_cert_cache_or_jwks(&token, cert_cache.as_deref(), &jwks_cache)
-        .await
-        .map_err(|e| {
+    // Verify JWT using Ledger-backed signing key cache
+    let claims = verify_with_signing_key_cache(&token, &signing_key_cache).await.map_err(|e| {
         if let Some(ref m) = metrics {
             m.record_validation_failure("jwt");
         }
-        tracing::warn!(error = %e, "JWT verification failed");
+        tracing::warn!(error = %e, "JWT verification failed using Ledger keys");
         match e {
             AuthError::TokenExpired => unauthorized_response("Token expired"),
             AuthError::TokenNotYetValid => unauthorized_response("Token not yet valid"),
@@ -230,9 +219,23 @@ async fn auth_middleware_impl(
             AuthError::InvalidScope(msg) => {
                 (StatusCode::FORBIDDEN, format!("Invalid scope: {}", msg)).into_response()
             },
-            // JWKS and other errors should return 401, not 500
-            AuthError::JwksError(msg) => {
-                unauthorized_response(&format!("Key validation failed: {}", msg))
+            // Signing key errors - use generic message to prevent key enumeration
+            AuthError::KeyNotFound { ref kid }
+            | AuthError::KeyInactive { ref kid }
+            | AuthError::KeyRevoked { ref kid }
+            | AuthError::KeyNotYetValid { ref kid }
+            | AuthError::KeyExpired { ref kid } => {
+                tracing::debug!(kid = %kid, error = %e, "Signing key validation failed");
+                unauthorized_response("Authentication failed")
+            },
+            AuthError::InvalidPublicKey(ref reason) => {
+                tracing::debug!(error = %reason, "Invalid public key format");
+                unauthorized_response("Authentication failed")
+            },
+            AuthError::KeyStorageError(ref message) => {
+                tracing::error!(error = %message, "Key storage error during authentication");
+                (StatusCode::SERVICE_UNAVAILABLE, "Authentication service unavailable".to_string())
+                    .into_response()
             },
             AuthError::InvalidIssuer(msg) => {
                 unauthorized_response(&format!("Invalid issuer: {}", msg))
@@ -364,20 +367,6 @@ pub fn validate_vault_access(auth: &AuthContext) -> Result<(), AuthError> {
 /// # Errors
 ///
 /// Returns HTTP 403 Forbidden if vault validation fails
-///
-/// # Example
-///
-/// ```ignore
-/// use axum::{Router, middleware};
-/// use inferadb_engine_auth::middleware::{auth_middleware, vault_validation_middleware};
-///
-/// let app = Router::new()
-///     .route("/api/check", post(check_handler))
-///     .layer(middleware::from_fn(vault_validation_middleware))
-///     .layer(middleware::from_fn(move |req, next| {
-///         auth_middleware(jwks_cache.clone(), req, next)
-///     }));
-/// ```
 pub async fn vault_validation_middleware(
     request: Request<Body>,
     next: Next,
@@ -402,61 +391,6 @@ pub async fn vault_validation_middleware(
 
     // Vault validation passed, continue to handler
     Ok(next.run(request).await)
-}
-
-/// Optional authentication middleware that respects auth.enabled config
-///
-/// When auth is disabled (auth.enabled = false), this middleware:
-/// - Logs a warning that authentication is disabled
-/// - Injects a default AuthContext with the provided vault/organization
-/// - Passes the request through without token validation
-///
-/// When auth is enabled, delegates to the standard auth_middleware.
-///
-/// # Arguments
-///
-/// * `enabled` - Whether authentication is enabled
-/// * `default_vault` - Default vault UUID to use when auth is disabled
-/// * `default_organization` - Default organization UUID to use when auth is disabled
-/// * `jwks_cache` - The JWKS cache for verifying signatures (only used if enabled)
-/// * `cert_cache` - Optional certificate cache for verifying Management API JWTs
-/// * `request` - The incoming HTTP request
-/// * `next` - The next layer in the middleware stack
-///
-/// # Returns
-///
-/// Returns the response from the next layer
-///
-/// # Security Warning
-///
-/// Only use this middleware in development/testing environments.
-/// Production systems should always have authentication enabled.
-pub async fn optional_auth_middleware(
-    enabled: bool,
-    default_vault: i64,
-    default_organization: i64,
-    jwks_cache: Arc<JwksCache>,
-    cert_cache: Option<Arc<CertificateCache>>,
-    mut request: Request<Body>,
-    next: Next,
-) -> Result<Response, Response> {
-    if !enabled {
-        tracing::warn!(
-            "Authentication is DISABLED - using default vault {} and organization {}",
-            default_vault,
-            default_organization
-        );
-
-        // Create default AuthContext for unauthenticated requests
-        let auth_context =
-            AuthContext::default_unauthenticated(default_vault, default_organization);
-        request.extensions_mut().insert(Arc::new(auth_context));
-
-        return Ok(next.run(request).await);
-    }
-
-    // Auth is enabled, delegate to standard middleware
-    auth_middleware(jwks_cache, cert_cache, request, next).await
 }
 
 #[cfg(test)]

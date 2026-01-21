@@ -4,22 +4,22 @@
 //!
 //! ## Features
 //!
+//! - **Ledger-Backed Token Validation**: Keys fetched from distributed ledger
 //! - **Private-Key JWT (RFC 7523)**: Tenant SDK/CLI authentication
 //! - **OAuth 2.0 Bearer Tokens (RFC 6749)**: Dashboard & enterprise authentication
-//! - **Internal Service JWT**: Control Plane → PDP authentication
 //!
 //! ## Security
 //!
-//! - Only asymmetric algorithms (EdDSA, RS256) are supported
+//! - Only asymmetric algorithms (EdDSA) are supported for signing keys
 //! - Symmetric algorithms (HS256, etc.) are explicitly rejected
 //! - No unsafe code is allowed in this crate
 //!
 //! ## Example
 //!
 //! ```ignore
-//! use inferadb_engine_auth::{AuthContext, jwt};
+//! use inferadb_engine_auth::{SigningKeyCache, jwt};
 //!
-//! // Decode and validate a JWT
+//! // Decode and validate a JWT using Ledger-backed cache
 //! let claims = jwt::decode_jwt_claims(token)?;
 //! let org_id = claims.extract_org_id()?;
 //! ```
@@ -29,18 +29,12 @@
 
 /// Audit logging for authentication events
 pub mod audit;
-/// Certificate caching for Control
-pub mod certificate_cache;
-/// Control JWT authentication (reverse: Control -> Engine)
-pub mod control_auth;
 /// Authentication errors
 pub mod error;
 /// Axum extractors for authentication
 pub mod extractor;
 /// Internal service JWT authentication
 pub mod internal;
-/// JWKS caching and fetching
-pub mod jwks_cache;
 /// JWT validation and claims
 pub mod jwt;
 /// Prometheus metrics for authentication operations
@@ -51,6 +45,8 @@ pub mod middleware;
 pub mod oauth;
 /// OIDC Discovery client
 pub mod oidc;
+/// Ledger-backed signing key cache
+pub mod signing_key_cache;
 /// Enhanced JWT claim validation
 pub mod validation;
 /// Vault validation middleware
@@ -58,19 +54,18 @@ pub mod vault_middleware;
 
 // Re-export key types from this crate
 pub use audit::{AuditEvent, log_audit_event};
-pub use certificate_cache::{
-    CertificateCache, CertificateCacheError, KeyIdParseError, ParsedKeyId,
-};
-pub use control_auth::{
-    AggregatedControlJwksCache, ControlContext, ControlJwk, ControlJwks, ControlJwksCache,
-    aggregated_control_auth_middleware, control_auth_middleware,
-};
 pub use error::AuthError;
 pub use extractor::{OptionalAuth, RequireAuth};
 pub use internal::{InternalJwks, InternalJwksLoader};
-pub use jwks_cache::{Jwk, JwksCache};
-pub use metrics::AuthMetrics;
-pub use middleware::{validate_vault_access, vault_validation_middleware};
-pub use oauth::OAuthJwksClient;
+pub use metrics::{AuthMetrics, VaultVerifierMetrics};
+pub use middleware::{
+    ledger_auth_middleware, ledger_auth_middleware_with_metrics, validate_vault_access,
+    vault_validation_middleware,
+};
+pub use oauth::{Jwk, OAuthJwksClient};
 pub use oidc::{OidcConfiguration, OidcDiscoveryClient};
-pub use vault_middleware::control_verified_vault_middleware;
+pub use signing_key_cache::{DEFAULT_CACHE_CAPACITY, DEFAULT_CACHE_TTL, SigningKeyCache};
+pub use vault_middleware::{
+    LedgerVaultVerifier, VaultInfo, VaultVerificationError, VaultVerifier,
+    control_verified_vault_middleware,
+};

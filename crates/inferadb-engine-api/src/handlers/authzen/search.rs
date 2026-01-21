@@ -442,11 +442,7 @@ mod tests {
             .await
             .unwrap();
 
-        AppState::builder(store, schema, config)
-            .wasm_host(None)
-            .jwks_cache(None)
-            .server_identity(None)
-            .build()
+        AppState::builder(store, schema, config).wasm_host(None).signing_key_cache(None).build()
     }
 
     #[tokio::test]

@@ -44,8 +44,7 @@ fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
-        .jwks_cache(None)
-        .server_identity(None)
+        .signing_key_cache(None)
         .build();
 
     (state, vault_a, organization_a, vault_b, organization_b)

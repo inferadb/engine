@@ -75,8 +75,7 @@ async fn setup_test_server() -> (AuthorizationServiceClient<tonic::transport::Ch
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
-        .jwks_cache(None)
-        .server_identity(None)
+        .signing_key_cache(None)
         .build();
 
     let health_tracker = state.health_tracker.clone();

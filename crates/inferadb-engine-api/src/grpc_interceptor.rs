@@ -10,9 +10,9 @@
 //!
 //! ```ignore
 //! use tonic::transport::Server;
-//! use crate::grpc_interceptor::AuthInterceptor;
+//! use crate::grpc_interceptor::LedgerAuthInterceptor;
 //!
-//! let interceptor = AuthInterceptor::new(jwks_cache, internal_loader, config);
+//! let interceptor = LedgerAuthInterceptor::new(signing_key_cache, internal_loader, config);
 //!
 //! Server::builder()
 //!     .add_service(AuthorizationServiceServer::with_interceptor(service, interceptor))
@@ -28,8 +28,8 @@ use inferadb_engine_auth::{
     audit::{AuditEvent, log_audit_event},
     error::AuthError,
     internal::InternalJwksLoader,
-    jwks_cache::JwksCache,
-    jwt, oauth,
+    jwt,
+    signing_key_cache::SigningKeyCache,
 };
 use inferadb_engine_config::TokenConfig;
 use inferadb_engine_observe::metrics;
@@ -75,36 +75,54 @@ pub fn extract_bearer_from_metadata(metadata: &MetadataMap) -> Result<String, Au
     Ok(token.to_string())
 }
 
-/// gRPC Authentication Interceptor
+// Note: AuthInterceptor (JWKS-based) has been removed.
+// Use LedgerAuthInterceptor for authentication with Ledger-backed signing keys.
+
+/// gRPC Authentication Interceptor using Ledger-backed signing keys
 ///
-/// This interceptor:
-/// 1. Extracts the Bearer token from authorization metadata
-/// 2. Determines the token type (JWT vs opaque)
-/// 3. Routes to the appropriate validator
-/// 4. Injects AuthContext into request extensions
+/// This interceptor uses `SigningKeyCache` to fetch signing keys directly from Ledger,
+/// eliminating the need for JWKS endpoints and Control connectivity.
+///
+/// It supports:
+/// - Tenant JWTs (from SDK/CLI) verified against Ledger signing keys
+/// - Internal service JWTs (if internal_loader is provided)
+///
+/// ## Usage
+///
+/// ```ignore
+/// use tonic::transport::Server;
+/// use crate::grpc_interceptor::LedgerAuthInterceptor;
+///
+/// let interceptor = LedgerAuthInterceptor::new(signing_key_cache, internal_loader, config);
+///
+/// Server::builder()
+///     .add_service(AuthorizationServiceServer::with_interceptor(service, interceptor))
+///     .serve(addr)
+///     .await?;
+/// ```
 #[derive(Clone)]
-pub struct AuthInterceptor {
-    jwks_cache: Arc<JwksCache>,
+pub struct LedgerAuthInterceptor {
+    signing_key_cache: Arc<SigningKeyCache>,
     internal_loader: Option<Arc<InternalJwksLoader>>,
     #[allow(dead_code)] // May be used for future token validation config
     config: Arc<TokenConfig>,
 }
 
-impl AuthInterceptor {
-    /// Create a new authentication interceptor
+impl LedgerAuthInterceptor {
+    /// Create a new Ledger-backed authentication interceptor
     pub fn new(
-        jwks_cache: Arc<JwksCache>,
+        signing_key_cache: Arc<SigningKeyCache>,
         internal_loader: Option<Arc<InternalJwksLoader>>,
         config: Arc<TokenConfig>,
     ) -> Self {
-        Self { jwks_cache, internal_loader, config }
+        Self { signing_key_cache, internal_loader, config }
     }
 
-    /// Authenticate a request and return AuthContext
+    /// Authenticate a gRPC request using Ledger-backed signing keys
     async fn authenticate(&self, metadata: &MetadataMap) -> Result<AuthContext, AuthError> {
         let start = Instant::now();
 
-        // Extract token from metadata
+        // Extract bearer token
         let token = match extract_bearer_from_metadata(metadata) {
             Ok(t) => t,
             Err(e) => {
@@ -113,14 +131,14 @@ impl AuthInterceptor {
             },
         };
 
-        // Detect token type
-        let result = if oauth::is_jwt(&token) {
-            // JWT token - need to determine if it's tenant, OAuth, or internal
+        // Determine if JWT (starts with eyJ) or opaque token
+        let result = if token.starts_with("eyJ") {
+            // JWT path
             self.validate_jwt(&token).await
         } else {
-            // Opaque token - use introspection if configured
+            // Opaque tokens not supported
             Err(AuthError::InvalidTokenFormat(
-                "Opaque token introspection not yet implemented".to_string(),
+                "Opaque tokens not supported - please use JWT".to_string(),
             ))
         };
 
@@ -136,7 +154,7 @@ impl AuthInterceptor {
                     organization = %ctx.organization,
                     method = %method,
                     duration_ms = duration * 1000.0,
-                    "Authentication succeeded"
+                    "Authentication succeeded (Ledger keys)"
                 );
 
                 // Log audit event for successful authentication
@@ -144,13 +162,13 @@ impl AuthInterceptor {
                     tenant_id: org_id_str,
                     method: method.clone(),
                     timestamp: Utc::now(),
-                    ip_address: None, // TODO: Extract from gRPC metadata when available
+                    ip_address: None,
                 });
             },
             Err(e) => {
                 let error_type = auth_error_type(e);
                 let org_id = "unknown";
-                let method = "jwt"; // Default to JWT since we extracted a token
+                let method = "jwt";
                 metrics::record_auth_attempt(method, org_id);
                 metrics::record_auth_failure(method, error_type, org_id, duration);
                 metrics::record_jwt_validation_error(error_type);
@@ -158,7 +176,7 @@ impl AuthInterceptor {
                     error = %e,
                     error_type = error_type,
                     duration_ms = duration * 1000.0,
-                    "Authentication failed"
+                    "Authentication failed (Ledger keys)"
                 );
 
                 // Log audit event for failed authentication
@@ -167,7 +185,7 @@ impl AuthInterceptor {
                     method: method.to_string(),
                     error: e.to_string(),
                     timestamp: Utc::now(),
-                    ip_address: None, // TODO: Extract from gRPC metadata when available
+                    ip_address: None,
                 });
             },
         }
@@ -175,7 +193,7 @@ impl AuthInterceptor {
         result
     }
 
-    /// Validate JWT token (tenant, OAuth, or internal)
+    /// Validate JWT token (tenant or internal)
     async fn validate_jwt(&self, token: &str) -> Result<AuthContext, AuthError> {
         // Decode without verification to get issuer claim
         let unverified = jwt::decode_jwt_claims(token)?;
@@ -190,66 +208,52 @@ impl AuthInterceptor {
                 .await;
         }
 
-        // Check if issuer matches expected tenant JWKS pattern
-        // For tenant JWTs: issuer should be "tenant:{id}"
-        if unverified.iss.starts_with("tenant:") {
-            tracing::debug!(issuer = %unverified.iss, "Detected tenant JWT");
+        // Validate tenant JWT using Ledger-backed signing key cache
+        tracing::debug!(issuer = %unverified.iss, "Validating tenant JWT using Ledger keys");
 
-            // Validate tenant JWT using jwt validation
-            let claims = match jwt::verify_with_jwks(token, &self.jwks_cache).await {
-                Ok(c) => {
-                    metrics::record_jwt_signature_verification("EdDSA", true);
-                    c
-                },
-                Err(e) => {
-                    metrics::record_jwt_signature_verification("EdDSA", false);
-                    return Err(e);
-                },
-            };
+        let claims = match jwt::verify_with_signing_key_cache(token, &self.signing_key_cache).await
+        {
+            Ok(c) => {
+                metrics::record_jwt_signature_verification("EdDSA", true);
+                c
+            },
+            Err(e) => {
+                metrics::record_jwt_signature_verification("EdDSA", false);
+                return Err(e);
+            },
+        };
 
-            // Extract organization ID and create AuthContext
-            let scopes = claims.parse_scopes();
+        // Extract organization ID and create AuthContext
+        let scopes = claims.parse_scopes();
 
-            // Extract vault and organization IDs
-            let vault = claims.vault_id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
+        // Extract vault and organization IDs
+        let vault = claims.vault_id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
 
-            let organization =
-                claims.org_id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
+        let organization = claims.org_id.as_ref().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
 
-            return Ok(AuthContext {
-                client_id: claims.sub.clone(),
-                key_id: String::new(), // TODO: Extract from JWT header
-                auth_method: AuthMethod::PrivateKeyJwt,
-                scopes,
-                issued_at: DateTime::from_timestamp(claims.iat as i64, 0).unwrap_or_else(Utc::now),
-                expires_at: DateTime::from_timestamp(claims.exp as i64, 0)
-                    .unwrap_or_else(|| Utc::now() + Duration::seconds(300)),
-                jti: claims.jti.clone(),
-                vault,
-                organization,
-            });
-        }
-
-        // Otherwise, try OAuth validation
-        tracing::debug!(issuer = %unverified.iss, "Attempting OAuth JWT validation");
-        Err(AuthError::InvalidTokenFormat(
-            "OAuth JWT validation not yet implemented for gRPC".to_string(),
-        ))
+        Ok(AuthContext {
+            client_id: claims.sub.clone(),
+            key_id: String::new(), // Will be populated from JWT header in future
+            auth_method: AuthMethod::PrivateKeyJwt,
+            scopes,
+            issued_at: DateTime::from_timestamp(claims.iat as i64, 0).unwrap_or_else(Utc::now),
+            expires_at: DateTime::from_timestamp(claims.exp as i64, 0)
+                .unwrap_or_else(|| Utc::now() + Duration::seconds(300)),
+            jti: claims.jti.clone(),
+            vault,
+            organization,
+        })
     }
 }
 
-/// Synchronous interceptor implementation
+/// Synchronous interceptor implementation for LedgerAuthInterceptor
 ///
 /// Uses tokio::task::block_in_place to safely block within a tokio runtime context.
-/// This is necessary because the authentication process may need to make HTTP requests
-/// (e.g., fetching JWKS) which require an active tokio runtime.
-impl tonic::service::Interceptor for AuthInterceptor {
+impl tonic::service::Interceptor for LedgerAuthInterceptor {
     fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
         let auth_future = self.authenticate(request.metadata());
 
         // Use tokio::task::block_in_place to block safely within the tokio runtime.
-        // This moves the current task to a blocking thread, allowing other tasks to progress.
-        // Then use Handle::current().block_on() to execute the async authentication.
         let auth_result =
             tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(auth_future));
 
@@ -291,10 +295,22 @@ fn auth_error_type(error: &AuthError) -> &'static str {
         AuthError::TokenInactive => "token_inactive",
         AuthError::MissingTenantId => "missing_org_id",
         AuthError::TokenTooOld => "token_too_old",
+        // Ledger-backed signing key errors
+        AuthError::KeyNotFound { .. } => "key_not_found",
+        AuthError::KeyInactive { .. } => "key_inactive",
+        AuthError::KeyRevoked { .. } => "key_revoked",
+        AuthError::KeyNotYetValid { .. } => "key_not_yet_valid",
+        AuthError::KeyExpired { .. } => "key_expired",
+        AuthError::InvalidPublicKey(_) => "invalid_public_key",
+        AuthError::KeyStorageError(_) => "key_storage_error",
     }
 }
 
 /// Convert AuthError to gRPC Status
+///
+/// Security: Signing key errors return a generic message to prevent
+/// information leakage about key existence and state. The specific
+/// error is logged internally for debugging.
 fn auth_error_to_status(error: AuthError) -> Status {
     match error {
         AuthError::InvalidTokenFormat(_) => Status::unauthenticated(error.to_string()),
@@ -313,6 +329,21 @@ fn auth_error_to_status(error: AuthError) -> Status {
         AuthError::TokenInactive => Status::unauthenticated("Token is inactive"),
         AuthError::MissingTenantId => Status::unauthenticated(error.to_string()),
         AuthError::TokenTooOld => Status::unauthenticated("Token is too old"),
+        // Ledger-backed signing key errors - use generic message to prevent key enumeration
+        AuthError::KeyNotFound { ref kid }
+        | AuthError::KeyInactive { ref kid }
+        | AuthError::KeyRevoked { ref kid }
+        | AuthError::KeyNotYetValid { ref kid }
+        | AuthError::KeyExpired { ref kid } => {
+            // Log specific error internally for debugging
+            tracing::debug!(kid = %kid, error = %error, "Signing key validation failed");
+            Status::unauthenticated("Authentication failed")
+        },
+        AuthError::InvalidPublicKey(ref msg) => {
+            tracing::debug!(error = %msg, "Invalid public key format");
+            Status::unauthenticated("Authentication failed")
+        },
+        AuthError::KeyStorageError(_) => Status::internal("Authentication service unavailable"),
     }
 }
 

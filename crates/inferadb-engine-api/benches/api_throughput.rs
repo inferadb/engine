@@ -86,8 +86,7 @@ async fn create_test_state_with_data(num_relationships: usize) -> (AppState, i64
 
     let state = AppState::builder(store, schema, Arc::new(config))
         .wasm_host(None)
-        .jwks_cache(None)
-        .server_identity(None)
+        .signing_key_cache(None)
         .build();
 
     (state, vault)

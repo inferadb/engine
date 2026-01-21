@@ -2,7 +2,6 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
 use jsonwebtoken::{Algorithm, DecodingKey, Header, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
-use subtle::ConstantTimeEq;
 
 use crate::{error::AuthError, validation::validate_algorithm};
 
@@ -99,7 +98,7 @@ pub fn decode_jwt_header(token: &str) -> Result<Header, AuthError> {
         .map_err(|e| AuthError::InvalidTokenFormat(format!("Failed to decode JWT header: {}", e)))
 }
 
-/// Decode JWT claims without verification (used to extract issuer for JWKS lookup)
+/// Decode JWT claims without verification (used to extract issuer for key lookup)
 pub fn decode_jwt_claims(token: &str) -> Result<JwtClaims, AuthError> {
     // Split token into parts
     let parts: Vec<&str> = token.split('.').collect();
@@ -189,20 +188,21 @@ pub fn verify_signature(
     Ok(token_data.claims)
 }
 
-/// Verify JWT signature using JWKS cache
+/// Verify JWT signature using Ledger-backed signing key cache
 ///
-/// This is the primary JWT verification function that:
+/// This function verifies JWTs using public signing keys fetched from Ledger:
 /// 1. Decodes the JWT header to extract the key ID (`kid`) and algorithm
 /// 2. Extracts the organization ID from the JWT claims
-/// 3. Fetches the corresponding public key from the JWKS cache
+/// 3. Fetches the corresponding public key from the signing key cache (backed by Ledger)
 /// 4. Verifies the JWT signature using the public key
 ///
-/// The JWKS cache handles key fetching, caching, and rotation automatically.
+/// This approach eliminates the need for JWKS endpoints and Control connectivity,
+/// as signing keys are stored directly in Ledger.
 ///
 /// # Arguments
 ///
 /// * `token` - The JWT token to verify (as a string)
-/// * `jwks_cache` - The JWKS cache instance
+/// * `signing_key_cache` - The Ledger-backed signing key cache
 ///
 /// # Returns
 ///
@@ -211,40 +211,36 @@ pub fn verify_signature(
 /// # Errors
 ///
 /// Returns an error if:
-/// - The JWT is malformed or missing required fields (`kid`, org_id)
-/// - The algorithm is not supported (only EdDSA and RS256 are allowed)
-/// - The key cannot be found in JWKS (even after refresh)
+/// - The JWT is malformed or missing required fields (`kid`, `org_id`)
+/// - The algorithm is not supported (only EdDSA is allowed for Ledger keys)
+/// - The key cannot be found in Ledger or is inactive/revoked/expired
 /// - The signature is invalid
 ///
 /// # Example
 ///
 /// ```no_run
-/// use inferadb_engine_auth::jwt::verify_with_jwks;
-/// use inferadb_engine_auth::jwks_cache::JwksCache;
-/// use moka::future::Cache;
+/// use inferadb_engine_auth::jwt::verify_with_signing_key_cache;
+/// use inferadb_engine_auth::signing_key_cache::SigningKeyCache;
+/// use inferadb_storage::auth::MemorySigningKeyStore;
 /// use std::sync::Arc;
 /// use std::time::Duration;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// // Setup JWKS cache
-/// let cache = Arc::new(Cache::new(100));
-/// let jwks_cache = JwksCache::new(
-///     "https://control-plane.example.com".to_string(),
-///     cache,
-///     Duration::from_secs(300),
-/// )?;
+/// // Setup signing key cache backed by Ledger
+/// let store = Arc::new(MemorySigningKeyStore::new());
+/// let cache = SigningKeyCache::new(store, Duration::from_secs(300));
 ///
-/// // Verify a JWT
-/// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6ImFjbWUta2V5LTAwMSJ9...";
-/// let claims = verify_with_jwks(token, &jwks_cache).await?;
+/// // Verify a JWT using Ledger keys
+/// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6Im9yZy0uLi4ifQ...";
+/// let claims = verify_with_signing_key_cache(token, &cache).await?;
 ///
 /// println!("Verified claims for organization: {}", claims.org_id.unwrap_or_default());
 /// # Ok(())
 /// # }
 /// ```
-pub async fn verify_with_jwks(
+pub async fn verify_with_signing_key_cache(
     token: &str,
-    jwks_cache: &crate::jwks_cache::JwksCache,
+    signing_key_cache: &crate::signing_key_cache::SigningKeyCache,
 ) -> Result<JwtClaims, AuthError> {
     // 1. Decode header to get algorithm and key ID
     let header = decode_jwt_header(token)?;
@@ -253,163 +249,50 @@ pub async fn verify_with_jwks(
         .kid
         .ok_or_else(|| AuthError::InvalidTokenFormat("JWT header missing 'kid' field".into()))?;
 
-    // Validate algorithm
+    // Validate algorithm (only EdDSA for Ledger keys)
     let alg_str = format!("{:?}", header.alg);
     validate_algorithm(&alg_str)?;
+
+    // EdDSA is required for Ledger-backed keys
+    if header.alg != Algorithm::EdDSA {
+        return Err(AuthError::UnsupportedAlgorithm(format!(
+            "Ledger-backed keys only support EdDSA, got {:?}",
+            header.alg
+        )));
+    }
 
     // 2. Decode claims without verification to extract organization ID
     let claims = decode_jwt_claims(token)?;
-    let tenant_id = claims.extract_org_id()?;
+    let org_id_str = claims.extract_org_id()?;
+    let org_id: i64 = org_id_str.parse().map_err(|_| {
+        AuthError::InvalidTokenFormat(format!(
+            "org_id '{}' is not a valid Snowflake ID",
+            org_id_str
+        ))
+    })?;
 
-    // 3. Get key from JWKS cache
-    let jwk = match jwks_cache.get_key_by_id(&tenant_id, &kid).await {
-        Ok(key) => key,
-        Err(_) => {
-            // Key not found - retry with fresh JWKS fetch
-            tracing::info!(
-                tenant_id = %tenant_id,
-                kid = %kid,
-                "Key not found in JWKS, forcing refresh"
-            );
+    // 3. Get decoding key from signing key cache (fetches from Ledger on cache miss)
+    let decoding_key = signing_key_cache.get_decoding_key(org_id, &kid).await.map_err(|e| {
+        tracing::warn!(
+            org_id = %org_id,
+            kid = %kid,
+            error = %e,
+            "Failed to get signing key from Ledger"
+        );
+        // Convert signing key cache errors to appropriate auth errors
+        e
+    })?;
 
-            // Force a fresh fetch by getting all keys
-            let keys = jwks_cache.get_jwks(&tenant_id).await?;
-
-            // Try to find the key again (using constant-time comparison)
-            keys.into_iter().find(|k| k.kid.as_bytes().ct_eq(kid.as_bytes()).into()).ok_or_else(
-                || {
-                    AuthError::JwksError(format!(
-                        "Key '{}' not found in JWKS for tenant '{}'",
-                        kid, tenant_id
-                    ))
-                },
-            )?
-        },
-    };
-
-    // 4. Convert JWK to DecodingKey
-    let decoding_key = jwk.to_decoding_key()?;
-
-    // 5. Verify signature
+    // 4. Verify signature with the Ledger-backed key
     let verified_claims = verify_signature(token, &decoding_key, header.alg)?;
 
-    Ok(verified_claims)
-}
-
-/// Verify JWT signature using certificate cache with fallback to JWKS
-///
-/// This function provides a hybrid verification approach:
-/// 1. First, checks if the `kid` matches the Management API format
-///    (org-{org_id}-client-{client_id}-cert-{cert_id})
-/// 2. If it matches, attempts to fetch the certificate from the Management API via the certificate
-///    cache
-/// 3. If the `kid` doesn't match or certificate fetch fails, falls back to JWKS verification
-///
-/// This allows the system to support both Management API client certificates and traditional JWKS
-/// keys.
-///
-/// # Arguments
-///
-/// * `token` - The JWT token to verify (as a string)
-/// * `cert_cache` - Optional certificate cache for Management API certificates
-/// * `jwks_cache` - The JWKS cache instance (used as fallback)
-///
-/// # Returns
-///
-/// Returns the validated JWT claims if verification succeeds.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - The JWT is malformed or missing required fields (`kid`, org_id)
-/// - The algorithm is not supported (only EdDSA and RS256 are allowed)
-/// - Neither certificate cache nor JWKS can verify the token
-/// - The signature is invalid
-///
-/// # Example
-///
-/// ```no_run
-/// use inferadb_engine_auth::jwt::verify_with_cert_cache_or_jwks;
-/// use inferadb_engine_auth::certificate_cache::CertificateCache;
-/// use inferadb_engine_auth::jwks_cache::JwksCache;
-/// use moka::future::Cache;
-/// use std::sync::Arc;
-/// use std::time::Duration;
-///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// // Setup certificate cache (fetches from Control JWKS endpoint)
-/// let cert_cache = CertificateCache::new(
-///     "https://control-api.inferadb.com".to_string(),
-///     Duration::from_secs(300),
-///     100,
-/// )?;
-///
-/// // Setup JWKS cache (for OIDC providers)
-/// let cache = Arc::new(Cache::new(100));
-/// let jwks_cache = JwksCache::new(
-///     "https://auth.inferadb.com/.well-known".to_string(),
-///     cache,
-///     Duration::from_secs(300),
-/// )?;
-///
-/// // Verify a JWT (will try cert cache first, then JWKS)
-/// let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImtpZCI6Im9yZy0uLi4ifQ...";
-/// let claims = verify_with_cert_cache_or_jwks(token, Some(&cert_cache), &jwks_cache).await?;
-///
-/// println!("Verified claims for organization: {}", claims.org_id.unwrap_or_default());
-/// # Ok(())
-/// # }
-/// ```
-pub async fn verify_with_cert_cache_or_jwks(
-    token: &str,
-    cert_cache: Option<&crate::certificate_cache::CertificateCache>,
-    jwks_cache: &crate::jwks_cache::JwksCache,
-) -> Result<JwtClaims, AuthError> {
-    // 1. Decode header to get algorithm and key ID
-    let header = decode_jwt_header(token)?;
-
-    let kid = header
-        .kid
-        .ok_or_else(|| AuthError::InvalidTokenFormat("JWT header missing 'kid' field".into()))?;
-
-    // Validate algorithm
-    let alg_str = format!("{:?}", header.alg);
-    validate_algorithm(&alg_str)?;
-
-    // 2. Try certificate cache first if available and kid matches format
-    if let Some(cache) = cert_cache {
-        // Check if kid matches Management API format
-        // (org-{org_id}-client-{client_id}-cert-{cert_id})
-        if kid.starts_with("org-") && kid.contains("-client-") && kid.contains("-cert-") {
-            match cache.get_decoding_key(&kid).await {
-                Ok(decoding_key) => {
-                    tracing::debug!(
-                        kid = %kid,
-                        "Successfully fetched certificate from Management API"
-                    );
-
-                    // Verify signature with Management API certificate
-                    let verified_claims = verify_signature(token, &decoding_key, header.alg)?;
-                    return Ok(verified_claims);
-                },
-                Err(e) => {
-                    // Log the error but continue to JWKS fallback
-                    tracing::warn!(
-                        kid = %kid,
-                        error = %e,
-                        "Failed to fetch certificate from Management API, falling back to JWKS"
-                    );
-                },
-            }
-        }
-    }
-
-    // 3. Fall back to JWKS verification
     tracing::debug!(
+        org_id = %org_id,
         kid = %kid,
-        "Using JWKS verification"
+        "JWT verified using Ledger-backed signing key"
     );
-    verify_with_jwks(token, jwks_cache).await
+
+    Ok(verified_claims)
 }
 
 #[cfg(test)]
@@ -524,5 +407,216 @@ mod tests {
 
         let result = decode_jwt_claims("too.many.parts.here");
         assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod ledger_verification_tests {
+    use std::{sync::Arc, time::Duration};
+
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use chrono::Utc;
+    use ed25519_dalek::SigningKey;
+    use inferadb_storage::auth::{MemorySigningKeyStore, PublicSigningKey, PublicSigningKeyStore};
+    use jsonwebtoken::{Algorithm, EncodingKey, Header};
+    use rand_core::OsRng;
+
+    use super::*;
+    use crate::signing_key_cache::SigningKeyCache;
+
+    /// Generate a test Ed25519 key pair and return (pkcs8_der, public_key_base64)
+    fn generate_test_keypair() -> (Vec<u8>, String) {
+        let signing_key = SigningKey::generate(&mut OsRng);
+        let public_key_bytes = signing_key.verifying_key().to_bytes();
+        let public_key_b64 = URL_SAFE_NO_PAD.encode(public_key_bytes);
+
+        // Create PKCS#8 DER encoding for Ed25519 private key
+        let private_bytes = signing_key.to_bytes();
+        let mut pkcs8_der = vec![
+            0x30, 0x2e, // SEQUENCE, 46 bytes
+            0x02, 0x01, 0x00, // INTEGER version 0
+            0x30, 0x05, // SEQUENCE, 5 bytes (algorithm identifier)
+            0x06, 0x03, 0x2b, 0x65, 0x70, // OID 1.3.101.112 (Ed25519)
+            0x04, 0x22, // OCTET STRING, 34 bytes
+            0x04, 0x20, // OCTET STRING, 32 bytes (the actual key)
+        ];
+        pkcs8_der.extend_from_slice(&private_bytes);
+
+        (pkcs8_der, public_key_b64)
+    }
+
+    /// Create a JWT signed with the given PKCS#8 DER key
+    fn create_test_jwt(pkcs8_der: &[u8], kid: &str, org_id: &str) -> String {
+        let now = Utc::now().timestamp() as u64;
+        let claims = JwtClaims {
+            iss: "https://api.inferadb.com".into(),
+            sub: "client:test-client".into(),
+            aud: "https://api.inferadb.com/evaluate".into(),
+            exp: now + 3600,
+            iat: now,
+            nbf: None,
+            jti: Some("test-jti-12345".into()),
+            scope: "vault:read vault:write".into(),
+            vault_id: Some("123456789".into()),
+            org_id: Some(org_id.into()),
+        };
+
+        let mut header = Header::new(Algorithm::EdDSA);
+        header.kid = Some(kid.to_string());
+
+        let encoding_key = EncodingKey::from_ed_der(pkcs8_der);
+        jsonwebtoken::encode(&header, &claims, &encoding_key).expect("Failed to encode test JWT")
+    }
+
+    #[tokio::test]
+    async fn test_verify_with_signing_key_cache_success() {
+        // Generate key pair
+        let (pkcs8_der, public_key_b64) = generate_test_keypair();
+        let kid = "test-key-001";
+        let org_id: i64 = 12345;
+
+        // Create store and cache
+        let store = Arc::new(MemorySigningKeyStore::new());
+        let cache = SigningKeyCache::new(store.clone(), Duration::from_secs(300));
+
+        // Register the public key
+        let public_key = PublicSigningKey {
+            kid: kid.to_string(),
+            public_key: public_key_b64,
+            client_id: 1,
+            cert_id: 1,
+            created_at: Utc::now(),
+            valid_from: Utc::now() - chrono::Duration::hours(1),
+            valid_until: None,
+            active: true,
+            revoked_at: None,
+        };
+        store.create_key(org_id, &public_key).await.unwrap();
+
+        // Create and verify JWT
+        let token = create_test_jwt(&pkcs8_der, kid, &org_id.to_string());
+        let claims = verify_with_signing_key_cache(&token, &cache).await.unwrap();
+
+        assert_eq!(claims.org_id, Some(org_id.to_string()));
+        assert_eq!(claims.sub, "client:test-client");
+    }
+
+    #[tokio::test]
+    async fn test_verify_with_signing_key_cache_key_not_found() {
+        // Generate key pair
+        let (pkcs8_der, _) = generate_test_keypair();
+        let kid = "nonexistent-key";
+        let org_id: i64 = 12345;
+
+        // Create store and cache (without registering the key)
+        let store = Arc::new(MemorySigningKeyStore::new());
+        let cache = SigningKeyCache::new(store, Duration::from_secs(300));
+
+        // Create JWT
+        let token = create_test_jwt(&pkcs8_der, kid, &org_id.to_string());
+        let result = verify_with_signing_key_cache(&token, &cache).await;
+
+        assert!(matches!(result, Err(AuthError::KeyNotFound { .. })));
+    }
+
+    #[tokio::test]
+    async fn test_verify_with_signing_key_cache_key_revoked() {
+        // Generate key pair
+        let (pkcs8_der, public_key_b64) = generate_test_keypair();
+        let kid = "revoked-key";
+        let org_id: i64 = 12345;
+
+        // Create store and cache
+        let store = Arc::new(MemorySigningKeyStore::new());
+        let cache = SigningKeyCache::new(store.clone(), Duration::from_secs(300));
+
+        // Register a revoked key
+        let public_key = PublicSigningKey {
+            kid: kid.to_string(),
+            public_key: public_key_b64,
+            client_id: 1,
+            cert_id: 1,
+            created_at: Utc::now(),
+            valid_from: Utc::now() - chrono::Duration::hours(1),
+            valid_until: None,
+            active: true,
+            revoked_at: Some(Utc::now()),
+        };
+        store.create_key(org_id, &public_key).await.unwrap();
+
+        // Create JWT
+        let token = create_test_jwt(&pkcs8_der, kid, &org_id.to_string());
+        let result = verify_with_signing_key_cache(&token, &cache).await;
+
+        assert!(matches!(result, Err(AuthError::KeyRevoked { .. })));
+    }
+
+    #[tokio::test]
+    async fn test_verify_with_signing_key_cache_invalid_org_id() {
+        // Generate key pair
+        let (pkcs8_der, _) = generate_test_keypair();
+        let kid = "test-key";
+
+        // Create store and cache
+        let store = Arc::new(MemorySigningKeyStore::new());
+        let cache = SigningKeyCache::new(store, Duration::from_secs(300));
+
+        // Create JWT with non-numeric org_id
+        let now = Utc::now().timestamp() as u64;
+        let claims = JwtClaims {
+            iss: "https://api.inferadb.com".into(),
+            sub: "client:test-client".into(),
+            aud: "https://api.inferadb.com/evaluate".into(),
+            exp: now + 3600,
+            iat: now,
+            nbf: None,
+            jti: None,
+            scope: "vault:read".into(),
+            vault_id: None,
+            org_id: Some("not-a-number".into()),
+        };
+
+        let mut header = Header::new(Algorithm::EdDSA);
+        header.kid = Some(kid.to_string());
+
+        let encoding_key = EncodingKey::from_ed_der(&pkcs8_der);
+        let token = jsonwebtoken::encode(&header, &claims, &encoding_key).unwrap();
+
+        let result = verify_with_signing_key_cache(&token, &cache).await;
+
+        assert!(matches!(result, Err(AuthError::InvalidTokenFormat(_))));
+    }
+
+    #[tokio::test]
+    async fn test_verify_with_signing_key_cache_missing_kid() {
+        // Generate key pair
+        let (pkcs8_der, _) = generate_test_keypair();
+
+        // Create store and cache
+        let store = Arc::new(MemorySigningKeyStore::new());
+        let cache = SigningKeyCache::new(store, Duration::from_secs(300));
+
+        // Create JWT without kid
+        let now = Utc::now().timestamp() as u64;
+        let claims = JwtClaims {
+            iss: "https://api.inferadb.com".into(),
+            sub: "client:test-client".into(),
+            aud: "https://api.inferadb.com/evaluate".into(),
+            exp: now + 3600,
+            iat: now,
+            nbf: None,
+            jti: None,
+            scope: "vault:read".into(),
+            vault_id: None,
+            org_id: Some("12345".into()),
+        };
+
+        let header = Header::new(Algorithm::EdDSA); // No kid set
+        let encoding_key = EncodingKey::from_ed_der(&pkcs8_der);
+        let token = jsonwebtoken::encode(&header, &claims, &encoding_key).unwrap();
+
+        let result = verify_with_signing_key_cache(&token, &cache).await;
+
+        assert!(matches!(result, Err(AuthError::InvalidTokenFormat(_))));
     }
 }

@@ -13,7 +13,77 @@ use jsonwebtoken::{
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use crate::{error::AuthError, jwks_cache::Jwk, jwt::JwtClaims, oidc::OidcDiscoveryClient};
+use crate::{error::AuthError, jwt::JwtClaims, oidc::OidcDiscoveryClient};
+
+/// JSON Web Key structure for JWKS
+///
+/// This represents a single public key in a JWKS (JSON Web Key Set).
+/// It supports RSA and OKP (Ed25519) key types.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Jwk {
+    /// Key type (e.g., "RSA", "OKP")
+    pub kty: String,
+    /// Key ID - unique identifier for the key
+    pub kid: String,
+    /// Algorithm (e.g., "RS256", "EdDSA")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alg: Option<String>,
+    /// Key use (e.g., "sig" for signature, "enc" for encryption)
+    #[serde(rename = "use", skip_serializing_if = "Option::is_none")]
+    pub use_: Option<String>,
+    /// Curve for OKP keys (e.g., "Ed25519")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub crv: Option<String>,
+    /// RSA modulus (base64url encoded)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<String>,
+    /// RSA exponent (base64url encoded)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub e: Option<String>,
+    /// Public key for OKP (base64url encoded)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub x: Option<String>,
+}
+
+impl Jwk {
+    /// Convert this JWK to a jsonwebtoken DecodingKey
+    ///
+    /// # Errors
+    ///
+    /// Returns `AuthError::JwksError` if:
+    /// - The key type is unsupported
+    /// - Required parameters are missing (n/e for RSA, x for OKP)
+    /// - The key data is invalid
+    pub fn to_decoding_key(&self) -> Result<DecodingKey, AuthError> {
+        match self.kty.as_str() {
+            "RSA" => {
+                let n = self.n.as_ref().ok_or_else(|| {
+                    AuthError::JwksError("RSA key missing 'n' parameter".to_string())
+                })?;
+                let e = self.e.as_ref().ok_or_else(|| {
+                    AuthError::JwksError("RSA key missing 'e' parameter".to_string())
+                })?;
+
+                DecodingKey::from_rsa_components(n, e)
+                    .map_err(|e| AuthError::JwksError(format!("Invalid RSA key: {}", e)))
+            },
+            "OKP" => {
+                let x = self.x.as_ref().ok_or_else(|| {
+                    AuthError::JwksError("OKP key missing 'x' parameter".to_string())
+                })?;
+
+                let public_key_bytes =
+                    base64::Engine::decode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, x)
+                        .map_err(|e| {
+                            AuthError::JwksError(format!("Invalid base64 in key: {}", e))
+                        })?;
+
+                Ok(DecodingKey::from_ed_der(&public_key_bytes))
+            },
+            _ => Err(AuthError::JwksError(format!("Unsupported key type: {}", self.kty))),
+        }
+    }
+}
 
 /// OAuth JWKS fetcher that uses OIDC Discovery
 pub struct OAuthJwksClient {

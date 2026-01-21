@@ -23,9 +23,7 @@
 use std::sync::Arc;
 
 use futures::StreamExt;
-use inferadb_engine_auth::CertificateCache;
 use inferadb_engine_cache::AuthCache;
-use inferadb_engine_control_client::ControlVaultVerifier;
 use inferadb_ledger_sdk::{ClientConfig, LedgerClient};
 use tokio::{sync::watch, task::JoinHandle};
 use tracing::{debug, error, info, warn};
@@ -56,10 +54,6 @@ pub struct LedgerInvalidationWatcher {
     vault_id: i64,
     /// Auth cache to invalidate.
     auth_cache: Arc<AuthCache>,
-    /// Vault verifier cache (optional).
-    vault_verifier: Option<Arc<ControlVaultVerifier>>,
-    /// Certificate cache (optional).
-    cert_cache: Option<Arc<CertificateCache>>,
 }
 
 impl LedgerInvalidationWatcher {
@@ -69,8 +63,6 @@ impl LedgerInvalidationWatcher {
     ///
     /// * `config` - Watcher configuration (endpoint, namespace, vault)
     /// * `auth_cache` - Auth cache to invalidate on block commits
-    /// * `vault_verifier` - Optional vault verifier cache
-    /// * `cert_cache` - Optional certificate cache
     ///
     /// # Errors
     ///
@@ -78,8 +70,6 @@ impl LedgerInvalidationWatcher {
     pub async fn new(
         config: LedgerWatcherConfig,
         auth_cache: Arc<AuthCache>,
-        vault_verifier: Option<Arc<ControlVaultVerifier>>,
-        cert_cache: Option<Arc<CertificateCache>>,
     ) -> Result<Self, String> {
         let client_config = ClientConfig::builder()
             .with_endpoint(&config.endpoint)
@@ -96,8 +86,6 @@ impl LedgerInvalidationWatcher {
             namespace_id: config.namespace_id,
             vault_id: config.vault_id,
             auth_cache,
-            vault_verifier,
-            cert_cache,
         })
     }
 
@@ -223,18 +211,9 @@ impl LedgerInvalidationWatcher {
         // Invalidate auth cache for this vault
         self.auth_cache.invalidate_vault(vault_id).await;
 
-        // Invalidate vault verifier cache if available
-        if let Some(verifier) = &self.vault_verifier {
-            verifier.invalidate_vault(vault_id).await;
-        }
-
-        // For certificate cache, we invalidate all since we don't have
-        // semantic event information about which specific cert changed.
-        // This is acceptable because cert cache misses trigger HTTP fetches,
-        // which are infrequent operations.
-        if let Some(cert_cache) = &self.cert_cache {
-            cert_cache.clear_all().await;
-        }
+        // Note: In the Ledger-based architecture, signing keys are stored in Ledger
+        // and the SigningKeyCache uses TTL-based expiration. No explicit invalidation
+        // is needed here since keys are fetched fresh from Ledger on cache miss.
     }
 }
 
