@@ -496,30 +496,6 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
 
 // Health check handlers moved to health.rs module
 
-/// Create internal routes (server-to-server communication)
-/// Exposes health and metrics endpoints for monitoring.
-pub async fn internal_routes(components: ServerComponents) -> Result<Router> {
-    // Create AppState
-    let state = components.create_app_state();
-
-    // Public routes (no authentication required):
-    // - Metrics endpoint: Prometheus scrapes metrics from here
-    //
-    // Note: JWKS endpoint has been removed. In the Ledger-based architecture,
-    // signing keys are stored in the distributed ledger and accessed via
-    // SigningKeyCache. Control no longer fetches public keys from Engine.
-    let public_internal_routes = Router::new()
-        .route("/metrics", get(handlers::internal::metrics_handler))
-        .with_state(state.clone());
-
-    // Note: HTTP cache invalidation endpoints have been removed.
-    // Cache invalidation is now handled via Ledger-based WatchBlocks streaming.
-    // The LedgerInvalidationWatcher subscribes to block commits and invalidates caches.
-    // See ledger_invalidation_watcher.rs for the implementation.
-
-    Ok(public_internal_routes)
-}
-
 /// Serve the public router on the configured address
 pub async fn serve_public(
     components: ServerComponents,
@@ -527,21 +503,6 @@ pub async fn serve_public(
     shutdown: impl std::future::Future<Output = ()> + Send + 'static,
 ) -> anyhow::Result<()> {
     let router = public_routes(components).await?;
-
-    axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>())
-        .with_graceful_shutdown(shutdown)
-        .await?;
-
-    Ok(())
-}
-
-/// Serve the internal router on the configured address
-pub async fn serve_internal(
-    components: ServerComponents,
-    listener: tokio::net::TcpListener,
-    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
-) -> anyhow::Result<()> {
-    let router = internal_routes(components).await?;
 
     axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>())
         .with_graceful_shutdown(shutdown)
@@ -656,7 +617,7 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
 /// # Security Warning
 ///
 /// This function should only be used in test code. Production code should use
-/// `public_routes()` or `internal_routes()` which include proper JWT authentication.
+/// `public_routes()` which includes proper JWT authentication.
 #[cfg(any(test, feature = "test-utils"))]
 pub async fn create_test_router(state: AppState) -> Result<Router> {
     use axum::routing::{get, post};

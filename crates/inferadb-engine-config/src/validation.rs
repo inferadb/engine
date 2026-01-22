@@ -93,10 +93,6 @@ pub fn validate_listen(config: &ListenConfig) -> Result<()> {
         .grpc
         .parse::<std::net::SocketAddr>()
         .map_err(|e| ValidationError::InvalidAddress(config.grpc.clone(), e.to_string()))?;
-    config
-        .mesh
-        .parse::<std::net::SocketAddr>()
-        .map_err(|e| ValidationError::InvalidAddress(config.mesh.clone(), e.to_string()))?;
 
     Ok(())
 }
@@ -171,21 +167,14 @@ mod tests {
 
     #[test]
     fn test_validate_listen_invalid_address() {
-        let config = ListenConfig {
-            http: "invalid".to_string(),
-            grpc: "0.0.0.0:8081".to_string(),
-            mesh: "0.0.0.0:8082".to_string(),
-        };
+        let config = ListenConfig { http: "invalid".to_string(), grpc: "0.0.0.0:8081".to_string() };
         assert!(matches!(validate_listen(&config), Err(ValidationError::InvalidAddress(_, _))));
     }
 
     #[test]
     fn test_validate_listen_valid() {
-        let config = ListenConfig {
-            http: "0.0.0.0:8080".to_string(),
-            grpc: "0.0.0.0:8081".to_string(),
-            mesh: "0.0.0.0:8082".to_string(),
-        };
+        let config =
+            ListenConfig { http: "0.0.0.0:8080".to_string(), grpc: "0.0.0.0:8081".to_string() };
         assert!(validate_listen(&config).is_ok());
     }
 
@@ -246,15 +235,12 @@ mod tests {
             listen: ListenConfig {
                 http: "invalid-address".to_string(),
                 grpc: "0.0.0.0:8081".to_string(),
-                mesh: "0.0.0.0:8082".to_string(),
             },
             storage: "invalid".to_string(),
             ledger: crate::LedgerConfig::default(),
             cache: CacheConfig { enabled: true, capacity: 0, ttl: 0 },
             token: crate::TokenConfig::default(),
             pem: None,
-            discovery: crate::DiscoveryConfig::default(),
-            mesh: crate::MeshConfig::default(),
             replication: crate::ReplicationConfig::default(),
         };
 

@@ -86,7 +86,6 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| args.config.clone());
 
     // Display startup banner and configuration summary
-    use inferadb_engine_config::DiscoveryMode;
     use inferadb_engine_observe::startup::{
         ConfigEntry, ServiceInfo, StartupDisplay, private_key_hint,
     };
@@ -96,28 +95,6 @@ async fn main() -> Result<()> {
         ConfigEntry::new("Identity", "Private Key", private_key_hint(pem))
     } else {
         ConfigEntry::warning("Identity", "Private Key", "○ Unassigned")
-    };
-
-    // Create discovery mode entry with descriptive text
-    let (discovery_entry, discovery_mode_text) = match &config.discovery.mode {
-        DiscoveryMode::None => {
-            (ConfigEntry::warning("Network", "Service Discovery", "○ Disabled"), "local")
-        },
-        DiscoveryMode::Kubernetes => {
-            (ConfigEntry::new("Network", "Service Discovery", "Kubernetes"), "kubernetes")
-        },
-    };
-
-    // Create mesh service entry with discovery context
-    let mesh_url = config.effective_mesh_url();
-    let mesh_entry = if config.is_discovery_enabled() {
-        ConfigEntry::new(
-            "Network",
-            "Control Endpoint",
-            format!("{} ({})", mesh_url, discovery_mode_text),
-        )
-    } else {
-        ConfigEntry::new("Network", "Control Endpoint", format!("{} (local)", mesh_url))
     };
 
     StartupDisplay::new(ServiceInfo {
@@ -135,10 +112,7 @@ async fn main() -> Result<()> {
         // Listen
         ConfigEntry::new("Listen", "HTTP", &config.listen.http),
         ConfigEntry::new("Listen", "gRPC", &config.listen.grpc),
-        ConfigEntry::new("Listen", "Mesh", &config.listen.mesh),
         ConfigEntry::separator("Listen"),
-        mesh_entry,
-        discovery_entry,
         private_key_entry,
     ])
     .display();
@@ -220,8 +194,8 @@ async fn main() -> Result<()> {
     ));
     log_initialized("Signing key cache");
 
-    // Clone components for each server
-    let public_components = inferadb_engine_api::ServerComponents {
+    // Create server components
+    let components = inferadb_engine_api::ServerComponents {
         store: Arc::clone(&store),
         schema: Arc::clone(&schema),
         wasm_host: wasm_host.clone(),
@@ -229,38 +203,25 @@ async fn main() -> Result<()> {
         signing_key_cache: Some(Arc::clone(&signing_key_cache)),
     };
 
-    let internal_components = inferadb_engine_api::ServerComponents {
-        store: Arc::clone(&store),
-        schema: Arc::clone(&schema),
-        wasm_host: wasm_host.clone(),
-        config: Arc::clone(&config),
-        signing_key_cache: Some(Arc::clone(&signing_key_cache)),
-    };
-
-    // Bind listeners (addresses are already validated at config.validate())
-    let public_listener = tokio::net::TcpListener::bind(&config.listen.http).await?;
-    let internal_listener = tokio::net::TcpListener::bind(&config.listen.mesh).await?;
+    // Bind listener (address is already validated at config.validate())
+    let listener = tokio::net::TcpListener::bind(&config.listen.http).await?;
 
     // Log ready status
     log_ready("Authorization Engine");
 
     // Setup graceful shutdown
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel::<()>(2);
-    let mut shutdown_rx_internal = shutdown_tx.subscribe();
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel::<()>(1);
 
     // Spawn task to handle shutdown signals
     tokio::spawn(async move {
         shutdown_signal().await;
         let _ = shutdown_tx.send(());
     });
-    tokio::try_join!(
-        inferadb_engine_api::serve_public(public_components, public_listener, async move {
-            shutdown_rx.recv().await.ok();
-        }),
-        inferadb_engine_api::serve_internal(internal_components, internal_listener, async move {
-            shutdown_rx_internal.recv().await.ok();
-        })
-    )?;
+
+    inferadb_engine_api::serve_public(components, listener, async move {
+        shutdown_rx.recv().await.ok();
+    })
+    .await?;
 
     Ok(())
 }

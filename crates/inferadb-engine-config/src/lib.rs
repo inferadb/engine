@@ -77,10 +77,6 @@ pub struct Config {
     #[serde(default)]
     pub token: TokenConfig,
     #[serde(default)]
-    pub discovery: DiscoveryConfig,
-    #[serde(default)]
-    pub mesh: MeshConfig,
-    #[serde(default)]
     pub replication: ReplicationConfig,
 }
 
@@ -96,17 +92,11 @@ pub struct ListenConfig {
     /// Format: "host:port" (e.g., "0.0.0.0:8081")
     #[serde(default = "default_grpc")]
     pub grpc: String,
-
-    /// Service mesh / inter-service communication address
-    /// Used for JWKS endpoints, metrics, cache invalidation webhooks
-    /// Format: "host:port" (e.g., "0.0.0.0:8082")
-    #[serde(default = "default_mesh")]
-    pub mesh: String,
 }
 
 impl Default for ListenConfig {
     fn default() -> Self {
-        Self { http: default_http(), grpc: default_grpc(), mesh: default_mesh() }
+        Self { http: default_http(), grpc: default_grpc() }
     }
 }
 
@@ -116,10 +106,6 @@ fn default_http() -> String {
 
 fn default_grpc() -> String {
     "0.0.0.0:8081".to_string()
-}
-
-fn default_mesh() -> String {
-    "0.0.0.0:8082".to_string()
 }
 
 fn default_threads() -> usize {
@@ -234,85 +220,6 @@ impl TokenConfig {
                  This may allow expired tokens to be accepted. \
                  Recommended: 60 seconds or less."
             );
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiscoveryConfig {
-    /// Discovery mode (none or kubernetes)
-    #[serde(default)]
-    pub mode: DiscoveryMode,
-
-    /// Cache TTL for discovered endpoints (in seconds)
-    #[serde(default = "default_discovery_cache_ttl")]
-    pub cache_ttl: u64,
-}
-
-impl Default for DiscoveryConfig {
-    fn default() -> Self {
-        Self { mode: DiscoveryMode::None, cache_ttl: default_discovery_cache_ttl() }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase", tag = "type")]
-pub enum DiscoveryMode {
-    /// No service discovery - use service URL directly
-    #[default]
-    None,
-    /// Kubernetes service discovery - resolve to pod IPs
-    Kubernetes,
-}
-
-/// Service mesh configuration for control communication
-///
-/// This configuration controls how the engine discovers and connects to
-/// control service instances. The engine needs to communicate with control
-/// services for JWKS fetching, org/vault validation, and certificate verification.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MeshConfig {
-    /// Base URL for control service
-    /// e.g., "http://inferadb-control.inferadb:9092" for K8s
-    /// or "http://localhost:9092" for development
-    #[serde(default = "default_mesh_url")]
-    pub url: String,
-
-    /// Timeout for mesh API calls in milliseconds
-    #[serde(default = "default_mesh_timeout")]
-    pub timeout: u64,
-
-    /// Cache TTL for mesh API responses (org/vault lookups) in seconds
-    #[serde(default = "default_mesh_cache_ttl")]
-    pub cache_ttl: u64,
-
-    /// Cache TTL for client certificates in seconds
-    #[serde(default = "default_mesh_cert_cache_ttl")]
-    pub cert_cache_ttl: u64,
-}
-
-impl Default for MeshConfig {
-    fn default() -> Self {
-        Self {
-            url: default_mesh_url(),
-            timeout: default_mesh_timeout(),
-            cache_ttl: default_mesh_cache_ttl(),
-            cert_cache_ttl: default_mesh_cert_cache_ttl(),
-        }
-    }
-}
-
-impl MeshConfig {
-    /// Validate mesh service configuration
-    pub fn validate(&self) -> Result<(), String> {
-        // Validate URL format
-        if !self.url.starts_with("http://") && !self.url.starts_with("https://") {
-            return Err(format!("mesh.url must start with http:// or https://, got: {}", self.url));
-        }
-        if self.url.ends_with('/') {
-            return Err(format!("mesh.url must not end with trailing slash: {}", self.url));
         }
 
         Ok(())
@@ -522,24 +429,6 @@ pub struct NodeConfig {
     pub endpoint: String,
 }
 
-fn default_mesh_url() -> String {
-    // Default for development - localhost
-    // In production with discovery, this should be the K8s service URL
-    "http://localhost:9092".to_string()
-}
-
-fn default_mesh_timeout() -> u64 {
-    5000 // 5 seconds (in milliseconds)
-}
-
-fn default_mesh_cache_ttl() -> u64 {
-    300 // 5 minutes
-}
-
-fn default_mesh_cert_cache_ttl() -> u64 {
-    900 // 15 minutes
-}
-
 fn default_token_cache_ttl() -> u64 {
     300 // 5 minutes
 }
@@ -550,10 +439,6 @@ fn default_token_clock_skew() -> Option<u64> {
 
 fn default_token_max_age() -> Option<u64> {
     Some(86400) // 24 hours maximum token age
-}
-
-fn default_discovery_cache_ttl() -> u64 {
-    300 // 5 minutes
 }
 
 impl Config {
@@ -589,13 +474,6 @@ impl Config {
             anyhow::anyhow!(
                 "listen.grpc '{}' is not a valid socket address: {}",
                 self.listen.grpc,
-                e
-            )
-        })?;
-        self.listen.mesh.parse::<std::net::SocketAddr>().map_err(|e| {
-            anyhow::anyhow!(
-                "listen.mesh '{}' is not a valid socket address: {}",
-                self.listen.mesh,
                 e
             )
         })?;
@@ -644,9 +522,6 @@ impl Config {
         // Validate token config
         self.token.validate().map_err(|e| anyhow::anyhow!(e))?;
 
-        // Validate mesh service config
-        self.mesh.validate().map_err(|e| anyhow::anyhow!(e))?;
-
         // Validate replication config
         self.replication.validate().map_err(|e| anyhow::anyhow!(e))?;
 
@@ -662,18 +537,6 @@ impl Config {
         }
 
         Ok(())
-    }
-
-    /// Get the mesh service URL
-    ///
-    /// Returns the URL for control service communication.
-    pub fn effective_mesh_url(&self) -> String {
-        self.mesh.url.clone()
-    }
-
-    /// Check if service discovery is enabled
-    pub fn is_discovery_enabled(&self) -> bool {
-        !matches!(self.discovery.mode, DiscoveryMode::None)
     }
 
     /// Apply environment-aware defaults for storage backend.
@@ -715,11 +578,7 @@ impl Default for Config {
         Self {
             threads: default_threads(),
             logging: default_logging(),
-            listen: ListenConfig {
-                http: default_http(),
-                grpc: default_grpc(),
-                mesh: default_mesh(),
-            },
+            listen: ListenConfig { http: default_http(), grpc: default_grpc() },
             storage: default_storage(),
             ledger: LedgerConfig::default(),
             cache: CacheConfig {
@@ -729,8 +588,6 @@ impl Default for Config {
             },
             token: TokenConfig::default(),
             pem: None,
-            discovery: DiscoveryConfig::default(),
-            mesh: MeshConfig::default(),
             replication: ReplicationConfig::default(),
         }
     }
@@ -817,10 +674,7 @@ mod tests {
         assert_eq!(config.logging, "info");
         assert_eq!(config.listen.http, "0.0.0.0:8080");
         assert_eq!(config.listen.grpc, "0.0.0.0:8081");
-        assert_eq!(config.listen.mesh, "0.0.0.0:8082");
         assert!(config.cache.enabled);
-        // Default mesh service URL points to control's internal API
-        assert_eq!(config.mesh.url, "http://localhost:9092");
         // Default token cache TTL
         assert_eq!(config.token.cache_ttl, 300);
     }
@@ -834,25 +688,6 @@ mod tests {
 
         // High clock skew should warn but not fail
         let config = TokenConfig { clock_skew: Some(600), ..Default::default() };
-        assert!(config.validate().is_ok());
-    }
-
-    #[test]
-    fn test_mesh_config_validation_invalid_url() {
-        let config =
-            MeshConfig { url: "ftp://invalid.example.com".to_string(), ..Default::default() };
-        assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn test_mesh_config_validation_trailing_slash() {
-        let config = MeshConfig { url: "http://localhost:9092/".to_string(), ..Default::default() };
-        assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn test_mesh_config_validation_valid() {
-        let config = MeshConfig::default();
         assert!(config.validate().is_ok());
     }
 }

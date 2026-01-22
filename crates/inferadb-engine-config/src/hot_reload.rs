@@ -174,9 +174,6 @@ impl HotReloadHandle {
         if let Err(e) = new_config.token.validate() {
             warn!("Token config validation warning: {}", e);
         }
-        if let Err(e) = new_config.mesh.validate() {
-            warn!("Mesh config validation warning: {}", e);
-        }
 
         Ok(())
     }
@@ -187,9 +184,6 @@ impl HotReloadHandle {
     async fn validate_config(&self, config: &Config) -> Result<(), String> {
         // Validate token config
         config.token.validate()?;
-
-        // Validate mesh config
-        config.mesh.validate()?;
 
         // Validate threads
         if config.threads == 0 {
@@ -207,11 +201,6 @@ impl HotReloadHandle {
             .grpc
             .parse::<std::net::SocketAddr>()
             .map_err(|e| format!("Invalid grpc address '{}': {}", config.listen.grpc, e))?;
-        config
-            .listen
-            .mesh
-            .parse::<std::net::SocketAddr>()
-            .map_err(|e| format!("Invalid mesh address '{}': {}", config.listen.mesh, e))?;
 
         // Validate cache config
         if config.cache.enabled && config.cache.capacity == 0 {
