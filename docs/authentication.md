@@ -171,47 +171,33 @@ if token_data.claims.org_id.is_none() || token_data.claims.vault_id.is_none() {
 
 ### 5. Verify Vault Ownership
 
-The engine verifies that the vault belongs to the organization using Control's **privileged internal endpoint**:
-
-```http
-GET /internal/vaults/{vault_id}
-Authorization: Bearer {engine_jwt}
-Host: localhost:9091
-```
-
-This endpoint is served on Control's **internal API** (port 9091) and requires a valid engine JWT, but performs **no permission checks**. It's designed specifically for engine-to-control verification.
+The engine verifies that the vault belongs to the organization using **Ledger-backed verification**:
 
 ```rust
-let vault = control_client.get_vault(vault_id).await?;
+// LedgerVaultVerifier queries the Engine's local storage (backed by Ledger)
+let verifier = LedgerVaultVerifier::new(store);
+let vault_info = verifier.verify_vault(vault_id, org_id).await?;
 
-if vault.organization_id != org_id {
-    return Err("Vault does not belong to organization");
+// verify_vault returns VaultInfo or VaultVerificationError
+match vault_info {
+    Ok(info) => info, // Vault exists and belongs to org
+    Err(VaultVerificationError::VaultNotFound { .. }) => return Err("Vault not found"),
+    Err(VaultVerificationError::OrganizationMismatch { .. }) => return Err("Vault does not belong to organization"),
 }
 ```
 
-**Caching**: Vault metadata is cached for 5 minutes (300 seconds).
+This verification happens entirely within Engine using data from Ledger—**no HTTP calls to Control are required**.
 
 ### 6. Verify Organization Status
 
-The engine checks that the organization is active using Control's **privileged internal endpoint**:
-
-```http
-GET /internal/organizations/{org_id}
-Authorization: Bearer {engine_jwt}
-Host: localhost:9091
-```
-
-This endpoint is served on Control's **internal API** (port 9091) and requires a valid engine JWT, but performs **no permission checks**. It's designed specifically for engine-to-control verification.
+The engine checks that the organization exists using **Ledger-backed verification**:
 
 ```rust
-let org = control_client.get_organization(org_id).await?;
-
-if org.status != "active" {
-    return Err("Organization suspended");
-}
+// LedgerVaultVerifier also handles organization verification
+verifier.verify_organization(org_id).await?;
 ```
 
-**Caching**: Organization status is cached for 5 minutes (300 seconds).
+**Note**: Organizations are verified for existence. The Ledger-based architecture stores organization data that Engine can query directly without Control connectivity.
 
 ### 7. Execute Policy Evaluation
 
@@ -228,126 +214,70 @@ let result = policy_engine.evaluate(
 ).await?;
 ```
 
-## Engine-to-Control Authentication
+## Ledger-Based Architecture
 
-The Engine API makes authenticated requests to Control's **internal API** (port 9091) for verification operations. This uses **bidirectional JWT authentication** where the engine has its own Ed25519 keypair.
+Engine uses **Ledger as the single source of truth** for signing keys and vault metadata. This architecture provides:
 
-### Dual-Port Architecture
+- **Decoupled Operation**: Engine validates tokens without Control connectivity
+- **Simplified Operations**: No JWKS endpoints or service discovery for auth
+- **Near-Immediate Revocation**: Key revocation propagates within cache TTL (300s)
+- **Full Auditability**: All key lifecycle events recorded in immutable Ledger
 
-Control runs **two separate HTTP interfaces**:
+### No Runtime Dependency on Control
 
-- **Public API** (port 9090): User-facing API with session authentication and permission checks
-- **Internal API** (port 9091): Engine-to-control API with JWT authentication for privileged operations
+With Ledger-backed verification, Engine **does not call Control's HTTP API** for token validation. The previous internal endpoints (`/internal/organizations/{org}`, `/internal/vaults/{vault}`) have been removed.
 
-The Engine API **exclusively communicates with the internal API** on port 9091, which provides privileged endpoints without permission checks specifically for engine-to-control verification.
+Control's internal API (port 9091) now only exposes the **emergency key revocation** endpoint for immediate key invalidation when needed.
 
-### Engine Identity
+### Signing Key Storage
 
-The engine configures its identity on startup:
+Client signing keys are stored in **Ledger** by Control when certificates are created:
 
-```yaml
-auth:
-  enabled: true
-  # IMPORTANT: Points to Control's INTERNAL port (9091), not public port (9090)
-  control_url: "http://localhost:9091"
-  # Engine identity for engine-to-control requests
-  engine_identity_private_key: |
-    -----BEGIN PRIVATE KEY-----
-    MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
-    -----END PRIVATE KEY-----
-  engine_identity_kid: "engine-primary-2024"
-  engine_id: "inferadb-engine-prod-us-east-1"
+```
+Ledger Namespace: {org_id}
+Key Path: signing-keys/{kid}
+Value: PublicSigningKey (JSON)
 ```
 
-**Development Mode**: If `engine_identity_private_key` is omitted, the engine auto-generates a keypair and logs the PEM-encoded private key at startup.
+Engine fetches these keys via `SigningKeyCache`, which:
+1. Checks local in-memory cache (L1)
+2. Falls back to Ledger storage on cache miss (L2)
+3. Validates key state (active, not revoked, within validity window)
 
-### Engine JWT Generation
+### Control Internal API
 
-When making requests to Control, the engine generates short-lived JWTs:
+Control's internal API (port 9091) exposes one privileged endpoint:
 
-```rust
-// Generate engine JWT (5 minute TTL)
-let claims = EngineJwtClaims {
-    iss: format!("inferadb-engine:{}", engine_id),
-    sub: format!("engine:{}", engine_id),
-    aud: control_url.to_string(),
-    iat: now.timestamp(),
-    exp: (now + Duration::minutes(5)).timestamp(),
-    jti: uuid::new_v4().to_string(),
-};
-
-// Sign with engine's Ed25519 private key
-let engine_jwt = encode(
-    &Header::new(Algorithm::EdDSA),
-    &claims,
-    &EncodingKey::from_ed_pem(engine_identity.to_pem().as_bytes())?
-)?;
-```
-
-### Engine JWKS Endpoint
-
-The engine exposes its public key for Control to verify engine JWTs:
+**Emergency Key Revocation** (requires engine JWT):
 
 ```http
-GET /.well-known/jwks.json
+POST /internal/namespaces/{namespace_id}/keys/{kid}/revoke
+Authorization: Bearer {engine_jwt}
+Content-Type: application/json
+
+{"reason": "Compromised key", "actor_id": "admin@company.com"}
 ```
 
-Response:
-
-```json
-{
-  "keys": [
-    {
-      "kty": "OKP",
-      "alg": "EdDSA",
-      "kid": "engine-primary-2024",
-      "crv": "Ed25519",
-      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
-      "use": "sig"
-    }
-  ]
-}
-```
-
-### Control Privileged Endpoints
-
-Control provides **dedicated engine-to-control endpoints** on the internal API (port 9091) for the Engine API's verification operations:
-
-**Internal Endpoints** (port 9091, engine JWT required):
-
-- `GET /internal/organizations/{org_id}` - Organization status lookup (no permission checks)
-- `GET /internal/vaults/{vault_id}` - Vault ownership verification (no permission checks)
-
-**Public Endpoints** (port 9090, session authentication required):
-
-- `GET /v1/organizations/{org_id}` - Organization details (requires membership)
-- `GET /v1/vaults/{vault_id}` - Vault details (requires vault access)
-
-The Engine API **exclusively uses the internal endpoints** for verification, which are isolated from the public API and don't perform permission checks. This separation provides:
-
-1. **Network Isolation**: Internal endpoints only accessible via internal network
-2. **No Permission Bypass**: Public endpoints enforce permissions; internal endpoints are isolated
-3. **Performance**: Privileged endpoints skip expensive permission checks
-4. **Security**: Different attack surface for user vs engine requests
+This endpoint bypasses certificate lookup for immediate key invalidation when a key ID is known but the certificate record may be inaccessible.
 
 ## Caching Strategy
 
-The Engine API aggressively caches authentication data to minimize latency and Control load:
+The Engine API caches signing keys to minimize Ledger round-trips:
 
 ### Cache Configuration
 
-| Data Type           | Cache TTL  | Capacity | Purpose                |
-| ------------------- | ---------- | -------- | ---------------------- |
-| Client Certificates | 15 minutes | 10,000   | Signature verification |
-| Vault Metadata      | 5 minutes  | 10,000   | Ownership validation   |
-| Organization Status | 5 minutes  | 1,000    | Active/suspended check |
+| Data Type     | Cache TTL   | Capacity | Purpose                |
+| ------------- | ----------- | -------- | ---------------------- |
+| Signing Keys  | 5 minutes   | 10,000   | Signature verification |
+
+Vault and organization data is fetched from the Engine's local Ledger-backed storage, which maintains its own caching layer.
 
 ### Cache Performance
 
 **Expected Metrics**:
 
 - **Cache Hit Rate**: >90% after warmup
-- **Control Call Rate**: <10% of total requests
+- **Ledger Fetch Rate**: <10% of total requests
 - **Token Validation Latency**:
   - Cache hit: <1ms
   - Cache miss: ~50-100ms (includes network roundtrip)
