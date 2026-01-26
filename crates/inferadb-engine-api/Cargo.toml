@@ -61,9 +61,6 @@ inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
 # Shared storage abstraction
 inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
 
-# Ledger backend (for cache invalidation)
-inferadb-storage-ledger = { path = "../../../common/crates/inferadb-storage-ledger" }
-
 # Ledger SDK (for WatchBlocks cache invalidation)
 inferadb-ledger-sdk = { path = "../../../ledger/crates/sdk" }
 
@@ -77,6 +74,7 @@ chrono = { workspace = true }
 criterion = { workspace = true }
 ed25519-dalek = { workspace = true }
 inferadb-engine-test-fixtures = { path = "../inferadb-engine-test-fixtures" }
+inferadb-storage-ledger = { path = "../../../common/crates/inferadb-storage-ledger" }
 jsonwebtoken = { workspace = true }
 moka = { workspace = true }
 portpicker = "0.1"

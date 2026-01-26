@@ -1,7 +1,7 @@
 //! Log aggregation integrations for centralized logging systems
 //!
 //! Provides adapters for popular log aggregation platforms including
-//! Elasticsearch, Loki, and AWS CloudWatch.
+//! Elasticsearch and Grafana Loki.
 
 use anyhow::Result;
 use serde_json::json;
@@ -16,8 +16,6 @@ pub enum AggregationBackend {
     Elasticsearch,
     /// Grafana Loki backend
     Loki,
-    /// AWS CloudWatch backend
-    CloudWatch,
 }
 
 /// Default labels for log aggregation
@@ -247,62 +245,6 @@ impl LokiShipper {
     }
 }
 
-/// CloudWatch log shipper
-#[derive(Clone, bon::Builder)]
-#[builder(on(String, into))]
-pub struct CloudWatchShipper {
-    /// CloudWatch log group name
-    pub log_group_name: String,
-    /// CloudWatch log stream name
-    pub log_stream_name: String,
-    /// AWS region
-    pub region: String,
-}
-
-impl CloudWatchShipper {
-    /// Create a new CloudWatch shipper
-    pub fn new(config: &AggregationConfig) -> Self {
-        // Parse endpoint to extract region
-        // Format: cloudwatch:region:log-group:log-stream
-        let parts: Vec<&str> = config.endpoint.split(':').collect();
-        let region = parts.get(1).unwrap_or(&"us-east-1").to_string();
-        let log_group = parts.get(2).unwrap_or(&"inferadb").to_string();
-        let log_stream = parts.get(3).unwrap_or(&"inferadb-default").to_string();
-
-        Self { log_group_name: log_group, log_stream_name: log_stream, region }
-    }
-
-    /// Ship logs to CloudWatch
-    ///
-    /// Note: This is a basic implementation that would require AWS SDK integration
-    /// for production use. For now, it provides the structure and interface.
-    pub async fn ship(&self, entries: Vec<LogEntry>) -> Result<()> {
-        if entries.is_empty() {
-            return Ok(());
-        }
-
-        // In a real implementation, this would use the AWS SDK:
-        // - aws-config and aws-sdk-cloudwatchlogs crates
-        // - Proper authentication via AWS credentials
-        // - PutLogEvents API call with sequence token management
-
-        tracing::debug!(
-            log_group = %self.log_group_name,
-            log_stream = %self.log_stream_name,
-            region = %self.region,
-            count = entries.len(),
-            "CloudWatch shipper would send logs (AWS SDK required for actual implementation)"
-        );
-
-        // Placeholder: would call AWS SDK here
-        // let config = aws_config::load_from_env().await;
-        // let client = aws_sdk_cloudwatchlogs::Client::new(&config);
-        // ...
-
-        Ok(())
-    }
-}
-
 /// Aggregation layer for tracing-subscriber
 pub struct AggregationLayer {
     sender: mpsc::UnboundedSender<LogEntry>,
@@ -437,10 +379,6 @@ impl LogShipper {
             },
             AggregationBackend::Loki => {
                 let shipper = LokiShipper::new(&self.config);
-                shipper.ship(entries).await
-            },
-            AggregationBackend::CloudWatch => {
-                let shipper = CloudWatchShipper::new(&self.config);
                 shipper.ship(entries).await
             },
         };
@@ -582,19 +520,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cloudwatch_shipper_builder() {
-        let shipper = CloudWatchShipper::builder()
-            .log_group_name("my-log-group")
-            .log_stream_name("my-log-stream")
-            .region("us-west-2")
-            .build();
-
-        assert_eq!(shipper.log_group_name, "my-log-group");
-        assert_eq!(shipper.log_stream_name, "my-log-stream");
-        assert_eq!(shipper.region, "us-west-2");
-    }
-
-    #[test]
     fn test_aggregation_config_default() {
         let config = AggregationConfig::default();
         assert_eq!(config.backend, AggregationBackend::Loki);
@@ -630,20 +555,6 @@ mod tests {
         let shipper = LokiShipper::new(&config);
         assert_eq!(shipper.endpoint, "http://localhost:3100");
         assert_eq!(shipper.labels.len(), 1);
-    }
-
-    #[test]
-    fn test_cloudwatch_shipper_creation() {
-        let config = AggregationConfig {
-            backend: AggregationBackend::CloudWatch,
-            endpoint: "cloudwatch:us-west-2:my-log-group:my-stream".to_string(),
-            ..Default::default()
-        };
-
-        let shipper = CloudWatchShipper::new(&config);
-        assert_eq!(shipper.region, "us-west-2");
-        assert_eq!(shipper.log_group_name, "my-log-group");
-        assert_eq!(shipper.log_stream_name, "my-stream");
     }
 
     #[test]
@@ -685,19 +596,6 @@ mod tests {
     async fn test_loki_ship_empty() {
         let config = AggregationConfig::default();
         let shipper = LokiShipper::new(&config);
-        let result = shipper.ship(vec![]).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_cloudwatch_ship_empty() {
-        let config = AggregationConfig {
-            backend: AggregationBackend::CloudWatch,
-            endpoint: "cloudwatch:us-east-1:logs:stream".to_string(),
-            ..Default::default()
-        };
-
-        let shipper = CloudWatchShipper::new(&config);
         let result = shipper.ship(vec![]).await;
         assert!(result.is_ok());
     }

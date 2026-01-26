@@ -9,17 +9,9 @@ version.workspace = true
 
 [dependencies]
 async-trait = { workspace = true }
-futures = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
-uuid = { workspace = true }
-
 
 # Internal dependencies
-inferadb-engine-observe = { path = "../inferadb-engine-observe" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
 
 [dev-dependencies]
@@ -27,6 +19,7 @@ inferadb-engine-repository = { path = "../inferadb-engine-repository" }
 inferadb-engine-test-fixtures = { path = "../inferadb-engine-test-fixtures" }
 inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
 proptest = { workspace = true }
+tokio = { workspace = true }
 
 [features]
 default = []

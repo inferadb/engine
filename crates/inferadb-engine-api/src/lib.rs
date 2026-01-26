@@ -28,7 +28,6 @@ pub mod grpc_interceptor;
 pub mod handlers;
 pub mod health;
 pub mod ledger_invalidation_watcher;
-pub mod routes;
 pub mod services;
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
