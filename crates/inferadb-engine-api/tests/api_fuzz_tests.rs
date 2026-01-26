@@ -7,6 +7,7 @@ use inferadb_engine_api::grpc::proto::{
     DeleteRelationshipsRequest, EvaluateRequest as ProtoEvaluateRequest,
     Relationship as ProtoRelationship, WriteRelationshipsRequest,
 };
+use inferadb_engine_test_fixtures::proptest_config::test_cases;
 use proptest::prelude::*;
 
 /// Generate arbitrary strings with various problematic characters
@@ -43,7 +44,7 @@ fn arb_relationship() -> impl Strategy<Value = ProtoRelationship> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(100))]
+    #![proptest_config(ProptestConfig::with_cases(test_cases()))]
 
     /// Fuzz CheckRequest with arbitrary inputs
     #[test]

@@ -28,5 +28,8 @@ uuid = "1.10"
 # Builder pattern
 bon = { workspace = true }
 
+# Property-based testing configuration
+proptest = { workspace = true }
+
 [lints]
 workspace = true

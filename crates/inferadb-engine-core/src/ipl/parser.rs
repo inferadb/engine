@@ -125,9 +125,7 @@ fn parse_union_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
     }
 
     match exprs.len() {
-        1 => exprs
-            .pop()
-            .ok_or_else(|| EvalError::Parse("Empty union expression".to_string())),
+        1 => exprs.pop().ok_or_else(|| EvalError::Parse("Empty union expression".to_string())),
         _ => Ok(RelationExpr::Union(exprs)),
     }
 }
@@ -140,9 +138,9 @@ fn parse_intersection_expr(pair: pest::iterators::Pair<Rule>) -> Result<Relation
     }
 
     match exprs.len() {
-        1 => exprs
-            .pop()
-            .ok_or_else(|| EvalError::Parse("Empty intersection expression".to_string())),
+        1 => {
+            exprs.pop().ok_or_else(|| EvalError::Parse("Empty intersection expression".to_string()))
+        },
         _ => Ok(RelationExpr::Intersection(exprs)),
     }
 }

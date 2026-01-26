@@ -476,9 +476,7 @@ impl FailableStore {
             inferadb_storage::StorageError::Connection { message, .. } => {
                 inferadb_storage::StorageError::connection(message)
             },
-            inferadb_storage::StorageError::Timeout => {
-                inferadb_storage::StorageError::timeout()
-            },
+            inferadb_storage::StorageError::Timeout => inferadb_storage::StorageError::timeout(),
             inferadb_storage::StorageError::NotFound { key, .. } => {
                 inferadb_storage::StorageError::not_found(key)
             },

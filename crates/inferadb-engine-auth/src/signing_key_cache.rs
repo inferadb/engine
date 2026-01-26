@@ -324,7 +324,7 @@ impl SigningKeyCache {
     /// Call this before checking entry counts in tests to ensure
     /// all inserts and invalidations have been processed.
     #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     pub async fn sync(&self) {
         self.cache.run_pending_tasks().await;
     }

@@ -537,11 +537,9 @@ impl Config {
 
         // Validate Ledger configuration
         if self.storage == "ledger" {
-            let endpoint = self
-                .ledger
-                .endpoint
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("ledger.endpoint is required when using Ledger backend"))?;
+            let endpoint = self.ledger.endpoint.as_ref().ok_or_else(|| {
+                anyhow::anyhow!("ledger.endpoint is required when using Ledger backend")
+            })?;
 
             if self.ledger.client_id.is_none() {
                 anyhow::bail!("ledger.client_id is required when using Ledger backend");

@@ -231,6 +231,9 @@ jobs:
           name: nextest-archive
 
       - name: Run tests from archive
+        env:
+          # Reduced proptest cases for faster CI feedback (default is 50)
+          PROPTEST_CASES: "25"
         run: cargo nextest run --archive-file nextest-archive.tar.zst --profile ci --no-fail-fast
 
       - name: Run doc tests
@@ -536,6 +539,9 @@ jobs:
           save-if: false
 
       - name: Generate coverage
+        env:
+          # Comprehensive proptest cases for nightly coverage runs
+          PROPTEST_CASES: "500"
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
 
       - name: Upload coverage to Codecov

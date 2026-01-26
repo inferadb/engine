@@ -74,6 +74,7 @@ base64 = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true }
 ed25519-dalek = { workspace = true }
+inferadb-engine-test-fixtures = { path = "../inferadb-engine-test-fixtures" }
 jsonwebtoken = { workspace = true }
 moka = { workspace = true }
 portpicker = "0.1"

@@ -7,6 +7,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 pub mod internal_jwt;
+pub mod proptest_config;
 pub mod relationships;
 
 pub use internal_jwt::{
