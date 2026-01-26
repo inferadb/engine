@@ -78,7 +78,10 @@ mod tests {
         assert_eq!(vault.organization, organization);
         assert_eq!(vault.name, "Test Vault");
         assert!(vault.created_at <= Utc::now());
-        assert_eq!(vault.created_at, vault.updated_at);
+        // Timestamps may differ by microseconds since each default = Utc::now() is evaluated
+        // separately
+        let diff = (vault.updated_at - vault.created_at).num_milliseconds().abs();
+        assert!(diff < 10, "created_at and updated_at should be within 10ms of each other");
     }
 
     #[test]

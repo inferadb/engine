@@ -111,10 +111,10 @@ fn create_test_config() -> Config {
 async fn create_ledger_backend() -> LedgerBackend {
     let vault_id = unique_vault_id();
     let config = LedgerBackendConfig::builder()
-        .with_endpoint(ledger_endpoint())
-        .with_client_id(format!("engine-test-{}", vault_id))
-        .with_namespace_id(ledger_namespace_id())
-        .with_vault_id(vault_id)
+        .endpoints(vec![ledger_endpoint()])
+        .client_id(format!("engine-test-{}", vault_id))
+        .namespace_id(ledger_namespace_id())
+        .vault_id(vault_id)
         .build()
         .expect("valid config");
 

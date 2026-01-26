@@ -144,15 +144,10 @@ async fn main() -> Result<()> {
         },
         "ledger" => {
             let ledger_config = LedgerBackendConfig::builder()
-                .with_endpoint(config.ledger.endpoint.as_ref().expect("validated"))
-                .with_client_id(config.ledger.client_id.as_ref().expect("validated"))
-                .with_namespace_id(config.ledger.namespace_id.expect("validated"));
-            let ledger_config = if let Some(vault_id) = config.ledger.vault_id {
-                ledger_config.with_vault_id(vault_id)
-            } else {
-                ledger_config
-            };
-            let ledger_config = ledger_config
+                .endpoints(vec![config.ledger.endpoint.as_ref().expect("validated").clone()])
+                .client_id(config.ledger.client_id.as_ref().expect("validated"))
+                .namespace_id(config.ledger.namespace_id.expect("validated"))
+                .maybe_vault_id(config.ledger.vault_id)
                 .build()
                 .map_err(|e| anyhow::anyhow!("Failed to build Ledger config: {}", e))?;
             let ledger_backend = LedgerBackend::new(ledger_config)

@@ -41,13 +41,13 @@ pub use watch::WatchService;
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// use std::sync::Arc;
-/// use inferadb_engine_api::services::{ServiceContext, EvaluationService};
+/// use inferadb_engine_api::services::{ServiceContext, EvaluationService, ExpansionService};
 ///
 /// let context = Arc::new(ServiceContext::builder()
-///     .store(store)
-///     .schema(schema)
+///     .store(store)      // Arc<dyn RelationshipStore>
+///     .schema(schema)    // Arc<Schema>
 ///     .build());
 ///
 /// let evaluation_service = EvaluationService::new(Arc::clone(&context));

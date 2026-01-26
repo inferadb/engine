@@ -72,9 +72,9 @@ fn create_test_key(kid: &str, client_id: i64) -> PublicSigningKey {
 /// Create a `LedgerSigningKeyStore` for testing.
 async fn create_key_store() -> Arc<dyn PublicSigningKeyStore> {
     let config = LedgerBackendConfig::builder()
-        .with_endpoint(ledger_endpoint())
-        .with_client_id(format!("test-cache-{}", unique_namespace_id()))
-        .with_namespace_id(1) // Namespace is specified per-operation, not here
+        .endpoints(vec![ledger_endpoint()])
+        .client_id(format!("test-cache-{}", unique_namespace_id()))
+        .namespace_id(1) // Namespace is specified per-operation, not here
         .build()
         .expect("valid config");
 

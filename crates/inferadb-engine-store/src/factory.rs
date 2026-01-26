@@ -19,9 +19,9 @@
 //! use inferadb_storage_ledger::{LedgerBackend, LedgerBackendConfig};
 //!
 //! let config = LedgerBackendConfig::builder()
-//!     .with_endpoint("http://localhost:50051")
-//!     .with_client_id("my-service")
-//!     .with_namespace_id(1)
+//!     .endpoints(vec!["http://localhost:50051".to_string()])
+//!     .client_id("my-service")
+//!     .namespace_id(1)
 //!     .build()?;
 //! let backend = LedgerBackend::new(config).await?;
 //! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::builder().backend(backend).build());
