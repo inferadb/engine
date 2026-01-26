@@ -30,18 +30,29 @@ impl Default for LogFormat {
     }
 }
 
+/// Returns true in debug builds, false in release builds
+const fn default_debug_only() -> bool {
+    cfg!(debug_assertions)
+}
+
 /// Configuration for logging behavior
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, bon::Builder)]
+#[builder(on(String, into))]
 pub struct LogConfig {
     /// Output format
+    #[builder(default = LogFormat::default())]
     pub format: LogFormat,
     /// Whether to include file/line numbers
+    #[builder(default = default_debug_only())]
     pub include_location: bool,
     /// Whether to include target module
+    #[builder(default = false)]
     pub include_target: bool,
     /// Whether to include thread IDs
+    #[builder(default = false)]
     pub include_thread_id: bool,
     /// Whether to log span events (enter/exit/close)
+    #[builder(default = default_debug_only())]
     pub log_spans: bool,
     /// Environment filter (e.g., "info,infera=debug")
     pub filter: Option<String>,
@@ -49,14 +60,7 @@ pub struct LogConfig {
 
 impl Default for LogConfig {
     fn default() -> Self {
-        Self {
-            format: LogFormat::default(),
-            include_location: cfg!(debug_assertions),
-            include_target: false,
-            include_thread_id: false,
-            log_spans: cfg!(debug_assertions),
-            filter: None,
-        }
+        Self::builder().build()
     }
 }
 

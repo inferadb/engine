@@ -26,19 +26,22 @@ pub mod startup;
 pub mod tracing_config;
 
 /// Configuration for OpenTelemetry tracing
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, bon::Builder)]
+#[builder(on(String, into))]
 pub struct TracingConfig {
     /// Service name for tracing
+    #[builder(default = "inferadb-engine".to_string())]
     pub service_name: String,
     /// OTLP endpoint (e.g., "http://localhost:4317")
     pub otlp_endpoint: Option<String>,
     /// Sample rate (0.0 to 1.0)
+    #[builder(default = 1.0)]
     pub sample_rate: f64,
 }
 
 impl Default for TracingConfig {
     fn default() -> Self {
-        Self { service_name: "inferadb-engine".to_string(), otlp_endpoint: None, sample_rate: 1.0 }
+        Self::builder().build()
     }
 }
 

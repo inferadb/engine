@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// Each Vault is owned by exactly one Organization.
 /// IDs are Snowflake IDs (i64) from the Management API.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct Vault {
     /// Unique identifier for this vault (Snowflake ID from Management API)
     pub id: i64,
@@ -25,27 +26,28 @@ pub struct Vault {
     pub name: String,
 
     /// When this vault was created
+    #[builder(default = Utc::now())]
     pub created_at: DateTime<Utc>,
 
     /// When this vault was last updated
+    #[builder(default = Utc::now())]
     pub updated_at: DateTime<Utc>,
 }
 
 impl Vault {
     /// Create a new Vault with a specific ID
-    pub fn new(id: i64, organization: i64, name: String) -> Self {
-        let now = Utc::now();
-        Self { id, organization, name, created_at: now, updated_at: now }
+    pub fn new(id: i64, organization: i64, name: impl Into<String>) -> Self {
+        Self::builder().id(id).organization(organization).name(name).build()
     }
 
     /// Create a Vault with a specific ID (alias for new)
-    pub fn with_id(id: i64, organization: i64, name: String) -> Self {
+    pub fn with_id(id: i64, organization: i64, name: impl Into<String>) -> Self {
         Self::new(id, organization, name)
     }
 }
 
 /// System configuration for default vault
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, bon::Builder)]
 pub struct SystemConfig {
     /// The default vault ID used when authentication is disabled (Snowflake ID)
     pub default_vault: i64,
@@ -57,7 +59,10 @@ pub struct SystemConfig {
 impl SystemConfig {
     /// Create a new SystemConfig
     pub fn new(default_organization: i64, default_vault: i64) -> Self {
-        Self { default_vault, default_organization }
+        Self::builder()
+            .default_organization(default_organization)
+            .default_vault(default_vault)
+            .build()
     }
 }
 
