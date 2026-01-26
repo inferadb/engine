@@ -107,7 +107,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_watch_changes() {
-        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store: Arc<dyn RelationshipStore> =
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let vault = 12345678901234i64;
 
         let service = WatchService::new(Arc::clone(&store));
@@ -142,7 +143,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_watch_with_resource_type_filter() {
-        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store: Arc<dyn RelationshipStore> =
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let vault = 12345678901234i64;
 
         let service = WatchService::new(store);
@@ -156,7 +158,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_vault_isolation() {
-        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store: Arc<dyn RelationshipStore> =
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let vault_a = 11111111111111i64;
         let vault_b = 22222222222222i64;
 

@@ -491,7 +491,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_has_direct_relationship() {
-        let store = EngineStorage::new(MemoryBackend::new());
+        let store = EngineStorage::builder().backend(MemoryBackend::new()).build();
 
         let relationship = Relationship {
             resource: "doc:readme".to_string(),
@@ -519,7 +519,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_users_with_relation() {
-        let store = EngineStorage::new(MemoryBackend::new());
+        let store = EngineStorage::builder().backend(MemoryBackend::new()).build();
 
         let relationships = vec![
             Relationship {
@@ -553,7 +553,7 @@ mod tests {
             vec![RelationDef::new("reader".to_string(), None)],
         )]);
 
-        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let rev = store.get_revision(0i64).await.unwrap();
 
         let mut ctx = GraphContext::new(Arc::new(schema), store, rev, 0i64);

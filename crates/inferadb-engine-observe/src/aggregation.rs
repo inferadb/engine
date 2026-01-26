@@ -20,20 +20,34 @@ pub enum AggregationBackend {
     CloudWatch,
 }
 
+/// Default labels for log aggregation
+fn default_labels() -> Vec<(String, String)> {
+    vec![
+        ("service".to_string(), "inferadb-engine".to_string()),
+        ("environment".to_string(), "production".to_string()),
+    ]
+}
+
 /// Configuration for log aggregation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, bon::Builder)]
+#[builder(on(String, into))]
 pub struct AggregationConfig {
     /// Backend type
+    #[builder(default = AggregationBackend::Loki)]
     pub backend: AggregationBackend,
     /// Endpoint URL
+    #[builder(default = "http://localhost:3100".to_string())]
     pub endpoint: String,
     /// Optional authentication token
     pub auth_token: Option<String>,
     /// Buffer size for batching logs
+    #[builder(default = 1000)]
     pub buffer_size: usize,
     /// Flush interval in seconds
+    #[builder(default = 5)]
     pub flush_interval_secs: u64,
     /// Additional labels/tags for all logs
+    #[builder(default = default_labels())]
     pub labels: Vec<(String, String)>,
 }
 
@@ -67,12 +81,19 @@ pub struct LogEntry {
 }
 
 /// Elasticsearch log shipper
-#[derive(Clone)]
+#[derive(Clone, bon::Builder)]
+#[builder(on(String, into))]
 pub struct ElasticsearchShipper {
-    endpoint: String,
-    auth_token: Option<String>,
-    client: reqwest::Client,
-    index_prefix: String,
+    /// Elasticsearch endpoint URL
+    pub endpoint: String,
+    /// Optional authentication token
+    pub auth_token: Option<String>,
+    /// HTTP client for sending requests
+    #[builder(default = reqwest::Client::new())]
+    pub client: reqwest::Client,
+    /// Index prefix for logs
+    #[builder(default = "inferadb-logs".to_string())]
+    pub index_prefix: String,
 }
 
 impl ElasticsearchShipper {
@@ -138,12 +159,19 @@ impl ElasticsearchShipper {
 }
 
 /// Loki log shipper
-#[derive(Clone)]
+#[derive(Clone, bon::Builder)]
+#[builder(on(String, into))]
 pub struct LokiShipper {
-    endpoint: String,
-    auth_token: Option<String>,
-    client: reqwest::Client,
-    labels: Vec<(String, String)>,
+    /// Loki endpoint URL
+    pub endpoint: String,
+    /// Optional authentication token
+    pub auth_token: Option<String>,
+    /// HTTP client for sending requests
+    #[builder(default = reqwest::Client::new())]
+    pub client: reqwest::Client,
+    /// Labels to attach to all log entries
+    #[builder(default)]
+    pub labels: Vec<(String, String)>,
 }
 
 impl LokiShipper {
@@ -220,11 +248,15 @@ impl LokiShipper {
 }
 
 /// CloudWatch log shipper
-#[derive(Clone)]
+#[derive(Clone, bon::Builder)]
+#[builder(on(String, into))]
 pub struct CloudWatchShipper {
-    log_group_name: String,
-    log_stream_name: String,
-    region: String,
+    /// CloudWatch log group name
+    pub log_group_name: String,
+    /// CloudWatch log stream name
+    pub log_stream_name: String,
+    /// AWS region
+    pub region: String,
 }
 
 impl CloudWatchShipper {
@@ -462,6 +494,104 @@ pub fn init_with_aggregation(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ===== TDD tests for bon::Builder pattern =====
+
+    #[test]
+    fn test_aggregation_config_builder_defaults() {
+        let config = AggregationConfig::builder().build();
+
+        // Should match Default impl
+        assert_eq!(config.backend, AggregationBackend::Loki);
+        assert_eq!(config.endpoint, "http://localhost:3100");
+        assert!(config.auth_token.is_none());
+        assert_eq!(config.buffer_size, 1000);
+        assert_eq!(config.flush_interval_secs, 5);
+        assert!(!config.labels.is_empty());
+    }
+
+    #[test]
+    fn test_aggregation_config_builder_custom() {
+        let config = AggregationConfig::builder()
+            .backend(AggregationBackend::Elasticsearch)
+            .endpoint("http://es.local:9200")
+            .auth_token("secret-token")
+            .buffer_size(500)
+            .flush_interval_secs(10)
+            .labels(vec![("custom".to_string(), "label".to_string())])
+            .build();
+
+        assert_eq!(config.backend, AggregationBackend::Elasticsearch);
+        assert_eq!(config.endpoint, "http://es.local:9200");
+        assert_eq!(config.auth_token, Some("secret-token".to_string()));
+        assert_eq!(config.buffer_size, 500);
+        assert_eq!(config.labels.len(), 1);
+    }
+
+    #[test]
+    fn test_aggregation_config_builder_serde_equivalence() {
+        let built = AggregationConfig::builder().build();
+        let default_impl = AggregationConfig::default();
+
+        assert_eq!(built.backend, default_impl.backend);
+        assert_eq!(built.endpoint, default_impl.endpoint);
+        assert_eq!(built.buffer_size, default_impl.buffer_size);
+    }
+
+    #[test]
+    fn test_elasticsearch_shipper_builder() {
+        let shipper = ElasticsearchShipper::builder().endpoint("http://localhost:9200").build();
+
+        assert_eq!(shipper.endpoint, "http://localhost:9200");
+        assert!(shipper.auth_token.is_none());
+        assert_eq!(shipper.index_prefix, "inferadb-logs");
+    }
+
+    #[test]
+    fn test_elasticsearch_shipper_builder_with_auth() {
+        let shipper = ElasticsearchShipper::builder()
+            .endpoint("http://es.example.com:9200")
+            .auth_token("bearer-token")
+            .index_prefix("custom-logs")
+            .build();
+
+        assert_eq!(shipper.auth_token, Some("bearer-token".to_string()));
+        assert_eq!(shipper.index_prefix, "custom-logs");
+    }
+
+    #[test]
+    fn test_loki_shipper_builder() {
+        let shipper = LokiShipper::builder().endpoint("http://localhost:3100").build();
+
+        assert_eq!(shipper.endpoint, "http://localhost:3100");
+        assert!(shipper.auth_token.is_none());
+        assert!(shipper.labels.is_empty());
+    }
+
+    #[test]
+    fn test_loki_shipper_builder_with_labels() {
+        let shipper = LokiShipper::builder()
+            .endpoint("http://loki.example.com:3100")
+            .auth_token("loki-token")
+            .labels(vec![("app".to_string(), "inferadb".to_string())])
+            .build();
+
+        assert_eq!(shipper.auth_token, Some("loki-token".to_string()));
+        assert_eq!(shipper.labels.len(), 1);
+    }
+
+    #[test]
+    fn test_cloudwatch_shipper_builder() {
+        let shipper = CloudWatchShipper::builder()
+            .log_group_name("my-log-group")
+            .log_stream_name("my-log-stream")
+            .region("us-west-2")
+            .build();
+
+        assert_eq!(shipper.log_group_name, "my-log-group");
+        assert_eq!(shipper.log_stream_name, "my-log-stream");
+        assert_eq!(shipper.region, "us-west-2");
+    }
 
     #[test]
     fn test_aggregation_config_default() {

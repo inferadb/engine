@@ -164,7 +164,8 @@ pub enum Decision {
 // ============================================================================
 
 /// A permission evaluation request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct EvaluateRequest {
     pub subject: String,
     pub resource: String,
@@ -185,7 +186,8 @@ pub struct EvaluateResponse {
 // ============================================================================
 
 /// A request to expand a permission into its constituent relationships
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct ExpandRequest {
     pub resource: String,
     pub relation: String,
@@ -250,7 +252,8 @@ pub struct WriteResponse {
 /// Filter for deleting relationships
 /// All fields are optional and can be combined.
 /// If all fields are None, this is an error (would delete everything).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, bon::Builder)]
+#[builder(on(String, into))]
 pub struct DeleteFilter {
     /// Filter by resource (e.g., "doc:readme")
     /// Exact match only
@@ -270,28 +273,32 @@ impl DeleteFilter {
     }
 
     /// Create a filter for an exact relationship
-    pub fn exact(resource: String, relation: String, subject: String) -> Self {
-        Self { resource: Some(resource), relation: Some(relation), subject: Some(subject) }
+    pub fn exact(
+        resource: impl Into<String>,
+        relation: impl Into<String>,
+        subject: impl Into<String>,
+    ) -> Self {
+        Self::builder().resource(resource).relation(relation).subject(subject).build()
     }
 
     /// Create a filter for all relationships of a resource
-    pub fn by_resource(resource: String) -> Self {
-        Self { resource: Some(resource), relation: None, subject: None }
+    pub fn by_resource(resource: impl Into<String>) -> Self {
+        Self::builder().resource(resource).build()
     }
 
     /// Create a filter for all relationships of a subject (user offboarding)
-    pub fn by_subject(subject: String) -> Self {
-        Self { resource: None, relation: None, subject: Some(subject) }
+    pub fn by_subject(subject: impl Into<String>) -> Self {
+        Self::builder().subject(subject).build()
     }
 
     /// Create a filter by resource and relation
-    pub fn by_resource_relation(resource: String, relation: String) -> Self {
-        Self { resource: Some(resource), relation: Some(relation), subject: None }
+    pub fn by_resource_relation(resource: impl Into<String>, relation: impl Into<String>) -> Self {
+        Self::builder().resource(resource).relation(relation).build()
     }
 }
 
 /// Request to delete relationships
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
 pub struct DeleteRequest {
     /// Optional filter for bulk deletion
     /// If provided, all relationships matching the filter will be deleted
@@ -308,17 +315,17 @@ pub struct DeleteRequest {
 impl DeleteRequest {
     /// Create request to delete exact relationships
     pub fn exact(relationships: Vec<Relationship>) -> Self {
-        Self { filter: None, relationships: Some(relationships), limit: None }
+        Self::builder().relationships(relationships).build()
     }
 
     /// Create request to delete by filter
     pub fn by_filter(filter: DeleteFilter) -> Self {
-        Self { filter: Some(filter), relationships: None, limit: None }
+        Self::builder().filter(filter).build()
     }
 
     /// Create request to delete by filter with limit
     pub fn by_filter_limited(filter: DeleteFilter, limit: usize) -> Self {
-        Self { filter: Some(filter), relationships: None, limit: Some(limit) }
+        Self::builder().filter(filter).limit(limit).build()
     }
 }
 
@@ -351,7 +358,8 @@ pub struct BatchSimulateResponse {
 // ============================================================================
 
 /// A request to list resources accessible by a subject
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct ListResourcesRequest {
     /// Subject (e.g., "user:alice")
     pub subject: String,
@@ -384,7 +392,8 @@ pub struct ListResourcesResponse {
 // ============================================================================
 
 /// A request to list relationships with optional filtering
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct ListRelationshipsRequest {
     /// Optional filter by resource (e.g., "doc:readme")
     pub resource: Option<String>,
@@ -414,7 +423,8 @@ pub struct ListRelationshipsResponse {
 // ============================================================================
 
 /// A request to list subjects that have a relation to a resource
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct ListSubjectsRequest {
     /// Resource (e.g., "document:readme")
     pub resource: String,
@@ -768,5 +778,224 @@ mod tests {
         assert_eq!(by_resource.resource, Some("doc:readme".to_string()));
         assert_eq!(by_resource.relation, None);
         assert_eq!(by_resource.subject, None);
+    }
+
+    // =========================================================================
+    // Request Builder API Tests (TDD for bon::Builder adoption)
+    // =========================================================================
+
+    #[test]
+    fn test_evaluate_request_builder() {
+        let req = EvaluateRequest::builder()
+            .subject("user:alice")
+            .resource("doc:readme")
+            .permission("read")
+            .build();
+        assert_eq!(req.subject, "user:alice");
+        assert_eq!(req.resource, "doc:readme");
+        assert_eq!(req.permission, "read");
+        assert!(req.context.is_none());
+        assert!(req.trace.is_none());
+    }
+
+    #[test]
+    fn test_evaluate_request_builder_with_optional_fields() {
+        let context = serde_json::json!({"ip": "192.168.1.1"});
+        let req = EvaluateRequest::builder()
+            .subject("user:bob")
+            .resource("folder:docs")
+            .permission("write")
+            .context(context.clone())
+            .trace(true)
+            .build();
+        assert_eq!(req.context, Some(context));
+        assert_eq!(req.trace, Some(true));
+    }
+
+    #[test]
+    fn test_expand_request_builder() {
+        let req = ExpandRequest::builder().resource("doc:readme").relation("viewer").build();
+        assert_eq!(req.resource, "doc:readme");
+        assert_eq!(req.relation, "viewer");
+        assert!(req.limit.is_none());
+        assert!(req.continuation_token.is_none());
+    }
+
+    #[test]
+    fn test_expand_request_builder_with_pagination() {
+        let req = ExpandRequest::builder()
+            .resource("folder:shared")
+            .relation("owner")
+            .limit(100)
+            .continuation_token("token123")
+            .build();
+        assert_eq!(req.limit, Some(100));
+        assert_eq!(req.continuation_token, Some("token123".to_string()));
+    }
+
+    #[test]
+    fn test_list_resources_request_builder() {
+        let req = ListResourcesRequest::builder()
+            .subject("user:alice")
+            .resource_type("document")
+            .permission("can_view")
+            .build();
+        assert_eq!(req.subject, "user:alice");
+        assert_eq!(req.resource_type, "document");
+        assert_eq!(req.permission, "can_view");
+        assert!(req.limit.is_none());
+        assert!(req.cursor.is_none());
+        assert!(req.resource_id_pattern.is_none());
+    }
+
+    #[test]
+    fn test_list_resources_request_builder_with_pagination() {
+        let req = ListResourcesRequest::builder()
+            .subject("user:bob")
+            .resource_type("folder")
+            .permission("can_edit")
+            .limit(50)
+            .cursor("cursor123")
+            .resource_id_pattern("folder:docs*")
+            .build();
+        assert_eq!(req.limit, Some(50));
+        assert_eq!(req.cursor, Some("cursor123".to_string()));
+        assert_eq!(req.resource_id_pattern, Some("folder:docs*".to_string()));
+    }
+
+    #[test]
+    fn test_list_relationships_request_builder() {
+        // All fields are optional for ListRelationshipsRequest
+        let req = ListRelationshipsRequest::builder().build();
+        assert!(req.resource.is_none());
+        assert!(req.relation.is_none());
+        assert!(req.subject.is_none());
+        assert!(req.limit.is_none());
+        assert!(req.cursor.is_none());
+    }
+
+    #[test]
+    fn test_list_relationships_request_builder_with_filters() {
+        let req = ListRelationshipsRequest::builder()
+            .resource("doc:readme")
+            .relation("viewer")
+            .subject("user:alice")
+            .limit(100)
+            .cursor("page2")
+            .build();
+        assert_eq!(req.resource, Some("doc:readme".to_string()));
+        assert_eq!(req.relation, Some("viewer".to_string()));
+        assert_eq!(req.subject, Some("user:alice".to_string()));
+        assert_eq!(req.limit, Some(100));
+        assert_eq!(req.cursor, Some("page2".to_string()));
+    }
+
+    #[test]
+    fn test_list_subjects_request_builder() {
+        let req =
+            ListSubjectsRequest::builder().resource("document:readme").relation("viewer").build();
+        assert_eq!(req.resource, "document:readme");
+        assert_eq!(req.relation, "viewer");
+        assert!(req.subject_type.is_none());
+        assert!(req.limit.is_none());
+        assert!(req.cursor.is_none());
+    }
+
+    #[test]
+    fn test_list_subjects_request_builder_with_filters() {
+        let req = ListSubjectsRequest::builder()
+            .resource("folder:shared")
+            .relation("owner")
+            .subject_type("user")
+            .limit(25)
+            .cursor("next_page")
+            .build();
+        assert_eq!(req.subject_type, Some("user".to_string()));
+        assert_eq!(req.limit, Some(25));
+        assert_eq!(req.cursor, Some("next_page".to_string()));
+    }
+
+    #[test]
+    fn test_delete_filter_builder() {
+        let filter = DeleteFilter::builder()
+            .resource("doc:readme")
+            .relation("viewer")
+            .subject("user:alice")
+            .build();
+        assert_eq!(filter.resource, Some("doc:readme".to_string()));
+        assert_eq!(filter.relation, Some("viewer".to_string()));
+        assert_eq!(filter.subject, Some("user:alice".to_string()));
+        assert!(!filter.is_empty());
+    }
+
+    #[test]
+    fn test_delete_filter_builder_partial() {
+        // Builder allows partial filters (unlike the factory methods)
+        let filter = DeleteFilter::builder().resource("doc:readme").build();
+        assert_eq!(filter.resource, Some("doc:readme".to_string()));
+        assert!(filter.relation.is_none());
+        assert!(filter.subject.is_none());
+        assert!(!filter.is_empty());
+    }
+
+    #[test]
+    fn test_delete_filter_factory_methods_use_builder() {
+        // Verify factory methods still work with impl Into<String>
+        let exact = DeleteFilter::exact("doc:readme", "viewer", "user:alice");
+        assert_eq!(exact.resource, Some("doc:readme".to_string()));
+        assert_eq!(exact.relation, Some("viewer".to_string()));
+        assert_eq!(exact.subject, Some("user:alice".to_string()));
+
+        let by_resource = DeleteFilter::by_resource("doc:readme");
+        assert_eq!(by_resource.resource, Some("doc:readme".to_string()));
+
+        let by_subject = DeleteFilter::by_subject("user:alice");
+        assert_eq!(by_subject.subject, Some("user:alice".to_string()));
+
+        let by_resource_relation = DeleteFilter::by_resource_relation("doc:readme", "viewer");
+        assert_eq!(by_resource_relation.resource, Some("doc:readme".to_string()));
+        assert_eq!(by_resource_relation.relation, Some("viewer".to_string()));
+    }
+
+    #[test]
+    fn test_delete_request_builder() {
+        let filter = DeleteFilter::by_subject("user:alice");
+        let req = DeleteRequest::builder().filter(filter.clone()).limit(100).build();
+        assert_eq!(req.filter, Some(filter));
+        assert!(req.relationships.is_none());
+        assert_eq!(req.limit, Some(100));
+    }
+
+    #[test]
+    fn test_delete_request_builder_with_relationships() {
+        let relationships = vec![Relationship {
+            vault: 0,
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        }];
+        let req = DeleteRequest::builder().relationships(relationships.clone()).build();
+        assert!(req.filter.is_none());
+        assert_eq!(req.relationships, Some(relationships));
+    }
+
+    #[test]
+    fn test_delete_request_factory_methods() {
+        let relationships = vec![Relationship {
+            vault: 0,
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            subject: "user:alice".to_string(),
+        }];
+        let req = DeleteRequest::exact(relationships.clone());
+        assert_eq!(req.relationships, Some(relationships));
+
+        let filter = DeleteFilter::by_resource("doc:readme".to_string());
+        let req2 = DeleteRequest::by_filter(filter.clone());
+        assert_eq!(req2.filter, Some(filter.clone()));
+
+        let req3 = DeleteRequest::by_filter_limited(filter.clone(), 50);
+        assert_eq!(req3.filter, Some(filter));
+        assert_eq!(req3.limit, Some(50));
     }
 }

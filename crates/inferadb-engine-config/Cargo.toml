@@ -14,6 +14,7 @@ gcp-secrets = ["google-cloud-secretmanager-v1"]
 
 [dependencies]
 anyhow = { workspace = true }
+bon = { workspace = true }
 clap = { workspace = true }
 config = { workspace = true }
 notify = "8.2.0"

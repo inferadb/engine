@@ -64,7 +64,7 @@ fn create_test_schema() -> Arc<Schema> {
 /// Returns (AppState, vault_id) tuple
 async fn create_test_state_with_data(num_relationships: usize) -> (AppState, i64) {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = create_test_schema();
     let vault: i64 = 1;
 
@@ -84,10 +84,7 @@ async fn create_test_state_with_data(num_relationships: usize) -> (AppState, i64
     config.cache.enabled = true;
     config.cache.capacity = 10000;
 
-    let state = AppState::builder(store, schema, Arc::new(config))
-        .wasm_host(None)
-        .signing_key_cache(None)
-        .build();
+    let state = AppState::builder().store(store).schema(schema).config(Arc::new(config)).build();
 
     (state, vault)
 }

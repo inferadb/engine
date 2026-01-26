@@ -72,8 +72,8 @@ impl LedgerInvalidationWatcher {
         auth_cache: Arc<AuthCache>,
     ) -> Result<Self, String> {
         let client_config = ClientConfig::builder()
-            .with_endpoint(&config.endpoint)
-            .with_client_id(&config.client_id)
+            .endpoints(vec![config.endpoint.clone()])
+            .client_id(&config.client_id)
             .build()
             .map_err(|e| format!("Failed to build Ledger client config: {e}"))?;
 

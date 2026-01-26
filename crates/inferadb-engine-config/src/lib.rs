@@ -35,7 +35,7 @@ pub mod validation;
 
 use std::path::Path;
 
-use config::{Config as ConfigBuilder, ConfigError, Environment, File};
+use config::{Config as ConfigLoader, ConfigError, Environment, File};
 pub use refresh::ConfigRefresher;
 use serde::{Deserialize, Serialize};
 
@@ -51,14 +51,17 @@ pub struct RootConfig {
     // Note: `control` section may exist in the file but is ignored by engine
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct Config {
     /// Number of worker threads for the async runtime
     #[serde(default = "default_threads")]
+    #[builder(default = default_threads())]
     pub threads: usize,
 
     /// Log level (trace, debug, info, warn, error)
     #[serde(default = "default_logging")]
+    #[builder(default = default_logging())]
     pub logging: String,
 
     /// Server identity Ed25519 private key (PEM format) for signing server-to-control requests.
@@ -67,30 +70,39 @@ pub struct Config {
     pub pem: Option<String>,
 
     #[serde(default)]
+    #[builder(default)]
     pub listen: ListenConfig,
     #[serde(default = "default_storage")]
+    #[builder(default = default_storage())]
     pub storage: String,
     #[serde(default)]
+    #[builder(default)]
     pub ledger: LedgerConfig,
     #[serde(default)]
+    #[builder(default)]
     pub cache: CacheConfig,
     #[serde(default)]
+    #[builder(default)]
     pub token: TokenConfig,
     #[serde(default)]
+    #[builder(default)]
     pub replication: ReplicationConfig,
 }
 
 /// Listen address configuration for API servers
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct ListenConfig {
     /// Client-facing HTTP/REST API server address
     /// Format: "host:port" (e.g., "0.0.0.0:8080")
     #[serde(default = "default_http")]
+    #[builder(default = default_http())]
     pub http: String,
 
     /// Client-facing gRPC API server address
     /// Format: "host:port" (e.g., "0.0.0.0:8081")
     #[serde(default = "default_grpc")]
+    #[builder(default = default_grpc())]
     pub grpc: String,
 }
 
@@ -124,7 +136,7 @@ fn default_storage() -> String {
 ///
 /// The Ledger backend provides cryptographically verifiable storage using
 /// InferaDB Ledger. This is the target production storage backend.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, bon::Builder)]
 pub struct LedgerConfig {
     /// Ledger server endpoint URL
     /// e.g., "http://localhost:50051" or "https://ledger.inferadb.com:50051"
@@ -144,15 +156,19 @@ pub struct LedgerConfig {
     pub vault_id: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct CacheConfig {
     #[serde(default = "default_cache_enabled")]
+    #[builder(default = default_cache_enabled())]
     pub enabled: bool,
 
     #[serde(default = "default_cache_capacity")]
+    #[builder(default = default_cache_capacity())]
     pub capacity: u64,
 
     #[serde(default = "default_cache_ttl")]
+    #[builder(default = default_cache_ttl())]
     pub ttl: u64,
 }
 
@@ -182,17 +198,21 @@ fn default_cache_ttl() -> u64 {
 ///
 /// Controls how JWT tokens are validated, including JWKS caching,
 /// timestamp tolerance, and token age limits.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
 pub struct TokenConfig {
     /// JWKS cache TTL in seconds
     #[serde(default = "default_token_cache_ttl")]
+    #[builder(default = default_token_cache_ttl())]
     pub cache_ttl: u64,
 
     /// Clock skew tolerance in seconds (for timestamp validation)
+    /// Note: Serde defaults to Some(60), builder defaults to None - use .clock_skew(60) for parity
     #[serde(default = "default_token_clock_skew")]
     pub clock_skew: Option<u64>,
 
     /// Maximum token age in seconds (from iat to now)
+    /// Note: Serde defaults to Some(86400), builder defaults to None - use .max_age(86400) for
+    /// parity
     #[serde(default = "default_token_max_age")]
     pub max_age: Option<u64>,
 }
@@ -230,35 +250,43 @@ impl TokenConfig {
 ///
 /// Enables replication of relationship data across multiple nodes and regions
 /// for high availability and low-latency global access.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct ReplicationConfig {
     /// Enable replication (default: false)
     #[serde(default)]
+    #[builder(default)]
     pub enabled: bool,
 
     /// Replication strategy
     #[serde(default)]
+    #[builder(default)]
     pub strategy: ReplicationStrategyConfig,
 
     /// Local region identifier (e.g., "us-west-1")
     #[serde(default)]
+    #[builder(default)]
     pub local_region: String,
 
     /// Conflict resolution strategy
     #[serde(default)]
+    #[builder(default)]
     pub conflict_resolution: ConflictResolutionConfig,
 
     /// Replication agent configuration
     #[serde(default)]
+    #[builder(default)]
     pub agent: ReplicationAgentConfig,
 
     /// Region definitions
     #[serde(default)]
+    #[builder(default)]
     pub regions: Vec<RegionConfig>,
 
     /// Replication targets: which regions each region replicates to
     /// Key: source region ID, Value: list of target region IDs
     #[serde(default)]
+    #[builder(default)]
     pub replication_targets: std::collections::HashMap<String, Vec<String>>,
 }
 
@@ -330,26 +358,31 @@ pub enum ConflictResolutionConfig {
 }
 
 /// Replication agent configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
 pub struct ReplicationAgentConfig {
     /// Maximum retries for failed replications
     #[serde(default = "default_replication_max_retries")]
+    #[builder(default = default_replication_max_retries())]
     pub max_retries: u32,
 
     /// Base retry delay in milliseconds
     #[serde(default = "default_replication_retry_delay_ms")]
+    #[builder(default = default_replication_retry_delay_ms())]
     pub retry_delay_ms: u64,
 
     /// Maximum batch size for replication
     #[serde(default = "default_replication_batch_size")]
+    #[builder(default = default_replication_batch_size())]
     pub batch_size: usize,
 
     /// Request timeout in seconds
     #[serde(default = "default_replication_request_timeout_secs")]
+    #[builder(default = default_replication_request_timeout_secs())]
     pub request_timeout_secs: u64,
 
     /// Buffer size for pending changes
     #[serde(default = "default_replication_buffer_size")]
+    #[builder(default = default_replication_buffer_size())]
     pub buffer_size: usize,
 }
 
@@ -626,7 +659,7 @@ pub fn load<P: AsRef<Path>>(path: P) -> Result<Config, ConfigError> {
     // The config crate will use serde's #[serde(default)] annotations for defaults
     // Layer 1 (defaults) is handled by serde deserialization
     // Layer 2: Add file source (optional - only overrides if file exists)
-    let builder = ConfigBuilder::builder().add_source(File::from(path.as_ref()).required(false));
+    let builder = ConfigLoader::builder().add_source(File::from(path.as_ref()).required(false));
 
     // Layer 3: Add environment variables (highest precedence)
     // Use INFERADB__ENGINE__ prefix for the nested format
@@ -689,5 +722,163 @@ mod tests {
         // High clock skew should warn but not fail
         let config = TokenConfig { clock_skew: Some(600), ..Default::default() };
         assert!(config.validate().is_ok());
+    }
+
+    // === TDD Tests for bon Builder API ===
+
+    #[test]
+    fn test_cache_config_builder() {
+        let built = CacheConfig::builder().enabled(true).capacity(10_000).ttl(60).build();
+        assert!(built.enabled);
+        assert_eq!(built.capacity, 10_000);
+        assert_eq!(built.ttl, 60);
+    }
+
+    #[test]
+    fn test_cache_config_builder_serde_equivalence() {
+        // Verify builder with defaults matches serde deserialization with defaults
+        let built = CacheConfig::builder().build();
+        let parsed: CacheConfig = serde_json::from_str("{}").expect("parse empty json");
+        assert_eq!(built.enabled, parsed.enabled);
+        assert_eq!(built.capacity, parsed.capacity);
+        assert_eq!(built.ttl, parsed.ttl);
+    }
+
+    #[test]
+    fn test_token_config_builder() {
+        // Note: For Option<T> fields, bon setters take T directly, not Option<T>
+        let built = TokenConfig::builder().cache_ttl(600).clock_skew(120).max_age(3600).build();
+        assert_eq!(built.cache_ttl, 600);
+        assert_eq!(built.clock_skew, Some(120));
+        assert_eq!(built.max_age, Some(3600));
+    }
+
+    #[test]
+    fn test_token_config_builder_serde_equivalence() {
+        // Builder with explicit values to match serde defaults for Option fields
+        let built = TokenConfig::builder()
+            .clock_skew(60) // serde default is Some(60)
+            .max_age(86400) // serde default is Some(86400)
+            .build();
+        let parsed: TokenConfig = serde_json::from_str("{}").expect("parse empty json");
+        assert_eq!(built.cache_ttl, parsed.cache_ttl);
+        assert_eq!(built.clock_skew, parsed.clock_skew);
+        assert_eq!(built.max_age, parsed.max_age);
+    }
+
+    #[test]
+    fn test_listen_config_builder() {
+        let built = ListenConfig::builder().http("127.0.0.1:9000").grpc("127.0.0.1:9001").build();
+        assert_eq!(built.http, "127.0.0.1:9000");
+        assert_eq!(built.grpc, "127.0.0.1:9001");
+    }
+
+    #[test]
+    fn test_listen_config_builder_serde_equivalence() {
+        let built = ListenConfig::builder().build();
+        let parsed: ListenConfig = serde_json::from_str("{}").expect("parse empty json");
+        assert_eq!(built.http, parsed.http);
+        assert_eq!(built.grpc, parsed.grpc);
+    }
+
+    #[test]
+    fn test_ledger_config_builder() {
+        // Note: For Option<T> fields, bon setters take T directly, not Option<T>
+        let built = LedgerConfig::builder()
+            .endpoint("http://localhost:50051".to_owned())
+            .client_id("engine-1".to_owned())
+            .namespace_id(42)
+            .vault_id(1)
+            .build();
+        assert_eq!(built.endpoint, Some("http://localhost:50051".to_owned()));
+        assert_eq!(built.client_id, Some("engine-1".to_owned()));
+        assert_eq!(built.namespace_id, Some(42));
+        assert_eq!(built.vault_id, Some(1));
+    }
+
+    #[test]
+    fn test_ledger_config_builder_defaults() {
+        // All fields optional with None defaults
+        let built = LedgerConfig::builder().build();
+        assert_eq!(built.endpoint, None);
+        assert_eq!(built.client_id, None);
+        assert_eq!(built.namespace_id, None);
+        assert_eq!(built.vault_id, None);
+    }
+
+    #[test]
+    fn test_replication_agent_config_builder() {
+        let built = ReplicationAgentConfig::builder()
+            .max_retries(10)
+            .retry_delay_ms(200)
+            .batch_size(50)
+            .request_timeout_secs(30)
+            .buffer_size(5000)
+            .build();
+        assert_eq!(built.max_retries, 10);
+        assert_eq!(built.retry_delay_ms, 200);
+        assert_eq!(built.batch_size, 50);
+        assert_eq!(built.request_timeout_secs, 30);
+        assert_eq!(built.buffer_size, 5000);
+    }
+
+    #[test]
+    fn test_replication_agent_config_builder_serde_equivalence() {
+        let built = ReplicationAgentConfig::builder().build();
+        let parsed: ReplicationAgentConfig = serde_json::from_str("{}").expect("parse empty json");
+        assert_eq!(built.max_retries, parsed.max_retries);
+        assert_eq!(built.retry_delay_ms, parsed.retry_delay_ms);
+        assert_eq!(built.batch_size, parsed.batch_size);
+        assert_eq!(built.request_timeout_secs, parsed.request_timeout_secs);
+        assert_eq!(built.buffer_size, parsed.buffer_size);
+    }
+
+    #[test]
+    fn test_replication_config_builder() {
+        let agent = ReplicationAgentConfig::builder().max_retries(3).build();
+        let built = ReplicationConfig::builder()
+            .enabled(true)
+            .local_region("us-west-1")
+            .agent(agent)
+            .build();
+        assert!(built.enabled);
+        assert_eq!(built.local_region, "us-west-1");
+        assert_eq!(built.agent.max_retries, 3);
+    }
+
+    #[test]
+    fn test_nested_config_builder_composition() {
+        // Demonstrates nested builder usage
+        let config = Config::builder()
+            .cache(CacheConfig::builder().enabled(true).capacity(5000).build())
+            .token(TokenConfig::builder().cache_ttl(600).build())
+            .listen(ListenConfig::builder().http("0.0.0.0:9000").build())
+            .replication(
+                ReplicationConfig::builder()
+                    .enabled(true)
+                    .agent(ReplicationAgentConfig::builder().max_retries(10).build())
+                    .build(),
+            )
+            .build();
+        assert!(config.cache.enabled);
+        assert_eq!(config.cache.capacity, 5000);
+        assert_eq!(config.token.cache_ttl, 600);
+        assert_eq!(config.listen.http, "0.0.0.0:9000");
+        assert!(config.replication.enabled);
+        assert_eq!(config.replication.agent.max_retries, 10);
+    }
+
+    #[test]
+    fn test_config_builder_with_defaults() {
+        let built = Config::builder().build();
+        let default = Config::default();
+        // Builder defaults should match Default trait implementation
+        assert_eq!(built.logging, default.logging);
+        assert_eq!(built.listen.http, default.listen.http);
+        assert_eq!(built.listen.grpc, default.listen.grpc);
+        assert_eq!(built.cache.enabled, default.cache.enabled);
+        assert_eq!(built.cache.capacity, default.cache.capacity);
+        assert_eq!(built.cache.ttl, default.cache.ttl);
+        assert_eq!(built.storage, default.storage);
     }
 }

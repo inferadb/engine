@@ -32,7 +32,8 @@ fn create_relationship(vault: i64, resource: &str, relation: &str, subject: &str
 
 #[tokio::test]
 async fn test_relationships_written_to_vault_a_not_visible_in_vault_b() {
-    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let vault_a = 111111111111i64;
     let vault_b = 222222222222i64;
 
@@ -95,7 +96,8 @@ async fn test_relationships_written_to_vault_a_not_visible_in_vault_b() {
 
 #[tokio::test]
 async fn test_concurrent_writes_to_different_vaults_dont_interfere() {
-    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let vault_a = 333333333333i64;
     let vault_b = 444444444444i64;
     let vault_c = 555555555555i64;
@@ -181,7 +183,8 @@ async fn test_concurrent_writes_to_different_vaults_dont_interfere() {
 
 #[tokio::test]
 async fn test_revision_tokens_are_vault_scoped() {
-    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let vault_a = 666666666666i64;
     let vault_b = 777777777777i64;
 
@@ -226,7 +229,8 @@ async fn test_revision_tokens_are_vault_scoped() {
 
 #[tokio::test]
 async fn test_delete_operations_only_affect_target_vault() {
-    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let vault_a = 888888888888i64;
     let vault_b = 999999999999i64;
 
@@ -302,7 +306,8 @@ async fn test_no_cache_leakage_between_vaults() {
 
 #[tokio::test]
 async fn test_filter_based_operations_scoped_to_vault() {
-    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let vault_a = 111111111112i64;
     let vault_b = 222222222223i64;
 
@@ -367,7 +372,8 @@ async fn test_filter_based_operations_scoped_to_vault() {
 
 #[tokio::test]
 async fn test_100_vaults_with_concurrent_operations() {
-    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let vault_count = 100;
     let ops_per_vault = 10;
 
@@ -426,7 +432,8 @@ async fn test_100_vaults_with_concurrent_operations() {
 
 #[tokio::test]
 async fn test_vault_isolation_under_load() {
-    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let vault_a = 333333333334i64;
     let vault_b = 444444444445i64;
 

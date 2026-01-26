@@ -137,7 +137,10 @@ async fn main() -> Result<()> {
     ) = match config.storage.as_str() {
         "memory" => {
             let signing_key_store = Arc::new(MemorySigningKeyStore::new());
-            (Arc::new(EngineStorage::new(MemoryBackend::new())), signing_key_store)
+            (
+                Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build()),
+                signing_key_store,
+            )
         },
         "ledger" => {
             let ledger_config = LedgerBackendConfig::builder()
@@ -160,7 +163,7 @@ async fn main() -> Result<()> {
             let signing_key_store =
                 Arc::new(LedgerSigningKeyStore::new(ledger_backend.client_arc()));
 
-            (Arc::new(EngineStorage::new(ledger_backend)), signing_key_store)
+            (Arc::new(EngineStorage::builder().backend(ledger_backend).build()), signing_key_store)
         },
         // Note: "foundationdb" and "fdb" are rejected by config.validate() with a helpful error
         // message directing users to migrate to the Ledger backend.

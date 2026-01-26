@@ -22,7 +22,7 @@ pub struct TestFixture {
 impl TestFixture {
     /// Create a new test fixture with the given schema
     pub fn new(schema: Schema) -> Self {
-        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let evaluator = Evaluator::new(
             store.clone() as Arc<dyn RelationshipStore>,
             Arc::new(schema),
@@ -35,7 +35,7 @@ impl TestFixture {
 
     /// Create a new test fixture with the given schema and WASM host
     pub fn new_with_wasm(schema: Schema, wasm_host: Arc<WasmHost>) -> Self {
-        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let evaluator = Evaluator::new(
             store.clone() as Arc<dyn RelationshipStore>,
             Arc::new(schema),

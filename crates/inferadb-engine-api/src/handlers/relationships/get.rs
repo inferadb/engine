@@ -236,7 +236,7 @@ mod tests {
 
     async fn create_test_state() -> AppState {
         let store: Arc<dyn inferadb_engine_store::InferaStore> =
-            Arc::new(EngineStorage::new(MemoryBackend::new()));
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
         // Create a minimal schema
         use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
@@ -276,7 +276,7 @@ mod tests {
             .await
             .unwrap();
 
-        AppState::builder(store, schema, config).wasm_host(None).signing_key_cache(None).build()
+        AppState::builder().store(store).schema(schema).config(config).build()
     }
 
     /// Test vault ID that matches what with_test_auth uses

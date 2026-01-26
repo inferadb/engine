@@ -11,7 +11,25 @@ use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 
 /// Internal JWT claims for testing
-#[derive(Debug, Serialize, Deserialize)]
+///
+/// # Example
+///
+/// ```no_run
+/// use inferadb_engine_test_fixtures::InternalClaims;
+///
+/// let now = chrono::Utc::now().timestamp() as u64;
+/// let claims = InternalClaims::builder()
+///     .iss("https://internal.inferadb.com")
+///     .sub("control-plane")
+///     .aud("https://api.inferadb.com/internal")
+///     .exp(now + 3600)
+///     .iat(now)
+///     .scope("inferadb.admin")
+///     .build();
+/// ```
+#[derive(Debug, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
+#[allow(clippy::should_implement_trait)]
 pub struct InternalClaims {
     pub iss: String,
     pub sub: String,
@@ -32,54 +50,81 @@ impl InternalClaims {
     #[allow(clippy::should_implement_trait)]
     pub fn default() -> Self {
         let now = chrono::Utc::now().timestamp() as u64;
-        Self {
-            iss: "https://internal.inferadb.com".to_string(),
-            sub: "control-plane".to_string(),
-            aud: "https://api.inferadb.com/internal".to_string(),
-            exp: now + 3600, // 1 hour from now
-            iat: now,
-            scope: "inferadb.admin".to_string(),
-            jti: Some(uuid::Uuid::new_v4().to_string()),
-            vault_id: Some("12345678901234".to_string()),
-            org_id: Some("98765432109876".to_string()),
-        }
+        Self::builder()
+            .iss("https://internal.inferadb.com")
+            .sub("control-plane")
+            .aud("https://api.inferadb.com/internal")
+            .exp(now + 3600) // 1 hour from now
+            .iat(now)
+            .scope("inferadb.admin")
+            .jti(uuid::Uuid::new_v4().to_string())
+            .vault_id("12345678901234")
+            .org_id("98765432109876")
+            .build()
     }
 
     /// Create expired internal claims for testing
     pub fn expired() -> Self {
         let now = chrono::Utc::now().timestamp() as u64;
-        Self {
-            iss: "https://internal.inferadb.com".to_string(),
-            sub: "control-plane".to_string(),
-            aud: "https://api.inferadb.com/internal".to_string(),
-            exp: now - 3600, // 1 hour ago
-            iat: now - 7200,
-            scope: "inferadb.admin".to_string(),
-            jti: Some(uuid::Uuid::new_v4().to_string()),
-            vault_id: Some("12345678901234".to_string()),
-            org_id: Some("98765432109876".to_string()),
-        }
+        Self::builder()
+            .iss("https://internal.inferadb.com")
+            .sub("control-plane")
+            .aud("https://api.inferadb.com/internal")
+            .exp(now - 3600) // 1 hour ago
+            .iat(now - 7200)
+            .scope("inferadb.admin")
+            .jti(uuid::Uuid::new_v4().to_string())
+            .vault_id("12345678901234")
+            .org_id("98765432109876")
+            .build()
     }
 
     /// Create internal claims with custom scope
-    pub fn with_scope(scope: &str) -> Self {
-        let mut claims = Self::default();
-        claims.scope = scope.to_string();
-        claims
+    pub fn with_scope(scope: impl Into<String>) -> Self {
+        let now = chrono::Utc::now().timestamp() as u64;
+        Self::builder()
+            .iss("https://internal.inferadb.com")
+            .sub("control-plane")
+            .aud("https://api.inferadb.com/internal")
+            .exp(now + 3600)
+            .iat(now)
+            .scope(scope)
+            .jti(uuid::Uuid::new_v4().to_string())
+            .vault_id("12345678901234")
+            .org_id("98765432109876")
+            .build()
     }
 
     /// Create internal claims with wrong issuer
     pub fn with_wrong_issuer() -> Self {
-        let mut claims = Self::default();
-        claims.iss = "https://wrong-issuer.com".to_string();
-        claims
+        let now = chrono::Utc::now().timestamp() as u64;
+        Self::builder()
+            .iss("https://wrong-issuer.com")
+            .sub("control-plane")
+            .aud("https://api.inferadb.com/internal")
+            .exp(now + 3600)
+            .iat(now)
+            .scope("inferadb.admin")
+            .jti(uuid::Uuid::new_v4().to_string())
+            .vault_id("12345678901234")
+            .org_id("98765432109876")
+            .build()
     }
 
     /// Create internal claims with wrong audience
     pub fn with_wrong_audience() -> Self {
-        let mut claims = Self::default();
-        claims.aud = "https://wrong-audience.com".to_string();
-        claims
+        let now = chrono::Utc::now().timestamp() as u64;
+        Self::builder()
+            .iss("https://internal.inferadb.com")
+            .sub("control-plane")
+            .aud("https://wrong-audience.com")
+            .exp(now + 3600)
+            .iat(now)
+            .scope("inferadb.admin")
+            .jti(uuid::Uuid::new_v4().to_string())
+            .vault_id("12345678901234")
+            .org_id("98765432109876")
+            .build()
     }
 }
 
@@ -242,5 +287,116 @@ mod tests {
 
         // JWT should have 3 parts
         assert_eq!(jwt.split('.').count(), 3);
+    }
+
+    // --- TDD tests for bon builder ---
+
+    #[test]
+    fn test_builder_with_all_required_fields() {
+        let now = chrono::Utc::now().timestamp() as u64;
+        let claims = InternalClaims::builder()
+            .iss("https://test.local")
+            .sub("user:test")
+            .aud("engine")
+            .exp(now + 3600)
+            .iat(now)
+            .scope("read:relationships")
+            .build();
+
+        assert_eq!(claims.iss, "https://test.local");
+        assert_eq!(claims.sub, "user:test");
+        assert_eq!(claims.aud, "engine");
+        assert_eq!(claims.exp, now + 3600);
+        assert_eq!(claims.iat, now);
+        assert_eq!(claims.scope, "read:relationships");
+        // Optional fields default to None
+        assert!(claims.jti.is_none());
+        assert!(claims.vault_id.is_none());
+        assert!(claims.org_id.is_none());
+    }
+
+    #[test]
+    fn test_builder_with_optional_fields() {
+        let now = chrono::Utc::now().timestamp() as u64;
+        let claims = InternalClaims::builder()
+            .iss("https://test.local")
+            .sub("user:test")
+            .aud("engine")
+            .exp(now + 3600)
+            .iat(now)
+            .scope("read")
+            .jti("unique-id")
+            .vault_id("vault123")
+            .org_id("org456")
+            .build();
+
+        assert_eq!(claims.jti, Some("unique-id".to_string()));
+        assert_eq!(claims.vault_id, Some("vault123".to_string()));
+        assert_eq!(claims.org_id, Some("org456".to_string()));
+    }
+
+    #[test]
+    fn test_builder_replaces_expired_factory() {
+        // Builder can create expired claims like the factory method
+        let now = chrono::Utc::now().timestamp() as u64;
+        let expired = InternalClaims::builder()
+            .iss("https://internal.inferadb.com")
+            .sub("control-plane")
+            .aud("https://api.inferadb.com/internal")
+            .exp(now - 3600) // 1 hour ago - expired
+            .iat(now - 7200)
+            .scope("inferadb.admin")
+            .build();
+
+        assert!(expired.exp < now);
+    }
+
+    #[test]
+    fn test_builder_replaces_with_scope_factory() {
+        // Builder can create scoped claims like the factory method
+        let now = chrono::Utc::now().timestamp() as u64;
+        let scoped = InternalClaims::builder()
+            .iss("https://internal.inferadb.com")
+            .sub("control-plane")
+            .aud("https://api.inferadb.com/internal")
+            .exp(now + 3600)
+            .iat(now)
+            .scope("custom:scope")
+            .build();
+
+        assert_eq!(scoped.scope, "custom:scope");
+    }
+
+    #[test]
+    fn test_builder_replaces_with_wrong_issuer_factory() {
+        // Builder can create wrong issuer claims like the factory method
+        let now = chrono::Utc::now().timestamp() as u64;
+        let wrong_issuer = InternalClaims::builder()
+            .iss("https://wrong-issuer.com")
+            .sub("control-plane")
+            .aud("https://api.inferadb.com/internal")
+            .exp(now + 3600)
+            .iat(now)
+            .scope("inferadb.admin")
+            .build();
+
+        assert_eq!(wrong_issuer.iss, "https://wrong-issuer.com");
+    }
+
+    #[test]
+    fn test_builder_into_string_ergonomics() {
+        // Test that string literals work without .to_string()
+        let now = chrono::Utc::now().timestamp() as u64;
+        let claims = InternalClaims::builder()
+            .iss("literal-iss")
+            .sub("literal-sub")
+            .aud("literal-aud")
+            .exp(now + 3600)
+            .iat(now)
+            .scope("literal-scope")
+            .build();
+
+        assert_eq!(claims.iss, "literal-iss");
+        assert_eq!(claims.sub, "literal-sub");
     }
 }

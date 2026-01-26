@@ -31,7 +31,7 @@ fn create_test_schema() -> Arc<Schema> {
 /// Create test state with multiple vaults
 fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = create_test_schema();
 
     // Create two separate vault/organization pairs for testing
@@ -42,10 +42,7 @@ fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
 
     let config = Config::default();
 
-    let state = AppState::builder(store, schema, Arc::new(config))
-        .wasm_host(None)
-        .signing_key_cache(None)
-        .build();
+    let state = AppState::builder().store(store).schema(schema).config(Arc::new(config)).build();
 
     (state, vault_a, organization_a, vault_b, organization_b)
 }
@@ -361,7 +358,7 @@ async fn test_default_vault_fallback_when_auth_disabled() {
 #[tokio::test]
 async fn test_organization_can_own_multiple_vaults() {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let organization = 55555555555555i64;
     let vault1 = 66666666666666i64;
     let vault2 = 77777777777777i64;
@@ -418,7 +415,7 @@ async fn test_organization_can_own_multiple_vaults() {
 #[tokio::test]
 async fn test_vault_belongs_to_one_organization() {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let organization_a = 99999999999991i64;
     let organization_b = 99999999999992i64;
     let vault_id = 99999999999993i64;
@@ -467,7 +464,7 @@ async fn test_vault_belongs_to_one_organization() {
 #[tokio::test]
 async fn test_organization_cannot_access_other_organizations_vaults() {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let organization_a = 99999999999994i64;
     let organization_b = 99999999999995i64;
     let vault_a = 99999999999996i64;

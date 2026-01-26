@@ -11,7 +11,20 @@ use serde::{Deserialize, Serialize};
 use crate::error::AuthError;
 
 /// OpenID Connect Discovery configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// # Example
+///
+/// ```no_run
+/// use inferadb_engine_auth::oidc::OidcConfiguration;
+///
+/// let config = OidcConfiguration::builder()
+///     .issuer("https://auth.example.com")
+///     .jwks_uri("https://auth.example.com/.well-known/jwks.json")
+///     .token_endpoint("https://auth.example.com/oauth/token")
+///     .build();
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct OidcConfiguration {
     /// OAuth 2.0 issuer identifier
     pub issuer: String,
@@ -27,6 +40,7 @@ pub struct OidcConfiguration {
 
     /// Supported signing algorithms
     #[serde(default)]
+    #[builder(default)]
     pub id_token_signing_alg_values_supported: Vec<String>,
 }
 
@@ -277,5 +291,99 @@ mod tests {
 
         // Should be empty again
         assert!(client.get_cached("https://auth.example.com").await.is_none());
+    }
+
+    // ========== Builder Pattern TDD Tests ==========
+
+    #[test]
+    fn test_oidc_configuration_builder_required_fields() {
+        // Builder with all required fields
+        let config = OidcConfiguration::builder()
+            .issuer("https://auth.example.com")
+            .jwks_uri("https://auth.example.com/.well-known/jwks.json")
+            .token_endpoint("https://auth.example.com/oauth/token")
+            .build();
+
+        assert_eq!(config.issuer, "https://auth.example.com");
+        assert_eq!(config.jwks_uri, "https://auth.example.com/.well-known/jwks.json");
+        assert_eq!(config.token_endpoint, "https://auth.example.com/oauth/token");
+        // Optional fields default to None/empty
+        assert!(config.introspection_endpoint.is_none());
+        assert!(config.id_token_signing_alg_values_supported.is_empty());
+    }
+
+    #[test]
+    fn test_oidc_configuration_builder_with_optional_introspection() {
+        let config = OidcConfiguration::builder()
+            .issuer("https://auth.example.com")
+            .jwks_uri("https://auth.example.com/jwks")
+            .token_endpoint("https://auth.example.com/token")
+            .introspection_endpoint("https://auth.example.com/introspect".to_string())
+            .build();
+
+        assert_eq!(
+            config.introspection_endpoint,
+            Some("https://auth.example.com/introspect".to_string())
+        );
+    }
+
+    #[test]
+    fn test_oidc_configuration_builder_with_signing_algs() {
+        let config = OidcConfiguration::builder()
+            .issuer("https://auth.example.com")
+            .jwks_uri("https://auth.example.com/jwks")
+            .token_endpoint("https://auth.example.com/token")
+            .id_token_signing_alg_values_supported(vec!["RS256".to_string(), "EdDSA".to_string()])
+            .build();
+
+        assert_eq!(config.id_token_signing_alg_values_supported.len(), 2);
+        assert!(config.id_token_signing_alg_values_supported.contains(&"RS256".to_string()));
+        assert!(config.id_token_signing_alg_values_supported.contains(&"EdDSA".to_string()));
+    }
+
+    #[test]
+    fn test_oidc_configuration_builder_serde_equivalence() {
+        // Build a config using the builder
+        let built = OidcConfiguration::builder()
+            .issuer("https://auth.example.com")
+            .jwks_uri("https://auth.example.com/jwks")
+            .token_endpoint("https://auth.example.com/token")
+            .introspection_endpoint("https://auth.example.com/introspect".to_string())
+            .id_token_signing_alg_values_supported(vec!["RS256".to_string()])
+            .build();
+
+        // Parse the same config from JSON
+        let json = r#"{
+            "issuer": "https://auth.example.com",
+            "jwks_uri": "https://auth.example.com/jwks",
+            "token_endpoint": "https://auth.example.com/token",
+            "introspection_endpoint": "https://auth.example.com/introspect",
+            "id_token_signing_alg_values_supported": ["RS256"]
+        }"#;
+        let parsed: OidcConfiguration = serde_json::from_str(json).unwrap();
+
+        // Verify they are equivalent
+        assert_eq!(built.issuer, parsed.issuer);
+        assert_eq!(built.jwks_uri, parsed.jwks_uri);
+        assert_eq!(built.token_endpoint, parsed.token_endpoint);
+        assert_eq!(built.introspection_endpoint, parsed.introspection_endpoint);
+        assert_eq!(
+            built.id_token_signing_alg_values_supported,
+            parsed.id_token_signing_alg_values_supported
+        );
+    }
+
+    #[test]
+    fn test_oidc_configuration_builder_string_into_ergonomics() {
+        // Verify #[builder(on(String, into))] allows string literals without .to_string()
+        let config = OidcConfiguration::builder()
+            .issuer("https://auth.example.com")
+            .jwks_uri("https://auth.example.com/jwks")
+            .token_endpoint("https://auth.example.com/token")
+            .build();
+
+        assert!(!config.issuer.is_empty());
+        assert!(!config.jwks_uri.is_empty());
+        assert!(!config.token_endpoint.is_empty());
     }
 }

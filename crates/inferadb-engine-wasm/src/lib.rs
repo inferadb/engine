@@ -31,6 +31,9 @@ pub enum WasmError {
 
     #[error("Invalid argument type")]
     InvalidArgumentType,
+
+    #[error("Invalid sandbox configuration: {0}")]
+    InvalidConfiguration(String),
 }
 
 pub type Result<T> = std::result::Result<T, WasmError>;

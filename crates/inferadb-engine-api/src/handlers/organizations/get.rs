@@ -77,12 +77,12 @@ mod tests {
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn inferadb_engine_store::InferaStore> =
-            Arc::new(EngineStorage::new(MemoryBackend::new()));
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let schema = Arc::new(Schema::new(vec![]));
         let config = Arc::new(Config::default());
         let _health_tracker = Arc::new(crate::health::HealthTracker::new());
 
-        AppState::builder(store, schema, config).wasm_host(None).signing_key_cache(None).build()
+        AppState::builder().store(store).schema(schema).config(config).build()
     }
 
     fn create_admin_context() -> inferadb_engine_types::AuthContext {

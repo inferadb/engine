@@ -56,7 +56,7 @@ pub async fn simulate(
     // Create an ephemeral in-memory store with ONLY the context relationships
     use inferadb_engine_repository::EngineStorage;
     use inferadb_storage::MemoryBackend;
-    let ephemeral_store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let ephemeral_store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Write context relationships to ephemeral store
     ephemeral_store

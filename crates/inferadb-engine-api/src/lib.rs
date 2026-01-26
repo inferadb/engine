@@ -164,62 +164,24 @@ pub struct AppState {
     pub watch_service: Arc<services::WatchService>,
 }
 
-/// Builder for AppState to avoid too many function arguments
-pub struct AppStateBuilder {
-    store: Arc<dyn inferadb_engine_store::InferaStore>,
-    schema: Arc<inferadb_engine_core::ipl::Schema>,
-    config: Arc<Config>,
-    wasm_host: Option<Arc<inferadb_engine_wasm::WasmHost>>,
-    signing_key_cache: Option<Arc<SigningKeyCache>>,
-}
-
-impl AppStateBuilder {
-    /// Create a new AppStateBuilder with required parameters
+#[bon::bon]
+impl AppState {
+    /// Creates a new AppState from builder parameters
+    #[builder]
     pub fn new(
         store: Arc<dyn inferadb_engine_store::InferaStore>,
         schema: Arc<inferadb_engine_core::ipl::Schema>,
         config: Arc<Config>,
+        wasm_host: Option<Arc<inferadb_engine_wasm::WasmHost>>,
+        signing_key_cache: Option<Arc<SigningKeyCache>>,
     ) -> Self {
-        Self { store, schema, config, wasm_host: None, signing_key_cache: None }
-    }
-
-    /// Set the WASM host
-    pub fn wasm_host(mut self, wasm_host: Option<Arc<inferadb_engine_wasm::WasmHost>>) -> Self {
-        self.wasm_host = wasm_host;
-        self
-    }
-
-    /// Set the Ledger-backed signing key cache
-    pub fn signing_key_cache(mut self, cache: Option<Arc<SigningKeyCache>>) -> Self {
-        self.signing_key_cache = cache;
-        self
-    }
-
-    /// Build the AppState
-    pub fn build(self) -> AppState {
-        AppState::from_builder(self)
-    }
-}
-
-impl AppState {
-    /// Creates a new AppState builder
-    pub fn builder(
-        store: Arc<dyn inferadb_engine_store::InferaStore>,
-        schema: Arc<inferadb_engine_core::ipl::Schema>,
-        config: Arc<Config>,
-    ) -> AppStateBuilder {
-        AppStateBuilder::new(store, schema, config)
-    }
-
-    /// Internal constructor from builder
-    fn from_builder(builder: AppStateBuilder) -> Self {
         let health_tracker = Arc::new(health::HealthTracker::new());
 
         // Create shared cache
-        let auth_cache = if builder.config.cache.enabled {
+        let auth_cache = if config.cache.enabled {
             Arc::new(inferadb_engine_cache::AuthCache::new(
-                builder.config.cache.capacity,
-                std::time::Duration::from_secs(builder.config.cache.ttl),
+                config.cache.capacity,
+                std::time::Duration::from_secs(config.cache.ttl),
             ))
         } else {
             // Create a minimal cache that won't be used
@@ -227,53 +189,52 @@ impl AppState {
         };
 
         // Determine which cache to pass to services
-        let service_cache =
-            if builder.config.cache.enabled { Some(Arc::clone(&auth_cache)) } else { None };
+        let service_cache = if config.cache.enabled { Some(Arc::clone(&auth_cache)) } else { None };
 
         // Create services with shared cache
         let evaluation_service = Arc::new(services::EvaluationService::new(
-            Arc::clone(&builder.store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&builder.schema),
-            builder.wasm_host.clone(),
+            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let resource_service = Arc::new(services::ResourceService::new(
-            Arc::clone(&builder.store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&builder.schema),
-            builder.wasm_host.clone(),
+            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let subject_service = Arc::new(services::SubjectService::new(
-            Arc::clone(&builder.store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&builder.schema),
-            builder.wasm_host.clone(),
+            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let relationship_service = Arc::new(services::RelationshipService::new(
-            Arc::clone(&builder.store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&builder.schema),
-            builder.wasm_host.clone(),
+            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
             service_cache.clone(),
         ));
 
         let expansion_service = Arc::new(services::ExpansionService::new(
-            Arc::clone(&builder.store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&builder.schema),
-            builder.wasm_host.clone(),
+            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
+            Arc::clone(&schema),
+            wasm_host.clone(),
             service_cache,
         ));
 
         let watch_service = Arc::new(services::WatchService::new(
-            Arc::clone(&builder.store) as Arc<dyn inferadb_engine_store::RelationshipStore>
+            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>
         ));
 
         Self {
-            store: builder.store,
-            config: builder.config,
-            signing_key_cache: builder.signing_key_cache,
+            store,
+            config,
+            signing_key_cache,
             health_tracker,
             auth_cache,
             evaluation_service,
@@ -524,14 +485,13 @@ pub struct ServerComponents {
 impl ServerComponents {
     /// Create AppState from components
     fn create_app_state(&self) -> AppState {
-        AppState::builder(
-            Arc::clone(&self.store),
-            Arc::clone(&self.schema),
-            Arc::clone(&self.config),
-        )
-        .wasm_host(self.wasm_host.clone())
-        .signing_key_cache(self.signing_key_cache.clone())
-        .build()
+        AppState::builder()
+            .store(Arc::clone(&self.store))
+            .schema(Arc::clone(&self.schema))
+            .config(Arc::clone(&self.config))
+            .maybe_wasm_host(self.wasm_host.clone())
+            .maybe_signing_key_cache(self.signing_key_cache.clone())
+            .build()
     }
 }
 
@@ -682,7 +642,7 @@ mod tests {
 
     fn create_test_state() -> (AppState, Arc<Schema>) {
         let store: Arc<dyn inferadb_engine_store::InferaStore> =
-            Arc::new(EngineStorage::new(MemoryBackend::new()));
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![
@@ -699,10 +659,8 @@ mod tests {
 
         let config = Arc::new(inferadb_engine_config::Config::default());
 
-        let state = AppState::builder(store, Arc::clone(&schema), config)
-            .wasm_host(None)
-            .signing_key_cache(None)
-            .build();
+        let state =
+            AppState::builder().store(store).schema(Arc::clone(&schema)).config(config).build();
 
         (state, schema)
     }
@@ -1905,6 +1863,61 @@ mod tests {
         let trace = results[0].trace.as_ref().unwrap();
         assert!(trace.duration.as_micros() > 0);
         // root is an EvaluationNode, not an Option
+    }
+
+    /// TDD test for bon-based AppState builder API
+    /// This test defines the expected API before implementation
+    #[tokio::test]
+    async fn test_app_state_builder_api() {
+        use inferadb_engine_core::ipl::{RelationDef, Schema, TypeDef};
+        use inferadb_engine_repository::EngineStorage;
+        use inferadb_storage::MemoryBackend;
+
+        let store: Arc<dyn inferadb_engine_store::InferaStore> =
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
+        let schema = Arc::new(Schema::new(vec![TypeDef::new(
+            "doc".to_string(),
+            vec![RelationDef::new("reader".to_string(), None)],
+        )]));
+        let config = Arc::new(inferadb_engine_config::Config::default());
+
+        // Test 1: Builder with all required fields (store, schema, config)
+        // Optional fields (wasm_host, signing_key_cache) should default to None
+        let state = AppState::builder()
+            .store(Arc::clone(&store))
+            .schema(Arc::clone(&schema))
+            .config(Arc::clone(&config))
+            .build();
+
+        // Verify required fields are set
+        assert!(Arc::ptr_eq(&state.store, &store));
+        assert!(Arc::ptr_eq(&state.config, &config));
+        assert!(state.signing_key_cache.is_none());
+
+        // Test 2: Builder with optional fields explicitly set to None via maybe_* methods
+        let state_with_options = AppState::builder()
+            .store(Arc::clone(&store))
+            .schema(Arc::clone(&schema))
+            .config(Arc::clone(&config))
+            .maybe_wasm_host(None)
+            .maybe_signing_key_cache(None)
+            .build();
+
+        assert!(state_with_options.signing_key_cache.is_none());
+
+        // Test 3: Services are created during build
+        // (This validates the from_builder logic is preserved)
+        // The services should be properly initialized from the builder inputs
+        // We can't easily compare services, but we verify they exist
+        // by checking that the state can be used
+        let _ = &state.evaluation_service;
+        let _ = &state.resource_service;
+        let _ = &state.subject_service;
+        let _ = &state.relationship_service;
+        let _ = &state.expansion_service;
+        let _ = &state.watch_service;
+        let _ = &state.health_tracker;
+        let _ = &state.auth_cache;
     }
 
     #[tokio::test]

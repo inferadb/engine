@@ -8,6 +8,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+bon = { workspace = true }
+
 # Internal dependencies
 inferadb-engine-types = { path = "../inferadb-engine-types" }
 

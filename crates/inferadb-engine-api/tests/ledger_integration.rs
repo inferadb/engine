@@ -123,14 +123,11 @@ async fn create_ledger_backend() -> LedgerBackend {
 
 async fn create_ledger_test_state() -> AppState {
     let backend = create_ledger_backend().await;
-    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(backend));
+    let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::builder().backend(backend).build());
     let schema = create_test_schema();
     let config = create_test_config();
 
-    AppState::builder(store, schema, Arc::new(config))
-        .wasm_host(None)
-        .signing_key_cache(None)
-        .build()
+    AppState::builder().store(store).schema(schema).config(Arc::new(config)).build()
 }
 
 fn create_test_auth(vault: i64, organization: i64) -> AuthContext {

@@ -66,17 +66,14 @@ impl tonic::service::Interceptor for TestAuthInterceptor {
 
 async fn setup_test_server() -> (AuthorizationServiceClient<tonic::transport::Channel>, String) {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],
     )]));
     let config = Config::default();
 
-    let state = AppState::builder(store, schema, Arc::new(config))
-        .wasm_host(None)
-        .signing_key_cache(None)
-        .build();
+    let state = AppState::builder().store(store).schema(schema).config(Arc::new(config)).build();
 
     let health_tracker = state.health_tracker.clone();
     health_tracker.set_ready(true);

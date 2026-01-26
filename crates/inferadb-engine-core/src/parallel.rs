@@ -208,7 +208,7 @@ mod tests {
     use crate::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
     async fn create_test_evaluator() -> Arc<Evaluator> {
-        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
         let types = vec![TypeDef::new(
             "document".to_string(),

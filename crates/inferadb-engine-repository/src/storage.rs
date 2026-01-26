@@ -63,7 +63,7 @@ fn to_store_result<T>(result: RepositoryResult<T>) -> StoreResult<T> {
 /// use inferadb_storage::MemoryBackend;
 /// use inferadb_engine_repository::EngineStorage;
 ///
-/// let storage = EngineStorage::new(MemoryBackend::new());
+/// let storage = EngineStorage::builder().backend(MemoryBackend::new()).build();
 ///
 /// // Use for relationship operations
 /// let rev = storage.write_relationships(vault_id, relationships).await?;
@@ -77,16 +77,29 @@ pub struct EngineStorage<S: StorageBackend> {
     vaults: VaultRepository<S>,
 }
 
+#[bon::bon]
 impl<S: StorageBackend + Clone> EngineStorage<S> {
     /// Create a new engine storage facade with the given backend.
     ///
     /// The backend is cloned for each repository, allowing them to share
     /// the underlying storage while maintaining independent state.
-    pub fn new(storage: S) -> Self {
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use inferadb_storage::MemoryBackend;
+    /// use inferadb_engine_repository::EngineStorage;
+    ///
+    /// let storage = EngineStorage::builder()
+    ///     .backend(MemoryBackend::new())
+    ///     .build();
+    /// ```
+    #[builder]
+    pub fn new(backend: S) -> Self {
         Self {
-            relationships: RelationshipRepository::new(storage.clone()),
-            organizations: OrganizationRepository::new(storage.clone()),
-            vaults: VaultRepository::new(storage),
+            relationships: RelationshipRepository::new(backend.clone()),
+            organizations: OrganizationRepository::new(backend.clone()),
+            vaults: VaultRepository::new(backend),
         }
     }
 }
@@ -305,58 +318,6 @@ impl<S: StorageBackend> EngineStorage<S> {
     }
 }
 
-/// Builder for configuring [`EngineStorage`].
-///
-/// Provides a fluent API for constructing engine storage with custom settings.
-///
-/// # Example
-///
-/// ```ignore
-/// use inferadb_storage::MemoryBackend;
-/// use inferadb_engine_repository::EngineStorageBuilder;
-///
-/// let storage = EngineStorageBuilder::new()
-///     .with_backend(MemoryBackend::new())
-///     .build();
-/// ```
-pub struct EngineStorageBuilder<S: StorageBackend> {
-    backend: Option<S>,
-}
-
-impl<S: StorageBackend + Clone> EngineStorageBuilder<S> {
-    /// Create a new builder with default settings.
-    pub fn new() -> Self {
-        Self { backend: None }
-    }
-
-    /// Set the storage backend.
-    pub fn with_backend(mut self, backend: S) -> Self {
-        self.backend = Some(backend);
-        self
-    }
-
-    /// Build the engine storage.
-    ///
-    /// # Panics
-    ///
-    /// Panics if no backend was provided.
-    pub fn build(self) -> EngineStorage<S> {
-        let backend = self.backend.expect("Backend must be set before building");
-        EngineStorage::new(backend)
-    }
-
-    /// Try to build the engine storage, returning None if not configured.
-    pub fn try_build(self) -> Option<EngineStorage<S>> {
-        self.backend.map(EngineStorage::new)
-    }
-}
-
-impl<S: StorageBackend + Clone> Default for EngineStorageBuilder<S> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
@@ -370,7 +331,7 @@ mod tests {
 
     /// Helper to create test storage.
     fn create_storage() -> EngineStorage<MemoryBackend> {
-        EngineStorage::new(MemoryBackend::new())
+        EngineStorage::builder().backend(MemoryBackend::new()).build()
     }
 
     /// Helper to create a test organization.
@@ -418,7 +379,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_builder_creates_storage() {
-        let storage = EngineStorageBuilder::new().with_backend(MemoryBackend::new()).build();
+        // With bon, we use EngineStorage::builder().backend(...).build()
+        let storage = EngineStorage::builder().backend(MemoryBackend::new()).build();
 
         // Verify storage works
         let rev = storage.get_revision(VAULT_ID).await.unwrap();
@@ -426,16 +388,22 @@ mod tests {
     }
 
     #[tokio::test]
-    #[should_panic(expected = "Backend must be set")]
-    async fn test_builder_panics_without_backend() {
-        let _: EngineStorage<MemoryBackend> = EngineStorageBuilder::new().build();
+    async fn test_builder_generic_type_inference() {
+        // Verify that generic type is correctly inferred from backend
+        let storage: EngineStorage<MemoryBackend> =
+            EngineStorage::builder().backend(MemoryBackend::new()).build();
+
+        // Verify all repositories are accessible
+        let _ = storage.relationships();
+        let _ = storage.organizations();
+        let _ = storage.vaults();
     }
 
-    #[tokio::test]
-    async fn test_builder_try_build_returns_none_without_backend() {
-        let result: Option<EngineStorage<MemoryBackend>> = EngineStorageBuilder::new().try_build();
-        assert!(result.is_none());
-    }
+    // Note: With bon, missing backend is a compile-time error, not a runtime panic.
+    // The following tests were removed because the builder API now enforces
+    // required fields at compile time:
+    // - test_builder_panics_without_backend (was runtime panic)
+    // - test_builder_try_build_returns_none_without_backend (was Option return)
 
     // =========================================================================
     // RELATIONSHIP OPERATION TESTS

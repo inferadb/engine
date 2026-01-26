@@ -57,7 +57,7 @@ fn create_complex_schema() -> Schema {
 
 #[tokio::test]
 async fn test_direct_check_allow() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Add a direct relationship
@@ -85,7 +85,7 @@ async fn test_direct_check_allow() {
 
 #[tokio::test]
 async fn test_direct_check_deny() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -104,7 +104,7 @@ async fn test_direct_check_deny() {
 
 #[tokio::test]
 async fn test_wildcard_user_allow() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Add a wildcard user relationship that grants access to all users
@@ -157,7 +157,7 @@ async fn test_wildcard_user_allow() {
 
 #[tokio::test]
 async fn test_union_check() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     // Alice is owner, viewer is owner | this
@@ -185,7 +185,7 @@ async fn test_union_check() {
 
 #[tokio::test]
 async fn test_relationship_to_userset() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     // Set up: folder:docs has alice as viewer, doc:readme has parent->folder:docs
@@ -222,7 +222,7 @@ async fn test_relationship_to_userset() {
 
 #[tokio::test]
 async fn test_nested_relations() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     // Alice is owner, editor = this | owner, viewer = this | editor | parent->viewer
@@ -251,7 +251,7 @@ async fn test_nested_relations() {
 
 #[tokio::test]
 async fn test_check_with_trace() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let relationship = Relationship {
@@ -280,7 +280,7 @@ async fn test_check_with_trace() {
 
 #[tokio::test]
 async fn test_expand_direct_relation() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -301,7 +301,7 @@ async fn test_expand_direct_relation() {
 
 #[tokio::test]
 async fn test_expand_union() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -336,7 +336,7 @@ async fn test_expand_intersection() {
         ],
     )]);
 
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let evaluator = Evaluator::new(store, Arc::new(schema), None, 0i64);
 
     let request = ExpandRequest {
@@ -371,7 +371,7 @@ async fn test_expand_exclusion() {
         ],
     )]);
 
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let evaluator = Evaluator::new(store, Arc::new(schema), None, 0i64);
 
     let request = ExpandRequest {
@@ -389,7 +389,7 @@ async fn test_expand_exclusion() {
 
 #[tokio::test]
 async fn test_expand_nested() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -410,7 +410,7 @@ async fn test_expand_nested() {
 
 #[tokio::test]
 async fn test_expand_relationship_to_userset() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -439,7 +439,7 @@ async fn test_expand_relationship_to_userset() {
 
 #[tokio::test]
 async fn test_expand_invalid_resource() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -457,7 +457,7 @@ async fn test_expand_invalid_resource() {
 
 #[tokio::test]
 async fn test_expand_unknown_type() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -475,7 +475,7 @@ async fn test_expand_unknown_type() {
 
 #[tokio::test]
 async fn test_expand_unknown_relation() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -493,7 +493,7 @@ async fn test_expand_unknown_relation() {
 
 #[tokio::test]
 async fn test_expand_pagination() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Write 50 users to the store
@@ -567,7 +567,7 @@ async fn test_expand_pagination() {
 
 #[tokio::test]
 async fn test_expand_large_userset() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Write 1000 users to the store
@@ -615,7 +615,7 @@ async fn test_expand_large_userset() {
 
 #[tokio::test]
 async fn test_expand_deduplication_union() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Create schema with union relation
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
@@ -694,7 +694,7 @@ async fn test_expand_deduplication_union() {
 
 #[tokio::test]
 async fn test_expand_deduplication_intersection() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Create schema with intersection relation
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
@@ -771,7 +771,7 @@ async fn test_expand_deduplication_intersection() {
 
 #[tokio::test]
 async fn test_expand_deduplication_exclusion() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Create schema with exclusion relation
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
@@ -853,7 +853,7 @@ async fn test_expand_deduplication_exclusion() {
 #[tokio::test]
 async fn test_expand_parallel_correctness() {
     // Test that parallel expansion produces correct results with complex nested unions
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Create a schema with multiple parallel branches: admin | editor | viewer
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
@@ -974,7 +974,7 @@ async fn test_exclusion_check() {
         ],
     )]);
 
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Alice is editor but also blocked
     let relationships = vec![
@@ -1025,7 +1025,7 @@ async fn test_intersection_check() {
         ],
     )]);
 
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Alice is reader and employee
     let relationships = vec![
@@ -1076,7 +1076,7 @@ async fn test_intersection_check_deny() {
         ],
     )]);
 
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Alice is only reader, not employee
     let relationships = vec![Relationship {
@@ -1104,7 +1104,7 @@ async fn test_intersection_check_deny() {
 
 #[tokio::test]
 async fn test_cache_hit() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let relationships = vec![Relationship {
@@ -1145,7 +1145,7 @@ async fn test_cache_hit() {
 
 #[tokio::test]
 async fn test_cache_disabled() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let relationships = vec![Relationship {
@@ -1176,7 +1176,7 @@ async fn test_cache_disabled() {
 
 #[tokio::test]
 async fn test_cache_different_requests() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let relationships = vec![
@@ -1228,7 +1228,7 @@ async fn test_cache_different_requests() {
 
 #[tokio::test]
 async fn test_list_resources_basic() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create some documents and give alice access to some of them
@@ -1277,7 +1277,7 @@ async fn test_list_resources_basic() {
 
 #[tokio::test]
 async fn test_list_resources_no_access() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create documents but don't give charlie any access
@@ -1316,7 +1316,7 @@ async fn test_list_resources_no_access() {
 
 #[tokio::test]
 async fn test_list_resources_with_limit() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create multiple documents alice can access
@@ -1375,7 +1375,7 @@ async fn test_list_resources_with_limit() {
 
 #[tokio::test]
 async fn test_list_resources_pagination() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create 10 documents alice can access
@@ -1427,7 +1427,7 @@ async fn test_list_resources_pagination() {
 
 #[tokio::test]
 async fn test_list_resources_empty_type() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // No documents exist of this type
@@ -1451,7 +1451,7 @@ async fn test_list_resources_empty_type() {
 
 #[tokio::test]
 async fn test_list_resources_with_union_relation() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     // Alice is owner of doc1, direct viewer of doc2
@@ -1500,7 +1500,7 @@ async fn test_list_resources_with_union_relation() {
 
 #[tokio::test]
 async fn test_list_resources_with_wildcard_pattern() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create documents with various names
@@ -1554,7 +1554,7 @@ async fn test_list_resources_with_wildcard_pattern() {
 
 #[tokio::test]
 async fn test_list_resources_with_question_mark_pattern() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create documents with single character variations
@@ -1602,7 +1602,7 @@ async fn test_list_resources_with_question_mark_pattern() {
 
 #[tokio::test]
 async fn test_list_resources_with_mixed_pattern() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let relationships = vec![
@@ -1653,7 +1653,7 @@ async fn test_list_resources_with_mixed_pattern() {
 
 #[tokio::test]
 async fn test_list_subjects_basic() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create some relationships where alice and bob are readers
@@ -1701,7 +1701,7 @@ async fn test_list_subjects_basic() {
 
 #[tokio::test]
 async fn test_list_subjects_no_subjects() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create relationships for different document
@@ -1732,7 +1732,7 @@ async fn test_list_subjects_no_subjects() {
 
 #[tokio::test]
 async fn test_list_subjects_with_subject_type_filter() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Mix of users and groups
@@ -1801,7 +1801,7 @@ async fn test_list_subjects_with_subject_type_filter() {
 
 #[tokio::test]
 async fn test_list_subjects_with_limit() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create multiple subjects with access
@@ -1859,7 +1859,7 @@ async fn test_list_subjects_with_limit() {
 
 #[tokio::test]
 async fn test_list_subjects_pagination() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create 10 subjects with access
@@ -1909,7 +1909,7 @@ async fn test_list_subjects_pagination() {
 
 #[tokio::test]
 async fn test_list_subjects_with_union_relation() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     // Alice is owner of doc:1, bob is direct viewer
@@ -1951,7 +1951,7 @@ async fn test_list_subjects_with_union_relation() {
 
 #[tokio::test]
 async fn test_list_subjects_with_computed_userset() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     // Alice is owner, bob is editor
@@ -1992,7 +1992,7 @@ async fn test_list_subjects_with_computed_userset() {
 
 #[tokio::test]
 async fn test_list_subjects_with_related_object_userset() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     // Alice is viewer of parent folder, doc has parent->viewer relation
@@ -2038,7 +2038,7 @@ async fn test_list_subjects_with_related_object_userset() {
 
 #[tokio::test]
 async fn test_list_subjects_deduplication() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     // Alice has access through multiple paths:
@@ -2079,7 +2079,7 @@ async fn test_list_subjects_deduplication() {
 
 #[tokio::test]
 async fn test_list_subjects_invalid_resource_format() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -2098,7 +2098,7 @@ async fn test_list_subjects_invalid_resource_format() {
 
 #[tokio::test]
 async fn test_list_subjects_unknown_type() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -2117,7 +2117,7 @@ async fn test_list_subjects_unknown_type() {
 
 #[tokio::test]
 async fn test_list_subjects_unknown_relation() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -2164,7 +2164,7 @@ async fn test_glob_pattern_matching() {
 
 #[tokio::test]
 async fn test_list_relationships_no_filters() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Add multiple relationships
@@ -2209,7 +2209,7 @@ async fn test_list_relationships_no_filters() {
 
 #[tokio::test]
 async fn test_list_relationships_filter_by_object() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let relationships = vec![
@@ -2253,7 +2253,7 @@ async fn test_list_relationships_filter_by_object() {
 
 #[tokio::test]
 async fn test_list_relationships_filter_by_relation() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     let relationships = vec![
@@ -2297,7 +2297,7 @@ async fn test_list_relationships_filter_by_relation() {
 
 #[tokio::test]
 async fn test_list_relationships_filter_by_user() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let relationships = vec![
@@ -2341,7 +2341,7 @@ async fn test_list_relationships_filter_by_user() {
 
 #[tokio::test]
 async fn test_list_relationships_multiple_filters() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_complex_schema());
 
     let relationships = vec![
@@ -2393,7 +2393,7 @@ async fn test_list_relationships_multiple_filters() {
 
 #[tokio::test]
 async fn test_list_relationships_pagination() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Add many relationships
@@ -2441,7 +2441,7 @@ async fn test_list_relationships_pagination() {
 
 #[tokio::test]
 async fn test_list_relationships_custom_limit() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Add 50 relationships
@@ -2475,7 +2475,7 @@ async fn test_list_relationships_custom_limit() {
 
 #[tokio::test]
 async fn test_list_relationships_max_limit() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -2497,7 +2497,7 @@ async fn test_list_relationships_max_limit() {
 
 #[tokio::test]
 async fn test_list_relationships_empty_result() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     let evaluator = Evaluator::new(store, schema, None, 0i64);
@@ -2523,7 +2523,7 @@ async fn test_list_relationships_empty_result() {
 
 #[tokio::test]
 async fn test_wildcard_check_allow() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Add a wildcard relationship: all users can read
@@ -2564,7 +2564,7 @@ async fn test_wildcard_check_allow() {
 
 #[tokio::test]
 async fn test_wildcard_type_mismatch_deny() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Add a wildcard relationship: all users can read (not groups)
@@ -2593,7 +2593,7 @@ async fn test_wildcard_type_mismatch_deny() {
 
 #[tokio::test]
 async fn test_wildcard_with_specific_override() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Add both wildcard and specific relationship
@@ -2630,7 +2630,7 @@ async fn test_wildcard_with_specific_override() {
 
 #[tokio::test]
 async fn test_wildcard_public_resource_scenario() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Model a public document that anyone can read
@@ -2662,7 +2662,7 @@ async fn test_wildcard_public_resource_scenario() {
 
 #[tokio::test]
 async fn test_wildcard_mixed_with_regular_relationships() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(Schema::new(vec![TypeDef::new(
         "doc".to_string(),
         vec![RelationDef::new("reader".to_string(), None)],
@@ -2726,4 +2726,118 @@ async fn test_wildcard_mixed_with_regular_relationships() {
         trace: None,
     };
     assert_eq!(evaluator.check(bob_private).await.unwrap(), Decision::Deny);
+}
+
+// =============================================================================
+// Builder API Tests (TDD - written before implementation)
+// =============================================================================
+
+/// Test that the Evaluator builder API works with all required fields
+#[tokio::test]
+async fn test_evaluator_builder_required_fields() {
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
+    let schema = Arc::new(create_simple_schema());
+
+    // Builder pattern with required fields only
+    let evaluator = Evaluator::builder()
+        .store(store.clone() as Arc<dyn RelationshipStore>)
+        .schema(schema)
+        .vault(0i64)
+        .build();
+
+    // wasm_host and cache should default to None
+    assert!(evaluator.wasm_host().is_none());
+    assert!(evaluator.cache().is_none());
+}
+
+/// Test that the Evaluator builder accepts optional cache
+#[tokio::test]
+async fn test_evaluator_builder_with_cache() {
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
+    let schema = Arc::new(create_simple_schema());
+    let cache = Arc::new(AuthCache::default());
+
+    let evaluator = Evaluator::builder()
+        .store(store.clone() as Arc<dyn RelationshipStore>)
+        .schema(schema)
+        .vault(0i64)
+        .cache(cache.clone())
+        .build();
+
+    // cache should be set
+    assert!(evaluator.cache().is_some());
+}
+
+/// Test that the Evaluator builder accepts optional wasm_host
+#[tokio::test]
+async fn test_evaluator_builder_with_wasm_host() {
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
+    let schema = Arc::new(create_simple_schema());
+    let wasm_host = Arc::new(WasmHost::new().unwrap());
+
+    let evaluator = Evaluator::builder()
+        .store(store.clone() as Arc<dyn RelationshipStore>)
+        .schema(schema)
+        .vault(0i64)
+        .wasm_host(wasm_host.clone())
+        .build();
+
+    // wasm_host should be set
+    assert!(evaluator.wasm_host().is_some());
+}
+
+/// Test that the Evaluator built via builder works correctly for authorization checks
+#[tokio::test]
+async fn test_evaluator_builder_functionality() {
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
+    let schema = Arc::new(create_simple_schema());
+
+    // Add a relationship
+    let relationship = Relationship {
+        resource: "doc:readme".to_string(),
+        relation: "reader".to_string(),
+        subject: "user:alice".to_string(),
+        vault: 0i64,
+    };
+    store.write(0i64, vec![relationship]).await.unwrap();
+
+    // Build evaluator using builder pattern
+    let evaluator = Evaluator::builder()
+        .store(store.clone() as Arc<dyn RelationshipStore>)
+        .schema(schema)
+        .vault(0i64)
+        .build();
+
+    // Verify authorization check works
+    let request = EvaluateRequest {
+        subject: "user:alice".to_string(),
+        resource: "doc:readme".to_string(),
+        permission: "reader".to_string(),
+        context: None,
+        trace: None,
+    };
+    assert_eq!(evaluator.check(request).await.unwrap(), Decision::Allow);
+}
+
+/// Test that builder replaces both new() and new_with_cache() use cases
+#[tokio::test]
+async fn test_evaluator_builder_replaces_constructors() {
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
+    let schema = Arc::new(create_simple_schema());
+    let cache = Arc::new(AuthCache::default());
+
+    // This replaces Evaluator::new(store, schema, None, vault)
+    let _evaluator_no_cache = Evaluator::builder()
+        .store(store.clone() as Arc<dyn RelationshipStore>)
+        .schema(schema.clone())
+        .vault(0i64)
+        .build();
+
+    // This replaces Evaluator::new_with_cache(store, schema, None, Some(cache), vault)
+    let _evaluator_with_cache = Evaluator::builder()
+        .store(store.clone() as Arc<dyn RelationshipStore>)
+        .schema(schema)
+        .vault(0i64)
+        .cache(cache)
+        .build();
 }

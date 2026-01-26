@@ -187,7 +187,7 @@ mod tests {
 
     fn create_test_state() -> AppState {
         let store: Arc<dyn inferadb_engine_store::InferaStore> =
-            Arc::new(EngineStorage::new(MemoryBackend::new()));
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let schema = Arc::new(Schema::new(vec![TypeDef::new(
             "doc".to_string(),
             vec![
@@ -203,10 +203,7 @@ mod tests {
         )]));
         let config = Arc::new(Config::default());
 
-        let state = AppState::builder(store, schema, config)
-            .wasm_host(None)
-            .signing_key_cache(None)
-            .build();
+        let state = AppState::builder().store(store).schema(schema).config(config).build();
 
         // Set health tracker state for tests
         state.health_tracker.set_ready(true);

@@ -225,7 +225,8 @@ mod tests {
     use super::*;
 
     async fn create_test_service() -> (RelationshipService, i64) {
-        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store: Arc<dyn RelationshipStore> =
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
         let schema = Arc::new(Schema::new(vec![TypeDef {
             name: "document".to_string(),
@@ -388,7 +389,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_vault_isolation() {
-        let store: Arc<dyn RelationshipStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store: Arc<dyn RelationshipStore> =
+            Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
         let schema = Arc::new(Schema::new(vec![TypeDef {
             name: "document".to_string(),
             relations: vec![RelationDef {

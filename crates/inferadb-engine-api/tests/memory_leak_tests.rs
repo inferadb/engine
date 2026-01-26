@@ -54,17 +54,14 @@ fn create_test_schema() -> Arc<Schema> {
 /// Create test app state
 async fn create_test_state() -> AppState {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = create_test_schema();
 
     let mut config = Config::default();
     config.cache.enabled = true;
     config.cache.capacity = 10000;
 
-    AppState::builder(store, schema, Arc::new(config))
-        .wasm_host(None)
-        .signing_key_cache(None)
-        .build()
+    AppState::builder().store(store).schema(schema).config(Arc::new(config)).build()
 }
 
 /// Test vault and organization IDs

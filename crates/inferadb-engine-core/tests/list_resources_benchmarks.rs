@@ -66,7 +66,7 @@ async fn create_test_data(store: &Arc<EngineStorage<MemoryBackend>>, num_resourc
 
 #[tokio::test]
 async fn bench_list_resources_1k() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create 1K resources
@@ -102,7 +102,7 @@ async fn bench_list_resources_1k() {
 
 #[tokio::test]
 async fn bench_list_resources_10k() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create 10K resources
@@ -138,7 +138,7 @@ async fn bench_list_resources_10k() {
 #[tokio::test]
 #[ignore = "Expensive benchmark - requires ~500MB memory and 30+ seconds to run"]
 async fn bench_list_resources_100k() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create 100K resources
@@ -180,7 +180,7 @@ async fn bench_list_resources_deep_hierarchy() {
     type user {}
     "#;
     let schema = Arc::new(inferadb_engine_core::ipl::parse_schema(schema_str).unwrap());
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Create a hierarchy 15 levels deep
     let depth = 15;
@@ -230,7 +230,7 @@ async fn bench_list_resources_deep_hierarchy() {
 
 #[tokio::test]
 async fn bench_list_resources_with_pattern() {
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create 10K resources with predictable names
@@ -283,7 +283,7 @@ async fn bench_list_resources_with_pattern() {
 async fn bench_concurrent_requests_100qps() {
     use tokio::time::{Duration, sleep};
 
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create 1K resources for testing
@@ -346,7 +346,7 @@ async fn bench_concurrent_requests_100qps() {
 async fn bench_concurrent_requests_1000qps() {
     use tokio::time::{Duration, sleep};
 
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = Arc::new(create_simple_schema());
 
     // Create 1K resources for testing

@@ -64,5 +64,5 @@ pub mod vault;
 pub use error::{RepositoryError, RepositoryResult};
 pub use organization::OrganizationRepository;
 pub use relationship::RelationshipRepository;
-pub use storage::{EngineStorage, EngineStorageBuilder};
+pub use storage::EngineStorage;
 pub use vault::VaultRepository;

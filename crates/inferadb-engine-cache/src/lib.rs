@@ -21,7 +21,23 @@ use tokio::sync::RwLock;
 /// Cache key for authorization checks
 ///
 /// Includes vault ID for multi-tenant isolation.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// # Example
+///
+/// ```no_run
+/// use inferadb_engine_cache::CheckCacheKey;
+/// use inferadb_engine_types::Revision;
+///
+/// let key = CheckCacheKey::builder()
+///     .vault(123i64)
+///     .subject("user:alice")
+///     .resource("doc:readme")
+///     .permission("read")
+///     .revision(Revision(42))
+///     .build();
+/// ```
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct CheckCacheKey {
     pub vault: i64,
     pub subject: String,
@@ -48,7 +64,22 @@ pub type CheckCacheValue = Decision;
 /// Cache key for expand operations (intermediate results)
 ///
 /// Includes vault ID for multi-tenant isolation.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// # Example
+///
+/// ```no_run
+/// use inferadb_engine_cache::ExpandCacheKey;
+/// use inferadb_engine_types::Revision;
+///
+/// let key = ExpandCacheKey::builder()
+///     .vault(456i64)
+///     .resource("doc:readme")
+///     .relation("viewer")
+///     .revision(Revision(99))
+///     .build();
+/// ```
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct ExpandCacheKey {
     pub vault: i64,
     pub resource: String,
@@ -1591,5 +1622,142 @@ mod tests {
             revision: Revision(1),
         };
         assert!(cache.get_check(&key_a).await.is_none());
+    }
+
+    // =========================================================================
+    // TDD Tests for bon::Builder adoption (Task 8)
+    // =========================================================================
+
+    #[test]
+    fn test_check_cache_key_builder() {
+        let key = CheckCacheKey::builder()
+            .vault(123i64)
+            .subject("user:alice")
+            .resource("doc:readme")
+            .permission("read")
+            .revision(Revision(42))
+            .build();
+
+        assert_eq!(key.vault, 123i64);
+        assert_eq!(key.subject, "user:alice");
+        assert_eq!(key.resource, "doc:readme");
+        assert_eq!(key.permission, "read");
+        assert_eq!(key.revision, Revision(42));
+    }
+
+    #[test]
+    fn test_expand_cache_key_builder() {
+        let key = ExpandCacheKey::builder()
+            .vault(456i64)
+            .resource("doc:readme")
+            .relation("viewer")
+            .revision(Revision(99))
+            .build();
+
+        assert_eq!(key.vault, 456i64);
+        assert_eq!(key.resource, "doc:readme");
+        assert_eq!(key.relation, "viewer");
+        assert_eq!(key.revision, Revision(99));
+    }
+
+    #[test]
+    fn test_cache_key_builder_equality() {
+        // Keys built via builder should equal keys built via struct literal
+        let key_builder = CheckCacheKey::builder()
+            .vault(0i64)
+            .subject("user:alice")
+            .resource("doc:readme")
+            .permission("read")
+            .revision(Revision(1))
+            .build();
+
+        let key_literal = CheckCacheKey {
+            vault: 0i64,
+            subject: "user:alice".to_string(),
+            resource: "doc:readme".to_string(),
+            permission: "read".to_string(),
+            revision: Revision(1),
+        };
+
+        assert_eq!(key_builder, key_literal);
+    }
+
+    #[test]
+    fn test_cache_key_builder_hash_equality() {
+        use std::{
+            collections::hash_map::DefaultHasher,
+            hash::{Hash, Hasher},
+        };
+
+        let key1 = CheckCacheKey::builder()
+            .vault(0i64)
+            .subject("user:alice")
+            .resource("doc:readme")
+            .permission("read")
+            .revision(Revision(1))
+            .build();
+
+        let key2 = CheckCacheKey::builder()
+            .vault(0i64)
+            .subject("user:alice")
+            .resource("doc:readme")
+            .permission("read")
+            .revision(Revision(1))
+            .build();
+
+        let mut hasher1 = DefaultHasher::new();
+        let mut hasher2 = DefaultHasher::new();
+        key1.hash(&mut hasher1);
+        key2.hash(&mut hasher2);
+
+        assert_eq!(hasher1.finish(), hasher2.finish());
+    }
+
+    #[test]
+    fn test_expand_cache_key_builder_equality() {
+        let key_builder = ExpandCacheKey::builder()
+            .vault(0i64)
+            .resource("doc:readme")
+            .relation("viewer")
+            .revision(Revision(1))
+            .build();
+
+        let key_literal = ExpandCacheKey {
+            vault: 0i64,
+            resource: "doc:readme".to_string(),
+            relation: "viewer".to_string(),
+            revision: Revision(1),
+        };
+
+        assert_eq!(key_builder, key_literal);
+    }
+
+    #[test]
+    fn test_expand_cache_key_builder_hash_equality() {
+        use std::{
+            collections::hash_map::DefaultHasher,
+            hash::{Hash, Hasher},
+        };
+
+        let key1 = ExpandCacheKey::builder()
+            .vault(0i64)
+            .resource("doc:readme")
+            .relation("viewer")
+            .revision(Revision(1))
+            .build();
+
+        let key2 = ExpandCacheKey::builder()
+            .vault(0i64)
+            .resource("doc:readme")
+            .relation("viewer")
+            .revision(Revision(1))
+            .build();
+
+        let mut hasher1 = DefaultHasher::new();
+        let mut hasher2 = DefaultHasher::new();
+        key1.hash(&mut hasher1);
+        key2.hash(&mut hasher2);
+
+        assert_eq!(hasher1.finish(), hasher2.finish());
     }
 }

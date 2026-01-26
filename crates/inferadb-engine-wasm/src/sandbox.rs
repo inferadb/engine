@@ -10,6 +10,19 @@ use crate::{
 };
 
 /// Configuration for WASM execution sandbox
+///
+/// # Example
+///
+/// ```no_run
+/// use std::time::Duration;
+/// use inferadb_engine_wasm::{SandboxConfig, StoreLimits};
+///
+/// let config = SandboxConfig::builder()
+///     .max_execution_time(Duration::from_millis(500))
+///     .enable_wasi(false)
+///     .build()
+///     .unwrap();
+/// ```
 #[derive(Debug, Clone)]
 pub struct SandboxConfig {
     /// Maximum execution time
@@ -27,6 +40,49 @@ impl Default for SandboxConfig {
             store_limits: StoreLimits::default(),
             enable_wasi: false,
         }
+    }
+}
+
+/// Maximum allowed execution time (5 seconds)
+const MAX_ALLOWED_EXECUTION_TIME: Duration = Duration::from_secs(5);
+
+/// Maximum allowed memory (256 MB)
+const MAX_ALLOWED_MEMORY_BYTES: usize = 256 * 1024 * 1024;
+
+#[bon::bon]
+impl SandboxConfig {
+    /// Create a new SandboxConfig with validation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `max_execution_time` exceeds 5 seconds
+    /// - `store_limits.max_memory_bytes` exceeds 256 MB
+    #[builder]
+    pub fn new(
+        #[builder(default = Duration::from_millis(100))] max_execution_time: Duration,
+        #[builder(default)] store_limits: StoreLimits,
+        #[builder(default = false)] enable_wasi: bool,
+    ) -> Result<Self> {
+        // Validate execution time limit
+        if max_execution_time > MAX_ALLOWED_EXECUTION_TIME {
+            return Err(WasmError::InvalidConfiguration(format!(
+                "max_execution_time ({:?}) exceeds maximum allowed ({:?})",
+                max_execution_time, MAX_ALLOWED_EXECUTION_TIME
+            )));
+        }
+
+        // Validate memory limit
+        if store_limits.max_memory_bytes > MAX_ALLOWED_MEMORY_BYTES {
+            return Err(WasmError::InvalidConfiguration(format!(
+                "max_memory_bytes ({} bytes) exceeds maximum allowed ({} bytes / {} MB)",
+                store_limits.max_memory_bytes,
+                MAX_ALLOWED_MEMORY_BYTES,
+                MAX_ALLOWED_MEMORY_BYTES / (1024 * 1024)
+            )));
+        }
+
+        Ok(Self { max_execution_time, store_limits, enable_wasi })
     }
 }
 
@@ -135,5 +191,81 @@ mod tests {
 
         let sandbox = Sandbox::new(config);
         assert!(sandbox.is_ok());
+    }
+
+    #[test]
+    fn test_sandbox_config_builder_defaults() {
+        let config = SandboxConfig::builder().build().unwrap();
+        assert!(config.max_execution_time <= Duration::from_secs(5));
+        assert!(!config.enable_wasi); // WASI disabled by default for security
+        assert_eq!(config.max_execution_time, Duration::from_millis(100));
+    }
+
+    #[test]
+    fn test_sandbox_config_builder_custom_values() {
+        let config = SandboxConfig::builder()
+            .max_execution_time(Duration::from_millis(500))
+            .enable_wasi(true)
+            .store_limits(StoreLimits { max_memory_bytes: 10 * 1024 * 1024, ..Default::default() })
+            .build()
+            .unwrap();
+
+        assert_eq!(config.max_execution_time, Duration::from_millis(500));
+        assert!(config.enable_wasi);
+        assert_eq!(config.store_limits.max_memory_bytes, 10 * 1024 * 1024);
+    }
+
+    #[test]
+    fn test_sandbox_config_builder_rejects_excessive_execution_time() {
+        let result = SandboxConfig::builder()
+            .max_execution_time(Duration::from_secs(10)) // >5s is rejected
+            .build();
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("max_execution_time"),
+            "Error message '{}' should contain 'max_execution_time'",
+            err
+        );
+    }
+
+    #[test]
+    fn test_sandbox_config_builder_accepts_maximum_allowed_time() {
+        let result = SandboxConfig::builder()
+            .max_execution_time(Duration::from_secs(5)) // exactly 5s is allowed
+            .build();
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_sandbox_config_builder_rejects_excessive_memory() {
+        let result = SandboxConfig::builder()
+            .store_limits(StoreLimits {
+                max_memory_bytes: 1024 * 1024 * 1024, // 1 GB is rejected
+                ..Default::default()
+            })
+            .build();
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("max_memory_bytes"),
+            "Error message '{}' should contain 'max_memory_bytes'",
+            err
+        );
+    }
+
+    #[test]
+    fn test_sandbox_config_builder_accepts_maximum_allowed_memory() {
+        let result = SandboxConfig::builder()
+            .store_limits(StoreLimits {
+                max_memory_bytes: 256 * 1024 * 1024, // 256 MB is allowed
+                ..Default::default()
+            })
+            .build();
+
+        assert!(result.is_ok());
     }
 }

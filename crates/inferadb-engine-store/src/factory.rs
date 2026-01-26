@@ -13,7 +13,7 @@
 //! use inferadb_storage::MemoryBackend;
 //!
 //! // Memory backend
-//! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(MemoryBackend::new()));
+//! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 //!
 //! // Ledger backend
 //! use inferadb_storage_ledger::{LedgerBackend, LedgerBackendConfig};
@@ -24,7 +24,7 @@
 //!     .with_namespace_id(1)
 //!     .build()?;
 //! let backend = LedgerBackend::new(config).await?;
-//! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::new(backend));
+//! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::builder().backend(backend).build());
 //! ```
 
 use std::{str::FromStr, sync::Arc};

@@ -34,7 +34,8 @@ pub enum AuditEventType {
 }
 
 /// Audit event metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct AuditMetadata {
     /// Unique event ID
     pub event_id: String,
@@ -59,7 +60,8 @@ pub struct AuditMetadata {
 }
 
 /// Authorization check audit details
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bon::Builder)]
+#[builder(on(String, into))]
 pub struct AuthorizationCheckDetails {
     /// Subject being checked
     pub subject: String,
@@ -236,25 +238,34 @@ impl AuditEvent {
 }
 
 /// Audit logger configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, bon::Builder)]
 pub struct AuditConfig {
     /// Enable audit logging
+    #[builder(default = true)]
     pub enabled: bool,
     /// Log authorization checks
+    #[builder(default = true)]
     pub log_authorization_checks: bool,
     /// Log relationship writes
+    #[builder(default = true)]
     pub log_relationship_writes: bool,
     /// Log relationship deletes
+    #[builder(default = true)]
     pub log_relationship_deletes: bool,
     /// Log resource listings
+    #[builder(default = true)]
     pub log_resource_lists: bool,
     /// Log subject listings
+    #[builder(default = true)]
     pub log_subject_lists: bool,
     /// Log expand operations
+    #[builder(default = true)]
     pub log_expand: bool,
     /// Log simulations
+    #[builder(default = true)]
     pub log_simulations: bool,
     /// Sample rate (0.0-1.0) for high-volume operations
+    #[builder(default = 1.0)]
     pub sample_rate: f64,
 }
 
@@ -351,6 +362,105 @@ impl Default for AuditLogger {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ===== TDD tests for bon::Builder pattern =====
+
+    #[test]
+    fn test_audit_metadata_builder() {
+        let metadata = AuditMetadata::builder()
+            .event_id("audit-123")
+            .timestamp("2025-01-01T00:00:00.000Z")
+            .event_type(AuditEventType::AuthorizationCheck)
+            .actor("user:alice")
+            .build();
+
+        assert_eq!(metadata.event_id, "audit-123");
+        assert_eq!(metadata.actor, "user:alice");
+        assert!(metadata.client_ip.is_none());
+        assert!(metadata.user_agent.is_none());
+        assert!(metadata.request_id.is_none());
+        assert!(metadata.org_id.is_none());
+    }
+
+    #[test]
+    fn test_audit_metadata_builder_with_optional_fields() {
+        let metadata = AuditMetadata::builder()
+            .event_id("audit-456")
+            .timestamp("2025-01-01T00:00:00.000Z")
+            .event_type(AuditEventType::RelationshipWrite)
+            .actor("admin:bob")
+            .client_ip("192.168.1.100")
+            .user_agent("InferaDB-SDK/2.0")
+            .request_id("req-789")
+            .org_id("org-acme")
+            .build();
+
+        assert_eq!(metadata.client_ip, Some("192.168.1.100".to_string()));
+        assert_eq!(metadata.user_agent, Some("InferaDB-SDK/2.0".to_string()));
+        assert_eq!(metadata.request_id, Some("req-789".to_string()));
+        assert_eq!(metadata.org_id, Some("org-acme".to_string()));
+    }
+
+    #[test]
+    fn test_authorization_check_details_builder() {
+        let details = AuthorizationCheckDetails::builder()
+            .subject("user:alice")
+            .resource("document:readme")
+            .permission("read")
+            .decision(Decision::Allow)
+            .duration_ms(5)
+            .build();
+
+        assert_eq!(details.subject, "user:alice");
+        assert_eq!(details.resource, "document:readme");
+        assert_eq!(details.permission, "read");
+        assert_eq!(details.decision, Decision::Allow);
+        assert_eq!(details.duration_ms, 5);
+        assert!(details.context.is_none());
+        assert!(details.relationships_evaluated.is_none());
+        assert!(details.traced.is_none());
+    }
+
+    #[test]
+    fn test_audit_config_builder_defaults() {
+        let config = AuditConfig::builder().build();
+
+        // All fields should default to true (matching Default impl)
+        assert!(config.enabled);
+        assert!(config.log_authorization_checks);
+        assert!(config.log_relationship_writes);
+        assert!(config.log_relationship_deletes);
+        assert!(config.log_resource_lists);
+        assert!(config.log_subject_lists);
+        assert!(config.log_expand);
+        assert!(config.log_simulations);
+        assert_eq!(config.sample_rate, 1.0);
+    }
+
+    #[test]
+    fn test_audit_config_builder_custom() {
+        let config = AuditConfig::builder()
+            .enabled(true)
+            .log_authorization_checks(true)
+            .log_relationship_writes(false) // Override
+            .sample_rate(0.5)
+            .build();
+
+        assert!(config.log_authorization_checks);
+        assert!(!config.log_relationship_writes);
+        assert_eq!(config.sample_rate, 0.5);
+    }
+
+    #[test]
+    fn test_audit_config_builder_serde_equivalence() {
+        let built = AuditConfig::builder().build();
+        let default_impl = AuditConfig::default();
+
+        // Builder with all defaults should match Default impl
+        assert_eq!(built.enabled, default_impl.enabled);
+        assert_eq!(built.log_authorization_checks, default_impl.log_authorization_checks);
+        assert_eq!(built.sample_rate, default_impl.sample_rate);
+    }
 
     #[test]
     fn test_audit_event_id_generation() {

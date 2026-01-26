@@ -164,7 +164,7 @@ fn create_test_schema() -> Schema {
 #[ignore = "Load test - runs for 10+ seconds with 100 concurrent workers, high CPU/memory usage"]
 async fn test_sustained_throughput_100k_rps() {
     let schema = create_test_schema();
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Pre-populate with test data
     let mut relationships = Vec::new();
@@ -252,7 +252,7 @@ async fn test_sustained_throughput_100k_rps() {
 #[tokio::test]
 async fn test_latency_p99_under_10ms() {
     let schema = create_test_schema();
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Small dataset for optimal performance
     for i in 0..100 {
@@ -338,7 +338,7 @@ async fn test_latency_p99_under_10ms() {
 #[tokio::test]
 async fn test_spike_load() {
     let schema = create_test_schema();
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Populate data
     for i in 0..500 {
@@ -446,7 +446,7 @@ async fn test_spike_load() {
 #[ignore = "Stress test - runs with up to 500 concurrent workers, can take 2+ minutes"]
 async fn test_stress_beyond_capacity() {
     let schema = create_test_schema();
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Large dataset
     for i in 0..5000 {
@@ -532,7 +532,7 @@ async fn test_stress_beyond_capacity() {
 #[ignore = "Soak test - runs for 60 seconds to detect memory leaks and stability issues"]
 async fn test_soak_24h_simulation() {
     let schema = create_test_schema();
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Pre-populate
     for i in 0..1000 {
@@ -639,7 +639,7 @@ async fn test_soak_24h_simulation() {
 #[ignore = "Scale test - populates 1M relationships, requires 2GB+ memory and 3+ minutes"]
 async fn test_large_graph_1m_relationships() {
     let schema = create_test_schema();
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     println!("Populating 1M relationships...");
 
@@ -746,7 +746,7 @@ async fn test_deep_nesting_10_levels() {
 
     let schema = Schema::new(vec![TypeDef::new("resource".to_string(), relations)]);
 
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     // Create deep hierarchy
     store
@@ -807,7 +807,7 @@ async fn test_deep_nesting_10_levels() {
 #[ignore = "Scale test - tests expansion with 10K users, takes 30+ seconds"]
 async fn test_wide_expansion_10k_users() {
     let schema = create_test_schema();
-    let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
     println!("Creating wide userset (10k users)...");
 

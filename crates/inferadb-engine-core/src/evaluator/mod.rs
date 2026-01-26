@@ -21,6 +21,29 @@ use crate::{
 };
 
 /// The main policy evaluator
+///
+/// # Example
+///
+/// ```no_run
+/// use std::sync::Arc;
+/// use inferadb_engine_core::Evaluator;
+/// # use inferadb_engine_store::RelationshipStore;
+/// # use inferadb_engine_core::ipl::Schema;
+///
+/// # fn example(store: Arc<dyn RelationshipStore>, schema: Arc<Schema>) {
+/// // Builder pattern - required fields: store, schema, vault
+/// let evaluator = Evaluator::builder()
+///     .store(store)
+///     .schema(schema)
+///     .vault(0i64)
+///     .build();
+///
+/// // Optional: add cache and/or wasm_host
+/// // .cache(some_cache)
+/// // .wasm_host(some_host)
+/// # }
+/// ```
+#[derive(bon::Builder)]
 pub struct Evaluator {
     store: Arc<dyn RelationshipStore>,
     wasm_host: Option<Arc<WasmHost>>,

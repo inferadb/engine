@@ -152,13 +152,10 @@ pub fn create_test_state() -> AppState {
 /// Create test AppState with custom configuration
 pub fn create_test_state_with_config(config: Config) -> AppState {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = create_test_schema();
 
-    AppState::builder(store, schema, Arc::new(config))
-        .wasm_host(None)
-        .signing_key_cache(None)
-        .build()
+    AppState::builder().store(store).schema(schema).config(Arc::new(config)).build()
 }
 
 /// Create test AppState with multiple vaults for multi-tenancy testing
@@ -167,7 +164,7 @@ pub fn create_test_state_with_config(config: Config) -> AppState {
 /// Use `with_test_auth` to authenticate requests to specific vaults.
 pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
     let store: Arc<dyn inferadb_engine_store::InferaStore> =
-        Arc::new(EngineStorage::new(MemoryBackend::new()));
+        Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
     let schema = create_test_schema();
 
     let vault_a = generate_test_id();
@@ -177,10 +174,7 @@ pub fn create_multi_vault_test_state() -> (AppState, i64, i64, i64, i64) {
 
     let config = create_test_config();
 
-    let state = AppState::builder(store, schema, Arc::new(config))
-        .wasm_host(None)
-        .signing_key_cache(None)
-        .build();
+    let state = AppState::builder().store(store).schema(schema).config(Arc::new(config)).build();
 
     (state, vault_a, organization_a, vault_b, organization_b)
 }

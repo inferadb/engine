@@ -29,6 +29,9 @@ rust-version = "1.92"
 version = "0.1.0"
 
 [workspace.dependencies]
+# Builder derive macros
+bon = "3.8"
+
 # Core async runtime
 async-recursion = "1.0"
 async-trait = "0.1"

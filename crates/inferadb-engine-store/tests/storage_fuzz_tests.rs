@@ -57,7 +57,7 @@ proptest! {
     fn fuzz_write_operations(relationships in prop::collection::vec(arb_relationship(), 1..100)) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             // Write should not panic, even with invalid data
             let result = store.write(test_vault_id(), relationships.clone()).await;
@@ -93,7 +93,7 @@ proptest! {
     ) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             // Get current revision
             let revision = store.get_revision(test_vault_id()).await.unwrap_or(Revision(0));
@@ -138,7 +138,7 @@ proptest! {
     ) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             // Create relationship key
             let key = RelationshipKey {
@@ -169,7 +169,7 @@ proptest! {
     ) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             // Spawn concurrent writes
             let store1 = store.clone();
@@ -202,7 +202,7 @@ proptest! {
     ) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             // Write some data first
             let relationship = Relationship {
@@ -243,7 +243,7 @@ proptest! {
     fn fuzz_large_batches(size in 0usize..10000) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             let relationships: Vec<Relationship> = (0..size)
                 .map(|i| Relationship {
@@ -273,7 +273,7 @@ proptest! {
     fn fuzz_duplicate_relationships(relationship in arb_relationship(), count in 1usize..100) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             // Create duplicates
             let relationships = vec![relationship; count];
@@ -300,7 +300,7 @@ proptest! {
     ) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             let mut resource = String::from("obj");
             for _ in 0..null_count {
@@ -341,7 +341,7 @@ proptest! {
     ]) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             let relationship = Relationship {
                 vault: test_vault_id(),
@@ -380,7 +380,7 @@ proptest! {
     ) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+            let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
             let mut all_relationships = valid_relationships;
             all_relationships.extend(invalid_relationships);
@@ -407,7 +407,7 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_storage_handles_empty_fields() {
-        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
         // Empty fields
         let relationship = Relationship {
@@ -423,7 +423,7 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_storage_handles_very_long_fields() {
-        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
         // Very long fields
         let relationship = Relationship {
@@ -439,7 +439,7 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_storage_maintains_consistency_under_load() {
-        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
         // Write many relationships concurrently
         let mut handles = vec![];
@@ -470,7 +470,7 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_storage_recovers_from_errors() {
-        let store = Arc::new(EngineStorage::new(MemoryBackend::new()));
+        let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 
         // Try to cause errors with invalid data
         let invalid_relationship = Relationship {

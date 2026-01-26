@@ -256,7 +256,7 @@ mod tests {
 
     /// Helper to create test storage.
     fn create_storage() -> EngineStorage<MemoryBackend> {
-        EngineStorage::new(MemoryBackend::new())
+        EngineStorage::builder().backend(MemoryBackend::new()).build()
     }
 
     /// Helper to create a test organization.
