@@ -98,7 +98,7 @@ impl HealthTracker {
     /// Get current timestamp in seconds since UNIX epoch, defaulting to 0 on error.
     #[inline]
     fn current_timestamp_secs() -> u64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+        SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
     }
 
     /// Create a new health tracker

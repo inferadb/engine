@@ -146,7 +146,7 @@ fn parse_accept_header(accept: &str) -> ResponseFormat {
         .sort_by(|a, b| b.quality.partial_cmp(&a.quality).unwrap_or(std::cmp::Ordering::Equal));
 
     // Return the highest priority format, or default to JSON
-    media_types.first().map(|mt| mt.format).unwrap_or(ResponseFormat::Json)
+    media_types.first().map_or(ResponseFormat::Json, |mt| mt.format)
 }
 
 /// Generic response wrapper that handles format-aware serialization.

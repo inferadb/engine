@@ -192,7 +192,7 @@ impl StartupDisplay {
 
     /// Get terminal width, defaulting to 80 if detection fails
     pub fn get_terminal_width() -> usize {
-        terminal_size().map(|(Width(w), _)| w as usize).unwrap_or(80)
+        terminal_size().map_or(80, |(Width(w), _)| w as usize)
     }
 
     fn print_banner(&self) {
@@ -309,7 +309,8 @@ impl StartupDisplay {
             println!("{dim}# {category}{reset}");
 
             // Calculate column widths for this category
-            let max_property_len = entries.iter().map(|e| e.display_name.len()).max().unwrap_or(0);
+            let max_property_len =
+                entries.iter().map(|e| e.display_name.len()).max().unwrap_or_default();
 
             // Table should fill terminal width
             // Layout: ║ Property ║ Value ║
@@ -504,7 +505,7 @@ pub fn print_generated_keypair(pem: &str, config_key: &str) {
 
     // Parse PEM lines
     let pem_lines: Vec<&str> = pem.lines().collect();
-    let max_pem_line_len = pem_lines.iter().map(|l| l.len()).max().unwrap_or(0);
+    let max_pem_line_len = pem_lines.iter().map(|l| l.len()).max().unwrap_or_default();
 
     // Box should fill terminal width
     // Layout: ║ content ║ = 2 borders + 2 padding spaces = 4 fixed chars
