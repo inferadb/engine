@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::Parser;
 use inferadb_engine_auth::SigningKeyCache;
 use inferadb_engine_config::load_or_default;
-use inferadb_engine_core::ipl::Schema;
+use inferadb_engine_core::ipl::{Schema, parse_schema};
 use inferadb_engine_repository::EngineStorage;
 use inferadb_engine_wasm::WasmHost;
 use inferadb_storage::MemoryBackend;
@@ -180,9 +180,18 @@ async fn main() -> Result<()> {
         log_skipped("WASM host", "initialization failed");
     }
 
-    // Create empty schema (TODO: Load from config)
-    let schema = Arc::new(Schema::new(vec![]));
-    log_initialized("Schema");
+    // Load schema from config if provided
+    let schema = if let Some(schema_path) = &config.schema {
+        let schema_content = std::fs::read_to_string(schema_path)
+            .map_err(|e| anyhow::anyhow!("Failed to read schema file '{}': {}", schema_path, e))?;
+        let parsed = parse_schema(&schema_content)
+            .map_err(|e| anyhow::anyhow!("Failed to parse schema '{}': {}", schema_path, e))?;
+        log_initialized(&format!("Schema ({})", schema_path));
+        Arc::new(parsed)
+    } else {
+        log_initialized("Schema (empty)");
+        Arc::new(Schema::new(vec![]))
+    };
 
     // Create the SigningKeyCache for Ledger-backed token validation
     use std::time::Duration;

@@ -83,7 +83,7 @@ impl InternalJwks {
 
         // All keys must have valid alg
         for key in &self.keys {
-            if key.alg.is_none() || key.alg.as_ref().unwrap().is_empty() {
+            if key.alg.as_ref().is_none_or(|alg| alg.is_empty()) {
                 return Err(AuthError::JwksError(
                     "All keys in internal JWKS must have a non-empty 'alg' field".to_string(),
                 ));

@@ -12,7 +12,7 @@
 //! use tonic::transport::Server;
 //! use crate::grpc_interceptor::LedgerAuthInterceptor;
 //!
-//! let interceptor = LedgerAuthInterceptor::new(signing_key_cache, internal_loader, config);
+//! let interceptor = LedgerAuthInterceptor::new(signing_key_cache, internal_loader);
 //!
 //! Server::builder()
 //!     .add_service(AuthorizationServiceServer::with_interceptor(service, interceptor))
@@ -31,7 +31,6 @@ use inferadb_engine_auth::{
     jwt,
     signing_key_cache::SigningKeyCache,
 };
-use inferadb_engine_config::TokenConfig;
 use inferadb_engine_observe::metrics;
 use inferadb_engine_types::{AuthContext, AuthMethod};
 use tonic::{Request, Status, metadata::MetadataMap};
@@ -93,7 +92,7 @@ pub fn extract_bearer_from_metadata(metadata: &MetadataMap) -> Result<String, Au
 /// use tonic::transport::Server;
 /// use crate::grpc_interceptor::LedgerAuthInterceptor;
 ///
-/// let interceptor = LedgerAuthInterceptor::new(signing_key_cache, internal_loader, config);
+/// let interceptor = LedgerAuthInterceptor::new(signing_key_cache, internal_loader);
 ///
 /// Server::builder()
 ///     .add_service(AuthorizationServiceServer::with_interceptor(service, interceptor))
@@ -104,8 +103,6 @@ pub fn extract_bearer_from_metadata(metadata: &MetadataMap) -> Result<String, Au
 pub struct LedgerAuthInterceptor {
     signing_key_cache: Arc<SigningKeyCache>,
     internal_loader: Option<Arc<InternalJwksLoader>>,
-    #[allow(dead_code)] // May be used for future token validation config
-    config: Arc<TokenConfig>,
 }
 
 impl LedgerAuthInterceptor {
@@ -113,9 +110,8 @@ impl LedgerAuthInterceptor {
     pub fn new(
         signing_key_cache: Arc<SigningKeyCache>,
         internal_loader: Option<Arc<InternalJwksLoader>>,
-        config: Arc<TokenConfig>,
     ) -> Self {
-        Self { signing_key_cache, internal_loader, config }
+        Self { signing_key_cache, internal_loader }
     }
 
     /// Authenticate a gRPC request using Ledger-backed signing keys

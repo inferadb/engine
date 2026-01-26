@@ -1,15 +1,12 @@
 //! Watch endpoint using Server-Sent Events
 
-use std::sync::Arc;
-
 use axum::{
     Json,
     extract::State,
     response::sse::{Event, KeepAlive, Sse},
 };
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use inferadb_engine_const::scopes::*;
-use inferadb_engine_store::RelationshipStore;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -77,72 +74,46 @@ pub async fn watch_handler(
         current.next()
     };
 
-    let resource_types = request.resource_types;
-    let store: Arc<dyn RelationshipStore> = Arc::clone(&state.store) as Arc<dyn RelationshipStore>;
+    // Use WatchService for the polling logic
+    let change_stream =
+        state.watch_service.watch_changes(vault, start_revision, request.resource_types);
 
-    // Create a continuous polling stream
-    let stream = async_stream::stream! {
-        let mut last_revision = start_revision;
+    // Transform ChangeEvent stream to SSE Event stream
+    let stream = change_stream.map(|result| match result {
+        Ok(event) => {
+            let timestamp = {
+                let secs = event.timestamp_nanos / 1_000_000_000;
+                let nanos = (event.timestamp_nanos % 1_000_000_000) as u32;
+                chrono::DateTime::from_timestamp(secs, nanos)
+                    .map(|dt| dt.to_rfc3339())
+                    .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
+            };
 
-        loop {
-            // Read changes from the change log
-            match store.read_changes(vault, last_revision, &resource_types, Some(100)).await {
-                Ok(events) => {
-                    for event in &events {
-                        // Format timestamp as ISO 8601
-                        let timestamp = {
-                            let secs = event.timestamp_nanos / 1_000_000_000;
-                            let nanos = (event.timestamp_nanos % 1_000_000_000) as u32;
-                            chrono::DateTime::from_timestamp(secs, nanos)
-                                .map(|dt| dt.to_rfc3339())
-                                .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
-                        };
+            let operation = match event.operation {
+                inferadb_engine_types::ChangeOperation::Create => "create",
+                inferadb_engine_types::ChangeOperation::Delete => "delete",
+            };
 
-                        let operation = match event.operation {
-                            inferadb_engine_types::ChangeOperation::Create => "create",
-                            inferadb_engine_types::ChangeOperation::Delete => "delete",
-                        };
+            let data = serde_json::json!({
+                "operation": operation,
+                "relationship": {
+                    "resource": event.relationship.resource,
+                    "relation": event.relationship.relation,
+                    "subject": event.relationship.subject,
+                },
+                "revision": event.revision.0.to_string(),
+                "timestamp": timestamp,
+            });
 
-                        let data = serde_json::json!({
-                            "operation": operation,
-                            "relationship": {
-                                "resource": event.relationship.resource,
-                                "relation": event.relationship.relation,
-                                "subject": event.relationship.subject,
-                            },
-                            "revision": event.revision.0.to_string(),
-                            "timestamp": timestamp,
-                        });
-
-                        last_revision = event.revision.next();
-
-                        let result = Event::default()
-                            .event("change")
-                            .json_data(data);
-
-                        yield result;
-                    }
-
-                    // If no events, wait a bit before polling again
-                    if events.is_empty() {
-                        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                    }
-                }
-                Err(e) => {
-                    let error_data = serde_json::json!({
-                        "error": format!("Failed to read changes: {}", e)
-                    });
-
-                    let result = Event::default()
-                        .event("error")
-                        .json_data(error_data);
-
-                    yield result;
-                    break;
-                }
-            }
-        }
-    };
+            Event::default().event("change").json_data(data)
+        },
+        Err(e) => {
+            let error_data = serde_json::json!({
+                "error": e.to_string()
+            });
+            Event::default().event("error").json_data(error_data)
+        },
+    });
 
     Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }

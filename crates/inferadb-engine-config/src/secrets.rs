@@ -479,8 +479,6 @@ impl SecretProvider for GcpSecretsProvider {
 #[cfg(feature = "azure-secrets")]
 pub struct AzureSecretsProvider {
     client: SecretClient,
-    #[allow(dead_code)]
-    vault_url: String,
 }
 
 #[cfg(feature = "azure-secrets")]
@@ -521,7 +519,7 @@ impl AzureSecretsProvider {
             SecretError::InvalidFormat(format!("Failed to create Azure Key Vault client: {}", e))
         })?;
 
-        Ok(Self { client, vault_url: vault_url_str })
+        Ok(Self { client })
     }
 
     /// Get a secret from Azure Key Vault (async)

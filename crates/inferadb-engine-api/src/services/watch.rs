@@ -29,48 +29,24 @@ impl WatchService {
     ///
     /// # Arguments
     /// * `vault` - The vault ID for multi-tenant isolation
-    /// * `cursor` - Optional cursor to resume from a specific point
-    /// * `resource_type` - Optional filter to only watch changes for a specific resource type
+    /// * `start_revision` - The revision to start watching from
+    /// * `resource_types` - Filter to only watch changes for specific resource types (empty = all)
     ///
     /// # Returns
     /// A stream of change events
-    ///
-    /// # Errors
-    /// Returns `ApiError::Internal` if the watch stream cannot be created
-    ///
-    /// # Implementation
-    /// This uses polling on the change log with a small delay between polls.
-    /// For production use, a push-based mechanism would be more efficient.
     #[tracing::instrument(skip(self), fields(vault = %vault))]
-    pub async fn watch_changes(
+    pub fn watch_changes(
         &self,
         vault: i64,
-        cursor: Option<String>,
-        resource_type: Option<String>,
-    ) -> std::result::Result<ChangeStream, ApiError> {
-        // Parse cursor or start from current revision
-        let start_revision =
-            if let Some(cursor_str) = cursor {
-                Revision(cursor_str.parse::<u64>().map_err(|_| {
-                    ApiError::InvalidRequest(format!("Invalid cursor: {}", cursor_str))
-                })?)
-            } else {
-                // Start from current revision
-                self.store.get_revision(vault).await.map_err(|e| {
-                    ApiError::Internal(format!("Failed to get current revision: {}", e))
-                })?
-            };
-
+        start_revision: Revision,
+        resource_types: Vec<String>,
+    ) -> ChangeStream {
         let store = Arc::clone(&self.store);
-        let resource_types: Vec<String> = resource_type.into_iter().collect();
 
-        // Create a polling stream that checks for new changes
         let stream = async_stream::stream! {
             let mut current_revision = start_revision;
 
             loop {
-                // Check for new changes since last revision
-                // Now uses the trait method directly since RelationshipStore has read_changes
                 let changes_result = store.read_changes(vault, current_revision, &resource_types, Some(100)).await;
 
                 match changes_result {
@@ -81,7 +57,6 @@ impl WatchService {
                         }
                     }
                     Ok(_) => {
-                        // No new changes, wait before polling again
                         tokio::time::sleep(Duration::from_millis(100)).await;
                     }
                     Err(e) => {
@@ -92,7 +67,7 @@ impl WatchService {
             }
         };
 
-        Ok(Box::pin(stream))
+        Box::pin(stream)
     }
 }
 
@@ -113,8 +88,8 @@ mod tests {
 
         let service = WatchService::new(Arc::clone(&store));
 
-        // Start watching
-        let mut stream = service.watch_changes(vault, None, None).await.unwrap();
+        // Start watching from revision 0
+        let mut stream = service.watch_changes(vault, Revision::zero(), vec![]);
 
         // Write a relationship (this should trigger a change event)
         let relationships = vec![Relationship {
@@ -150,10 +125,10 @@ mod tests {
         let service = WatchService::new(store);
 
         // Watch with resource type filter
-        let stream = service.watch_changes(vault, None, Some("document".to_string())).await;
+        let stream = service.watch_changes(vault, Revision::zero(), vec!["document".to_string()]);
 
-        // Should succeed in creating the stream
-        assert!(stream.is_ok());
+        // Should succeed in creating the stream (sync function, always succeeds)
+        let _ = stream;
     }
 
     #[tokio::test]
@@ -165,8 +140,8 @@ mod tests {
 
         let service = WatchService::new(Arc::clone(&store));
 
-        // Start watching vault A
-        let mut stream_a = service.watch_changes(vault_a, None, None).await.unwrap();
+        // Start watching vault A from revision 0
+        let mut stream_a = service.watch_changes(vault_a, Revision::zero(), vec![]);
 
         // Write to vault B
         let relationships = vec![Relationship {

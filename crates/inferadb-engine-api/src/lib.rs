@@ -321,36 +321,6 @@ fn build_health_routes() -> Router<AppState> {
         )
 }
 
-/// No-op vault verifier for testing scenarios.
-///
-/// This verifier always succeeds without actually checking the storage backend.
-/// Use this only in tests where Ledger isn't available.
-#[allow(dead_code)]
-struct NoOpVaultVerifier;
-
-#[async_trait::async_trait]
-impl VaultVerifier for NoOpVaultVerifier {
-    async fn verify_vault(
-        &self,
-        vault_id: i64,
-        expected_org_id: i64,
-    ) -> std::result::Result<
-        inferadb_engine_auth::VaultInfo,
-        inferadb_engine_auth::VaultVerificationError,
-    > {
-        // No-op: return the expected values without verification
-        Ok(inferadb_engine_auth::VaultInfo { vault_id, organization_id: expected_org_id })
-    }
-
-    async fn verify_organization(
-        &self,
-        _org_id: i64,
-    ) -> std::result::Result<(), inferadb_engine_auth::VaultVerificationError> {
-        // No-op: always succeed
-        Ok(())
-    }
-}
-
 /// Authentication components for vault verification.
 struct AuthComponents {
     vault_verifier: Arc<dyn VaultVerifier>,
@@ -529,7 +499,6 @@ pub async fn serve_grpc(components: ServerComponents) -> anyhow::Result<()> {
     let interceptor = grpc_interceptor::LedgerAuthInterceptor::new(
         Arc::clone(signing_key_cache),
         internal_loader,
-        Arc::new(components.config.token.clone()),
     );
 
     // Add service with interceptor and reflection

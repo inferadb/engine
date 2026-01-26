@@ -87,6 +87,10 @@ pub struct Config {
     #[serde(default)]
     #[builder(default)]
     pub replication: ReplicationConfig,
+    /// Path to the IPL schema file defining types and relations.
+    /// If not provided, an empty schema is used (all permission checks rely on direct
+    /// relationships).
+    pub schema: Option<String>,
 }
 
 /// Listen address configuration for API servers
