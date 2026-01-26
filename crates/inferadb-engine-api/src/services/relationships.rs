@@ -2,15 +2,12 @@
 
 use std::sync::Arc;
 
-use inferadb_engine_cache::AuthCache;
-use inferadb_engine_core::{Evaluator, ipl::Schema};
-use inferadb_engine_store::RelationshipStore;
 use inferadb_engine_types::{
     DeleteFilter, DeleteResponse, ListRelationshipsRequest, ListRelationshipsResponse,
     Relationship, Revision,
 };
-use inferadb_engine_wasm::WasmHost;
 
+use super::ServiceContext;
 use super::validation::{
     validate_delete_filter, validate_list_relationships_request, validate_relationship,
 };
@@ -21,21 +18,13 @@ use crate::ApiError;
 /// This service handles the business logic for creating, deleting, and listing
 /// relationships. It is protocol-agnostic and used by gRPC, REST, and AuthZEN handlers.
 pub struct RelationshipService {
-    store: Arc<dyn RelationshipStore>,
-    schema: Arc<Schema>,
-    wasm_host: Option<Arc<WasmHost>>,
-    cache: Option<Arc<AuthCache>>,
+    context: Arc<ServiceContext>,
 }
 
 impl RelationshipService {
     /// Creates a new relationship service
-    pub fn new(
-        store: Arc<dyn RelationshipStore>,
-        schema: Arc<Schema>,
-        wasm_host: Option<Arc<WasmHost>>,
-        cache: Option<Arc<AuthCache>>,
-    ) -> Self {
-        Self { store, schema, wasm_host, cache }
+    pub fn new(context: Arc<ServiceContext>) -> Self {
+        Self { context }
     }
 
     /// Writes relationships to the store
@@ -76,6 +65,7 @@ impl RelationshipService {
 
         // Write to store
         let revision = self
+            .context
             .store
             .write(vault, relationships)
             .await
@@ -119,7 +109,7 @@ impl RelationshipService {
 
         // Delete from store
         let (revision, relationships_deleted) =
-            self.store.delete_by_filter(vault, &filter, limit).await.map_err(|e| {
+            self.context.store.delete_by_filter(vault, &filter, limit).await.map_err(|e| {
                 ApiError::Internal(format!("Failed to delete relationships: {}", e))
             })?;
 
@@ -162,13 +152,7 @@ impl RelationshipService {
         );
 
         // Create vault-scoped evaluator
-        let evaluator = Arc::new(Evaluator::new_with_cache(
-            Arc::clone(&self.store),
-            Arc::clone(&self.schema),
-            self.wasm_host.clone(),
-            self.cache.clone(),
-            vault,
-        ));
+        let evaluator = self.context.create_evaluator(vault);
 
         // Execute list operation
         let response = evaluator
@@ -194,7 +178,7 @@ impl RelationshipService {
     /// * `resources` - List of resource identifiers to invalidate
     #[tracing::instrument(skip(self))]
     pub async fn invalidate_cache_for_resources(&self, resources: &[String]) {
-        if let Some(cache) = &self.cache {
+        if let Some(cache) = &self.context.cache {
             cache.invalidate_resources(resources).await;
             tracing::debug!(resource_count = resources.len(), "Cache invalidated for resources");
         }
@@ -209,7 +193,7 @@ impl RelationshipService {
     /// * `vault` - The vault ID to invalidate cache for
     #[tracing::instrument(skip(self), fields(vault = %vault))]
     pub async fn invalidate_cache_for_vault(&self, vault: i64) {
-        if let Some(cache) = &self.cache {
+        if let Some(cache) = &self.context.cache {
             cache.invalidate_vault(vault).await;
             tracing::debug!("Cache invalidated for entire vault");
         }
@@ -218,8 +202,11 @@ impl RelationshipService {
 
 #[cfg(test)]
 mod tests {
-    use inferadb_engine_core::ipl::{RelationDef, RelationExpr, TypeDef};
+    use std::sync::Arc;
+
+    use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use inferadb_engine_repository::EngineStorage;
+    use inferadb_engine_store::RelationshipStore;
     use inferadb_storage::MemoryBackend;
 
     use super::*;
@@ -238,7 +225,8 @@ mod tests {
         }]));
 
         let vault = 12345678901234i64;
-        let service = RelationshipService::new(store, schema, None, None);
+        let context = Arc::new(ServiceContext::builder().store(store).schema(schema).build());
+        let service = RelationshipService::new(context);
 
         (service, vault)
     }
@@ -403,7 +391,8 @@ mod tests {
         let vault_a = 11111111111111i64;
         let vault_b = 22222222222222i64;
 
-        let service = RelationshipService::new(store, schema, None, None);
+        let context = Arc::new(ServiceContext::builder().store(store).schema(schema).build());
+        let service = RelationshipService::new(context);
 
         // Write to vault A
         let relationships = vec![Relationship {

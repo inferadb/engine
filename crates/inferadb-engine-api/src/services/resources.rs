@@ -2,12 +2,9 @@
 
 use std::sync::Arc;
 
-use inferadb_engine_cache::AuthCache;
-use inferadb_engine_core::{Evaluator, ipl::Schema};
-use inferadb_engine_store::RelationshipStore;
 use inferadb_engine_types::{ListResourcesRequest, ListResourcesResponse};
-use inferadb_engine_wasm::WasmHost;
 
+use super::ServiceContext;
 use super::validation::validate_list_resources_request;
 use crate::ApiError;
 
@@ -17,21 +14,13 @@ use crate::ApiError;
 /// a subject can access with a given permission. It is protocol-agnostic
 /// and used by gRPC, REST, and AuthZEN handlers.
 pub struct ResourceService {
-    store: Arc<dyn RelationshipStore>,
-    schema: Arc<Schema>,
-    wasm_host: Option<Arc<WasmHost>>,
-    cache: Option<Arc<AuthCache>>,
+    context: Arc<ServiceContext>,
 }
 
 impl ResourceService {
     /// Creates a new resource service
-    pub fn new(
-        store: Arc<dyn RelationshipStore>,
-        schema: Arc<Schema>,
-        wasm_host: Option<Arc<WasmHost>>,
-        cache: Option<Arc<AuthCache>>,
-    ) -> Self {
-        Self { store, schema, wasm_host, cache }
+    pub fn new(context: Arc<ServiceContext>) -> Self {
+        Self { context }
     }
 
     /// Lists resources accessible to a subject
@@ -64,13 +53,7 @@ impl ResourceService {
         );
 
         // Create vault-scoped evaluator for proper multi-tenant isolation
-        let evaluator = Arc::new(Evaluator::new_with_cache(
-            Arc::clone(&self.store),
-            Arc::clone(&self.schema),
-            self.wasm_host.clone(),
-            self.cache.clone(),
-            vault,
-        ));
+        let evaluator = self.context.create_evaluator(vault);
 
         // Execute list operation
         let response = evaluator
@@ -90,8 +73,11 @@ impl ResourceService {
 
 #[cfg(test)]
 mod tests {
-    use inferadb_engine_core::ipl::{RelationDef, RelationExpr, TypeDef};
+    use std::sync::Arc;
+
+    use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use inferadb_engine_repository::EngineStorage;
+    use inferadb_engine_store::RelationshipStore;
     use inferadb_engine_types::Relationship;
     use inferadb_storage::MemoryBackend;
 
@@ -141,7 +127,8 @@ mod tests {
             .await
             .unwrap();
 
-        let service = ResourceService::new(store, schema, None, None);
+        let context = Arc::new(ServiceContext::builder().store(store).schema(schema).build());
+        let service = ResourceService::new(context);
 
         (service, vault)
     }
@@ -251,7 +238,8 @@ mod tests {
             .await
             .unwrap();
 
-        let service = ResourceService::new(store, schema, None, None);
+        let context = Arc::new(ServiceContext::builder().store(store).schema(schema).build());
+        let service = ResourceService::new(context);
 
         let request = ListResourcesRequest {
             subject: "user:alice".to_string(),

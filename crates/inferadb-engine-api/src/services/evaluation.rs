@@ -2,12 +2,10 @@
 
 use std::sync::Arc;
 
-use inferadb_engine_cache::AuthCache;
-use inferadb_engine_core::{DecisionTrace, Evaluator, ipl::Schema};
-use inferadb_engine_store::RelationshipStore;
+use inferadb_engine_core::DecisionTrace;
 use inferadb_engine_types::{Decision, EvaluateRequest};
-use inferadb_engine_wasm::WasmHost;
 
+use super::ServiceContext;
 use super::validation::validate_evaluate_request;
 use crate::ApiError;
 
@@ -17,21 +15,13 @@ use crate::ApiError;
 /// including vault-scoped evaluator creation, request validation, and decision
 /// execution. It is protocol-agnostic and used by gRPC, REST, and AuthZEN handlers.
 pub struct EvaluationService {
-    store: Arc<dyn RelationshipStore>,
-    schema: Arc<Schema>,
-    wasm_host: Option<Arc<WasmHost>>,
-    cache: Option<Arc<AuthCache>>,
+    context: Arc<ServiceContext>,
 }
 
 impl EvaluationService {
     /// Creates a new evaluation service
-    pub fn new(
-        store: Arc<dyn RelationshipStore>,
-        schema: Arc<Schema>,
-        wasm_host: Option<Arc<WasmHost>>,
-        cache: Option<Arc<AuthCache>>,
-    ) -> Self {
-        Self { store, schema, wasm_host, cache }
+    pub fn new(context: Arc<ServiceContext>) -> Self {
+        Self { context }
     }
 
     /// Evaluates a single authorization request
@@ -63,13 +53,7 @@ impl EvaluationService {
         );
 
         // Create vault-scoped evaluator for proper multi-tenant isolation
-        let evaluator = Arc::new(Evaluator::new_with_cache(
-            Arc::clone(&self.store),
-            Arc::clone(&self.schema),
-            self.wasm_host.clone(),
-            self.cache.clone(),
-            vault,
-        ));
+        let evaluator = self.context.create_evaluator(vault);
 
         // Execute evaluation
         let decision = evaluator
@@ -111,13 +95,7 @@ impl EvaluationService {
         );
 
         // Create vault-scoped evaluator
-        let evaluator = Arc::new(Evaluator::new_with_cache(
-            Arc::clone(&self.store),
-            Arc::clone(&self.schema),
-            self.wasm_host.clone(),
-            self.cache.clone(),
-            vault,
-        ));
+        let evaluator = self.context.create_evaluator(vault);
 
         // Execute evaluation with trace
         let trace = evaluator
@@ -198,8 +176,11 @@ impl EvaluationService {
 
 #[cfg(test)]
 mod tests {
-    use inferadb_engine_core::ipl::{RelationDef, RelationExpr, TypeDef};
+    use std::sync::Arc;
+
+    use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use inferadb_engine_repository::EngineStorage;
+    use inferadb_engine_store::RelationshipStore;
     use inferadb_engine_types::Relationship;
     use inferadb_storage::MemoryBackend;
 
@@ -235,7 +216,8 @@ mod tests {
             .await
             .unwrap();
 
-        let service = EvaluationService::new(store, schema, None, None);
+        let context = Arc::new(ServiceContext::builder().store(store).schema(schema).build());
+        let service = EvaluationService::new(context);
 
         (service, vault)
     }
@@ -364,7 +346,8 @@ mod tests {
             .await
             .unwrap();
 
-        let service = EvaluationService::new(store, schema, None, None);
+        let context = Arc::new(ServiceContext::builder().store(store).schema(schema).build());
+        let service = EvaluationService::new(context);
 
         let request = EvaluateRequest {
             subject: "user:alice".to_string(),

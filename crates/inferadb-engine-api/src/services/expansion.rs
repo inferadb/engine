@@ -2,12 +2,9 @@
 
 use std::sync::Arc;
 
-use inferadb_engine_cache::AuthCache;
-use inferadb_engine_core::{Evaluator, ipl::Schema};
-use inferadb_engine_store::RelationshipStore;
 use inferadb_engine_types::{ExpandRequest, ExpandResponse};
-use inferadb_engine_wasm::WasmHost;
 
+use super::ServiceContext;
 use crate::ApiError;
 
 /// Service for expanding relationship graphs
@@ -16,21 +13,13 @@ use crate::ApiError;
 /// to discover all subjects that have a specific permission on a resource.
 /// It is protocol-agnostic and used by gRPC, REST, and AuthZEN handlers.
 pub struct ExpansionService {
-    store: Arc<dyn RelationshipStore>,
-    schema: Arc<Schema>,
-    wasm_host: Option<Arc<WasmHost>>,
-    cache: Option<Arc<AuthCache>>,
+    context: Arc<ServiceContext>,
 }
 
 impl ExpansionService {
     /// Creates a new expansion service
-    pub fn new(
-        store: Arc<dyn RelationshipStore>,
-        schema: Arc<Schema>,
-        wasm_host: Option<Arc<WasmHost>>,
-        cache: Option<Arc<AuthCache>>,
-    ) -> Self {
-        Self { store, schema, wasm_host, cache }
+    pub fn new(context: Arc<ServiceContext>) -> Self {
+        Self { context }
     }
 
     /// Expands a relationship graph
@@ -75,13 +64,7 @@ impl ExpansionService {
         );
 
         // Create vault-scoped evaluator for proper multi-tenant isolation
-        let evaluator = Arc::new(Evaluator::new_with_cache(
-            Arc::clone(&self.store),
-            Arc::clone(&self.schema),
-            self.wasm_host.clone(),
-            self.cache.clone(),
-            vault,
-        ));
+        let evaluator = self.context.create_evaluator(vault);
 
         // Execute expansion
         let response = evaluator.expand(request.clone()).await.map_err(|e| {
@@ -102,8 +85,11 @@ impl ExpansionService {
 
 #[cfg(test)]
 mod tests {
-    use inferadb_engine_core::ipl::{RelationDef, RelationExpr, TypeDef};
+    use std::sync::Arc;
+
+    use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
     use inferadb_engine_repository::EngineStorage;
+    use inferadb_engine_store::RelationshipStore;
     use inferadb_engine_types::Relationship;
     use inferadb_storage::MemoryBackend;
 
@@ -147,7 +133,8 @@ mod tests {
             .await
             .unwrap();
 
-        let service = ExpansionService::new(Arc::clone(&store), schema, None, None);
+        let context = Arc::new(ServiceContext::builder().store(store).schema(schema).build());
+        let service = ExpansionService::new(context);
 
         (service, vault)
     }
@@ -265,7 +252,8 @@ mod tests {
             .await
             .unwrap();
 
-        let service = ExpansionService::new(store, schema, None, None);
+        let context = Arc::new(ServiceContext::builder().store(store).schema(schema).build());
+        let service = ExpansionService::new(context);
 
         let request = ExpandRequest {
             resource: "document:readme".to_string(),

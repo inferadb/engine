@@ -191,41 +191,20 @@ impl AppState {
         // Determine which cache to pass to services
         let service_cache = if config.cache.enabled { Some(Arc::clone(&auth_cache)) } else { None };
 
-        // Create services with shared cache
-        let evaluation_service = Arc::new(services::EvaluationService::new(
-            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
-            service_cache.clone(),
-        ));
+        // Create shared service context
+        let service_context = Arc::new(services::ServiceContext::builder()
+            .store(Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>)
+            .schema(Arc::clone(&schema))
+            .maybe_wasm_host(wasm_host)
+            .maybe_cache(service_cache)
+            .build());
 
-        let resource_service = Arc::new(services::ResourceService::new(
-            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
-            service_cache.clone(),
-        ));
-
-        let subject_service = Arc::new(services::SubjectService::new(
-            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
-            service_cache.clone(),
-        ));
-
-        let relationship_service = Arc::new(services::RelationshipService::new(
-            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
-            service_cache.clone(),
-        ));
-
-        let expansion_service = Arc::new(services::ExpansionService::new(
-            Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>,
-            Arc::clone(&schema),
-            wasm_host.clone(),
-            service_cache,
-        ));
+        // Create services from shared context
+        let evaluation_service = Arc::new(services::EvaluationService::new(Arc::clone(&service_context)));
+        let resource_service = Arc::new(services::ResourceService::new(Arc::clone(&service_context)));
+        let subject_service = Arc::new(services::SubjectService::new(Arc::clone(&service_context)));
+        let relationship_service = Arc::new(services::RelationshipService::new(Arc::clone(&service_context)));
+        let expansion_service = Arc::new(services::ExpansionService::new(Arc::clone(&service_context)));
 
         let watch_service = Arc::new(services::WatchService::new(
             Arc::clone(&store) as Arc<dyn inferadb_engine_store::RelationshipStore>
