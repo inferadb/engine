@@ -242,6 +242,7 @@ mod tests {
             token: crate::TokenConfig::default(),
             pem: None,
             replication: crate::ReplicationConfig::default(),
+            schema: None,
         };
 
         match validate(&config) {

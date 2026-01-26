@@ -472,17 +472,19 @@ impl FailableStore {
     /// Reconstruct error since StorageError doesn't implement Clone
     fn reconstruct_error(error: &inferadb_storage::StorageError) -> inferadb_storage::StorageError {
         match error {
-            inferadb_storage::StorageError::Connection(msg) => {
-                inferadb_storage::StorageError::Connection(msg.clone())
+            inferadb_storage::StorageError::Connection { message, .. } => {
+                inferadb_storage::StorageError::connection(message)
             },
-            inferadb_storage::StorageError::Timeout => inferadb_storage::StorageError::Timeout,
-            inferadb_storage::StorageError::NotFound(msg) => {
-                inferadb_storage::StorageError::NotFound(msg.clone())
+            inferadb_storage::StorageError::Timeout { .. } => {
+                inferadb_storage::StorageError::timeout()
             },
-            inferadb_storage::StorageError::Internal(msg) => {
-                inferadb_storage::StorageError::Internal(msg.clone())
+            inferadb_storage::StorageError::NotFound { key, .. } => {
+                inferadb_storage::StorageError::not_found(key)
             },
-            _ => inferadb_storage::StorageError::Internal("unknown error type".to_string()),
+            inferadb_storage::StorageError::Internal { message, .. } => {
+                inferadb_storage::StorageError::internal(message)
+            },
+            _ => inferadb_storage::StorageError::internal("unknown error type"),
         }
     }
 }
@@ -604,9 +606,8 @@ async fn test_ledger_unavailability_fallback_integration() {
         cache.get_decoding_key(namespace_id, &kid).await.expect("initial fetch should succeed");
 
     // Simulate Ledger becoming unavailable (connection error)
-    failable_store.set_failure(Some(inferadb_storage::StorageError::Connection(
-        "simulated network failure".to_string(),
-    )));
+    failable_store
+        .set_failure(Some(inferadb_storage::StorageError::connection("simulated network failure")));
 
     // Clear the TTL cache to force a "refetch" attempt
     cache.clear_all().await;
@@ -671,7 +672,7 @@ async fn test_ledger_timeout_fallback_integration() {
     let _ = cache.get_decoding_key(namespace_id, &kid).await.expect("initial fetch should succeed");
 
     // Simulate timeout
-    failable_store.set_failure(Some(inferadb_storage::StorageError::Timeout));
+    failable_store.set_failure(Some(inferadb_storage::StorageError::timeout()));
 
     // Clear TTL cache
     cache.clear_all().await;
@@ -720,9 +721,8 @@ async fn test_non_transient_error_no_fallback_integration() {
     let _ = cache.get_decoding_key(namespace_id, &kid).await.expect("initial fetch should succeed");
 
     // Simulate internal error (non-transient)
-    failable_store.set_failure(Some(inferadb_storage::StorageError::Internal(
-        "database corruption".to_string(),
-    )));
+    failable_store
+        .set_failure(Some(inferadb_storage::StorageError::internal("database corruption")));
 
     // Clear TTL cache
     cache.clear_all().await;

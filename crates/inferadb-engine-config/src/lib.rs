@@ -626,6 +626,7 @@ impl Default for Config {
             token: TokenConfig::default(),
             pem: None,
             replication: ReplicationConfig::default(),
+            schema: None,
         }
     }
 }

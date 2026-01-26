@@ -52,12 +52,12 @@ pub enum RepositoryError {
 impl From<StorageError> for RepositoryError {
     fn from(err: StorageError) -> Self {
         match err {
-            StorageError::NotFound(key) => RepositoryError::NotFound(key),
-            StorageError::Conflict => RepositoryError::Conflict,
-            StorageError::Connection(msg) => RepositoryError::Connection(msg),
-            StorageError::Serialization(msg) => RepositoryError::Serialization(msg),
-            StorageError::Timeout => RepositoryError::Timeout,
-            StorageError::Internal(msg) => RepositoryError::Internal(msg),
+            StorageError::NotFound { key, .. } => RepositoryError::NotFound(key),
+            StorageError::Conflict { .. } => RepositoryError::Conflict,
+            StorageError::Connection { message, .. } => RepositoryError::Connection(message),
+            StorageError::Serialization { message, .. } => RepositoryError::Serialization(message),
+            StorageError::Timeout { .. } => RepositoryError::Timeout,
+            StorageError::Internal { message, .. } => RepositoryError::Internal(message),
         }
     }
 }
@@ -68,15 +68,15 @@ mod tests {
 
     #[test]
     fn test_storage_error_conversion() {
-        let storage_err = StorageError::NotFound("test_key".to_string());
+        let storage_err = StorageError::not_found("test_key");
         let repo_err: RepositoryError = storage_err.into();
         assert!(matches!(repo_err, RepositoryError::NotFound(_)));
 
-        let storage_err = StorageError::Conflict;
+        let storage_err = StorageError::conflict();
         let repo_err: RepositoryError = storage_err.into();
         assert!(matches!(repo_err, RepositoryError::Conflict));
 
-        let storage_err = StorageError::Timeout;
+        let storage_err = StorageError::timeout();
         let repo_err: RepositoryError = storage_err.into();
         assert!(matches!(repo_err, RepositoryError::Timeout));
     }

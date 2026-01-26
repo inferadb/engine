@@ -337,7 +337,7 @@ impl SigningKeyCache {
 /// Non-transient errors (not found, serialization, internal) indicate a
 /// definitive response from Ledger and should not use fallback.
 fn is_transient_error(error: &StorageError) -> bool {
-    matches!(error, StorageError::Connection(_) | StorageError::Timeout)
+    matches!(error, StorageError::Connection { .. } | StorageError::Timeout { .. })
 }
 
 /// Validates that a key is in a usable state.
@@ -742,11 +742,11 @@ mod tests {
         ) -> Result<Option<PublicSigningKey>, StorageError> {
             if let Some(ref error) = *self.fail_with.lock().expect("lock") {
                 return Err(match error {
-                    StorageError::Connection(msg) => StorageError::Connection(msg.clone()),
-                    StorageError::Timeout => StorageError::Timeout,
-                    StorageError::NotFound(msg) => StorageError::NotFound(msg.clone()),
-                    StorageError::Internal(msg) => StorageError::Internal(msg.clone()),
-                    _ => StorageError::Internal("unknown".to_string()),
+                    StorageError::Connection { message, .. } => StorageError::connection(message),
+                    StorageError::Timeout { .. } => StorageError::timeout(),
+                    StorageError::NotFound { key, .. } => StorageError::not_found(key),
+                    StorageError::Internal { message, .. } => StorageError::internal(message),
+                    _ => StorageError::internal("unknown"),
                 });
             }
             self.inner.get_key(namespace_id, kid).await
@@ -797,7 +797,7 @@ mod tests {
         assert!(result1.is_ok());
 
         // Simulate Ledger connection failure
-        store.set_failure(Some(StorageError::Connection("network error".to_string())));
+        store.set_failure(Some(StorageError::connection("network error")));
 
         // Clear TTL cache to force Ledger lookup
         cache.clear_all().await;
@@ -824,7 +824,7 @@ mod tests {
         assert!(result1.is_ok());
 
         // Simulate Ledger timeout
-        store.set_failure(Some(StorageError::Timeout));
+        store.set_failure(Some(StorageError::timeout()));
 
         // Clear TTL cache
         cache.clear_all().await;
@@ -851,7 +851,7 @@ mod tests {
         assert!(result1.is_ok());
 
         // Simulate non-transient internal error (should NOT use fallback)
-        store.set_failure(Some(StorageError::Internal("db corruption".to_string())));
+        store.set_failure(Some(StorageError::internal("db corruption")));
 
         // Clear TTL cache
         cache.clear_all().await;
@@ -876,7 +876,7 @@ mod tests {
         );
 
         // Simulate connection failure with no prior cache
-        store.set_failure(Some(StorageError::Connection("network error".to_string())));
+        store.set_failure(Some(StorageError::connection("network error")));
 
         // Should return error since no fallback available
         let result = cache.get_decoding_key(1, "unknown-key").await;
@@ -888,25 +888,25 @@ mod tests {
 
     #[test]
     fn test_is_transient_error_connection() {
-        let error = StorageError::Connection("network error".to_string());
+        let error = StorageError::connection("network error");
         assert!(is_transient_error(&error));
     }
 
     #[test]
     fn test_is_transient_error_timeout() {
-        let error = StorageError::Timeout;
+        let error = StorageError::timeout();
         assert!(is_transient_error(&error));
     }
 
     #[test]
     fn test_is_transient_error_not_found() {
-        let error = StorageError::NotFound("key".to_string());
+        let error = StorageError::not_found("key");
         assert!(!is_transient_error(&error));
     }
 
     #[test]
     fn test_is_transient_error_internal() {
-        let error = StorageError::Internal("oops".to_string());
+        let error = StorageError::internal("oops");
         assert!(!is_transient_error(&error));
     }
 
@@ -1062,7 +1062,7 @@ mod tests {
     #[tokio::test]
     async fn test_metrics_storage_error() {
         let store = Arc::new(FailingStore::new());
-        store.set_failure(Some(StorageError::Internal("db error".to_string())));
+        store.set_failure(Some(StorageError::internal("db error")));
 
         let metrics = create_test_metrics();
         let cache = SigningKeyCache::new(
