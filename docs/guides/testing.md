@@ -879,6 +879,140 @@ Current test statistics:
 
 ---
 
+## Test Performance Monitoring
+
+InferaDB tracks test execution times to detect performance regressions. The `analyze-test-times.py` script parses JUnit XML output from nextest and compares against baseline timings.
+
+### Running Performance Analysis
+
+```bash
+# Run tests first (generates JUnit XML)
+cargo nextest run --profile ci
+
+# Analyze test times
+python3 scripts/analyze-test-times.py
+
+# Analyze specific JUnit file
+python3 scripts/analyze-test-times.py --junit target/nextest/fast/junit-fast.xml
+
+# Update baseline (after intentional changes)
+python3 scripts/analyze-test-times.py --update-baseline
+```
+
+### Performance Thresholds
+
+| Threshold | Default | Description |
+|-----------|---------|-------------|
+| Slow test | 1.0s | Tests exceeding this are flagged as slow |
+| Regression | 20% | Tests slowing by this percentage are regressions |
+
+### CI Integration
+
+The CI workflow automatically analyzes test performance:
+- Slow tests are reported as warnings (informational)
+- Regressions against baseline fail the build
+- New tests without baselines are allowed
+- Use `--update-baseline` to accept intentional timing changes
+
+### Performance Expectations
+
+| Test Category | Expected Time |
+|---------------|---------------|
+| Unit tests | <100ms each |
+| Integration tests | <500ms each |
+| Property tests (per case) | <10ms |
+| Security tests | <200ms each |
+| Total fast tier | <15s |
+| Total standard tier | <30s |
+
+### Managing Baselines
+
+Baselines are stored in `.config/test-baselines.json`. Update baselines when:
+- Adding new tests
+- Intentionally making tests slower (more thorough)
+- Optimizing tests to be faster
+- Changing hardware/CI runners
+
+```bash
+# Accept new baselines after optimization
+python3 scripts/analyze-test-times.py --update-baseline
+
+# Commit the updated baseline
+git add .config/test-baselines.json
+git commit -m "chore: update test baselines"
+```
+
+---
+
+## Troubleshooting
+
+### Tests timeout or hang
+
+**Symptom**: Tests don't complete within expected time.
+
+**Solutions**:
+1. Check for infinite loops in async code (missing `.await`)
+2. Reduce proptest cases: `PROPTEST_CASES=10 cargo test`
+3. Run single test to isolate: `cargo test test_name -- --nocapture`
+4. Check for deadlocks with `RUST_BACKTRACE=1`
+
+### Proptest failures don't reproduce
+
+**Symptom**: Proptest finds a failure but re-running passes.
+
+**Solutions**:
+1. Check for proptest regression file in `proptest-regressions/`
+2. Use fixed seed for debugging: `PROPTEST_MAX_SHRINK_ITERS=0 cargo test`
+3. Ensure test is deterministic (no time-based logic)
+
+### Tests pass locally but fail in CI
+
+**Symptom**: Green locally, red in CI.
+
+**Solutions**:
+1. CI uses fewer proptest cases (10 vs 50) - try: `PROPTEST_CASES=10 cargo test`
+2. CI uses `--profile fast` - try: `cargo nextest run --profile fast`
+3. Check for timing-sensitive tests (use mocked time)
+4. Verify feature flags match: CI may use `test-fast` or `test-full`
+
+### Out of memory during tests
+
+**Symptom**: Tests killed with OOM.
+
+**Solutions**:
+1. Reduce test parallelism: `cargo test -- --test-threads=4`
+2. Run one package at a time: `cargo test -p inferadb-engine-core`
+3. Check for memory leaks with `valgrind` or `heaptrack`
+
+### Slow test warnings
+
+**Symptom**: Performance analysis reports slow tests.
+
+**Solutions**:
+1. If intentional: `python3 scripts/analyze-test-times.py --update-baseline`
+2. If regression: profile the test with `cargo flamegraph`
+3. Consider splitting into smoke test (fast) and fuzz test (full tier only)
+
+### Test not found
+
+**Symptom**: `cargo test test_name` finds no tests.
+
+**Solutions**:
+1. Check exact name: `cargo test -- --list | grep test_name`
+2. Ensure test isn't gated: `cargo test --features test-full`
+3. Check if test is ignored: `cargo test -- --ignored`
+
+### Nextest archive issues
+
+**Symptom**: "archive does not match" errors.
+
+**Solutions**:
+1. Rebuild archive: `cargo nextest archive --workspace`
+2. Clean target: `cargo clean && cargo build`
+3. Ensure features match between build and run
+
+---
+
 ## Next Steps
 
 - [Building from Source](building.md) - Set up development environment

@@ -271,6 +271,25 @@ jobs:
           RUSTFLAGS: ""
         run: cargo test --workspace --doc
 
+      - name: Analyze test performance
+        if: always()
+        run: |
+          # Find the JUnit file based on profile used
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            JUNIT_FILE="target/nextest/fast/junit-fast.xml"
+          else
+            JUNIT_FILE="target/nextest/ci/junit.xml"
+          fi
+
+          if [[ -f "$JUNIT_FILE" ]]; then
+            python3 scripts/analyze-test-times.py \
+              --junit "$JUNIT_FILE" \
+              --no-fail-on-slow \
+              --regression-threshold 25
+          else
+            echo "JUnit file not found: $JUNIT_FILE"
+          fi
+
       - name: Publish test results
         uses: step-security/publish-unit-test-result-action@914f0f642c242f38335a491805adfc9bd64b1cbb # v2.21.1
         if: always()
