@@ -4,15 +4,23 @@
 //! allowing consistent case counts across all test suites and environment-aware
 //! adjustment for CI, local development, and nightly test runs.
 //!
-//! # Environment Variable
+//! # Test Tiers
 //!
-//! The `PROPTEST_CASES` environment variable controls the number of test cases:
+//! The default case count is determined by the active test tier (via Cargo features):
 //!
-//! | Environment | Value | Use Case |
-//! |-------------|-------|----------|
-//! | CI (PRs)    | 25    | Fast feedback on pull requests |
-//! | Local dev   | 50    | Default balance of speed and coverage |
-//! | Nightly     | 500   | Comprehensive fuzzing for releases |
+//! | Tier     | Feature Flag  | Default Cases | Use Case                    |
+//! |----------|---------------|---------------|-----------------------------|
+//! | Fast     | `test-fast`   | 10            | PR checks, pre-commit       |
+//! | Standard | (default)     | 50            | Regular CI, local dev       |
+//! | Full     | `test-full`   | 500           | Nightly, release validation |
+//!
+//! # Environment Override
+//!
+//! The `PROPTEST_CASES` environment variable overrides the tier default:
+//!
+//! ```bash
+//! PROPTEST_CASES=100 cargo test  # Override to 100 cases regardless of tier
+//! ```
 //!
 //! # Usage
 //!
@@ -20,10 +28,12 @@
 //!
 //! ```no_run
 //! use inferadb_engine_test_fixtures::proptest_config::proptest_config;
+//! use proptest::prelude::*;
 //! use proptest::test_runner::TestRunner;
 //!
+//! let strategy = any::<u32>();
 //! let mut runner = TestRunner::new(proptest_config());
-//! runner.run(&strategy, |input| {
+//! runner.run(&strategy, |_input| {
 //!     // test logic
 //!     Ok(())
 //! }).expect("proptest failed");
@@ -37,7 +47,7 @@
 //!
 //! proptest! {
 //!     #![proptest_config(ProptestConfig::with_cases(test_cases()))]
-//!     
+//!
 //!     #[test]
 //!     fn my_property_test(input in any::<u32>()) {
 //!         // test logic
@@ -47,10 +57,16 @@
 
 use proptest::test_runner::Config as ProptestConfig;
 
-/// Default number of proptest cases for local development.
+use crate::tier;
+
+/// Default number of proptest cases based on the active test tier.
 ///
-/// This value balances thoroughness with execution speed for day-to-day development.
-pub const DEFAULT_PROPTEST_CASES: u32 = 50;
+/// - Fast tier (`test-fast` feature): 10 cases
+/// - Standard tier (default): 50 cases
+/// - Full tier (`test-full` feature): 500 cases
+///
+/// This value is determined at compile time based on active Cargo features.
+pub const DEFAULT_PROPTEST_CASES: u32 = tier::tier_proptest_cases();
 
 /// Returns the number of test cases to run, reading from `PROPTEST_CASES` environment variable.
 ///

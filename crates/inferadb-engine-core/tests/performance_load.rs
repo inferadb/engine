@@ -16,30 +16,35 @@
 //!
 //! ```bash
 //! # Run all load tests (WARNING: Can take 10+ minutes)
-//! cargo test --package infera-core --test performance_load -- --ignored --nocapture
+//! cargo test --package inferadb-engine-core --test performance_load -- --ignored --nocapture
 //!
 //! # Run specific test
-//! cargo test --package infera-core --test performance_load test_sustained_throughput_100k_rps -- --ignored --nocapture
+//! cargo test --package inferadb-engine-core --test performance_load test_sustained_throughput_100k_rps -- --ignored --nocapture
 //!
-//! # Run non-ignored performance tests only (faster, suitable for CI)
-//! cargo test --package infera-core --test performance_load
+//! # Run with nextest (recommended)
+//! cargo nextest run --package inferadb-engine-core --test performance_load --run-ignored all
+//!
+//! # Run non-ignored sanity tests only (fast, suitable for CI)
+//! cargo test --package inferadb-engine-core --test performance_load
 //! ```
 //!
 //! ## Test Categories
 //!
-//! ### Load Tests (Ignored)
+//! ### Load Tests (Ignored - require --ignored flag)
 //! - `test_sustained_throughput_100k_rps`: 10s sustained 100K RPS load
+//! - `test_latency_p99_under_10ms`: SLO validation (10K requests)
+//! - `test_spike_load`: Handle sudden traffic spikes (20K+ requests)
 //! - `test_stress_beyond_capacity`: Gradually increase load to find limits
 //! - `test_soak_24h_simulation`: 60s simulating 24h continuous load
 //!
-//! ### Scale Tests (Ignored)
+//! ### Scale Tests (Ignored - require --ignored flag)
 //! - `test_large_graph_1m_relationships`: Performance with 1M+ relationships
 //! - `test_wide_expansion_10k_users`: Expansion with 10K+ users per resource
 //!
-//! ### Fast Tests (Not Ignored)
-//! - `test_latency_p99_under_10ms`: SLO validation (10K requests)
-//! - `test_spike_load`: Handle sudden traffic spikes
-//! - `test_deep_nesting_10_levels`: Deep permission hierarchies
+//! ### Sanity Tests (Always run - verify same code paths with minimal iterations)
+//! - `sanity_latency_p99`: Fast SLO check (100 requests)
+//! - `sanity_spike_load`: Fast spike handling check (120 requests)
+//! - `test_deep_nesting_10_levels`: Deep permission hierarchies (16 requests)
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::{
@@ -251,6 +256,7 @@ async fn test_sustained_throughput_100k_rps() {
 /// Test: Latency SLO Validation (p99 < 10ms)
 /// Validates that 99% of requests complete within 10ms
 #[tokio::test]
+#[ignore = "Load test - runs 10K requests, use --ignored flag"]
 async fn test_latency_p99_under_10ms() {
     let schema = create_test_schema();
     let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
@@ -337,6 +343,7 @@ async fn test_latency_p99_under_10ms() {
 /// Test: Spike Test
 /// Simulates sudden traffic spike from 100 RPS to 10k RPS
 #[tokio::test]
+#[ignore = "Load test - runs 20K+ requests, use --ignored flag"]
 async fn test_spike_load() {
     let schema = create_test_schema();
     let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
@@ -854,4 +861,135 @@ async fn test_wide_expansion_10k_users() {
     // Expansion should complete in reasonable time even with 10k users
     assert!(duration < Duration::from_millis(500), "Wide expansion too slow: {:?}", duration);
     assert!(response.users.len() >= 10_000, "Not all users returned: {}", response.users.len());
+}
+
+// Sanity Tests
+//
+// Fast versions of load tests that verify the same code paths with minimal iterations.
+// These run by default during `cargo test` and provide quick feedback on regressions.
+
+/// Sanity: Latency p99 check (100 requests)
+/// Fast version of `test_latency_p99_under_10ms` for CI
+#[tokio::test]
+async fn sanity_latency_p99() {
+    let schema = create_test_schema();
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
+
+    // Small dataset for optimal performance
+    for i in 0..10 {
+        store
+            .write(
+                0i64,
+                vec![Relationship {
+                    vault: 0i64,
+                    resource: format!("resource:doc{}", i),
+                    relation: "viewer".to_string(),
+                    subject: format!("subject:user{}", i % 5),
+                }],
+            )
+            .await
+            .expect("Failed to write");
+    }
+
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
+
+    // Run 100 requests (sanity check)
+    let num_requests = 100;
+    let mut latencies = Vec::new();
+
+    let start = Instant::now();
+
+    for i in 0..num_requests {
+        let req_start = Instant::now();
+
+        let request = EvaluateRequest {
+            subject: format!("subject:user{}", i % 5),
+            resource: format!("resource:doc{}", i % 10),
+            permission: "viewer".to_string(),
+            context: None,
+            trace: None,
+        };
+
+        let _ = evaluator.check(request).await;
+        latencies.push(req_start.elapsed());
+    }
+
+    let total_duration = start.elapsed();
+    let metrics = PerformanceMetrics::from_latencies(&latencies, total_duration);
+
+    // Sanity check: p99 should be reasonable (more lenient than full test)
+    assert!(
+        metrics.p99_latency < Duration::from_millis(50),
+        "p99 latency sanity check failed: {:?} (target: <50ms)",
+        metrics.p99_latency
+    );
+}
+
+/// Sanity: Spike load check (120 requests)
+/// Fast version of `test_spike_load` for CI
+#[tokio::test]
+async fn sanity_spike_load() {
+    let schema = create_test_schema();
+    let store = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
+
+    // Populate data
+    for i in 0..50 {
+        store
+            .write(
+                0i64,
+                vec![Relationship {
+                    vault: 0i64,
+                    resource: format!("resource:doc{}", i),
+                    relation: "viewer".to_string(),
+                    subject: format!("subject:user{}", i % 10),
+                }],
+            )
+            .await
+            .expect("Failed to write");
+    }
+
+    let evaluator =
+        Arc::new(Evaluator::new(store as Arc<dyn RelationshipStore>, Arc::new(schema), None, 0i64));
+
+    let mut all_latencies = Vec::new();
+    let overall_start = Instant::now();
+
+    // Phase 1: Normal load (20 requests)
+    for i in 0..20 {
+        let start = Instant::now();
+        let request = EvaluateRequest {
+            subject: format!("subject:user{}", i % 10),
+            resource: format!("resource:doc{}", i % 50),
+            permission: "viewer".to_string(),
+            context: None,
+            trace: None,
+        };
+        let _ = evaluator.check(request).await;
+        all_latencies.push(start.elapsed());
+    }
+
+    // Phase 2: Spike (100 requests)
+    for i in 0..100 {
+        let start = Instant::now();
+        let request = EvaluateRequest {
+            subject: format!("subject:user{}", i % 10),
+            resource: format!("resource:doc{}", i % 50),
+            permission: "viewer".to_string(),
+            context: None,
+            trace: None,
+        };
+        let _ = evaluator.check(request).await;
+        all_latencies.push(start.elapsed());
+    }
+
+    let total_duration = overall_start.elapsed();
+    let metrics = PerformanceMetrics::from_latencies(&all_latencies, total_duration);
+
+    // Sanity check: system should handle spike without major issues
+    assert!(
+        metrics.p99_latency < Duration::from_millis(100),
+        "Spike sanity check failed: p99={:?}",
+        metrics.p99_latency
+    );
 }

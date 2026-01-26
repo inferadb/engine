@@ -230,11 +230,40 @@ jobs:
         with:
           name: nextest-archive
 
-      - name: Run tests from archive
+      - name: Restore proptest regressions cache
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        with:
+          path: |
+            **/proptest-regressions
+            **/*.proptest-regressions
+          key: proptest-regressions-${{ github.sha }}
+          restore-keys: |
+            proptest-regressions-
+
+      - name: Run tests from archive (PR - fast profile)
+        if: github.event_name == 'pull_request'
         env:
-          # Reduced proptest cases for faster CI feedback (default is 50)
+          # Minimal proptest cases for fast PR feedback
+          PROPTEST_CASES: "10"
+        # Note: --features test-fast requires rebuild, not usable with archive
+        # Smoke tests run by default; fuzz tests are #[cfg(feature = "test-full")]
+        run: cargo nextest run --archive-file nextest-archive.tar.zst --profile fast
+
+      - name: Run tests from archive (main - ci profile)
+        if: github.event_name != 'pull_request'
+        env:
+          # Standard proptest cases for thorough testing on main
           PROPTEST_CASES: "25"
         run: cargo nextest run --archive-file nextest-archive.tar.zst --profile ci --no-fail-fast
+
+      - name: Save proptest regressions on failure
+        if: failure()
+        uses: actions/cache/save@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        with:
+          path: |
+            **/proptest-regressions
+            **/*.proptest-regressions
+          key: proptest-regressions-${{ github.sha }}
 
       - name: Run doc tests
         env:
@@ -551,6 +580,75 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  # Full test suite including all ignored tests (load, scale, stress tests)
+  # Only runs nightly via schedule - comprehensive validation
+  full-tests:
+    name: Full Test Suite
+    needs: changes
+    runs-on: ubuntu-latest
+    # Only run nightly to avoid blocking PRs with expensive tests
+    if: github.event_name == 'schedule'
+    continue-on-error: true
+    permissions:
+      contents: read
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          egress-policy: audit
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          df -h
+
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          submodules: true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+
+      - name: Install mold linker
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mold
+
+      - name: Install development tools via Mise
+        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        with:
+          install_args: protobuf cargo:cargo-nextest
+          cache: true
+
+      - name: Cache Rust dependencies
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        with:
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          save-if: false
+
+      - name: Run full test suite including ignored tests
+        env:
+          # Maximum proptest cases for comprehensive nightly fuzzing
+          PROPTEST_CASES: "500"
+        run: cargo nextest run --workspace --profile full --features test-full --run-ignored all
+
+      - name: Upload full test results
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: always()
+        with:
+          name: test-results-full
+          path: target/nextest/full/junit-full.xml
+          retention-days: 7
+
   # Check dependencies for outdated versions, duplicates, and unused
   # Only runs on main branch pushes (informational, not blocking)
   dependencies:
@@ -612,6 +710,7 @@ jobs:
         ipl-parser-security-tests,
         wasm-security-tests,
         coverage,
+        full-tests,
         dependencies,
       ]
     runs-on: ubuntu-latest
@@ -649,10 +748,15 @@ jobs:
             echo "Ledger integration tests failed"
             exit 1
           fi
-          # Coverage only runs on main branch merges (skipped on PRs)
+          # Coverage only runs on schedule (nightly)
           if [[ "${{ needs.coverage.result }}" != "success" && "${{ needs.coverage.result }}" != "skipped" ]]; then
             echo "Coverage check failed"
             exit 1
+          fi
+          # Full test suite only runs on schedule (nightly) - informational
+          if [[ "${{ needs.full-tests.result }}" != "success" && "${{ needs.full-tests.result }}" != "skipped" ]]; then
+            echo "Full test suite failed (informational)"
+            # Don't exit - full tests are informational
           fi
           if [[ "${{ needs.dependencies.result }}" != "success" && "${{ needs.dependencies.result }}" != "skipped" ]]; then
             echo "Dependencies check failed"

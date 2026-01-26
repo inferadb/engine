@@ -1,0 +1,215 @@
+# yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
+
+name: Nightly Full Tests
+
+on:
+  # Nightly at midnight UTC
+  schedule:
+    - cron: "0 0 * * *"
+  # Allow manual trigger from any branch
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to test"
+        required: false
+        default: "main"
+      run_coverage:
+        description: "Run coverage analysis"
+        required: false
+        default: "false"
+        type: boolean
+
+# Cancel in-progress runs when new runs are triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Full test suite including all ignored tests (load, scale, stress tests)
+  full-tests:
+    name: Full Test Suite
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          egress-policy: audit
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          df -h
+
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          submodules: true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+
+      - name: Install mold linker
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mold
+
+      - name: Install development tools via Mise
+        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        with:
+          install_args: protobuf cargo:cargo-nextest
+          cache: true
+
+      - name: Cache Rust dependencies
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        with:
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Restore proptest regressions cache
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        with:
+          path: |
+            **/proptest-regressions
+            **/*.proptest-regressions
+          key: proptest-regressions-${{ github.sha }}
+          restore-keys: |
+            proptest-regressions-
+
+      - name: Run full test suite including ignored tests
+        env:
+          # Maximum proptest cases for comprehensive nightly fuzzing
+          PROPTEST_CASES: "500"
+        run: |
+          cargo nextest run \
+            --workspace \
+            --profile full \
+            --features test-full \
+            --run-ignored all \
+            --no-fail-fast
+
+      - name: Save proptest regressions
+        if: failure()
+        uses: actions/cache/save@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        with:
+          path: |
+            **/proptest-regressions
+            **/*.proptest-regressions
+          key: proptest-regressions-${{ github.sha }}
+
+      - name: Upload full test results
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: always()
+        with:
+          name: test-results-full
+          path: target/nextest/full/junit-full.xml
+          retention-days: 7
+
+  # Code coverage (only when requested or on schedule)
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.run_coverage == 'true'
+    continue-on-error: true
+    permissions:
+      contents: read
+    env:
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          egress-policy: audit
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          df -h
+
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          submodules: true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+
+      - name: Install mold linker
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mold
+
+      - name: Install development tools via Mise
+        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        with:
+          install_args: protobuf cargo:cargo-llvm-cov
+          cache: true
+
+      - name: Restore registry cache
+        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        with:
+          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          save-if: false
+
+      - name: Generate coverage
+        env:
+          # Comprehensive proptest cases for nightly coverage runs
+          PROPTEST_CASES: "500"
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Summary job to report overall status
+  nightly-success:
+    name: Nightly Success
+    needs: [full-tests, coverage]
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          egress-policy: audit
+
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.full-tests.result }}" != "success" ]]; then
+            echo "Full test suite failed"
+            exit 1
+          fi
+          # Coverage is optional and can be skipped
+          if [[ "${{ needs.coverage.result }}" == "failure" ]]; then
+            echo "Coverage failed (non-blocking)"
+          fi
+          echo "Nightly tests completed successfully!"

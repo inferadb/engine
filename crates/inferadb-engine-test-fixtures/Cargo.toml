@@ -7,9 +7,19 @@ publish.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+[features]
+default = []
+# Fast tier: minimal proptest cases (10), for PR checks and pre-commit
+test-fast = []
+# Full tier: comprehensive proptest cases (500), includes expensive tests
+test-full = []
+
 [dependencies]
 # Core types
 inferadb-engine-types = { path = "../inferadb-engine-types" }
+
+# Schema and IPL types for shared fixtures
+inferadb-engine-core = { path = "../inferadb-engine-core" }
 
 # Auth types
 inferadb-engine-auth = { path = "../inferadb-engine-auth" }

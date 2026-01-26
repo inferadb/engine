@@ -9,6 +9,9 @@
 pub mod internal_jwt;
 pub mod proptest_config;
 pub mod relationships;
+pub mod shared;
+pub mod smoke;
+pub mod tier;
 
 pub use internal_jwt::{
     InternalClaims, InternalKeyPair, create_internal_jwks, generate_internal_jwt,

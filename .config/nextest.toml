@@ -52,6 +52,41 @@ slow-timeout = { period = "7200s" } # 2 hours for stress tests
 filter = 'test(integration)'
 slow-timeout = { period = "90s", terminate-after = 2 }
 
+# Profile for fast PR checks (minimal iterations, fail-fast)
+# Use: cargo nextest run --profile fast
+[profile.fast]
+# Stop on first failure for quick feedback
+fail-fast = true
+
+# Use all available CPU cores
+test-threads = "num-cpus"
+
+# Shorter timeout for fast feedback
+slow-timeout = { period = "30s", terminate-after = 2 }
+
+# Only show failures
+status-level = "fail"
+
+# No retries - fail fast
+retries = 0
+
+# Generate JUnit XML for GitHub Actions test reporting
+[profile.fast.junit]
+path = "junit-fast.xml"
+store-success-output = false
+store-failure-output = true
+
+[[profile.fast.overrides]]
+# WASM tests are resource-intensive, run serially
+filter = 'package(inferadb-engine-wasm)'
+threads-required = "num-test-threads"
+slow-timeout = { period = "60s", terminate-after = 2 }
+
+[[profile.fast.overrides]]
+# Integration tests may need slightly more time
+filter = 'test(integration)'
+slow-timeout = { period = "45s", terminate-after = 2 }
+
 # Profile for local development with watch mode
 [profile.dev]
 test-threads = "num-cpus"
@@ -64,3 +99,81 @@ failure-output = "immediate" # Show failures immediately
 test-threads = "num-cpus"
 retries = 0
 status-level = "all"
+
+# Profile for full/comprehensive test runs (includes all ignored tests)
+# Use: cargo nextest run --profile full --run-ignored all
+[profile.full]
+# Note: Use --run-ignored all on command line to include ignored tests
+
+# Retry flaky tests with more attempts for comprehensive validation
+retries = { backoff = "fixed", count = 2, delay = "2s" }
+
+# Extended timeout for load and scale tests
+slow-timeout = { period = "300s", terminate-after = 2 }
+
+# Show all test output for debugging
+status-level = "all"
+
+# Use all available CPUs
+test-threads = "num-cpus"
+
+# Generate JUnit XML for test reporting
+[profile.full.junit]
+path = "junit-full.xml"
+store-success-output = false
+store-failure-output = true
+
+[[profile.full.overrides]]
+# WASM tests are resource-intensive, run serially with extended timeout
+filter = 'package(inferadb-engine-wasm)'
+threads-required = "num-test-threads"
+slow-timeout = { period = "180s", terminate-after = 2 }
+
+[[profile.full.overrides]]
+# Integration tests may need more time for full coverage
+filter = 'test(integration)'
+slow-timeout = { period = "120s", terminate-after = 2 }
+
+[[profile.full.overrides]]
+# Load tests may take several minutes
+filter = 'test(test_sustained_throughput) | test(test_stress) | test(test_soak)'
+slow-timeout = { period = "600s", terminate-after = 2 }
+
+[[profile.full.overrides]]
+# Scale tests with large datasets need more time
+filter = 'test(test_large_graph) | test(test_wide_expansion)'
+slow-timeout = { period = "300s", terminate-after = 2 }
+
+# Profile for nightly/full test runs (includes ignored load tests)
+# DEPRECATED: Use --profile full instead. Kept for backwards compatibility.
+# Use: cargo nextest run --profile nightly --run-ignored all
+[profile.nightly]
+# Note: Use --run-ignored all on command line to include ignored tests
+
+# Retry flaky tests with more attempts for nightly stability
+retries = { backoff = "fixed", count = 2, delay = "2s" }
+
+# Extended timeout for load and scale tests
+slow-timeout = { period = "300s", terminate-after = 2 }
+
+# Show all test output for debugging
+status-level = "all"
+
+# Use all available CPUs
+test-threads = "num-cpus"
+
+# Generate JUnit XML for test reporting
+[profile.nightly.junit]
+path = "junit-nightly.xml"
+store-success-output = false
+store-failure-output = true
+
+[[profile.nightly.overrides]]
+# Load tests may take several minutes
+filter = 'test(test_sustained_throughput) | test(test_stress) | test(test_soak)'
+slow-timeout = { period = "600s", terminate-after = 2 }
+
+[[profile.nightly.overrides]]
+# Scale tests with large datasets need more time
+filter = 'test(test_large_graph) | test(test_wide_expansion)'
+slow-timeout = { period = "300s", terminate-after = 2 }

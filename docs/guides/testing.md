@@ -21,6 +21,77 @@ cargo test --package inferadb-engine-core
 cargo test check_
 ```
 
+## Test Tiers
+
+InferaDB uses a three-tier test system to balance speed and coverage:
+
+| Tier     | Feature Flag  | Proptest Cases | Ignored Tests | Use Case                    |
+|----------|---------------|----------------|---------------|-----------------------------|
+| Fast     | `test-fast`   | 10             | Excluded      | PR checks, pre-commit       |
+| Standard | (default)     | 50             | Excluded      | Regular CI, local dev       |
+| Full     | `test-full`   | 500            | Included      | Nightly, release validation |
+
+### Running Test Tiers
+
+Using `just` (recommended):
+
+```bash
+# Fast tests (~15 seconds)
+just test-fast
+
+# Standard tests (~30 seconds)
+just test
+
+# Full tests (~5 minutes, includes load/scale tests)
+just test-full
+```
+
+Using `cargo nextest` directly:
+
+```bash
+# Fast tier
+PROPTEST_CASES=10 cargo nextest run --profile fast --features test-fast
+
+# Standard tier
+cargo nextest run --profile ci
+
+# Full tier
+PROPTEST_CASES=500 cargo nextest run --profile full --features test-full --run-ignored all
+```
+
+### Tier Detection in Test Code
+
+Use the `tier` module to adjust test behavior based on the active tier:
+
+```rust
+use inferadb_engine_test_fixtures::tier;
+
+#[test]
+fn my_test() {
+    if tier::is_fast() {
+        // Minimal test setup for fast feedback
+    } else if tier::is_full() {
+        // Comprehensive setup for thorough testing
+    }
+    // Common test logic
+}
+```
+
+### Environment Override
+
+The `PROPTEST_CASES` environment variable overrides the tier default:
+
+```bash
+# Run with custom case count regardless of tier
+PROPTEST_CASES=100 cargo test
+```
+
+### CI Behavior
+
+- **Pull Requests**: Fast tier with 10 proptest cases
+- **Push to main**: Standard tier with 25 proptest cases
+- **Nightly/Schedule**: Full tier with 500 proptest cases, including ignored tests
+
 ## Test Organization
 
 InferaDB's test suite is organized into several categories:

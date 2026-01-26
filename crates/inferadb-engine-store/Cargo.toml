@@ -30,6 +30,8 @@ proptest = { workspace = true }
 
 [features]
 default = []
+# Enable full fuzz test suite (50-500 iterations instead of 5)
+test-full = ["inferadb-engine-test-fixtures/test-full"]
 
 [lints]
 workspace = true
