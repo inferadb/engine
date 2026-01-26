@@ -103,7 +103,10 @@ fn validate_type(type_str: &str) -> Result<()> {
     // Type must match: ^[a-z_][a-z0-9_]*$
     // - Start with lowercase letter or underscore
     // - Followed by zero or more lowercase letters, digits, or underscores
-    let first_char = type_str.chars().next().unwrap();
+    let Some(first_char) = type_str.chars().next() else {
+        // Already checked is_empty above, but satisfy the borrow checker
+        return Err(EntityError::EmptyType);
+    };
     if !first_char.is_ascii_lowercase() && first_char != '_' {
         return Err(EntityError::InvalidType(type_str.to_string()));
     }
@@ -346,6 +349,7 @@ pub fn convert_native_decision_to_authzen(decision: bool) -> AuthZENEvaluationRe
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

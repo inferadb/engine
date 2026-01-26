@@ -24,6 +24,7 @@
 //! - **Load Tests**: Test concurrent request handling (100 QPS, 1000 QPS)
 //! - **Deep Hierarchy**: Test performance with nested permission structures
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::{sync::Arc, time::Instant};
 
 use inferadb_engine_core::Evaluator;

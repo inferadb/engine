@@ -244,6 +244,7 @@ impl<S> InferaStore for EngineStorage<S> where S: StorageBackend + Send + Sync +
 // =============================================================================
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use std::sync::Arc;
 

@@ -15,7 +15,6 @@ gcp-secrets = ["google-cloud-secretmanager-v1"]
 [dependencies]
 anyhow = { workspace = true }
 bon = { workspace = true }
-clap = { workspace = true }
 config = { workspace = true }
 notify = "8.2.0"
 num_cpus = "1.16"
@@ -42,3 +41,6 @@ azure_security_keyvault_secrets = { version = "0.9", optional = true }
 tempfile = "3.14"
 tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

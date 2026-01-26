@@ -3,6 +3,7 @@
 //! These tests verify complete isolation between vaults at the storage level.
 //! They ensure that no data leakage occurs between different vaults.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::sync::Arc;
 
 use inferadb_engine_repository::EngineStorage;

@@ -3,6 +3,7 @@
 //! These tests verify that the system maintains consistency under various
 //! concurrent access patterns.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::sync::Arc;
 
 use inferadb_engine_core::{

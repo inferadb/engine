@@ -246,6 +246,7 @@ pub async fn control_verified_vault_middleware(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented)]
 mod tests {
     use inferadb_engine_types::{Organization, SystemConfig, Vault};
 

@@ -8,6 +8,7 @@
 //! - Bulk operations
 //! - Empty vault operations
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use inferadb_engine_types::{Relationship, RelationshipKey, Revision};
 
 use crate::{

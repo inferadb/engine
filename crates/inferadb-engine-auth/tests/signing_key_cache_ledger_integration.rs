@@ -6,6 +6,7 @@
 //! Run with: `RUN_LEDGER_INTEGRATION_TESTS=1 cargo test --test
 //! signing_key_cache_ledger_integration`
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::{
     env,
     sync::{
@@ -475,7 +476,7 @@ impl FailableStore {
             inferadb_storage::StorageError::Connection { message, .. } => {
                 inferadb_storage::StorageError::connection(message)
             },
-            inferadb_storage::StorageError::Timeout { .. } => {
+            inferadb_storage::StorageError::Timeout => {
                 inferadb_storage::StorageError::timeout()
             },
             inferadb_storage::StorageError::NotFound { key, .. } => {

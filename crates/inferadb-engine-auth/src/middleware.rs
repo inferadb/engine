@@ -394,6 +394,7 @@ pub async fn vault_validation_middleware(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use axum::http::HeaderMap;
     use chrono::{Duration, Utc};

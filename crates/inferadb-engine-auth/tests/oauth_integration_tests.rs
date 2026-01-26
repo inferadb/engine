@@ -2,6 +2,7 @@
 //!
 //! Tests for OAuth 2.0 JWT validation, OIDC discovery, and token introspection
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod common;
 
 use std::{sync::Arc, time::Duration};

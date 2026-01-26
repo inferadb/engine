@@ -118,10 +118,10 @@ impl<S: StorageBackend> OrganizationRepository<S> {
         let mut orgs = Vec::new();
         for kv in entries {
             // The value contains the organization ID as little-endian bytes
-            if kv.value.len() != 8 {
+            let Ok(bytes): Result<[u8; 8], _> = kv.value[..].try_into() else {
                 continue;
-            }
-            let id = i64::from_le_bytes(kv.value[0..8].try_into().unwrap());
+            };
+            let id = i64::from_le_bytes(bytes);
 
             if let Some(org) = self.get(id).await? {
                 orgs.push(org);
@@ -200,6 +200,7 @@ impl<S: StorageBackend> OrganizationRepository<S> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use chrono::Utc;
     use inferadb_engine_types::organization::Organization;

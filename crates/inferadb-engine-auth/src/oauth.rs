@@ -582,6 +582,7 @@ fn jwk_to_decoding_key(jwk: &Jwk) -> Result<DecodingKey, AuthError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

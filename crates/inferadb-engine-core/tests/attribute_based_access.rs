@@ -4,6 +4,7 @@
 //! ABAC allows fine-grained access control based on attributes of the subject, resource,
 //! and environment context.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::sync::Arc;
 
 use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};

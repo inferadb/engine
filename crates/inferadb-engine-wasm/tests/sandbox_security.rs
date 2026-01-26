@@ -3,6 +3,8 @@
 //! These tests ensure that the WASM sandbox properly isolates modules
 //! and prevents malicious behavior.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::time::Duration;
 
 use inferadb_engine_wasm::{ExecutionContext, SandboxConfig, StoreLimits, WasmHost};

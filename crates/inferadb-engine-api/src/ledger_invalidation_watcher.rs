@@ -218,6 +218,7 @@ impl LedgerInvalidationWatcher {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     // Integration tests require a running Ledger instance.
     // See tests/ledger_integration.rs for full integration tests.

@@ -35,3 +35,6 @@ thiserror = { workspace = true }
 [dev-dependencies]
 chrono = { workspace = true }
 tokio = { workspace = true, features = ["full", "test-util"] }
+
+[lints]
+workspace = true

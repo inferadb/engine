@@ -324,6 +324,7 @@ impl SigningKeyCache {
     /// Call this before checking entry counts in tests to ensure
     /// all inserts and invalidations have been processed.
     #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     pub async fn sync(&self) {
         self.cache.run_pending_tasks().await;
     }
@@ -337,7 +338,7 @@ impl SigningKeyCache {
 /// Non-transient errors (not found, serialization, internal) indicate a
 /// definitive response from Ledger and should not use fallback.
 fn is_transient_error(error: &StorageError) -> bool {
-    matches!(error, StorageError::Connection { .. } | StorageError::Timeout { .. })
+    matches!(error, StorageError::Connection { .. } | StorageError::Timeout)
 }
 
 /// Validates that a key is in a usable state.
@@ -402,6 +403,7 @@ fn to_decoding_key(key: &PublicSigningKey) -> Result<DecodingKey, AuthError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use chrono::Duration as ChronoDuration;
     use ed25519_dalek::SigningKey;
@@ -743,7 +745,7 @@ mod tests {
             if let Some(ref error) = *self.fail_with.lock().expect("lock") {
                 return Err(match error {
                     StorageError::Connection { message, .. } => StorageError::connection(message),
-                    StorageError::Timeout { .. } => StorageError::timeout(),
+                    StorageError::Timeout => StorageError::timeout(),
                     StorageError::NotFound { key, .. } => StorageError::not_found(key),
                     StorageError::Internal { message, .. } => StorageError::internal(message),
                     _ => StorageError::internal("unknown"),

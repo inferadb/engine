@@ -99,6 +99,7 @@ pub fn safe_format_entity(type_: &str, id: &str) -> Result<String, ApiError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

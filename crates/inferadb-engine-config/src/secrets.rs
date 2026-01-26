@@ -608,6 +608,7 @@ pub fn resolve_secrets(input: &str, provider: &dyn SecretProvider) -> Result<Str
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -173,6 +173,7 @@ impl<'a> Validator<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::ipl::ast::{ForbidDef, RelationDef, RelationExpr, Schema, TypeDef};

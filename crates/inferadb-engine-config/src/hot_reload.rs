@@ -64,21 +64,34 @@ impl HotReloadHandle {
     ///
     /// On change, validates the new config before applying.
     /// Falls back to previous config on validation failure.
+    ///
+    /// # Panics
+    ///
+    /// Must be called from within a tokio runtime context.
     pub fn start_watching(self: Arc<Self>) -> Result<(), HotReloadError> {
+        // Capture tokio runtime handle before spawning threads.
+        // This avoids calling Handle::current() from non-tokio threads,
+        // which would panic.
+        let runtime_handle = tokio::runtime::Handle::current();
+
         // Start file watcher thread
         let handle_clone = Arc::clone(&self);
         let config_path = self.config_path.clone();
+        let runtime_for_watcher = runtime_handle.clone();
 
         thread::spawn(move || {
-            if let Err(e) = Self::watch_file_changes(handle_clone, config_path) {
+            if let Err(e) = Self::watch_file_changes(handle_clone, config_path, runtime_for_watcher)
+            {
                 error!("File watcher thread error: {}", e);
             }
         });
 
         // Start SIGHUP handler thread
         let handle_clone = Arc::clone(&self);
+        let runtime_for_sighup = runtime_handle;
+
         thread::spawn(move || {
-            if let Err(e) = Self::watch_sighup(handle_clone) {
+            if let Err(e) = Self::watch_sighup(handle_clone, runtime_for_sighup) {
                 error!("SIGHUP handler thread error: {}", e);
             }
         });
@@ -89,7 +102,11 @@ impl HotReloadHandle {
     }
 
     /// Watch for file system changes
-    fn watch_file_changes(handle: Arc<Self>, config_path: PathBuf) -> Result<(), HotReloadError> {
+    fn watch_file_changes(
+        handle: Arc<Self>,
+        config_path: PathBuf,
+        runtime: tokio::runtime::Handle,
+    ) -> Result<(), HotReloadError> {
         let (tx, rx) = std::sync::mpsc::channel();
 
         let mut watcher = RecommendedWatcher::new(
@@ -112,7 +129,6 @@ impl HotReloadHandle {
                 // Wait a bit to ensure the write is complete
                 thread::sleep(Duration::from_millis(100));
 
-                let runtime = tokio::runtime::Handle::current();
                 runtime.block_on(async {
                     if let Err(e) = handle.reload_config().await {
                         error!("Failed to reload config: {}", e);
@@ -125,7 +141,10 @@ impl HotReloadHandle {
     }
 
     /// Watch for SIGHUP signals
-    fn watch_sighup(handle: Arc<Self>) -> Result<(), HotReloadError> {
+    fn watch_sighup(
+        handle: Arc<Self>,
+        runtime: tokio::runtime::Handle,
+    ) -> Result<(), HotReloadError> {
         let mut signals = Signals::new([SIGHUP])?;
 
         info!("Watching for SIGHUP signals");
@@ -134,7 +153,6 @@ impl HotReloadHandle {
             if sig == SIGHUP {
                 info!("Received SIGHUP, reloading configuration...");
 
-                let runtime = tokio::runtime::Handle::current();
                 runtime.block_on(async {
                     if let Err(e) = handle.reload_config().await {
                         error!("Failed to reload config: {}", e);
@@ -231,6 +249,7 @@ impl HotReloadHandle {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use tempfile::NamedTempFile;
 

@@ -1,5 +1,6 @@
 //! Integration tests for content negotiation (JSON vs TOON format)
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod integration;
 
 use std::sync::atomic::{AtomicI64, Ordering};

@@ -17,14 +17,12 @@ base64 = { workspace = true }
 chrono = { workspace = true }
 ed25519-dalek = { workspace = true }
 futures = { workspace = true }
-hostname = "0.4"
 jsonwebtoken = { workspace = true }
 moka = { workspace = true }
 pem = "3.0"
 prometheus = { version = "0.14", default-features = false }
 rand = { workspace = true }
 reqwest = { workspace = true }
-secrecy = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
@@ -48,7 +46,6 @@ axum = { workspace = true }
 base64 = { workspace = true }
 futures = { workspace = true }
 inferadb-storage-ledger = { path = "../../../common/crates/inferadb-storage-ledger" }
-proptest = "1.4"
 rand = { workspace = true }
 rand_core = { version = "0.6", features = ["getrandom"] }
 tokio = { workspace = true, features = ["full", "test-util"] }
@@ -59,3 +56,6 @@ path = "tests/signing_key_cache_ledger_integration.rs"
 
 [features]
 default = []
+
+[lints]
+workspace = true

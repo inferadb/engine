@@ -545,7 +545,7 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Check dependencies for outdated versions and duplicates
+  # Check dependencies for outdated versions, duplicates, and unused
   # Only runs on main branch pushes (informational, not blocking)
   dependencies:
     name: Dependencies
@@ -561,16 +561,23 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          submodules: true
 
-      - name: Install Rust toolchain
+      - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
 
+      - name: Install Rust nightly toolchain
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # master
+        with:
+          toolchain: nightly
+
       - name: Install development tools via Mise
         uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
         with:
-          install_args: cargo:cargo-outdated
+          install_args: protobuf cargo:cargo-outdated cargo:cargo-udeps
           cache: true
 
       - name: Cache Rust dependencies
@@ -581,6 +588,9 @@ jobs:
 
       - name: Check for duplicate dependencies
         run: cargo tree --duplicates
+
+      - name: Check for unused dependencies
+        run: cargo +nightly udeps --workspace || echo "::warning::Some dependencies may be unused"
 
   # Overall status check
   ci-success:

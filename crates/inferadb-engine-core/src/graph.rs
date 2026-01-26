@@ -481,6 +481,7 @@ async fn evaluate_relation_expr(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use inferadb_engine_repository::EngineStorage;
     use inferadb_engine_types::Relationship;

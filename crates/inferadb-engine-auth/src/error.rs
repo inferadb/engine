@@ -139,6 +139,7 @@ impl From<jsonwebtoken::errors::Error> for AuthError {
 pub type Result<T> = std::result::Result<T, AuthError>;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

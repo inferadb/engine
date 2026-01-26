@@ -537,17 +537,20 @@ impl Config {
 
         // Validate Ledger configuration
         if self.storage == "ledger" {
-            if self.ledger.endpoint.is_none() {
-                anyhow::bail!("ledger.endpoint is required when using Ledger backend");
-            }
+            let endpoint = self
+                .ledger
+                .endpoint
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("ledger.endpoint is required when using Ledger backend"))?;
+
             if self.ledger.client_id.is_none() {
                 anyhow::bail!("ledger.client_id is required when using Ledger backend");
             }
             if self.ledger.namespace_id.is_none() {
                 anyhow::bail!("ledger.namespace_id is required when using Ledger backend");
             }
+
             // Validate endpoint URL format
-            let endpoint = self.ledger.endpoint.as_ref().unwrap();
             if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
                 anyhow::bail!(
                     "ledger.endpoint must start with http:// or https://, got: {}",
@@ -702,6 +705,7 @@ pub fn load_or_default<P: AsRef<Path>>(path: P) -> Config {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

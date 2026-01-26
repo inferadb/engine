@@ -212,6 +212,7 @@ pub fn log_error_with_context(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use std::sync::Once;
 

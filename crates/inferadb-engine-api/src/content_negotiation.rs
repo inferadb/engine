@@ -235,6 +235,7 @@ impl<T: Serialize> IntoResponse for ResponseData<T> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use serde::Serialize;
 

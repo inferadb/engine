@@ -3,6 +3,8 @@
 //! These tests use property-based testing to fuzz storage operations,
 //! ensuring data integrity, crash resistance, and proper error handling.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::sync::Arc;
 
 use inferadb_engine_repository::EngineStorage;
@@ -402,6 +404,7 @@ proptest! {
 
 /// Integration tests for storage robustness
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod integration_tests {
     use super::*;
 

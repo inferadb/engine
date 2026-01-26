@@ -8,7 +8,6 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-anyhow = { workspace = true }
 bon = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
@@ -37,8 +36,8 @@ inferadb-engine-wasm = { path = "../inferadb-engine-wasm" }
 inferadb-storage = { path = "../../../common/crates/inferadb-storage" }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 criterion = { workspace = true }
-inferadb-engine-test-fixtures = { path = "../inferadb-engine-test-fixtures" }
 proptest = { workspace = true }
 wat = "1.0"
 
@@ -49,3 +48,6 @@ name = "ipl_parser"
 [[bench]]
 harness = false
 name = "evaluator"
+
+[lints]
+workspace = true

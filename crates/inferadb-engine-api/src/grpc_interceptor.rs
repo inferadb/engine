@@ -361,6 +361,7 @@ pub fn extract_auth<T>(request: &Request<T>) -> Result<AuthContext, Status> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use tonic::metadata::{MetadataMap, MetadataValue};
 

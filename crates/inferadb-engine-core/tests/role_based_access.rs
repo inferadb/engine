@@ -5,6 +5,7 @@
 //! - Roles granted permissions
 //! - Resources with required permissions
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;

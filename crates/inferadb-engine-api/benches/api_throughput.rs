@@ -9,6 +9,7 @@
 //!
 //! Run with: `cargo bench --package infera-api`
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::{hint::black_box, sync::Arc};
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};

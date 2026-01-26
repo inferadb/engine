@@ -101,5 +101,6 @@ impl Evaluator {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[path = "../evaluator_tests.rs"]
 mod tests;

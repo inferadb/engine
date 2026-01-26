@@ -193,9 +193,8 @@ impl<'a> TypeChecker<'a> {
     ) -> Option<Vec<String>> {
         match expr {
             RelationExpr::RelationRef { relation } => {
-                if path.contains(relation) {
+                if let Some(cycle_start) = path.iter().position(|r| r == relation) {
                     // Found a cycle
-                    let cycle_start = path.iter().position(|r| r == relation).unwrap();
                     return Some(path[cycle_start..].to_vec());
                 }
 
@@ -245,6 +244,7 @@ impl<'a> TypeChecker<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::ipl::ast::{RelationDef, RelationExpr, Schema, TypeDef};

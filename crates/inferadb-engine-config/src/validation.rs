@@ -57,12 +57,16 @@ pub fn validate(config: &Config) -> Result<()> {
         errors.push(e);
     }
 
-    if errors.is_empty() {
-        Ok(())
-    } else if errors.len() == 1 {
-        Err(errors.into_iter().next().unwrap())
-    } else {
-        Err(ValidationError::Multiple(errors))
+    match errors.len() {
+        0 => Ok(()),
+        1 => {
+            // pop() is guaranteed to succeed since len() == 1
+            match errors.pop() {
+                Some(err) => Err(err),
+                None => Err(ValidationError::Multiple(errors)),
+            }
+        },
+        _ => Err(ValidationError::Multiple(errors)),
     }
 }
 
@@ -134,6 +138,7 @@ pub fn validate_cache(config: &CacheConfig) -> Result<()> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

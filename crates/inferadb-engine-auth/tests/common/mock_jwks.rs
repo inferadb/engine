@@ -136,6 +136,7 @@ pub fn generate_jwt_for_mock_jwks(tenant: &str, scopes: Vec<String>, exp_secs: i
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

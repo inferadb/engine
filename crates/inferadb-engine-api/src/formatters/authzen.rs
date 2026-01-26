@@ -248,6 +248,7 @@ pub fn create_context_with_reason(reason: &str) -> Value {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

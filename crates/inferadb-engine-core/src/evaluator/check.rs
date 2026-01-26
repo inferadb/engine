@@ -278,11 +278,13 @@ impl Evaluator {
             .ok_or_else(|| EvalError::Evaluation(format!("Relation not found: {}", relation)))?;
 
         // Clone the expression to avoid borrow issues
-        let expr_opt = relation_def.expr.clone();
-
         // If no expression, just return the direct check result
-        if expr_opt.is_none() {
-            return Ok(EvaluationNode {
+        match relation_def.expr.clone() {
+            Some(expr) => {
+                // Evaluate the relation expression
+                self.build_expr_node(resource, &expr, subject, ctx).await
+            },
+            None => Ok(EvaluationNode {
                 node_type: NodeType::DirectCheck {
                     resource: resource.to_string(),
                     relation: relation.to_string(),
@@ -290,11 +292,8 @@ impl Evaluator {
                 },
                 result: false,
                 children: vec![],
-            });
+            }),
         }
-
-        // Evaluate the relation expression
-        self.build_expr_node(resource, &expr_opt.unwrap(), subject, ctx).await
     }
 
     /// Build evaluation node for a relation expression
@@ -506,23 +505,25 @@ impl Evaluator {
         expr: &Option<crate::ipl::RelationExpr>,
         ctx: &mut GraphContext,
     ) -> Result<bool> {
-        // Check for direct relationship first (forbid with no expression or `this`)
-        if expr.is_none() {
-            let has_direct = has_direct_relationship(
-                &*ctx.store,
-                ctx.vault,
-                resource,
-                forbid_name,
-                subject,
-                ctx.revision,
-            )
-            .await?;
-            return Ok(has_direct);
+        match expr {
+            // Check for direct relationship (forbid with no expression or `this`)
+            None => {
+                let has_direct = has_direct_relationship(
+                    &*ctx.store,
+                    ctx.vault,
+                    resource,
+                    forbid_name,
+                    subject,
+                    ctx.revision,
+                )
+                .await?;
+                Ok(has_direct)
+            },
+            // If there's an expression, evaluate it
+            Some(expr) => {
+                let node = self.build_expr_node(resource, expr, subject, ctx).await?;
+                Ok(node.result)
+            },
         }
-
-        // If there's an expression, evaluate it
-        let node = self.build_expr_node(resource, expr.as_ref().unwrap(), subject, ctx).await?;
-
-        Ok(node.result)
     }
 }

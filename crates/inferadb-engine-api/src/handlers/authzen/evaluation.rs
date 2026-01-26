@@ -28,6 +28,14 @@ pub struct EnhancedAuthZENEvaluationResponse {
     pub context: Option<serde_json::Value>,
 }
 
+impl EnhancedAuthZENEvaluationResponse {
+    /// Parse from JSON value, falling back to a deny response on error.
+    fn from_value_or_deny(value: serde_json::Value) -> Self {
+        serde_json::from_value(value.clone())
+            .unwrap_or(Self { decision: false, context: Some(value) })
+    }
+}
+
 /// Handler for `POST /access/v1/evaluation`
 ///
 /// This is a thin adapter that translates AuthZEN evaluation requests to
@@ -260,23 +268,24 @@ pub async fn post_evaluations(
             let error_msg = format!("Validation error: {}", e);
             let response_value = format_denial_with_error(&error_msg);
             let response: EnhancedAuthZENEvaluationResponse =
-                serde_json::from_value(response_value).unwrap();
+                EnhancedAuthZENEvaluationResponse::from_value_or_deny(response_value);
             results.push(response);
             continue;
         }
 
         // Convert AuthZEN request to native format
-        let conversion_result = convert_authzen_request_to_native(&eval_request);
-        if let Err(e) = conversion_result {
-            let error_msg = format!("Invalid entity format: {}", e);
-            let response_value = format_denial_with_error(&error_msg);
-            let response: EnhancedAuthZENEvaluationResponse =
-                serde_json::from_value(response_value).unwrap();
-            results.push(response);
-            continue;
-        }
-
-        let (subject, resource, permission) = conversion_result.unwrap();
+        let (subject, resource, permission) = match convert_authzen_request_to_native(&eval_request)
+        {
+            Ok(result) => result,
+            Err(e) => {
+                let error_msg = format!("Invalid entity format: {}", e);
+                let response_value = format_denial_with_error(&error_msg);
+                let response: EnhancedAuthZENEvaluationResponse =
+                    EnhancedAuthZENEvaluationResponse::from_value_or_deny(response_value);
+                results.push(response);
+                continue;
+            },
+        };
 
         // Create native evaluation request
         let native_request = EvaluateRequest {
@@ -296,7 +305,7 @@ pub async fn post_evaluations(
                 let response_value =
                     format_evaluation_response(decision, &subject, &permission, &resource);
                 let response: EnhancedAuthZENEvaluationResponse =
-                    serde_json::from_value(response_value).unwrap();
+                    EnhancedAuthZENEvaluationResponse::from_value_or_deny(response_value);
 
                 tracing::debug!(
                     evaluation_index = index,
@@ -311,7 +320,7 @@ pub async fn post_evaluations(
                 let error_msg = format!("Evaluation error: {}", e);
                 let response_value = format_denial_with_error(&error_msg);
                 let response: EnhancedAuthZENEvaluationResponse =
-                    serde_json::from_value(response_value).unwrap();
+                    EnhancedAuthZENEvaluationResponse::from_value_or_deny(response_value);
 
                 tracing::debug!(
                     evaluation_index = index,
@@ -346,6 +355,7 @@ pub async fn post_evaluations(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use std::sync::Arc;
 

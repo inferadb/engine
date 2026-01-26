@@ -319,6 +319,7 @@ impl<S: StorageBackend> EngineStorage<S> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use chrono::Utc;
     use inferadb_engine_types::{

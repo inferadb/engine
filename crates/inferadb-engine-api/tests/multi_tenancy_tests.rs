@@ -6,6 +6,7 @@
 //! - Account-vault relationships
 //! - Cross-vault operation prevention
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::sync::Arc;
 
 use inferadb_engine_api::AppState;

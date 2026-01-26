@@ -16,9 +16,8 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 wasmtime = { workspace = true }
 
-# Internal dependencies
-inferadb-engine-observe = { path = "../inferadb-engine-observe" }
-
 [dev-dependencies]
-tokio-test = "0.4"
 wat = "1.0"
+
+[lints]
+workspace = true

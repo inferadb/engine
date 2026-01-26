@@ -296,6 +296,7 @@ pub async fn verify_with_signing_key_cache(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -411,6 +412,7 @@ mod tests {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod ledger_verification_tests {
     use std::{sync::Arc, time::Duration};
 

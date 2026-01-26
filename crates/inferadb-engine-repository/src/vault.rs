@@ -138,10 +138,10 @@ impl<S: StorageBackend> VaultRepository<S> {
         let mut vaults = Vec::new();
         for kv in entries {
             // The value contains the vault ID as little-endian bytes
-            if kv.value.len() != 8 {
+            let Ok(bytes): Result<[u8; 8], _> = kv.value[..].try_into() else {
                 continue;
-            }
-            let vault_id = i64::from_le_bytes(kv.value[0..8].try_into().unwrap());
+            };
+            let vault_id = i64::from_le_bytes(bytes);
 
             if let Some(vault) = self.get(vault_id).await? {
                 vaults.push(vault);
@@ -252,6 +252,7 @@ impl<S: StorageBackend> VaultRepository<S> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use chrono::Utc;
     use inferadb_engine_types::vault::Vault;

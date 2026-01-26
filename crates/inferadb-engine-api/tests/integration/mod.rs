@@ -229,6 +229,7 @@ pub async fn write_test_relationships(
 // For evaluation, use the API endpoints or core evaluation logic directly.
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

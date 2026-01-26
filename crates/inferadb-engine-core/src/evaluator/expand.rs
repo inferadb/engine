@@ -39,17 +39,21 @@ impl Evaluator {
         );
 
         // Build userset tree with actual users
-        let tree = if relation_def.expr.is_none() {
+        let tree = match &relation_def.expr {
             // Direct relation - collect direct users
-            self.build_direct_userset_tree(&request.resource, &request.relation, &mut ctx).await?
-        } else {
-            self.build_userset_tree_with_users(
-                &request.resource,
-                &request.relation,
-                relation_def.expr.as_ref().unwrap(),
-                &mut ctx,
-            )
-            .await?
+            None => {
+                self.build_direct_userset_tree(&request.resource, &request.relation, &mut ctx)
+                    .await?
+            },
+            Some(expr) => {
+                self.build_userset_tree_with_users(
+                    &request.resource,
+                    &request.relation,
+                    expr,
+                    &mut ctx,
+                )
+                .await?
+            },
         };
 
         // Collect all users from the tree (deduplicated)

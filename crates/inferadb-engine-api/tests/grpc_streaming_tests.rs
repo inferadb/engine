@@ -5,6 +5,7 @@
 //! - WriteStream: streaming write operations
 //! - Watch: streaming change events
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::sync::Arc;
 
 use base64::Engine;

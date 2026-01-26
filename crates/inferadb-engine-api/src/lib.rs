@@ -251,7 +251,7 @@ impl KeyExtractor for SmartIpKeyExtractor {
             .extensions()
             .get::<axum::extract::ConnectInfo<SocketAddr>>()
             .map(|connect_info| connect_info.0)
-            .unwrap_or_else(|| "127.0.0.1:0".parse().unwrap()))
+            .unwrap_or_else(|| SocketAddr::from(([127, 0, 0, 1], 0))))
     }
 }
 
@@ -389,7 +389,7 @@ pub async fn public_routes(components: ServerComponents) -> Result<Router> {
             .burst_size(2000)
             .key_extractor(SmartIpKeyExtractor)
             .finish()
-            .unwrap(),
+            .ok_or_else(|| ApiError::Internal("Failed to build rate limiter config".to_string()))?,
     );
 
     let router = build_health_routes()
@@ -575,6 +575,7 @@ pub async fn create_test_router(state: AppState) -> Result<Router> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use axum::{
         Router,

@@ -125,11 +125,13 @@ impl<S: StorageBackend> RelationshipRepository<S> {
     async fn get_current_revision(&self, vault: i64) -> RepositoryResult<Revision> {
         let key = keys::relationship::revision(vault);
         match self.storage.get(&key).await? {
-            Some(bytes) if bytes.len() == 8 => {
-                let rev = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
-                Ok(Revision(rev))
+            Some(bytes) => {
+                let Ok(arr): Result<[u8; 8], _> = bytes[..].try_into() else {
+                    return Ok(Revision::zero());
+                };
+                Ok(Revision(u64::from_le_bytes(arr)))
             },
-            _ => Ok(Revision::zero()),
+            None => Ok(Revision::zero()),
         }
     }
 
@@ -674,6 +676,7 @@ impl<S: StorageBackend> RelationshipRepository<S> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use inferadb_engine_types::{
         ChangeOperation, DeleteFilter, Relationship, RelationshipKey, Revision,

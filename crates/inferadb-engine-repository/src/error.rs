@@ -53,16 +53,17 @@ impl From<StorageError> for RepositoryError {
     fn from(err: StorageError) -> Self {
         match err {
             StorageError::NotFound { key, .. } => RepositoryError::NotFound(key),
-            StorageError::Conflict { .. } => RepositoryError::Conflict,
+            StorageError::Conflict => RepositoryError::Conflict,
             StorageError::Connection { message, .. } => RepositoryError::Connection(message),
             StorageError::Serialization { message, .. } => RepositoryError::Serialization(message),
-            StorageError::Timeout { .. } => RepositoryError::Timeout,
+            StorageError::Timeout => RepositoryError::Timeout,
             StorageError::Internal { message, .. } => RepositoryError::Internal(message),
         }
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

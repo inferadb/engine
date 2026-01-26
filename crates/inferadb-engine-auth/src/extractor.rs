@@ -99,6 +99,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use axum::http::{Request, StatusCode};
     use chrono::{Duration, Utc};

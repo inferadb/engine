@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::{hint::black_box, sync::Arc};
 
 use criterion::{Criterion, criterion_group, criterion_main};

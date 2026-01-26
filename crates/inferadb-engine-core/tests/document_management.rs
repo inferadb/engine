@@ -6,6 +6,7 @@
 //! - Hierarchical permissions (folder viewers can view all documents inside)
 //! - Owner permissions (owners can do everything)
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
 
 mod common;

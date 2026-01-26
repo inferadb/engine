@@ -13,18 +13,17 @@ moka = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-tracing = { workspace = true }
 uuid = { workspace = true }
 
 # Internal dependencies
-inferadb-engine-observe = { path = "../inferadb-engine-observe" }
-inferadb-engine-store = { path = "../inferadb-engine-store" }
 inferadb-engine-types = { path = "../inferadb-engine-types" }
 
 [dev-dependencies]
 criterion = { workspace = true }
-tokio-test = "0.4"
 
 [[bench]]
 harness = false
 name = "cache_operations"
+
+[lints]
+workspace = true

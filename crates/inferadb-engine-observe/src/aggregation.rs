@@ -203,7 +203,7 @@ impl LokiShipper {
         // Convert entries to Loki format
         let values: Vec<[String; 2]> = entries
             .into_iter()
-            .map(|entry| {
+            .map(|entry| -> Result<[String; 2]> {
                 // Timestamp as string (nanoseconds)
                 let ts = entry.timestamp_ns.to_string();
 
@@ -214,9 +214,9 @@ impl LokiShipper {
                     "fields": entry.fields,
                 });
 
-                [ts, serde_json::to_string(&log_line).unwrap()]
+                Ok([ts, serde_json::to_string(&log_line)?])
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
         let payload = json!({
             "streams": [
@@ -492,6 +492,7 @@ pub fn init_with_aggregation(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

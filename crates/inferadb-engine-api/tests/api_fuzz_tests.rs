@@ -293,6 +293,7 @@ proptest! {
 
 /// Integration test: Verify API handles fuzzed inputs gracefully
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod integration_tests {
     use super::*;
 

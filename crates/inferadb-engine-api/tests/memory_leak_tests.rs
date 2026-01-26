@@ -25,6 +25,7 @@
 //! - dhat-rs (heap profiling)
 //! - cargo-instruments (macOS profiling)
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::{sync::Arc, time::Duration};
 
 use inferadb_engine_api::AppState;

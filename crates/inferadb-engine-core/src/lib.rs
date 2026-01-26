@@ -38,6 +38,7 @@ pub enum EvalError {
 pub type Result<T> = std::result::Result<T, EvalError>;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     #[test]
     fn test_core_module() {

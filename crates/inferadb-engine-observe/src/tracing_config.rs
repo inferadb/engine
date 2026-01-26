@@ -133,6 +133,7 @@ pub fn apply_auth_semantic_conventions(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

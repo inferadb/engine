@@ -375,6 +375,7 @@ pub async fn post_search_subject(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use std::sync::Arc;
 

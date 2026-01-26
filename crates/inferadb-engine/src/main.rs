@@ -143,10 +143,25 @@ async fn main() -> Result<()> {
             )
         },
         "ledger" => {
+            let endpoint = config
+                .ledger
+                .endpoint
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Ledger endpoint is required"))?
+                .clone();
+            let client_id = config
+                .ledger
+                .client_id
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Ledger client_id is required"))?;
+            let namespace_id = config
+                .ledger
+                .namespace_id
+                .ok_or_else(|| anyhow::anyhow!("Ledger namespace_id is required"))?;
             let ledger_config = LedgerBackendConfig::builder()
-                .endpoints(vec![config.ledger.endpoint.as_ref().expect("validated").clone()])
-                .client_id(config.ledger.client_id.as_ref().expect("validated"))
-                .namespace_id(config.ledger.namespace_id.expect("validated"))
+                .endpoints(vec![endpoint])
+                .client_id(client_id)
+                .namespace_id(namespace_id)
                 .maybe_vault_id(config.ledger.vault_id)
                 .build()
                 .map_err(|e| anyhow::anyhow!("Failed to build Ledger config: {}", e))?;
@@ -234,6 +249,7 @@ async fn main() -> Result<()> {
 }
 
 /// Graceful shutdown signal handler
+#[allow(clippy::expect_used)] // Signal handler installation failure is unrecoverable
 async fn shutdown_signal() {
     use tokio::signal;
 

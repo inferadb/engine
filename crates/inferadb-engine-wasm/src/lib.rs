@@ -62,7 +62,8 @@ impl WasmHost {
     pub fn load_module(&self, name: String, wasm_bytes: &[u8]) -> Result<()> {
         let module = Module::new(self.sandbox.engine(), wasm_bytes)?;
 
-        let mut modules = self.modules.write().unwrap();
+        // Recover lock even if poisoned - module cache state is still usable
+        let mut modules = self.modules.write().unwrap_or_else(|e| e.into_inner());
         modules.insert(name, module);
 
         Ok(())
@@ -75,7 +76,8 @@ impl WasmHost {
         func_name: &str,
         context: ExecutionContext,
     ) -> Result<bool> {
-        let modules = self.modules.read().unwrap();
+        // Recover lock even if poisoned - module cache state is still usable
+        let modules = self.modules.read().unwrap_or_else(|e| e.into_inner());
         let module = modules
             .get(module_name)
             .ok_or_else(|| WasmError::ModuleNotFound(module_name.to_string()))?;
@@ -99,6 +101,7 @@ pub enum Value {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

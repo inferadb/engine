@@ -314,7 +314,7 @@ impl Evaluator {
         // Apply subject_type filter if provided
         if let Some(subject_type_filter) = &request.subject_type {
             all_subjects.retain(|subject| {
-                subject.split(':').next().map(|t| t == subject_type_filter).unwrap_or(false)
+                subject.split(':').next().is_some_and(|t| t == subject_type_filter)
             });
         }
 

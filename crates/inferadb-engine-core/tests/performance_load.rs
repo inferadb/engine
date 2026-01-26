@@ -41,6 +41,7 @@
 //! - `test_spike_load`: Handle sudden traffic spikes
 //! - `test_deep_nesting_10_levels`: Deep permission hierarchies
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::{
     sync::{
         Arc,

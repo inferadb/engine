@@ -3,6 +3,7 @@
 //! These tests use proptest to generate random inputs and ensure the parser
 //! handles them gracefully without panicking.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use inferadb_engine_core::ipl::parser::parse_schema;
 use proptest::prelude::*;
 

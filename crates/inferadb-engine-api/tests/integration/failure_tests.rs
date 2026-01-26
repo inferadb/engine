@@ -7,6 +7,7 @@
 //! - Concurrent write conflicts
 //! - Empty result sets
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use inferadb_engine_types::{DeleteFilter, Relationship, RelationshipKey, Revision};
 
 use crate::{

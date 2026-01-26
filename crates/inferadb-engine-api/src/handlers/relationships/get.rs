@@ -216,6 +216,7 @@ fn generate_etag(resource: &str, relation: &str, subject: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use std::sync::Arc;
 

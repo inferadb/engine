@@ -124,10 +124,11 @@ fn parse_union_expr(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> {
         exprs.push(parse_intersection_expr(inner)?);
     }
 
-    if exprs.len() == 1 {
-        Ok(exprs.into_iter().next().unwrap())
-    } else {
-        Ok(RelationExpr::Union(exprs))
+    match exprs.len() {
+        1 => exprs
+            .pop()
+            .ok_or_else(|| EvalError::Parse("Empty union expression".to_string())),
+        _ => Ok(RelationExpr::Union(exprs)),
     }
 }
 
@@ -138,10 +139,11 @@ fn parse_intersection_expr(pair: pest::iterators::Pair<Rule>) -> Result<Relation
         exprs.push(parse_exclusion_expr(inner)?);
     }
 
-    if exprs.len() == 1 {
-        Ok(exprs.into_iter().next().unwrap())
-    } else {
-        Ok(RelationExpr::Intersection(exprs))
+    match exprs.len() {
+        1 => exprs
+            .pop()
+            .ok_or_else(|| EvalError::Parse("Empty intersection expression".to_string())),
+        _ => Ok(RelationExpr::Intersection(exprs)),
     }
 }
 
@@ -228,6 +230,7 @@ fn parse_wasm_module(pair: pest::iterators::Pair<Rule>) -> Result<RelationExpr> 
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

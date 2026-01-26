@@ -36,3 +36,6 @@ unicode-width = { workspace = true }
 [features]
 default = []
 http-api = ["axum"]
+
+[lints]
+workspace = true

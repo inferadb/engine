@@ -217,6 +217,7 @@ pub mod changelog {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use inferadb_engine_types::Revision;
 

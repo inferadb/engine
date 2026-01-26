@@ -4,6 +4,7 @@
 //! relationships, and other test fixtures that are used across multiple test suites.
 
 #![deny(unsafe_code)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 pub mod internal_jwt;
 pub mod relationships;

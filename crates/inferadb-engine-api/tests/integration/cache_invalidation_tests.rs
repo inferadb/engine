@@ -7,6 +7,7 @@
 //! - Selective invalidation only affects relevant resources
 //! - Vault isolation is maintained in cache operations
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use inferadb_engine_types::{Decision, EvaluateRequest};
 
 use crate::{

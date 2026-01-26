@@ -95,9 +95,18 @@ impl Default for HealthTracker {
 }
 
 impl HealthTracker {
+    /// Get current timestamp in seconds since UNIX epoch, defaulting to 0 on error.
+    #[inline]
+    fn current_timestamp_secs() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    }
+
     /// Create a new health tracker
     pub fn new() -> Self {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = Self::current_timestamp_secs();
 
         Self {
             start_time: Arc::new(AtomicU64::new(now)),
@@ -109,7 +118,7 @@ impl HealthTracker {
 
     /// Get uptime in seconds
     pub fn uptime_seconds(&self) -> u64 {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = Self::current_timestamp_secs();
         let start = self.start_time.load(Ordering::Relaxed);
         now.saturating_sub(start)
     }
@@ -150,7 +159,7 @@ impl HealthTracker {
         store: &Arc<dyn inferadb_engine_store::InferaStore>,
     ) -> HealthResponse {
         let uptime = self.uptime_seconds();
-        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let timestamp = Self::current_timestamp_secs();
 
         // Check storage health with a simple read
         let storage_status =
@@ -278,6 +287,7 @@ pub async fn healthz_handler(State(state): State<crate::AppState>) -> impl IntoR
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

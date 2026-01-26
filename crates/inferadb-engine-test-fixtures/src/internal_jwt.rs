@@ -233,6 +233,7 @@ pub fn create_internal_jwks(public_keys: Vec<Jwk>) -> InternalJwks {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

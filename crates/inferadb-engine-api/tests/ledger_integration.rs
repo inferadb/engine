@@ -196,7 +196,7 @@ async fn test_ledger_engine_write_and_read_relationships() {
 
     let state = create_ledger_test_state().await;
     let vault = unique_vault_id();
-    let organization = unique_vault_id();
+    let _organization = unique_vault_id();
 
     // Write relationships
     let relationships = vec![

@@ -2,6 +2,7 @@
 //!
 //! Tests that forbid rules correctly override permit rules with explicit deny semantics.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use inferadb_engine_core::ipl::parse_schema;
 
 mod common;

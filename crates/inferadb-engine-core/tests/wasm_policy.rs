@@ -1,5 +1,6 @@
 //! Integration tests for WASM policy modules
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::sync::Arc;
 
 use inferadb_engine_core::{
