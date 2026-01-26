@@ -268,11 +268,14 @@ async fn test_vault_scoped_listing() {
     assert!(!resources_a.resources.contains(&"document:doc3".to_string()));
 
     // Create a new resource service for vault B
-    let context_b = Arc::new(inferadb_engine_api::services::ServiceContext::builder()
-        .store(Arc::clone(&state.store) as Arc<dyn RelationshipStore>)
-        .schema(create_test_schema())
-        .build());
-    let resource_service_b = Arc::new(inferadb_engine_api::services::ResourceService::new(context_b));
+    let context_b = Arc::new(
+        inferadb_engine_api::services::ServiceContext::builder()
+            .store(Arc::clone(&state.store) as Arc<dyn RelationshipStore>)
+            .schema(create_test_schema())
+            .build(),
+    );
+    let resource_service_b =
+        Arc::new(inferadb_engine_api::services::ResourceService::new(context_b));
 
     // Test list_resources in vault B
     let resources_b = resource_service_b

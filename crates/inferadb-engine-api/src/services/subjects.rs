@@ -4,8 +4,7 @@ use std::sync::Arc;
 
 use inferadb_engine_types::{ListSubjectsRequest, ListSubjectsResponse};
 
-use super::ServiceContext;
-use super::validation::validate_list_subjects_request;
+use super::{ServiceContext, validation::validate_list_subjects_request};
 use crate::ApiError;
 
 /// Service for listing subjects that have access to resources

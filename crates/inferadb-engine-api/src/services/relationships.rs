@@ -7,9 +7,11 @@ use inferadb_engine_types::{
     Relationship, Revision,
 };
 
-use super::ServiceContext;
-use super::validation::{
-    validate_delete_filter, validate_list_relationships_request, validate_relationship,
+use super::{
+    ServiceContext,
+    validation::{
+        validate_delete_filter, validate_list_relationships_request, validate_relationship,
+    },
 };
 use crate::ApiError;
 

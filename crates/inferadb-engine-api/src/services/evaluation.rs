@@ -5,8 +5,7 @@ use std::sync::Arc;
 use inferadb_engine_core::DecisionTrace;
 use inferadb_engine_types::{Decision, EvaluateRequest};
 
-use super::ServiceContext;
-use super::validation::validate_evaluate_request;
+use super::{ServiceContext, validation::validate_evaluate_request};
 use crate::ApiError;
 
 /// Service for evaluating authorization decisions
