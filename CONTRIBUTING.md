@@ -1,108 +1,69 @@
 # Contributing to InferaDB
 
-Thank you for your interest in contributing to [InferaDB](https://inferadb.com)! We welcome contributions from the community and are grateful for any help you can provide.
+Thank you for your interest in contributing to [InferaDB](https://inferadb.com)!
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [open@inferadb.com](mailto:open@inferadb.com).
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). Report unacceptable behavior to [open@inferadb.com](mailto:open@inferadb.com).
 
-## How to Contribute
+## Reporting Issues
 
-### Reporting Issues
+- **Bugs**: Search existing issues first. Include version, steps to reproduce, and logs.
+- **Features**: Describe the use case and proposed solution.
+- **Security**: Email [security@inferadb.com](mailto:security@inferadb.com) (do not open public issues).
 
-- **Bug Reports**: Search existing issues first to avoid duplicates. Include version information, steps to reproduce, expected vs actual behavior, and relevant logs.
-- **Feature Requests**: Describe the use case, proposed solution, and alternatives considered.
-- **Security Issues**: Do **not** open public issues for security vulnerabilities. Instead, email [security@inferadb.com](mailto:security@inferadb.com).
+## Pull Requests
 
-### Pull Requests
+1. Fork and branch from `main`
+2. Follow [Conventional Commits](https://www.conventionalcommits.org/)
+3. Ensure tests pass: `just test`
+4. Update documentation if needed
+5. Submit PR with clear description
 
-1. **Fork the repository** and create your branch from `main`
-2. **Follow the development workflow** documented in the repository's [README.md](README.md)
-3. **Write clear commit messages** following [Conventional Commits](https://www.conventionalcommits.org/)
-4. **Ensure all tests pass** before submitting
-5. **Update documentation** if your changes affect public APIs or user-facing behavior
-6. **Submit a pull request** with a clear description of your changes
-
-### Running Tests
-
-InferaDB uses [nextest](https://nexte.st) for test execution with multiple profiles for different scenarios:
-
-| Profile | Command | Use Case |
-|---------|---------|----------|
-| `fast` | `cargo nextest run --profile fast` | Quick local validation, PR checks |
-| `ci` | `cargo nextest run --profile ci` | Standard CI runs, push to main |
-| `full` | `cargo nextest run --profile full` | Comprehensive testing including ignored tests |
-
-**Profile characteristics:**
-
-- **fast**: Fail-fast enabled, 30s timeout, minimal output. Best for rapid iteration.
-- **ci**: Standard timeouts, retries enabled, JUnit output. Used in GitHub Actions.
-- **full**: Runs all ignored tests (load, scale, stress), 5min timeout, 2 retries. For release validation.
-
-**Environment variables:**
+## Development
 
 ```bash
-# Control proptest case count (default: 50)
-PROPTEST_CASES=10 cargo nextest run --profile fast    # Minimal fuzzing
-PROPTEST_CASES=500 cargo nextest run --profile full   # Comprehensive fuzzing
+mise trust && mise install     # Setup
+just test                      # Run tests
+just lint                      # Clippy
+just fmt                       # Format
 ```
 
-**Running specific test types:**
+## Test Profiles
+
+| Command | Use Case |
+|---------|----------|
+| `just test-fast` | Quick local validation (~15s) |
+| `just test` | Standard CI runs (~30s) |
+| `just test-full` | Comprehensive with load tests (~5min) |
+
+Control proptest iterations:
 
 ```bash
-# Run only ignored load tests
-cargo nextest run --profile full --run-ignored only
-
-# Run a specific test package
-cargo nextest run --profile ci -p inferadb-engine-core
+PROPTEST_CASES=10 just test-fast   # Minimal
+PROPTEST_CASES=500 just test-full  # Comprehensive
 ```
 
-### CI Test Behavior
+## CI Behavior
 
-The CI workflow automatically selects appropriate test depth based on the trigger event:
-
-| Event | Profile | PROPTEST_CASES | Tests Run |
-|-------|---------|----------------|-----------|
-| Pull Request | `fast` | 10 | Smoke tests only (fuzz tests gated behind `test-full` feature) |
-| Push to main | `ci` | 25 | Standard test suite with moderate fuzzing |
-| Nightly (schedule) | `full` | 500 | Full suite including all ignored load/scale tests |
-| Manual dispatch | `full` | 500 | Full suite on any branch via workflow_dispatch |
-
-**Proptest regression caching**: CI caches proptest regression files (`**/proptest-regressions`) between runs. When a proptest failure is found, the regression file is saved so subsequent runs can reproduce the failure quickly without re-discovering it.
-
-**Running full tests locally:**
-
-```bash
-# Equivalent to nightly CI
-PROPTEST_CASES=500 cargo nextest run --profile full --features test-full --run-ignored all
-
-# Or use the justfile target
-just test-full
-```
-
-### Development Setup
-
-Each repository has its own development setup and workflow. See the repository's [README.md](README.md) for prerequisites, build commands, and development workflow.
+| Event | Profile | PROPTEST_CASES |
+|-------|---------|----------------|
+| Pull Request | fast | 10 |
+| Push to main | ci | 25 |
+| Nightly | full | 500 |
 
 ## Review Process
 
-1. **Automated Checks**: CI will run tests, linters, and formatters
-2. **Peer Review**: At least one maintainer will review your contribution
-3. **Feedback**: Address any review comments
-4. **Approval**: Once approved, a maintainer will merge your contribution
+1. Automated CI checks
+2. Maintainer review
+3. Address feedback
+4. Merge on approval
 
 ## License
 
-By contributing to [InferaDB](https://github.com/inferadb), you agree that your contributions will be dual-licensed under:
-
-- [Apache License, Version 2.0](LICENSE-APACHE)
-- [MIT License](LICENSE-MIT)
+Contributions are dual-licensed under [Apache 2.0](LICENSE-APACHE) and [MIT](LICENSE-MIT).
 
 ## Questions?
 
-If you have questions or need help:
-
-- Join our [Discord server](https://discord.gg/inferadb) to chat with the community
-- Email us at [open@inferadb.com](mailto:open@inferadb.com)
-
-Thank you for helping make InferaDB better!
+- [Discord](https://discord.gg/inferadb)
+- [open@inferadb.com](mailto:open@inferadb.com)

@@ -26,18 +26,9 @@ cargo run --bin inferadb-engine
 Check a permission:
 
 ```bash
-curl -N -X POST http://localhost:8080/v1/evaluate \
+curl -X POST http://localhost:8080/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{"evaluations": [{"subject": "user:alice", "resource": "doc:readme", "permission": "viewer"}]}'
-```
-
-Response (SSE stream):
-
-```text
-data: {"decision":"allow","index":0}
-
-event: summary
-data: {"total":1,"complete":true}
 ```
 
 Write a relationship:
@@ -48,20 +39,12 @@ curl -X POST http://localhost:8080/v1/relationships/write \
   -d '{"relationships": [{"resource": "doc:public", "relation": "viewer", "subject": "user:*"}]}'
 ```
 
-## Performance
-
-| Operation        | p50    | p99     | Throughput |
-| ---------------- | ------ | ------- | ---------- |
-| Check (cached)   | <1ms   | <2ms    | 100K+ RPS  |
-| Check (uncached) | 3-5ms  | 8-10ms  | 50K+ RPS   |
-| Expand           | 5-15ms | 20-30ms | 20K+ RPS   |
-
 ## Features
 
 | Feature          | Description                                       |
 | ---------------- | ------------------------------------------------- |
 | **Complete API** | Check, Expand, ListResources, ListSubjects, Watch |
-| **Multi-Tenant** | Data isolation via Accounts and Vaults            |
+| **Multi-Tenant** | Data isolation via Organizations and Vaults       |
 | **Wildcards**    | Model public resources with `user:*`              |
 | **Observable**   | Prometheus, OpenTelemetry, structured logs        |
 | **Storage**      | Memory (dev) or Ledger (prod)                     |
@@ -82,27 +65,19 @@ graph TD
     StorageLedger --> Ledger[(InferaDB Ledger)]
 ```
 
-| Crate                      | Purpose                                     |
-| -------------------------- | ------------------------------------------- |
-| inferadb-engine            | Binary entrypoint                           |
-| inferadb-engine-api        | REST and gRPC endpoints                     |
-| inferadb-engine-core       | Permission evaluation, IPL interpreter      |
-| inferadb-engine-auth       | JWT validation, JWKS                        |
-| inferadb-engine-repository | Domain repositories (relationships, vaults) |
-| inferadb-engine-store      | Store trait definitions                     |
-| inferadb-engine-cache      | Result caching                              |
-| inferadb-engine-config     | Configuration loading                       |
-| inferadb-engine-types      | Shared type definitions                     |
-| inferadb-engine-observe    | Metrics and tracing                         |
-| inferadb-engine-wasm       | WebAssembly modules                         |
-| inferadb-engine-discovery  | Service mesh discovery                      |
-
-### Shared Storage Crates
-
-| Crate                   | Purpose                                      |
-| ----------------------- | -------------------------------------------- |
-| inferadb-storage        | Generic StorageBackend trait + MemoryBackend |
-| inferadb-storage-ledger | Ledger-backed StorageBackend implementation  |
+| Crate                      | Purpose                              |
+| -------------------------- | ------------------------------------ |
+| inferadb-engine            | Binary entrypoint                    |
+| inferadb-engine-api        | REST and gRPC endpoints              |
+| inferadb-engine-core       | Permission evaluation, IPL parser    |
+| inferadb-engine-auth       | JWT validation, JWKS, OAuth          |
+| inferadb-engine-repository | Domain repositories                  |
+| inferadb-engine-store      | Storage trait definitions            |
+| inferadb-engine-cache      | Result caching                       |
+| inferadb-engine-config     | Configuration and secrets            |
+| inferadb-engine-types      | Shared type definitions              |
+| inferadb-engine-observe    | Metrics, tracing, structured logging |
+| inferadb-engine-wasm       | WebAssembly sandbox                  |
 
 ## Configuration
 
@@ -113,76 +88,38 @@ engine:
   listen:
     http: "0.0.0.0:8080"
     grpc: "0.0.0.0:8081"
-    mesh: "0.0.0.0:8082"
 
-  # Storage: "memory" (dev) or "ledger" (production)
-  storage: "ledger"
+  storage: "ledger" # "memory" for dev
 
-  # Ledger configuration (requires --features ledger)
   ledger:
     endpoint: "http://ledger.inferadb:50051"
     client_id: "engine-prod-001"
     namespace_id: 1
-    vault_id: 1 # optional
 
   cache:
     enabled: true
     capacity: 100000
     ttl: 300
-
-  mesh:
-    url: "http://localhost:9092"
 ```
 
-### Environment Variables
+Environment variables use `INFERADB__ENGINE__` prefix:
 
-Environment variables use `INFERADB__ENGINE__` prefix with double underscores for nesting:
-
-| Variable                                 | Description                | Example               |
-| ---------------------------------------- | -------------------------- | --------------------- |
-| `INFERADB__ENGINE__LISTEN__HTTP`         | HTTP listen address        | `0.0.0.0:8080`        |
-| `INFERADB__ENGINE__STORAGE`              | Storage backend            | `ledger`              |
-| `INFERADB__ENGINE__LEDGER__ENDPOINT`     | Ledger server URL          | `http://ledger:50051` |
-| `INFERADB__ENGINE__LEDGER__CLIENT_ID`    | Client ID for idempotency  | `engine-001`          |
-| `INFERADB__ENGINE__LEDGER__NAMESPACE_ID` | Namespace for data scoping | `1`                   |
-| `INFERADB__ENGINE__LEDGER__VAULT_ID`     | Vault for finer scoping    | `1`                   |
-
-See [docs/guides/configuration.md](docs/guides/configuration.md).
+| Variable                             | Description       |
+| ------------------------------------ | ----------------- |
+| `INFERADB__ENGINE__LISTEN__HTTP`     | HTTP address      |
+| `INFERADB__ENGINE__STORAGE`          | Storage backend   |
+| `INFERADB__ENGINE__LEDGER__ENDPOINT` | Ledger server URL |
 
 ## Development
 
 ```bash
-mise trust && mise install              # Setup
-cargo run --bin inferadb-engine         # Run
-cargo nextest run --lib --workspace     # Test
-cargo +nightly fmt --all                # Format
-cargo clippy --workspace --all-targets -- -D warnings
-cargo build --release                   # Release build
+mise trust && mise install     # Setup toolchain
+just test                      # Run tests
+just lint                      # Run clippy
+just fmt                       # Format code
 ```
 
-## Deployment
-
-```bash
-docker run -p 8080:8080 inferadb/engine:latest
-kubectl apply -k k8s/
-helm install inferadb ./helm
-```
-
-See [docs/guides/deployment.md](docs/guides/deployment.md).
-
-## Documentation
-
-| Topic          | Link                                                               |
-| -------------- | ------------------------------------------------------------------ |
-| Quickstart     | [docs/quickstart.md](docs/quickstart.md)                           |
-| Architecture   | [docs/architecture.md](docs/architecture.md)                       |
-| IPL Language   | [docs/core/ipl.md](docs/core/ipl.md)                               |
-| Authentication | [docs/security/authentication.md](docs/security/authentication.md) |
-| API Reference  | [api/openapi.yaml](api/openapi.yaml)                               |
-
-## Community
-
-Join us on [Discord](https://discord.gg/inferadb) for questions, discussions, and contributions.
+See `just --list` for all commands.
 
 ## License
 

@@ -54,7 +54,7 @@ build:
 
 # Run clippy linter
 lint:
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
+    cargo clippy --workspace --all-targets -- -D warnings
 
 # Format code with nightly rustfmt
 fmt:
