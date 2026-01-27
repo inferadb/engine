@@ -31,24 +31,16 @@ curl -X POST http://localhost:8080/v1/evaluate \
   -d '{"evaluations": [{"subject": "user:alice", "resource": "doc:readme", "permission": "viewer"}]}'
 ```
 
-Write a relationship:
-
-```bash
-curl -X POST http://localhost:8080/v1/relationships/write \
-  -H "Content-Type: application/json" \
-  -d '{"relationships": [{"resource": "doc:public", "relation": "viewer", "subject": "user:*"}]}'
-```
-
 ## Features
 
-| Feature          | Description                                       |
-| ---------------- | ------------------------------------------------- |
+| Feature | Description |
+|---------|-------------|
 | **Complete API** | Check, Expand, ListResources, ListSubjects, Watch |
-| **Multi-Tenant** | Data isolation via Organizations and Vaults       |
-| **Wildcards**    | Model public resources with `user:*`              |
-| **Observable**   | Prometheus, OpenTelemetry, structured logs        |
-| **Storage**      | Memory (dev) or Ledger (prod)                     |
-| **Extensible**   | WASM modules for custom logic                     |
+| **Multi-Tenant** | Data isolation via Organizations and Vaults |
+| **Wildcards** | Model public resources with `user:*` |
+| **Observable** | Prometheus, OpenTelemetry, structured logs |
+| **Storage** | Memory (dev) or Ledger (prod) |
+| **Extensible** | WASM modules for custom logic |
 
 ## Architecture
 
@@ -59,37 +51,37 @@ graph TD
     API --> Auth[inferadb-engine-auth]
     Core --> Repo[inferadb-engine-repository]
     Core --> Cache[inferadb-engine-cache]
-    Repo --> Storage[inferadb-storage]
-    Storage --> Memory[(Memory)]
-    Storage --> StorageLedger[inferadb-storage-ledger]
-    StorageLedger --> Ledger[(InferaDB Ledger)]
+    Repo --> Store[inferadb-engine-store]
+    Store --> Memory[(Memory)]
+    Store --> Ledger[(InferaDB Ledger)]
 ```
 
-| Crate                      | Purpose                              |
-| -------------------------- | ------------------------------------ |
-| inferadb-engine            | Binary entrypoint                    |
-| inferadb-engine-api        | REST and gRPC endpoints              |
-| inferadb-engine-core       | Permission evaluation, IPL parser    |
-| inferadb-engine-auth       | JWT validation, JWKS, OAuth          |
-| inferadb-engine-repository | Domain repositories                  |
-| inferadb-engine-store      | Storage trait definitions            |
-| inferadb-engine-cache      | Result caching                       |
-| inferadb-engine-config     | Configuration and secrets            |
-| inferadb-engine-types      | Shared type definitions              |
-| inferadb-engine-observe    | Metrics, tracing, structured logging |
-| inferadb-engine-wasm       | WebAssembly sandbox                  |
+| Crate | Purpose |
+|-------|---------|
+| inferadb-engine | Binary entrypoint |
+| inferadb-engine-api | REST and gRPC endpoints |
+| inferadb-engine-core | Permission evaluation, IPL parser |
+| inferadb-engine-auth | JWT validation, JWKS, OAuth |
+| inferadb-engine-repository | Domain repositories |
+| inferadb-engine-store | Storage trait definitions |
+| inferadb-engine-cache | Result caching |
+| inferadb-engine-config | Configuration and secrets |
+| inferadb-engine-types | Shared type definitions |
+| inferadb-engine-const | Shared constants |
+| inferadb-engine-observe | Metrics, tracing, logging |
+| inferadb-engine-wasm | WebAssembly sandbox |
 
 ## Configuration
 
-Configure via YAML or environment variables:
+Configure via `config.yaml` or environment variables (`INFERADB__ENGINE__` prefix):
 
 ```yaml
 engine:
   listen:
-    http: "0.0.0.0:8080"
-    grpc: "0.0.0.0:8081"
+    http: "127.0.0.1:8080"
+    grpc: "127.0.0.1:8081"
 
-  storage: "ledger" # "memory" for dev
+  storage: "ledger"  # or "memory" for dev
 
   ledger:
     endpoint: "http://ledger.inferadb:50051"
@@ -102,24 +94,15 @@ engine:
     ttl: 300
 ```
 
-Environment variables use `INFERADB__ENGINE__` prefix:
-
-| Variable                             | Description       |
-| ------------------------------------ | ----------------- |
-| `INFERADB__ENGINE__LISTEN__HTTP`     | HTTP address      |
-| `INFERADB__ENGINE__STORAGE`          | Storage backend   |
-| `INFERADB__ENGINE__LEDGER__ENDPOINT` | Ledger server URL |
-
 ## Development
 
 ```bash
-mise trust && mise install     # Setup toolchain
-just test                      # Run tests
-just lint                      # Run clippy
-just fmt                       # Format code
+just test        # Standard tests
+just lint        # Clippy
+just fmt         # Format
 ```
 
-See `just --list` for all commands.
+See `just --list` for all commands and [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 

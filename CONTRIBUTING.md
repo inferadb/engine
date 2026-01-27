@@ -33,24 +33,11 @@ just fmt                       # Format
 
 | Command | Use Case |
 |---------|----------|
-| `just test-fast` | Quick local validation (~15s) |
-| `just test` | Standard CI runs (~30s) |
-| `just test-full` | Comprehensive with load tests (~5min) |
+| `just test-fast` | Quick local validation |
+| `just test` | Standard CI runs |
+| `just test-full` | Comprehensive with load tests |
 
-Control proptest iterations:
-
-```bash
-PROPTEST_CASES=10 just test-fast   # Minimal
-PROPTEST_CASES=500 just test-full  # Comprehensive
-```
-
-## CI Behavior
-
-| Event | Profile | PROPTEST_CASES |
-|-------|---------|----------------|
-| Pull Request | fast | 10 |
-| Push to main | ci | 25 |
-| Nightly | full | 500 |
+Control proptest iterations: `PROPTEST_CASES=500 just test-full`
 
 ## Review Process
 
