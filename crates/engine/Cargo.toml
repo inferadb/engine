@@ -1,0 +1,46 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+name = "inferadb-engine"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "inferadb-engine"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+moka = { workspace = true }
+rustls = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+# Internal dependencies
+inferadb-engine-api = { path = "../api" }
+inferadb-engine-auth = { path = "../auth" }
+inferadb-engine-cache = { path = "../cache" }
+inferadb-engine-config = { path = "../config" }
+inferadb-engine-core = { path = "../core" }
+inferadb-engine-observe = { path = "../observe" }
+inferadb-engine-repository = { path = "../repository" }
+inferadb-engine-store = { path = "../store" }
+inferadb-engine-types = { path = "../types" }
+inferadb-engine-wasm = { path = "../wasm" }
+
+# Shared storage abstraction
+inferadb-common-storage = { path = "../../../common/crates/storage" }
+inferadb-common-storage-ledger = { path = "../../../common/crates/storage-ledger" }
+
+[features]
+default = []
+
+[dev-dependencies]
+futures = { workspace = true }
+
+[lints]
+workspace = true

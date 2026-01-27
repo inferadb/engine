@@ -209,7 +209,7 @@ InferaDB's storage layer is designed to be extensible. To add a new backend:
 
 ```rust
 use async_trait::async_trait;
-use inferadb_storage::{StorageBackend, Result};
+use inferadb_common_storage::{StorageBackend, Result};
 
 pub struct MyBackend {
     // Your backend implementation

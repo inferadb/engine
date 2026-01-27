@@ -1,0 +1,45 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+name = "inferadb-engine-test-fixtures"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+# Fast tier: minimal proptest cases (10), for PR checks and pre-commit
+test-fast = []
+# Full tier: comprehensive proptest cases (500), includes expensive tests
+test-full = []
+
+[dependencies]
+# Core types
+inferadb-engine-types = { path = "../types" }
+
+# Schema and IPL types for shared fixtures
+inferadb-engine-core = { path = "../core" }
+
+# Auth types
+inferadb-engine-auth = { path = "../auth" }
+
+# JWT and crypto
+base64 = { workspace = true }
+chrono = { workspace = true }
+ed25519-dalek = { workspace = true }
+jsonwebtoken = { workspace = true }
+rand = { workspace = true }
+rand_core = { version = "0.6", features = ["getrandom"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = "1.10"
+
+# Builder pattern
+bon = { workspace = true }
+
+# Property-based testing configuration
+proptest = { workspace = true }
+
+[lints]
+workspace = true

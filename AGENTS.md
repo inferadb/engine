@@ -43,7 +43,7 @@ inferadb-engine-core    — IPL parser, graph traversal, permission evaluation
        ↓
 inferadb-engine-repository — Domain repositories (relationships, vaults, orgs)
        ↓
-inferadb-storage        — Backend abstraction (Memory | Ledger)
+inferadb-common-storage — Backend abstraction (Memory | Ledger)
 ```
 
 **Crates:**

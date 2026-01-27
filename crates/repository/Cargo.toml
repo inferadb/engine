@@ -1,0 +1,40 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+name = "inferadb-engine-repository"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+description = "Repository layer for Engine storage operations"
+
+[dependencies]
+# Builder pattern
+bon = { workspace = true }
+
+# Shared storage abstraction
+inferadb-common-storage = { path = "../../../common/crates/storage" }
+
+# Engine types
+inferadb-engine-types = { path = "../types" }
+
+# Engine store traits (for implementing InferaStore)
+inferadb-engine-store = { path = "../store" }
+
+# Async runtime and traits
+async-trait = { workspace = true }
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
+tokio = { workspace = true, features = ["full", "test-util"] }
+
+[lints]
+workspace = true

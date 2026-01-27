@@ -1,0 +1,30 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+name = "inferadb-engine-store"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+
+# Internal dependencies
+inferadb-engine-types = { path = "../types" }
+
+[dev-dependencies]
+inferadb-engine-repository = { path = "../repository" }
+inferadb-engine-test-fixtures = { path = "../test-fixtures" }
+inferadb-common-storage = { path = "../../../common/crates/storage" }
+proptest = { workspace = true }
+tokio = { workspace = true }
+
+[features]
+default = []
+# Enable full fuzz test suite (50-500 iterations instead of 5)
+test-full = ["inferadb-engine-test-fixtures/test-full"]
+
+[lints]
+workspace = true
