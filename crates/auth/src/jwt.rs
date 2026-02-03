@@ -1,68 +1,48 @@
-use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use chrono::Utc;
-use jsonwebtoken::{Algorithm, DecodingKey, Header, Validation, decode, decode_header};
-use serde::{Deserialize, Serialize};
+//! JWT validation and claims.
+//!
+//! This module re-exports core JWT functionality from `inferadb-common-authn` and adds
+//! engine-specific extensions for extracting organization and vault information.
 
-use crate::{error::AuthError, validation::validate_algorithm};
+// Re-export core JWT types and functions from common-authn
+pub use inferadb_common_authn::jwt::{
+    JwtClaims, decode_jwt_claims, decode_jwt_header, validate_claims,
+};
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 
-/// JWT claims structure
+use crate::error::AuthError;
+
+/// Engine-specific extensions for [`JwtClaims`].
 ///
-/// Per the Management API specification, JWTs should have the following structure:
-///
-/// ```json
-/// {
-///   "iss": "https://api.inferadb.com",
-///   "sub": "client:<client_id>",
-///   "aud": "https://api.inferadb.com/evaluate",
-///   "exp": 1234567890,
-///   "iat": 1234567800,
-///   "org_id": "<organization_id>",
-///   "vault_id": "<vault_id>",
-///   "vault_role": "write",
-///   "scope": "vault:read vault:write"
-/// }
-/// ```
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct JwtClaims {
-    /// Issuer - Should be the Management API URL (e.g., "https://api.inferadb.com")
-    pub iss: String,
-    /// Subject - Client identifier (e.g., "client:<client_id>")
-    pub sub: String,
-    /// Audience - Target service (e.g., "https://api.inferadb.com/evaluate")
-    pub aud: String,
-    /// Expiration time (seconds since epoch)
-    pub exp: u64,
-    /// Issued at (seconds since epoch)
-    pub iat: u64,
-    /// Not before (optional, seconds since epoch)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nbf: Option<u64>,
-    /// JWT ID (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub jti: Option<String>,
-    /// Space-separated scopes (e.g., "vault:read vault:write")
-    pub scope: String,
-    /// Vault ID (Snowflake ID as string for multi-tenancy isolation)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vault_id: Option<String>,
-    /// Organization ID (Snowflake ID as string - primary identifier per Management API spec)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<String>,
-}
-
-impl JwtClaims {
-    /// Extract organization ID from claims
+/// This trait adds methods for extracting organization and vault information
+/// from JWT claims, which are specific to the InferaDB engine's use case.
+pub trait JwtClaimsExt {
+    /// Extract organization ID from claims.
     ///
     /// Per the Management API specification, the organization ID is stored in the `org_id` claim.
     ///
     /// # Returns
     ///
-    /// The organization ID as a string
+    /// The organization ID as a string.
     ///
     /// # Errors
     ///
-    /// Returns `AuthError::MissingClaim` if the `org_id` claim is missing or empty
-    pub fn extract_org_id(&self) -> Result<String, AuthError> {
+    /// Returns `AuthError::MissingClaim` if the `org_id` claim is missing or empty.
+    fn extract_org_id(&self) -> Result<String, AuthError>;
+
+    /// Parse scopes from space-separated string.
+    fn parse_scopes(&self) -> Vec<String>;
+
+    /// Extract vault ID (Snowflake ID) from claims.
+    /// Returns None if not present.
+    fn extract_vault_id(&self) -> Option<String>;
+
+    /// Extract organization ID (Snowflake ID) from claims.
+    /// Returns None if not present.
+    fn extract_organization(&self) -> Option<String>;
+}
+
+impl JwtClaimsExt for JwtClaims {
+    fn extract_org_id(&self) -> Result<String, AuthError> {
         // Extract org_id claim (Management API client JWTs - per spec)
         // The org_id claim contains the organization ID (Snowflake ID as string)
         if let Some(ref org_id) = self.org_id
@@ -74,105 +54,20 @@ impl JwtClaims {
         Err(AuthError::MissingClaim("org_id".into()))
     }
 
-    /// Parse scopes from space-separated string
-    pub fn parse_scopes(&self) -> Vec<String> {
+    fn parse_scopes(&self) -> Vec<String> {
         self.scope.split_whitespace().map(|s| s.to_string()).collect()
     }
 
-    /// Extract vault ID (Snowflake ID) from claims
-    /// Returns None if not present
-    pub fn extract_vault_id(&self) -> Option<String> {
+    fn extract_vault_id(&self) -> Option<String> {
         self.vault_id.clone()
     }
 
-    /// Extract organization ID (Snowflake ID) from claims
-    /// Returns None if not present
-    pub fn extract_organization(&self) -> Option<String> {
+    fn extract_organization(&self) -> Option<String> {
         self.org_id.clone()
     }
 }
 
-/// Decode JWT header without verification
-pub fn decode_jwt_header(token: &str) -> Result<Header, AuthError> {
-    decode_header(token)
-        .map_err(|e| AuthError::InvalidTokenFormat(format!("Failed to decode JWT header: {}", e)))
-}
-
-/// Decode JWT claims without verification (used to extract issuer for key lookup)
-pub fn decode_jwt_claims(token: &str) -> Result<JwtClaims, AuthError> {
-    // Split token into parts
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() != 3 {
-        return Err(AuthError::InvalidTokenFormat(
-            "JWT must have 3 parts separated by dots".into(),
-        ));
-    }
-
-    // Decode payload (part 1) using base64 URL-safe encoding
-    let payload_bytes = URL_SAFE_NO_PAD.decode(parts[1]).map_err(|e| {
-        AuthError::InvalidTokenFormat(format!("Failed to decode JWT payload: {}", e))
-    })?;
-
-    // Parse as JSON
-    let claims: JwtClaims = serde_json::from_slice(&payload_bytes)
-        .map_err(|e| AuthError::InvalidTokenFormat(format!("Failed to parse JWT claims: {}", e)))?;
-
-    // Validate required claims are present
-    if claims.iss.is_empty() {
-        return Err(AuthError::MissingClaim("iss".into()));
-    }
-    if claims.sub.is_empty() {
-        return Err(AuthError::MissingClaim("sub".into()));
-    }
-    if claims.aud.is_empty() {
-        return Err(AuthError::MissingClaim("aud".into()));
-    }
-
-    Ok(claims)
-}
-
-/// Validate JWT claims (timestamp and audience checks)
-pub fn validate_claims(
-    claims: &JwtClaims,
-    expected_audience: Option<&str>,
-) -> Result<(), AuthError> {
-    let now = Utc::now().timestamp() as u64;
-
-    // Check expiration
-    if claims.exp <= now {
-        return Err(AuthError::TokenExpired);
-    }
-
-    // Check not-before if present
-    if let Some(nbf) = claims.nbf
-        && nbf > now
-    {
-        return Err(AuthError::TokenNotYetValid);
-    }
-
-    // Check issued-at is reasonable (not too far in past, max 24 hours)
-    if claims.iat > now {
-        return Err(AuthError::InvalidTokenFormat("iat claim is in the future".into()));
-    }
-    if now - claims.iat > 86400 {
-        // 24 hours
-        return Err(AuthError::InvalidTokenFormat("iat claim is too old (> 24 hours)".into()));
-    }
-
-    // Check audience if enforced
-    if let Some(expected) = expected_audience
-        && claims.aud != expected
-    {
-        return Err(AuthError::InvalidAudience(format!(
-            "expected '{}', got '{}'",
-            expected, claims.aud
-        )));
-    }
-
-    Ok(())
-}
-
-/// Verify JWT signature with a public key
+/// Verify JWT signature with a public key.
 pub fn verify_signature(
     token: &str,
     key: &DecodingKey,
@@ -188,7 +83,7 @@ pub fn verify_signature(
     Ok(token_data.claims)
 }
 
-/// Verify JWT signature using Ledger-backed signing key cache
+/// Verify JWT signature using Ledger-backed signing key cache.
 ///
 /// This function verifies JWTs using public signing keys fetched from Ledger:
 /// 1. Decodes the JWT header to extract the key ID (`kid`) and algorithm
@@ -242,6 +137,8 @@ pub async fn verify_with_signing_key_cache(
     token: &str,
     signing_key_cache: &crate::signing_key_cache::SigningKeyCache,
 ) -> Result<JwtClaims, AuthError> {
+    use crate::validation::validate_algorithm;
+
     // 1. Decode header to get algorithm and key ID
     let header = decode_jwt_header(token)?;
 
