@@ -1,0 +1,11 @@
+[patch.crates-io]
+inferadb-common-authn = { path = "../common/crates/authn" }
+inferadb-common-storage = { path = "../common/crates/storage" }
+inferadb-common-storage-ledger = { path = "../common/crates/storage-ledger" }
+inferadb-ledger-raft = { path = "../ledger/crates/raft" }
+inferadb-ledger-sdk = { path = "../ledger/crates/sdk" }
+inferadb-ledger-server = { path = "../ledger/crates/server" }
+inferadb-ledger-state = { path = "../ledger/crates/state" }
+inferadb-ledger-store = { path = "../ledger/crates/store" }
+inferadb-ledger-test-utils = { path = "../ledger/crates/test-utils" }
+inferadb-ledger-types = { path = "../ledger/crates/types" }

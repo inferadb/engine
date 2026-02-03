@@ -1,3 +1,4 @@
+use inferadb_common_authn::AuthError as CommonAuthError;
 use thiserror::Error;
 
 /// Authentication and authorization errors
@@ -131,6 +132,42 @@ impl From<jsonwebtoken::errors::Error> for AuthError {
                 AuthError::UnsupportedAlgorithm("Algorithm not supported".into())
             },
             _ => AuthError::InvalidTokenFormat(format!("JWT error: {}", err)),
+        }
+    }
+}
+
+/// Convert from common-authn AuthError to engine AuthError.
+///
+/// This allows using `?` with functions from `inferadb-common-authn` that return
+/// its `AuthError` type in engine code that uses engine's `AuthError`.
+impl From<CommonAuthError> for AuthError {
+    fn from(err: CommonAuthError) -> Self {
+        match err {
+            CommonAuthError::InvalidTokenFormat(msg) => AuthError::InvalidTokenFormat(msg),
+            CommonAuthError::TokenExpired => AuthError::TokenExpired,
+            CommonAuthError::TokenNotYetValid => AuthError::TokenNotYetValid,
+            CommonAuthError::InvalidSignature => AuthError::InvalidSignature,
+            CommonAuthError::InvalidIssuer(msg) => AuthError::InvalidIssuer(msg),
+            CommonAuthError::InvalidAudience(msg) => AuthError::InvalidAudience(msg),
+            CommonAuthError::MissingClaim(msg) => AuthError::MissingClaim(msg),
+            CommonAuthError::InvalidScope(msg) => AuthError::InvalidScope(msg),
+            CommonAuthError::UnsupportedAlgorithm(msg) => AuthError::UnsupportedAlgorithm(msg),
+            CommonAuthError::JwksError(msg) => AuthError::JwksError(msg),
+            CommonAuthError::OidcDiscoveryFailed(msg) => AuthError::OidcDiscoveryFailed(msg),
+            CommonAuthError::IntrospectionFailed(msg) => AuthError::IntrospectionFailed(msg),
+            CommonAuthError::InvalidIntrospectionResponse(msg) => {
+                AuthError::InvalidIntrospectionResponse(msg)
+            },
+            CommonAuthError::TokenInactive => AuthError::TokenInactive,
+            CommonAuthError::MissingTenantId => AuthError::MissingTenantId,
+            CommonAuthError::TokenTooOld => AuthError::TokenTooOld,
+            CommonAuthError::KeyNotFound { kid } => AuthError::KeyNotFound { kid },
+            CommonAuthError::KeyInactive { kid } => AuthError::KeyInactive { kid },
+            CommonAuthError::KeyRevoked { kid } => AuthError::KeyRevoked { kid },
+            CommonAuthError::KeyNotYetValid { kid } => AuthError::KeyNotYetValid { kid },
+            CommonAuthError::KeyExpired { kid } => AuthError::KeyExpired { kid },
+            CommonAuthError::InvalidPublicKey(msg) => AuthError::InvalidPublicKey(msg),
+            CommonAuthError::KeyStorageError(msg) => AuthError::KeyStorageError(msg),
         }
     }
 }

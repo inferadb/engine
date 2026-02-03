@@ -37,14 +37,16 @@ inferadb-engine-config = { path = "../config" }
 inferadb-engine-observe = { path = "../observe" }
 inferadb-engine-store = { path = "../store" }
 inferadb-engine-types = { path = "../types" }
-inferadb-common-storage = { path = "../../../common/crates/storage" }
+# Common crates (uses crates.io with local patch in .cargo/config.toml)
+inferadb-common-authn = ">=0.1.0-0"
+inferadb-common-storage = ">=0.1.0-0"
 
 
 [dev-dependencies]
 axum = { workspace = true }
 base64 = { workspace = true }
 futures = { workspace = true }
-inferadb-common-storage-ledger = { path = "../../../common/crates/storage-ledger" }
+inferadb-common-storage-ledger = ">=0.1.0-0"
 rand = { workspace = true }
 rand_core = { version = "0.6", features = ["getrandom"] }
 tokio = { workspace = true, features = ["full", "test-util"] }

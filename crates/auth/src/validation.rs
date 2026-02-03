@@ -17,30 +17,14 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+// Re-export algorithm constants from common-authn for consistency across all InferaDB
+// services.
+pub use inferadb_common_authn::validation::{ACCEPTED_ALGORITHMS, FORBIDDEN_ALGORITHMS};
 use inferadb_engine_config::TokenConfig;
 use subtle::ConstantTimeEq;
 use tracing::warn;
 
 use crate::{error::AuthError, jwt::JwtClaims};
-
-/// Forbidden JWT algorithms that are never accepted for security reasons
-///
-/// These algorithms are blocked because:
-/// - `none`: No signature verification (trivially bypassable)
-/// - `HS256`, `HS384`, `HS512`: Symmetric algorithms (shared secret vulnerability)
-///
-/// Only asymmetric algorithms (EdDSA, RS256) are allowed.
-pub const FORBIDDEN_ALGORITHMS: &[&str] = &["none", "HS256", "HS384", "HS512"];
-
-/// Accepted JWT algorithms
-///
-/// These are the only algorithms accepted:
-/// - `EdDSA`: Ed25519 signatures (recommended, fastest, most secure)
-/// - `RS256`: RSA-SHA256 signatures (legacy support)
-///
-/// This list is intentionally not configurable to ensure consistent security
-/// across all deployments. The management API uses EdDSA exclusively.
-pub const ACCEPTED_ALGORITHMS: &[&str] = &["EdDSA", "RS256"];
 
 /// Required JWT audience for InferaDB Server API
 ///

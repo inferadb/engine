@@ -20,12 +20,52 @@ concurrency:
 # Default to read-only permissions
 permissions:
   contents: read
+  pull-requests: read
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
 jobs:
+  # Validate conventional commit messages
+  commits:
+    name: Commit Messages
+    runs-on: ubuntu-latest
+    # Only run on pull requests - push to main is already validated
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate PR title
+        uses: amannn/action-semantic-pull-request@0723387faaf9b38adef4775cd42cfd5155ed6017 # v5.5.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+          requireScope: false
+          subjectPattern: ^[a-z].*$
+          subjectPatternError: |
+            The subject "{subject}" must start with a lowercase letter.
+            Example: "feat: add user authentication" or "fix(api): handle empty requests"
+
   # Detect if this is a workflow-only change (for skipping builds on Dependabot workflow PRs)
   changes:
     name: Detect Changes
@@ -720,6 +760,7 @@ jobs:
     name: CI Success
     needs:
       [
+        commits,
         changes,
         fmt,
         clippy,
@@ -744,6 +785,16 @@ jobs:
 
       - name: Check all jobs
         run: |
+          # Commits check is only required on PRs
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            if [[ "${{ needs.commits.result }}" != "success" ]]; then
+              echo "Commit message validation failed"
+              echo "PR title must follow Conventional Commits format:"
+              echo "  <type>(<scope>): <description>"
+              echo "  Examples: 'feat: add new feature' or 'fix(api): handle edge case'"
+              exit 1
+            fi
+          fi
           # Format and Clippy can be skipped for Dependabot PRs
           if [[ "${{ needs.fmt.result }}" != "success" && "${{ needs.fmt.result }}" != "skipped" ]]; then
             echo "Format check failed"

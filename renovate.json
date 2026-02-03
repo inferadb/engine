@@ -1,0 +1,50 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "group:recommended"],
+  "schedule": ["every 1 hour during business hours"],
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 5,
+  "labels": ["area/deps"],
+  "commitMessagePrefix": "deps:",
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "InferaDB internal dependencies - fast cascade updates",
+      "matchPackagePatterns": ["^inferadb-common", "^inferadb-ledger-sdk$"],
+      "groupName": "inferadb internal",
+      "schedule": ["at any time"],
+      "prPriority": 10,
+      "automerge": false
+    },
+    {
+      "description": "Auto-merge patch updates after CI passes",
+      "matchUpdateTypes": ["patch"],
+      "excludePackagePatterns": ["^inferadb-"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Ignore canary and nightly pre-releases",
+      "matchPackagePatterns": ["^inferadb-"],
+      "allowedVersions": "!/(-canary|-nightly)/"
+    },
+    {
+      "description": "Group Rust minor and patch updates",
+      "matchManagers": ["cargo"],
+      "excludePackagePatterns": ["^inferadb-"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "rust-minor-patch"
+    },
+    {
+      "description": "Hold major versions for critical dependencies",
+      "matchPackageNames": ["wasmtime", "tonic", "prost"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  }
+}
