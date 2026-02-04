@@ -370,16 +370,21 @@ jobs:
         run: |
           docker compose up -d ledger
           echo "Waiting for Ledger to be ready..."
+          # Wait for metrics endpoint to be available (indicates server is running)
+          # Then add delay for Raft bootstrap to complete
           for i in {1..30}; do
-            if docker compose exec -T ledger nc -z localhost 50051 2>/dev/null; then
-              echo "Ledger is ready!"
+            if curl -sf http://localhost:9091/metrics > /dev/null 2>&1; then
+              echo "Ledger metrics endpoint is available"
+              # Give Raft a moment to fully bootstrap after server starts
+              sleep 3
+              echo "Ledger should be ready!"
               break
             fi
             echo "Attempt $i/30: Ledger not ready yet..."
             sleep 2
           done
-          # Final check
-          docker compose exec -T ledger nc -z localhost 50051 || (docker compose logs ledger && exit 1)
+          # Final check - metrics endpoint must be available
+          curl -sf http://localhost:9091/metrics > /dev/null || (docker compose logs ledger && exit 1)
 
       - name: Run Ledger integration tests
         env:

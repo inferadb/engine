@@ -11,10 +11,9 @@
 
 services:
   # Single-node Ledger cluster for integration testing
+  # Uses pre-built canary image from Docker Hub (built from inferadb/ledger repo)
   ledger:
-    build:
-      context: ../../../../ledger
-      dockerfile: Dockerfile
+    image: inferadb/inferadb-ledger:canary
     container_name: inferadb-engine-ledger-test
     hostname: ledger-server
     networks:
@@ -22,21 +21,17 @@ services:
     ports:
       - "50051:50051"
       - "9091:9090"
+    command: ["--single"]
     environment:
-      # Single-node bootstrap
-      INFERADB__LEDGER__BOOTSTRAP_EXPECT: "1"
-      INFERADB__LEDGER__LISTEN_ADDR: "0.0.0.0:50051"
-      INFERADB__LEDGER__METRICS_ADDR: "0.0.0.0:9090"
-      INFERADB__LEDGER__DATA_DIR: "/var/lib/ledger"
-      RUST_LOG: "info,inferadb_ledger_server=debug"
-    volumes:
-      - ledger-data:/var/lib/ledger
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50051 || exit 1"]
-      interval: 2s
-      timeout: 5s
-      retries: 30
-      start_period: 10s
+      INFERADB__LEDGER__LISTEN: "0.0.0.0:50051"
+      INFERADB__LEDGER__METRICS: "0.0.0.0:9090"
+      INFERADB__LEDGER__DATA: "/var/lib/ledger"
+      RUST_LOG: "info,inferadb_ledger=debug"
+    tmpfs:
+      - /var/lib/ledger:uid=65532,gid=65532
+    # Note: Healthcheck removed because distroless image has no shell/utilities.
+    # CI uses host-side port checking instead. For local development with
+    # docker-compose, the test-runner will retry connections automatically.
     deploy:
       resources:
         limits:
@@ -91,8 +86,6 @@ networks:
     name: inferadb-engine-ledger-test-net
 
 volumes:
-  ledger-data:
-    name: inferadb-engine-ledger-data
   cargo-registry:
     name: inferadb-engine-ledger-cargo-registry
   cargo-git:
