@@ -10,7 +10,7 @@
 use std::{
     env,
     sync::{
-        Arc,
+        Arc, LazyLock,
         atomic::{AtomicI64, Ordering},
     },
     time::Duration,
@@ -25,8 +25,13 @@ use inferadb_common_storage_ledger::{
 use inferadb_engine_auth::SigningKeyCache;
 use rand_core::OsRng;
 
-/// Counter for unique namespace IDs to isolate tests.
-static NAMESPACE_COUNTER: AtomicI64 = AtomicI64::new(1_000_000);
+/// Namespace counter initialized with PID-based offset to avoid collisions when
+/// nextest runs tests in parallel processes. Each process gets a unique 10,000-ID
+/// range based on its PID modulo 1000.
+static NAMESPACE_COUNTER: LazyLock<AtomicI64> = LazyLock::new(|| {
+    let pid = std::process::id() as i64;
+    AtomicI64::new(1_000_000 + (pid % 1000) * 10000)
+});
 
 /// Check if real Ledger integration tests should run.
 fn should_run() -> bool {
