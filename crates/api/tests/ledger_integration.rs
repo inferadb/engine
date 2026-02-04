@@ -326,14 +326,11 @@ async fn test_ledger_engine_api_write_endpoint() {
 
     // Write via API
     let body = serde_json::json!({
-        "updates": [
+        "relationships": [
             {
-                "operation": "TOUCH",
-                "relationship": {
-                    "resource": "document:api-test",
-                    "relation": "viewer",
-                    "subject": "user:api-user"
-                }
+                "resource": "document:api-test",
+                "relation": "viewer",
+                "subject": "user:api-user"
             }
         ]
     });

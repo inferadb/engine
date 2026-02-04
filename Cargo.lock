@@ -6368,3 +6368,43 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "inferadb-common-authn"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-common-storage"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-common-storage-ledger"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-ledger-raft"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-ledger-sdk"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-ledger-server"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-ledger-state"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-ledger-store"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-ledger-test-utils"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "inferadb-ledger-types"
+version = "0.1.0"
