@@ -173,25 +173,32 @@ jobs:
       - name: Run clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-  # Build workspace once and cache for downstream jobs
-  build:
-    name: Build
-    needs: changes
-    runs-on: ubuntu-latest
-    # Skip build for Dependabot PRs that only modify workflows/docs
-    if: needs.changes.outputs.code == 'true' || github.actor != 'dependabot[bot]'
+  # Run tests on multiple platforms
+  test:
+    name: Test (${{ matrix.name }})
+    needs: [fmt, clippy]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            name: Linux AMD64
+          - runner: ubuntu-24.04-arm
+            name: Linux ARM64
+          - runner: macos-latest
+            name: macOS Apple Silicon
     permissions:
       contents: read
-    env:
-      CARGO_INCREMENTAL: 0
-      RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
+      checks: write # For test result publishing
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: audit
 
-      - name: Free disk space
+      - name: Free disk space (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
@@ -209,70 +216,32 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install mold linker
+      - name: Install mold linker (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq mold
 
-      - name: Install development tools via Mise
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+      - name: Install protobuf compiler (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y -qq protobuf-compiler
+
+      - name: Install protobuf compiler (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install protobuf
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@650c5ca14212efbbf3e580844b04bdccf68dac31 # v2.67.18
         with:
-          install_args: protobuf cargo:cargo-nextest
-          cache: true
+          tool: cargo-nextest
 
       - name: Cache Rust dependencies
         uses: step-security/rust-cache@9be15b830520fab0ec3939586e917e4855cf76bd # v2.8.3
         with:
-          shared-key: ubuntu-latest-x86_64-unknown-linux-gnu
+          shared-key: test-${{ matrix.runner }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build workspace (debug)
-        run: cargo build --workspace
-
-      - name: Build and archive tests for downstream jobs
-        run: cargo nextest archive --workspace --archive-file nextest-archive.tar.zst
-
-      - name: Upload nextest archive
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: nextest-archive
-          path: nextest-archive.tar.zst
-          retention-days: 1
-
-  # Run tests (uses pre-built archive from build job)
-  test:
-    name: Tests
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write # For test result publishing
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
-        with:
-          egress-policy: audit
-
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: true
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
-        with:
-          toolchain: stable
-
-      - name: Install development tools via Mise
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
-        with:
-          install_args: protobuf cargo:cargo-nextest
-          cache: true
-
-      - name: Download nextest archive
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
-        with:
-          name: nextest-archive
 
       - name: Restore proptest regressions cache
         uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
@@ -280,25 +249,25 @@ jobs:
           path: |
             **/proptest-regressions
             **/*.proptest-regressions
-          key: proptest-regressions-${{ github.sha }}
+          key: proptest-regressions-${{ matrix.runner }}-${{ github.sha }}
           restore-keys: |
-            proptest-regressions-
+            proptest-regressions-${{ matrix.runner }}-
 
-      - name: Run tests from archive (PR - fast profile)
+      - name: Run tests (PR - fast profile)
         if: github.event_name == 'pull_request'
         env:
-          # Minimal proptest cases for fast PR feedback
+          RUSTFLAGS: ${{ runner.os == 'Linux' && '-C codegen-units=16 -C link-arg=-fuse-ld=mold' || '' }}
+          CARGO_INCREMENTAL: "0"
           PROPTEST_CASES: "10"
-        # Note: --features test-fast requires rebuild, not usable with archive
-        # Smoke tests run by default; fuzz tests are #[cfg(feature = "test-full")]
-        run: cargo nextest run --archive-file nextest-archive.tar.zst --profile fast
+        run: cargo nextest run --workspace --profile fast
 
-      - name: Run tests from archive (main - ci profile)
+      - name: Run tests (main - ci profile)
         if: github.event_name != 'pull_request'
         env:
-          # Standard proptest cases for thorough testing on main
+          RUSTFLAGS: ${{ runner.os == 'Linux' && '-C codegen-units=16 -C link-arg=-fuse-ld=mold' || '' }}
+          CARGO_INCREMENTAL: "0"
           PROPTEST_CASES: "25"
-        run: cargo nextest run --archive-file nextest-archive.tar.zst --profile ci --no-fail-fast
+        run: cargo nextest run --workspace --profile ci --no-fail-fast
 
       - name: Save proptest regressions on failure
         if: failure()
@@ -307,18 +276,16 @@ jobs:
           path: |
             **/proptest-regressions
             **/*.proptest-regressions
-          key: proptest-regressions-${{ github.sha }}
+          key: proptest-regressions-${{ matrix.runner }}-${{ github.sha }}
 
       - name: Run doc tests
         env:
-          # Doc tests need compilation - use default flags (no mold to avoid OOM)
           RUSTFLAGS: ""
         run: cargo test --workspace --doc
 
-      - name: Analyze test performance
-        if: always()
+      - name: Analyze test performance (Linux AMD64 only)
+        if: always() && matrix.runner == 'ubuntu-latest'
         run: |
-          # Find the JUnit file based on profile used
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             JUNIT_FILE="target/nextest/fast/junit-fast.xml"
           else
@@ -334,9 +301,9 @@ jobs:
             echo "JUnit file not found: $JUNIT_FILE"
           fi
 
-      - name: Publish test results
+      - name: Publish test results (Linux AMD64 only)
         uses: step-security/publish-unit-test-result-action@914f0f642c242f38335a491805adfc9bd64b1cbb # v2.21.1
-        if: always()
+        if: always() && matrix.runner == 'ubuntu-latest'
         with:
           files: target/nextest/ci/junit.xml
           check_name: Test Results
@@ -346,8 +313,10 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: test-results-ubuntu
-          path: target/nextest/ci/junit.xml
+          name: test-results-${{ matrix.runner }}
+          path: |
+            target/nextest/ci/junit.xml
+            target/nextest/fast/junit-fast.xml
           retention-days: 7
 
   # Ledger Integration Tests
@@ -355,7 +324,7 @@ jobs:
   # Uses Docker Compose to start a single-node Ledger cluster, then runs native cargo tests.
   ledger-integration-tests:
     name: Ledger Integration Tests
-    needs: build
+    needs: [fmt, clippy]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -431,11 +400,11 @@ jobs:
         working-directory: docker/ledger-integration-tests
         run: docker-compose down -v
 
-  # IPL Parser Security Tests (reuses build cache)
+  # IPL Parser Security Tests
   # Only runs on PRs that modify inferadb-engine-core
   ipl-parser-security-tests:
     name: IPL Parser Security Tests
-    needs: build
+    needs: [fmt, clippy]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     permissions:
@@ -502,11 +471,11 @@ jobs:
         run: cargo nextest run --package inferadb-engine-core --test ipl_parser_fuzz
         continue-on-error: true
 
-  # WASM Security Tests (reuses build cache)
+  # WASM Security Tests
   # Only runs on PRs that modify inferadb-engine-wasm
   wasm-security-tests:
     name: WASM Security Tests
-    needs: build
+    needs: [fmt, clippy]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     permissions:
@@ -768,7 +737,6 @@ jobs:
         changes,
         fmt,
         clippy,
-        build,
         test,
         ledger-integration-tests,
         ipl-parser-security-tests,
@@ -808,11 +776,7 @@ jobs:
             echo "Clippy check failed"
             exit 1
           fi
-          # Build and test are required unless skipped for Dependabot workflow-only PRs
-          if [[ "${{ needs.build.result }}" != "success" && "${{ needs.build.result }}" != "skipped" ]]; then
-            echo "Build failed"
-            exit 1
-          fi
+          # Tests are required unless skipped for Dependabot workflow-only PRs
           if [[ "${{ needs.test.result }}" != "success" && "${{ needs.test.result }}" != "skipped" ]]; then
             echo "Tests failed"
             exit 1
