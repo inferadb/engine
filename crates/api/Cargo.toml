@@ -28,22 +28,22 @@ serde_json = { workspace = true }
 sha2 = "0.10"
 thiserror = { workspace = true }
 tokio = { workspace = true }
-toon = "0.1.2"
+toon = "0.1"
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["compression-gzip", "cors"] }
 tower_governor = { workspace = true }
 tracing = { workspace = true }
-urlencoding = "2.1"
-uuid = { version = "1.10", features = ["v4"] }
+urlencoding = "2"
+uuid = { version = "1", features = ["v4"] }
 
 # gRPC dependencies
 async-stream = "0.3"
 futures = { workspace = true }
-pin-project = "1.1"
-prost = "0.14.1"
-tonic = "0.14.2"
+pin-project = "1"
+prost = "0.14"
+tonic = "0.14"
 tonic-prost = "0.14"
-tonic-reflection = "0.14.2"
+tonic-reflection = "0.14"
 
 
 # Internal dependencies
@@ -59,10 +59,10 @@ inferadb-engine-types = { path = "../types" }
 inferadb-engine-wasm = { path = "../wasm" }
 
 # Shared storage abstraction
-inferadb-common-storage = { path = "../../../common/crates/storage" }
+inferadb-common-storage = ">=0.1.0-0"
 
 # Ledger SDK (for WatchBlocks cache invalidation)
-inferadb-ledger-sdk = { path = "../../../ledger/crates/sdk" }
+inferadb-ledger-sdk= ">=0.1.0-0"
 
 [build-dependencies]
 tonic-build = "0.14.2"
@@ -74,15 +74,15 @@ chrono = { workspace = true }
 criterion = { workspace = true }
 ed25519-dalek = { workspace = true }
 inferadb-engine-test-fixtures = { path = "../test-fixtures" }
-inferadb-common-storage-ledger = { path = "../../../common/crates/storage-ledger" }
+inferadb-common-storage-ledger = ">=0.1.0-0"
 jsonwebtoken = { workspace = true }
 moka = { workspace = true }
 portpicker = "0.1"
-proptest = "1.5"
+proptest = "1"
 rand = { workspace = true }
 rand_core = { version = "0.6", features = ["getrandom"] }
-tempfile = "3.8"
-uuid = "1.10"
+tempfile = "3"
+uuid = "1"
 
 [[bench]]
 harness = false

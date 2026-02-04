@@ -13,7 +13,7 @@ description = "Repository layer for Engine storage operations"
 bon = { workspace = true }
 
 # Shared storage abstraction
-inferadb-common-storage = { path = "../../../common/crates/storage" }
+inferadb-common-storage = ">=0.1.0-0"
 
 # Engine types
 inferadb-engine-types = { path = "../types" }

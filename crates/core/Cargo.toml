@@ -21,9 +21,8 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 # Parser options (choose one)
-pest = "2.7"
-pest_derive = "2.7"
-# nom = "7.1"
+pest = "2"
+pest_derive = "2"
 
 # Internal dependencies
 inferadb-engine-cache = { path = "../cache" }
@@ -37,9 +36,9 @@ inferadb-engine-wasm = { path = "../wasm" }
 anyhow = { workspace = true }
 criterion = { workspace = true }
 inferadb-engine-repository = { path = "../repository" }
-inferadb-common-storage = { path = "../../../common/crates/storage" }
+inferadb-common-storage = ">=0.1.0-0"
 proptest = { workspace = true }
-wat = "1.0"
+wat = "1"
 
 [[bench]]
 harness = false

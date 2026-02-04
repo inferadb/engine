@@ -17,7 +17,7 @@ inferadb-engine-types = { path = "../types" }
 [dev-dependencies]
 inferadb-engine-repository = { path = "../repository" }
 inferadb-engine-test-fixtures = { path = "../test-fixtures" }
-inferadb-common-storage = { path = "../../../common/crates/storage" }
+inferadb-common-storage = ">=0.1.0-0"
 proptest = { workspace = true }
 tokio = { workspace = true }
 

@@ -28,7 +28,7 @@ version = "0.1.0"
 
 [workspace.dependencies]
 # Builder derive macros
-bon = "3.8"
+bon = "3"
 
 # Core async runtime
 async-recursion = "1"

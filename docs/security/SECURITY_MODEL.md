@@ -439,7 +439,7 @@ Migrate to `jsonwebtoken` 10.x with AWS-LC constant-time RSA:
 
 ```toml
 # Cargo.toml
-jsonwebtoken = { version = "10.1", default-features = false, features = ["aws-lc-rs", "use_pem"] }
+jsonwebtoken = { version = "10", default-features = false, features = ["aws-lc-rs", "use_pem"] }
 ```
 
 **Alternative:**

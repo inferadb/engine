@@ -18,14 +18,14 @@ chrono = { workspace = true }
 ed25519-dalek = { workspace = true }
 jsonwebtoken = { workspace = true }
 moka = { workspace = true }
-pem = "3.0"
+pem = "3"
 prometheus = { version = "0.14", default-features = false }
 rand = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-subtle = "2.6"
+subtle = "2"
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

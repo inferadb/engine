@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  packages: write
+  id-token: write
+  actions: read
 
 jobs:
   release-please:
@@ -23,13 +26,13 @@ jobs:
       patch: ${{ steps.release.outputs.patch }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: audit
 
       - name: Run Release Please
         id: release
-        uses: googleapis/release-please-action@7f4dbb2b7dee18e26b6a81f3b7c2dc66a39b80d4 # v4.2.0
+        uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
@@ -37,7 +40,7 @@ jobs:
 
   # Trigger stable release workflow when release-please creates a release
   release:
-    name: Trigger Release
+    name: Release
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     uses: ./.github/workflows/release.yml

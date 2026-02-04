@@ -26,28 +26,34 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  REGISTRY: ghcr.io
-  IMAGE_NAME: inferadb/engine
+  # GitHub Container Registry
+  GHCR_REGISTRY: ghcr.io
+  GHCR_IMAGE: inferadb/engine
+  # Docker Hub
+  DOCKERHUB_IMAGE: inferadb/inferadb
 
 jobs:
   # Compute canary version from release-please manifest
   version:
-    name: Compute Version
+    name: Version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       short_sha: ${{ steps.version.outputs.short_sha }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: audit
 
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Compute canary version
         id: version
+        env:
+          SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           # Read next version from release-please manifest
           if [ -f ".release-please-manifest.json" ]; then
@@ -55,17 +61,19 @@ jobs:
           else
             NEXT_VERSION="0.1.0"
           fi
-          
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          CANARY_VERSION="${NEXT_VERSION}-canary.${{ github.run_number }}+${SHORT_SHA}"
-          
-          echo "version=${CANARY_VERSION}" >> $GITHUB_OUTPUT
-          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+          SHORT_SHA=$(echo "$SHA" | cut -c1-7)
+          DATE=$(date -u +%Y%m%d)
+          # Use dev.YYYYMMDD.N format for chronological semver sorting
+          CANARY_VERSION="${NEXT_VERSION}-dev.${DATE}.${RUN_NUMBER}+${SHORT_SHA}"
+
+          echo "version=${CANARY_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           echo "Canary version: ${CANARY_VERSION}"
 
   # Create GitHub pre-release
   create-release:
-    name: Create Pre-Release
+    name: Release
     needs: version
     runs-on: ubuntu-latest
     permissions:
@@ -74,12 +82,15 @@ jobs:
       version: ${{ needs.version.outputs.version }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: audit
 
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
       - name: Create Pre-Release
-        uses: step-security/action-gh-release@674f8f866246c6b91bd3f1688ba95e27b2ae8d2e # v2.4.1
+        uses: step-security/action-gh-release@d45511d7589f080cf54961ff056b9705a74fd160 # v2.5.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -89,17 +100,24 @@ jobs:
           prerelease: true
           body: |
             ⚠️ **This is a canary release for testing purposes.**
-            
+
             Built from commit: ${{ github.sha }}
-            
+
             Install with Docker:
             ```bash
-            docker pull ghcr.io/${{ env.IMAGE_NAME }}:canary
+            docker pull ${{ env.DOCKERHUB_IMAGE }}:canary
+            # or
+            docker pull ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}:canary
             ```
+
+      - name: Update canary tag
+        run: |
+          git tag -f canary
+          git push -f origin canary
 
   # Build release binaries for multiple platforms
   build-binaries:
-    name: Build Binaries (${{ matrix.target }})
+    name: Build (${{ matrix.name }})
     needs: [version, create-release]
     runs-on: ${{ matrix.os }}
     permissions:
@@ -109,33 +127,37 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            name: Linux AMD64
             target: x86_64-unknown-linux-gnu
             artifact_name: inferadb
             asset_name: inferadb-linux-x86_64
 
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
+            name: Linux ARM64
             target: aarch64-unknown-linux-gnu
             artifact_name: inferadb
             asset_name: inferadb-linux-aarch64
 
           - os: macos-latest
+            name: macOS Intel
             target: x86_64-apple-darwin
             artifact_name: inferadb
             asset_name: inferadb-macos-x86_64
 
           - os: macos-latest
+            name: macOS Apple Silicon
             target: aarch64-apple-darwin
             artifact_name: inferadb
             asset_name: inferadb-macos-aarch64
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: audit
 
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
 
@@ -145,7 +167,7 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
-      - name: Install mold linker (Linux)
+      - name: Install build dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
@@ -166,19 +188,21 @@ jobs:
         uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
       - name: Configure build environment
+        env:
+          RUNNER_OS: ${{ runner.os }}
         run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
-          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-          echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            echo "RUSTFLAGS=-C codegen-units=16 -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            echo "RUSTFLAGS=-C codegen-units=16" >> $GITHUB_ENV
-            echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            echo "RUSTFLAGS=-C codegen-units=16 -C link-arg=-fuse-ld=mold" >> "$GITHUB_ENV"
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            echo "RUSTFLAGS=-C codegen-units=16" >> "$GITHUB_ENV"
+            echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
           fi
 
       - name: Cache Rust dependencies
-        uses: step-security/rust-cache@f8fba7098297c8c53a7c9a30575ec2ad4ad85056 # v2.8.2
+        uses: step-security/rust-cache@9be15b830520fab0ec3939586e917e4855cf76bd # v2.8.3
         with:
           shared-key: canary-${{ matrix.os }}-${{ matrix.target }}
 
@@ -196,41 +220,54 @@ jobs:
           fi
 
       - name: Generate SBOM
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
           cargo install cargo-sbom
-          cargo sbom --output-format spdx_json_2_3 > sbom-${{ matrix.target }}.spdx.json
+          cargo sbom --output-format spdx_json_2_3 > "sbom-${TARGET}.spdx.json"
 
       - name: Compress binary
+        env:
+          TARGET: ${{ matrix.target }}
+          ARTIFACT_NAME: ${{ matrix.artifact_name }}
+          ASSET_NAME: ${{ matrix.asset_name }}
         run: |
-          cd target/${{ matrix.target }}/release
-          tar czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+          cd "target/${TARGET}/release"
+          tar czf "${ASSET_NAME}.tar.gz" "${ARTIFACT_NAME}"
 
       - name: Upload binary to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+          TARGET: ${{ matrix.target }}
+          ASSET_NAME: ${{ matrix.asset_name }}
         run: |
-          gh release upload "v${{ needs.version.outputs.version }}" \
-            "target/${{ matrix.target }}/release/${{ matrix.asset_name }}.tar.gz"
+          gh release upload "v${VERSION}" \
+            "target/${TARGET}/release/${ASSET_NAME}.tar.gz"
 
       - name: Upload SBOM to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+          TARGET: ${{ matrix.target }}
         run: |
-          gh release upload "v${{ needs.version.outputs.version }}" \
-            "sbom-${{ matrix.target }}.spdx.json"
+          gh release upload "v${VERSION}" \
+            "sbom-${TARGET}.spdx.json"
 
   # Build and push Docker images
   build-docker:
-    name: Build Docker (${{ matrix.platform }})
+    name: Docker (${{ matrix.name }})
     needs: [version, create-release]
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: linux/amd64
+            name: Linux AMD64
             runner: ubuntu-latest
             suffix: amd64
           - platform: linux/arm64
+            name: Linux ARM64
             runner: ubuntu-24.04-arm
             suffix: arm64
     runs-on: ${{ matrix.runner }}
@@ -239,12 +276,12 @@ jobs:
       packages: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: audit
 
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Docker Buildx
         uses: step-security/setup-buildx-action@8c8aef2d414c0b66518fee2b7084e0986f82d7ac # v3.11.1
@@ -252,15 +289,15 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: step-security/docker-login-action@c3e677aae8393bc9c81cfdf9709648720ea4bd4d # v3.6.0
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
           tags: |
             type=raw,value=canary
             type=raw,value=canary-${{ needs.version.outputs.short_sha }}
@@ -272,18 +309,19 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=canary-${{ matrix.suffix }}
           cache-to: type=gha,mode=max,scope=canary-${{ matrix.suffix }}
 
       - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
+          touch "/tmp/digests/${DIGEST#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: digests-canary-${{ matrix.suffix }}
           path: /tmp/digests/*
@@ -292,17 +330,17 @@ jobs:
 
   # Merge platform-specific images into multi-arch manifest
   merge-docker:
-    name: Create Multi-Arch Manifest
+    name: Docker Manifest
     runs-on: ubuntu-latest
     needs: [version, build-docker]
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: audit
 
       - name: Download digests
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           path: /tmp/digests
           pattern: digests-canary-*
@@ -314,57 +352,86 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: step-security/docker-login-action@c3e677aae8393bc9c81cfdf9709648720ea4bd4d # v3.6.0
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+      - name: Log in to Docker Hub
+        uses: step-security/docker-login-action@c3e677aae8393bc9c81cfdf9709648720ea4bd4d # v3.6.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=canary
-            type=raw,value=canary-${{ needs.version.outputs.short_sha }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Create manifest list and push
+      - name: Create and push manifest to ghcr.io
         working-directory: /tmp/digests
+        env:
+          GHCR_REGISTRY: ghcr.io
+          GHCR_IMAGE: inferadb/engine
+          SHORT_SHA: ${{ needs.version.outputs.short_sha }}
         run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+          docker buildx imagetools create \
+            -t "${GHCR_REGISTRY}/${GHCR_IMAGE}:canary" \
+            -t "${GHCR_REGISTRY}/${GHCR_IMAGE}:canary-${SHORT_SHA}" \
+            $(printf "${GHCR_REGISTRY}/${GHCR_IMAGE}@sha256:%s " *)
 
-      - name: Inspect image
+      - name: Copy manifest to Docker Hub
+        env:
+          GHCR_REGISTRY: ghcr.io
+          GHCR_IMAGE: inferadb/engine
+          DOCKERHUB_IMAGE: inferadb/inferadb
+          SHORT_SHA: ${{ needs.version.outputs.short_sha }}
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:canary
+          docker buildx imagetools create \
+            -t "${DOCKERHUB_IMAGE}:canary" \
+            -t "${DOCKERHUB_IMAGE}:canary-${SHORT_SHA}" \
+            "${GHCR_REGISTRY}/${GHCR_IMAGE}:canary"
+
+      - name: Inspect images
+        env:
+          GHCR_REGISTRY: ghcr.io
+          GHCR_IMAGE: inferadb/engine
+          DOCKERHUB_IMAGE: inferadb/inferadb
+        run: |
+          echo "=== ghcr.io ==="
+          docker buildx imagetools inspect "${GHCR_REGISTRY}/${GHCR_IMAGE}:canary"
+          echo "=== Docker Hub ==="
+          docker buildx imagetools inspect "${DOCKERHUB_IMAGE}:canary"
 
   # Generate SBOM for Docker image
   sbom-docker:
-    name: Generate Docker SBOM
+    name: Docker SBOM
     runs-on: ubuntu-latest
     needs: [version, merge-docker]
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Log in to GitHub Container Registry
         uses: step-security/docker-login-action@c3e677aae8393bc9c81cfdf9709648720ea4bd4d # v3.6.0
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
+        env:
+          GHCR_REGISTRY: ghcr.io
+          GHCR_IMAGE: inferadb/engine
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:canary
+          image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}:canary
           artifact-name: docker-sbom.spdx.json
           output-file: docker-sbom.spdx.json
 
       - name: Upload SBOM to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          gh release upload "v${{ needs.version.outputs.version }}" \
+          gh release upload "v${VERSION}" \
             docker-sbom.spdx.json --clobber || true
