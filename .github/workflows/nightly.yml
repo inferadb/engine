@@ -325,6 +325,8 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: true
 
       - name: Set up Docker Buildx
         uses: step-security/setup-buildx-action@8c8aef2d414c0b66518fee2b7084e0986f82d7ac # v3.11.1
