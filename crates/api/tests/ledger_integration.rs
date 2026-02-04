@@ -333,7 +333,7 @@ async fn test_ledger_engine_api_write_endpoint() {
 
     let request = Request::builder()
         .method("POST")
-        .uri("/relationships/write")
+        .uri("/access/v1/relationships/write")
         .header("content-type", "application/json")
         .body(Body::from(serde_json::to_vec(&body).unwrap()))
         .unwrap();
@@ -363,16 +363,16 @@ async fn test_ledger_engine_api_check_endpoint() {
         .expect("router creation should succeed");
     let router = with_test_auth(router, vault, organization);
 
-    // Check via API
+    // Check via API (using AuthZEN evaluation endpoint)
     let body = serde_json::json!({
-        "resource": "document:check-test",
-        "relation": "viewer",
-        "subject": "user:checker"
+        "subject": {"type": "user", "id": "checker"},
+        "action": {"name": "viewer"},
+        "resource": {"type": "document", "id": "check-test"}
     });
 
     let request = Request::builder()
         .method("POST")
-        .uri("/check")
+        .uri("/access/v1/evaluation")
         .header("content-type", "application/json")
         .body(Body::from(serde_json::to_vec(&body).unwrap()))
         .unwrap();
@@ -383,7 +383,7 @@ async fn test_ledger_engine_api_check_endpoint() {
     let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let result: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(result["allowed"], true);
+    assert_eq!(result["decision"], true);
 }
 
 // ============================================================================
