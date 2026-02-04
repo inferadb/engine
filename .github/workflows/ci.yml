@@ -396,7 +396,6 @@ jobs:
           cargo nextest run \
             --package inferadb-engine-api \
             --test ledger_integration \
-            --features ledger \
             --profile ci \
             --no-fail-fast
 
