@@ -26,7 +26,7 @@
 use std::{
     env,
     sync::{
-        Arc,
+        Arc, LazyLock,
         atomic::{AtomicI64, Ordering},
     },
 };
@@ -50,7 +50,13 @@ use inferadb_engine_store::InferaStore;
 use inferadb_engine_types::{AuthContext, AuthMethod, Relationship};
 use tower::ServiceExt;
 
-static TEST_ID_COUNTER: AtomicI64 = AtomicI64::new(20000000000000);
+/// Test ID counter initialized with PID-based offset to avoid collisions when
+/// nextest runs tests in parallel processes. Each process gets a unique 10,000-ID
+/// range based on its PID modulo 1000.
+static TEST_ID_COUNTER: LazyLock<AtomicI64> = LazyLock::new(|| {
+    let pid = std::process::id() as i64;
+    AtomicI64::new(20000000000000 + (pid % 1000) * 10000)
+});
 
 fn generate_test_id() -> i64 {
     TEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
