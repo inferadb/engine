@@ -129,26 +129,20 @@ jobs:
           - os: ubuntu-latest
             name: Linux AMD64
             target: x86_64-unknown-linux-gnu
-            artifact_name: inferadb
-            asset_name: inferadb-linux-x86_64
+            artifact_name: inferadb-engine
+            asset_name: inferadb-engine-linux-x86_64
 
           - os: ubuntu-24.04-arm
             name: Linux ARM64
             target: aarch64-unknown-linux-gnu
-            artifact_name: inferadb
-            asset_name: inferadb-linux-aarch64
-
-          - os: macos-latest
-            name: macOS Intel
-            target: x86_64-apple-darwin
-            artifact_name: inferadb
-            asset_name: inferadb-macos-x86_64
+            artifact_name: inferadb-engine
+            asset_name: inferadb-engine-linux-aarch64
 
           - os: macos-latest
             name: macOS Apple Silicon
             target: aarch64-apple-darwin
-            artifact_name: inferadb
-            asset_name: inferadb-macos-aarch64
+            artifact_name: inferadb-engine
+            asset_name: inferadb-engine-macos-aarch64
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
