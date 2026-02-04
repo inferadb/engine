@@ -26,8 +26,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY proto ./proto
 
-# Build the application in release mode with Ledger storage support
-RUN cargo build --release --bin inferadb-engine --features ledger
+# Build the application in release mode
+RUN cargo build --release --bin inferadb-engine
 
 # Strip debug symbols to reduce binary size
 RUN strip /app/target/release/inferadb-engine
