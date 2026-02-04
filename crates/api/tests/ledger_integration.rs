@@ -110,8 +110,7 @@ fn create_test_config() -> Config {
     config
 }
 
-async fn create_ledger_backend() -> LedgerBackend {
-    let vault_id = unique_vault_id();
+async fn create_ledger_backend_with_vault(vault_id: i64) -> LedgerBackend {
     let client_config = ClientConfig::builder()
         .servers(ServerSource::from_static([ledger_endpoint()]))
         .client_id(format!("engine-test-{}", vault_id))
@@ -126,13 +125,17 @@ async fn create_ledger_backend() -> LedgerBackend {
     LedgerBackend::new(config).await.expect("backend creation should succeed")
 }
 
-async fn create_ledger_test_state() -> AppState {
-    let backend = create_ledger_backend().await;
+/// Creates test state and returns (state, vault_id) so tests use the same vault
+/// the backend was configured with.
+async fn create_ledger_test_state() -> (AppState, i64) {
+    let vault_id = unique_vault_id();
+    let backend = create_ledger_backend_with_vault(vault_id).await;
     let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::builder().backend(backend).build());
     let schema = create_test_schema();
     let config = create_test_config();
 
-    AppState::builder().store(store).schema(schema).config(Arc::new(config)).build()
+    let state = AppState::builder().store(store).schema(schema).config(Arc::new(config)).build();
+    (state, vault_id)
 }
 
 fn create_test_auth(vault: i64, organization: i64) -> AuthContext {
@@ -199,9 +202,7 @@ async fn test_ledger_engine_write_and_read_relationships() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
-    let vault = unique_vault_id();
-    let _organization = unique_vault_id();
+    let (state, vault) = create_ledger_test_state().await;
 
     // Write relationships
     let relationships = vec![
@@ -237,8 +238,7 @@ async fn test_ledger_engine_delete_relationships() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
-    let vault = unique_vault_id();
+    let (state, vault) = create_ledger_test_state().await;
 
     // Write
     let relationships =
@@ -267,19 +267,27 @@ async fn test_ledger_engine_vault_isolation() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
+    // Vault isolation requires separate backends since LedgerBackend is scoped to one vault
     let vault_a = unique_vault_id();
     let vault_b = unique_vault_id();
 
+    let backend_a = create_ledger_backend_with_vault(vault_a).await;
+    let backend_b = create_ledger_backend_with_vault(vault_b).await;
+
+    let store_a: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(backend_a).build());
+    let store_b: Arc<dyn InferaStore> =
+        Arc::new(EngineStorage::builder().backend(backend_b).build());
+
     // Write to vault A
     let rel_a = vec![create_test_relationship(vault_a, "document:shared", "viewer", "user:alice")];
-    state.store.write(vault_a, rel_a).await.unwrap();
+    store_a.write(vault_a, rel_a).await.unwrap();
 
     // Write to vault B
     let rel_b = vec![create_test_relationship(vault_b, "document:shared", "viewer", "user:bob")];
-    state.store.write(vault_b, rel_b).await.unwrap();
+    store_b.write(vault_b, rel_b).await.unwrap();
 
-    // Verify isolation
+    // Verify isolation - each store only sees its own data
     let key = inferadb_engine_types::RelationshipKey {
         resource: "document:shared".to_string(),
         relation: "viewer".to_string(),
@@ -287,9 +295,9 @@ async fn test_ledger_engine_vault_isolation() {
     };
 
     let results_a =
-        state.store.read(vault_a, &key, inferadb_engine_types::Revision::zero()).await.unwrap();
+        store_a.read(vault_a, &key, inferadb_engine_types::Revision::zero()).await.unwrap();
     let results_b =
-        state.store.read(vault_b, &key, inferadb_engine_types::Revision::zero()).await.unwrap();
+        store_b.read(vault_b, &key, inferadb_engine_types::Revision::zero()).await.unwrap();
 
     assert_eq!(results_a.len(), 1);
     assert_eq!(results_a[0].subject, "user:alice");
@@ -308,8 +316,7 @@ async fn test_ledger_engine_api_write_endpoint() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
-    let vault = unique_vault_id();
+    let (state, vault) = create_ledger_test_state().await;
     let organization = unique_vault_id();
 
     let router = inferadb_engine_api::create_test_router(state)
@@ -349,8 +356,7 @@ async fn test_ledger_engine_api_check_endpoint() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
-    let vault = unique_vault_id();
+    let (state, vault) = create_ledger_test_state().await;
     let organization = unique_vault_id();
 
     // Pre-populate
@@ -397,8 +403,7 @@ async fn test_ledger_engine_change_log() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
-    let vault = unique_vault_id();
+    let (state, vault) = create_ledger_test_state().await;
 
     // Write some relationships
     for i in 0..5 {
@@ -432,7 +437,7 @@ async fn test_ledger_engine_organization_crud() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
+    let (state, _vault) = create_ledger_test_state().await;
 
     // Create organization
     let org = inferadb_engine_types::Organization {
@@ -468,7 +473,7 @@ async fn test_ledger_engine_vault_crud() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
+    let (state, _vault) = create_ledger_test_state().await;
 
     // Create organization first
     let org = inferadb_engine_types::Organization {
@@ -519,8 +524,7 @@ async fn test_ledger_engine_concurrent_writes() {
         return;
     }
 
-    let state = create_ledger_test_state().await;
-    let vault = unique_vault_id();
+    let (state, vault) = create_ledger_test_state().await;
 
     // Spawn concurrent writers
     let mut handles = Vec::new();
