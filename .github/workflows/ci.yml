@@ -368,10 +368,10 @@ jobs:
       - name: Start Ledger server
         working-directory: docker/ledger-integration-tests
         run: |
-          docker-compose up -d ledger
+          docker compose up -d ledger
           echo "Waiting for Ledger to be ready..."
           for i in {1..30}; do
-            if docker-compose exec -T ledger nc -z localhost 50051 2>/dev/null; then
+            if docker compose exec -T ledger nc -z localhost 50051 2>/dev/null; then
               echo "Ledger is ready!"
               break
             fi
@@ -379,7 +379,7 @@ jobs:
             sleep 2
           done
           # Final check
-          docker-compose exec -T ledger nc -z localhost 50051 || (docker-compose logs ledger && exit 1)
+          docker compose exec -T ledger nc -z localhost 50051 || (docker compose logs ledger && exit 1)
 
       - name: Run Ledger integration tests
         env:
@@ -398,7 +398,7 @@ jobs:
       - name: Stop Ledger server
         if: always()
         working-directory: docker/ledger-integration-tests
-        run: docker-compose down -v
+        run: docker compose down -v
 
   # IPL Parser Security Tests
   # Only runs on PRs that modify inferadb-engine-core
