@@ -705,16 +705,25 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install Rust nightly toolchain
+      - name: Install Rust nightly toolchain (for cargo-udeps)
         uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # master
         with:
           toolchain: nightly
 
-      - name: Install development tools via Mise
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq protobuf-compiler
+
+      - name: Install cargo-outdated
+        uses: taiki-e/install-action@650c5ca14212efbbf3e580844b04bdccf68dac31 # v2.67.18
         with:
-          install_args: protobuf cargo:cargo-outdated cargo:cargo-udeps
-          cache: true
+          tool: cargo-outdated
+
+      - name: Install cargo-udeps
+        uses: taiki-e/install-action@650c5ca14212efbbf3e580844b04bdccf68dac31 # v2.67.18
+        with:
+          tool: cargo-udeps
 
       - name: Cache Rust dependencies
         uses: step-security/rust-cache@9be15b830520fab0ec3939586e917e4855cf76bd # v2.8.3

@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 use futures::StreamExt;
 use inferadb_engine_cache::AuthCache;
-use inferadb_ledger_sdk::{ClientConfig, LedgerClient};
+use inferadb_ledger_sdk::{ClientConfig, LedgerClient, ServerSource};
 use tokio::{sync::watch, task::JoinHandle};
 use tracing::{debug, error, info, warn};
 
@@ -72,7 +72,7 @@ impl LedgerInvalidationWatcher {
         auth_cache: Arc<AuthCache>,
     ) -> Result<Self, String> {
         let client_config = ClientConfig::builder()
-            .endpoints(vec![config.endpoint.clone()])
+            .servers(ServerSource::from_static([config.endpoint.clone()]))
             .client_id(&config.client_id)
             .build()
             .map_err(|e| format!("Failed to build Ledger client config: {e}"))?;
