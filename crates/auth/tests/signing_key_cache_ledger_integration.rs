@@ -20,7 +20,7 @@ use chrono::Utc;
 use ed25519_dalek::SigningKey;
 use inferadb_common_storage::auth::{PublicSigningKey, PublicSigningKeyStore};
 use inferadb_common_storage_ledger::{
-    LedgerBackend, LedgerBackendConfig, auth::LedgerSigningKeyStore,
+    ClientConfig, LedgerBackend, LedgerBackendConfig, ServerSource, auth::LedgerSigningKeyStore,
 };
 use inferadb_engine_auth::SigningKeyCache;
 use rand_core::OsRng;
@@ -74,12 +74,15 @@ fn create_test_key(kid: &str, client_id: i64) -> PublicSigningKey {
 
 /// Create a `LedgerSigningKeyStore` for testing.
 async fn create_key_store() -> Arc<dyn PublicSigningKeyStore> {
-    let config = LedgerBackendConfig::builder()
-        .endpoints(vec![ledger_endpoint()])
+    let client_config = ClientConfig::builder()
+        .servers(ServerSource::from_static([ledger_endpoint()]))
         .client_id(format!("test-cache-{}", unique_namespace_id()))
-        .namespace_id(1) // Namespace is specified per-operation, not here
         .build()
-        .expect("valid config");
+        .expect("valid client config");
+    let config = LedgerBackendConfig::builder()
+        .client(client_config)
+        .namespace_id(1) // Namespace is specified per-operation, not here
+        .build();
 
     let backend = LedgerBackend::new(config).await.expect("backend creation should succeed");
 

@@ -7,7 +7,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use inferadb_common_storage::MemoryBackend;
-use inferadb_common_storage_ledger::{LedgerBackend, LedgerBackendConfig};
+use inferadb_common_storage_ledger::{
+    ClientConfig, LedgerBackend, LedgerBackendConfig, ServerSource,
+};
 use inferadb_engine_auth::SigningKeyCache;
 use inferadb_engine_config::load_or_default;
 use inferadb_engine_core::ipl::{Schema, parse_schema};
@@ -158,13 +160,16 @@ async fn main() -> Result<()> {
                 .ledger
                 .namespace_id
                 .ok_or_else(|| anyhow::anyhow!("Ledger namespace_id is required"))?;
-            let ledger_config = LedgerBackendConfig::builder()
-                .endpoints(vec![endpoint])
+            let client_config = ClientConfig::builder()
+                .servers(ServerSource::from_static([endpoint]))
                 .client_id(client_id)
+                .build()
+                .map_err(|e| anyhow::anyhow!("Failed to build Ledger client config: {}", e))?;
+            let ledger_config = LedgerBackendConfig::builder()
+                .client(client_config)
                 .namespace_id(namespace_id)
                 .maybe_vault_id(config.ledger.vault_id)
-                .build()
-                .map_err(|e| anyhow::anyhow!("Failed to build Ledger config: {}", e))?;
+                .build();
             let ledger_backend = LedgerBackend::new(ledger_config)
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to connect to Ledger: {}", e))?;

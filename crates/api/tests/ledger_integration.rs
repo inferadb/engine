@@ -39,7 +39,9 @@ use axum::{
     middleware::{self, Next},
     response::Response,
 };
-use inferadb_common_storage_ledger::{LedgerBackend, LedgerBackendConfig};
+use inferadb_common_storage_ledger::{
+    ClientConfig, LedgerBackend, LedgerBackendConfig, ServerSource,
+};
 use inferadb_engine_api::AppState;
 use inferadb_engine_config::Config;
 use inferadb_engine_core::ipl::{RelationDef, RelationExpr, Schema, TypeDef};
@@ -110,13 +112,16 @@ fn create_test_config() -> Config {
 
 async fn create_ledger_backend() -> LedgerBackend {
     let vault_id = unique_vault_id();
-    let config = LedgerBackendConfig::builder()
-        .endpoints(vec![ledger_endpoint()])
+    let client_config = ClientConfig::builder()
+        .servers(ServerSource::from_static([ledger_endpoint()]))
         .client_id(format!("engine-test-{}", vault_id))
+        .build()
+        .expect("valid client config");
+    let config = LedgerBackendConfig::builder()
+        .client(client_config)
         .namespace_id(ledger_namespace_id())
         .vault_id(vault_id)
-        .build()
-        .expect("valid config");
+        .build();
 
     LedgerBackend::new(config).await.expect("backend creation should succeed")
 }

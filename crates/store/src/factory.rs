@@ -16,13 +16,18 @@
 //! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::builder().backend(MemoryBackend::new()).build());
 //!
 //! // Ledger backend
-//! use inferadb_common_storage_ledger::{LedgerBackend, LedgerBackendConfig};
+//! use inferadb_common_storage_ledger::{
+//!     ClientConfig, LedgerBackend, LedgerBackendConfig, ServerSource,
+//! };
 //!
-//! let config = LedgerBackendConfig::builder()
-//!     .endpoints(vec!["http://localhost:50051".to_string()])
+//! let client = ClientConfig::builder()
+//!     .servers(ServerSource::from_static(["http://localhost:50051"]))
 //!     .client_id("my-service")
-//!     .namespace_id(1)
 //!     .build()?;
+//! let config = LedgerBackendConfig::builder()
+//!     .client(client)
+//!     .namespace_id(1)
+//!     .build();
 //! let backend = LedgerBackend::new(config).await?;
 //! let store: Arc<dyn InferaStore> = Arc::new(EngineStorage::builder().backend(backend).build());
 //! ```
