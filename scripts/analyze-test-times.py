@@ -281,6 +281,18 @@ def main() -> int:
         help="Don't exit with error for slow tests (only regressions)",
     )
     parser.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        default=True,
+        help="Exit with error if regressions detected (default: true)",
+    )
+    parser.add_argument(
+        "--no-fail-on-regression",
+        action="store_false",
+        dest="fail_on_regression",
+        help="Don't exit with error for regressions (informational only)",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="Suppress informational output",
@@ -322,13 +334,16 @@ def main() -> int:
             print_analysis(analysis, args.slow_threshold, args.regression_threshold)
 
         # Determine exit code
-        has_regressions = len(analysis.regressions) > 0
+        has_regressions = len(analysis.regressions) > 0 and args.fail_on_regression
         has_slow_tests = len(analysis.slow_tests) > 0 and args.fail_on_slow
 
         if has_regressions:
             print(f"ERROR: {len(analysis.regressions)} test(s) have regressed significantly.")
             print("Run with --update-baseline to accept new timings.")
             return 1
+
+        if len(analysis.regressions) > 0 and not args.fail_on_regression:
+            print(f"INFO: {len(analysis.regressions)} test(s) show timing differences (informational only).")
 
         if has_slow_tests:
             print(f"WARNING: {len(analysis.slow_tests)} test(s) exceed {args.slow_threshold}s threshold.")

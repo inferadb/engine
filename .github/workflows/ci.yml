@@ -293,10 +293,14 @@ jobs:
           fi
 
           if [[ -f "$JUNIT_FILE" ]]; then
+            # Note: --no-fail-on-regression because CI runners have highly variable
+            # performance (50-200% variance is normal). Baselines were captured on
+            # dev machines. Performance regressions are informational only in CI.
             python3 scripts/analyze-test-times.py \
               --junit "$JUNIT_FILE" \
               --no-fail-on-slow \
-              --regression-threshold 25
+              --no-fail-on-regression \
+              --regression-threshold 50
           else
             echo "JUnit file not found: $JUNIT_FILE"
           fi
