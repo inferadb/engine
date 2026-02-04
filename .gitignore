@@ -6,6 +6,7 @@
 # Cargo
 Cargo.lock
 **/*.profraw
+/.cargo/
 
 # IDE
 .idea/
