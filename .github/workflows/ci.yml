@@ -454,7 +454,9 @@ jobs:
         run: |
           cargo nextest run \
             --package inferadb-engine-api \
+            --package inferadb-engine-auth \
             --test ledger_integration \
+            --test signing_key_cache_ledger_integration \
             --features test-utils \
             --profile ci \
             --no-fail-fast

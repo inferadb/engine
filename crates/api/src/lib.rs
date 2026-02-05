@@ -548,6 +548,7 @@ pub async fn create_test_router(state: AppState) -> Result<Router> {
     // Create a simple router for tests (without rate limiting or JWT auth)
     // Tests should use the test auth middleware to inject authentication context
     let router = Router::new()
+        // Core authorization endpoints
         .route("/access/v1/evaluate", post(evaluate_stream_handler))
         .route("/access/v1/expand", post(expand_handler))
         .route("/access/v1/resources/list", post(list_resources_stream_handler))
@@ -559,9 +560,12 @@ pub async fn create_test_router(state: AppState) -> Result<Router> {
             "/access/v1/relationships/{resource}/{relation}/{subject}",
             get(handlers::relationships::get::get_relationship),
         )
-        // Organization management routes (for content negotiation tests)
+        // AuthZEN-compliant endpoints
+        .route("/access/v1/evaluation", post(handlers::authzen::evaluation::post_evaluation))
+        .route("/access/v1/evaluations", post(handlers::authzen::evaluation::post_evaluations))
+        // Organization management routes
         .route("/access/v1/organizations/{id}", get(handlers::organizations::get::get_organization))
-        // Vault management routes (for content negotiation tests)
+        // Vault management routes
         .route("/access/v1/vaults/{id}", get(handlers::vaults::get::get_vault))
         // Health endpoints (Kubernetes conventions)
         .route("/livez", get(health::livez_handler))
