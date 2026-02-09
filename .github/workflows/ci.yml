@@ -35,7 +35,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -81,7 +81,7 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -110,7 +110,7 @@ jobs:
       contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -138,7 +138,7 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -159,7 +159,7 @@ jobs:
           sudo apt-get install -y -qq mold
 
       - name: Install development tools via Mise
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        uses: step-security/mise-action@d65cf9dcb78b983ae2530c89fd28e72286713505 # v3.5.1
         with:
           install_args: protobuf
           cache: true
@@ -193,7 +193,7 @@ jobs:
       checks: write # For test result publishing
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -233,7 +233,7 @@ jobs:
           brew install protobuf
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@650c5ca14212efbbf3e580844b04bdccf68dac31 # v2.67.18
+        uses: taiki-e/install-action@509565405a8a987e73cf742e26b26dcc72c4b01a # v2.67.26
         with:
           tool: cargo-nextest
 
@@ -244,7 +244,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Restore proptest regressions cache
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: |
             **/proptest-regressions
@@ -271,7 +271,7 @@ jobs:
 
       - name: Save proptest regressions on failure
         if: failure()
-        uses: actions/cache/save@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: |
             **/proptest-regressions
@@ -306,7 +306,7 @@ jobs:
           fi
 
       - name: Publish test results (Linux AMD64 only)
-        uses: step-security/publish-unit-test-result-action@914f0f642c242f38335a491805adfc9bd64b1cbb # v2.21.1
+        uses: step-security/publish-unit-test-result-action@7dff603bf17ef13dee847147bef8d7cd1728b566 # v2.22.0
         if: always() && matrix.runner == 'ubuntu-latest'
         with:
           files: target/nextest/ci/junit.xml
@@ -314,7 +314,7 @@ jobs:
           comment_mode: off
 
       - name: Upload test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: test-results-${{ matrix.runner }}
@@ -335,7 +335,7 @@ jobs:
       contents: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -345,7 +345,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download test results
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: test-results-ubuntu-latest
           path: target/nextest/ci/
@@ -393,7 +393,7 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -413,7 +413,7 @@ jobs:
           sudo apt-get install -y -qq mold
 
       - name: Install development tools via Mise
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        uses: step-security/mise-action@d65cf9dcb78b983ae2530c89fd28e72286713505 # v3.5.1
         with:
           install_args: protobuf cargo:cargo-nextest
           cache: true
@@ -481,7 +481,7 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -520,7 +520,7 @@ jobs:
 
       - name: Install development tools via Mise
         if: steps.check-core.outputs.core == 'true'
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        uses: step-security/mise-action@d65cf9dcb78b983ae2530c89fd28e72286713505 # v3.5.1
         with:
           install_args: protobuf cargo:cargo-nextest
           cache: true
@@ -552,7 +552,7 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -591,7 +591,7 @@ jobs:
 
       - name: Install development tools via Mise
         if: steps.check-wasm.outputs.wasm == 'true'
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        uses: step-security/mise-action@d65cf9dcb78b983ae2530c89fd28e72286713505 # v3.5.1
         with:
           install_args: protobuf cargo:cargo-nextest
           cache: true
@@ -624,7 +624,7 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -652,7 +652,7 @@ jobs:
           sudo apt-get install -y -qq mold
 
       - name: Install development tools via Mise
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        uses: step-security/mise-action@d65cf9dcb78b983ae2530c89fd28e72286713505 # v3.5.1
         with:
           install_args: protobuf cargo:cargo-llvm-cov
           cache: true
@@ -694,7 +694,7 @@ jobs:
       RUSTFLAGS: "-C codegen-units=16 -C link-arg=-fuse-ld=mold"
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -722,7 +722,7 @@ jobs:
           sudo apt-get install -y -qq mold
 
       - name: Install development tools via Mise
-        uses: step-security/mise-action@2fa1b2b4fa1577588d8ac75f4dfa0f67c266d2a0 # v3.4.1
+        uses: step-security/mise-action@d65cf9dcb78b983ae2530c89fd28e72286713505 # v3.5.1
         with:
           install_args: protobuf cargo:cargo-nextest
           cache: true
@@ -740,7 +740,7 @@ jobs:
         run: cargo nextest run --workspace --profile full --features test-full --run-ignored all
 
       - name: Upload full test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: test-results-full
@@ -757,7 +757,7 @@ jobs:
       contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -782,12 +782,12 @@ jobs:
           sudo apt-get install -y -qq protobuf-compiler
 
       - name: Install cargo-outdated
-        uses: taiki-e/install-action@650c5ca14212efbbf3e580844b04bdccf68dac31 # v2.67.18
+        uses: taiki-e/install-action@509565405a8a987e73cf742e26b26dcc72c4b01a # v2.67.26
         with:
           tool: cargo-outdated
 
       - name: Install cargo-udeps
-        uses: taiki-e/install-action@650c5ca14212efbbf3e580844b04bdccf68dac31 # v2.67.18
+        uses: taiki-e/install-action@509565405a8a987e73cf742e26b26dcc72c4b01a # v2.67.26
         with:
           tool: cargo-udeps
 
@@ -826,7 +826,7 @@ jobs:
     if: always()
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
