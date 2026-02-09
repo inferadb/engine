@@ -84,7 +84,7 @@ criterion = { version = "0.8", features = ["async_tokio"] }
 proptest = "1"
 
 # Random number generation
-rand = "0.9"
+rand = "0.10"
 
 # Authentication
 base64 = "0.22"
